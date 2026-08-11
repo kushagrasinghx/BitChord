@@ -78,6 +78,12 @@ app/src/main/java/com/music/bitchord/
 └── ui/            Screens (home, search, library, player), theming, components
 ```
 
+## Contributing
+
+Contributions are welcome — bug fixes, features, or cleanup. Open a PR, or open an [issue](../../issues) first for anything sizable so it can be discussed before you put work into it.
+
+Found a bug or have a feature request? [File an issue](../../issues/new) with as much detail as you can (device, Android version, steps to reproduce, logs if you have them).
+
 ## Disclaimer
 
 This project is for educational purposes. It relies on YouTube Music's internal web API, which is not a public, stable, or officially supported interface — it can change or break at any time. Respect YouTube's Terms of Service when using this app.

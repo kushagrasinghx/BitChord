@@ -28,10 +28,26 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // applicationId can only be overridden per flavor, not per build type, so a
+    // dev/prod dimension exists purely to let both sit installed side by side
+    // on the same device instead of the dev build overwriting the prod one.
+    flavorDimensions += "env"
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationId = "com.dev.bitchord"
+            resValue("string", "app_name", "BitChord Dev")
+        }
+        create("prod") {
+            dimension = "env"
+            // Matches defaultConfig — this is the package already shipped/installed.
+        }
     }
 
     signingConfigs {
@@ -76,6 +92,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

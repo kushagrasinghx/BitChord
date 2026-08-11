@@ -37,6 +37,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _home = MutableStateFlow<UiState<List<HomeShelf>>>(UiState.Loading)
     val home: StateFlow<UiState<List<HomeShelf>>> = _home.asStateFlow()
 
+    /**
+     * Token for the next page of Home shelves; null once there's nothing
+     * more. Declared here rather than by [loadMoreHome] because [init] calls
+     * [loadHome] synchronously up to its first suspension point — a property
+     * declared after [init] would still be null when that runs.
+     */
+    private var homeContinuation: String? = null
+
+    /** Titles already on screen, so a later page can't repeat a shelf. */
+    private val homeSeenTitles = mutableSetOf<String>()
+
+    private val _homeLoadingMore = MutableStateFlow(false)
+    val homeLoadingMore: StateFlow<Boolean> = _homeLoadingMore.asStateFlow()
+
     private val _explore = MutableStateFlow<UiState<List<HomeShelf>>>(UiState.Loading)
     val explore: StateFlow<UiState<List<HomeShelf>>> = _explore.asStateFlow()
 
@@ -192,13 +206,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun fetchHome() {
+        homeContinuation = null
+        homeSeenTitles.clear()
         _home.value = YtMusicRepository.home().fold(
-            onSuccess = { shelves ->
+            onSuccess = { feed ->
+                homeContinuation = feed.continuation
+                val shelves = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase()) }
                 if (shelves.isEmpty()) UiState.Error("No results from YouTube Music")
                 else UiState.Success(shelves)
             },
             onFailure = { UiState.Error(it.friendly()) },
         )
+    }
+
+    /**
+     * Called as the Home list nears its end. A no-op while a page is already
+     * in flight, once the feed is exhausted, or before the first page has
+     * loaded — [homeContinuation] covers all three by construction.
+     */
+    fun loadMoreHome() {
+        val token = homeContinuation ?: return
+        if (_homeLoadingMore.value) return
+        _homeLoadingMore.value = true
+        viewModelScope.launch {
+            YtMusicRepository.moreHome(token).onSuccess { feed ->
+                val added = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase()) }
+                // A page with nothing new signals the feed has looped back on
+                // itself rather than run dry with a token still attached —
+                // treat it the same as exhausted so scrolling can't spin here.
+                homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
+                if (added.isNotEmpty()) {
+                    val existing = (_home.value as? UiState.Success)?.data ?: emptyList()
+                    _home.value = UiState.Success(existing + added)
+                }
+            }
+            _homeLoadingMore.value = false
+        }
     }
 
     fun loadLibrary() {

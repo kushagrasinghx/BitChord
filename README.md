@@ -1,4 +1,6 @@
-# BitChord
+# BitChord - Aesthetic YouTube Music Client
+
+![BitChord banner](Banner.png)
 
 An unofficial YouTube Music client for Android, built with Jetpack Compose. BitChord talks to YouTube Music's own web API (Innertube) directly — no official API key, no ads, no first-party app.
 

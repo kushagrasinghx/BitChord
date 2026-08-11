@@ -34,6 +34,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -118,15 +119,31 @@ fun FrostedTopBar(
                     )
                 }
             } else {
-                Image(
-                    painter = painterResource(R.drawable.ic_logo),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
+                Row(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .padding(start = 16.dp)
-                        .height(18.dp),
-                )
+                        .padding(start = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_logo),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurface),
+                        modifier = Modifier.height(18.dp),
+                    )
+                    // The dev flavor gets its own applicationId so it can sit
+                    // installed next to the prod build; this badge is the
+                    // in-app equivalent, so the two are never mixed up at a
+                    // glance once both are running.
+                    if (BuildConfig.FLAVOR == "dev") {
+                        Text(
+                            text = "Dev",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 6.dp),
+                        )
+                    }
+                }
             }
             Row(
                 modifier = Modifier

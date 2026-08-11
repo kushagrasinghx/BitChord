@@ -87,6 +87,9 @@ import com.music.bitchord.ui.theme.BitChordTheme
 import com.music.bitchord.ui.theme.SystemBarIcons
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -124,6 +127,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
     SystemBarIcons(dark = !darkTheme && !showNowPlaying)
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
+    val homeLoadingMore by viewModel.homeLoadingMore.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
@@ -136,6 +140,10 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
     val searchHistory by viewModel.searchHistory.collectAsStateWithLifecycle()
     val detailStack by viewModel.detailStack.collectAsStateWithLifecycle()
     val detail = detailStack.lastOrNull()
+    // Settings has no tab of its own — it sits on top of whatever tab was
+    // selected. A pushed album/artist page (from the player, search, etc.)
+    // should surface above it rather than being hidden behind it.
+    LaunchedEffect(detail) { if (detail != null) showSettings = false }
 
     val controller = rememberMediaController()
     val player = rememberPlayerState(controller)
@@ -152,7 +160,12 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
         YtMusicRepository.radio(current).onSuccess { related ->
             val extra = QueueBuilder.extend(player.queue, related, RADIO_BATCH)
             if (extra.isNotEmpty()) {
-                controller?.addMediaItems(extra.map { it.toMediaItem() })
+                // Swapped for the catalogue audio track before it ever
+                // reaches the queue — see YtMusicRepository.resolveAudio.
+                val resolved = coroutineScope {
+                    extra.map { async { YtMusicRepository.resolveAudio(it) } }.awaitAll()
+                }
+                controller?.addMediaItems(resolved.map { it.toMediaItem() })
             }
         }
     }
@@ -207,16 +220,49 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
 
     val tabs = remember {
         listOf(
-            BottomTab("Home", BitChordIcons.Home),
+            BottomTab("Play", BitChordIcons.Play),
             BottomTab("Explore", BitChordIcons.Explore),
             BottomTab("Library", BitChordIcons.Library),
             BottomTab("Search", BitChordIcons.Search),
         )
     }
 
+    val scope = rememberCoroutineScope()
+
+    /**
+     * A video-tagged [Song] is swapped for its catalogue audio release
+     * before the queue, the notification or YouTube's own history ever see
+     * it — see [YtMusicRepository.resolveAudio]. Plain songs pass through
+     * this untouched and unawaited (`isVideo` is false, so the suspend call
+     * returns immediately), so this costs nothing on the common path.
+     */
+    suspend fun List<Song>.resolvedForQueue(): List<Song> = coroutineScope {
+        map { async { YtMusicRepository.resolveAudio(it) } }.awaitAll()
+    }
+
     val play: (List<Song>, Int) -> Unit = { songs, index ->
-        controller?.playSongs(songs, index)
-        showNowPlaying = true
+        scope.launch {
+            val starting = YtMusicRepository.resolveAudio(songs[index])
+            val queued = songs.toMutableList().also { it[index] = starting }
+            controller?.playSongs(queued, index)
+            showNowPlaying = true
+            // Starting playback only waits on the track about to play; the
+            // rest of a long album/playlist resolves in the background and
+            // is patched into the queue well before it's reached.
+            queued.forEachIndexed { i, song ->
+                if (i == index || !song.isVideo) return@forEachIndexed
+                launch {
+                    val resolved = YtMusicRepository.resolveAudio(song)
+                    // Only overwrite the slot if it's still the same song —
+                    // the user may have edited the queue while this was in flight.
+                    if (resolved.videoId != song.videoId &&
+                        controller?.getMediaItemAt(i)?.mediaId == song.videoId
+                    ) {
+                        controller?.replaceMediaItem(i, resolved.toMediaItem())
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -226,33 +272,42 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
      * remixes of the same song. Album, artist and playlist pages keep [play],
      * where the surrounding list *is* the thing the user asked for.
      */
-    val scope = rememberCoroutineScope()
     val playRadio: (Song) -> Unit = { song ->
         // Claim the AutoPlay seed up front: a one-track queue is already at its
         // end, so that effect would otherwise fetch the same radio in parallel.
         autoplaySeed = song.videoId
-        controller?.playSongs(listOf(song), 0)
-        showNowPlaying = true
         scope.launch {
-            YtMusicRepository.radio(song.videoId).onSuccess { related ->
+            val resolved = YtMusicRepository.resolveAudio(song)
+            autoplaySeed = resolved.videoId
+            controller?.playSongs(listOf(resolved), 0)
+            showNowPlaying = true
+            YtMusicRepository.radio(resolved.videoId).onSuccess { related ->
                 // The user may have moved on while the mix was loading.
-                if (controller?.currentMediaItem?.mediaId != song.videoId) return@onSuccess
-                val extra = QueueBuilder.extend(listOf(song), related, RADIO_BATCH)
+                if (controller?.currentMediaItem?.mediaId != resolved.videoId) return@onSuccess
+                val extra = QueueBuilder.extend(listOf(resolved), related, RADIO_BATCH)
                 if (extra.isNotEmpty()) {
-                    controller?.addMediaItems(extra.map { it.toMediaItem() })
+                    controller?.addMediaItems(extra.resolvedForQueue().map { it.toMediaItem() })
                 }
             }
         }
     }
     val addToQueue: (Song) -> Unit = { song ->
-        controller?.addMediaItem(song.toMediaItem())
-        Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
+        scope.launch {
+            controller?.addMediaItem(YtMusicRepository.resolveAudio(song).toMediaItem())
+            Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
+        }
     }
     val playNext: (Song) -> Unit = { song ->
-        controller?.let {
-            it.addMediaItem((it.currentMediaItemIndex + 1).coerceAtMost(it.mediaItemCount), song.toMediaItem())
+        scope.launch {
+            val resolved = YtMusicRepository.resolveAudio(song)
+            controller?.let {
+                it.addMediaItem(
+                    (it.currentMediaItemIndex + 1).coerceAtMost(it.mediaItemCount),
+                    resolved.toMediaItem(),
+                )
+            }
+            Toast.makeText(context, "Playing next", Toast.LENGTH_SHORT).show()
         }
-        Toast.makeText(context, "Playing next", Toast.LENGTH_SHORT).show()
     }
 
     // Content padding leaves room for the frosted bar above and the tab bar
@@ -355,6 +410,8 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     onRefresh = { viewModel.refresh(MainViewModel.Feed.HOME) },
                     pullState = homePull,
                     contentPadding = listPadding,
+                    onLoadMore = viewModel::loadMoreHome,
+                    loadingMore = homeLoadingMore,
                 )
                 TAB_EXPLORE -> HomeScreen(
                     state = exploreState,
@@ -452,7 +509,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                 showSettings -> "Settings"
                 detail != null -> detail.title
                 else -> tabs[selectedTab].let {
-                    if (it.label == "Home") "Listen Now" else it.label
+                    if (it.label == "Play") "Listen Now" else it.label
                 }
             },
             hazeState = hazeState,
@@ -504,8 +561,10 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                 tabs = tabs,
                 selectedIndex = selectedTab,
                 onTabSelected = {
-                    // Leave any pushed album/artist page when switching tabs.
+                    // Leave any pushed album/artist page, or Settings, when
+                    // switching tabs.
                     viewModel.clearDetail()
+                    showSettings = false
                     selectedTab = it
                 },
                 hazeState = hazeState,
@@ -532,6 +591,13 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     albumId = current.albumId ?: extra.albumId,
                     albumName = current.albumName ?: extra.albumName,
                 )
+            }
+            // The three-dot menu snapshots `song` into songActions when it's
+            // opened, so a menu opened before the lookup above resolves would
+            // otherwise be stuck without album/artist rows even after the ids
+            // come in. Keep it in sync while it's showing this track.
+            LaunchedEffect(song) {
+                if (songActions?.videoId == song.videoId) songActions = song
             }
             ModalBottomSheet(
                 onDismissRequest = { showNowPlaying = false },

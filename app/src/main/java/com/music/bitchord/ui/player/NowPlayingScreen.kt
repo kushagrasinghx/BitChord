@@ -195,6 +195,63 @@ private val INTRO_LINES = listOf(
     "Deep breath",
 )
 
+/**
+ * Shown on the strip while a lyrics lookup is still in flight — one picked
+ * at random per track, in the same spirit as [INTRO_LINES].
+ */
+private val LYRICS_LOADING_LINES = listOf(
+    "Getting lyrics",
+    "Chasing the words",
+    "Digging up the lyrics",
+    "Words incoming",
+    "On the hunt for lyrics",
+    "Fetching the verses",
+    "Tracking down the words",
+    "Lyrics loading",
+    "Reading between the lines",
+    "Scanning for lyrics",
+    "Words on the way",
+    "Looking this one up",
+    "Checking the lyric sheet",
+    "Pulling up the words",
+    "Searching the songbook",
+    "Lining up the lyrics",
+    "One sec, finding the words",
+    "Combing through for lyrics",
+    "Lyrics inbound",
+    "Sourcing the verses",
+    "Cross-checking the words",
+    "Rounding up the lyrics",
+    "Text hunt in progress",
+    "Syncing up the words",
+    "Peeking at the lyric sheet",
+    "Almost got the words",
+    "Fishing for lyrics",
+    "Grabbing the transcript",
+    "Lyrics, one moment",
+    "Tuning in the words",
+    "Locating the verses",
+    "Words are en route",
+    "Checking the archives",
+    "Piecing the lyrics together",
+    "Loading up the words",
+    "Lyric search underway",
+    "Finding the right words",
+    "Tracking the lyric sheet",
+    "Verses incoming",
+    "Getting the words lined up",
+    "Hang tight, fetching lyrics",
+    "Looking for the hook",
+    "Words are loading",
+    "Lyrics on their way",
+    "Checking what's sung here",
+    "Reading the room for lyrics",
+    "Lyric lookup in progress",
+    "Bringing up the words",
+    "Just a sec, finding words",
+    "Lyrics coming together",
+)
+
 private const val LYRICS_UNAVAILABLE_HOLD_MS = 5_000L
 private const val LYRICS_UNAVAILABLE_FADE_MS = 900
 
@@ -496,6 +553,28 @@ fun NowPlayingScreen(
                     )
                 }
 
+                // Sits in the gap under the sleeve, clear of its rounded
+                // corners and shadow — no box, no clip, nothing for the art
+                // itself to be cropped by. Just a glyph that fades in with
+                // the drag to hint which way a release would skip.
+                val swipeHintProgress = (abs(swipeSettle) / swipeThreshold)
+                    .coerceIn(0f, 1f) * (1f - p)
+                if (swipeHintProgress > 0.01f) {
+                    val showNext = swipeSettle < 0f
+                    val enabled = if (showNext) hasNext else hasPrevious
+                    Icon(
+                        imageVector = if (showNext) Icons.Rounded.FastForward else Icons.Rounded.FastRewind,
+                        contentDescription = null,
+                        tint = Color.White.copy(
+                            alpha = swipeHintProgress * if (enabled) 0.85f else 0.3f,
+                        ),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .offset(y = artTop + artSize + (ART_TITLE_GAP - 16.dp) / 2)
+                            .size(16.dp),
+                    )
+                }
+
                 // ---- Title + menu ----
                 Row(
                     modifier = Modifier
@@ -560,6 +639,13 @@ fun NowPlayingScreen(
                         )
                     } else if (lyricsUnavailable) {
                         LyricsUnavailableLine(
+                            trackKey = song.videoId,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .offset(y = titleTop + HEADER_HEIGHT + 2.dp),
+                        )
+                    } else {
+                        LyricsLoadingLine(
                             trackKey = song.videoId,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1051,6 +1137,15 @@ private fun CurrentLyricLine(
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Spacer(Modifier.width(6.dp))
+        // Disclosure hint: this strip opens the full lyrics screen.
+        Icon(
+            imageVector = BitChordIcons.ChevronRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.5f),
+            modifier = Modifier.size(14.dp),
         )
     }
 }
@@ -1081,6 +1176,20 @@ private fun LyricsUnavailableLine(trackKey: Any, modifier: Modifier = Modifier) 
         modifier = modifier
             .padding(vertical = 4.dp)
             .graphicsLayer { this.alpha = alpha },
+    )
+}
+
+/** Stands in for [CurrentLyricLine] while a lookup is still in flight. */
+@Composable
+private fun LyricsLoadingLine(trackKey: Any, modifier: Modifier = Modifier) {
+    val text = remember(trackKey) { LYRICS_LOADING_LINES.random() }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = Color.White.copy(alpha = 0.55f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.padding(vertical = 4.dp),
     )
 }
 

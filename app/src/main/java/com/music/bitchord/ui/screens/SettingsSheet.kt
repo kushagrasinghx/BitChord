@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Wifi
@@ -71,6 +72,7 @@ import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.playback.AudioCache
 import kotlin.math.roundToInt
 
 /**
@@ -101,6 +103,7 @@ fun SettingsScreen(
     val speed by AppSettings.playbackSpeed.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
+    val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
 
     var picking by remember { mutableStateOf<QualityTarget?>(null) }
 
@@ -222,7 +225,38 @@ fun SettingsScreen(
             )
         }
 
+        val cacheLimitMb = (cacheLimitBytes / (1024 * 1024)).toInt()
         SettingsGroup(header = "Storage") {
+            SliderRow(
+                icon = Icons.Rounded.Storage,
+                title = "Song cache limit",
+                subtitle = if (cacheLimitMb > CACHE_WARNING_MB) {
+                    "Up to ${formatCacheSize(cacheLimitMb)} of downloaded audio kept on " +
+                        "disk — that's a real chunk of most phones' free storage."
+                } else {
+                    "Downloaded audio kept on disk for instant seeking and replays"
+                },
+                value = formatCacheSize(cacheLimitMb),
+                sliderValue = cacheLimitMb.toFloat(),
+                onSliderValue = {
+                    AppSettings.setAudioCacheLimitBytes(it.roundToInt().toLong() * 1024 * 1024)
+                },
+                valueRange = (AppSettings.DEFAULT_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat()..
+                    (AppSettings.MAX_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat(),
+                steps = 18,
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.DeleteSweep,
+                title = "Clear song cache",
+                subtitle = "Frees space used by downloaded audio",
+                onClick = {
+                    AudioCache.clear {
+                        Toast.makeText(context, "Song cache cleared", Toast.LENGTH_SHORT).show()
+                    }
+                },
+            )
+            RowDivider()
             SettingsRow(
                 icon = Icons.Rounded.DeleteSweep,
                 title = "Clear image cache",
@@ -299,6 +333,16 @@ private fun openEqualizer(context: Context, sessionId: Int) {
     runCatching { context.startActivity(intent) }.onFailure {
         Toast.makeText(context, "No system equalizer on this device", Toast.LENGTH_SHORT).show()
     }
+}
+
+/** Above this, the cache limit slider's subtitle warns rather than reassures. */
+private const val CACHE_WARNING_MB = 2048
+
+/** "512 MB", "2 GB", "2.5 GB" — whichever reads more naturally at that size. */
+private fun formatCacheSize(mb: Int): String {
+    if (mb < 1024) return "$mb MB"
+    val gb = mb / 1024f
+    return if (gb == gb.toInt().toFloat()) "${gb.toInt()} GB" else "%.1f GB".format(gb)
 }
 
 /** Who you're signed in as, straight from YouTube Music's account menu. */

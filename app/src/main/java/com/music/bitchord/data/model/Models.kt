@@ -75,6 +75,12 @@ data class HomeShelf(
     val subtitle: String = "",
 )
 
+/** A page of the Home feed, plus the token for the next one — null once exhausted. */
+data class HomeFeed(
+    val shelves: List<HomeShelf>,
+    val continuation: String?,
+)
+
 /**
  * The signed-in library, as YouTube Music splits it: the auto-generated Liked
  * Music playlist, the tracks explicitly added to the library, and a shelf per

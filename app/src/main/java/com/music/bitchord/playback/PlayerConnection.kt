@@ -120,7 +120,16 @@ fun MediaItem.toSong() = Song(
     thumbnailUrl = mediaMetadata.artworkUri?.toString(),
 )
 
-/** Custom scheme; PlaybackService resolves the real stream URL at play time. */
+/**
+ * Custom scheme; PlaybackService resolves the real stream URL at play time.
+ *
+ * A video-tagged [Song] is expected to already have been swapped for its
+ * catalogue audio release by [com.music.bitchord.data.YtMusicRepository.resolveAudio]
+ * before this is called — the queue, history and the notification should
+ * never see the video upload's id or title, only whatever the audio match
+ * resolved to (or the video's own audio, as the deliberate fallback when no
+ * match was found).
+ */
 fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
     .setMediaId(videoId)
     .setUri("bitchord://watch?v=$videoId")

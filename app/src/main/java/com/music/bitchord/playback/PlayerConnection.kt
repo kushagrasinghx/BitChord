@@ -132,15 +132,37 @@ val MediaItem.fromAutoplay: Boolean
 private const val EXTRA_FROM_AUTOPLAY = "bitchord.fromAutoplay"
 
 /**
- * Where a track queued by hand belongs: after everything else the user picked,
- * but above AutoPlay's mix. Clamped past the playing track, so a song added
- * while the mix is already playing goes on next rather than into the past.
+ * Where AutoPlay's section of the queue begins, and so where a track queued by
+ * hand belongs — above the mix, below everything the user picked.
+ *
+ * Read as "the first of AutoPlay's tracks still to come", which is what keeps
+ * it below the playing track even when the mix itself is what's playing: the
+ * tracks of it already behind you count as played, and the section starts
+ * again below the needle. Tracks put in by hand there — "Play next" while the
+ * mix runs — stay above it too, for the same reason.
+ *
+ * The queue panel draws its AutoPlay heading at this same index.
  */
-fun MediaController.manualQueueEnd(): Int {
-    val firstFromAutoplay = (0 until mediaItemCount)
-        .firstOrNull { getMediaItemAt(it).fromAutoplay }
-        ?: return mediaItemCount
-    return maxOf(firstFromAutoplay, currentMediaItemIndex + 1).coerceAtMost(mediaItemCount)
+fun autoplaySectionStart(fromAutoplay: List<Boolean>, currentIndex: Int): Int {
+    val after = (currentIndex + 1).coerceIn(0, fromAutoplay.size)
+    return (after until fromAutoplay.size).firstOrNull { fromAutoplay[it] }
+        ?: fromAutoplay.size
+}
+
+fun MediaController.autoplaySectionStart(): Int = autoplaySectionStart(
+    fromAutoplay = (0 until mediaItemCount).map { getMediaItemAt(it).fromAutoplay },
+    currentIndex = currentMediaItemIndex,
+)
+
+/**
+ * Takes back what AutoPlay queued and hasn't played yet — what switching
+ * AutoPlay off means for a queue it has already been extending. Removed from
+ * the bottom up so the indexes ahead of each removal still hold.
+ */
+fun MediaController.dropAutoplayTracks() {
+    for (i in mediaItemCount - 1 downTo currentMediaItemIndex + 1) {
+        if (getMediaItemAt(i).fromAutoplay) removeMediaItem(i)
+    }
 }
 
 /**

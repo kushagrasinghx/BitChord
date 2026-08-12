@@ -69,7 +69,8 @@ import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.screens.SettingsScreen
 import com.music.bitchord.playback.QueueBuilder
 import com.music.bitchord.playback.QueueShuffle
-import com.music.bitchord.playback.manualQueueEnd
+import com.music.bitchord.playback.autoplaySectionStart
+import com.music.bitchord.playback.dropAutoplayTracks
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.ui.components.SongActionsSheet
@@ -315,7 +316,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
             val resolved = YtMusicRepository.resolveAudio(song)
             // The end of what the user queued, not the end of the queue: a song
             // asked for by name outranks whatever AutoPlay lined up behind it.
-            controller?.let { it.addMediaItem(it.manualQueueEnd(), resolved.toMediaItem()) }
+            controller?.let { it.addMediaItem(it.autoplaySectionStart(), resolved.toMediaItem()) }
             Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
         }
     }
@@ -675,7 +676,20 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                             }
                         }
                     },
-                    onToggleAutoplay = { AppSettings.setAutoplay(!autoplay) },
+                    onToggleAutoplay = {
+                        val on = !autoplay
+                        AppSettings.setAutoplay(on)
+                        if (on) {
+                            // Let the effect above seed a mix for the track
+                            // playing now, instead of passing over it as one it
+                            // has already extended.
+                            autoplaySeed = null
+                        } else {
+                            // Switching it off takes the mix back out of the
+                            // queue — what's left is what was actually asked for.
+                            controller?.dropAutoplayTracks()
+                        }
+                    },
                     onJumpTo = { controller?.seekToDefaultPosition(it) },
                     onRemoveFromQueue = { controller?.removeMediaItem(it) },
                     // The enriched copy, not player.song — otherwise the menu

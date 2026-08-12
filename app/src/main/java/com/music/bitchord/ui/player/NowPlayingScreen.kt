@@ -114,6 +114,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.playback.BACK_RESTARTS_AFTER_MS
+import com.music.bitchord.playback.autoplaySectionStart
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -1385,8 +1386,8 @@ private fun InlineQueue(
     val keepScroll = remember(listState) { keepScrollInList(listState) }
     // Where AutoPlay's tracks start. The queue is kept with them last, so this
     // is one boundary rather than a category to test row by row.
-    val autoplayStart = remember(queue) {
-        queue.indexOfFirst { it.fromAutoplay }.takeIf { it >= 0 } ?: queue.size
+    val autoplayStart = remember(queue, currentIndex) {
+        autoplaySectionStart(queue.map { it.fromAutoplay }, currentIndex)
     }
     // Open on what's playing, not at the top of a long queue. The heading sits
     // between the two sections, so it counts as a row once it's above this one.

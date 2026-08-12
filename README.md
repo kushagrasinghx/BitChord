@@ -52,7 +52,7 @@ Grab the latest signed APK from the [Releases](../../releases) page. Sideloading
 ```bash
 git clone https://github.com/kushagrasinghx/BitChord.git
 cd BitChord
-./gradlew assembleDebug
+./gradlew assembleDevDebug
 ```
 
 A debug build needs no extra setup. For a signed release build, create a keystore and a `keystore.properties` (see [`keystore.properties.example`](keystore.properties.example)):
@@ -65,10 +65,16 @@ keytool -genkey -v -keystore bitchord-release.jks \
 Then:
 
 ```bash
-./gradlew assembleRelease
+./gradlew assembleProdRelease
 ```
 
-Without `keystore.properties`, the release build still runs but produces an unsigned APK.
+The APK lands in `app/build/outputs/apk/prod/release/`. Without `keystore.properties`, the release build still runs but produces an unsigned APK.
+
+### Build flavors
+
+There are two: `dev` and `prod`. They exist only so a build you're working on can sit installed alongside the one you actually listen to — `dev` ships under a separate application id (`com.dev.bitchord`), is labelled "BitChord Dev" in the launcher, and carries a small "Dev" badge next to the logo in the app. `prod` is the shipped package and is what releases are cut from.
+
+The flavourless `assembleDebug` and `assembleRelease` tasks still work, but each builds *both* flavors; name the variant (`assembleDevDebug`, `assembleProdRelease`) to get one APK in one place.
 
 ## Project structure
 

@@ -68,6 +68,8 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.screens.SettingsScreen
 import com.music.bitchord.playback.QueueBuilder
+import com.music.bitchord.playback.QueueShuffle
+import com.music.bitchord.playback.manualQueueEnd
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.ui.components.SongActionsSheet
@@ -151,6 +153,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
 
     val controller = rememberMediaController()
     val player = rememberPlayerState(controller)
+    val shuffleEnabled by QueueShuffle.enabled.collectAsStateWithLifecycle()
 
     // AutoPlay: once the queue reaches its last track, extend it with YouTube
     // Music's radio mix for that song so playback carries on by itself.
@@ -169,7 +172,9 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                 val resolved = coroutineScope {
                     extra.map { async { YtMusicRepository.resolveAudio(it) } }.awaitAll()
                 }
-                controller?.addMediaItems(resolved.map { it.toMediaItem() })
+                controller?.addMediaItems(
+                    resolved.map { it.copy(fromAutoplay = true).toMediaItem() },
+                )
             }
         }
     }
@@ -257,13 +262,16 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                 if (i == index || !song.isVideo) return@forEachIndexed
                 launch {
                     val resolved = YtMusicRepository.resolveAudio(song)
-                    // Only overwrite the slot if it's still the same song —
-                    // the user may have edited the queue while this was in flight.
-                    if (resolved.videoId != song.videoId &&
-                        controller?.getMediaItemAt(i)?.mediaId == song.videoId
-                    ) {
-                        controller?.replaceMediaItem(i, resolved.toMediaItem())
-                    }
+                    if (resolved.videoId == song.videoId) return@launch
+                    // Found by id rather than by the index it went in at:
+                    // shuffling and queue edits both move tracks around while
+                    // this is in flight, and a song that has since been removed
+                    // must not have something else overwritten in its place.
+                    val c = controller ?: return@launch
+                    val at = (0 until c.mediaItemCount)
+                        .firstOrNull { c.getMediaItemAt(it).mediaId == song.videoId }
+                        ?: return@launch
+                    c.replaceMediaItem(at, resolved.toMediaItem())
                 }
             }
         }
@@ -290,14 +298,24 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                 if (controller?.currentMediaItem?.mediaId != resolved.videoId) return@onSuccess
                 val extra = QueueBuilder.extend(listOf(resolved), related, RADIO_BATCH)
                 if (extra.isNotEmpty()) {
-                    controller?.addMediaItems(extra.resolvedForQueue().map { it.toMediaItem() })
+                    // The station's own mix, which the queue files under
+                    // AutoPlay just like the tracks it appends later — only the
+                    // seed was actually asked for.
+                    controller?.addMediaItems(
+                        extra.resolvedForQueue().map {
+                            it.copy(fromAutoplay = true).toMediaItem()
+                        },
+                    )
                 }
             }
         }
     }
     val addToQueue: (Song) -> Unit = { song ->
         scope.launch {
-            controller?.addMediaItem(YtMusicRepository.resolveAudio(song).toMediaItem())
+            val resolved = YtMusicRepository.resolveAudio(song)
+            // The end of what the user queued, not the end of the queue: a song
+            // asked for by name outranks whatever AutoPlay lined up behind it.
+            controller?.let { it.addMediaItem(it.manualQueueEnd(), resolved.toMediaItem()) }
             Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
         }
     }
@@ -369,7 +387,10 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     onSongLongPress = { songActions = it },
                     onSongSwipe = addToQueue,
                     onShuffle = { songs ->
-                        controller?.shuffleModeEnabled = true
+                        // Shuffle goes on first so the queue is built shuffled
+                        // as it is set — the random pick here only decides
+                        // which track leads it.
+                        QueueShuffle.enableForNextQueue()
                         play(songs, songs.indices.random())
                     },
                     onSectionItemClick = { item ->
@@ -642,11 +663,9 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     hasPrevious = player.hasPrevious,
                     hasNext = player.hasNext,
                     repeatMode = player.repeatMode,
-                    shuffleEnabled = player.shuffleEnabled,
+                    shuffleEnabled = shuffleEnabled,
                     autoplayEnabled = autoplay,
-                    onToggleShuffle = {
-                        controller?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
-                    },
+                    onToggleShuffle = { controller?.let(QueueShuffle::toggle) },
                     onCycleRepeat = {
                         controller?.let {
                             it.repeatMode = when (it.repeatMode) {

@@ -14,6 +14,12 @@ data class Song(
     val albumName: String? = null,
     /** A music-video upload rather than the catalogue track. */
     val isVideo: Boolean = false,
+    /**
+     * Queued by AutoPlay or by a station's own mix rather than asked for — the
+     * player groups these under the AutoPlay heading and keeps them at the
+     * bottom of the queue, below anything the user picked.
+     */
+    val fromAutoplay: Boolean = false,
 )
 
 /**

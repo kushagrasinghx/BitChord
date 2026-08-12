@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
+import androidx.core.os.bundleOf
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -29,13 +30,12 @@ data class PlayerState(
     /** True while ExoPlayer is buffering — including our own stream-URL resolution. */
     val isLoading: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
-    val shuffleEnabled: Boolean = false,
     val queue: List<Song> = emptyList(),
     val queueIndex: Int = 0,
     /**
      * Whether the queue has somewhere to go either side of the current track.
-     * Taken from the player rather than [queueIndex], so shuffle order and the
-     * wrap-around of repeat-all are already accounted for.
+     * Taken from the player rather than [queueIndex], so the wrap-around of
+     * repeat-all is already accounted for.
      */
     val hasPrevious: Boolean = false,
     val hasNext: Boolean = false,
@@ -82,7 +82,6 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                 error = error,
                 isLoading = player.playbackState == Player.STATE_BUFFERING,
                 repeatMode = player.repeatMode,
-                shuffleEnabled = player.shuffleModeEnabled,
                 queue = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).toSong() },
                 queueIndex = player.currentMediaItemIndex,
                 hasPrevious = player.hasPreviousMediaItem(),
@@ -118,7 +117,31 @@ fun MediaItem.toSong() = Song(
     title = mediaMetadata.title?.toString().orEmpty(),
     artist = mediaMetadata.artist?.toString().orEmpty(),
     thumbnailUrl = mediaMetadata.artworkUri?.toString(),
+    fromAutoplay = this.fromAutoplay,
 )
+
+/** @see Song.fromAutoplay */
+val MediaItem.fromAutoplay: Boolean
+    get() = mediaMetadata.extras?.getBoolean(EXTRA_FROM_AUTOPLAY) == true
+
+/**
+ * Marks a queue entry as AutoPlay's rather than the user's. Carried on the
+ * MediaItem so it survives the trip through the session — the queue belongs to
+ * the player, and the UI only ever sees it back through a MediaController.
+ */
+private const val EXTRA_FROM_AUTOPLAY = "bitchord.fromAutoplay"
+
+/**
+ * Where a track queued by hand belongs: after everything else the user picked,
+ * but above AutoPlay's mix. Clamped past the playing track, so a song added
+ * while the mix is already playing goes on next rather than into the past.
+ */
+fun MediaController.manualQueueEnd(): Int {
+    val firstFromAutoplay = (0 until mediaItemCount)
+        .firstOrNull { getMediaItemAt(it).fromAutoplay }
+        ?: return mediaItemCount
+    return maxOf(firstFromAutoplay, currentMediaItemIndex + 1).coerceAtMost(mediaItemCount)
+}
 
 /**
  * Custom scheme; PlaybackService resolves the real stream URL at play time.
@@ -144,13 +167,20 @@ fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
             .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
             .setIsPlayable(true)
             .setIsBrowsable(false)
+            // Which section of the queue this belongs to, carried with it.
+            .apply { if (fromAutoplay) setExtras(bundleOf(EXTRA_FROM_AUTOPLAY to true)) }
             .build(),
     )
     .build()
 
 fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
     if (songs.isEmpty()) return
-    setMediaItems(songs.map { it.toMediaItem() }, startIndex, 0L)
+    // A queue started while shuffle is on goes in shuffled rather than being
+    // played out of order — see [QueueShuffle]. The track the user picked still
+    // leads, so it ends up at the top instead of at [startIndex].
+    val shuffled = QueueShuffle.enabled.value
+    val queue = if (shuffled) QueueShuffle.startingOrder(songs, startIndex) else songs
+    setMediaItems(queue.map { it.toMediaItem() }, if (shuffled) 0 else startIndex, 0L)
     prepare()
     play()
 }

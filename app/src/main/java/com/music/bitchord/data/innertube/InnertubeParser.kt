@@ -220,7 +220,46 @@ object InnertubeParser {
                 }
             }
         }
-        return ArtistPage(songs, moreSongs, shelves)
+        val header = response["header"]
+        return ArtistPage(
+            songs, moreSongs, shelves,
+            thumbnailUrl = artistThumbnail(header),
+            name = artistName(header),
+        )
+    }
+
+    /**
+     * The name the page bills itself under. A track credited to a trio hands
+     * its callers all three names at once, so the page's own header is what
+     * says which of them is actually open.
+     */
+    private fun artistName(header: JsonElement?): String? {
+        val renderer = header.o("musicImmersiveHeaderRenderer")
+            ?: header.o("musicVisualHeaderRenderer")
+            ?: return null
+        return renderer.o("title").runs().takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * The artist's own picture, off whichever header shape came back — the
+     * immersive header serves it as `thumbnail`, the visual header as
+     * `foregroundThumbnail` over a banner. Callers that arrive from a track
+     * only know that track's cover art, so this is what a page is meant to
+     * show instead.
+     */
+    private fun artistThumbnail(header: JsonElement?): String? {
+        if (header == null) return null
+        val immersive = header.o("musicImmersiveHeaderRenderer")
+        val visual = header.o("musicVisualHeaderRenderer")
+        val renderer = (
+            immersive.o("thumbnail")
+                ?: visual.o("foregroundThumbnail")
+                ?: visual.o("thumbnail")
+            ).o("musicThumbnailRenderer")
+            // Header shapes drift; fall back to the first image anywhere under
+            // the header rather than to the caller's album art.
+            ?: collectRenderers(header, "musicThumbnailRenderer").firstOrNull()
+        return renderer.o("thumbnail").a("thumbnails").best()
     }
 
     // ---- Generic / robust ---------------------------------------------------

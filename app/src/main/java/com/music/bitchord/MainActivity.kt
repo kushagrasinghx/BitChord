@@ -77,6 +77,7 @@ import com.music.bitchord.ui.components.SongActionsSheet
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.ui.components.BottomFadeBlur
 import com.music.bitchord.ui.components.BottomTab
 import com.music.bitchord.ui.components.FloatingBottomBar
 import com.music.bitchord.ui.components.FrostedTopBar
@@ -577,6 +578,14 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
             },
         )
 
+        // Drawn before the bars so their own glass reads on top of it; both
+        // sample the same source content, so nothing is blurred twice.
+        BottomFadeBlur(
+            hazeState = hazeState,
+            withMiniPlayer = player.song != null,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -608,7 +617,6 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     showSettings = false
                     selectedTab = it
                 },
-                hazeState = hazeState,
             )
         }
 
@@ -708,9 +716,9 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     },
                     onOpenArtist = { id ->
                         showNowPlaying = false
-                        viewModel.openDetail(
-                            id, song.artist, "Artist", song.thumbnailUrl, BrowseType.ARTIST,
-                        )
+                        // No artwork: this track's cover isn't the artist's
+                        // picture, and the page fills its own in once loaded.
+                        viewModel.openDetail(id, song.artist, "Artist", null, BrowseType.ARTIST)
                     },
                     lyrics = lyrics,
                     lyricsUnavailable = lyricsChecked && lyrics.isNullOrEmpty(),
@@ -738,10 +746,13 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
             }
             // Navigating has to take the player down with the sheet, or the
             // page it opens lands behind a still-covering player.
+            // The track's cover stands in for an album's, but never for an
+            // artist's picture — that page loads its own.
             val openPage: (String, String, String, BrowseType) -> Unit = { id, title, sub, type ->
                 songActions = null
                 showNowPlaying = false
-                viewModel.openDetail(id, title, sub, song.thumbnailUrl, type)
+                val art = song.thumbnailUrl.takeUnless { type == BrowseType.ARTIST }
+                viewModel.openDetail(id, title, sub, art, type)
             }
             ModalBottomSheet(
                 onDismissRequest = { songActions = null },

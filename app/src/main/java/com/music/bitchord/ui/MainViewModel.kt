@@ -335,10 +335,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         )
         viewModelScope.launch {
             var sections = emptyList<HomeShelf>()
+            // Callers that open an artist from a track — the player, the
+            // long-press menu — only have that track's cover art and its full
+            // credit ("A, B & C") to hand, so the page swaps in the artist's
+            // own picture and name once they arrive.
+            var artwork: String? = null
+            var name: String? = null
             val state = if (resolved == BrowseType.ARTIST) {
                 YtMusicRepository.artistPage(browseId).fold(
                     onSuccess = { page ->
                         sections = page.sections
+                        artwork = page.thumbnailUrl
+                        name = page.name
                         if (page.songs.isEmpty()) {
                             UiState.Error("No tracks here")
                         } else {
@@ -362,7 +370,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // Update by id — the user may have pushed another page meanwhile.
             _detailStack.value = _detailStack.value.map {
                 if (it.browseId == browseId && it.songs is UiState.Loading) {
-                    it.copy(songs = state, sections = sections)
+                    it.copy(
+                        songs = state,
+                        sections = sections,
+                        thumbnailUrl = artwork ?: it.thumbnailUrl,
+                        title = name ?: it.title,
+                    )
                 } else {
                     it
                 }

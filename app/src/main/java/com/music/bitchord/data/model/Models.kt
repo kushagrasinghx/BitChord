@@ -119,6 +119,10 @@ data class ArtistPage(
     /** Playlist holding the artist's full song list, when the page links one. */
     val moreSongsBrowseId: String?,
     val sections: List<HomeShelf>,
+    /** The artist's own picture, off the page header. */
+    val thumbnailUrl: String? = null,
+    /** The single artist this page is for, as the header bills them. */
+    val name: String? = null,
 )
 
 sealed interface UiState<out T> {

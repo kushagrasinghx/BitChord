@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.animation.core.animateDpAsState
 import kotlinx.coroutines.delay
@@ -996,6 +997,11 @@ private fun LyricsPanel(
         itemsIndexed(lines) { index, line ->
             val distance = if (activeLine < 0) 0 else abs(index - activeLine)
             val isActive = index == activeLine
+            // Unbounded, and ahead of the clip: the default edge treatment cuts
+            // the blur off at the line's own box, which put a hard edge down
+            // either side of every out-of-focus line where the halo should have
+            // faded out. The list bleeds a gutter wider than its content
+            // padding, so there is room for the spill.
             val blur by animateDpAsState(
                 targetValue = when {
                     browsing || isActive -> 0.dp
@@ -1021,10 +1027,10 @@ private fun LyricsPanel(
                     contentDescription = "Instrumental",
                     tint = Color.White.copy(alpha = alpha),
                     modifier = Modifier
+                        .blur(blur, BlurredEdgeTreatment.Unbounded)
                         .clip(RoundedCornerShape(10.dp))
                         .clickable { onSeekToLine(line.timeMs) }
                         .padding(vertical = 6.dp)
-                        .blur(blur)
                         .size(noteSize),
                 )
             } else {
@@ -1037,9 +1043,9 @@ private fun LyricsPanel(
                     color = Color.White.copy(alpha = alpha),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .blur(blur, BlurredEdgeTreatment.Unbounded)
                         .clip(RoundedCornerShape(10.dp))
-                        .clickable { onSeekToLine(line.timeMs) }
-                        .blur(blur),
+                        .clickable { onSeekToLine(line.timeMs) },
                 )
             }
         }

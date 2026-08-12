@@ -30,13 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 
 data class BottomTab(
     val label: String,
@@ -45,20 +42,25 @@ data class BottomTab(
 
 /**
  * Floating translucent pill navigation, Telegram-flavoured:
- * frosted glass body, thick-stroke icons, and a springy (slightly
- * overshooting) scale + tinted-capsule selection animation.
+ * thick-stroke icons and a springy (slightly overshooting) scale +
+ * tinted-capsule selection animation.
+ *
+ * No blur of its own: the bottom fade blur it floats on is at full strength by
+ * the time it reaches this far down, so the pill only needs the tint half of
+ * that recipe. The alphas below are the ones [HazeMaterials.thin] applies, so
+ * the body still matches the mini player sitting above it.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun FloatingBottomBar(
     tabs: List<BottomTab>,
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
-    hazeState: HazeState,
     modifier: Modifier = Modifier,
 ) {
     // Fully rounded ends, whatever the bar's height works out to.
     val pillShape = RoundedCornerShape(percent = 50)
+    val container = MaterialTheme.colorScheme.surface
+    val glass = container.copy(alpha = if (container.luminance() >= 0.5f) 0.6f else 0.65f)
     Row(
         modifier = modifier
             .navigationBarsPadding()
@@ -67,10 +69,7 @@ fun FloatingBottomBar(
             .padding(bottom = 2.dp)
             .fillMaxWidth()
             .clip(pillShape)
-            .hazeEffect(
-                state = hazeState,
-                style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
-            )
+            .background(glass)
             .border(0.5.dp, Color.White.copy(alpha = 0.10f), pillShape)
             .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),

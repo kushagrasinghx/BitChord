@@ -5,6 +5,7 @@ import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.ArtistPage
+import com.music.bitchord.data.model.HomeFeed
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.SearchFilter
@@ -24,22 +25,44 @@ object YtMusicRepository {
 
     /**
      * The personalised feed, led by what was actually just played and padded
-     * out with new releases and charts.
+     * out with new releases.
      *
-     * FEmusic_home alone is thin when signed out (three shelves), and its
-     * continuation token comes back empty, so extra rows are pulled from the
-     * two feeds that carry genuinely different content. Titles are de-duped in
+     * FEmusic_home alone is thin when signed out (three shelves), so extra
+     * rows are pulled from FEmusic_new_releases, which carries genuinely
+     * different content. Charts (Daily/Weekly, Trending) live under Explore
+     * in the real app — see [explore] — not here. Titles are de-duped in
      * case the home feed already surfaced the same shelf.
+     *
+     * FEmusic_home's own continuation token comes back, for [moreHome] —
+     * signed in, it keeps paging into mood mixes and more personalised
+     * shelves the same way the official app does as you scroll; signed out
+     * it's empty and there's nothing more to fetch.
      */
-    suspend fun home(): Result<List<HomeShelf>> = call("home") {
+    suspend fun home(): Result<HomeFeed> = call("home") {
         coroutineScope {
             val recent = async { runCatching { recentlyPlayed() }.getOrNull() }
-            val feeds = listOf("FEmusic_home", "FEmusic_new_releases", "FEmusic_charts")
-                .map { id -> async { runCatching { shelvesOf(id) }.getOrDefault(emptyList()) } }
-                .awaitAll()
-            val seen = mutableSetOf(RECENT_TITLE.lowercase())
-            listOfNotNull(recent.await()) + feeds.flatten().filter { seen.add(it.title.lowercase()) }
+            val homeRaw = async { Innertube.browse("FEmusic_home") }
+            val newReleases = async { runCatching { shelvesOf("FEmusic_new_releases") }.getOrDefault(emptyList()) }
+            val home = homeRaw.await()
+            val shelves = listOfNotNull(recent.await()) +
+                InnertubeParser.parseHome(home) +
+                newReleases.await()
+            HomeFeed(shelves, InnertubeParser.continuationToken(home))
         }
+    }
+
+    /**
+     * More Home shelves past [home]'s first page, following FEmusic_home's
+     * own continuation — the lever the official app pulls as you scroll
+     * rather than a fixed one-shot page. "Recently played" and
+     * FEmusic_new_releases are one-shot and don't participate.
+     */
+    suspend fun moreHome(token: String): Result<HomeFeed> = call("home:more") {
+        val response = Innertube.browseContinuation(token)
+        HomeFeed(
+            shelves = InnertubeParser.parseHomeContinuation(response),
+            continuation = InnertubeParser.continuationToken(response),
+        )
     }
 
     /**
@@ -84,15 +107,59 @@ object YtMusicRepository {
     private suspend fun shelvesOf(browseId: String): List<HomeShelf> =
         InnertubeParser.parseHome(Innertube.browse(browseId))
 
-    /** Explore: new releases, trending, new music videos. */
+    /**
+     * Explore: moods & genres from FEmusic_explore, plus the Daily/Weekly/
+     * Trending charts, which YouTube Music serves from a separate browse id
+     * and surfaces under Explore rather than Home.
+     */
     suspend fun explore(): Result<List<HomeShelf>> = call("explore") {
-        InnertubeParser.parseHome(Innertube.browse("FEmusic_explore"))
+        coroutineScope {
+            val feeds = listOf("FEmusic_explore", "FEmusic_charts")
+                .map { id -> async { runCatching { shelvesOf(id) }.getOrDefault(emptyList()) } }
+                .awaitAll()
+            val seen = mutableSetOf<String>()
+            feeds.flatten().filter { seen.add(it.title.lowercase()) }
+        }
     }
 
     suspend fun search(query: String, filter: SearchFilter): Result<List<SearchResult>> =
         call("search:${filter.name}") {
             InnertubeParser.parseSearch(Innertube.search(query, filter.params))
         }
+
+    /**
+     * The catalogue (audio-only) release of a music-video upload, found the
+     * same way the "Switch to audio" toggle in the real app would land on
+     * it: searching the title and artist and taking the closest song match.
+     * Called before a video-tagged [Song] ever reaches the queue, so
+     * playback, the mini player/notification, and YouTube's own history all
+     * see the audio track — never the video upload's title, art or id.
+     *
+     * Returns [song] unchanged when it isn't a video, or when nothing better
+     * turns up — playing the video's own audio track beats failing playback
+     * outright, and [song] is what a queue restore or offline retry falls
+     * back to as well.
+     *
+     * [search] already drops video rows from its results (see
+     * [InnertubeParser.parseSearch]), so every candidate here is audio-only
+     * without a second check.
+     */
+    suspend fun resolveAudio(song: Song): Song {
+        if (!song.isVideo) return song
+        val candidates = search("${song.title} ${song.artist}", SearchFilter.SONGS)
+            .getOrNull()
+            ?.filterIsInstance<SearchResult.Track>()
+            ?.map { it.song }
+            .orEmpty()
+        val normalizedTitle = normalizeTitle(song.title)
+        return candidates.firstOrNull { normalizeTitle(it.title) == normalizedTitle }
+            ?: candidates.firstOrNull()
+            ?: song
+    }
+
+    /** Strips the "(Official Video)" / "(Lyrical)" noise a title match would trip on. */
+    private fun normalizeTitle(title: String): String =
+        title.lowercase().replace(Regex("""[(\[][^)\]]*[)\]]"""), "").trim()
 
     /** Signed-in profile for the settings header. Null when signed out. */
     suspend fun account(): Result<Account> = call("account") {

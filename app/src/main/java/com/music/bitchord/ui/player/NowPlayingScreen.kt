@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.animation.core.animateDpAsState
 import kotlinx.coroutines.delay
@@ -114,6 +115,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.playback.BACK_RESTARTS_AFTER_MS
+import com.music.bitchord.playback.autoplaySectionStart
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -193,6 +195,63 @@ private val INTRO_LINES = listOf(
     "Something's brewing",
     "Finding its feet",
     "Deep breath",
+)
+
+/**
+ * Shown on the strip while a lyrics lookup is still in flight — one picked
+ * at random per track, in the same spirit as [INTRO_LINES].
+ */
+private val LYRICS_LOADING_LINES = listOf(
+    "Getting lyrics",
+    "Chasing the words",
+    "Digging up the lyrics",
+    "Words incoming",
+    "On the hunt for lyrics",
+    "Fetching the verses",
+    "Tracking down the words",
+    "Lyrics loading",
+    "Reading between the lines",
+    "Scanning for lyrics",
+    "Words on the way",
+    "Looking this one up",
+    "Checking the lyric sheet",
+    "Pulling up the words",
+    "Searching the songbook",
+    "Lining up the lyrics",
+    "One sec, finding the words",
+    "Combing through for lyrics",
+    "Lyrics inbound",
+    "Sourcing the verses",
+    "Cross-checking the words",
+    "Rounding up the lyrics",
+    "Text hunt in progress",
+    "Syncing up the words",
+    "Peeking at the lyric sheet",
+    "Almost got the words",
+    "Fishing for lyrics",
+    "Grabbing the transcript",
+    "Lyrics, one moment",
+    "Tuning in the words",
+    "Locating the verses",
+    "Words are en route",
+    "Checking the archives",
+    "Piecing the lyrics together",
+    "Loading up the words",
+    "Lyric search underway",
+    "Finding the right words",
+    "Tracking the lyric sheet",
+    "Verses incoming",
+    "Getting the words lined up",
+    "Hang tight, fetching lyrics",
+    "Looking for the hook",
+    "Words are loading",
+    "Lyrics on their way",
+    "Checking what's sung here",
+    "Reading the room for lyrics",
+    "Lyric lookup in progress",
+    "Bringing up the words",
+    "Just a sec, finding words",
+    "Lyrics coming together",
 )
 
 private const val LYRICS_UNAVAILABLE_HOLD_MS = 5_000L
@@ -496,6 +555,28 @@ fun NowPlayingScreen(
                     )
                 }
 
+                // Sits in the gap under the sleeve, clear of its rounded
+                // corners and shadow — no box, no clip, nothing for the art
+                // itself to be cropped by. Just a glyph that fades in with
+                // the drag to hint which way a release would skip.
+                val swipeHintProgress = (abs(swipeSettle) / swipeThreshold)
+                    .coerceIn(0f, 1f) * (1f - p)
+                if (swipeHintProgress > 0.01f) {
+                    val showNext = swipeSettle < 0f
+                    val enabled = if (showNext) hasNext else hasPrevious
+                    Icon(
+                        imageVector = if (showNext) Icons.Rounded.FastForward else Icons.Rounded.FastRewind,
+                        contentDescription = null,
+                        tint = Color.White.copy(
+                            alpha = swipeHintProgress * if (enabled) 0.85f else 0.3f,
+                        ),
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .offset(y = artTop + artSize + (ART_TITLE_GAP - 16.dp) / 2)
+                            .size(16.dp),
+                    )
+                }
+
                 // ---- Title + menu ----
                 Row(
                     modifier = Modifier
@@ -560,6 +641,13 @@ fun NowPlayingScreen(
                         )
                     } else if (lyricsUnavailable) {
                         LyricsUnavailableLine(
+                            trackKey = song.videoId,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .offset(y = titleTop + HEADER_HEIGHT + 2.dp),
+                        )
+                    } else {
+                        LyricsLoadingLine(
                             trackKey = song.videoId,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -909,6 +997,11 @@ private fun LyricsPanel(
         itemsIndexed(lines) { index, line ->
             val distance = if (activeLine < 0) 0 else abs(index - activeLine)
             val isActive = index == activeLine
+            // Unbounded, and ahead of the clip: the default edge treatment cuts
+            // the blur off at the line's own box, which put a hard edge down
+            // either side of every out-of-focus line where the halo should have
+            // faded out. The list bleeds a gutter wider than its content
+            // padding, so there is room for the spill.
             val blur by animateDpAsState(
                 targetValue = when {
                     browsing || isActive -> 0.dp
@@ -934,10 +1027,10 @@ private fun LyricsPanel(
                     contentDescription = "Instrumental",
                     tint = Color.White.copy(alpha = alpha),
                     modifier = Modifier
+                        .blur(blur, BlurredEdgeTreatment.Unbounded)
                         .clip(RoundedCornerShape(10.dp))
                         .clickable { onSeekToLine(line.timeMs) }
                         .padding(vertical = 6.dp)
-                        .blur(blur)
                         .size(noteSize),
                 )
             } else {
@@ -950,9 +1043,9 @@ private fun LyricsPanel(
                     color = Color.White.copy(alpha = alpha),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .blur(blur, BlurredEdgeTreatment.Unbounded)
                         .clip(RoundedCornerShape(10.dp))
-                        .clickable { onSeekToLine(line.timeMs) }
-                        .blur(blur),
+                        .clickable { onSeekToLine(line.timeMs) },
                 )
             }
         }
@@ -1051,6 +1144,15 @@ private fun CurrentLyricLine(
             color = Color.White,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        Spacer(Modifier.width(6.dp))
+        // Disclosure hint: this strip opens the full lyrics screen.
+        Icon(
+            imageVector = BitChordIcons.ChevronRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.5f),
+            modifier = Modifier.size(14.dp),
         )
     }
 }
@@ -1081,6 +1183,20 @@ private fun LyricsUnavailableLine(trackKey: Any, modifier: Modifier = Modifier) 
         modifier = modifier
             .padding(vertical = 4.dp)
             .graphicsLayer { this.alpha = alpha },
+    )
+}
+
+/** Stands in for [CurrentLyricLine] while a lookup is still in flight. */
+@Composable
+private fun LyricsLoadingLine(trackKey: Any, modifier: Modifier = Modifier) {
+    val text = remember(trackKey) { LYRICS_LOADING_LINES.random() }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium,
+        color = Color.White.copy(alpha = 0.55f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.padding(vertical = 4.dp),
     )
 }
 
@@ -1274,9 +1390,17 @@ private fun InlineQueue(
 ) {
     val listState = rememberLazyListState()
     val keepScroll = remember(listState) { keepScrollInList(listState) }
-    // Open on what's playing, not at the top of a long queue.
+    // Where AutoPlay's tracks start. The queue is kept with them last, so this
+    // is one boundary rather than a category to test row by row.
+    val autoplayStart = remember(queue, currentIndex) {
+        autoplaySectionStart(queue.map { it.fromAutoplay }, currentIndex)
+    }
+    // Open on what's playing, not at the top of a long queue. The heading sits
+    // between the two sections, so it counts as a row once it's above this one.
     LaunchedEffect(currentIndex) {
-        if (currentIndex in queue.indices) listState.scrollToItem(currentIndex)
+        if (currentIndex in queue.indices) {
+            listState.scrollToItem(currentIndex + if (currentIndex >= autoplayStart) 1 else 0)
+        }
     }
 
     Column(modifier.fillMaxWidth()) {
@@ -1312,7 +1436,9 @@ private fun InlineQueue(
                 .fadingEdges(),
             contentPadding = PaddingValues(horizontal = PLAYER_GUTTER),
         ) {
-            itemsIndexed(queue) { index, song ->
+            // What was asked for: the album, playlist or station the queue was
+            // started from, plus anything queued by hand since.
+            itemsIndexed(queue.subList(0, autoplayStart)) { index, song ->
                 InlineQueueRow(
                     song = song,
                     isCurrent = index == currentIndex,
@@ -1320,7 +1446,9 @@ private fun InlineQueue(
                     onRemove = { onRemove(index) },
                 )
             }
-            if (autoplayEnabled) {
+            // Heading first, then what AutoPlay has lined up under it. With
+            // nothing lined up yet it closes the queue as a promise instead.
+            if (autoplayEnabled || autoplayStart < queue.size) {
                 item {
                     Row(
                         modifier = Modifier
@@ -1342,13 +1470,26 @@ private fun InlineQueue(
                                 color = Color.White,
                             )
                             Text(
-                                text = "Similar music will keep playing",
+                                text = if (autoplayStart < queue.size) {
+                                    "Similar music, picked to follow on"
+                                } else {
+                                    "Similar music will keep playing"
+                                },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.55f),
                             )
                         }
                     }
                 }
+            }
+            itemsIndexed(queue.subList(autoplayStart, queue.size)) { index, song ->
+                val at = autoplayStart + index
+                InlineQueueRow(
+                    song = song,
+                    isCurrent = at == currentIndex,
+                    onClick = { onJumpTo(at) },
+                    onRemove = { onRemove(at) },
+                )
             }
         }
     }

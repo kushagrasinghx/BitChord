@@ -14,6 +14,12 @@ data class Song(
     val albumName: String? = null,
     /** A music-video upload rather than the catalogue track. */
     val isVideo: Boolean = false,
+    /**
+     * Queued by AutoPlay or by a station's own mix rather than asked for — the
+     * player groups these under the AutoPlay heading and keeps them at the
+     * bottom of the queue, below anything the user picked.
+     */
+    val fromAutoplay: Boolean = false,
 )
 
 /**
@@ -75,6 +81,12 @@ data class HomeShelf(
     val subtitle: String = "",
 )
 
+/** A page of the Home feed, plus the token for the next one — null once exhausted. */
+data class HomeFeed(
+    val shelves: List<HomeShelf>,
+    val continuation: String?,
+)
+
 /**
  * The signed-in library, as YouTube Music splits it: the auto-generated Liked
  * Music playlist, the tracks explicitly added to the library, and a shelf per
@@ -107,6 +119,10 @@ data class ArtistPage(
     /** Playlist holding the artist's full song list, when the page links one. */
     val moreSongsBrowseId: String?,
     val sections: List<HomeShelf>,
+    /** The artist's own picture, off the page header. */
+    val thumbnailUrl: String? = null,
+    /** The single artist this page is for, as the header bills them. */
+    val name: String? = null,
 )
 
 sealed interface UiState<out T> {

@@ -18,9 +18,9 @@ object BitChordIcons {
     private const val STROKE = 2.2f
     private val stroke = SolidColor(Color.Black)
 
-    val Home: ImageVector by lazy {
+    val Play: ImageVector by lazy {
         ImageVector.Builder(
-            name = "bc_home",
+            name = "bc_play",
             defaultWidth = 24.dp, defaultHeight = 24.dp,
             viewportWidth = 24f, viewportHeight = 24f,
         ).apply {
@@ -29,19 +29,12 @@ object BitChordIcons {
                 strokeLineWidth = STROKE,
                 strokeLineCap = StrokeCap.Round,
                 strokeLineJoin = StrokeJoin.Round,
+                fill = stroke,
             ) {
-                // House outline
-                moveTo(4.5f, 20.7f)
-                lineTo(4.5f, 10.6f)
-                lineTo(12f, 4.4f)
-                lineTo(19.5f, 10.6f)
-                lineTo(19.5f, 20.7f)
+                moveTo(6.8f, 4.8f)
+                lineTo(19.2f, 12f)
+                lineTo(6.8f, 19.2f)
                 close()
-                // Arched door
-                moveTo(9.7f, 20.7f)
-                lineTo(9.7f, 15.8f)
-                arcToRelative(2.3f, 2.3f, 0f, isMoreThanHalf = false, isPositiveArc = true, 4.6f, 0f)
-                lineTo(14.3f, 20.7f)
             }
         }.build()
     }
@@ -239,6 +232,26 @@ object BitChordIcons {
                 close()
                 moveTo(7.6f, 9f); lineTo(16.4f, 9f)
                 moveTo(7.6f, 12.1f); lineTo(13.2f, 12.1f)
+            }
+        }.build()
+    }
+
+    /** Plain chevron — a disclosure hint, not a directional arrow. */
+    val ChevronRight: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_chevron_right",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = STROKE,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(9.5f, 6.2f)
+                lineTo(15.3f, 12f)
+                lineTo(9.5f, 17.8f)
             }
         }.build()
     }

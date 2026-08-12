@@ -53,6 +53,7 @@ object InnertubeParser {
                 }
             }
             parseResponsiveListItem(renderer)?.let { song ->
+                if (song.isVideo) return@mapNotNull null
                 if (seen.add("v:${song.videoId}")) SearchResult.Track(song) else null
             }
         }
@@ -86,11 +87,19 @@ object InnertubeParser {
             .o("musicResponsiveListItemFlexColumnRenderer").o("text").runs()
         if (title.isBlank()) return null
 
+        val subtitle = columns.getOrNull(1)
+            .o("musicResponsiveListItemFlexColumnRenderer").o("text").runs()
+        // A playlist/album billed as a video chart/compilation — "N videos"
+        // in the subtitle, or "video" right in the title, e.g. "Daily Top
+        // Music Videos" — would have every row dropped by
+        // parseResponsiveListItem anyway, so skip the dead-end card rather
+        // than link to an empty page.
+        if (VIDEO_WORD.containsMatchIn(title) || VIDEO_WORD.containsMatchIn(subtitle)) return null
+
         return BrowseItem(
             browseId = browseId,
             title = title,
-            subtitle = columns.getOrNull(1)
-                .o("musicResponsiveListItemFlexColumnRenderer").o("text").runs(),
+            subtitle = subtitle,
             thumbnailUrl = renderer.o("thumbnail").o("musicThumbnailRenderer")
                 .o("thumbnail").a("thumbnails").best(),
             type = when {
@@ -111,32 +120,66 @@ object InnertubeParser {
             .orEmpty()
 
         return sections.mapNotNull { section ->
-            val carousel = section.o("musicCarouselShelfRenderer")
-            if (carousel != null) {
-                val header = carousel.o("header").o("musicCarouselShelfBasicHeaderRenderer")
-                val title = header.o("title").runs()
-                val strapline = header.o("strapline").runs()
-                val items = carousel.a("contents").orEmpty().mapNotNull { item ->
-                    parseTwoRowItem(item.o("musicTwoRowItemRenderer"))
-                        ?: parseResponsiveListItem(item.o("musicResponsiveListItemRenderer"))
-                            ?.let { song ->
-                                ShelfItem(song.title, song.artist, song.thumbnailUrl, song.videoId, null)
-                            }
+            section.o("musicCarouselShelfRenderer")?.let(::carouselShelf)
+                ?: section.o("musicShelfRenderer")?.let(::plainShelf)
+        }
+    }
+
+    /**
+     * More Home shelves off a continuation response.
+     *
+     * Unlike the first page, a continuation envelope doesn't repeat the
+     * tabs/section-list wrapper [parseHome] reads off a fixed path — so the
+     * shelves are walked out wherever they land instead, the same tradeoff
+     * [collectSongsDeep] makes for song rows. Preserves the order they were
+     * found in, since a carousel and a plain shelf never share a parent node.
+     */
+    fun parseHomeContinuation(root: JsonElement): List<HomeShelf> {
+        val out = mutableListOf<HomeShelf>()
+        fun walk(node: JsonElement) {
+            when (node) {
+                is JsonObject -> {
+                    (node["musicCarouselShelfRenderer"] as? JsonObject)
+                        ?.let(::carouselShelf)?.let(out::add)
+                    (node["musicShelfRenderer"] as? JsonObject)
+                        ?.let(::plainShelf)?.let(out::add)
+                    node.values.forEach(::walk)
                 }
-                if (items.isEmpty()) {
-                    null
-                } else {
-                    HomeShelf(title.ifBlank { "For you" }, items, strapline)
-                }
-            } else {
-                val shelf = section.o("musicShelfRenderer") ?: return@mapNotNull null
-                val title = shelf.o("title").runs()
-                val items = shelf.a("contents").orEmpty().mapNotNull {
-                    parseResponsiveListItem(it.o("musicResponsiveListItemRenderer"))
-                }.map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null) }
-                if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items)
+                is JsonArray -> node.forEach(::walk)
+                else -> Unit
             }
         }
+        walk(root)
+        return out
+    }
+
+    private fun carouselShelf(carousel: JsonObject): HomeShelf? {
+        val header = carousel.o("header").o("musicCarouselShelfBasicHeaderRenderer")
+        val title = header.o("title").runs()
+        val strapline = header.o("strapline").runs()
+        // Whole shelves like "Video charts" carry nothing but video
+        // compilations — each card would fail its own video check on the
+        // way to a dead-end page, so the shelf is dropped outright.
+        if (VIDEO_WORD.containsMatchIn(title)) return null
+        val items = carousel.a("contents").orEmpty().mapNotNull { item ->
+            parseTwoRowItem(item.o("musicTwoRowItemRenderer"))
+                ?: parseResponsiveListItem(item.o("musicResponsiveListItemRenderer"))
+                    ?.takeUnless { it.isVideo }
+                    ?.let { song ->
+                        ShelfItem(song.title, song.artist, song.thumbnailUrl, song.videoId, null)
+                    }
+        }
+        return if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items, strapline)
+    }
+
+    private fun plainShelf(shelf: JsonObject): HomeShelf? {
+        val title = shelf.o("title").runs()
+        if (VIDEO_WORD.containsMatchIn(title)) return null
+        val items = shelf.a("contents").orEmpty().mapNotNull {
+            parseResponsiveListItem(it.o("musicResponsiveListItemRenderer"))
+        }.filterNot { it.isVideo }
+            .map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null) }
+        return if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items)
     }
 
     /**
@@ -168,6 +211,7 @@ object InnertubeParser {
             section.o("musicCarouselShelfRenderer")?.let { carousel ->
                 val header = carousel.o("header").o("musicCarouselShelfBasicHeaderRenderer")
                 val title = header.o("title").runs()
+                if (VIDEO_WORD.containsMatchIn(title)) return@let
                 val items = carousel.a("contents").orEmpty().mapNotNull {
                     parseTwoRowItem(it.o("musicTwoRowItemRenderer"))
                 }.filter { it.browseId != null }
@@ -176,7 +220,46 @@ object InnertubeParser {
                 }
             }
         }
-        return ArtistPage(songs, moreSongs, shelves)
+        val header = response["header"]
+        return ArtistPage(
+            songs, moreSongs, shelves,
+            thumbnailUrl = artistThumbnail(header),
+            name = artistName(header),
+        )
+    }
+
+    /**
+     * The name the page bills itself under. A track credited to a trio hands
+     * its callers all three names at once, so the page's own header is what
+     * says which of them is actually open.
+     */
+    private fun artistName(header: JsonElement?): String? {
+        val renderer = header.o("musicImmersiveHeaderRenderer")
+            ?: header.o("musicVisualHeaderRenderer")
+            ?: return null
+        return renderer.o("title").runs().takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * The artist's own picture, off whichever header shape came back — the
+     * immersive header serves it as `thumbnail`, the visual header as
+     * `foregroundThumbnail` over a banner. Callers that arrive from a track
+     * only know that track's cover art, so this is what a page is meant to
+     * show instead.
+     */
+    private fun artistThumbnail(header: JsonElement?): String? {
+        if (header == null) return null
+        val immersive = header.o("musicImmersiveHeaderRenderer")
+        val visual = header.o("musicVisualHeaderRenderer")
+        val renderer = (
+            immersive.o("thumbnail")
+                ?: visual.o("foregroundThumbnail")
+                ?: visual.o("thumbnail")
+            ).o("musicThumbnailRenderer")
+            // Header shapes drift; fall back to the first image anywhere under
+            // the header rather than to the caller's album art.
+            ?: collectRenderers(header, "musicThumbnailRenderer").firstOrNull()
+        return renderer.o("thumbnail").a("thumbnails").best()
     }
 
     // ---- Generic / robust ---------------------------------------------------
@@ -192,7 +275,8 @@ object InnertubeParser {
             when (node) {
                 is JsonObject -> {
                     node["musicResponsiveListItemRenderer"]?.let { renderer ->
-                        parseResponsiveListItem(renderer as? JsonObject)?.let { out[it.videoId] = it }
+                        parseResponsiveListItem(renderer as? JsonObject)
+                            ?.let { out[it.videoId] = it }
                     }
                     node.values.forEach(::walk)
                 }
@@ -261,6 +345,7 @@ object InnertubeParser {
         val duration = parts.lastOrNull()?.takeIf { it.matches(DURATION) }
         // On the "All" tab the first segment is the row type ("Song", "Video"),
         // not the artist — skip those so the subtitle reads like a credit.
+        val rowType = parts.firstOrNull { it.lowercase() in TYPE_WORDS }?.lowercase()
         val artist = parts.firstOrNull {
             !it.matches(DURATION) && it.lowercase() !in TYPE_WORDS
         } ?: "Unknown artist"
@@ -273,18 +358,24 @@ object InnertubeParser {
             },
         )
 
+        val thumbnails = renderer.o("thumbnail").o("musicThumbnailRenderer")
+            .o("thumbnail").a("thumbnails")
+
         return Song(
             videoId = videoId,
             title = title,
             // The run that links to an artist page is the authoritative
             // credit; the "All" tab often lists only "Song • 4:30" otherwise.
             artist = credits.artistName?.takeIf { it.isNotBlank() } ?: artist,
-            thumbnailUrl = renderer.o("thumbnail").o("musicThumbnailRenderer")
-                .o("thumbnail").a("thumbnails").best(),
+            thumbnailUrl = thumbnails.best(),
             durationText = duration,
             artistId = credits.artistId,
             albumId = credits.albumId,
             albumName = credits.albumName,
+            // The row type word is the clean signal when present ("All" tab);
+            // otherwise a music-video upload gives itself away with widescreen
+            // art where a catalogue track has square album cover art.
+            isVideo = rowType == "video" || thumbnails.isNotSquare(),
         )
     }
 
@@ -372,18 +463,37 @@ object InnertubeParser {
         if (title.isBlank()) return null
         val endpoint = renderer.o("navigationEndpoint")
         val browseId = endpoint.o("browseEndpoint").s("browseId")
+        // History/"Listen again" cards for tracks YouTube never catalogued
+        // as a proper Song carry no watchEndpoint at all — just a browseId
+        // to a "non-music audio track page" prefixed MPED<videoId>. That's
+        // the actual video id, not a real browsable page.
+        val videoId = endpoint.o("watchEndpoint").s("videoId")
+            ?: browseId?.takeIf { it.startsWith("MPED") }?.removePrefix("MPED")
+        val resolvedBrowseId = browseId?.takeUnless { it.startsWith("MPED") }
+        val thumbnails = renderer.o("thumbnailRenderer").o("musicThumbnailRenderer")
+            .o("thumbnail").a("thumbnails")
+        val subtitle = renderer.o("subtitle").runs()
+        // A card with no browse target is a playable track, not an album,
+        // playlist or artist; widescreen art on one of those means it's a
+        // music-video upload rather than the catalogue track — drop it, same
+        // as the equivalent check in parseResponsiveListItem.
+        if (resolvedBrowseId == null && videoId != null && thumbnails.isNotSquare()) return null
+        // An album/playlist billed as a video chart/compilation — "N videos"
+        // in the subtitle, or "video" in the card's own title (e.g. "Daily
+        // Top Music Videos") — is the same dead-end as in parseBrowseItem.
+        // A plain track card is exempt: a song can legitimately be titled
+        // "Video Games" without being a music-video upload.
+        if (resolvedBrowseId != null &&
+            (VIDEO_WORD.containsMatchIn(title) || VIDEO_WORD.containsMatchIn(subtitle))
+        ) {
+            return null
+        }
         return ShelfItem(
             title = title,
-            subtitle = renderer.o("subtitle").runs(),
-            thumbnailUrl = renderer.o("thumbnailRenderer").o("musicThumbnailRenderer")
-                .o("thumbnail").a("thumbnails").best(),
-            // History/"Listen again" cards for tracks YouTube never catalogued
-            // as a proper Song carry no watchEndpoint at all — just a browseId
-            // to a "non-music audio track page" prefixed MPED<videoId>. That's
-            // the actual video id, not a real browsable page.
-            videoId = endpoint.o("watchEndpoint").s("videoId")
-                ?: browseId?.takeIf { it.startsWith("MPED") }?.removePrefix("MPED"),
-            browseId = browseId?.takeUnless { it.startsWith("MPED") },
+            subtitle = subtitle,
+            thumbnailUrl = thumbnails.best(),
+            videoId = videoId,
+            browseId = resolvedBrowseId,
         )
     }
 
@@ -392,6 +502,12 @@ object InnertubeParser {
         "song", "video", "album", "single", "ep", "artist",
         "playlist", "podcast", "episode",
     )
+    /**
+     * Flags a browse card as video content: "50 videos" in a subtitle
+     * (instead of "50 songs"), or the word right in a title like
+     * "Daily Top Music Videos".
+     */
+    private val VIDEO_WORD = Regex("""\bvideos?\b""", RegexOption.IGNORE_CASE)
 }
 
 // ---- Tiny JSON navigation helpers (null-safe, never throw) ------------------
@@ -416,3 +532,16 @@ private fun JsonElement?.runs(): String =
  */
 private fun JsonArray?.best(): String? =
     this?.lastOrNull().s("url")?.replace(Regex("""w\d+-h\d+"""), "w544-h544")
+
+/**
+ * Catalogue art is always square; a music-video upload's thumbnail is
+ * widescreen. Missing dimensions default to "square" so a row is never
+ * dropped just because the field wasn't present.
+ */
+private fun JsonArray?.isNotSquare(): Boolean {
+    val last = this?.lastOrNull()
+    val width = last.s("width")?.toDoubleOrNull() ?: return false
+    val height = last.s("height")?.toDoubleOrNull() ?: return false
+    if (width <= 0 || height <= 0) return false
+    return width / height !in 0.85..1.15
+}

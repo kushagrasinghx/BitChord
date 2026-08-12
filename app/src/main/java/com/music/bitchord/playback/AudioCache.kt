@@ -10,9 +10,9 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheKeyFactory
 import androidx.media3.datasource.cache.CacheWriter
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import com.music.bitchord.data.innertube.StreamResolver
+import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -52,11 +52,12 @@ object AudioCache {
     private const val TAG = "BitChord"
 
     /**
-     * Roughly 150 tracks at the highest bitrate offered. Least-recently-used
-     * entries are dropped past this, so the ceiling is a disk budget rather
-     * than something the listener has to manage.
+     * The disk budget, straight from [AppSettings] — 512MB by default, roughly
+     * 150 tracks at the highest bitrate offered, adjustable up to 10GB from
+     * Settings. Least-recently-used entries are dropped past it, so it's a
+     * ceiling rather than something the listener has to manage day to day.
      */
-    private const val MAX_BYTES = 512L * 1024 * 1024
+    private val evictor = DynamicLruCacheEvictor(AppSettings.DEFAULT_CACHE_LIMIT_BYTES)
 
     /**
      * How much of the next track to fetch. About 50 seconds at 160kbps — long
@@ -105,11 +106,30 @@ object AudioCache {
      * dropping the spans that named them.
      */
     fun init(context: Context) {
+        evictor.maxBytes = AppSettings.audioCacheLimitBytes.value
         cache = SimpleCache(
             File(context.cacheDir, "audio"),
-            LeastRecentlyUsedCacheEvictor(MAX_BYTES),
+            evictor,
             StandaloneDatabaseProvider(context),
         )
+        // A SimpleCache can only be opened once per process, so the ceiling
+        // moves by mutating this evictor rather than reopening the cache —
+        // see [DynamicLruCacheEvictor].
+        scope.launch {
+            AppSettings.audioCacheLimitBytes.collect { maxBytes ->
+                evictor.maxBytes = maxBytes
+                evictor.applyNow(cache)
+            }
+        }
+    }
+
+    /** Drops everything on disk. The listener asked; no grace period. */
+    fun clear(onComplete: () -> Unit = {}) {
+        cancel()
+        scope.launch {
+            cache.keys.toList().forEach { cache.removeResource(it) }
+            withContext(Dispatchers.Main) { onComplete() }
+        }
     }
 
     /**

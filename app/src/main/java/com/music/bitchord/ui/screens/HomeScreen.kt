@@ -22,8 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -55,6 +61,9 @@ fun HomeScreen(
     title: String = "Listen Now",
     signedIn: Boolean = true,
     onSignIn: (() -> Unit)? = null,
+    // Explore doesn't page — only Home has a continuation worth following.
+    onLoadMore: (() -> Unit)? = null,
+    loadingMore: Boolean = false,
 ) {
     PullToRefresh(
         refreshing = refreshing,
@@ -85,8 +94,37 @@ fun HomeScreen(
                 is UiState.Error -> item {
                     MessageState(state.message, actionLabel = "Retry", onAction = onRetry)
                 }
-                is UiState.Success -> itemsIndexedShelves(state.data, onItemClick)
+                is UiState.Success -> {
+                    itemsIndexedShelves(state.data, onItemClick)
+                    if (loadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
             }
+        }
+    }
+
+    if (onLoadMore != null && state is UiState.Success) {
+        // Fires again each time the tail end of the list comes back into
+        // view — appending shelves doesn't reset it, only leaving the
+        // bottom and scrolling back down does, which is exactly when
+        // another page is worth asking for.
+        val nearEnd by remember {
+            derivedStateOf {
+                val layout = listState.layoutInfo
+                val last = layout.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
+                layout.totalItemsCount > 0 && last >= layout.totalItemsCount - 3
+            }
+        }
+        LaunchedEffect(nearEnd) {
+            if (nearEnd) onLoadMore()
         }
     }
 }

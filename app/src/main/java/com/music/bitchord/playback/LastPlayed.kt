@@ -10,7 +10,7 @@ import kotlinx.serialization.json.Json
  * The queue as it stood when the app was last used, so a cold start opens on
  * the track you left off on instead of an empty player.
  *
- * Persisted as its own small record rather than by serialising [Song]: the four
+ * Persisted as its own small record rather than by serialising [Song]: the
  * fields below are all a MediaItem carries, so they are all that survives a
  * round trip through the player anyway, and a stored format is better off not
  * moving every time the domain model does.
@@ -37,7 +37,7 @@ object LastPlayed {
         val window = songs.subList(start, minOf(songs.size, start + MAX_TRACKS))
         val stored = StoredQueue(
             tracks = window.map {
-                StoredTrack(it.videoId, it.title, it.artist, it.thumbnailUrl)
+                StoredTrack(it.videoId, it.title, it.artist, it.thumbnailUrl, it.fromAutoplay)
             },
             index = (index - start).coerceIn(0, window.lastIndex),
             positionMs = positionMs.coerceAtLeast(0L),
@@ -55,7 +55,9 @@ object LastPlayed {
         val stored = runCatching { json.decodeFromString<StoredQueue>(raw) }.getOrNull() ?: return null
         if (stored.tracks.isEmpty()) return null
         return Snapshot(
-            songs = stored.tracks.map { Song(it.id, it.title, it.artist, it.artwork) },
+            songs = stored.tracks.map {
+                Song(it.id, it.title, it.artist, it.artwork, fromAutoplay = it.auto)
+            },
             index = stored.index.coerceIn(0, stored.tracks.lastIndex),
             positionMs = stored.positionMs.coerceAtLeast(0L),
         )
@@ -67,6 +69,8 @@ object LastPlayed {
         val title: String,
         val artist: String,
         val artwork: String? = null,
+        /** Whether AutoPlay queued it — the queue's sections outlive a restart. */
+        val auto: Boolean = false,
     )
 
     @Serializable

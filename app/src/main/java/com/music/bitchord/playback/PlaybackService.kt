@@ -348,15 +348,36 @@ class PlaybackService : MediaSessionService() {
      *
      * The byte ceiling is what governs; the duration is set past any song so
      * that it never becomes the binding constraint.
+     *
+     * Two further departures from the defaults, both about how long the
+     * listener waits for sound:
+     *
+     *  - **Back buffer.** Media3 keeps nothing behind the playhead, so a seek
+     *    *backwards* always drops the buffer and reloads, while a seek forwards
+     *    lands in samples already held and resumes at once. The reload is the
+     *    expensive half: it restarts at the WebM cue point before the target —
+     *    YouTube spaces those ten seconds apart — and everything from there to
+     *    where the listener actually asked for has to go through the decoder
+     *    and be thrown away, at roughly 130ms of waiting per second skipped.
+     *    That asymmetry is what makes scrubbing back feel broken. Since a whole
+     *    track is only a few megabytes of Opus, keeping all of it behind the
+     *    playhead makes a backward seek exactly what a forward one already is:
+     *    an in-buffer seek, no reload and no discarded decoding at all.
+     *  - **Thresholds to (re)start playback.** The defaults — 2.5s of audio
+     *    before starting, 5s before resuming after a rebuffer — are sized for
+     *    streaming video over a network that might stall again. Here the bytes
+     *    are almost always already on disk, so those seconds are spent waiting
+     *    on a buffer that fills instantly and are simply dead air after a seek.
      */
     private fun farBufferingLoadControl() = DefaultLoadControl.Builder()
         .setBufferDurationsMs(
             DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
             /* maxBufferMs = */ FAR_BUFFER_MS,
-            DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
-            DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
+            /* bufferForPlaybackMs = */ START_PLAYBACK_MS,
+            /* bufferForPlaybackAfterRebufferMs = */ RESUME_PLAYBACK_MS,
         )
         .setTargetBufferBytes(FAR_BUFFER_BYTES)
+        .setBackBuffer(/* backBufferDurationMs = */ BACK_BUFFER_MS, /* retainBackBufferFromKeyframe = */ true)
         .build()
 
     /**
@@ -462,5 +483,14 @@ class PlaybackService : MediaSessionService() {
 
         /** ~6 minutes at 160kbps: a whole track, for all but the longest. */
         const val FAR_BUFFER_BYTES = 8 * 1024 * 1024
+
+        /** Past any song, so a seek back lands in the buffer rather than re-reading. */
+        const val BACK_BUFFER_MS = 15 * 60 * 1000
+
+        /** Enough to cover the decoder's own latency, not seconds of dead air. */
+        const val START_PLAYBACK_MS = 500
+
+        /** Same again after a seek or a stall — the bytes are usually on disk. */
+        const val RESUME_PLAYBACK_MS = 1_000
     }
 }

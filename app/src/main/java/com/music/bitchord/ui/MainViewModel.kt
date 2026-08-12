@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.auth.AuthStore
+import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.LrcLib
 import com.music.bitchord.data.lyrics.LyricLine
@@ -113,6 +114,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private var searchJob: Job? = null
 
+    /** Set once per launch if GitHub has a release newer than this build. */
+    val updateAvailable: StateFlow<AppUpdateChecker.UpdateInfo?> = AppUpdateChecker.available
+
     init {
         loadHome()
         loadExplore()
@@ -124,6 +128,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // drop(1): the current value is just the count so far, not a play.
             PlaybackTracker.registeredPlays.drop(1).collect { homeStale = true }
         }
+        viewModelScope.launch { AppUpdateChecker.check() }
     }
 
     /**

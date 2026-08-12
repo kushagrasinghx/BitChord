@@ -1,5 +1,7 @@
 package com.music.bitchord
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -138,6 +141,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val lyricsChecked by viewModel.lyricsChecked.collectAsStateWithLifecycle()
     val searchHistory by viewModel.searchHistory.collectAsStateWithLifecycle()
+    val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
     val detailStack by viewModel.detailStack.collectAsStateWithLifecycle()
     val detail = detailStack.lastOrNull()
     // Settings has no tab of its own — it sits on top of whatever tab was
@@ -526,6 +530,21 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
             },
             modifier = Modifier.align(Alignment.TopCenter),
             actions = {
+                // Only worth surfacing where there's room for it and it won't
+                // be mistaken for a per-page action — Home, at rest.
+                if (!showSettings && detail == null && selectedTab == TAB_HOME) {
+                    updateAvailable?.let { update ->
+                        IconButton(onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
+                        }) {
+                            Icon(
+                                Icons.Rounded.SystemUpdate,
+                                contentDescription = "Update available: v${update.version}",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
                 if (!showSettings) IconButton(onClick = { showSettings = true }) {
                     Icon(
                         Icons.Rounded.MoreVert,

@@ -157,6 +157,14 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
     val player = rememberPlayerState(controller)
     val shuffleEnabled by QueueShuffle.enabled.collectAsStateWithLifecycle()
 
+    // A failed play used to be completely silent: the spinner stopped and
+    // nothing else happened, which is indistinguishable from the app ignoring
+    // the tap. Keyed on the track as well as the message so the same error on
+    // a later song still shows.
+    LaunchedEffect(player.error, player.song?.videoId) {
+        player.error?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    }
+
     // AutoPlay: once the queue reaches its last track, extend it with YouTube
     // Music's radio mix for that song so playback carries on by itself.
     var autoplaySeed by remember { mutableStateOf<String?>(null) }

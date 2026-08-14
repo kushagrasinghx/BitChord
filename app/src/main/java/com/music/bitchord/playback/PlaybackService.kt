@@ -5,15 +5,18 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
+import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
@@ -67,10 +70,18 @@ class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var player: ExoPlayer? = null
     private var crossfade: CrossfadeController? = null
+    private val spatialAudioProcessor = SpatialAudioProcessor()
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     /** Last sampled position of the playing track, in seconds. */
     private var lastPositionSeconds = 0L
+
+    /**
+     * Re-resolve attempts spent on the current item, reset whenever the queue
+     * moves. Bounded so a track whose URL is genuinely unplayable stops rather
+     * than looping between error and retry forever.
+     */
+    private var urlRetries = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -135,11 +146,46 @@ class PlaybackService : MediaSessionService() {
                 saveQueue()
             }
 
+            /**
+             * Recovers the failure this app fails on most: a stream URL that
+             * comes back **403**.
+             *
+             * [StreamResolver] remembers a URL the moment it is minted, before
+             * anything has fetched it, so a dead one would otherwise be served
+             * back out of that cache for its whole TTL — every retry failing
+             * identically without a request leaving the device. Dropping the
+             * entry and preparing again re-resolves from scratch, which is
+             * usually enough because the URL that failed came from the IOS
+             * fallback and the retry tends to land on NewPipe instead.
+             *
+             * Read-ahead is cancelled alongside it: it resolves through the
+             * same cache and would otherwise keep pulling on the dead URL.
+             */
+            override fun onPlayerError(error: PlaybackException) {
+                val videoId = exoPlayer.currentMediaItem?.mediaId
+                Log.w(TAG, "playback error on $videoId: ${error.errorCodeName}", error)
+
+                if (!error.isStaleUrl()) return
+                if (videoId == null) return
+                if (urlRetries >= MAX_URL_RETRIES) {
+                    Log.w(TAG, "giving up on $videoId after $urlRetries re-resolves")
+                    return
+                }
+
+                urlRetries++
+                Log.d(TAG, "re-resolving $videoId (attempt $urlRetries/$MAX_URL_RETRIES)")
+                StreamResolver.invalidate(videoId)
+                AudioCache.cancel()
+                exoPlayer.prepare()
+            }
+
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 // currentPosition already belongs to the new item by now, so
                 // the outgoing track is closed out on the last sampled value.
                 PlaybackTracker.onTrackChanged(lastPositionSeconds)
                 lastPositionSeconds = 0
+                // A new track gets its own budget of re-resolves.
+                urlRetries = 0
                 // "Sleep after this song": the queue moving on by itself is the
                 // moment the track the user meant has finished. REPEAT counts
                 // too, or the timer would never fire with repeat-one on.
@@ -221,6 +267,23 @@ class PlaybackService : MediaSessionService() {
 
     private fun registerCurrentPlay() {
         player?.currentMediaItem?.mediaId?.let(PlaybackTracker::onPlaying)
+    }
+
+    /**
+     * Whether this failure is a spent stream URL rather than an unplayable
+     * track. The HTTP status is carried a few levels down — the renderer wraps
+     * the loader's exception, which wraps the data source's — so the whole
+     * cause chain is walked rather than just the immediate cause.
+     */
+    private fun PlaybackException.isStaleUrl(): Boolean {
+        var cause: Throwable? = this
+        while (cause != null) {
+            if (cause is HttpDataSource.InvalidResponseCodeException) {
+                return cause.responseCode in STALE_URL_CODES
+            }
+            cause = cause.cause
+        }
+        return false
     }
 
     /**
@@ -400,7 +463,7 @@ class PlaybackService : MediaSessionService() {
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .setAudioProcessorChain(
                 DefaultAudioSink.DefaultAudioProcessorChain(
-                    emptyArray(),
+                    arrayOf(spatialAudioProcessor),
                     SilenceSkippingAudioProcessor(
                         MIN_SILENCE_US,
                         SilenceSkippingAudioProcessor.DEFAULT_SILENCE_RETENTION_RATIO,
@@ -418,6 +481,7 @@ class PlaybackService : MediaSessionService() {
     private fun applySettings(player: ExoPlayer) {
         player.skipSilenceEnabled = AppSettings.skipSilence.value
         player.setPlaybackSpeed(AppSettings.playbackSpeed.value)
+        spatialAudioProcessor.enabled = AppSettings.spatialAudio.value
     }
 
     private fun observeSettings() {
@@ -426,6 +490,9 @@ class PlaybackService : MediaSessionService() {
         }
         scope.launch {
             AppSettings.playbackSpeed.collect { player?.setPlaybackSpeed(it) }
+        }
+        scope.launch {
+            AppSettings.spatialAudio.collect { spatialAudioProcessor.enabled = it }
         }
     }
 
@@ -469,8 +536,24 @@ class PlaybackService : MediaSessionService() {
     }
 
     private companion object {
+        const val TAG = "BitChord"
         const val CHANNEL_ID = "bitchord_playback"
         const val SESSION_ID = "BitChordPlayback"
+
+        /**
+         * Re-resolves allowed per track. Two is enough to get off a bad URL
+         * from the IOS fallback and onto a NewPipe one; more than that and the
+         * track is not playable right now, and retrying is just a spinner.
+         */
+        const val MAX_URL_RETRIES = 2
+
+        /**
+         * Response codes that mean "this URL is spent", not "this track is
+         * gone". googlevideo answers an expired or wrongly-minted stream URL
+         * with 403, and occasionally 401 or 410; all three are worth a fresh
+         * resolve, while a 404 genuinely is not.
+         */
+        val STALE_URL_CODES = setOf(401, 403, 410)
 
         /** How often played-seconds are sampled off the player. */
         const val PROGRESS_SAMPLE_MS = 5_000L

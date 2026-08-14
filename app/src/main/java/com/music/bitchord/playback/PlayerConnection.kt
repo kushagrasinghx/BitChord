@@ -91,8 +91,12 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
 
         val listener = object : Player.Listener {
             override fun onEvents(p: Player, events: Player.Events) = sync(state.error)
+            // PlaybackService re-resolves a spent stream URL and prepares
+            // again before this ever fires, so an error reaching the UI is one
+            // that survived those retries — worth telling the listener about,
+            // in their terms rather than Media3's.
             override fun onPlayerErrorChanged(error: androidx.media3.common.PlaybackException?) {
-                sync(error?.let { "Playback failed: ${it.errorCodeName}" })
+                sync(error?.let { "Couldn't play that track. Tap play to try again." })
             }
         }
         player.addListener(listener)

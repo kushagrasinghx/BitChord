@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,8 +35,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
+import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -75,13 +78,20 @@ fun FrostedTopBar(
         animationSpec = tween(220),
         label = "topBarDivider",
     )
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .hazeEffect(
-                state = hazeState,
-                style = HazeMaterials.ultraThin(MaterialTheme.colorScheme.surface),
+            .then(
+                if (reduceDynamicBlur) {
+                    Modifier.background(MaterialTheme.colorScheme.surface)
+                } else {
+                    Modifier.hazeEffect(
+                        state = hazeState,
+                        style = HazeMaterials.ultraThin(MaterialTheme.colorScheme.surface),
+                    )
+                },
             ),
     ) {
         Box(

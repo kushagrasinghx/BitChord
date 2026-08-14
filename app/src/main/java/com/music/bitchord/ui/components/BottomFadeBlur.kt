@@ -14,6 +14,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -52,6 +54,11 @@ fun BottomFadeBlur(
     modifier: Modifier = Modifier,
     withMiniPlayer: Boolean = false,
 ) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    // The floating bars fill themselves solid instead when blur is reduced,
+    // so this frosted floor underneath them has nothing left to do.
+    if (reduceDynamicBlur) return
+
     // The gesture bar sits below the tab pill and wants blurring too, so it is
     // added on rather than being part of the fade's own run.
     val inset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

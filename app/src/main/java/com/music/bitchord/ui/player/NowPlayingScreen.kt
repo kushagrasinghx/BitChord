@@ -923,6 +923,7 @@ private fun LyricsPanel(
     val listState = rememberLazyListState()
     val keepScroll = remember(listState) { keepScrollInList(listState) }
     var browsing by remember { mutableStateOf(false) }
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
 
     // Only a finger on the list counts as browsing — watching
     // isScrollInProgress would trip on our own auto-scroll.
@@ -1004,7 +1005,7 @@ private fun LyricsPanel(
             // padding, so there is room for the spill.
             val blur by animateDpAsState(
                 targetValue = when {
-                    browsing || isActive -> 0.dp
+                    reduceDynamicBlur || browsing || isActive -> 0.dp
                     else -> (distance * 1.6f).coerceAtMost(7f).dp
                 },
                 label = "lyricBlur",

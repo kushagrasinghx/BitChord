@@ -3,7 +3,9 @@ package com.music.bitchord.ui.player
 import android.graphics.Bitmap
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -25,12 +27,14 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.palette.graphics.Palette
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.music.bitchord.data.settings.AppSettings
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -67,24 +71,32 @@ fun MeshGradientBackground(
     trackKey: Any? = null,
     driftMillis: Int = 8_000,
 ) {
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+
     val tuned = (palette.colors.ifEmpty { FallbackColors } + FallbackColors)
         .take(4)
         .map { it.tuned() }
 
-    // Each colour slot crossfades independently when the track (palette) changes.
+    // Each colour slot crossfades independently when the track (palette) changes,
+    // unless "reduce animation" is on, in which case colours snap straight to target.
+    val colorSpec: AnimationSpec<Color> = if (reduceAnimation) snap() else tween(1400)
     val animatedColors = tuned.mapIndexed { index, color ->
-        animateColorAsState(color, tween(1400), label = "meshColor$index").value
+        animateColorAsState(color, colorSpec, label = "meshColor$index").value
     }
-    val baseColor by animateColorAsState(tuned.first().dimmed(), tween(1400), label = "meshBase")
+    val baseColor by animateColorAsState(tuned.first().dimmed(), colorSpec, label = "meshBase")
 
     // Read in the draw lambda, not here: an Animatable read during draw
     // invalidates only the drawing, leaving composition out of the loop.
     val phase = remember { Animatable(0f) }
-    LaunchedEffect(trackKey) {
-        phase.animateTo(
-            targetValue = phase.value + DRIFT_RADIANS,
-            animationSpec = tween(driftMillis, easing = FastOutSlowInEasing),
-        )
+    LaunchedEffect(trackKey, reduceAnimation) {
+        if (reduceAnimation) {
+            phase.snapTo(0f)
+        } else {
+            phase.animateTo(
+                targetValue = phase.value + DRIFT_RADIANS,
+                animationSpec = tween(driftMillis, easing = FastOutSlowInEasing),
+            )
+        }
     }
 
     // Scale up slightly so the blur's clamped edges never show, then blur the

@@ -69,6 +69,12 @@ object AppSettings {
     /** Put the playing track's codec, bitrate and sample rate on the player. */
     val showNerdStats = MutableStateFlow(false)
 
+    /** Freezes the main player's mesh gradient instead of letting it drift/crossfade. */
+    val reduceAnimation = MutableStateFlow(false)
+
+    /** Drops haze blur (status bar, mini player, bottom fade, lyrics focus) for a solid-fill look. */
+    val reduceDynamicBlur = MutableStateFlow(false)
+
     /** Disk budget for cached audio. [AudioCache][com.music.bitchord.playback.AudioCache] evicts past it. */
     val audioCacheLimitBytes = MutableStateFlow(DEFAULT_CACHE_LIMIT_BYTES)
 
@@ -97,6 +103,8 @@ object AppSettings {
         }.getOrDefault(ThemeMode.SYSTEM)
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
+        reduceAnimation.value = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
+        reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         audioCacheLimitBytes.value = prefs.getLong(KEY_CACHE_LIMIT, DEFAULT_CACHE_LIMIT_BYTES)
             .coerceIn(DEFAULT_CACHE_LIMIT_BYTES, MAX_CACHE_LIMIT_BYTES)
         watchConnection(context)
@@ -194,6 +202,16 @@ object AppSettings {
         prefs.edit().putString(KEY_THEME, value.name).apply()
     }
 
+    fun setReduceAnimation(value: Boolean) {
+        reduceAnimation.value = value
+        prefs.edit().putBoolean(KEY_REDUCE_ANIMATION, value).apply()
+    }
+
+    fun setReduceDynamicBlur(value: Boolean) {
+        reduceDynamicBlur.value = value
+        prefs.edit().putBoolean(KEY_REDUCE_BLUR, value).apply()
+    }
+
     /** Clamped to [DEFAULT_CACHE_LIMIT_BYTES]..[MAX_CACHE_LIMIT_BYTES] — the floor is the default, not zero. */
     fun setAudioCacheLimitBytes(value: Long) {
         val clamped = value.coerceIn(DEFAULT_CACHE_LIMIT_BYTES, MAX_CACHE_LIMIT_BYTES)
@@ -215,4 +233,6 @@ object AppSettings {
     private const val KEY_AUTOPLAY = "autoplay"
     private const val KEY_NERD_STATS = "show_nerd_stats"
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
+    private const val KEY_REDUCE_ANIMATION = "reduce_animation"
+    private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
 }

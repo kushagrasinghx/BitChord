@@ -22,14 +22,17 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -64,12 +67,19 @@ fun MiniPlayer(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val shape = RoundedCornerShape(BAR_CORNER)
     Box(
         modifier = modifier
             .padding(horizontal = 10.dp)
             .clip(shape)
-            .hazeEffect(state = hazeState, style = HazeMaterials.thin(MaterialTheme.colorScheme.surface))
+            .then(
+                if (reduceDynamicBlur) {
+                    Modifier.background(MaterialTheme.colorScheme.surface)
+                } else {
+                    Modifier.hazeEffect(state = hazeState, style = HazeMaterials.thin(MaterialTheme.colorScheme.surface))
+                },
+            )
             .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
             .clickable(onClick = onExpand),
     ) {

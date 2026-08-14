@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.settings.AppSettings
 
 data class BottomTab(
     val label: String,
@@ -60,7 +62,14 @@ fun FloatingBottomBar(
     // Fully rounded ends, whatever the bar's height works out to.
     val pillShape = RoundedCornerShape(percent = 50)
     val container = MaterialTheme.colorScheme.surface
-    val glass = container.copy(alpha = if (container.luminance() >= 0.5f) 0.6f else 0.65f)
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    // With the frosted floor beneath it gone, the pill needs a solid fill of
+    // its own instead of a tint meant to sit on top of that blur.
+    val glass = if (reduceDynamicBlur) {
+        container
+    } else {
+        container.copy(alpha = if (container.luminance() >= 0.5f) 0.6f else 0.65f)
+    }
     Row(
         modifier = modifier
             .navigationBarsPadding()

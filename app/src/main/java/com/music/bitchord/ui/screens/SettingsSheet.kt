@@ -26,11 +26,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Speed
@@ -102,6 +104,8 @@ fun SettingsScreen(
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val speed by AppSettings.playbackSpeed.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
@@ -241,6 +245,40 @@ fun SettingsScreen(
                 selectedIndex = ThemeMode.entries.indexOf(theme),
                 onSelect = { AppSettings.setThemeMode(ThemeMode.entries[it]) },
                 modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.MotionPhotosOff,
+                title = "Reduce animation",
+                subtitle = "Freezes the main player's gradient instead of drifting",
+                trailing = {
+                    Switch(
+                        checked = reduceAnimation,
+                        onCheckedChange = AppSettings::setReduceAnimation,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.BlurOff,
+                title = "Reduce dynamic blur",
+                subtitle = "Swaps frosted glass for solid fills across the app",
+                trailing = {
+                    Switch(
+                        checked = reduceDynamicBlur,
+                        onCheckedChange = AppSettings::setReduceDynamicBlur,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
             )
         }
 

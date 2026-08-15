@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,13 +37,19 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.music.bitchord.data.model.CARD_ART_PX
+import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.UiState
-import com.music.bitchord.ui.components.LoadingState
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.components.MessageState
+import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.PullToRefresh
+import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.SignInBanner
+import com.music.bitchord.ui.components.feedMoreSkeleton
+import com.music.bitchord.ui.components.feedSkeleton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,7 +86,7 @@ fun HomeScreen(
                     text = title,
                     style = MaterialTheme.typography.displayLarge,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
                 )
             }
             if (!signedIn && onSignIn != null) {
@@ -90,22 +95,13 @@ fun HomeScreen(
                 }
             }
             when (state) {
-                is UiState.Loading -> item { LoadingState() }
+                is UiState.Loading -> feedSkeleton()
                 is UiState.Error -> item {
                     MessageState(state.message, actionLabel = "Retry", onAction = onRetry)
                 }
                 is UiState.Success -> {
                     itemsIndexedShelves(state.data, onItemClick)
-                    if (loadingMore) {
-                        item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
+                    if (loadingMore) feedMoreSkeleton()
                 }
             }
         }
@@ -151,7 +147,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
 /** Shared by the home feed, Explore and Library so headings line up across tabs. */
 @Composable
 internal fun SectionHeader(title: String, subtitle: String = "") {
-    Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
+    Column(Modifier.padding(horizontal = PAGE_GUTTER, vertical = 10.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
@@ -177,7 +173,7 @@ private fun HeroShelf(shelf: HomeShelf, onItemClick: (ShelfItem) -> Unit) {
         SectionHeader(shelf.title, shelf.subtitle)
         LazyRow(
             state = rememberLazyListState(),
-            contentPadding = PaddingValues(horizontal = 20.dp),
+            contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(shelf.items) { item ->
@@ -202,7 +198,7 @@ private fun HeroCard(item: ShelfItem, onClick: () -> Unit, modifier: Modifier = 
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
-            model = item.thumbnailUrl,
+            model = item.thumbnailUrl.artworkAt(HEADER_ART_PX),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
@@ -210,7 +206,7 @@ private fun HeroCard(item: ShelfItem, onClick: () -> Unit, modifier: Modifier = 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(androidx.compose.ui.Alignment.BottomStart)
+                .align(Alignment.BottomStart)
                 .background(
                     Brush.verticalGradient(
                         listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f)),
@@ -243,7 +239,7 @@ internal fun Shelf(shelf: HomeShelf, onItemClick: (ShelfItem) -> Unit) {
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(shelf.title, shelf.subtitle)
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp),
+            contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(shelf.items) { item ->
@@ -257,15 +253,15 @@ internal fun Shelf(shelf: HomeShelf, onItemClick: (ShelfItem) -> Unit) {
 private fun ShelfCard(item: ShelfItem, onClick: () -> Unit) {
     Column(
         modifier = Modifier
-            .width(166.dp)
+            .width(SHELF_CARD_WIDTH)
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
-            model = item.thumbnailUrl,
+            model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .width(166.dp)
+                .width(SHELF_CARD_WIDTH)
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),

@@ -4,6 +4,7 @@ import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
@@ -15,6 +16,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -27,6 +29,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import java.io.IOException
 import java.security.MessageDigest
 
 /**
@@ -126,7 +129,46 @@ object Innertube {
         // Same OkHttp instance ExoPlayer streams through — see Http.
         engine { preconfigured = com.music.bitchord.data.Http.client }
         install(ContentNegotiation) { json(json) }
+        // Without this the only bound is OkHttp's own read timeout, and the
+        // failure it raises reads as "Socket timeout has expired […]
+        // socket_timeout=unknown" — Ktor reporting a limit it was never told.
+        install(HttpTimeout) {
+            requestTimeoutMillis = 30_000
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 20_000
+        }
         expectSuccess = true
+    }
+
+    /**
+     * Runs [block], giving transport failures another go before letting them
+     * reach the caller.
+     *
+     * A connection reset on mobile data is weather, not information: the
+     * request was fine and asking again generally answers. That matters most
+     * on a shared connection pool, where a socket torn down under one request
+     * — an abandoned search, a network handover — surfaces as
+     * "Software caused connection abort" on whichever request picked that
+     * connection up next, which had nothing to do with it.
+     *
+     * Only transport failures. An HTTP error status is an answer, and
+     * repeating the question won't change it. Cancellation isn't caught at
+     * all: [delay] throws when the coroutine is cancelled, so a search the
+     * user has typed past stops here instead of retrying on behalf of a query
+     * nobody is waiting for.
+     */
+    private suspend fun <T> withRetry(attempts: Int = 3, block: suspend () -> T): T {
+        var backoff = 500L
+        repeat(attempts - 1) {
+            try {
+                return block()
+            } catch (e: IOException) {
+                Log.d(TAG, "retrying: ${e.message}")
+            }
+            delay(backoff)
+            backoff *= 2
+        }
+        return block()
     }
 
     // ---- Public API ---------------------------------------------------------
@@ -316,41 +358,43 @@ object Innertube {
         query: Map<String, String> = emptyMap(),
         bodyExtras: JsonObjectBuilder.() -> Unit,
     ): JsonObject {
-        val response = client.post("$MUSIC_BASE/$endpoint") {
-            contentType(ContentType.Application.Json)
-            parameter("prettyPrint", "false")
-            query.forEach { (key, value) -> parameter(key, value) }
-            header("X-Origin", MUSIC_ORIGIN)
-            header("Origin", MUSIC_ORIGIN)
-            header("Referer", "$MUSIC_ORIGIN/")
-            // Stats pings are only honoured for a session Google recognises as
-            // a real client, so identify as one here too — the visitor id is
-            // minted on the first call and reused for the rest of the session.
-            header("X-YouTube-Client-Name", WEB_REMIX_CLIENT_ID)
-            header("X-YouTube-Client-Version", WEB_REMIX_VERSION)
-            visitorData?.let { header("X-Goog-Visitor-Id", it) }
-            cookie?.let { c ->
-                header("Cookie", c)
-                header("X-Goog-AuthUser", "0")
-                sapisidFrom(c)?.let { header("Authorization", sapisidHash(it)) }
-            }
-            setBody(
-                buildJsonObject {
-                    putJsonObject("context") {
-                        putJsonObject("client") {
-                            put("clientName", "WEB_REMIX")
-                            put("clientVersion", WEB_REMIX_VERSION)
-                            put("hl", "en")
-                            put("gl", "US")
-                            visitorData?.let { put("visitorData", it) }
+        val response = withRetry {
+            client.post("$MUSIC_BASE/$endpoint") {
+                contentType(ContentType.Application.Json)
+                parameter("prettyPrint", "false")
+                query.forEach { (key, value) -> parameter(key, value) }
+                header("X-Origin", MUSIC_ORIGIN)
+                header("Origin", MUSIC_ORIGIN)
+                header("Referer", "$MUSIC_ORIGIN/")
+                // Stats pings are only honoured for a session Google recognises
+                // as a real client, so identify as one here too — the visitor
+                // id is minted on the first call and reused for the session.
+                header("X-YouTube-Client-Name", WEB_REMIX_CLIENT_ID)
+                header("X-YouTube-Client-Version", WEB_REMIX_VERSION)
+                visitorData?.let { header("X-Goog-Visitor-Id", it) }
+                cookie?.let { c ->
+                    header("Cookie", c)
+                    header("X-Goog-AuthUser", "0")
+                    sapisidFrom(c)?.let { header("Authorization", sapisidHash(it)) }
+                }
+                setBody(
+                    buildJsonObject {
+                        putJsonObject("context") {
+                            putJsonObject("client") {
+                                put("clientName", "WEB_REMIX")
+                                put("clientVersion", WEB_REMIX_VERSION)
+                                put("hl", "en")
+                                put("gl", "US")
+                                visitorData?.let { put("visitorData", it) }
+                            }
+                            putJsonObject("user") { put("lockedSafetyMode", false) }
+                            putJsonObject("request") { put("useSsl", true) }
                         }
-                        putJsonObject("user") { put("lockedSafetyMode", false) }
-                        putJsonObject("request") { put("useSsl", true) }
-                    }
-                    bodyExtras()
-                },
-            )
-        }.body<JsonObject>()
+                        bodyExtras()
+                    },
+                )
+            }.body<JsonObject>()
+        }
 
         if (visitorData == null) {
             visitorData = response["responseContext"]?.jsonObject

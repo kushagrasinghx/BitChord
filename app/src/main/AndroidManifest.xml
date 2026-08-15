@@ -10,6 +10,22 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      Package visibility for the Dolby Atmos panel the spatial audio row hands
+      the user to. Without this, API 30+ hides those packages from the launcher
+      lookup and the row would fall back to plain sound settings even on a
+      device that ships the Atmos app.
+    -->
+    <queries>
+        <package android:name="com.dolby.dax2appui" />
+        <package android:name="com.dolby.daxappui" />
+        <package android:name="com.dolby.dolby234" />
+        <package android:name="com.atc.daxappUI" />
+        <intent>
+            <action android:name="android.settings.SOUND_SETTINGS" />
+        </intent>
+    </queries>
+
     <application
         android:name=".BitChordApplication"
         android:allowBackup="true"

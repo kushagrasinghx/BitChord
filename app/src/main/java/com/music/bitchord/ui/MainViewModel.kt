@@ -20,13 +20,19 @@ import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.settings.SearchHistory
+import android.util.LruCache
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -64,6 +70,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Songs is the default tab; there is no "All" tab any more. */
     private val _filter = MutableStateFlow(SearchFilter.SONGS)
     val filter: StateFlow<SearchFilter> = _filter.asStateFlow()
+
+    // The search pipeline's own state. Declared here, above [init], because
+    // that is where the collector is started from and a property declared
+    // below it would still be null when it runs. See [startSearchPipeline].
+
+    /**
+     * Buffered so a keystroke is never lost, and [BufferOverflow.DROP_OLDEST]
+     * so a fast typist's backlog collapses to the query they ended on rather
+     * than being worked through one at a time.
+     */
+    private val searchRequests = MutableSharedFlow<SearchRequest>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    private val newestRequestId = AtomicLong(0L)
+
+    /**
+     * Results of recent searches, so a query typed before is answered without
+     * asking again.
+     *
+     * Its real work is [prefixMatch]: typing "blinding" runs through five
+     * queries on the way, and each one's results are a good enough answer for
+     * the next keystroke to be worth showing while the real one is in flight.
+     * That is the difference between a list that refines as you type and one
+     * that blanks to a spinner on every letter.
+     */
+    private val searchCache = LruCache<String, List<SearchResult>>(SEARCH_CACHE_ENTRIES)
 
     /** Synced lyrics for whatever is playing; null while unknown or absent. */
     private val _lyrics = MutableStateFlow<List<LyricLine>?>(null)
@@ -112,12 +146,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _detailStack = MutableStateFlow<List<DetailPage>>(emptyList())
     val detailStack: StateFlow<List<DetailPage>> = _detailStack.asStateFlow()
 
-    private var searchJob: Job? = null
 
     /** Set once per launch if GitHub has a release newer than this build. */
     val updateAvailable: StateFlow<AppUpdateChecker.UpdateInfo?> = AppUpdateChecker.available
 
     init {
+        startSearchPipeline()
         loadHome()
         loadExplore()
         if (_signedIn.value) {
@@ -270,7 +304,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onQueryChange(value: String) {
         _query.value = value
-        runSearch(debounce = true)
+        runSearch()
     }
 
     /**
@@ -285,7 +319,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun searchFor(term: String) {
         _query.value = term
         SearchHistory.record(term)
-        runSearch(debounce = false)
+        runSearch()
     }
 
     fun removeSearch(term: String) = SearchHistory.remove(term)
@@ -295,26 +329,97 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun onFilterChange(value: SearchFilter) {
         if (_filter.value == value) return
         _filter.value = value
-        runSearch(debounce = false)
+        runSearch()
     }
 
-    private fun runSearch(debounce: Boolean) {
-        val value = _query.value
-        searchJob?.cancel()
-        if (value.isBlank()) {
+    /**
+     * Every keystroke, as a request the pipeline below decides what to do with.
+     *
+     * [requestId] is what makes a late answer harmless: a response is only
+     * written to the screen if its id is still the newest one asked for.
+     */
+    private data class SearchRequest(val query: String, val filter: SearchFilter, val requestId: Long)
+
+    private fun cacheKey(query: String, filter: SearchFilter) = "${filter.name}:$query"
+
+    /**
+     * The results of the longest earlier query this one starts with — what was
+     * on screen a keystroke ago, near enough to leave up meanwhile.
+     */
+    private fun prefixMatch(query: String, filter: SearchFilter): List<SearchResult>? {
+        val prefix = "${filter.name}:"
+        return searchCache.snapshot()
+            .filterKeys { it.startsWith(prefix) && query.startsWith(it.removePrefix(prefix), true) }
+            .maxByOrNull { it.key.length }
+            ?.value
+    }
+
+    private fun runSearch() {
+        val query = _query.value
+        if (query.isBlank()) {
+            // Nothing in flight can still be waiting to overwrite this: the
+            // id it would be checked against has already moved past it.
+            newestRequestId.incrementAndGet()
             _results.value = null
             return
         }
-        _results.value = UiState.Loading
-        searchJob = viewModelScope.launch {
-            if (debounce) delay(350) // debounce keystrokes
-            _results.value = YtMusicRepository.search(value, _filter.value).fold(
-                onSuccess = { rows ->
-                    if (rows.isEmpty()) UiState.Error("No results") else UiState.Success(rows)
-                },
-                onFailure = { UiState.Error(it.friendly()) },
-            )
-        }
+        val id = newestRequestId.incrementAndGet()
+        searchRequests.tryEmit(SearchRequest(query, _filter.value, id))
+    }
+
+    /**
+     * The search pipeline, started once and left running for the lifetime of
+     * the view model.
+     *
+     * The point of it being one long-lived collector is that a keystroke no
+     * longer cancels the request before it. Cancelling a call mid-flight tears
+     * down its socket, and on a pooled HTTP client that is felt by whatever
+     * picks that connection up next — which is how typing a word could end in
+     * "Software caused connection abort" for a request that was never itself
+     * in any trouble. [debounce] collapses a burst of keystrokes into one
+     * query before any request is made, and [collectLatest] only abandons a
+     * search once a genuinely newer one has survived that window.
+     */
+    @OptIn(FlowPreview::class)
+    private fun startSearchPipeline() = viewModelScope.launch {
+        searchRequests
+            .debounce(SEARCH_DEBOUNCE_MS)
+            .collectLatest { request ->
+                val key = cacheKey(request.query, request.filter)
+                // Something to look at immediately: the exact answer if this
+                // query has been run before, otherwise the closest earlier
+                // one. Only fall back to a spinner with neither.
+                val exact = searchCache.get(key)
+                val cached = exact ?: prefixMatch(request.query, request.filter)
+                _results.value = cached?.let { UiState.Success(it) } ?: UiState.Loading
+                if (exact != null) return@collectLatest
+
+                val result = YtMusicRepository.search(request.query, request.filter)
+                // A search the user has already typed past shouldn't land on
+                // screen, whether it succeeded or failed.
+                if (request.requestId != newestRequestId.get()) return@collectLatest
+                _results.value = result.fold(
+                    onSuccess = { rows ->
+                        if (rows.isEmpty()) {
+                            UiState.Error("No results")
+                        } else {
+                            searchCache.put(key, rows)
+                            UiState.Success(rows)
+                        }
+                    },
+                    onFailure = { UiState.Error(it.friendly()) },
+                )
+            }
+    }
+
+    private companion object {
+        /**
+         * Short enough that it reads as instant, long enough that a word typed
+         * at speed is one request rather than one per letter.
+         */
+        const val SEARCH_DEBOUNCE_MS = 80L
+
+        const val SEARCH_CACHE_ENTRIES = 100
     }
 
     fun openDetail(
@@ -341,6 +446,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // own picture and name once they arrive.
             var artwork: String? = null
             var name: String? = null
+            /** Set when the track list carries on past its first response. */
+            var more: String? = null
             val state = if (resolved == BrowseType.ARTIST) {
                 YtMusicRepository.artistPage(browseId).fold(
                     onSuccess = { page ->
@@ -357,11 +464,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 )
             } else {
                 YtMusicRepository.browseSongs(browseId).fold(
-                    onSuccess = { songs ->
-                        if (songs.isEmpty()) {
+                    onSuccess = { page ->
+                        if (page.songs.isEmpty()) {
                             UiState.Error("No tracks here")
                         } else {
-                            UiState.Success(songs.withArtwork(thumbnailUrl))
+                            more = page.continuation
+                            UiState.Success(page.songs.withArtwork(thumbnailUrl))
                         }
                     },
                     onFailure = { UiState.Error(it.friendly()) },
@@ -379,6 +487,48 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 } else {
                     it
                 }
+            }
+            // Only once the first page is on screen: [fillIn] appends to it,
+            // and has nothing to append to before this.
+            more?.let { fillIn(browseId, it, thumbnailUrl) }
+        }
+    }
+
+    /**
+     * Follows a detail page's continuations in the background, appending each
+     * page to what is already being read.
+     *
+     * A playlist of a few hundred tracks is several round trips, and taking
+     * them before showing anything meant a spinner for all of them. Growing
+     * the list underneath the reader is also what makes it safe to keep
+     * following continuations [YtMusicRepository.MAX_PAGES] deep — nobody is
+     * waiting on the last one.
+     *
+     * Stops the moment the page leaves the stack: there is no one to append
+     * for.
+     */
+    private fun fillIn(browseId: String, token: String, artworkFallback: String?) {
+        viewModelScope.launch {
+            var next: String? = token
+            var page = 1
+            while (next != null && page++ < YtMusicRepository.MAX_PAGES) {
+                val fetched = YtMusicRepository.moreSongs(next).getOrNull() ?: return@launch
+                val stack = _detailStack.value
+                val index = stack.indexOfFirst { it.browseId == browseId }
+                if (index < 0) return@launch
+                val current = stack[index]
+                val existing = (current.songs as? UiState.Success)?.data ?: return@launch
+                val known = existing.mapTo(HashSet()) { it.videoId }
+                val added = fetched.songs
+                    .filter { known.add(it.videoId) }
+                    .withArtwork(artworkFallback)
+                // A page with nothing new on it means the feed has looped back
+                // rather than run dry with a token still attached.
+                if (added.isEmpty()) return@launch
+                _detailStack.value = stack.toMutableList().also {
+                    it[index] = current.copy(songs = UiState.Success(existing + added))
+                }
+                next = fetched.continuation
             }
         }
     }

@@ -196,11 +196,15 @@ object InnertubeParser {
         val songs = mutableListOf<Song>()
         var moreSongs: String? = null
         val shelves = mutableListOf<HomeShelf>()
+        val header = response["header"]
+        // "Top songs" rows are billed by the page they sit on: the subtitle
+        // beside them counts plays where a search row names the artist.
+        val credit = Credits(artistName = artistName(header))
 
         sections.forEach { section ->
             section.o("musicShelfRenderer")?.let { shelf ->
                 shelf.a("contents").orEmpty().forEach { row ->
-                    parseResponsiveListItem(row.o("musicResponsiveListItemRenderer"))
+                    parseResponsiveListItem(row.o("musicResponsiveListItemRenderer"), credit)
                         ?.let(songs::add)
                 }
                 if (moreSongs == null) {
@@ -220,11 +224,10 @@ object InnertubeParser {
                 }
             }
         }
-        val header = response["header"]
         return ArtistPage(
             songs, moreSongs, shelves,
             thumbnailUrl = artistThumbnail(header),
-            name = artistName(header),
+            name = credit.artistName,
         )
     }
 
@@ -271,11 +274,13 @@ object InnertubeParser {
      */
     fun collectSongsDeep(root: JsonElement): List<Song> {
         val out = LinkedHashMap<String, Song>()
+        // A release's own rows are credited by its header, not one by one.
+        val pageCredit = pageCredit(root)
         fun walk(node: JsonElement) {
             when (node) {
                 is JsonObject -> {
                     node["musicResponsiveListItemRenderer"]?.let { renderer ->
-                        parseResponsiveListItem(renderer as? JsonObject)
+                        parseResponsiveListItem(renderer as? JsonObject, pageCredit)
                             ?.let { out[it.videoId] = it }
                     }
                     node.values.forEach(::walk)
@@ -325,7 +330,14 @@ object InnertubeParser {
 
     // ---- Renderers ----------------------------------------------------------
 
-    private fun parseResponsiveListItem(renderer: JsonObject?): Song? {
+    /**
+     * One track row. [fallback] is what the page it came from is billed to —
+     * see [pageCredit] — and is used only where the row itself says nothing.
+     */
+    private fun parseResponsiveListItem(
+        renderer: JsonObject?,
+        fallback: Credits = Credits(),
+    ): Song? {
         if (renderer == null) return null
         val videoId = renderer.o("playlistItemData").s("videoId")
             ?: renderer.o("overlay")
@@ -346,9 +358,11 @@ object InnertubeParser {
         // On the "All" tab the first segment is the row type ("Song", "Video"),
         // not the artist — skip those so the subtitle reads like a credit.
         val rowType = parts.firstOrNull { it.lowercase() in TYPE_WORDS }?.lowercase()
+        // A track row on an album lists its play count where a search row
+        // lists the artist, so a segment that reads as a tally is no credit.
         val artist = parts.firstOrNull {
-            !it.matches(DURATION) && it.lowercase() !in TYPE_WORDS
-        } ?: "Unknown artist"
+            !it.matches(DURATION) && it.lowercase() !in TYPE_WORDS && !it.matches(TALLY)
+        }
 
         // The artist/album names in the subtitle carry browse endpoints; pull
         // them out so the long-press menu can open those pages.
@@ -365,13 +379,18 @@ object InnertubeParser {
             videoId = videoId,
             title = title,
             // The run that links to an artist page is the authoritative
-            // credit; the "All" tab often lists only "Song • 4:30" otherwise.
-            artist = credits.artistName?.takeIf { it.isNotBlank() } ?: artist,
+            // credit; the "All" tab often lists only "Song • 4:30" otherwise,
+            // and an album's own rows carry no credit at all — the release is
+            // billed once, in the header the row hangs under.
+            artist = credits.artistName?.takeIf { it.isNotBlank() }
+                ?: artist
+                ?: fallback.artistName
+                ?: "Unknown artist",
             thumbnailUrl = thumbnails.best(),
             durationText = duration,
-            artistId = credits.artistId,
-            albumId = credits.albumId,
-            albumName = credits.albumName,
+            artistId = credits.artistId ?: fallback.artistId,
+            albumId = credits.albumId ?: fallback.albumId,
+            albumName = credits.albumName ?: fallback.albumName,
             // The row type word is the clean signal when present ("All" tab);
             // otherwise a music-video upload gives itself away with widescreen
             // art where a catalogue track has square album cover art.
@@ -403,6 +422,45 @@ object InnertubeParser {
             }
         }
         return credits
+    }
+
+    /**
+     * Who a release page is billed to, off its own header.
+     *
+     * An album or single doesn't repeat the credit on every track — it says
+     * "Single • Dhanda Nyoliwala" once at the top and then lists bare titles,
+     * so every row read on its own comes back as "Unknown artist". The header
+     * is that missing credit, and carries the artist's browse id with it, so
+     * the long-press menu can still open the artist page from those rows.
+     *
+     * Only releases, never playlists: a playlist's header names whoever put
+     * it together, which is not what its tracks are by. Playlist rows carry
+     * their own credits anyway.
+     */
+    private fun pageCredit(root: JsonElement): Credits {
+        val header = HEADER_RENDERERS.firstNotNullOfOrNull {
+            collectRenderers(root, it).firstOrNull()
+        } ?: return Credits()
+        // The current header hangs the artist off a strapline above the title;
+        // the older one packs it into the subtitle, "Album • Artist • 2024".
+        val lines = HEADER_CREDIT_LINES.map { header.o(it).a("runs").orEmpty() }
+        // Split per line, not across them: the strapline and the subtitle are
+        // separate sentences, and running them together would weld the artist
+        // onto the word that says this is a release at all.
+        val parts = lines.flatMap { line ->
+            line.joinToString("") { it.s("text").orEmpty() }.split(" • ").map(String::trim)
+        }
+        if (parts.none { it.lowercase() in RELEASE_WORDS }) return Credits()
+
+        val credits = creditsOf(lines.flatten())
+        if (credits.artistName?.isNotBlank() == true) return credits
+        // An artist YouTube has no page for is named in the same line without
+        // a link to follow, leaving the name as the only thing to go on.
+        val name = parts.firstOrNull {
+            it.isNotBlank() && it.lowercase() !in TYPE_WORDS && !it.matches(TALLY) &&
+                !it.matches(YEAR) && !it.matches(DURATION)
+        }
+        return credits.copy(artistName = name)
     }
 
     /**
@@ -498,6 +556,26 @@ object InnertubeParser {
     }
 
     private val DURATION = Regex("""\d+:\d{2}""")
+    private val YEAR = Regex("""\d{4}""")
+    /**
+     * A counted quantity rather than a name — "12.4M plays", "13 songs",
+     * "1 hour, 4 minutes". Deliberately narrow: it has to leave "21 Savage"
+     * and "50 Cent" alone, so a number only disqualifies a segment when it is
+     * counting one of the words YouTube counts with.
+     */
+    private val TALLY = Regex(
+        """[\d.,]+\s*[KMB]?\s+(plays|views|likes|songs|tracks|subscribers|""" +
+            """hours?|minutes?|seconds?)\b.*""",
+        RegexOption.IGNORE_CASE,
+    )
+    /** Header words that mark a page as a release, whose rows share its credit. */
+    private val RELEASE_WORDS = setOf("album", "single", "ep")
+    private val HEADER_RENDERERS = listOf(
+        "musicResponsiveHeaderRenderer",
+        "musicDetailHeaderRenderer",
+    )
+    /** Header lines that name the artist, in either header shape. */
+    private val HEADER_CREDIT_LINES = listOf("straplineTextOne", "subtitle")
     private val TYPE_WORDS = setOf(
         "song", "video", "album", "single", "ep", "artist",
         "playlist", "podcast", "episode",
@@ -525,13 +603,20 @@ private fun JsonElement?.runs(): String =
     this.a("runs")?.joinToString("") { it.s("text").orEmpty() }.orEmpty()
 
 /**
- * Last thumbnail is the largest. The size hint is normalised rather than
- * trusted — YouTube's largest offer is 544px, but it will serve any size
- * asked for, and [com.music.bitchord.data.model.artworkAt] trades up from
- * here for the full-screen player.
+ * Last thumbnail is the largest, taken exactly as offered.
+ *
+ * This used to rewrite the size hint up to 544px on the way past, on the
+ * reasoning that YouTube will serve any size asked for and bigger is better.
+ * It is, for the one image drawn full-screen — and it is wasteful for every
+ * other, which is most of them: YouTube offers a search row's cover at 120px
+ * for 7.8kB and will happily serve the same cover at 544px for 84kB, to fill
+ * a square the size of a fingertip.
+ *
+ * So the size is now decided where the image is drawn rather than here, by
+ * [com.music.bitchord.data.model.artworkAt] — which trades up just as freely
+ * as it trades down, and is what the player calls.
  */
-private fun JsonArray?.best(): String? =
-    this?.lastOrNull().s("url")?.replace(Regex("""w\d+-h\d+"""), "w544-h544")
+private fun JsonArray?.best(): String? = this?.lastOrNull().s("url")
 
 /**
  * Catalogue art is always square; a music-video upload's thumbnail is

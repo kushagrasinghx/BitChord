@@ -28,7 +28,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,7 +38,31 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.artworkAt
+
+/**
+ * The left and right inset every page's content sits at.
+ *
+ * It is the same inset the mini player and the tab bar float at, so the edge of
+ * a track row, a card or a heading lines up with the edge of the bars stacked
+ * below them rather than stepping in from them. One constant, shared by the
+ * bars and the pages, is what keeps that true.
+ */
+val PAGE_GUTTER = 10.dp
+
+/** Where a divider under a track row starts: clear of the 52dp of artwork. */
+val ROW_DIVIDER_INSET = PAGE_GUTTER + 68.dp
+
+/**
+ * Width of a card in the compact carousels — home shelves, library shelves and
+ * the artist page's releases alike.
+ *
+ * Sized so a phone-width row shows two cards whole with the edge of a third
+ * showing: enough to say the row scrolls without a card being half a card.
+ */
+val SHELF_CARD_WIDTH = 150.dp
 
 /**
  * One track row, used by search, library and detail pages.
@@ -92,7 +115,7 @@ private fun QueueSwipeBackground() {
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
-            .padding(horizontal = 26.dp, vertical = 8.dp),
+            .padding(horizontal = PAGE_GUTTER + 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -131,11 +154,11 @@ private fun SongRowContent(
         modifier = modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
-            model = song.thumbnailUrl,
+            model = song.artworkAt(ROW_ART_PX),
             contentDescription = null,
             modifier = Modifier
                 .size(52.dp)
@@ -217,24 +240,13 @@ fun PullToRefresh(
     }
 }
 
-@Composable
-fun LoadingState(modifier: Modifier = Modifier) {
-    Box(modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(
-            color = MaterialTheme.colorScheme.primary,
-            strokeWidth = 2.5.dp,
-            modifier = Modifier.size(28.dp),
-        )
-    }
-}
-
 /** Slim dismissible-looking prompt shown atop Home while signed out. */
 @Composable
 fun SignInBanner(onSignIn: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .padding(horizontal = PAGE_GUTTER, vertical = 8.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onSignIn)
@@ -270,7 +282,7 @@ fun MessageState(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 48.dp),
+            .padding(horizontal = PAGE_GUTTER + 12.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {

@@ -12,11 +12,13 @@ import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
 
 /** Suspend API over Innertube. Every call returns a Result so the UI can show a real error. */
 object YtMusicRepository {
@@ -226,10 +228,37 @@ object YtMusicRepository {
             ?: error("no watch entry for $videoId")
     }
 
-    /** Tracks of an album/playlist card tapped in the home feed. */
-    suspend fun browseSongs(browseId: String): Result<List<Song>> = call("browse:$browseId") {
-        songsPaged(browseId)
+    /**
+     * One page of a browse feed's tracks, and the token for the page after
+     * it — null once there is nothing more.
+     */
+    data class SongPage(val songs: List<Song>, val continuation: String?)
+
+    /**
+     * The first page of an album/playlist's tracks, and nothing more.
+     *
+     * Deliberately not the whole list. Following every continuation before
+     * returning meant a long playlist spent up to ten round trips showing a
+     * spinner, when every row needed to fill the first screenful was in the
+     * first response. The rest arrives behind a page that is by then already
+     * being read — see [moreSongs].
+     */
+    suspend fun browseSongs(browseId: String): Result<SongPage> = call("browse:$browseId") {
+        pageOf(Innertube.browse(browseId))
     }
+
+    /** The page [SongPage.continuation] points at. */
+    suspend fun moreSongs(token: String): Result<SongPage> = call("browse:more") {
+        pageOf(Innertube.browseContinuation(token))
+    }
+
+    private fun pageOf(response: JsonObject) = SongPage(
+        // One response can name the same track twice — an album page that
+        // also carries a "you might also like" shelf, say. Collecting into a
+        // map used to take care of that; paging by hand means saying so.
+        songs = InnertubeParser.collectSongsDeep(response).distinctBy { it.videoId },
+        continuation = InnertubeParser.continuationToken(response),
+    )
 
     /**
      * Every track behind a browse id, following continuations.
@@ -238,6 +267,10 @@ object YtMusicRepository {
      * a long list otherwise arrives silently truncated. Capped at
      * [MAX_PAGES] so a runaway feed can't hold the UI open forever, and a
      * failed page keeps whatever was already collected.
+     *
+     * Holds its caller until the last page lands, so it belongs behind things
+     * nobody is watching — the library sync, an artist's back catalogue. For
+     * anything a screen is waiting on, use [browseSongs] and [moreSongs].
      */
     private suspend fun songsPaged(browseId: String): List<Song> {
         val out = LinkedHashMap<String, Song>()
@@ -252,7 +285,7 @@ object YtMusicRepository {
         return out.values.toList()
     }
 
-    private const val MAX_PAGES = 10
+    const val MAX_PAGES = 10
 
     /** Liked Music: the `LM` auto-playlist, addressed as a playlist browse id. */
     private const val LIKED_MUSIC = "VLLM"
@@ -283,6 +316,11 @@ object YtMusicRepository {
     private suspend fun <T> call(label: String, block: suspend () -> T): Result<T> =
         withContext(Dispatchers.IO) {
             runCatching { block() }
+                // runCatching catches Throwable, cancellation included, which
+                // would turn "the user typed another letter" into a failed
+                // Result and put the abandoned request's error on screen.
+                // Cancellation isn't this call's to answer for.
+                .onFailure { if (it is CancellationException) throw it }
                 .onSuccess { Log.d(TAG, "$label ok") }
                 .onFailure { Log.w(TAG, "$label failed: ${it.message}") }
         }

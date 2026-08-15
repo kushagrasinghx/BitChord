@@ -64,6 +64,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.screens.SettingsScreen
@@ -82,6 +83,7 @@ import com.music.bitchord.ui.components.BottomTab
 import com.music.bitchord.ui.components.FloatingBottomBar
 import com.music.bitchord.ui.components.FrostedTopBar
 import com.music.bitchord.ui.components.MiniPlayer
+import com.music.bitchord.ui.components.UpdateAvailableDialog
 import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.media3.common.Player
 import com.music.bitchord.data.YtMusicRepository
@@ -135,6 +137,34 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
     val homeLoadingMore by viewModel.homeLoadingMore.collectAsStateWithLifecycle()
+
+    // The top bar's icon is the quiet, always-there nudge; this is the
+    // once-per-launch popup version of the same news. `updateDialogShown`
+    // rides out configuration changes on rememberSaveable so a rotation
+    // doesn't bring it back — only a fresh launch does.
+    //
+    // Held until Home has settled. The GitHub check almost always returns
+    // first, and an alert thrown over a page of skeletons reads as something
+    // having gone wrong rather than as an aside — quite apart from its glass
+    // having nothing worth frosting yet. Error counts as settled: the page has
+    // stopped moving either way, and the news is still worth delivering.
+    var updateDialogShown by rememberSaveable { mutableStateOf(false) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
+
+    /**
+     * The single gate both surfaces read, so the icon can't announce the update
+     * a beat before the popup does — they're one piece of news, and staggering
+     * them made the top bar look like it had caught something the app hadn't.
+     */
+    val updateNotice = updateAvailable?.takeIf { homeState !is UiState.Loading }
+
+    LaunchedEffect(updateNotice) {
+        if (updateNotice != null && !updateDialogShown) {
+            updateDialogShown = true
+            showUpdateDialog = true
+        }
+    }
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
@@ -145,7 +175,6 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val lyricsChecked by viewModel.lyricsChecked.collectAsStateWithLifecycle()
     val searchHistory by viewModel.searchHistory.collectAsStateWithLifecycle()
-    val updateAvailable by viewModel.updateAvailable.collectAsStateWithLifecycle()
     val detailStack by viewModel.detailStack.collectAsStateWithLifecycle()
     val detail = detailStack.lastOrNull()
     // Settings has no tab of its own — it sits on top of whatever tab was
@@ -159,10 +188,17 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
 
     // AutoPlay: once the queue reaches its last track, extend it with YouTube
     // Music's radio mix for that song so playback carries on by itself.
+    //
+    // Repeat-all is left out of the trigger: its whole point is to loop the
+    // queue as it stands, which AutoPlay extending it forever would defeat —
+    // the queue would never actually reach the end repeat-all is meant to
+    // wrap from. See onCycleRepeat, which drops whatever AutoPlay has already
+    // added the moment repeat-all is turned on.
     var autoplaySeed by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(autoplay, player.queueIndex, player.queue.size, player.song?.videoId) {
+    LaunchedEffect(autoplay, player.queueIndex, player.queue.size, player.song?.videoId, player.repeatMode) {
         val current = player.song?.videoId
         if (!autoplay || current == null) return@LaunchedEffect
+        if (player.repeatMode == Player.REPEAT_MODE_ALL) return@LaunchedEffect
         if (player.queueIndex < player.queue.lastIndex) return@LaunchedEffect
         if (autoplaySeed == current) return@LaunchedEffect
         autoplaySeed = current
@@ -359,6 +395,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
         BackHandler(enabled = detail == null && !showSettings && selectedTab != TAB_HOME) {
             selectedTab = TAB_HOME
         }
+        BackHandler(enabled = showUpdateDialog) { showUpdateDialog = false }
 
         AnimatedContent(
             targetState = when {
@@ -556,7 +593,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                 // Only worth surfacing where there's room for it and it won't
                 // be mistaken for a per-page action — Home, at rest.
                 if (!showSettings && detail == null && selectedTab == TAB_HOME) {
-                    updateAvailable?.let { update ->
+                    updateNotice?.let { update ->
                         IconButton(onClick = {
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
                         }) {
@@ -677,11 +714,19 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     onToggleShuffle = { controller?.let(QueueShuffle::toggle) },
                     onCycleRepeat = {
                         controller?.let {
-                            it.repeatMode = when (it.repeatMode) {
+                            val next = when (it.repeatMode) {
                                 Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
                                 Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
                                 else -> Player.REPEAT_MODE_OFF
                             }
+                            // Repeat-all loops the queue as it stands; AutoPlay's
+                            // tracks are the opposite of that — an endless supply
+                            // of new ones — so they come back out first. Native
+                            // REPEAT_MODE_ALL then wraps a plain queue exactly as
+                            // it should, and the LaunchedEffect above leaves it be
+                            // for as long as repeat-all stays on.
+                            if (next == Player.REPEAT_MODE_ALL) it.dropAutoplayTracks()
+                            it.repeatMode = next
                         }
                     },
                     onToggleAutoplay = {
@@ -700,6 +745,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     },
                     onJumpTo = { controller?.seekToDefaultPosition(it) },
                     onRemoveFromQueue = { controller?.removeMediaItem(it) },
+                    onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
                     // The enriched copy, not player.song — otherwise the menu
                     // hides the album and artist rows even once their browse
                     // ids have been resolved.
@@ -812,6 +858,21 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                         },
                     )
                 }
+            }
+        }
+
+        // ---- Update available (once per launch) ----
+        if (showUpdateDialog) {
+            updateNotice?.let { update ->
+                UpdateAvailableDialog(
+                    version = update.version,
+                    hazeState = hazeState,
+                    onDismiss = { showUpdateDialog = false },
+                    onUpdate = {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
+                        showUpdateDialog = false
+                    },
+                )
             }
         }
     }

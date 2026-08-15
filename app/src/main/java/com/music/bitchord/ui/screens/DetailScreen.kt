@@ -46,12 +46,19 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
+import com.music.bitchord.data.model.CARD_ART_PX
+import com.music.bitchord.data.model.HEADER_ART_PX
+import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
-import com.music.bitchord.ui.components.LoadingState
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.components.MessageState
+import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
+import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.detailSkeleton
 
 private const val MAX_ARTIST_SONGS = 20
 private const val SONGS_PER_COLUMN = 4
@@ -85,11 +92,11 @@ fun DetailScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 34.dp),
+                    .padding(horizontal = PAGE_GUTTER + 14.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 AsyncImage(
-                    model = page.thumbnailUrl,
+                    model = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -126,7 +133,7 @@ fun DetailScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                        .padding(horizontal = PAGE_GUTTER, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Button(
@@ -158,7 +165,7 @@ fun DetailScreen(
         }
 
         when (val state = page.songs) {
-            is UiState.Loading -> item { LoadingState() }
+            is UiState.Loading -> detailSkeleton(isArtist)
             is UiState.Error -> item { MessageState(state.message) }
             is UiState.Success -> if (isArtist) {
                 // An artist's full song list would bury the album shelves, so
@@ -169,12 +176,12 @@ fun DetailScreen(
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.padding(
-                            start = 20.dp, end = 20.dp, top = 10.dp, bottom = 8.dp,
+                            start = PAGE_GUTTER, end = PAGE_GUTTER, top = 10.dp, bottom = 8.dp,
                         ),
                     )
                     val top = state.data.take(MAX_ARTIST_SONGS)
                     LazyRow(
-                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(top.chunked(SONGS_PER_COLUMN)) { column ->
@@ -201,7 +208,7 @@ fun DetailScreen(
                     )
                     if (index < state.data.lastIndex) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(start = 88.dp),
+                            modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
                             thickness = 0.5.dp,
                             color = MaterialTheme.colorScheme.outline,
                         )
@@ -217,10 +224,10 @@ fun DetailScreen(
                     text = shelf.title,
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 10.dp),
                 )
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     items(shelf.items) { item ->
@@ -249,7 +256,7 @@ private fun CompactSongRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
-            model = song.thumbnailUrl,
+            model = song.artworkAt(ROW_ART_PX),
             contentDescription = null,
             modifier = Modifier
                 .size(48.dp)
@@ -294,14 +301,14 @@ private fun CompactSongRow(
 private fun SectionCard(item: ShelfItem, onClick: () -> Unit) {
     Column(
         modifier = Modifier
-            .width(150.dp)
+            .width(SHELF_CARD_WIDTH)
             .clickable(onClick = onClick),
     ) {
         AsyncImage(
-            model = item.thumbnailUrl,
+            model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
             contentDescription = null,
             modifier = Modifier
-                .width(150.dp)
+                .width(SHELF_CARD_WIDTH)
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(10.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),

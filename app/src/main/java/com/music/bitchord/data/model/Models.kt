@@ -25,14 +25,42 @@ data class Song(
 /**
  * Artwork at a given pixel size.
  *
- * YouTube serves every size from one URL via a `w<n>-h<n>` hint, and the size
- * it advertises — 544px — is far short of what a full-screen player draws, so
- * the artwork arrives upscaled and soft. Asking for more is free; the source
- * images run to about 1400px. Video thumbnails carry no hint and are returned
- * unchanged.
+ * YouTube serves every size from one URL via a `w<n>-h<n>` hint, so the size
+ * an image is fetched at is the caller's to choose, and worth choosing in both
+ * directions. Up: the size YouTube advertises is far short of what a
+ * full-screen player draws, and the source images run to about 1400px, so
+ * asking for more is free and sharper. Down: a row thumbnail left at the
+ * advertised size costs an order of magnitude more bytes than the square it
+ * fills — 84kB against 7.8kB, measured on the same cover.
+ *
+ * Video thumbnails carry no hint and are returned unchanged.
  */
-fun Song.artworkAt(px: Int): String? =
-    thumbnailUrl?.replace(Regex("""w\d+-h\d+"""), "w$px-h$px")
+fun Song.artworkAt(px: Int): String? = thumbnailUrl.artworkAt(px)
+
+/** As [Song.artworkAt], for artwork that isn't a track's. */
+fun String?.artworkAt(px: Int): String? = this?.replace(SIZE_HINT, "w$px-h$px")
+
+private val SIZE_HINT = Regex("""w\d+-h\d+""")
+
+/**
+ * Artwork for a list row — 52dp at most, so about 140px on a 3x screen.
+ * Rounded up, and one value for every row in the app rather than one per
+ * row height, so they share a cache entry instead of each fetching its own.
+ */
+const val ROW_ART_PX = 160
+
+/** Artwork for a shelf card: 166dp wide, so a little under 450px at 3x. */
+const val CARD_ART_PX = 480
+
+/** Artwork for a page header, drawn near enough full width. */
+const val HEADER_ART_PX = 720
+
+/**
+ * Artwork handed to the media session — the lock screen, the notification,
+ * Android Auto. Generous because those surfaces draw it large and take one
+ * copy: unlike a list row, nothing goes back for a better one later.
+ */
+const val NOTIFICATION_ART_PX = 544
 
 enum class BrowseType { ALBUM, ARTIST, PLAYLIST, OTHER }
 

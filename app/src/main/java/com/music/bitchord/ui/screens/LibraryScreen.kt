@@ -19,10 +19,12 @@ import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
-import com.music.bitchord.ui.components.LoadingState
 import com.music.bitchord.ui.components.MessageState
+import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.PullToRefresh
+import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.librarySkeleton
 
 /**
  * The signed-in library: saved collections as shelves of cards, then the
@@ -63,7 +65,7 @@ fun LibraryScreen(
                     text = "Library",
                     style = MaterialTheme.typography.displayLarge,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
                 )
             }
             if (!signedIn) {
@@ -78,7 +80,7 @@ fun LibraryScreen(
                 return@LazyColumn
             }
             when (state) {
-                is UiState.Loading -> item { LoadingState() }
+                is UiState.Loading -> librarySkeleton()
                 is UiState.Error -> item {
                     MessageState(state.message, actionLabel = "Retry", onAction = onRetry)
                 }
@@ -115,7 +117,7 @@ private fun LazyListScope.songSection(
         )
         if (index < songs.lastIndex) {
             HorizontalDivider(
-                modifier = Modifier.padding(start = 88.dp),
+                modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.outline,
             )

@@ -44,13 +44,17 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
+import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.SearchFilter
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
-import com.music.bitchord.ui.components.LoadingState
 import com.music.bitchord.ui.components.MessageState
+import com.music.bitchord.ui.components.PAGE_GUTTER
+import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.songListSkeleton
 
 @Composable
 fun SearchScreen(
@@ -82,7 +86,7 @@ fun SearchScreen(
                 query = query,
                 onQueryChange = onQueryChange,
                 onSubmit = onSubmit,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
             )
         }
         // The filters only mean something once there is a result set to narrow;
@@ -91,7 +95,7 @@ fun SearchScreen(
         if (results != null) {
             item {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.padding(bottom = 6.dp),
                 ) {
@@ -112,7 +116,7 @@ fun SearchScreen(
             } else {
                 recentSearches(history, onHistoryClick, onHistoryRemove, onHistoryClear)
             }
-            is UiState.Loading -> item { LoadingState() }
+            is UiState.Loading -> songListSkeleton(circular = filter == SearchFilter.ARTISTS)
             is UiState.Error -> item { MessageState(results.message) }
             is UiState.Success -> {
                 // Tapping a track plays the tracks around it, not the browse rows.
@@ -136,7 +140,7 @@ fun SearchScreen(
                     }
                     if (index < results.data.lastIndex) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(start = 88.dp),
+                            modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
                             thickness = 0.5.dp,
                             color = MaterialTheme.colorScheme.outline,
                         )
@@ -162,7 +166,7 @@ private fun LazyListScope.recentSearches(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 10.dp),
+                .padding(horizontal = PAGE_GUTTER, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -197,7 +201,7 @@ private fun RecentSearchRow(term: String, onClick: () -> Unit, onRemove: () -> U
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = 20.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            .padding(start = PAGE_GUTTER, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -238,11 +242,11 @@ private fun BrowseRow(item: BrowseItem, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
-            model = item.thumbnailUrl,
+            model = item.thumbnailUrl.artworkAt(ROW_ART_PX),
             contentDescription = null,
             modifier = Modifier
                 .size(52.dp)

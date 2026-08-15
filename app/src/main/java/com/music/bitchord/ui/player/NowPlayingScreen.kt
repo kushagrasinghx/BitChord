@@ -14,6 +14,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.DragInteraction
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeDown
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -103,6 +105,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.media3.common.Player
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
@@ -118,6 +121,7 @@ import com.music.bitchord.playback.BACK_RESTARTS_AFTER_MS
 import com.music.bitchord.playback.autoplaySectionStart
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Collapsed-header geometry, shared by the layout and its animation. */
@@ -286,6 +290,7 @@ fun NowPlayingScreen(
     onToggleAutoplay: () -> Unit,
     onJumpTo: (Int) -> Unit,
     onRemoveFromQueue: (Int) -> Unit,
+    onMoveInQueue: (Int, Int) -> Unit,
     onClearQueue: () -> Unit,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
@@ -685,6 +690,7 @@ fun NowPlayingScreen(
                             autoplayEnabled = autoplayEnabled,
                             onJumpTo = onJumpTo,
                             onRemove = onRemoveFromQueue,
+                            onMove = onMoveInQueue,
                             onClear = onClearQueue,
                             modifier = Modifier.weight(1f),
                         )
@@ -1386,6 +1392,7 @@ private fun InlineQueue(
     autoplayEnabled: Boolean,
     onJumpTo: (Int) -> Unit,
     onRemove: (Int) -> Unit,
+    onMove: (Int, Int) -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1403,6 +1410,46 @@ private fun InlineQueue(
             listState.scrollToItem(currentIndex + if (currentIndex >= autoplayStart) 1 else 0)
         }
     }
+
+    // Each section reorders on its own — a drag never crosses the line
+    // between what was queued by hand and what AutoPlay picked, same as
+    // [addToQueue] and [playNext] already respect it.
+    //
+    // Both draw straight from the live [queue], never from a snapshot taken
+    // when the drag began: the boundary between the sections moves on its own
+    // as tracks play, so a frozen copy of either one goes stale the moment it
+    // does — AutoPlay's section would keep listing tracks that have long
+    // since played, and the row indices behind `onJumpTo`/`onRemove` would
+    // start pointing at the wrong songs. Each swap is sent to the player as
+    // it happens instead, and the rows animate into place off the live order.
+    val manualRows = queue.subList(0, autoplayStart)
+    val autoplayRows = queue.subList(autoplayStart, queue.size)
+    // A song can be queued twice, so videoId alone isn't always a unique key
+    // — LazyColumn throws on a repeat. Suffixing by how many times that id
+    // has already been seen keeps every key unique while staying stable
+    // across a reorder, which plain videoId+index (the previous key) wasn't:
+    // that changed on every swap and silently broke animateItem's ability to
+    // tell "this row moved" from "this row was replaced".
+    val manualKeys = remember(manualRows) { manualRows.stableQueueKeys() }
+    val autoplayKeys = remember(autoplayRows) { autoplayRows.stableQueueKeys("autoplay/") }
+
+    // The heading is a row of the same LazyColumn, so it shifts every
+    // AutoPlay index below it along by one — hence the offset back to queue
+    // indices, which is what [onMove] and the rest of the callbacks take.
+    val headingShown = autoplayEnabled || autoplayStart < queue.size
+    val headingCount = if (headingShown) 1 else 0
+    val manualDrag = rememberQueueDragState(
+        listState = listState,
+        lazyRange = 0 until autoplayStart,
+        lazyOffset = 0,
+        onMove = onMove,
+    )
+    val autoplayDrag = rememberQueueDragState(
+        listState = listState,
+        lazyRange = (autoplayStart + headingCount) until (autoplayStart + headingCount + autoplayRows.size),
+        lazyOffset = headingCount,
+        onMove = onMove,
+    )
 
     Column(modifier.fillMaxWidth()) {
         Row(
@@ -1439,18 +1486,37 @@ private fun InlineQueue(
         ) {
             // What was asked for: the album, playlist or station the queue was
             // started from, plus anything queued by hand since.
-            itemsIndexed(queue.subList(0, autoplayStart)) { index, song ->
+            itemsIndexed(
+                items = manualRows,
+                key = { index, _ -> manualKeys[index] },
+            ) { index, song ->
+                val key = manualKeys[index]
+                val dragging = manualDrag.draggedKey == key
                 InlineQueueRow(
                     song = song,
                     isCurrent = index == currentIndex,
                     onClick = { onJumpTo(index) },
                     onRemove = { onRemove(index) },
+                    // Everything but the track playing right now. Moving that
+                    // one shifts the very boundary the sections are drawn from,
+                    // which would resize this section mid-gesture.
+                    draggable = index != currentIndex,
+                    dragging = dragging,
+                    onDragStart = { manualDrag.onDragStart(key) },
+                    onDrag = manualDrag::onDrag,
+                    onDragEnd = manualDrag::onDragEnd,
+                    modifier = Modifier
+                        .zIndex(if (dragging) 1f else 0f)
+                        .graphicsLayer { translationY = if (dragging) manualDrag.dragOffset else 0f }
+                        // The dragged row follows the finger, so it is the one
+                        // row that must not also be animating to a slot.
+                        .then(if (dragging) Modifier else Modifier.animateItem()),
                 )
             }
             // Heading first, then what AutoPlay has lined up under it. With
             // nothing lined up yet it closes the queue as a promise instead.
             if (autoplayEnabled || autoplayStart < queue.size) {
-                item {
+                item(key = "autoplay-heading") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1483,16 +1549,129 @@ private fun InlineQueue(
                     }
                 }
             }
-            itemsIndexed(queue.subList(autoplayStart, queue.size)) { index, song ->
+            itemsIndexed(
+                items = autoplayRows,
+                key = { index, _ -> autoplayKeys[index] },
+            ) { index, song ->
                 val at = autoplayStart + index
+                val key = autoplayKeys[index]
+                val dragging = autoplayDrag.draggedKey == key
                 InlineQueueRow(
                     song = song,
                     isCurrent = at == currentIndex,
                     onClick = { onJumpTo(at) },
                     onRemove = { onRemove(at) },
+                    draggable = true,
+                    dragging = dragging,
+                    onDragStart = { autoplayDrag.onDragStart(key) },
+                    onDrag = autoplayDrag::onDrag,
+                    onDragEnd = autoplayDrag::onDragEnd,
+                    modifier = Modifier
+                        .zIndex(if (dragging) 1f else 0f)
+                        .graphicsLayer { translationY = if (dragging) autoplayDrag.dragOffset else 0f }
+                        .then(if (dragging) Modifier else Modifier.animateItem()),
                 )
             }
         }
+    }
+}
+
+/**
+ * A key per row, stable across a reorder and unique even when the same song
+ * appears twice — the Nth time a given videoId is seen gets suffixed with
+ * that count, so two copies of one song each keep their own identity instead
+ * of colliding on the same LazyColumn key.
+ */
+private fun List<Song>.stableQueueKeys(prefix: String = ""): List<String> {
+    val seen = HashMap<String, Int>()
+    return map { song ->
+        val n = seen.getOrDefault(song.videoId, 0)
+        seen[song.videoId] = n + 1
+        if (n == 0) "$prefix${song.videoId}" else "$prefix${song.videoId}#$n"
+    }
+}
+
+/**
+ * Drag-to-reorder for one contiguous section of [InlineQueue]'s LazyColumn —
+ * the user's own queue and AutoPlay's each get their own instance, since a
+ * drag never crosses the boundary between them.
+ *
+ * Each swap goes to the player the moment the dragged row crosses a
+ * neighbour, so the live queue is always what's on screen and the rows the
+ * drag displaces animate to their new slots off it. The dragged row is
+ * tracked by its LazyColumn key rather than by index, because the index under
+ * it changes with every swap; [dragOffset] is corrected by the same distance
+ * the row jumps so it stays put under the finger while its slot moves.
+ *
+ * [lazyRange] is the section's span of LazyColumn indices, and [lazyOffset]
+ * the distance from those to queue indices — the AutoPlay heading is a row
+ * of the list too, so below it the two no longer line up.
+ */
+@Composable
+private fun rememberQueueDragState(
+    listState: LazyListState,
+    lazyRange: IntRange,
+    lazyOffset: Int,
+    onMove: (Int, Int) -> Unit,
+): QueueDragState {
+    val state = remember(listState) { QueueDragState(listState) }
+    state.lazyRange = lazyRange
+    state.lazyOffset = lazyOffset
+    state.onMove = onMove
+    return state
+}
+
+private class QueueDragState(private val listState: LazyListState) {
+    var lazyRange: IntRange = IntRange.EMPTY
+    var lazyOffset: Int = 0
+    var onMove: (Int, Int) -> Unit = { _, _ -> }
+
+    /** LazyColumn key of the row being dragged; null at rest. */
+    var draggedKey by mutableStateOf<Any?>(null)
+        private set
+    var dragOffset by mutableFloatStateOf(0f)
+        private set
+
+    /** Where the last swap put the row, until the list is laid out with it. */
+    private var awaiting: Int? = null
+
+    fun onDragStart(key: Any) {
+        draggedKey = key
+        dragOffset = 0f
+        awaiting = null
+    }
+
+    fun onDrag(deltaY: Float) {
+        val key = draggedKey ?: return
+        dragOffset += deltaY
+        val items = listState.layoutInfo.visibleItemsInfo
+        val dragged = items.find { it.key == key } ?: return
+        // A swap already sent but not yet laid out: deciding the next one off
+        // a position the list has moved on from would send a second move for
+        // a swap that has already happened, and the two would fight.
+        awaiting?.let { if (dragged.index != it) return else awaiting = null }
+        val draggedCenter = dragged.offset + dragged.size / 2f + dragOffset
+        // Only rows of this section are fair targets — the heading and the
+        // other section's rows share the LazyColumn but not this range.
+        val target = items
+            .filter { it.index in lazyRange && it.index != dragged.index }
+            .minByOrNull { abs((it.offset + it.size / 2f) - draggedCenter) }
+            ?: return
+        // Held short of halfway the rows would swap back and forth over a
+        // single pixel of travel; a full half-height of overlap is what makes
+        // one swap per row crossed.
+        if (abs(draggedCenter - (target.offset + target.size / 2f)) > target.size / 2f) return
+        onMove(dragged.index - lazyOffset, target.index - lazyOffset)
+        // The row is about to land where the target was — fold that jump back
+        // into the offset so it doesn't move out from under the finger.
+        dragOffset += (dragged.offset - target.offset)
+        awaiting = target.index
+    }
+
+    fun onDragEnd() {
+        draggedKey = null
+        dragOffset = 0f
+        awaiting = null
     }
 }
 
@@ -1502,15 +1681,47 @@ private fun InlineQueueRow(
     isCurrent: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+    draggable: Boolean = false,
+    dragging: Boolean = false,
+    onDragStart: () -> Unit = {},
+    onDrag: (Float) -> Unit = {},
+    onDragEnd: () -> Unit = {},
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
+            .background(if (dragging) Color.White.copy(alpha = 0.06f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (draggable) {
+            Icon(
+                Icons.Rounded.DragHandle,
+                contentDescription = "Drag to reorder",
+                tint = Color.White.copy(alpha = 0.4f),
+                modifier = Modifier
+                    .size(20.dp)
+                    // DragHandle's glyph sits well inset from the edges of
+                    // its own bounding box — this pulls it back to the row's
+                    // actual left edge instead of leaving a gap in front of it.
+                    .offset(x = (-4).dp)
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { onDragStart() },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragEnd() },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                onDrag(dragAmount.y)
+                            },
+                        )
+                    },
+            )
+            Spacer(Modifier.width(4.dp))
+        }
         AsyncImage(
             model = song.thumbnailUrl,
             contentDescription = null,

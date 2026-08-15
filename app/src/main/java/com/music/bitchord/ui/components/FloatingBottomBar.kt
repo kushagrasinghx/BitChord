@@ -73,7 +73,7 @@ fun FloatingBottomBar(
     Row(
         modifier = modifier
             .navigationBarsPadding()
-            .padding(horizontal = 10.dp)
+            .padding(horizontal = PAGE_GUTTER)
             // Sits close to the gesture bar, Apple-style.
             .padding(bottom = 2.dp)
             .fillMaxWidth()

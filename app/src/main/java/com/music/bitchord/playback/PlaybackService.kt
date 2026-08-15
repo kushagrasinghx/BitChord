@@ -42,6 +42,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -269,7 +270,7 @@ class PlaybackService : MediaSessionService() {
             player?.let { ghost.audioSessionId = it.audioSessionId }
             ghost.skipSilenceEnabled = AppSettings.skipSilence.value
             ghost.setPlaybackSpeed(AppSettings.playbackSpeed.value)
-            ghostSpatialAudioProcessor.enabled = AppSettings.spatialAudio.value
+            ghostSpatialAudioProcessor.enabled = DolbyAtmos.spatialAudioActive
         }
 
     /**
@@ -499,7 +500,7 @@ class PlaybackService : MediaSessionService() {
     private fun applySettings(player: ExoPlayer) {
         player.skipSilenceEnabled = AppSettings.skipSilence.value
         player.setPlaybackSpeed(AppSettings.playbackSpeed.value)
-        spatialAudioProcessor.enabled = AppSettings.spatialAudio.value
+        spatialAudioProcessor.enabled = DolbyAtmos.spatialAudioActive
     }
 
     private fun observeSettings() {
@@ -509,11 +510,19 @@ class PlaybackService : MediaSessionService() {
         scope.launch {
             AppSettings.playbackSpeed.collect { player?.setPlaybackSpeed(it) }
         }
+        // Spatial audio is the user's switch *and* the device's: Atmos going
+        // off in system settings mid-track has to stop the effect, not wait for
+        // the next track or the next launch.
         scope.launch {
-            AppSettings.spatialAudio.collect {
-                spatialAudioProcessor.enabled = it
-                ghostSpatialAudioProcessor.enabled = it
-            }
+            combine(
+                AppSettings.spatialAudio,
+                DolbyAtmos.supported,
+                DolbyAtmos.enabledOnDevice,
+            ) { wanted, supported, atmosOn -> wanted && supported && atmosOn }
+                .collect {
+                    spatialAudioProcessor.enabled = it
+                    ghostSpatialAudioProcessor.enabled = it
+                }
         }
     }
 

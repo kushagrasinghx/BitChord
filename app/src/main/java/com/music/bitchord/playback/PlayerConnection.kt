@@ -17,7 +17,9 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.artworkAt
 import kotlinx.coroutines.delay
 
 /** Snapshot of playback state, driven by the MediaController. */
@@ -182,7 +184,10 @@ fun Song.toMediaItem(): MediaItem = MediaItem.Builder()
         MediaMetadata.Builder()
             .setTitle(title)
             .setArtist(artist)
-            .setArtworkUri(thumbnailUrl?.toUri())
+            // Sized here rather than left as stored: this is what the lock
+            // screen, the notification and Android Auto draw, all of them
+            // large, and none of them go back for a better copy later.
+            .setArtworkUri(artworkAt(NOTIFICATION_ART_PX)?.toUri())
             // System media surfaces (One UI's Now Bar, Android Auto, Assistant)
             // classify a session by its media type; untyped sessions get treated
             // as generic audio and lose the music-specific card.

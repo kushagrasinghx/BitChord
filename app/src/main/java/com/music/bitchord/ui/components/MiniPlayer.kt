@@ -31,7 +31,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -71,7 +73,7 @@ fun MiniPlayer(
     val shape = RoundedCornerShape(BAR_CORNER)
     Box(
         modifier = modifier
-            .padding(horizontal = 10.dp)
+            .padding(horizontal = PAGE_GUTTER)
             .clip(shape)
             .then(
                 if (reduceDynamicBlur) {
@@ -90,7 +92,7 @@ fun MiniPlayer(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(
-                model = song.thumbnailUrl,
+                model = song.artworkAt(ROW_ART_PX),
                 contentDescription = null,
                 modifier = Modifier
                     .size(40.dp)

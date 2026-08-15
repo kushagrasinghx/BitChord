@@ -58,6 +58,10 @@ object AppSettings {
      * a stereo widening + cross-feed effect running inside ExoPlayer's own
      * pipeline. Not true object-based spatial audio — YouTube only ever hands
      * us a stereo stream, so there's no Atmos-style source to render.
+     *
+     * The user's wish, not the final answer: it only takes effect on a device
+     * with Dolby Atmos switched on, and [com.music.bitchord.playback.DolbyAtmos]
+     * clears it back to false the moment that stops being true.
      */
     val spatialAudio = MutableStateFlow(false)
     val playbackSpeed = MutableStateFlow(1.0f)

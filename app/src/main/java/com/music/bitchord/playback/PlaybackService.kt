@@ -33,6 +33,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.innertube.PlaybackTracker
+import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
@@ -94,15 +95,29 @@ class PlaybackService : MediaSessionService() {
                 .apply { setSmallIcon(R.drawable.ic_notification_logo) },
         )
 
+        // No user agent on the factory: the right one depends on which client
+        // minted the URL, so it is set per request below. Setting it here as
+        // well would not override that — OkHttpDataSource *appends* the
+        // factory's agent after the request's, and the fetch would go out
+        // carrying two contradictory User-Agent headers.
         val resolvingFactory = ResolvingDataSource.Factory(
-            OkHttpDataSource.Factory(Http.client)
-                // Match the client identity that minted the URL.
-                .setUserAgent(Http.IOS_USER_AGENT),
+            // Innermost, so it chunks the real googlevideo URL the resolver
+            // below has already substituted in — see [ChunkedDataSource] for
+            // why an open-ended read of one is worth avoiding.
+            ChunkedDataSource.Factory(OkHttpDataSource.Factory(Http.client), STREAM_CHUNK_BYTES),
         ) { dataSpec ->
             val videoId = dataSpec.uri.getQueryParameter("v")
                 ?: return@Factory dataSpec
             val streamUrl = runBlocking { StreamResolver.resolve(videoId) }
-            dataSpec.withUri(Uri.parse(streamUrl))
+            dataSpec.buildUpon()
+                .setUri(Uri.parse(streamUrl))
+                // googlevideo names the client that minted the URL inside the
+                // URL itself, and compares it against the request that comes
+                // back for the bytes. A mismatch is answered with a throttled
+                // trickle or a 403 rather than an error worth the name, so the
+                // fetch is dressed as whatever the URL says it should be.
+                .setHttpRequestHeaders(PlayerClient.forStreamUrl(streamUrl).mediaHeaders())
+                .build()
         }
         // Read-ahead resolves streams through the same chain the player does.
         AudioCache.setUpstream(resolvingFactory)
@@ -413,21 +428,27 @@ class PlaybackService : MediaSessionService() {
      * listener waits for sound:
      *
      *  - **Back buffer.** Media3 keeps nothing behind the playhead, so a seek
-     *    *backwards* always drops the buffer and reloads, while a seek forwards
-     *    lands in samples already held and resumes at once. The reload is the
-     *    expensive half: it restarts at the WebM cue point before the target —
-     *    YouTube spaces those ten seconds apart — and everything from there to
-     *    where the listener actually asked for has to go through the decoder
-     *    and be thrown away, at roughly 130ms of waiting per second skipped.
-     *    That asymmetry is what makes scrubbing back feel broken. Since a whole
-     *    track is only a few megabytes of Opus, keeping all of it behind the
-     *    playhead makes a backward seek exactly what a forward one already is:
-     *    an in-buffer seek, no reload and no discarded decoding at all.
+     *    *backwards* drops the buffer and reloads, while a seek forwards lands
+     *    in samples already held. Half a minute of history closes that gap for
+     *    the seek people actually make — nudging back a few seconds to catch a
+     *    lyric — and it is deliberately no longer than that. The byte ceiling
+     *    above counts *everything* the player holds, history included, so a
+     *    back buffer wide enough to keep a whole track would spend the entire
+     *    read-ahead budget on audio already heard: past the ceiling, loading
+     *    stops, and since every second played moves a second from the front of
+     *    the buffer to the back, the total never falls again and it never
+     *    restarts. Read-ahead collapses and the track stalls every couple of
+     *    seconds for the rest of its length. Seeking further back than this
+     *    window is a disk read anyway, not a network one — [AudioCache] has
+     *    written every byte already played.
      *  - **Thresholds to (re)start playback.** The defaults — 2.5s of audio
      *    before starting, 5s before resuming after a rebuffer — are sized for
      *    streaming video over a network that might stall again. Here the bytes
-     *    are almost always already on disk, so those seconds are spent waiting
-     *    on a buffer that fills instantly and are simply dead air after a seek.
+     *    are usually already on disk, so those seconds are spent waiting on a
+     *    buffer that fills instantly and are simply dead air after a seek.
+     *    Resuming is given more room than starting: a stall means the network
+     *    is genuinely struggling, and coming back with a second of audio in
+     *    hand only buys the next stall.
      */
     private fun farBufferingLoadControl() = DefaultLoadControl.Builder()
         .setBufferDurationsMs(
@@ -563,6 +584,12 @@ class PlaybackService : MediaSessionService() {
         /** How often played-seconds are sampled off the player. */
         const val PROGRESS_SAMPLE_MS = 5_000L
 
+        /**
+         * Size of each range the player fetches. The same figure read-ahead
+         * uses, and for the same reason — see [ChunkedDataSource].
+         */
+        const val STREAM_CHUNK_BYTES = 2L * 1024 * 1024
+
         /** Shortest gap "skip silence" is allowed to touch. */
         const val MIN_SILENCE_US = 1_000_000L
 
@@ -572,13 +599,16 @@ class PlaybackService : MediaSessionService() {
         /** ~6 minutes at 160kbps: a whole track, for all but the longest. */
         const val FAR_BUFFER_BYTES = 8 * 1024 * 1024
 
-        /** Past any song, so a seek back lands in the buffer rather than re-reading. */
-        const val BACK_BUFFER_MS = 15 * 60 * 1000
+        /**
+         * A short nudge backwards, and no more: this shares the byte ceiling
+         * above with the read-ahead it would otherwise starve.
+         */
+        const val BACK_BUFFER_MS = 30 * 1000
 
         /** Enough to cover the decoder's own latency, not seconds of dead air. */
         const val START_PLAYBACK_MS = 500
 
-        /** Same again after a seek or a stall — the bytes are usually on disk. */
-        const val RESUME_PLAYBACK_MS = 1_000
+        /** More room after a stall than at the start — see the load control. */
+        const val RESUME_PLAYBACK_MS = 2_000
     }
 }

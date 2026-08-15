@@ -11,14 +11,18 @@ import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -28,15 +32,15 @@ import java.security.MessageDigest
 /**
  * Minimal Innertube (youtubei) client.
  *
- * Two client identities, for different reasons:
+ * Two kinds of client identity, for different reasons:
  *
  *  - **WEB_REMIX** against music.youtube.com for browse/search/library. It
  *    returns the full YT Music shelf layout and honours the signed-in session.
  *
- *  - **IOS** against www.youtube.com for the `player` endpoint. Google now
- *    answers ANDROID_MUSIC (and ANDROID_VR) with `LOGIN_REQUIRED`, while the
- *    iOS client still returns `OK` with unciphered `url` fields — so no
- *    signature-cipher solving is needed. Verified against the live endpoint.
+ *  - **A device client** for the `player` endpoint, chosen per call. Which
+ *    ones Google answers changes without notice, so [player] takes the
+ *    identity as an argument and [StreamResolver] walks a list of them rather
+ *    than betting the app on any single one. See [PlayerClient].
  *
  * Authenticated requests are signed with Google's SAPISIDHASH scheme derived
  * from the stored cookie; no long-lived token is ever minted or stored.
@@ -49,8 +53,6 @@ object Innertube {
 
     private const val WEB_REMIX_VERSION = "1.20250101.01.00"
     private const val WEB_REMIX_CLIENT_ID = "67"
-    private const val IOS_VERSION = "20.03.02"
-    private val IOS_USER_AGENT = com.music.bitchord.data.Http.IOS_USER_AGENT
 
     private const val TAG = "BitChord"
 
@@ -58,12 +60,65 @@ object Innertube {
     var cookie: String? = null
 
     /**
-     * Google's per-session visitor id, lifted from the first response that
-     * carries one. Stats pings are attributed to it, so it has to be the same
-     * value the browse/player calls used.
+     * Google's per-session visitor id.
+     *
+     * Far more load-bearing than "an id for stats". A `player` request that
+     * carries no visitor id is treated as a client with no session at all, and
+     * Google answers it in one of two ways: the honest one, `LOGIN_REQUIRED` /
+     * "Sign in to confirm you're not a bot", or the quiet one — a perfectly
+     * ordinary-looking response whose stream URLs serve a byte to anything that
+     * asks and then refuse every real read with 403. The second is what
+     * "it loads and then doesn't play" is made of.
+     *
+     * So it is fetched deliberately by [ensureVisitorData] rather than being
+     * hoped for: browse responses carry one only sometimes, and a session that
+     * never happened to see one would silently never play anything.
      */
     @Volatile
     private var visitorData: String? = null
+
+    /**
+     * A visitor id for this session, minting one if there isn't one yet.
+     *
+     * @param refresh discard the current id and take a fresh one — worth doing
+     *   exactly once when a request comes back accusing us of being a bot,
+     *   since an id can be burned while the session around it is fine.
+     */
+    suspend fun ensureVisitorData(refresh: Boolean = false): String? {
+        if (!refresh && visitorData != null) return visitorData
+        runCatching { fetchVisitorData() }
+            .onFailure { Log.w(TAG, "could not mint a visitor id: ${it.message}") }
+            .getOrNull()
+            ?.let { visitorData = it }
+        return visitorData
+    }
+
+    /**
+     * The service worker bootstrap the web player loads before anything else,
+     * which is where a fresh visitor id comes from without needing a page.
+     * It answers with an anti-hijacking prefix and then plain nested arrays,
+     * so the id is found by shape rather than by a path that would rot.
+     */
+    private suspend fun fetchVisitorData(): String? {
+        val body = client.get("https://www.youtube.com/sw.js_data") {
+            header("User-Agent", WEB_USER_AGENT)
+        }.bodyAsText()
+        val payload = Json.parseToJsonElement(body.substringAfter("\n", body.drop(5)))
+        return findVisitorData(payload)
+    }
+
+    private fun findVisitorData(element: JsonElement): String? = when (element) {
+        is JsonArray -> element.firstNotNullOfOrNull { findVisitorData(it) }
+        is JsonPrimitive -> element.contentOrNull?.takeIf { VISITOR_DATA.matches(it) }
+        else -> null
+    }
+
+    /** Protobuf-in-base64; always this shape, and nothing else in there is. */
+    private val VISITOR_DATA = Regex("""Cg[A-Za-z0-9_%-]{40,}""")
+
+    private const val WEB_USER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -117,11 +172,27 @@ object Innertube {
         }
 
     /**
-     * Highest-bitrate audio-only stream for [videoId], or null when the track
-     * is genuinely unplayable (region block, takedown, members-only).
+     * The `player` response for [videoId] as seen by [client] — the audio
+     * formats and whatever it takes to unlock them.
+     *
+     * The single cheapest thing this app does to start a track: one POST,
+     * answered in a few hundred milliseconds, against an endpoint that carries
+     * no HTML and is not rate-shaped the way the watch page is.
+     *
+     * [signatureTimestamp] is required by the clients whose formats come back
+     * ciphered ([PlayerClient.needsSignatureTimestamp]) and ignored by the
+     * rest; it is read out of YouTube's own player JavaScript.
+     *
+     * @throws UnplayableException when the track is refused rather than
+     *   missing — a region block, a takedown, or the client being turned away.
+     *   Callers walk on to the next client on the strength of that distinction.
      */
-    suspend fun playerStreamUrl(videoId: String): String? {
-        val response = postPlayer(videoId)
+    suspend fun player(
+        videoId: String,
+        client: PlayerClient,
+        signatureTimestamp: Int? = null,
+    ): JsonObject {
+        val response = postPlayer(videoId, client, signatureTimestamp)
 
         val status = response["playabilityStatus"]?.jsonObject
             ?.get("status")?.jsonPrimitive?.content
@@ -130,29 +201,31 @@ object Innertube {
                 ?.get("reason")?.jsonPrimitive?.content
             throw UnplayableException(reason ?: status)
         }
-
-        return response["streamingData"]?.jsonObject
-            ?.get("adaptiveFormats")?.jsonArray
-            ?.map { it.jsonObject }
-            ?.filter { format ->
-                format["mimeType"]?.jsonPrimitive?.content?.startsWith("audio/") == true &&
-                    format["url"] != null // skip ciphered entries outright
-            }
-            ?.maxByOrNull { it["bitrate"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L }
-            ?.get("url")?.jsonPrimitive?.content
+        return response
     }
 
-    class UnplayableException(reason: String) :
-        IllegalStateException("Track unavailable: $reason")
+    class UnplayableException(private val reason: String) :
+        IllegalStateException("Track unavailable: $reason") {
+
+        /**
+         * Whether this is Google doubting the client rather than the track
+         * being unavailable. Worth a fresh visitor id and another go; a real
+         * region block or takedown is not.
+         */
+        val looksLikeBotCheck: Boolean
+            get() = reason.contains("bot", ignoreCase = true) ||
+                reason.contains("unusual traffic", ignoreCase = true) ||
+                reason.contains("sign in", ignoreCase = true)
+    }
 
     /** The stats endpoints a player response nominates for one playback. */
     data class PlaybackTracking(val playbackUrl: String, val watchtimeUrl: String?)
 
     /**
      * Player response fetched *with* the session cookie, purely to read back
-     * `playbackTracking` — [playerStreamUrl] deliberately skips auth so it can
-     * use the iOS client and dodge signature ciphering, so it never sees this
-     * block. Null for guests: there's no account history to update.
+     * `playbackTracking` — [player] deliberately skips auth so its device
+     * clients are answered at all, so it never sees this block. Null for
+     * guests: there's no account history to update.
      */
     suspend fun playbackTracking(videoId: String): PlaybackTracking? {
         if (cookie == null) return null
@@ -286,25 +359,52 @@ object Innertube {
         return response
     }
 
-    /** Deliberately unauthenticated: the iOS client is rejected when signed cookies are attached. */
-    private suspend fun postPlayer(videoId: String): JsonObject =
-        client.post("$YT_BASE/player") {
+    /**
+     * Deliberately unauthenticated.
+     *
+     * The app clients this walks through are answered *because* they look like
+     * anonymous devices; attaching the session cookie to one is what gets it
+     * turned away with `LOGIN_REQUIRED`. Nothing about the account is needed to
+     * fetch audio — history is credited separately, by [playbackTracking] and
+     * the stats pings, which do carry the session.
+     */
+    private suspend fun postPlayer(
+        videoId: String,
+        playerClient: PlayerClient,
+        signatureTimestamp: Int?,
+    ): JsonObject =
+        client.post("${playerClient.apiBase()}/player") {
             contentType(ContentType.Application.Json)
             parameter("prettyPrint", "false")
-            header("User-Agent", IOS_USER_AGENT)
-            header("Origin", "https://www.youtube.com")
+            header("User-Agent", playerClient.userAgent)
+            header("X-YouTube-Client-Name", playerClient.clientId)
+            header("X-YouTube-Client-Version", playerClient.clientVersion)
+            playerClient.origin?.let { header("Origin", it) }
+            playerClient.referer?.let { header("Referer", it) }
+            // Shared with browse/search so one session is seen throughout,
+            // rather than a device that mints a new identity per request.
+            visitorData?.let { header("X-Goog-Visitor-Id", it) }
             setBody(
                 buildJsonObject {
                     putJsonObject("context") {
                         putJsonObject("client") {
-                            put("clientName", "IOS")
-                            put("clientVersion", IOS_VERSION)
-                            put("deviceMake", "Apple")
-                            put("deviceModel", "iPhone16,2")
-                            put("osName", "iPhone")
-                            put("osVersion", "18.2.1.22C161")
+                            put("clientName", playerClient.clientName)
+                            put("clientVersion", playerClient.clientVersion)
+                            playerClient.osName?.let { put("osName", it) }
+                            playerClient.osVersion?.let { put("osVersion", it) }
+                            playerClient.deviceMake?.let { put("deviceMake", it) }
+                            playerClient.deviceModel?.let { put("deviceModel", it) }
+                            playerClient.androidSdkVersion?.let { put("androidSdkVersion", it.toInt()) }
                             put("hl", "en")
                             put("gl", "US")
+                            visitorData?.let { put("visitorData", it) }
+                        }
+                    }
+                    if (playerClient.needsSignatureTimestamp && signatureTimestamp != null) {
+                        putJsonObject("playbackContext") {
+                            putJsonObject("contentPlaybackContext") {
+                                put("signatureTimestamp", signatureTimestamp)
+                            }
                         }
                     }
                     put("videoId", videoId)
@@ -313,6 +413,9 @@ object Innertube {
                 },
             )
         }.body<JsonObject>()
+
+    /** Browser-shaped clients are served from the Music host; app clients from YouTube proper. */
+    private fun PlayerClient.apiBase(): String = if (usesMusicHost) MUSIC_BASE else YT_BASE
 
     private fun sapisidFrom(cookieHeader: String): String? =
         cookieHeader.split("; ", ";")

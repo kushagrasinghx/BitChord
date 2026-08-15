@@ -13,9 +13,6 @@ import java.util.concurrent.TimeUnit
  * address family and connection pooling identical for both.
  */
 object Http {
-    const val IOS_USER_AGENT =
-        "com.google.ios.youtube/20.03.02 (iPhone16,2; U; CPU iOS 18_2_1 like Mac OS X;)"
-
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)

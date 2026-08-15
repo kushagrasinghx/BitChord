@@ -548,11 +548,11 @@ class PlaybackService : MediaSessionService() {
      * that command is redirected rather than left to behave differently
      * depending on which back button was pressed.
      *
-     * **Next crossfades.** A skip is a track change like any other, and with
-     * crossfade on it should blend rather than cut — which means it has to go
-     * through [CrossfadeController] instead of straight to the queue. When the
-     * crossfade declines it (switched off, paused, nothing queued behind, a
-     * second impatient press) the skip falls through to the plain behaviour.
+     * **A skip cancels the crossfade.** Blending is for a track running out,
+     * not for one being changed: told to move on, the listener wants the song
+     * they were on to stop, not to keep playing over the one they asked for.
+     * So every skip tells [CrossfadeController] to drop whatever is in flight
+     * and then moves the queue plainly.
      *
      * Command availability is deliberately untouched — mutating it through a
      * [ForwardingPlayer] means intercepting listener callbacks too. The one
@@ -566,14 +566,19 @@ class PlaybackService : MediaSessionService() {
         private val crossfade: CrossfadeController,
     ) : ForwardingPlayer(player) {
 
-        override fun seekToPreviousMediaItem() = wrappedPlayer.seekToPrevious()
+        override fun seekToPreviousMediaItem() {
+            crossfade.onSkipRequested()
+            wrappedPlayer.seekToPrevious()
+        }
 
         override fun seekToNextMediaItem() {
-            if (!crossfade.interceptSkipToNext()) wrappedPlayer.seekToNextMediaItem()
+            crossfade.onSkipRequested()
+            wrappedPlayer.seekToNextMediaItem()
         }
 
         override fun seekToNext() {
-            if (!crossfade.interceptSkipToNext()) wrappedPlayer.seekToNext()
+            crossfade.onSkipRequested()
+            wrappedPlayer.seekToNext()
         }
     }
 

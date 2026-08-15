@@ -103,9 +103,6 @@ class CrossfadeController(
     /** Length of the transition in flight, in ms. Fixed when it begins. */
     private var fadeMs = 0L
 
-    /** Only for auto transitions: hold the lap until the track is really this close to ending. */
-    private var lapWhenRemainingMs = Long.MAX_VALUE
-
     private var lapStartedAt = 0L
     private var bailStartedAt = 0L
     private var armDeadline = 0L
@@ -150,14 +147,6 @@ class CrossfadeController(
     private var autoAdvance = false
 
     fun consumeAutoAdvance(): Boolean = autoAdvance.also { autoAdvance = false }
-
-    /**
-     * Whether a press of "next" is currently being held back waiting for the
-     * ghost. [interceptSkipToNext] tells the session player the skip is in hand,
-     * so if the blend then falls through it still has to happen — otherwise the
-     * button quietly does nothing at all.
-     */
-    private var owedSkip = false
 
     private val listener = object : Player.Listener {
         override fun onPositionDiscontinuity(
@@ -216,36 +205,23 @@ class CrossfadeController(
     // ---- Entry points -------------------------------------------------------
 
     /**
-     * Takes over a skip so it crossfades instead of cutting.
+     * A skip the listener asked for: drop any blend in flight and get out of
+     * the way.
      *
-     * Pressing "next" is how anyone actually tests this setting, and the old
-     * implementation deliberately did nothing on a manual skip — which is most
-     * of why it read as broken. Both Spotify and Apple Music blend a manual
-     * skip, so this does too.
+     * Crossfade is deliberately a property of tracks *running out*, not of
+     * being changed. Blending a manual skip means the song just left behind
+     * stays audible over the one that was asked for, which reads as the app
+     * ignoring the button rather than as a transition — the point of pressing
+     * next is usually to stop hearing the current track.
      *
-     * @return true when the crossfade has the skip in hand and the caller
-     *   should not also move the queue itself.
+     * Called before the skip is carried out, so the tail is already on its way
+     * down as the new track starts. The listener would catch the resulting seek
+     * anyway, but only outside [SELF_MOVE_WINDOW_MS]; a press landing inside
+     * that window would be mistaken for the lap's own move and leave the ghost
+     * running over the new track. Saying so explicitly closes that gap.
      */
-    fun interceptSkipToNext(): Boolean {
-        // A second press during a fade means "get on with it": drop the blend
-        // and let the plain skip through.
-        if (phase != Phase.IDLE) {
-            bail()
-            return false
-        }
-        if (configuredFadeMs() <= 0L) return false
-        if (player.playbackState == Player.STATE_IDLE) return false
-        // Skipping while paused should land on the next track, not start a
-        // fade nobody is listening to.
-        if (!player.playWhenReady) return false
-        if (!player.hasNextMediaItem()) return false
-
-        val duration = player.duration
-        val remaining = if (duration == C.TIME_UNSET) Long.MAX_VALUE else duration - player.currentPosition
-        // Skipping into the last moment of a track has nothing left to fade out.
-        if (remaining < MIN_TAIL_MS) return false
-
-        return begin(fade = fadeFor(duration), manual = true)
+    fun onSkipRequested() {
+        if (phase != Phase.IDLE) bail()
     }
 
     // ---- Ticker -------------------------------------------------------------
@@ -288,24 +264,20 @@ class CrossfadeController(
         // the fade is due rather than started then.
         if (remaining > fade + ARM_LEAD_MS) return
 
-        lapWhenRemainingMs = fade
-        begin(fade, manual = false)
+        begin(fade)
     }
 
     /**
      * Spins the ghost up on the outgoing track and walks it into sync with the
      * session player.
      */
-    private fun begin(fade: Long, manual: Boolean): Boolean {
+    private fun begin(fade: Long): Boolean {
         val outgoing = player.currentMediaItem ?: return false
         val ghost = warmGhost() ?: return false
 
         fadeMs = fade
-        armDeadline = SystemClock.elapsedRealtime() +
-            if (manual) MANUAL_ARM_TIMEOUT_MS else AUTO_ARM_TIMEOUT_MS
+        armDeadline = SystemClock.elapsedRealtime() + ARM_TIMEOUT_MS
         lastSyncAt = 0L
-        owedSkip = manual
-        if (manual) lapWhenRemainingMs = Long.MAX_VALUE
 
         // Taken from the session player rather than from settings: these two
         // change how fast a position advances against the wall clock, and the
@@ -324,8 +296,8 @@ class CrossfadeController(
     }
 
     private fun driveArming() {
-        val ghost = ghost ?: return giveUp()
-        if (!stillWorthFading()) return giveUp()
+        val ghost = ghost ?: return bail()
+        if (!stillWorthFading()) return bail()
 
         val expired = SystemClock.elapsedRealtime() > armDeadline
         val running = ghost.isPlaying
@@ -333,7 +305,7 @@ class CrossfadeController(
         // A ghost that never got going has no tail to hand the track to, and
         // lapping onto silence would be the very hole this class exists to get
         // rid of. Give up instead and let the track change plainly.
-        if (expired && !running) return giveUp()
+        if (expired && !running) return bail()
         val drift = ghost.currentPosition - player.currentPosition
         val aligned = running && abs(drift) <= SYNC_TOLERANCE_MS
 
@@ -349,11 +321,10 @@ class CrossfadeController(
             }
         }
 
-        // Auto transitions wait for the track to actually reach the fade point;
-        // a manual skip is due the moment the ghost can carry the tail.
+        // Wait for the track to actually reach the fade point.
         val duration = player.duration
         val atFadePoint = duration == C.TIME_UNSET ||
-            duration - player.currentPosition <= lapWhenRemainingMs
+            duration - player.currentPosition <= fadeMs
 
         if (!atFadePoint) return
         // Out of time to keep tidying up: a slightly ragged handoff still beats
@@ -362,7 +333,7 @@ class CrossfadeController(
     }
 
     private fun startLap() {
-        if (ghost == null) return giveUp()
+        if (ghost == null) return bail()
         lapStartedAt = SystemClock.elapsedRealtime()
         phase = Phase.LAPPING
     }
@@ -376,12 +347,12 @@ class CrossfadeController(
      * copies to comb against each other audibly.
      */
     private fun driveLap() {
-        val ghost = ghost ?: return giveUp()
+        val ghost = ghost ?: return bail()
         // Pausing in the ninety milliseconds it takes to hand the track over
         // means nothing has been handed over yet: the session player still has
         // the track, so give it back rather than advancing a queue the listener
         // has just stopped.
-        if (!player.playWhenReady) return giveUp()
+        if (!player.playWhenReady) return bail()
 
         val progress = (SystemClock.elapsedRealtime() - lapStartedAt).toFloat() / LAP_MS
 
@@ -397,8 +368,9 @@ class CrossfadeController(
         // new one — and everything hanging off it (queue index, metadata, the
         // notification, the UI) moves to the incoming song right here, while
         // its first note is still fading up.
-        autoAdvance = lapWhenRemainingMs != Long.MAX_VALUE
-        owedSkip = false
+        // Only a track running out ever gets this far, so the queue moving
+        // here is always the crossfade standing in for a track ending.
+        autoAdvance = true
         selfMoveUntil = SystemClock.elapsedRealtime() + SELF_MOVE_WINDOW_MS
         player.seekToNextMediaItem()
         phase = Phase.FADING
@@ -453,30 +425,12 @@ class CrossfadeController(
     // ---- Lifecycle of a transition -----------------------------------------
 
     /**
-     * Abandons the blend but still does what the listener asked for.
-     *
-     * Only for the crossfade deciding against itself — a ghost that won't
-     * start, the setting going off mid-arm. A fade cut short by the listener
-     * seeking or queueing something else goes through [bail] instead, since
-     * they have already moved on and a deferred skip would be one track too
-     * many.
-     */
-    private fun giveUp() {
-        val owed = owedSkip
-        bail()
-        if (!owed) return
-        selfMoveUntil = SystemClock.elapsedRealtime() + SELF_MOVE_WINDOW_MS
-        player.seekToNextMediaItem()
-    }
-
-    /**
      * Abandons whatever is in flight. Safe to call from anywhere, at any phase:
      * the session player is always the one holding the queue, so there is never
      * a half-applied state to put back — only a ghost to fade out and a volume
      * to restore.
      */
     private fun bail() {
-        owedSkip = false
         if (phase == Phase.IDLE || phase == Phase.BAILING) return
         player.volume = 1f
         autoAdvance = false
@@ -492,7 +446,6 @@ class CrossfadeController(
             it.stop()
             it.clearMediaItems()
         }
-        lapWhenRemainingMs = Long.MAX_VALUE
         selfMoveUntil = 0L
         phase = Phase.IDLE
     }
@@ -547,13 +500,7 @@ class CrossfadeController(
         const val MAX_SEEK_LEAD_MS = 500L
 
         /** Longest the lap will wait on a ghost that won't sync. */
-        const val AUTO_ARM_TIMEOUT_MS = 4_000L
-
-        /** Shorter for a skip: past this, the press stops feeling connected to anything. */
-        const val MANUAL_ARM_TIMEOUT_MS = 450L
-
-        /** Below this there is no tail worth handing to the ghost. */
-        const val MIN_TAIL_MS = 750L
+        const val ARM_TIMEOUT_MS = 4_000L
 
         /** How long the lap's own seek stays recognisable as ours. */
         const val SELF_MOVE_WINDOW_MS = 150L

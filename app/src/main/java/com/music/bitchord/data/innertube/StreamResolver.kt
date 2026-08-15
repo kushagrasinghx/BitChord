@@ -5,9 +5,6 @@ import android.util.Log
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
@@ -30,16 +27,10 @@ import java.util.concurrent.ConcurrentHashMap
  * by running YouTube's own player JavaScript — which is what NewPipe's
  * [YoutubeJavaScriptPlayerManager] does (and caches per player version).
  *
- * Strategy, most reliable path first:
- *  1. NewPipe's full extractor, which picks a client that still works, derives
- *     the signature timestamp and solves `n` itself. Tried [NEWPIPE_ATTEMPTS]
- *     times, because its failures are usually transient — a timeout, or the
- *     loader thread being interrupted — rather than a real "can't play this".
- *  2. Only then the hand-rolled Innertube IOS player response. Google has
- *     since tightened that client, and the URLs it mints are frequently
- *     rejected with **HTTP 403**, so it is a last resort and not a peer of the
- *     path above. A 403 from it is recovered by [invalidate] + a re-resolve,
- *     driven from PlaybackService's error handler.
+ * Strategy, cheapest path first:
+ *  1. Innertube IOS player response → direct unciphered URL → deobfuscate `n`.
+ *  2. Fall back to NewPipe's full extractor, which re-derives everything
+ *     itself and survives client-side changes on YouTube's end.
  */
 object StreamResolver {
 
@@ -99,74 +90,25 @@ object StreamResolver {
      * Results are held briefly — see [recent]. Resolving is the slow part of
      * starting a track, and ExoPlayer asks again for every re-open: each seek
      * outside the buffer, and each range the cache fills in.
-     *
-     * Resolution for one videoId is serialised by [locks]. Without it the
-     * player's loader and [com.music.bitchord.playback.AudioCache]'s read-ahead
-     * race to resolve the same track at the same moment, tripling the work —
-     * each extraction is several round trips plus running YouTube's player
-     * JavaScript — and making the timeouts that push us onto the failing
-     * fallback far more likely. The second caller through the gate finds the
-     * first one's result already in [recent] and pays nothing.
      */
     suspend fun resolve(videoId: String): String {
         init
 
-        cached(videoId)?.let { return it }
+        recent[videoId]
+            ?.takeIf { SystemClock.elapsedRealtime() - it.at < URL_TTL_MS }
+            ?.let { return it.url }
 
-        val lock = locks.computeIfAbsent(videoId) { Mutex() }
-        return lock.withLock {
-            // Whoever held the lock has very likely just resolved this.
-            cached(videoId) ?: extract(videoId).also { remember(videoId, it) }
-        }
-    }
-
-    /** The remembered URL for [videoId], if one is still inside its TTL. */
-    private fun cached(videoId: String): String? = recent[videoId]
-        ?.takeIf { SystemClock.elapsedRealtime() - it.at < URL_TTL_MS }
-        ?.url
-
-    /**
-     * Drops the remembered URL for [videoId], so the next [resolve] goes back
-     * out and mints a fresh one.
-     *
-     * Needed because a URL is remembered as soon as it is produced, before
-     * anything has tried to fetch it. When one turns out to be dead — a 403
-     * off the IOS fallback — the entry would otherwise keep being served from
-     * [recent] for the whole TTL, and every retry would fail identically
-     * without a single request leaving the device.
-     */
-    fun invalidate(videoId: String) {
-        recent.remove(videoId)
-    }
-
-    /**
-     * NewPipe first and repeatedly, then the IOS fallback.
-     *
-     * Cancellation is rethrown rather than retried: when ExoPlayer abandons a
-     * load it interrupts the thread this runs on, and there is nothing left to
-     * resolve for.
-     */
-    private suspend fun extract(videoId: String): String {
-        repeat(NEWPIPE_ATTEMPTS) { attempt ->
-            try {
-                return newPipeUrl(videoId).also { Log.d(TAG, "resolved via NewPipe") }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: InterruptedException) {
-                // The interrupt flag is still set; anything further fails
-                // instantly, so stop rather than burn the remaining attempts.
-                Thread.currentThread().interrupt()
-                throw e
-            } catch (e: Exception) {
-                Log.w(
-                    TAG,
-                    "NewPipe resolve failed for $videoId " +
-                        "(attempt ${attempt + 1}/$NEWPIPE_ATTEMPTS): ${e.message}",
-                )
+        val url = runCatching { newPipeUrl(videoId) }
+            .onFailure { Log.w(TAG, "NewPipe resolve failed for $videoId: ${it.message}") }
+            .getOrNull()
+            ?.also { Log.d(TAG, "resolved via NewPipe") }
+            ?: run {
+                Log.d(TAG, "falling back to Innertube IOS client for $videoId")
+                innertubeUrl(videoId)
             }
-        }
-        Log.w(TAG, "falling back to Innertube IOS client for $videoId — expect 403s")
-        return innertubeUrl(videoId)
+
+        remember(videoId, url)
+        return url
     }
 
     /**
@@ -194,23 +136,10 @@ object StreamResolver {
      */
     private val recent = ConcurrentHashMap<String, Resolved>()
 
-    /** One gate per videoId, so concurrent callers resolve it only once. */
-    private val locks = ConcurrentHashMap<String, Mutex>()
-
     private const val URL_TTL_MS = 20 * 60 * 1000L
 
     /** Enough for the queue in hand; this is a latency cache, not a store. */
     private const val MAX_REMEMBERED = 32
-
-    /**
-     * How many times NewPipe is asked before the IOS fallback.
-     *
-     * Its failures in practice are `timeout` and `interrupted` — transient, and
-     * a second ask usually succeeds. Since the fallback is the thing that
-     * returns 403s, spending another few seconds here is strictly better than
-     * reaching it.
-     */
-    private const val NEWPIPE_ATTEMPTS = 3
 
     private fun remember(videoId: String, url: String) {
         if (recent.size >= MAX_REMEMBERED) {
@@ -219,11 +148,6 @@ object StreamResolver {
             if (recent.size >= MAX_REMEMBERED) recent.clear()
         }
         recent[videoId] = Resolved(url, SystemClock.elapsedRealtime())
-        // The gates outlive the entries they guarded, so they are trimmed on
-        // the same schedule rather than growing for the life of the process.
-        if (locks.size > MAX_REMEMBERED) {
-            locks.keys.removeAll { !recent.containsKey(it) && locks[it]?.isLocked != true }
-        }
     }
 
     private suspend fun innertubeUrl(videoId: String): String {

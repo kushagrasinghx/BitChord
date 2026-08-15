@@ -5,18 +5,15 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
-import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DecoderReuseEvaluation
@@ -71,17 +68,20 @@ class PlaybackService : MediaSessionService() {
     private var player: ExoPlayer? = null
     private var crossfade: CrossfadeController? = null
     private val spatialAudioProcessor = SpatialAudioProcessor()
+
+    /**
+     * The crossfade's tail player runs its own audio sink, so it needs its own
+     * instance of the effect — [SpatialAudioProcessor] carries a delay line and
+     * filter state that two sinks cannot share.
+     */
+    private val ghostSpatialAudioProcessor = SpatialAudioProcessor()
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    /** Shared with the crossfade's tail player, so both read the same disk cache. */
+    private var mediaSourceFactory: DefaultMediaSourceFactory? = null
 
     /** Last sampled position of the playing track, in seconds. */
     private var lastPositionSeconds = 0L
-
-    /**
-     * Re-resolve attempts spent on the current item, reset whenever the queue
-     * moves. Bounded so a track whose URL is genuinely unplayable stops rather
-     * than looping between error and retry forever.
-     */
-    private var urlRetries = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -106,12 +106,11 @@ class PlaybackService : MediaSessionService() {
         }
         // Read-ahead resolves streams through the same chain the player does.
         AudioCache.setUpstream(resolvingFactory)
+        mediaSourceFactory = DefaultMediaSourceFactory(AudioCache.playbackFactory(resolvingFactory))
 
         val exoPlayer = ExoPlayer.Builder(this)
-            .setRenderersFactory(silenceSkippingRenderers())
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(AudioCache.playbackFactory(resolvingFactory)),
-            )
+            .setRenderersFactory(silenceSkippingRenderers(spatialAudioProcessor))
+            .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
             .setLoadControl(farBufferingLoadControl())
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -146,50 +145,22 @@ class PlaybackService : MediaSessionService() {
                 saveQueue()
             }
 
-            /**
-             * Recovers the failure this app fails on most: a stream URL that
-             * comes back **403**.
-             *
-             * [StreamResolver] remembers a URL the moment it is minted, before
-             * anything has fetched it, so a dead one would otherwise be served
-             * back out of that cache for its whole TTL — every retry failing
-             * identically without a request leaving the device. Dropping the
-             * entry and preparing again re-resolves from scratch, which is
-             * usually enough because the URL that failed came from the IOS
-             * fallback and the retry tends to land on NewPipe instead.
-             *
-             * Read-ahead is cancelled alongside it: it resolves through the
-             * same cache and would otherwise keep pulling on the dead URL.
-             */
-            override fun onPlayerError(error: PlaybackException) {
-                val videoId = exoPlayer.currentMediaItem?.mediaId
-                Log.w(TAG, "playback error on $videoId: ${error.errorCodeName}", error)
-
-                if (!error.isStaleUrl()) return
-                if (videoId == null) return
-                if (urlRetries >= MAX_URL_RETRIES) {
-                    Log.w(TAG, "giving up on $videoId after $urlRetries re-resolves")
-                    return
-                }
-
-                urlRetries++
-                Log.d(TAG, "re-resolving $videoId (attempt $urlRetries/$MAX_URL_RETRIES)")
-                StreamResolver.invalidate(videoId)
-                AudioCache.cancel()
-                exoPlayer.prepare()
-            }
-
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 // currentPosition already belongs to the new item by now, so
                 // the outgoing track is closed out on the last sampled value.
                 PlaybackTracker.onTrackChanged(lastPositionSeconds)
                 lastPositionSeconds = 0
-                // A new track gets its own budget of re-resolves.
-                urlRetries = 0
                 // "Sleep after this song": the queue moving on by itself is the
                 // moment the track the user meant has finished. REPEAT counts
                 // too, or the timer would never fire with repeat-one on.
-                val ended = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                //
+                // A crossfade arrives as a SEEK, because moving the queue on
+                // early is exactly how it starts the next track while the last
+                // one is still fading. Indistinguishable from a manual skip
+                // from here, so the crossfade says which of the two it was.
+                val crossfaded = crossfade?.consumeAutoAdvance() == true
+                val ended = crossfaded ||
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
                     reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
                 if (ended && SleepTimer.afterTrack.value) {
                     exoPlayer.pause()
@@ -235,13 +206,56 @@ class PlaybackService : MediaSessionService() {
 
         reportProgress(exoPlayer)
 
-        crossfade = CrossfadeController(scope, exoPlayer).also { it.start() }
+        val controller = CrossfadeController(scope, exoPlayer, ::buildGhostPlayer)
+        crossfade = controller
+        controller.start()
 
-        mediaSession = MediaSession.Builder(this, RestartingBackPlayer(exoPlayer))
+        mediaSession = MediaSession.Builder(this, SessionPlayer(exoPlayer, controller))
             .setId(SESSION_ID)
             .setSessionActivity(sessionActivity())
             .build()
     }
+
+    /**
+     * The crossfade's tail player: plays out the last seconds of the track
+     * being left behind while the real player gets on with the next one.
+     *
+     * Deliberately not a second copy of the main player:
+     *
+     *  - **No audio focus.** Focus belongs to the session player, and two
+     *    requests from one app mean the second replaces the first — the ghost
+     *    abandoning focus as it finishes would take the whole app's focus with
+     *    it.
+     *  - **No "becoming noisy" handling, no wake mode, no session.** Unplugging
+     *    headphones pauses the session player, and the ghost dies with the fade
+     *    that owns it; a second component reacting to the same events would
+     *    only ever fight the first.
+     *  - **Same audio session id**, so the system equalizer and any other
+     *    effects attached to the app apply to the tail as well as to the track
+     *    fading up. Without it a crossfade would audibly change EQ halfway.
+     *
+     * It shares the media source factory, so the tail is served from the same
+     * on-disk cache the track was just playing from rather than re-resolving a
+     * stream URL for audio that is already local.
+     */
+    private fun buildGhostPlayer(): ExoPlayer = ExoPlayer.Builder(this)
+        .setRenderersFactory(silenceSkippingRenderers(ghostSpatialAudioProcessor))
+        .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
+        .setLoadControl(farBufferingLoadControl())
+        .setAudioAttributes(
+            AudioAttributes.Builder()
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .build(),
+            /* handleAudioFocus = */ false,
+        )
+        .build()
+        .also { ghost ->
+            player?.let { ghost.audioSessionId = it.audioSessionId }
+            ghost.skipSilenceEnabled = AppSettings.skipSilence.value
+            ghost.setPlaybackSpeed(AppSettings.playbackSpeed.value)
+            ghostSpatialAudioProcessor.enabled = AppSettings.spatialAudio.value
+        }
 
     /**
      * Where a tap on the session lands. Media3 uses this both as the media
@@ -267,23 +281,6 @@ class PlaybackService : MediaSessionService() {
 
     private fun registerCurrentPlay() {
         player?.currentMediaItem?.mediaId?.let(PlaybackTracker::onPlaying)
-    }
-
-    /**
-     * Whether this failure is a spent stream URL rather than an unplayable
-     * track. The HTTP status is carried a few levels down — the renderer wraps
-     * the loader's exception, which wraps the data source's — so the whole
-     * cause chain is walked rather than just the immediate cause.
-     */
-    private fun PlaybackException.isStaleUrl(): Boolean {
-        var cause: Throwable? = this
-        while (cause != null) {
-            if (cause is HttpDataSource.InvalidResponseCodeException) {
-                return cause.responseCode in STALE_URL_CODES
-            }
-            cause = cause.cause
-        }
-        return false
     }
 
     /**
@@ -453,7 +450,7 @@ class PlaybackService : MediaSessionService() {
      * track. Everything else about the chain stays default, so
      * `skipSilenceEnabled` keeps driving it as before.
      */
-    private fun silenceSkippingRenderers() = object : DefaultRenderersFactory(this) {
+    private fun silenceSkippingRenderers(spatial: SpatialAudioProcessor) = object : DefaultRenderersFactory(this) {
         override fun buildAudioSink(
             context: Context,
             enableFloatOutput: Boolean,
@@ -463,7 +460,7 @@ class PlaybackService : MediaSessionService() {
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .setAudioProcessorChain(
                 DefaultAudioSink.DefaultAudioProcessorChain(
-                    arrayOf(spatialAudioProcessor),
+                    arrayOf(spatial),
                     SilenceSkippingAudioProcessor(
                         MIN_SILENCE_US,
                         SilenceSkippingAudioProcessor.DEFAULT_SILENCE_RETENTION_RATIO,
@@ -492,7 +489,10 @@ class PlaybackService : MediaSessionService() {
             AppSettings.playbackSpeed.collect { player?.setPlaybackSpeed(it) }
         }
         scope.launch {
-            AppSettings.spatialAudio.collect { spatialAudioProcessor.enabled = it }
+            AppSettings.spatialAudio.collect {
+                spatialAudioProcessor.enabled = it
+                ghostSpatialAudioProcessor.enabled = it
+            }
         }
     }
 
@@ -514,15 +514,24 @@ class PlaybackService : MediaSessionService() {
     }
 
     /**
-     * Makes the notification, lockscreen and Bluetooth back buttons agree with
-     * the one in the app.
+     * What the MediaSession, and so every control surface, actually talks to.
      *
-     * ExoPlayer already implements restart-then-skip in [Player.seekToPrevious],
-     * gated on `maxSeekToPreviousPosition`. Those external surfaces don't use
-     * it: [DefaultMediaNotificationProvider] binds its previous button to
+     * Two behaviours are grafted onto the player here rather than left to
+     * ExoPlayer's defaults:
+     *
+     * **Back restarts the track.** ExoPlayer already implements
+     * restart-then-skip in [Player.seekToPrevious], gated on
+     * `maxSeekToPreviousPosition`. External surfaces don't use it:
+     * [DefaultMediaNotificationProvider] binds its previous button to
      * `COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM`, which skips unconditionally. So
-     * that command is redirected here rather than left to behave differently
+     * that command is redirected rather than left to behave differently
      * depending on which back button was pressed.
+     *
+     * **Next crossfades.** A skip is a track change like any other, and with
+     * crossfade on it should blend rather than cut — which means it has to go
+     * through [CrossfadeController] instead of straight to the queue. When the
+     * crossfade declines it (switched off, paused, nothing queued behind, a
+     * second impatient press) the skip falls through to the plain behaviour.
      *
      * Command availability is deliberately untouched — mutating it through a
      * [ForwardingPlayer] means intercepting listener callbacks too. The one
@@ -531,29 +540,25 @@ class PlaybackService : MediaSessionService() {
      * stays inert on those surfaces, exactly as it already was. In the app it
      * restarts, since that path asks for `COMMAND_SEEK_TO_PREVIOUS`.
      */
-    private class RestartingBackPlayer(player: Player) : ForwardingPlayer(player) {
+    private class SessionPlayer(
+        player: Player,
+        private val crossfade: CrossfadeController,
+    ) : ForwardingPlayer(player) {
+
         override fun seekToPreviousMediaItem() = wrappedPlayer.seekToPrevious()
+
+        override fun seekToNextMediaItem() {
+            if (!crossfade.interceptSkipToNext()) wrappedPlayer.seekToNextMediaItem()
+        }
+
+        override fun seekToNext() {
+            if (!crossfade.interceptSkipToNext()) wrappedPlayer.seekToNext()
+        }
     }
 
     private companion object {
-        const val TAG = "BitChord"
         const val CHANNEL_ID = "bitchord_playback"
         const val SESSION_ID = "BitChordPlayback"
-
-        /**
-         * Re-resolves allowed per track. Two is enough to get off a bad URL
-         * from the IOS fallback and onto a NewPipe one; more than that and the
-         * track is not playable right now, and retrying is just a spinner.
-         */
-        const val MAX_URL_RETRIES = 2
-
-        /**
-         * Response codes that mean "this URL is spent", not "this track is
-         * gone". googlevideo answers an expired or wrongly-minted stream URL
-         * with 403, and occasionally 401 or 410; all three are worth a fresh
-         * resolve, while a 404 genuinely is not.
-         */
-        val STALE_URL_CODES = setOf(401, 403, 410)
 
         /** How often played-seconds are sampled off the player. */
         const val PROGRESS_SAMPLE_MS = 5_000L

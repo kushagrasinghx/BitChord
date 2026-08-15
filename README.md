@@ -10,7 +10,7 @@ An unofficial YouTube Music client for Android, built with Jetpack Compose. BitC
 
 - **Sign in with your Google account** — an in-app WebView runs the real `accounts.google.com` login (2FA and passkeys work as normal); only the resulting session cookies are captured, never the credential itself.
 - **Search, browse and play** anything available on YouTube Music — songs, albums, artists, playlists.
-- **Gapless playback with crossfade**, adjustable 0–12s, powered by Media3/ExoPlayer.
+- **Gapless playback with true crossfade**, adjustable 0–12s — two overlapping decoders on an equal-power curve, applied to manual skips as well as track ends, powered by Media3/ExoPlayer.
 - **Per-network audio quality** — separate quality ceilings for Wi-Fi and mobile data.
 - **Playback speed control** (0.5×–2.0×) and **skip silence**.
 - **Synced lyrics** via LRCLIB.

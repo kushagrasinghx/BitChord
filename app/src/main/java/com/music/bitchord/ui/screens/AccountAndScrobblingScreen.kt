@@ -55,7 +55,7 @@ fun AccountAndScrobblingScreen(
             .padding(contentPadding),
     ) {
         Text(
-            text = "Account & scrobbling",
+            text = "Account & integrations",
             style = MaterialTheme.typography.displayLarge,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),

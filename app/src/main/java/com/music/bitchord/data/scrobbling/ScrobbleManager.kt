@@ -1,6 +1,6 @@
 package com.music.bitchord.data.scrobbling
 
-import android.util.Log
+import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope

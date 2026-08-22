@@ -2,6 +2,7 @@ package com.music.bitchord.playback
 
 import android.net.Uri
 import android.util.Log
+import com.music.bitchord.data.TrackLog
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
@@ -95,7 +96,7 @@ class ChunkedDataSource(
             // the time this surfaces as a playback error. A cancelled read-ahead
             // arrives here too and means nothing — see [AudioCache.prefetchQueue].
             if (e !is InterruptedIOException) {
-                Log.w(
+                TrackLog.w(
                     TAG,
                     "range $position-${position + length - 1} refused for " +
                         "${spec.uri.getQueryParameter("c")}: ${e.message}",

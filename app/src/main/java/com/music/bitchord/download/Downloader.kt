@@ -1,6 +1,6 @@
 package com.music.bitchord.download
 
-import android.util.Log
+import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver

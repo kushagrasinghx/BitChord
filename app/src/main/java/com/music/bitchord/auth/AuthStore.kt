@@ -2,7 +2,7 @@ package com.music.bitchord.auth
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
+import com.music.bitchord.data.DebugLog as Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 

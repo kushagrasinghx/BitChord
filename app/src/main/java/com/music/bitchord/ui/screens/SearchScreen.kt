@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -26,12 +25,20 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -89,75 +96,66 @@ fun SearchScreen(
     LaunchedEffect(focusTrigger) {
         if (focusTrigger > 0) focusRequester.requestFocus()
     }
-    LazyColumn(
-        state = listState,
-        modifier = modifier.fillMaxSize(),
-        contentPadding = contentPadding,
-    ) {
-        item {
+    Column(modifier = modifier.fillMaxSize()) {
+        // Search field and filter tabs stay fixed at the top, outside the
+        // scrolling list, so they're always reachable rather than scrolling
+        // away with the results or recent searches beneath them.
+        Column(modifier = Modifier.padding(top = contentPadding.calculateTopPadding())) {
             SearchField(
                 query = query,
                 onQueryChange = onQueryChange,
                 onSubmit = onSubmit,
                 focusRequester = focusRequester,
-                modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 8.dp),
+                modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 4.dp),
             )
-        }
-        // The filters only mean something once there is a result set to narrow;
-        // they stay up for an empty or failed search too, or picking a filter
-        // that finds nothing would take away the control needed to leave it.
-        if (results != null) {
-            item {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 6.dp),
-                ) {
-                    items(SearchFilter.entries) { entry ->
-                        FilterPill(
-                            label = entry.label,
-                            selected = entry == filter,
-                            onClick = { onFilterChange(entry) },
-                        )
-                    }
-                }
+            // The filters only mean something once there is a result set to narrow;
+            // they stay up for an empty or failed search too, or picking a filter
+            // that finds nothing would take away the control needed to leave it.
+            if (results != null) {
+                SearchFilterTabs(filter = filter, onFilterChange = onFilterChange)
             }
         }
 
-        when (results) {
-            null -> if (history.isEmpty()) {
-                item { MessageState("Search millions of songs on YouTube Music.") }
-            } else {
-                recentSearches(history, onHistoryClick, onHistoryRemove, onHistoryClear)
-            }
-            is UiState.Loading -> songListSkeleton(circular = filter == SearchFilter.ARTISTS)
-            is UiState.Error -> item { MessageState(results.message) }
-            is UiState.Success -> {
-                // Tapping a track plays the tracks around it, not the browse rows.
-                val tracks = results.data
-                    .filterIsInstance<SearchResult.Track>()
-                    .map { it.song }
-                itemsIndexed(results.data) { index, row ->
-                    when (row) {
-                        is SearchResult.Track -> SongRow(
-                            song = row.song,
-                            onClick = {
-                                onSongClick(tracks, tracks.indexOf(row.song).coerceAtLeast(0))
-                            },
-                            onLongPress = { onSongLongPress(row.song) },
-                            onSwipeToQueue = { onSongSwipe(row.song) },
-                        )
-                        is SearchResult.Browse -> BrowseRow(
-                            item = row.item,
-                            onClick = { onBrowseClick(row.item) },
-                        )
-                    }
-                    if (index < results.data.lastIndex) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
-                            thickness = 0.5.dp,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+        ) {
+            when (results) {
+                null -> if (history.isEmpty()) {
+                    item { MessageState("Search millions of songs on YouTube Music.") }
+                } else {
+                    recentSearches(history, onHistoryClick, onHistoryRemove, onHistoryClear)
+                }
+                is UiState.Loading -> songListSkeleton(circular = filter == SearchFilter.ARTISTS)
+                is UiState.Error -> item { MessageState(results.message) }
+                is UiState.Success -> {
+                    // Tapping a track plays the tracks around it, not the browse rows.
+                    val tracks = results.data
+                        .filterIsInstance<SearchResult.Track>()
+                        .map { it.song }
+                    itemsIndexed(results.data) { index, row ->
+                        when (row) {
+                            is SearchResult.Track -> SongRow(
+                                song = row.song,
+                                onClick = {
+                                    onSongClick(tracks, tracks.indexOf(row.song).coerceAtLeast(0))
+                                },
+                                onLongPress = { onSongLongPress(row.song) },
+                                onSwipeToQueue = { onSongSwipe(row.song) },
+                            )
+                            is SearchResult.Browse -> BrowseRow(
+                                item = row.item,
+                                onClick = { onBrowseClick(row.item) },
+                            )
+                        }
+                        if (index < results.data.lastIndex) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                        }
                     }
                 }
             }
@@ -294,33 +292,51 @@ private fun BrowseRow(item: BrowseItem, onClick: () -> Unit) {
     }
 }
 
-/** Fully rounded pill; Material's FilterChip can't be padded this tightly. */
+/** Same tab-row style as the Local Music Songs/Artists/Albums switcher. */
 @Composable
-private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(percent = 50))
-            .background(
-                if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                },
+private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter) -> Unit) {
+    val selectedIndex = SearchFilter.entries.indexOf(filter)
+    TabRow(
+        selectedTabIndex = selectedIndex,
+        containerColor = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.primary,
+        indicator = { tabPositions ->
+            TabRowDefaults.SecondaryIndicator(
+                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
+                color = MaterialTheme.colorScheme.primary,
             )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
+        },
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium,
-            color = if (selected) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
-        )
+        SearchFilter.entries.forEach { entry ->
+            Tab(
+                selected = entry == filter,
+                onClick = { onFilterChange(entry) },
+                selectedContentColor = MaterialTheme.colorScheme.primary,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(entry.icon, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = entry.label,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
     }
 }
+
+private val SearchFilter.icon
+    get() = when (this) {
+        SearchFilter.SONGS -> Icons.Rounded.MusicNote
+        SearchFilter.ALBUMS -> Icons.Rounded.Album
+        SearchFilter.ARTISTS -> Icons.Rounded.Person
+        SearchFilter.PLAYLISTS -> Icons.Rounded.QueueMusic
+    }
 
 @Composable
 private fun SearchField(

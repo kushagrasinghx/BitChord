@@ -1,6 +1,6 @@
 package com.music.bitchord.data
 
-import android.util.Log
+import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.Account
@@ -16,6 +16,7 @@ import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.SongMenu
 import com.music.bitchord.data.model.UserPlaylist
+import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -141,9 +142,18 @@ object YtMusicRepository {
      * playback, the mini player/notification, and YouTube's own history all
      * see the audio track — never the video upload's title, art or id.
      *
+     * Matched through [TrackMatcher] rather than a bare title compare, for
+     * the same reason [SourceResolver][com.music.bitchord.data.sources.SourceResolver]
+     * does: a query for a niche title can come back with nothing that is
+     * really the recording, and taking the first row regardless was landing
+     * on a same-language, wrong-song hit — a Telugu folk video resolving to
+     * an unrelated devotional track was reported from exactly this path.
+     * [TrackMatcher.best] returning null is a normal answer, not a failure to
+     * work around.
+     *
      * Returns [song] unchanged when it isn't a video, or when nothing better
-     * turns up — playing the video's own audio track beats failing playback
-     * outright, and [song] is what a queue restore or offline retry falls
+     * turns up — playing the video's own audio track beats guessing at a
+     * substitute, and [song] is what a queue restore or offline retry falls
      * back to as well.
      *
      * [search] already drops video rows from its results (see
@@ -152,20 +162,17 @@ object YtMusicRepository {
      */
     suspend fun resolveAudio(song: Song): Song {
         if (!song.isVideo) return song
-        val candidates = search("${song.title} ${song.artist}", SearchFilter.SONGS)
-            .getOrNull()
-            ?.filterIsInstance<SearchResult.Track>()
-            ?.map { it.song }
-            .orEmpty()
-        val normalizedTitle = normalizeTitle(song.title)
-        return candidates.firstOrNull { normalizeTitle(it.title) == normalizedTitle }
-            ?: candidates.firstOrNull()
-            ?: song
+        val target = TrackMatcher.targetOf(song)
+        for (query in TrackMatcher.queries(target)) {
+            val candidates = search(query, SearchFilter.SONGS)
+                .getOrNull()
+                ?.filterIsInstance<SearchResult.Track>()
+                ?.map { it.song }
+                .orEmpty()
+            TrackMatcher.best(candidates, target)?.let { return it }
+        }
+        return song
     }
-
-    /** Strips the "(Official Video)" / "(Lyrical)" noise a title match would trip on. */
-    private fun normalizeTitle(title: String): String =
-        title.lowercase().replace(Regex("""[(\[][^)\]]*[)\]]"""), "").trim()
 
     /** Signed-in profile for the settings header. Null when signed out. */
     suspend fun account(): Result<Account> = call("account") {

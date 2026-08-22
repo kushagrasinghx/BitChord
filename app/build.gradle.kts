@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.io.FileInputStream
 
 plugins {
     id("com.android.application")
@@ -18,6 +19,17 @@ val signing = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
+/**
+ * Module index URL for lossless/HQ audio sourcing.
+ * Set MODULE_INDEX_URL in local.properties to enable it.
+ * If absent, the app builds fine — Settings will show a warning.
+ */
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val moduleIndexUrl: String = localProps.getProperty("MODULE_INDEX_URL", "")
+
 android {
     namespace = "com.music.bitchord"
     compileSdk = 36
@@ -28,10 +40,28 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Lossless/HQ module index URL — empty string if not configured.
+        buildConfigField("String", "MODULE_INDEX_URL", "\"${moduleIndexUrl}\"")
+
+        // Smart Fade's DSP analyzer (native/analyzer). 64-bit only: minSdk 26
+        // already postdates the 64-bit requirement, so a 32-bit slice would
+        // double the native payload for devices that do not exist in the
+        // install base.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     // applicationId can only be overridden per flavor, not per build type, so a
@@ -87,12 +117,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -117,6 +150,9 @@ dependencies {
     implementation("androidx.media3:media3-session:1.5.1")
     implementation("androidx.media3:media3-common:1.5.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.5.1")
+    // Audio is progressive, but Apple serves its motion artwork as HLS — this
+    // is what lets the animated sleeve play it. See CanvasArtworkPlayer.
+    implementation("androidx.media3:media3-exoplayer-hls:1.5.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0")
 
     // ---- Images: Coil 3 + Palette (dominant colors for the mesh gradient) ----
@@ -145,6 +181,15 @@ dependencies {
 
     // ---- Auth/session storage ----
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+
+    // ---- JS module execution: QuickJS VM for Convx-style source plugins ----
+    implementation("io.github.dokar3:quickjs-kt-android:1.0.5")
+
+    // ---- Smart Fade: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
+    // The full android artifact, not onnxruntime-mobile: mobile only loads .ort
+    // files, which would put an offline conversion step between the model and
+    // the app for a saving that does not matter in a self-distributed APK.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

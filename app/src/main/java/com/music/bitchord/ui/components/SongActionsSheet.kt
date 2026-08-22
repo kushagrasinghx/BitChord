@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
@@ -117,6 +118,11 @@ fun SongActionsSheet(
     onRemoveFromPlaylist: (() -> Unit)? = null,
     showSleepTimer: Boolean = false,
     onShare: (() -> Unit)? = null,
+    /**
+     * Copies what the app logged while starting this track. Null everywhere
+     * except the player, where "this track" means something.
+     */
+    onCopyLog: (() -> Unit)? = null,
     /**
      * True while a lookup for this track's album/artist ids is still in
      * flight, so it isn't yet known whether "Open album" and "Open artist"
@@ -217,6 +223,12 @@ fun SongActionsSheet(
                 ActionRow(Icons.Rounded.Share, "Share", accent = palette.accent, onClick = it)
             }
         }
+        // Last, and only from the player: it is about the track playing right
+        // now rather than about the song as a thing in a library, and it is
+        // the one row here nobody reaches for by accident.
+        onCopyLog?.let {
+            ActionRow(Icons.Rounded.BugReport, "Copy Log", accent = palette.accent, onClick = it)
+        }
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -280,7 +292,7 @@ private val SHEET_SHAPE = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
  * and delete what it produced.
  *
  * A row rather than a screen because that is the size of the decision. The
- * files land in the device's own Downloads folder, which already has a manager
+ * files land in the device's own Music folder, which already has a manager
  * — the Files app — and building a second one inside this app would be
  * duplicating it in a worse place. What this app uniquely knows is which *song*
  * a file belongs to, and that is exactly what this row says.

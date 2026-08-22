@@ -11,7 +11,7 @@ An unofficial YouTube Music client for Android, built with Jetpack Compose. BitC
 - **Search, browse and play** anything available on YouTube Music — songs, albums, artists, playlists.
 - **Gapless playback with true crossfade**, adjustable 0–12s — two overlapping decoders on an equal-power curve, applied to manual skips as well as track ends, powered by Media3/ExoPlayer.
 - **Sign in with your Google account** — an in-app WebView runs the real `accounts.google.com` login (2FA and passkeys work as normal); only the resulting session cookies are captured, never the credential itself.
-- **Offline downloads** — save tracks to `Downloads/BitChord` with title/artist/album/cover art embedded directly into the file, so they read correctly in a file manager or another player, not just inside BitChord.
+- **Offline downloads** — save tracks to `Music/BitChord` with title/artist/album/cover art embedded directly into the file, so they read correctly in a file manager or another player, not just inside BitChord.
 - **Local music library** — anything already on the device (or previously downloaded) is scanned in alongside what streams from YouTube Music.
 - **Scrobbling** to **Last.fm** and **ListenBrainz**, with per-service timing/threshold controls.
 - **Per-network audio quality** — separate quality ceilings for Wi-Fi and mobile data.
@@ -99,10 +99,6 @@ Contributions are welcome — bug fixes, features, or cleanup. Open a PR, or ope
 
 Found a bug or have a feature request? [File an issue](../../issues/new) with as much detail as you can (device, Android version, steps to reproduce, logs if you have them).
 
-## Acknowledgments
-
-Special thanks to [Xing1P/PixelMusic](https://github.com/Xing1P/PixelMusic), its developer, and all its contributors for providing valuable code references used in some parts of this project.
-
 ## ⚖️ Disclaimer & Legal Notice
 
 BitChord is an independent, community-driven third-party audio player and client. It is **not** associated with Google LLC, YouTube Music, Deezer, Telegram, or any of their parent companies.
@@ -110,19 +106,27 @@ BitChord is an independent, community-driven third-party audio player and client
 * **No Media Hosting:** BitChord does not host, upload, or store copyrighted music files. It operates strictly as an interface to scan local device storage or stream media directly from public, public-facing, or user-authenticated APIs (such as YouTube Music's InnerTube API).
 * **Fair Use & API Usage:** This software is created solely for personal research, educational, and fair-use purposes. The user is entirely responsible for ensuring their usage aligns with their local copyright laws and YouTube Terms of Service.
 * **No Ad-Blocking Guarantee:** While BitChord focuses on providing a clean listening environment, it does not guarantee permanent bypasses or modifications to commercial third-party platform conditions.
-* **No Commercialization:** BitChord is fully open-source and non-commercial. Selling, distributing, or publishing this application on commercial marketplaces (like the Google Play Store) is strictly prohibited by upstream licensing constraints and fair-use limitations.
+* **Copyleft, Not a Commercialization Ban:** BitChord is free software under the GPLv3 (see below). The license does not let anyone forbid others from selling or redistributing copies — including verbatim copies — but any distribution, commercial or not, must come with the Corresponding Source under the same license.
 
 ## 📄 License
 
-This project is licensed under a **Proprietary License**.
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**.
 
 ```text
-Copyright (c) 2026 Kushagra Singh
+Copyright (C) 2026 Kushagra Singh
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software...
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-Commercial use, including but not limited to the sale, redistribution, or publishing of the Software, is strictly prohibited.
-The right to sell, sublicense, and distribute the Software for profit is reserved exclusively...
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
 ```
 
-To review the full license stipulations, please check the [LICENSE](LICENSE) file.
+To review the full license text, please check the [LICENSE](LICENSE) file.

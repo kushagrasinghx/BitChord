@@ -45,6 +45,7 @@ object LastPlayed {
                     it.fromAutoplay,
                     it.localUri,
                     it.localPath,
+                    it.durationText,
                 )
             },
             index = (index - start).coerceIn(0, window.lastIndex),
@@ -69,6 +70,7 @@ object LastPlayed {
                     it.title,
                     it.artist,
                     it.artwork,
+                    durationText = it.duration,
                     fromAutoplay = it.auto,
                     localUri = it.local,
                     localPath = it.path,
@@ -96,6 +98,21 @@ object LastPlayed {
          */
         val local: String? = null,
         val path: String? = null,
+        /**
+         * How long the track runs, as the row that queued it said.
+         *
+         * Carried across a restart because it is what a cross-source match is
+         * made on — see [TrackMatcher][com.music.bitchord.data.sources.TrackMatcher].
+         * Dropping it did not look like it cost anything: nothing on screen
+         * reads a queue row's duration, since the player takes its own from
+         * the decoder. But every duration-based rule in the matcher degrades
+         * silently to nothing without it, so a track resumed after a restart
+         * was matched on title and artist alone while the same track queued
+         * from a search was matched properly. That is the worst shape a bug
+         * can have — the same song behaving differently depending on how long
+         * ago the app was opened.
+         */
+        val duration: String? = null,
     )
 
     @Serializable

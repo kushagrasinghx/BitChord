@@ -1,6 +1,6 @@
 package com.music.bitchord.data.innertube
 
-import android.util.Log
+import com.music.bitchord.data.DebugLog as Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp

@@ -1,6 +1,7 @@
 package com.music.bitchord.data.innertube
 
 import android.util.Log
+import com.music.bitchord.data.TrackLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -75,7 +76,7 @@ object PlaybackTracker {
         opening = videoId
         scope.launch {
             runCatching { open(videoId) }
-                .onFailure { Log.w(TAG, "history registration failed for $videoId: ${it.message}") }
+                .onFailure { TrackLog.w(TAG, "history registration failed for $videoId: ${it.message}") }
             if (opening == videoId) opening = null
         }
     }
@@ -90,7 +91,7 @@ object PlaybackTracker {
         session = null
         scope.launch {
             runCatching { flush(closing, positionSeconds) }
-                .onFailure { Log.w(TAG, "final watchtime ping failed: ${it.message}") }
+                .onFailure { TrackLog.w(TAG, "final watchtime ping failed: ${it.message}") }
         }
     }
 
@@ -105,21 +106,21 @@ object PlaybackTracker {
         if (positionSeconds - current.reportedSeconds < REPORT_INTERVAL_SECONDS) return
         scope.launch {
             runCatching { flush(current, positionSeconds) }
-                .onFailure { Log.w(TAG, "watchtime ping failed for $videoId: ${it.message}") }
+                .onFailure { TrackLog.w(TAG, "watchtime ping failed for $videoId: ${it.message}") }
         }
     }
 
     private suspend fun open(videoId: String) = lock.withLock {
         val tracking = Innertube.playbackTracking(videoId)
         if (tracking == null) {
-            Log.d(TAG, "no playback tracking for $videoId (guest, or player call failed)")
+            TrackLog.d(TAG, "no playback tracking for $videoId (guest, or player call failed)")
             return@withLock
         }
         val fresh = Session(videoId, Innertube.newCpn(), tracking)
         val status = Innertube.pingPlayback(tracking.playbackUrl, fresh.cpn)
         session = fresh
         _registeredPlays.value++
-        Log.d(TAG, "history entry created for $videoId (HTTP $status)")
+        TrackLog.d(TAG, "history entry created for $videoId (HTTP $status)")
     }
 
     private suspend fun flush(target: Session, positionSeconds: Long) = lock.withLock {
@@ -127,6 +128,6 @@ object PlaybackTracker {
         if (positionSeconds <= target.reportedSeconds) return@withLock
         val status = Innertube.pingWatchtime(url, target.cpn, positionSeconds)
         target.reportedSeconds = positionSeconds
-        Log.d(TAG, "watchtime ${positionSeconds}s reported for ${target.videoId} (HTTP $status)")
+        TrackLog.d(TAG, "watchtime ${positionSeconds}s reported for ${target.videoId} (HTTP $status)")
     }
 }

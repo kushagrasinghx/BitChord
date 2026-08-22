@@ -2,6 +2,7 @@ package com.music.bitchord.data.innertube
 
 import android.os.SystemClock
 import android.util.Log
+import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
@@ -187,7 +188,7 @@ object StreamResolver {
                 // down produces no line at all, so an extraction killed by a
                 // single hung call looks like an extraction that was slow for
                 // no reason. Named here, then rethrown unchanged.
-                Log.w(
+                TrackLog.w(
                     TAG,
                     "extractor fetch FAILED after ${SystemClock.elapsedRealtime() - requestStart}ms " +
                         "${request.httpMethod()} ${request.url()}: ${e.javaClass.simpleName}: ${e.message}",
@@ -196,9 +197,9 @@ object StreamResolver {
             }
             val took = SystemClock.elapsedRealtime() - requestStart
             if (took > SLOW_FETCH_MS) {
-                Log.w(TAG, "extractor fetch ${took}ms ${request.httpMethod()} ${request.url()}")
+                TrackLog.w(TAG, "extractor fetch ${took}ms ${request.httpMethod()} ${request.url()}")
             } else {
-                Log.d(TAG, "extractor fetch ${took}ms ${request.httpMethod()} ${request.url()}")
+                TrackLog.d(TAG, "extractor fetch ${took}ms ${request.httpMethod()} ${request.url()}")
             }
             if (response.code == 429) {
                 response.close()
@@ -355,7 +356,7 @@ object StreamResolver {
             timed("$videoId playerStream") { playerStream(videoId, ::pickForPlayback) }
                 ?: timed("$videoId authenticatedWebRemixStream") { authenticatedWebRemixStream(videoId, ::pickForPlayback) }
                 ?: run {
-                    Log.w(TAG, "every player client failed for $videoId; falling back to extraction")
+                    TrackLog.w(TAG, "every player client failed for $videoId; falling back to extraction")
                     timed("$videoId newPipeStream") { newPipeStream(videoId, ::pickForQuality) }
                 }
         } catch (e: CancellationException) {
@@ -369,7 +370,7 @@ object StreamResolver {
             // is the point: the failure is usually several frames inside
             // NewPipe, where the message alone ("null", commonly) identifies
             // nothing.
-            Log.w(
+            TrackLog.w(
                 TAG,
                 "resolve failed for $videoId after ${SystemClock.elapsedRealtime() - resolveStart}ms: " +
                     "${e.javaClass.name}: ${e.message}",
@@ -377,14 +378,14 @@ object StreamResolver {
             )
             throw e
         }
-        Log.d(TAG, "TIMING $videoId total resolve: ${SystemClock.elapsedRealtime() - resolveStart}ms")
+        TrackLog.d(TAG, "TIMING $videoId total resolve: ${SystemClock.elapsedRealtime() - resolveStart}ms")
         return stream
     }
 
     /** Logs how long [block] took, whatever it returns — a timing probe, not a control flow change. */
     private suspend inline fun <T> timed(label: String, block: suspend () -> T): T {
         val start = SystemClock.elapsedRealtime()
-        return block().also { Log.d(TAG, "TIMING $label: ${SystemClock.elapsedRealtime() - start}ms") }
+        return block().also { TrackLog.d(TAG, "TIMING $label: ${SystemClock.elapsedRealtime() - start}ms") }
     }
 
     /**
@@ -432,12 +433,12 @@ object StreamResolver {
                 streamUrl(videoId, format)?.let { patchClientVersion(it, PlayerClient.WEB_REMIX.clientVersion) }
             } ?: return null
             if (timed("$videoId WEB_REMIX probe") { probe(url) } != Probe.OK) return null
-            Log.d(TAG, "resolved $videoId via authenticated WEB_REMIX @ ${format.kbps}kbps")
+            TrackLog.d(TAG, "resolved $videoId via authenticated WEB_REMIX @ ${format.kbps}kbps")
             Stream(url, format.kbps, format.mimeType)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.d(TAG, "authenticated WEB_REMIX failed for $videoId: ${e.message}")
+            TrackLog.d(TAG, "authenticated WEB_REMIX failed for $videoId: ${e.message}")
             null
         }
     }
@@ -541,7 +542,7 @@ object StreamResolver {
         // way out of. Asking for Opus specifically, because this is still a
         // download: the failsafe is a different route to the bytes, not a
         // licence to take a worse format.
-        Log.w(TAG, "no client minted a usable Opus URL for $videoId; extracting")
+        TrackLog.w(TAG, "no client minted a usable Opus URL for $videoId; extracting")
         runCatching {
             newPipeStream(videoId) { candidates ->
                 candidates.filter { it.second.isOpus }
@@ -549,13 +550,13 @@ object StreamResolver {
                     ?.also { offered = true }
             }
         }.onSuccess { return it }
-            .onFailure { Log.w(TAG, "extraction found no Opus for $videoId: ${it.message}") }
+            .onFailure { TrackLog.w(TAG, "extraction found no Opus for $videoId: ${it.message}") }
 
         if (offered) {
             error("Opus wasn't available for this track just now — try again")
         }
 
-        Log.w(TAG, "nothing offered Opus for $videoId; taking the best available")
+        TrackLog.w(TAG, "nothing offered Opus for $videoId; taking the best available")
         return playerStream(videoId, ::pickBest)
             ?: newPipeStream(videoId) { candidates ->
                 // Reached only when no client answered at all, so this is
@@ -603,7 +604,7 @@ object StreamResolver {
                 if (client.needsSignatureTimestamp && timestamp == null) {
                     timestamp = timed("$videoId getSignatureTimestamp") {
                         runCatching { jsPlayerManager { YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId) } }
-                            .onFailure { Log.w(TAG, "no signature timestamp: ${it.message}") }
+                            .onFailure { TrackLog.w(TAG, "no signature timestamp: ${it.message}") }
                             .getOrNull()
                     } ?: continue
                 }
@@ -616,7 +617,7 @@ object StreamResolver {
                     // one fresh id and one more try, once per resolve.
                     if (!e.looksLikeBotCheck || mintedFreshVisitor) throw e
                     mintedFreshVisitor = true
-                    Log.d(TAG, "bot check from ${client.clientName}; minting a fresh visitor id")
+                    TrackLog.d(TAG, "bot check from ${client.clientName}; minting a fresh visitor id")
                     timed("$videoId ensureVisitorData(refresh)") { Innertube.ensureVisitorData(refresh = true) }
                     timed("$videoId ${client.clientName} player() retry") { Innertube.player(videoId, client, timestamp) }
                 }
@@ -628,10 +629,10 @@ object StreamResolver {
                 } ?: continue
 
                 val verdict = timed("$videoId ${client.clientName} probe") { probe(url) }
-                Log.d(TAG, "TIMING $videoId ${client.clientName} total: ${SystemClock.elapsedRealtime() - clientStart}ms")
+                TrackLog.d(TAG, "TIMING $videoId ${client.clientName} total: ${SystemClock.elapsedRealtime() - clientStart}ms")
                 when (verdict) {
                     Probe.OK -> {
-                        Log.d(TAG, "resolved $videoId via ${client.clientName} @ ${format.kbps}kbps")
+                        TrackLog.d(TAG, "resolved $videoId via ${client.clientName} @ ${format.kbps}kbps")
                         preferred = client
                         return Stream(url, format.kbps, format.mimeType)
                     }
@@ -644,7 +645,7 @@ object StreamResolver {
                 // client can mint a good URL for one itag and a dead one for
                 // another, so without the format this line cannot tell a track
                 // being refused from a codec being refused.
-                Log.w(
+                TrackLog.w(
                     TAG,
                     "${client.clientName} minted an unusable URL for $videoId: " +
                         "$verdict for ${format.mimeType} @ ${format.kbps}kbps",
@@ -672,7 +673,7 @@ object StreamResolver {
                 if (e is Innertube.UnplayableException && e.looksLikeBotCheck) {
                     standDownEverywhere(client)
                 }
-                Log.w(TAG, "${client.clientName} failed for $videoId: ${e.message}")
+                TrackLog.w(TAG, "${client.clientName} failed for $videoId: ${e.message}")
             }
         }
         return null
@@ -788,7 +789,7 @@ object StreamResolver {
         val solved = runCatching {
             jsPlayerManager { YoutubeJavaScriptPlayerManager.deobfuscateSignature(videoId, signature) }
         }.getOrElse {
-            Log.w(TAG, "signature cipher failed: ${it.message}")
+            TrackLog.w(TAG, "signature cipher failed: ${it.message}")
             return null
         }
         val separator = if ("?" in base) "&" else "?"
@@ -806,7 +807,7 @@ object StreamResolver {
         return runCatching {
             jsPlayerManager { YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(videoId, url) }
         }.getOrElse {
-            Log.w(TAG, "n-param deobfuscation failed: ${it.message}")
+            TrackLog.w(TAG, "n-param deobfuscation failed: ${it.message}")
             url
         }
     }
@@ -921,7 +922,7 @@ object StreamResolver {
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "probe failed: ${e.message}")
+            TrackLog.w(TAG, "probe failed: ${e.message}")
             Probe.UNREACHABLE
         }
     }
@@ -1002,7 +1003,7 @@ object StreamResolver {
     private fun standDownEverywhere(client: PlayerClient) {
         val k = key(client)
         if (!isStoodDown(k)) {
-            Log.d(TAG, "${client.clientName} is refusing this session; standing it down app-wide")
+            TrackLog.d(TAG, "${client.clientName} is refusing this session; standing it down app-wide")
         }
         standDownUntil[k] = SystemClock.elapsedRealtime() + STAND_DOWN_MS
         // The walk starts from whichever client last worked; a client that is
@@ -1044,7 +1045,7 @@ object StreamResolver {
         // is what breaks the loop, and it must still happen if the URL has
         // already aged out of the cache.
         if (preferred == client) {
-            Log.w(TAG, "${client.clientName} refused a URL it had already served; standing it down")
+            TrackLog.w(TAG, "${client.clientName} refused a URL it had already served; standing it down")
             preferred = null
         }
     }
@@ -1088,7 +1089,7 @@ object StreamResolver {
                 // failure here is a shaped or cut-off watch page, which is a
                 // fact about this minute rather than about the track, and this
                 // is the last thing standing between the listener and silence.
-                Log.w(
+                TrackLog.w(
                     TAG,
                     "extraction attempt ${attempt + 1} of $EXTRACTION_ATTEMPTS failed for $videoId: ${e.message}",
                 )
@@ -1145,7 +1146,7 @@ object StreamResolver {
                 }
             val stream = select(candidates.map { it.averageBitrate to it })
                 ?: error("Track unavailable: no audio streams")
-            Log.d(
+            TrackLog.d(
                 TAG,
                 "NewPipe picked ${stream.format?.name} @ ${stream.averageBitrate}kbps " +
                     "(extraction held the gate ${SystemClock.elapsedRealtime() - waited}ms)",

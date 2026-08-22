@@ -18,6 +18,7 @@ import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.download.Downloads
 
 class BitChordApplication : Application(), SingletonImageLoader.Factory {
@@ -33,6 +34,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // After AppSettings: a device with Atmos switched off retires the
         // spatial audio preference on the spot, and that needs prefs open.
         DolbyAtmos.init(this)
+        // Before LastPlayed: a restored queue can contain source-backed tracks,
+        // and turning one of those back into a playable item needs the registry
+        // that knows which source it belongs to.
+        SourceRegistry.init(this)
         SearchHistory.init(this)
         LastPlayed.init(this)
         // What's already saved to Downloads, so the song menu can say so
@@ -41,6 +46,18 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // One cache directory can only be opened once per process, and
         // PlaybackService shares this one — so it's opened here, not there.
         AudioCache.init(this)
+        // A sideloaded update is just a new APK over the old one, so app data —
+        // including whatever the old build left in these caches — survives it
+        // untouched. Wipe both on the first launch of a higher versionCode so a
+        // format or key change between builds can't serve stale or mismatched
+        // bytes from a cache the new code didn't write.
+        if (AppSettings.consumeVersionUpdate(BuildConfig.VERSION_CODE)) {
+            AudioCache.clear()
+            SingletonImageLoader.get(this).let { loader ->
+                loader.memoryCache?.clear()
+                loader.diskCache?.clear()
+            }
+        }
         // Initialize LastFM with saved settings if available
         initLastfm()
     }

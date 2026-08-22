@@ -7,8 +7,10 @@ import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.YtMusicRepository
-import com.music.bitchord.data.lyrics.LrcLib
 import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsRepository
+import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.innertube.StreamResolver
@@ -29,6 +31,9 @@ import com.music.bitchord.data.settings.SearchHistory
 import android.util.LruCache
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +46,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.sources.SourceRegistry
 import java.util.concurrent.atomic.AtomicLong
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -112,6 +119,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _lyrics = MutableStateFlow<List<LyricLine>?>(null)
     val lyrics: StateFlow<List<LyricLine>?> = _lyrics.asStateFlow()
 
+    /** Which of the four databases [lyrics] came from, for the panel's credit. */
+    private val _lyricsSource = MutableStateFlow<LyricsSource?>(null)
+    val lyricsSource: StateFlow<LyricsSource?> = _lyricsSource.asStateFlow()
+
     /**
      * Whether the lookup for the current track has finished. [lyrics] alone
      * can't tell "still looking" apart from "looked, found nothing" — both
@@ -122,22 +133,52 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val lyricsChecked: StateFlow<Boolean> = _lyricsChecked.asStateFlow()
 
     private var lyricsJob: Job? = null
-    private var lyricsFor: String? = null
+
+    /**
+     * What the loaded lyrics are for. Both the track *and* the settings that
+     * chose them, so switching a source on or off re-runs the lookup rather
+     * than leaving the last answer sitting on a player that would now find a
+     * different one.
+     */
+    private var lyricsFor: Pair<String, Set<LyricsSource>>? = null
 
     /** Called as the playing track changes; cheap no-op when already loaded. */
-    fun loadLyrics(videoId: String, title: String, artist: String, durationMs: Long) {
-        if (lyricsFor == videoId) return
-        lyricsFor = videoId
+    fun loadLyrics(
+        videoId: String,
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+    ) {
+        val sources = if (AppSettings.syncedLyrics.value) {
+            AppSettings.lyricsSources.value
+        } else {
+            emptySet()
+        }
+        val key = videoId to sources
+        if (lyricsFor == key) return
+        lyricsFor = key
         _lyrics.value = null
-        _lyricsChecked.value = false
+        _lyricsSource.value = null
         lyricsJob?.cancel()
+        if (sources.isEmpty()) {
+            // Switched off, or every source unticked. Nothing to look up, and
+            // nothing to say about it — the player drops the lyric strip
+            // rather than reporting a track with no lyrics.
+            _lyricsChecked.value = true
+            return
+        }
+        _lyricsChecked.value = false
         if (durationMs <= 0L) {
             // Duration arrives a beat after the track does; wait for it.
             lyricsFor = null
             return
         }
         lyricsJob = viewModelScope.launch {
-            _lyrics.value = LrcLib.lyrics(title, artist, durationMs)
+            val found =
+                LyricsRepository.lyrics(videoId, title, artist, durationMs, album, sources)
+            _lyrics.value = found?.lines
+            _lyricsSource.value = found?.source
             _lyricsChecked.value = true
         }
     }
@@ -681,11 +722,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun recordSearch() = SearchHistory.record(_query.value)
 
+    /**
+     * The keyboard's search/enter action. A deliberate "I'm done typing", so
+     * it jumps the debounce queue rather than waiting out [SEARCH_DEBOUNCE_MS]
+     * behind it — that wait exists for keystrokes, not for a user who already
+     * told us they're finished.
+     */
+    fun submitSearch() {
+        recordSearch()
+        runSearch(immediate = true)
+    }
+
     /** Re-runs a term picked out of the history, and floats it back to the top. */
     fun searchFor(term: String) {
         _query.value = term
         SearchHistory.record(term)
-        runSearch()
+        runSearch(immediate = true)
     }
 
     fun removeSearch(term: String) = SearchHistory.remove(term)
@@ -695,7 +747,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun onFilterChange(value: SearchFilter) {
         if (_filter.value == value) return
         _filter.value = value
-        runSearch()
+        runSearch(immediate = true)
     }
 
     /**
@@ -703,8 +755,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      *
      * [requestId] is what makes a late answer harmless: a response is only
      * written to the screen if its id is still the newest one asked for.
+     * [immediate] is set for a deliberate action — submitting, tapping a
+     * filter, picking a history entry — so the pipeline can skip the
+     * keystroke debounce for it.
      */
-    private data class SearchRequest(val query: String, val filter: SearchFilter, val requestId: Long)
+    private data class SearchRequest(
+        val query: String,
+        val filter: SearchFilter,
+        val requestId: Long,
+        val immediate: Boolean = false,
+    )
 
     private fun cacheKey(query: String, filter: SearchFilter) = "${filter.name}:$query"
 
@@ -720,7 +780,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             ?.value
     }
 
-    private fun runSearch() {
+    private fun runSearch(immediate: Boolean = false) {
         val query = _query.value
         if (query.isBlank()) {
             // Nothing in flight can still be waiting to overwrite this: the
@@ -730,7 +790,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val id = newestRequestId.incrementAndGet()
-        searchRequests.tryEmit(SearchRequest(query, _filter.value, id))
+        searchRequests.tryEmit(SearchRequest(query, _filter.value, id, immediate))
     }
 
     /**
@@ -745,11 +805,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * in any trouble. [debounce] collapses a burst of keystrokes into one
      * query before any request is made, and [collectLatest] only abandons a
      * search once a genuinely newer one has survived that window.
+     *
+     * The wait is skipped entirely for [SearchRequest.immediate] requests —
+     * submitting from the keyboard is the user telling us they're done typing,
+     * so it shouldn't sit behind the same delay that exists to absorb the
+     * keystrokes leading up to it.
      */
     @OptIn(FlowPreview::class)
     private fun startSearchPipeline() = viewModelScope.launch {
         searchRequests
-            .debounce(SEARCH_DEBOUNCE_MS)
+            .debounce { if (it.immediate) 0L else SEARCH_DEBOUNCE_MS }
             .collectLatest { request ->
                 val key = cacheKey(request.query, request.filter)
                 // Something to look at immediately: the exact answer if this
@@ -760,23 +825,76 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _results.value = cached?.let { UiState.Success(it) } ?: UiState.Loading
                 if (exact != null) return@collectLatest
 
+                // Search is YouTube's alone. A module is a *substitution*
+                // layer, not a catalogue to browse: it never has cover art,
+                // radio, related tracks or an album page, so its rows arrived
+                // in the results list looking like YouTube's and then behaved
+                // nothing like them. Every track found here takes the ordinary
+                // YouTube path and is handed to the module at playback time —
+                // see [SourceResolver.substituteForYouTube] — which upgrades
+                // the ones it holds without any of them having to be a
+                // separate row to pick between.
                 val result = YtMusicRepository.search(request.query, request.filter)
                 // A search the user has already typed past shouldn't land on
                 // screen, whether it succeeded or failed.
                 if (request.requestId != newestRequestId.get()) return@collectLatest
                 _results.value = result.fold(
-                    onSuccess = { rows ->
-                        if (rows.isEmpty()) {
-                            UiState.Error("No results")
-                        } else {
-                            searchCache.put(key, rows)
-                            prefetchTopResult(rows)
-                            UiState.Success(rows)
-                        }
-                    },
-                    onFailure = { UiState.Error(it.friendly()) },
+                    onSuccess = { rows -> published(rows, key) },
+                    onFailure = { failure -> UiState.Error(failure.friendly()) },
                 )
             }
+    }
+
+    /** Caches and publishes one result list. */
+    private fun published(rows: List<SearchResult>, key: String): UiState<List<SearchResult>> {
+        if (rows.isEmpty()) return UiState.Error("No results")
+        searchCache.put(key, rows)
+        prefetchTopResult(rows)
+        return UiState.Success(rows)
+    }
+
+    /**
+     * The enabled non-YouTube sources, asked at the same time and returned
+     * split at YouTube's own place in the order.
+     *
+     * The split is what makes the Sources screen's ordering visible where it
+     * matters most. A library server ranked above YouTube puts its own copies
+     * at the top of the results — which is the whole point of ranking it there —
+     * and one ranked below appears under them instead.
+     *
+     * Only the Songs filter fans out: albums, artists and playlists are
+     * browse-shaped, and [MusicSource] deliberately answers for tracks only.
+     */
+    private suspend fun sourceResults(
+        query: String,
+        filter: SearchFilter,
+    ): Pair<List<SearchResult>, List<SearchResult>> = coroutineScope {
+        if (filter != SearchFilter.SONGS) return@coroutineScope emptyList<SearchResult>() to emptyList()
+        val active = SourceRegistry.active()
+        val youtubeRank = active.indexOfFirst { it.kind == SourceKind.YOUTUBE }
+            .let { if (it < 0) active.size else it }
+
+        val answers = active
+            .filter { it.kind != SourceKind.YOUTUBE }
+            .map { source ->
+                source to async {
+                    // Per-source, so one slow or unreachable server delays the
+                    // results by at most this much rather than for as long as
+                    // its socket takes to give up.
+                    runCatching {
+                        withTimeout(SOURCE_SEARCH_TIMEOUT_MS) { source.search(query, SOURCE_SEARCH_LIMIT) }
+                    }.getOrDefault(emptyList())
+                }
+            }
+
+        val above = mutableListOf<SearchResult>()
+        val below = mutableListOf<SearchResult>()
+        answers.forEach { (source, job) ->
+            val rows = job.await().map { SearchResult.Track(it) }
+            val rank = active.indexOfFirst { it.configId == source.configId }
+            if (rank in 0 until youtubeRank) above += rows else below += rows
+        }
+        above to below
     }
 
     /**
@@ -799,12 +917,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         /**
-         * Short enough that it reads as instant, long enough that a word typed
-         * at speed is one request rather than one per letter.
+         * Deliberately generous: long enough that typing a full query rarely
+         * outruns it, since [SearchRequest.immediate] is the fast path for a
+         * user who wants results before that — pressing search/enter on the
+         * keyboard — not this timer.
          */
-        const val SEARCH_DEBOUNCE_MS = 80L
+        const val SEARCH_DEBOUNCE_MS = 2000L
 
         const val SEARCH_CACHE_ENTRIES = 100
+
+        /**
+         * How long any one source gets to answer a search.
+         *
+         * Short on purpose: these run alongside the YouTube search, and their
+         * only job is to be *there* when it lands. A home server reached over
+         * a VPN that takes eight seconds has effectively not answered, and
+         * holding the whole result list for it would make search feel worse
+         * for the sake of results the user can still get by searching again.
+         */
+        const val SOURCE_SEARCH_TIMEOUT_MS = 4000L
+
+        /** Enough to be worth scrolling, short enough not to bury YouTube's own rows. */
+        const val SOURCE_SEARCH_LIMIT = 12
     }
 
     fun openDetail(
@@ -839,7 +973,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 browseId == "local:downloads" -> {
                     val context = getApplication<Application>()
                     val songs = LocalMediaRepository.getDownloadedSongs(context)
-                    if (songs.isEmpty()) UiState.Error("No downloaded tracks in Downloads/BitChord")
+                    if (songs.isEmpty()) UiState.Error("No downloaded tracks in Music/BitChord")
                     else UiState.Success(songs)
                 }
                 browseId == "local:all" -> {
@@ -908,7 +1042,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val state: UiState<List<Song>> = when (browseId) {
                 "local:downloads" -> {
                     val songs = LocalMediaRepository.getDownloadedSongs(context)
-                    if (songs.isEmpty()) UiState.Error("No downloaded tracks in Downloads/BitChord")
+                    if (songs.isEmpty()) UiState.Error("No downloaded tracks in Music/BitChord")
                     else UiState.Success(songs)
                 }
                 "local:all" -> {

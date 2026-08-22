@@ -8,7 +8,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import android.util.Log
+import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.download.DownloadStore
@@ -37,7 +37,7 @@ object LocalMediaRepository {
     }
 
     /**
-     * Retrieves all songs in the `Downloads/BitChord` directory, combining app downloads
+     * Retrieves all songs in the `Music/BitChord` directory, combining app downloads
      * with any local audio files present in that folder.
      */
     suspend fun getDownloadedSongs(context: Context): List<Song> = withContext(Dispatchers.IO) {
@@ -48,26 +48,26 @@ object LocalMediaRepository {
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val projection = arrayOf(
-                    MediaStore.Downloads._ID,
-                    MediaStore.Downloads.DISPLAY_NAME,
-                    MediaStore.Downloads.RELATIVE_PATH,
+                    MediaStore.Audio.Media._ID,
+                    MediaStore.Audio.Media.DISPLAY_NAME,
+                    MediaStore.Audio.Media.RELATIVE_PATH,
                 )
                 val selection = "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?"
                 val selectionArgs = arrayOf("%${DownloadStore.FOLDER}%")
 
                 context.contentResolver.query(
-                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                     projection,
                     selection,
                     selectionArgs,
                     null,
                 )?.use { cursor ->
-                    val idCol = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
-                    val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME)
+                    val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                    val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DISPLAY_NAME)
                     while (cursor.moveToNext()) {
                         val id = cursor.getLong(idCol)
                         val name = cursor.getString(nameCol) ?: continue
-                        val contentUri = ContentUris.withAppendedId(MediaStore.Downloads.EXTERNAL_CONTENT_URI, id).toString()
+                        val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString()
                         if (contentUri !in knownUris && isAudioFileName(name)) {
                             extraSongs.add(buildSongFromUri(context, contentUri, name))
                         }
@@ -76,7 +76,7 @@ object LocalMediaRepository {
             } else {
                 val folder = File(
                     android.os.Environment.getExternalStoragePublicDirectory(
-                        android.os.Environment.DIRECTORY_DOWNLOADS,
+                        android.os.Environment.DIRECTORY_MUSIC,
                     ),
                     DownloadStore.FOLDER,
                 )
@@ -91,7 +91,7 @@ object LocalMediaRepository {
                     }
                 }
             }
-        }.onFailure { Log.w(TAG, "Failed scanning Downloads/BitChord directory: ${it.message}") }
+        }.onFailure { Log.w(TAG, "Failed scanning Music/BitChord directory: ${it.message}") }
 
         (appDownloads + extraSongs).distinctBy { it.localUri ?: it.videoId }
     }

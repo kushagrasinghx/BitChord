@@ -14,14 +14,6 @@ import okhttp3.Request
 import kotlin.math.abs
 
 /**
- * One synced line. [timeMs] is when it starts; a blank [text] is an
- * instrumental stretch — LRC files mark those with a bare timestamp.
- */
-data class LyricLine(val timeMs: Long, val text: String) {
-    val isGap: Boolean get() = text.isEmpty()
-}
-
-/**
  * Lyrics from LRCLIB — a free, key-less, community lyrics database.
  *
  * Two calls: an exact `get` keyed on artist + title + duration, and a fuzzy
@@ -139,9 +131,6 @@ object LrcLib {
         .replace(Regex("\\s+"), " ")
         .trim()
         .ifBlank { this }
-
-    /** Shorter instrumental breaks aren't worth interrupting the line for. */
-    private const val MIN_GAP_MS = 4_000L
 
     private val STAMP = Regex("""\[(\d{1,2}):(\d{2})[.:](\d{2,3})]""")
     private val NOISE = Regex(

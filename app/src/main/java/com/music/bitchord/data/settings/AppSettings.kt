@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import com.music.bitchord.data.lyrics.LyricsSource
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -50,7 +51,32 @@ object AppSettings {
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
 
+    /**
+     * Ask sources for the file they hold rather than a transcode of it.
+     *
+     * Off by default, and honestly labelled in Settings: YouTube has no
+     * lossless rendition of anything, so this does nothing at all until a
+     * source that holds real files is added on the Sources screen. It also
+     * loses to [effectiveAudioQuality] — see
+     * [SourceResolver.requestForNow][com.music.bitchord.data.sources.SourceResolver.requestForNow] —
+     * because a capped connection is a budget, and a preference should not
+     * quietly overspend one.
+     */
+    val losslessAudio = MutableStateFlow(true)
+
     val crossfadeSeconds = MutableStateFlow(0)
+
+    /**
+     * Lets Smart Fade's analyzer decide the transition's timing and length
+     * from each track's tempo, energy and structure, replacing the fixed
+     * [crossfadeSeconds] window rather than needing it set to anything first
+     * — [crossfadeSeconds] only matters here as a fallback while a pair is
+     * still being analysed. Off by default: analysis costs a background
+     * decode per track.
+     *
+     * See [com.music.bitchord.playback.smart.TransitionPlanner].
+     */
+    val smartFadeEnabled = MutableStateFlow(false)
     val skipSilence = MutableStateFlow(false)
 
     /**
@@ -76,8 +102,40 @@ object AppSettings {
     /** Freezes the main player's mesh gradient instead of letting it drift/crossfade. */
     val reduceAnimation = MutableStateFlow(false)
 
+    /** Stop playback when the app is swiped away from the recent apps screen. */
+    val stopOnTaskRemoved = MutableStateFlow(false)
+
+    /** Hides the volume slider on the main player, leaving the rest of the layout to reflow. */
+    val hideVolumeBar = MutableStateFlow(false)
+
+    /** Swiping a song row plays it next instead of adding it to the end of the queue. */
+    val swipeToPlayNext = MutableStateFlow(false)
+
     /** Drops haze blur (status bar, mini player, bottom fade, lyrics focus) for a solid-fill look. */
     val reduceDynamicBlur = MutableStateFlow(false)
+
+    /**
+     * Plays a looping video behind the cover art on the player when one is
+     * published for the track — Spotify's Canvas, Apple's motion artwork.
+     *
+     * Costs a video stream on top of the audio one and reaches three
+     * services that have nothing to do with playback, so it stays a switch —
+     * but it is the better default, and most tracks resolve to no canvas at
+     * all. See [CanvasRepository][com.music.bitchord.data.canvas.CanvasRepository].
+     */
+    val animatedCanvas = MutableStateFlow(true)
+
+    /**
+     * Time-synced lyrics on the player, lit up as they are sung.
+     *
+     * On by default — it is most of the point of the player screen — but it
+     * reaches third-party lyric databases for every track played, so it stays
+     * a switch, and [lyricsSources] narrows which of them get asked.
+     */
+    val syncedLyrics = MutableStateFlow(true)
+
+    /** The databases [syncedLyrics] may ask. Empty is the same as off. */
+    val lyricsSources = MutableStateFlow(LyricsSource.entries.toSet())
 
     /** Disk budget for cached audio. [AudioCache][com.music.bitchord.playback.AudioCache] evicts past it. */
     val audioCacheLimitBytes = MutableStateFlow(DEFAULT_CACHE_LIMIT_BYTES)
@@ -114,7 +172,9 @@ object AppSettings {
         migrateSingleQuality()
         audioQualityWifi.value = readQuality(KEY_QUALITY_WIFI)
         audioQualityCellular.value = readQuality(KEY_QUALITY_CELLULAR)
+        losslessAudio.value = prefs.getBoolean(KEY_LOSSLESS, true)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
+        smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         skipSilence.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         playbackSpeed.value = prefs.getFloat(KEY_SPEED, 1.0f)
@@ -124,7 +184,13 @@ object AppSettings {
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
         reduceAnimation.value = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
+        stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, false)
+        hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
+        swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
+        animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
+        syncedLyrics.value = prefs.getBoolean(KEY_SYNCED_LYRICS, true)
+        lyricsSources.value = readLyricsSources()
         audioCacheLimitBytes.value = prefs.getLong(KEY_CACHE_LIMIT, DEFAULT_CACHE_LIMIT_BYTES)
             .coerceIn(DEFAULT_CACHE_LIMIT_BYTES, MAX_CACHE_LIMIT_BYTES)
         lastfmEnabled.value = prefs.getBoolean(KEY_LASTFM_ENABLED, false)
@@ -141,6 +207,27 @@ object AppSettings {
         listenBrainzEnabled.value = prefs.getBoolean(KEY_LISTENBRAINZ_ENABLED, false)
         listenBrainzToken.value = prefs.getString(KEY_LISTENBRAINZ_TOKEN, "").orEmpty()
         watchConnection(context)
+    }
+
+    /**
+     * True the first time this is called after [currentVersionCode] rises above
+     * whatever was last recorded — i.e. once per update, on the first launch
+     * after it installs. A fresh install has nothing to compare against, so
+     * the very first call seeds the stored value from [currentVersionCode]
+     * rather than reporting an update.
+     *
+     * BitChord ships sideloaded (see [com.music.bitchord.data.AppUpdateChecker]),
+     * so installing a new APK over the old one is the only "update" there is —
+     * app data, this pref included, survives it exactly like a Play Store
+     * update. Call once per process start, before anything reads a cache that
+     * an update should invalidate.
+     */
+    fun consumeVersionUpdate(currentVersionCode: Int): Boolean {
+        val last = prefs.getInt(KEY_LAST_VERSION_CODE, currentVersionCode)
+        if (last != currentVersionCode) {
+            prefs.edit().putInt(KEY_LAST_VERSION_CODE, currentVersionCode).apply()
+        }
+        return currentVersionCode > last
     }
 
     /**
@@ -205,9 +292,19 @@ object AppSettings {
         prefs.edit().putString(KEY_QUALITY_CELLULAR, value.name).apply()
     }
 
+    fun setLosslessAudio(value: Boolean) {
+        losslessAudio.value = value
+        prefs.edit().putBoolean(KEY_LOSSLESS, value).apply()
+    }
+
     fun setCrossfadeSeconds(value: Int) {
         crossfadeSeconds.value = value
         prefs.edit().putInt(KEY_CROSSFADE, value).apply()
+    }
+
+    fun setSmartFadeEnabled(value: Boolean) {
+        smartFadeEnabled.value = value
+        prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
     }
 
     fun setSkipSilence(value: Boolean) {
@@ -240,9 +337,54 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_REDUCE_ANIMATION, value).apply()
     }
 
+    fun setStopOnTaskRemoved(value: Boolean) {
+        stopOnTaskRemoved.value = value
+        prefs.edit().putBoolean(KEY_STOP_ON_TASK_REMOVED, value).apply()
+    }
+
+    fun setHideVolumeBar(value: Boolean) {
+        hideVolumeBar.value = value
+        prefs.edit().putBoolean(KEY_HIDE_VOLUME_BAR, value).apply()
+    }
+
+    fun setSwipeToPlayNext(value: Boolean) {
+        swipeToPlayNext.value = value
+        prefs.edit().putBoolean(KEY_SWIPE_TO_PLAY_NEXT, value).apply()
+    }
+
     fun setReduceDynamicBlur(value: Boolean) {
         reduceDynamicBlur.value = value
         prefs.edit().putBoolean(KEY_REDUCE_BLUR, value).apply()
+    }
+
+    fun setSyncedLyrics(value: Boolean) {
+        syncedLyrics.value = value
+        prefs.edit().putBoolean(KEY_SYNCED_LYRICS, value).apply()
+    }
+
+    fun setLyricsSources(value: Set<LyricsSource>) {
+        lyricsSources.value = value
+        prefs.edit().putString(KEY_LYRICS_SOURCES, value.joinToString(",") { it.name }).apply()
+    }
+
+    /**
+     * Stored as a joined list of names rather than a string set: a name that
+     * no longer exists — a source dropped in a later build — has to fall out
+     * quietly, and the default when nothing has been saved is "all of them",
+     * which a missing key and an empty set would otherwise be unable to tell
+     * apart.
+     */
+    private fun readLyricsSources(): Set<LyricsSource> {
+        val stored = prefs.getString(KEY_LYRICS_SOURCES, null)
+            ?: return LyricsSource.entries.toSet()
+        return stored.split(",")
+            .mapNotNull { name -> LyricsSource.entries.firstOrNull { it.name == name } }
+            .toSet()
+    }
+
+    fun setAnimatedCanvas(value: Boolean) {
+        animatedCanvas.value = value
+        prefs.edit().putBoolean(KEY_ANIMATED_CANVAS, value).apply()
     }
 
     /** Clamped to [DEFAULT_CACHE_LIMIT_BYTES]..[MAX_CACHE_LIMIT_BYTES] — the floor is the default, not zero. */
@@ -323,7 +465,9 @@ object AppSettings {
     private const val KEY_QUALITY_LEGACY = "audio_quality"
     private const val KEY_QUALITY_WIFI = "audio_quality_wifi"
     private const val KEY_QUALITY_CELLULAR = "audio_quality_cellular"
+    private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
+    private const val KEY_SMART_FADE = "smart_fade_enabled"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_SPEED = "playback_speed"
@@ -332,7 +476,13 @@ object AppSettings {
     private const val KEY_NERD_STATS = "show_nerd_stats"
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"
+    private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"
+    private const val KEY_HIDE_VOLUME_BAR = "hide_volume_bar"
+    private const val KEY_SWIPE_TO_PLAY_NEXT = "swipe_to_play_next"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
+    private const val KEY_ANIMATED_CANVAS = "animated_canvas"
+    private const val KEY_SYNCED_LYRICS = "synced_lyrics"
+    private const val KEY_LYRICS_SOURCES = "lyrics_sources"
 
     private const val KEY_LASTFM_ENABLED = "lastfm_enabled"
     private const val KEY_LASTFM_USERNAME = "lastfm_username"
@@ -347,4 +497,5 @@ object AppSettings {
     private const val KEY_SCROBBLE_DELAY_SECONDS = "scrobble_delay_seconds"
     private const val KEY_LISTENBRAINZ_ENABLED = "listenbrainz_enabled"
     private const val KEY_LISTENBRAINZ_TOKEN = "listenbrainz_token"
+    private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }

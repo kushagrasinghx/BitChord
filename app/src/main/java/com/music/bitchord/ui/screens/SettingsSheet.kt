@@ -25,22 +25,30 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.Animation
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DeleteSweep
+import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
@@ -87,8 +95,11 @@ import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.data.model.Account
+import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.playback.AudioCache
@@ -111,6 +122,7 @@ fun SettingsScreen(
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
     onAccountScrobbling: () -> Unit,
+    onLyricsSources: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -120,6 +132,7 @@ fun SettingsScreen(
     val cellularQuality by AppSettings.audioQualityCellular.collectAsStateWithLifecycle()
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
+    val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val atmosSupported by DolbyAtmos.supported.collectAsStateWithLifecycle()
@@ -127,10 +140,23 @@ fun SettingsScreen(
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
+    val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val speed by AppSettings.playbackSpeed.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
+    val sourceConfigs by SourceRegistry.configs.collectAsStateWithLifecycle()
+    val lossless by AppSettings.losslessAudio.collectAsStateWithLifecycle()
+    val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
+    val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
+    val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
+
+    // Whether the module index URL is baked into this build.
+    val losslessConfigured = BuildConfig.MODULE_INDEX_URL.trim().isNotEmpty()
+    // Whether the module source is currently enabled (toggle state).
+    val moduleEnabled = sourceConfigs.any { it.kind == SourceKind.MODULE && it.enabled && it.isComplete }
 
     // Scrobbling states
     val lastfmEnabled by AppSettings.lastfmEnabled.collectAsStateWithLifecycle()
@@ -179,7 +205,7 @@ fun SettingsScreen(
         SettingsGroup {
             SettingsRow(
                 icon = Icons.Rounded.Person,
-                title = "Account & scrobbling",
+                title = "Account & integrations",
                 subtitle = account?.email?.takeIf { it.isNotBlank() }
                     ?: if (signedIn) "Signed in" else "Not signed in",
                 onClick = onAccountScrobbling,
@@ -190,8 +216,48 @@ fun SettingsScreen(
             header = "Audio quality",
             footer = "Each connection keeps its own ceiling, so Wi-Fi can stay on " +
                 "High while mobile data is capped. High costs about " +
-                "${AudioQuality.HIGH.hourly} of data.",
+                "${AudioQuality.HIGH.hourly} of data. The ceiling applies to every " +
+                "source, and outranks the lossless preference.",
         ) {
+            SettingsRow(
+                icon = Icons.Rounded.GraphicEq,
+                title = "Lossless / HQ Audio",
+                subtitle = if (!losslessConfigured) null else
+                    if (moduleEnabled) "Turn off if its playing a different version of the song or another song. Restart Required!"
+                    else "Turn on to experience lossless music quality. Restart Required!",
+                subtitleContent = if (!losslessConfigured) {
+                    {
+                        Text(
+                            text = "Lossless is not working — make sure the app is downloaded from the official source",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                } else null,
+                trailing = {
+                    Switch(
+                        checked = moduleEnabled && losslessConfigured,
+                        onCheckedChange = {
+                            if (losslessConfigured) {
+                                SourceRegistry.setModuleEnabled(it)
+                                AudioCache.clear {}
+                            }
+                        },
+                        enabled = losslessConfigured,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = {
+                    if (losslessConfigured) {
+                        SourceRegistry.setModuleEnabled(!moduleEnabled)
+                        AudioCache.clear {}
+                    }
+                },
+            )
+            RowDivider()
             SettingsRow(
                 icon = Icons.Rounded.Wifi,
                 title = "On Wi-Fi",
@@ -210,15 +276,41 @@ fun SettingsScreen(
         }
 
         SettingsGroup(header = "Playback") {
-            SliderRow(
-                icon = Icons.Rounded.Waves,
-                title = "Crossfade",
-                subtitle = "Blends one track into the next",
-                value = if (crossfade == 0) "Off" else "${crossfade}s",
-                sliderValue = crossfade.toFloat(),
-                onSliderValue = { AppSettings.setCrossfadeSeconds(it.roundToInt()) },
-                valueRange = 0f..12f,
-                steps = 11,
+            // Smart Fade decides its own length from each pair of tracks —
+            // tempo, key, structure — so it replaces the manual slider rather
+            // than needing it set to anything first.
+            if (!smartFade) {
+                SliderRow(
+                    icon = Icons.Rounded.Waves,
+                    title = "Crossfade",
+                    subtitle = "Blends one track into the next",
+                    value = if (crossfade == 0) "Off" else "${crossfade}s",
+                    sliderValue = crossfade.toFloat(),
+                    onSliderValue = { AppSettings.setCrossfadeSeconds(it.roundToInt()) },
+                    valueRange = 0f..12f,
+                    steps = 11,
+                )
+                RowDivider()
+            }
+            SettingsRow(
+                icon = Icons.Rounded.AutoAwesome,
+                title = "Smart Fade",
+                subtitle = if (smartFade) {
+                    "Blends every transition, timed automatically from each track"
+                } else {
+                    "Times and blends transitions automatically, no slider needed"
+                },
+                trailing = {
+                    Switch(
+                        checked = smartFade,
+                        onCheckedChange = AppSettings::setSmartFadeEnabled,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
             )
             RowDivider()
             SliderRow(
@@ -347,6 +439,57 @@ fun SettingsScreen(
                 },
                 onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
             )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.Animation,
+                title = "Animated cover art",
+                subtitle = "Plays the looping video some releases ship instead " +
+                    "of a still sleeve",
+                trailing = {
+                    Switch(
+                        checked = animatedCanvas,
+                        onCheckedChange = AppSettings::setAnimatedCanvas,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setAnimatedCanvas(!animatedCanvas) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.AutoMirrored.Rounded.Notes,
+                title = "Synced lyrics",
+                subtitle = "Lights up the words on the player as they're sung",
+                trailing = {
+                    Switch(
+                        checked = syncedLyrics,
+                        onCheckedChange = AppSettings::setSyncedLyrics,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setSyncedLyrics(!syncedLyrics) },
+            )
+            // Nothing to choose between while the feature is off, and the
+            // sources are third-party services being reached on the user's
+            // connection — which is the part worth being able to narrow.
+            if (syncedLyrics) {
+                RowDivider()
+                SettingsRow(
+                    icon = Icons.Rounded.Language,
+                    title = "Lyrics sources",
+                    subtitle = lyricsSources
+                        .sortedBy { it.ordinal }
+                        .joinToString(", ") { it.label }
+                        .ifEmpty { "None — no lyrics will be fetched" },
+                    trailing = { Chevron() },
+                    onClick = onLyricsSources,
+                )
+            }
         }
 
         val cacheLimitMb = (cacheLimitBytes / (1024 * 1024)).toInt()
@@ -394,6 +537,66 @@ fun SettingsScreen(
             )
         }
 
+        SettingsGroup(
+            header = "Miscellaneous",
+            footer = "When enabled, closing the app from the recent apps screen will also stop music playback.",
+        ) {
+            SettingsRow(
+                icon = Icons.Rounded.PlaylistPlay,
+                title = "Play next on swipe",
+                subtitle = if (swipeToPlayNext) {
+                    "Swiping a song plays it next"
+                } else {
+                    "Swiping a song adds it to the end of the queue when disabled"
+                },
+                trailing = {
+                    Switch(
+                        checked = swipeToPlayNext,
+                        onCheckedChange = AppSettings::setSwipeToPlayNext,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setSwipeToPlayNext(!swipeToPlayNext) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.MusicOff,
+                title = "Stop music on close from recents",
+                subtitle = "Stops playback when swiped away from recent apps",
+                trailing = {
+                    Switch(
+                        checked = stopOnTaskRemoved,
+                        onCheckedChange = AppSettings::setStopOnTaskRemoved,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.VolumeOff,
+                title = "Hide volume bar",
+                subtitle = "Removes the volume slider from the main player",
+                trailing = {
+                    Switch(
+                        checked = hideVolumeBar,
+                        onCheckedChange = AppSettings::setHideVolumeBar,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setHideVolumeBar(!hideVolumeBar) },
+            )
+        }
+
         Text(
             text = buildAnnotatedString {
                 append("BitChord $version  ")
@@ -409,6 +612,10 @@ fun SettingsScreen(
                 append("  ")
                 withLink(LinkAnnotation.Url("https://github.com/kushagrasinghx", linkStyles)) {
                     append("Developer")
+                }
+                append("  ")
+                withLink(LinkAnnotation.Url("https://discord.gg/pDdKfrdHY6", linkStyles)) {
+                    append("Discord")
                 }
                 append("\n~YouTube Music Backend")
             },
@@ -818,6 +1025,7 @@ internal fun SettingsRow(
     icon: ImageVector,
     title: String,
     subtitle: String? = null,
+    subtitleContent: (@Composable () -> Unit)? = null,
     value: String? = null,
     badge: String? = null,
     enabled: Boolean = true,
@@ -854,12 +1062,14 @@ internal fun SettingsRow(
                     Badge(badge)
                 }
             }
-            if (subtitle != null) {
+            if (subtitleContent != null) {
+                subtitleContent()
+            } else if (subtitle != null) {
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = 3,
                 )
             }
         }

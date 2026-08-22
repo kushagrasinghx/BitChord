@@ -1,7 +1,9 @@
 package com.music.bitchord.ui.player
 
 import android.database.ContentObserver
+import android.graphics.Bitmap
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -9,8 +11,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -36,7 +43,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -59,6 +69,7 @@ import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -69,9 +80,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.MutableLongState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.mutableStateOf
@@ -79,6 +93,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -88,7 +104,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -97,8 +117,12 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -116,8 +140,12 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.NerdStats
+import com.music.bitchord.data.canvas.CanvasArtwork
+import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
@@ -132,11 +160,44 @@ import kotlin.math.roundToInt
 /** Comfortably over the sleeve's drawn size on a phone, without wasting bytes. */
 private const val ART_PX = 1200
 
+/**
+ * How long a canvas lookup waits for the track's album name before giving up
+ * on it. Long enough to cover the album lookup on a normal connection, short
+ * enough not to be noticed on a track that has no album to find.
+ */
+private const val ALBUM_SETTLE_MS = 700L
+
+/**
+ * How close the player's reported position has to get to a released scrub
+ * handle before the handle stops being drawn where it was dropped. Wide enough
+ * to swallow a coarse progress tick, tight enough that the handle doesn't hand
+ * over while it is still visibly wrong.
+ */
+private const val SEEK_SETTLE_TOLERANCE_MS = 1_500L
+
+/**
+ * How long that handle is held at the drop point regardless. A backstop, not a
+ * schedule: a seek normally settles in a tick or two, and this only decides how
+ * long a seek that never settles can freeze the bar for. Generous enough that a
+ * slow buffer still hands over smoothly rather than snapping back.
+ */
+private const val SEEK_SETTLE_TIMEOUT_MS = 4_000L
+
 private val THUMB_SIZE = 54.dp
 private val HEADER_HEIGHT = 60.dp
 private val ART_TITLE_GAP = 20.dp
 /** Only drags starting in this top strip reach the sheet and close the player. */
 private val DISMISS_STRIP_HEIGHT = 44.dp
+/** The breathing room above the sleeve, needed twice: once to apply, once to measure past. */
+private val ART_BOX_TOP_PAD = 14.dp
+/**
+ * Share of the motion-artwork banner's height given over to its dissolve.
+ *
+ * Generous on purpose: the banner has no card edge to stop at, so anything
+ * short enough to still be reading as artwork where it ends reads as a picture
+ * that was cut off rather than one that ran out.
+ */
+private const val HERO_FADE_FRACTION = 0.42f
 /** The player's side margin. Scrollable panels reach back across it. */
 private val PLAYER_GUTTER = 30.dp
 /**
@@ -151,6 +212,52 @@ private val PLAYER_MAX_WIDTH = 560.dp
 private const val LYRIC_FADE_FRACTION = 0.28f
 private const val LYRIC_FADE_MIN_MS = 160f
 private const val LYRIC_FADE_MAX_MS = 700f
+
+/**
+ * How far back the part of the playing line that hasn't been sung yet is held.
+ *
+ * The strip above the scrubber gets less of a gap than the full panel: it is
+ * one line of small type with nothing around it to compare against, and taking
+ * it as far down as the panel does left the words ahead of the highlight hard
+ * to read at a glance.
+ */
+private const val UNSUNG_ALPHA = 0.45f
+private const val UNSUNG_ALPHA_STRIP = 0.55f
+
+/**
+ * The bloom behind the line being sung, at its very strongest.
+ *
+ * Kept well under half strength: the halo is drawn from the same white as the
+ * text, so at full alpha it stops reading as light and starts reading as a
+ * second, badly printed copy of the words. What is actually drawn is this
+ * scaled by how long the word is being held, so only a properly carried note
+ * ever sees the whole of it.
+ */
+private const val GLOW_ALPHA = 0.62f
+private val GLOW_RADIUS = 9.dp
+
+/**
+ * How far behind the sweep's leading edge the bloom reaches, at full strength.
+ *
+ * The glow belongs to the word being sung, not to everything sung so far —
+ * lighting the whole revealed stretch made the line brighten as it went and
+ * turned the last line of a verse into a slab of white. Scaled down towards
+ * [GLOW_TRAIL_FLOOR] as the singing quickens; see
+ * [LyricLine.glowIntensity][com.music.bitchord.data.lyrics.LyricLine.glowIntensity].
+ */
+private val GLOW_TRAIL = 62.dp
+private const val GLOW_TRAIL_FLOOR = 0.55f
+
+/**
+ * Room reserved inside each copy of a line for the halo to spread into.
+ *
+ * A blur is computed on its layer's own bitmap, so a halo with nowhere to go
+ * inside those bounds is a halo with a hard edge — which is what cropped the
+ * bloom to the line's box. Every copy carries the same inset so they still lay
+ * out identically, and the list gives the width back by taking it off its own
+ * padding and row spacing.
+ */
+private val GLOW_ROOM = 10.dp
 
 /** Stands in for an instrumental stretch on the single-line strip. */
 private const val INSTRUMENTAL_MARK = "Instrumental"
@@ -299,6 +406,18 @@ fun NowPlayingScreen(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onSeek: (Long) -> Unit,
+    /**
+     * Seek to a fraction of the track, for the scrubber.
+     *
+     * Separate from [onSeek] because the scrubber is the one caller that knows
+     * *where along the bar* it wants to go rather than a time. Converting that
+     * here would use this screen's cached duration, which lags a track change by
+     * however long the session takes to report the new one — long enough to drop
+     * the handle on a bar still scaled to the previous song and seek to the
+     * wrong fraction of the current one. The conversion belongs wherever the
+     * freshest duration is.
+     */
+    onSeekFraction: (Float) -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     onToggleAutoplay: () -> Unit,
@@ -310,12 +429,49 @@ fun NowPlayingScreen(
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
     lyrics: List<LyricLine>?,
+    lyricsSource: LyricsSource?,
     lyricsUnavailable: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val meshColors = rememberArtworkColors(song.thumbnailUrl)
     val context = LocalContext.current
     val density = LocalDensity.current
+
+    val syncedLyricsEnabled by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
+    val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
+
+    // Animated cover art: the looping video some labels publish alongside a
+    // release, laid over the sleeve. A miss is the normal answer — see
+    // CanvasRepository, which is also where the "is this actually the right
+    // track" check lives.
+    val canvasEnabled by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
+    var canvas by remember(song.videoId) { mutableStateOf<CanvasArtwork?>(null) }
+    // Whether the clip actually has a frame on screen right now, and one of
+    // them — used to blow the sleeve out to the full-bleed hero treatment and
+    // to re-tint the backdrop off the clip's own colours rather than the
+    // still sleeve's.
+    var canvasRendered by remember(song.videoId) { mutableStateOf(false) }
+    var canvasFrame by remember(song.videoId) { mutableStateOf<Bitmap?>(null) }
+    val meshColors = rememberArtworkColors(song.thumbnailUrl, canvasFrame)
+    LaunchedEffect(song.videoId, song.albumName, canvasEnabled) {
+        if (!canvasEnabled) {
+            canvas = null
+            return@LaunchedEffect
+        }
+        // Anything already settled for this track paints immediately: a
+        // reopened player, or a track coming round again in the queue.
+        canvas = CanvasRepository.cached(song) ?: canvas
+
+        // The album name is looked up separately and lands a moment after the
+        // player opens, and it is the field that makes the catalogue searches
+        // match. Give it that moment: if it arrives, this effect restarts and
+        // all that was spent waiting is the wait. If it never does — a track
+        // with no album, or a lookup that failed — the search still goes out,
+        // just a beat later, which is imperceptible for decoration.
+        if (canvas == null && song.albumName == null) delay(ALBUM_SETTLE_MS)
+        // Keep what an earlier pass found if this one comes back empty, rather
+        // than pulling a playing clip out from under itself.
+        canvas = CanvasRepository.canvasFor(song) ?: canvas
+    }
 
     var scrubbing by remember { mutableStateOf(false) }
     var scrubValue by remember { mutableFloatStateOf(0f) }
@@ -326,10 +482,6 @@ fun NowPlayingScreen(
 
     BackHandler(enabled = lyricsOpen) { lyricsOpen = false }
 
-    // Which line is playing right now: the last one whose stamp has passed.
-    val activeLine = remember(lyrics, positionMs) {
-        lyrics?.indexOfLast { it.timeMs <= positionMs } ?: -1
-    }
     // 0 = full sleeve, 1 = queue. Everything that moves reads off this.
     val queueProgress by animateFloatAsState(
         targetValue = if (queueOpen) 1f else 0f,
@@ -359,9 +511,31 @@ fun NowPlayingScreen(
         else -> fraction.coerceIn(0f, 1f)
     }
 
-    LaunchedEffect(fraction, pendingSeek) {
+    // Released as soon as the player's own position agrees with where the handle
+    // was dropped — and unconditionally a few seconds later whether it agrees or
+    // not.
+    //
+    // The agreement test alone is not enough, because it is the only thing that
+    // ever cleared the override: if the position never passes close to the
+    // target — a clamped or rejected seek, a rendition swapped underneath, a
+    // progress sample that steps straight over the window — nothing releases it
+    // and the handle sits frozen at the drop point for the rest of the track.
+    // Audio and lyrics follow the real position perfectly throughout, so the
+    // failure looks like a stuck seek bar on a track that is playing fine.
+    //
+    // Tolerance is absolute rather than a share of the duration: two percent is
+    // a quarter-second on a jingle and twelve seconds on a long mix, and it is
+    // the wall-clock gap that decides whether the handle appears to jump.
+    LaunchedEffect(positionMs, durationMs, pendingSeek) {
         val target = pendingSeek ?: return@LaunchedEffect
-        if (kotlin.math.abs(fraction - target) < 0.02f) pendingSeek = null
+        if (durationMs > 0 && abs(positionMs - (target * durationMs).toLong()) < SEEK_SETTLE_TOLERANCE_MS) {
+            pendingSeek = null
+        }
+    }
+    LaunchedEffect(pendingSeek) {
+        if (pendingSeek == null) return@LaunchedEffect
+        delay(SEEK_SETTLE_TIMEOUT_MS)
+        pendingSeek = null
     }
     LaunchedEffect(song.videoId) { pendingSeek = null }
 
@@ -417,12 +591,82 @@ fun NowPlayingScreen(
         onDispose { context.contentResolver.unregisterContentObserver(observer) }
     }
 
+    // 0 = the ordinary square sleeve, 1 = motion artwork as a full-bleed
+    // banner. Both states collapse the header, but the banner only ever shows
+    // over a settled player: opening the queue or the lyrics hands the sleeve
+    // back its card first.
+    val p = if (lyricsOpen) 1f else queueProgress
+    // Full-bleed is a phone idiom. Past the width the player is willing to grow
+    // to, edge to edge stops meaning "the artwork *is* the screen" and starts
+    // meaning "a video, and separately some controls" — the banner would be
+    // running a foot wider than the column of controls under it. Tablets keep
+    // the sleeve, and the clip plays inside it as before.
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val heroMode = CANVAS_HERO_SUPPORTED && screenWidth <= PLAYER_MAX_WIDTH + PLAYER_GUTTER * 2
+    val heroT by animateFloatAsState(
+        targetValue = if (heroMode && canvasRendered && p < 0.5f) 1f else 0f,
+        animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
+        label = "heroCanvas",
+    )
+    // How tall that banner is, worked out down in the layout where the sleeve's
+    // own geometry is known. Zero until the first measure, which is fine: the
+    // clip has no frame to show that early either.
+    var heroHeight by remember { mutableStateOf(0.dp) }
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
     Box(modifier = modifier.fillMaxSize()) {
         // Keyed on the track: the backdrop drifts when the player opens and on
         // every skip, then rests. Position ticks recompose this screen twice a
         // second and must not drag a full-screen blur along with them, which is
         // why the palette is passed as one immutable value.
         MeshGradientBackground(palette = meshColors, trackKey = song.videoId)
+
+        // Motion artwork, edge to edge and running up behind the status bar,
+        // dissolving into the backdrop where the sleeve's bottom edge would
+        // have been. It lives out here rather than in the sleeve because that
+        // is the only way to escape the player's side gutter and its status-bar
+        // inset — a banner that stops short of either reads as a misplaced card
+        // rather than as the artwork the screen is made of.
+        //
+        // Always composed while there's a clip to play, never gated on [heroT]:
+        // the clip has to be mounted and decoding *before* it can report the
+        // first frame that raises heroT in the first place.
+        if (heroMode && heroHeight > 0.dp) {
+            canvas?.takeIf { p < 0.5f }?.let { clip ->
+                CanvasArtworkPlayer(
+                    canvas = clip,
+                    isPlaying = isPlaying,
+                    onRenderedChanged = { canvasRendered = it },
+                    onFrameCaptured = { canvasFrame = it },
+                    bottomFade = HERO_FADE_FRACTION,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .height(heroHeight),
+                )
+            }
+
+            // The clock, the signal bars and the drag handle are all white, and
+            // the banner puts whatever the video happens to open on directly
+            // behind them — a bright frame leaves the top of the screen
+            // unreadable. Faded in with the banner and gone with it.
+            if (heroT > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxWidth()
+                        .height(statusBarTop + DISMISS_STRIP_HEIGHT)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    Color.Black.copy(alpha = 0.38f * heroT),
+                                    Color.Transparent,
+                                ),
+                            ),
+                        ),
+                )
+            }
+        }
 
         Column(
             modifier = Modifier
@@ -487,16 +731,18 @@ fun NowPlayingScreen(
             // ---- Top and centre: artwork, then the credits ----
             // Everything that changes between the artwork and the queue lives
             // in this one weighted box, so the controls below it never move.
+            // Read up here rather than down by the scrubber: the stats-for-nerds
+            // line now lives inside the sleeve itself, so the art Box below
+            // needs these before the seek bar does.
+            val showNerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
+            val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
                     .widthIn(max = PLAYER_MAX_WIDTH)
                     .fillMaxWidth()
-                    .padding(top = 14.dp, bottom = 18.dp),
+                    .padding(top = ART_BOX_TOP_PAD, bottom = 18.dp),
             ) {
-                // Both states collapse the header, but only one of them owns
-                // the panel below it.
-                val p = if (lyricsOpen) 1f else queueProgress
                 // The sleeve is square, so it is bounded by whichever of the
                 // two axes runs out first: the player's width on a phone, or —
                 // on a tablet, where there is width to spare — the height left
@@ -518,6 +764,15 @@ fun NowPlayingScreen(
                 val titleTop = lerp(groupTop + fullArt + ART_TITLE_GAP, 0.dp, p)
                 val titleStart = lerp(0.dp, THUMB_SIZE + 12.dp, p)
 
+                // How far down the *screen* the sleeve's bottom edge sits, which
+                // is where the full-bleed banner has to stop for the credits
+                // below it not to move when it appears. Everything between the
+                // screen's top and this box's own top is fixed padding, so it
+                // can simply be added back up rather than measured.
+                val bannerBottom = statusBarTop + DISMISS_STRIP_HEIGHT + ART_BOX_TOP_PAD +
+                    groupTop + fullArt + ART_TITLE_GAP / 2
+                SideEffect { heroHeight = bannerBottom }
+
                 // Empty state lives on this Box, not the AsyncImage: a
                 // background *and* a painter both trying to fill the same
                 // clipped shape is what read as two overlapping squares
@@ -535,15 +790,6 @@ fun NowPlayingScreen(
                             scaleY = idle
                             translationX = swipeSettle * (1f - p)
                         }
-                        // A drop shadow grounds a photo; on the flat
-                        // placeholder tile it has nothing to sit behind, so it
-                        // just reads as a second, darker square ringing the
-                        // first. Only cast it once there's actually art.
-                        .shadow(
-                            if (artLoaded) lerp(14.dp, 6.dp, p) else 0.dp,
-                            RoundedCornerShape(lerp(10.dp, 7.dp, p)),
-                        )
-                        .clip(RoundedCornerShape(lerp(10.dp, 7.dp, p)))
                         // Collapsed, the sleeve is the way back: tapping the
                         // thumbnail puts the queue or the lyrics away again.
                         .then(
@@ -555,38 +801,108 @@ fun NowPlayingScreen(
                             } else {
                                 Modifier
                             },
-                        )
-                        .background(Color.Black.copy(alpha = 0.18f)),
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (!artLoaded) {
-                        Icon(
-                            imageVector = BitChordIcons.MusicNote,
+                    // The sleeve proper. Separated from the box around it so
+                    // the banner can dissolve the card — shadow, corners, tile
+                    // and all — without taking the stats line with it.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { alpha = 1f - heroT }
+                            // A drop shadow grounds a photo; on the flat
+                            // placeholder tile it has nothing to sit behind, so
+                            // it just reads as a second, darker square ringing
+                            // the first. Only cast it once there's actually art.
+                            .shadow(
+                                if (artLoaded) lerp(14.dp, 6.dp, p) else 0.dp,
+                                RoundedCornerShape(lerp(10.dp, 7.dp, p)),
+                            )
+                            .clip(RoundedCornerShape(lerp(10.dp, 7.dp, p)))
+                            .background(Color.Black.copy(alpha = 0.18f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (!artLoaded) {
+                            Icon(
+                                imageVector = BitChordIcons.MusicNote,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.35f),
+                                modifier = Modifier.size(lerp(40.dp, 20.dp, p)),
+                            )
+                        }
+                        AsyncImage(
+                            // Decode at the sleeve's *expanded* size, always.
+                            // Coil otherwise sizes the decode to however large
+                            // this is when the request goes out — and changing
+                            // track from the queue does that while the sleeve is
+                            // collapsed to a thumbnail, leaving a thumbnail-sized
+                            // bitmap to be blown back up when the queue closes.
+                            // Skipping tracks with the transport keeps it sharp
+                            // only because the sleeve happens to be full size at
+                            // that moment.
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(song.artworkAt(ART_PX))
+                                .size(with(LocalDensity.current) { fullArt.roundToPx() })
+                                .build(),
                             contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.35f),
-                            modifier = Modifier.size(lerp(40.dp, 20.dp, p)),
+                            // Video thumbnails are 16:9; letterboxing them inside
+                            // the square sleeve looks like a broken frame.
+                            contentScale = ContentScale.Crop,
+                            onState = { artLoaded = it is AsyncImagePainter.State.Success },
+                            modifier = Modifier.fillMaxSize(),
                         )
+
+                        // Where the clip plays when it can't have the banner:
+                        // inside the same clip as the still art, taking the
+                        // sleeve's corners, shadow and paused shrink for free.
+                        if (!heroMode) {
+                            canvas?.takeIf { p < 0.5f }?.let { clip ->
+                                CanvasArtworkPlayer(
+                                    canvas = clip,
+                                    isPlaying = isPlaying,
+                                    onRenderedChanged = { canvasRendered = it },
+                                    onFrameCaptured = { canvasFrame = it },
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
                     }
-                    AsyncImage(
-                        // Decode at the sleeve's *expanded* size, always. Coil
-                        // otherwise sizes the decode to however large this is
-                        // when the request goes out — and changing track from
-                        // the queue does that while the sleeve is collapsed to
-                        // a thumbnail, leaving a thumbnail-sized bitmap to be
-                        // blown back up when the queue closes. Skipping tracks
-                        // with the transport keeps it sharp only because the
-                        // sleeve happens to be full size at that moment.
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(song.artworkAt(ART_PX))
-                            .size(with(LocalDensity.current) { fullArt.roundToPx() })
-                            .build(),
-                        contentDescription = null,
-                        // Video thumbnails are 16:9; letterboxing them inside
-                        // the square sleeve looks like a broken frame.
-                        contentScale = ContentScale.Crop,
-                        onState = { artLoaded = it is AsyncImagePainter.State.Success },
-                        modifier = Modifier.fillMaxSize(),
-                    )
+
+                    // Measured stats, pinned to the sleeve's own bottom-centre
+                    // rather than squeezed under the seek bar with the
+                    // "Lossless" badge — the badge is a claim, this is the
+                    // evidence, and the two no longer swap for each other on a
+                    // tap. Fades out with the sleeve as it collapses to a
+                    // thumbnail, where there's no room to read it anyway.
+                    if (showNerdStats && p < 0.5f) {
+                        nerdStats?.describe()?.let { stats ->
+                            Text(
+                                text = stats,
+                                // A plain white line reads fine over the usual
+                                // dark tile, but a light stretch of an animated
+                                // cover — sky, snow, a pale sleeve — washes it
+                                // out entirely. The shadow costs nothing on a
+                                // dark background and is what keeps it legible
+                                // on a bright one.
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    shadow = Shadow(
+                                        color = Color.Black.copy(alpha = 0.55f),
+                                        offset = Offset(0f, 1f),
+                                        blurRadius = 4f,
+                                    ),
+                                ),
+                                color = Color.White.copy(alpha = 0.65f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                                    .graphicsLayer { alpha = 1f - p * 2f },
+                            )
+                        }
+                    }
                 }
 
                 // Sits in the gap under the sleeve, clear of its rounded
@@ -594,7 +910,7 @@ fun NowPlayingScreen(
                 // itself to be cropped by. Just a glyph that fades in with
                 // the drag to hint which way a release would skip.
                 val swipeHintProgress = (abs(swipeSettle) / swipeThreshold)
-                    .coerceIn(0f, 1f) * (1f - p)
+                    .coerceIn(0f, 1f) * (1f - p) * (1f - heroT)
                 if (swipeHintProgress > 0.01f) {
                     val showNext = swipeSettle < 0f
                     val enabled = if (showNext) hasNext else hasPrevious
@@ -675,7 +991,8 @@ fun NowPlayingScreen(
                 if (lyricsOpen) {
                     LyricsPanel(
                         lines = lyrics.orEmpty(),
-                        activeLine = activeLine,
+                        positionMs = positionMs,
+                        isPlaying = isPlaying,
                         onSeekToLine = onSeek,
                         modifier = Modifier
                             .fillMaxSize()
@@ -724,7 +1041,12 @@ fun NowPlayingScreen(
             // the layout while the queue is open and only fades — dropping it
             // would shorten this block, and the controls under it would jump
             // the moment the queue started sliding in.
-            if (!lyricsOpen) {
+            //
+            // Switched off in Settings it goes entirely, rather than sitting
+            // there saying no lyrics were found: none were looked for. It is
+            // also the only way into the full lyrics panel, so with it gone
+            // the feature is properly gone.
+            if (!lyricsOpen && syncedLyricsEnabled) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -767,63 +1089,86 @@ fun NowPlayingScreen(
                     scrubValue = it
                 },
                 onValueChangeFinished = {
-                    if (durationMs > 0) {
-                        pendingSeek = scrubValue
-                        onSeek((scrubValue * durationMs).toLong())
-                    }
+                    pendingSeek = scrubValue
+                    onSeekFraction(scrubValue)
                     scrubbing = false
                 },
             )
-            val showNerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
-            val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
-            Row(
+            val losslessOn by AppSettings.losslessAudio.collectAsStateWithLifecycle()
+            val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
+            val cellularQuality by AppSettings.audioQualityCellular.collectAsStateWithLifecycle()
+            val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
+            // Whether this playback session is even asking for a lossless
+            // stream — the same computation SourceResolver.requestForNow()
+            // makes, mirrored here so "Loading lossless" only appears when a
+            // lossless fetch is actually in flight, not on every buffering
+            // YouTube track.
+            val losslessRequested = losslessOn &&
+                (if (metered == true) cellularQuality else wifiQuality) == AudioQuality.HIGH
+            // Whether a module is still racing YouTube for this exact track —
+            // see [NerdStats.racingLossless]. YouTube can win that race and
+            // already be playing while the module lookup is still running
+            // detached in the background, and the badge should keep saying
+            // "loading" through that stretch rather than going blank only to
+            // possibly say "loading" again a moment later.
+            val racingLossless by NerdStats.racingLossless.collectAsStateWithLifecycle()
+            val stillRacing = song.videoId in racingLossless
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     // The slider's touch target extends well past the drawn
                     // bar, so pull the labels back up under it.
                     .offset(y = (-9).dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(
-                    text = formatTime((shown * durationMs).toLong()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.55f),
-                )
-                // Sits in the gap the two timestamps leave, and only claims the
-                // space when there is something measured to put there.
-                nerdStats?.describe()?.takeIf { showNerdStats }?.let { stats ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
                     Text(
-                        text = stats,
+                        text = formatTime((shown * durationMs).toLong()),
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.4f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 8.dp),
+                        color = Color.White.copy(alpha = 0.55f),
+                    )
+                    Text(
+                        text = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.55f),
                     )
                 }
-                Text(
-                    text = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.55f),
+                // Pinned to the box's own center rather than squeezed into the
+                // gap between the two timestamps: that gap's width changes by
+                // a digit's worth every time a minute rolls over, which was
+                // dragging this along with it every tick. The screen's center
+                // doesn't move.
+                LosslessOrStats(
+                    isLoading = isLoading,
+                    stillRacing = stillRacing,
+                    losslessRequested = losslessRequested,
+                    nerdStats = nerdStats,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 8.dp),
                 )
             }
 
             if (lyricsOpen) {
                 Spacer(Modifier.height(16.dp))
+                // Where these particular lyrics came from. This spot used to
+                // hold a Close button, which the sleeve above already does —
+                // and with four databases behind the panel, whose timings you
+                // are looking at is the more useful thing to know. Not a
+                // control: nothing to press, it just says who to credit.
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(percent = 50))
-                        .background(Color.White.copy(alpha = 0.16f))
-                        .clickable { lyricsOpen = false }
-                        .padding(horizontal = 22.dp, vertical = 10.dp),
+                        .background(Color.White.copy(alpha = 0.10f))
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
                 ) {
                     Text(
-                        text = "Close lyrics",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White,
+                        text = lyricsSource?.let { "Lyrics by ${it.label}" }
+                            ?: "No lyrics found",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.7f),
                     )
                 }
                 Spacer(Modifier.height(20.dp))
@@ -875,47 +1220,55 @@ fun NowPlayingScreen(
                 )
             }
 
-            Spacer(Modifier.height(18.dp))
+            // Hidden entirely rather than just faded out — with the setting
+            // on, the slider takes up no space at all, so the transport and
+            // the toggle row below it close the gap instead of leaving a
+            // blank strip where the volume bar used to be.
+            if (hideVolumeBar) {
+                Spacer(Modifier.height(24.dp))
+            } else {
+                Spacer(Modifier.height(18.dp))
 
-            // ---- Volume ----
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.VolumeDown,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.size(20.dp),
-                )
-                Spacer(Modifier.width(10.dp))
-                ThinSlider(
-                    value = volume.value,
-                    onValueChange = {
-                        volumeDragging = true
-                        // Follow the finger exactly; only external changes tween.
-                        scope.launch { volume.snapTo(it) }
-                        audioManager?.setStreamVolume(
-                            AudioManager.STREAM_MUSIC,
-                            (it * maxVolume).roundToInt(),
-                            0,
-                        )
-                    },
-                    onValueChangeFinished = { volumeDragging = false },
-                    idleHeight = 6.dp,
-                    activeHeight = 10.dp,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(10.dp))
-                Icon(
-                    Icons.AutoMirrored.Rounded.VolumeUp,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.size(20.dp),
-                )
+                // ---- Volume ----
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.VolumeDown,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    ThinSlider(
+                        value = volume.value,
+                        onValueChange = {
+                            volumeDragging = true
+                            // Follow the finger exactly; only external changes tween.
+                            scope.launch { volume.snapTo(it) }
+                            audioManager?.setStreamVolume(
+                                AudioManager.STREAM_MUSIC,
+                                (it * maxVolume).roundToInt(),
+                                0,
+                            )
+                        },
+                        onValueChangeFinished = { volumeDragging = false },
+                        idleHeight = 6.dp,
+                        activeHeight = 10.dp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Icon(
+                        Icons.AutoMirrored.Rounded.VolumeUp,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+
+                Spacer(Modifier.height(24.dp))
             }
-
-            Spacer(Modifier.height(24.dp))
 
             // ---- Shuffle · Repeat · AutoPlay · Queue ----
             // These live here rather than in the queue panel so their state is
@@ -972,6 +1325,268 @@ fun NowPlayingScreen(
 
 
 /**
+ * The song position, ticking every frame.
+ *
+ * The player reports where it is about twice a second, which is fine for a
+ * scrubber and far too coarse for a highlight that has to keep up with a
+ * singer. This carries that report forward on the frame clock between
+ * reports, and resets to the real value whenever a fresh one lands — so it
+ * never drifts, it just fills in.
+ *
+ * Returned as state rather than a plain value on purpose: read inside a draw
+ * lambda, only the draw phase re-runs each frame. Read in composition, the
+ * whole line would recompose sixty times a second.
+ */
+@Composable
+private fun rememberLyricClock(positionMs: Long, isPlaying: Boolean): MutableLongState {
+    val clock = remember { mutableLongStateOf(positionMs) }
+    LaunchedEffect(positionMs, isPlaying) {
+        clock.longValue = positionMs
+        if (!isPlaying) return@LaunchedEffect
+        var previousFrame = withFrameMillis { it }
+        while (true) {
+            withFrameMillis { frame ->
+                clock.longValue += frame - previousFrame
+                previousFrame = frame
+            }
+        }
+    }
+    return clock
+}
+
+/**
+ * A lyric line with the sung part of it lit, the rest dimmed, and the boundary
+ * travelling across the words in time with the vocal.
+ *
+ * Two copies of the same text stacked: a dim one and a bright one clipped to
+ * whatever has been sung. Same string, same style, same constraints, so the
+ * two lay out identically and the bright copy lands exactly on top of the dim
+ * one. The alternative — colouring an AnnotatedString word by word — can only
+ * change a whole word at a time, which turns the sweep into a flicker.
+ *
+ * The clip is recomputed in the draw phase, so a frame costs one clip and one
+ * redraw of already-measured text.
+ *
+ * [glowAlpha] adds Apple's bloom: a third copy, blurred, behind the other two
+ * and clipped to the same boundary. Blurring *after* the clip rather than
+ * before is what makes the halo bleed a little way past the sweep's leading
+ * edge, which is the part that reads as light coming off the word being sung
+ * rather than a drop shadow sitting under the line.
+ */
+@Composable
+private fun SweptLyricLine(
+    line: LyricLine,
+    clock: MutableLongState,
+    style: TextStyle,
+    dimAlpha: Float,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    overflow: TextOverflow = TextOverflow.Clip,
+    glowAlpha: Float = 0f,
+    glowRadius: Dp = GLOW_RADIUS,
+    glowRoom: Dp = 0.dp,
+) {
+    var layout by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
+
+    // Carried by every copy: identical insets keep them laying out identically,
+    // and the inset is what gives the blurred copy's layer somewhere to put the
+    // halo. Sits inside the blur and outside the draw lambdas, so text-layout
+    // coordinates and draw coordinates still agree.
+    //
+    // Off unless asked for. Only the full panel can afford it — it takes the
+    // space back off its own row spacing and content padding. Handed to the
+    // one-line strip above the scrubber, where there is no glow to make room
+    // for and nothing paying the space back, it just left the line sitting in
+    // a pocket of air with the chevron pushed off it.
+    val room = if (glowRoom > 0.dp) Modifier.padding(glowRoom) else Modifier
+
+    val sweep = Modifier.drawWithContent {
+        val position = clock.longValue
+        when {
+            // Sung and done with: all of it is lit. Checked first so the lines
+            // above and below the playing one — which are in this same state
+            // for minutes at a time — cost a comparison per frame rather than
+            // a walk of their words.
+            position >= line.endMs -> drawContent()
+            // Not started: nothing lit, the dim copy is the whole of it.
+            position <= line.timeMs -> Unit
+            else -> layout?.let { sweepTo(it, line.revealedChars(position)) }
+        }
+    }
+
+    Box(modifier) {
+        Text(
+            text = line.text,
+            style = style,
+            color = Color.White.copy(alpha = dimAlpha),
+            maxLines = maxLines,
+            overflow = overflow,
+            onTextLayout = { layout = it },
+            modifier = room,
+        )
+        if (glowAlpha > 0.01f) {
+            Text(
+                text = line.text,
+                style = style,
+                color = Color.White,
+                maxLines = maxLines,
+                overflow = overflow,
+                modifier = Modifier
+                    // Read in the layer block rather than in composition: the
+                    // intensity changes every frame, and this way only the
+                    // layer's alpha is recomputed, not the line.
+                    .graphicsLayer { alpha = glowAlpha * line.glowIntensity(clock.longValue) }
+                    .blur(glowRadius, BlurredEdgeTreatment.Unbounded)
+                    .then(room)
+                    // The band is masked with a DstIn gradient, which needs a
+                    // layer of its own to erase into — against the backdrop it
+                    // would take the artwork with it.
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        // Deliberately not the shared sweep: that lights
+                        // everything sung so far, and this is only the front of
+                        // it. No short-circuit either — the glow layer only
+                        // exists for the line being sung, so it is one line's
+                        // worth of arithmetic, not the whole panel's.
+                        val measured = layout ?: return@drawWithContent
+                        val position = clock.longValue
+                        glowAt(
+                            layout = measured,
+                            revealedChars = line.revealedChars(position),
+                            intensity = line.glowIntensity(position),
+                        )
+                    },
+            )
+        }
+        Text(
+            text = line.text,
+            style = style,
+            color = Color.White,
+            maxLines = maxLines,
+            overflow = overflow,
+            modifier = room.then(sweep),
+        )
+    }
+}
+
+/**
+ * Draws this text clipped to a band trailing the sweep's leading edge — the
+ * word being sung, roughly, rather than the whole of what has been.
+ *
+ * The band widens with [intensity] as well as brightening, so a held note
+ * spreads its light over the words either side of it while patter keeps its
+ * halo tight to the one syllable. Alpha alone made every word glow the same
+ * shape, only more or less of it.
+ *
+ * Only ever one band: the edge is on exactly one visual line, and a wrapped
+ * line's previous row has already been left behind by the time the band would
+ * have reached back into it.
+ */
+private fun ContentDrawScope.glowAt(
+    layout: TextLayoutResult,
+    revealedChars: Float,
+    intensity: Float,
+) {
+    val length = layout.layoutInput.text.length
+    if (length == 0 || revealedChars <= 0f || intensity <= 0f) return
+
+    val edge = revealedChars.coerceIn(0f, length.toFloat())
+    val visualLine = layout.getLineForOffset(edge.toInt().coerceIn(0, length - 1))
+    val lineStart = layout.getLineStart(visualLine)
+    val lineEnd = layout.getLineEnd(visualLine, visibleEnd = true)
+
+    val right = horizontalAt(layout, edge.coerceIn(lineStart.toFloat(), lineEnd.toFloat()), lineStart, lineEnd)
+    val trail = GLOW_TRAIL.toPx() * (GLOW_TRAIL_FLOOR + (1f - GLOW_TRAIL_FLOOR) * intensity)
+    val left = (right - trail).coerceAtLeast(layout.getLineLeft(visualLine))
+    if (right <= left) return
+
+    // The band, cut out of the line. This is only the vertical and trailing
+    // bounds; how it fades across is the mask below.
+    clipRect(
+        left = left,
+        top = layout.getLineTop(visualLine),
+        right = right,
+        bottom = layout.getLineBottom(visualLine),
+    ) {
+        this@glowAt.drawContent()
+    }
+
+    // Full strength at the leading edge, ebbing away behind it. Without this
+    // the band has a hard back edge, and a hard edge travelling along at a
+    // constant distance behind the sweep is exactly what reads as a fixed-width
+    // block of light being dragged across the words.
+    //
+    // Painted over the whole node rather than inside the clip on purpose:
+    // DstIn keeps what the mask covers and erases the rest, and the brush
+    // clamps past its ends — transparent to the left of the band, opaque to
+    // the right, where the clip has already left nothing to keep.
+    drawRect(
+        brush = Brush.horizontalGradient(
+            0f to Color.Transparent,
+            0.45f to Color.White.copy(alpha = 0.22f),
+            1f to Color.White,
+            startX = left,
+            endX = right,
+        ),
+        blendMode = BlendMode.DstIn,
+    )
+}
+
+/** Where a fractional character index sits across a visual line, in pixels. */
+private fun horizontalAt(
+    layout: TextLayoutResult,
+    chars: Float,
+    lineStart: Int,
+    lineEnd: Int,
+): Float {
+    val index = chars.toInt().coerceIn(lineStart, lineEnd)
+    val here = layout.getHorizontalPosition(index, usePrimaryDirection = true)
+    val next = layout.getHorizontalPosition(
+        (index + 1).coerceAtMost(lineEnd),
+        usePrimaryDirection = true,
+    )
+    return here + (next - here) * (chars - index)
+}
+
+/**
+ * Draws this text clipped to its first [revealedChars] characters.
+ *
+ * Wrapped lines are handled a visual line at a time: the ones already passed
+ * are drawn whole, the one holding the boundary is cut at it, and the rest are
+ * left to the dim copy. Within a word the cut sits between two character
+ * positions, so the edge advances smoothly rather than jumping a letter at a
+ * time.
+ */
+private fun ContentDrawScope.sweepTo(layout: TextLayoutResult, revealedChars: Float) {
+    if (revealedChars <= 0f) return
+    if (revealedChars >= layout.layoutInput.text.length) {
+        drawContent()
+        return
+    }
+    for (visualLine in 0 until layout.lineCount) {
+        val start = layout.getLineStart(visualLine)
+        // Lines beyond the boundary have nothing lit on them, and neither has
+        // anything after them.
+        if (revealedChars <= start) return
+        val end = layout.getLineEnd(visualLine, visibleEnd = true)
+        val right = if (revealedChars >= end) {
+            layout.getLineRight(visualLine)
+        } else {
+            horizontalAt(layout, revealedChars, start, end)
+        }
+        clipRect(
+            left = layout.getLineLeft(visualLine),
+            top = layout.getLineTop(visualLine),
+            right = right,
+            bottom = layout.getLineBottom(visualLine),
+        ) {
+            this@sweepTo.drawContent()
+        }
+    }
+}
+
+
+/**
  * Apple Music's lyrics view: big tight type, the playing line crisp and
  * everything else falling out of focus the further it is from it. Blur needs
  * API 31+, so alpha carries the same hierarchy on older devices.
@@ -982,14 +1597,41 @@ fun NowPlayingScreen(
 @Composable
 private fun LyricsPanel(
     lines: List<LyricLine>,
-    activeLine: Int,
+    positionMs: Long,
+    isPlaying: Boolean,
     onSeekToLine: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val clock = rememberLyricClock(positionMs, isPlaying)
+
+    // Which line is playing right now: the last one whose stamp has passed.
+    //
+    // Read off the frame clock rather than the player's own position, which
+    // only lands twice a second. Taken from there, a line change was up to
+    // half a second late — and with the highlight itself running on the frame
+    // clock, that lateness was visible: the sweep would finish a line and sit
+    // at the end of it, waiting for the screen to admit the next one had
+    // started. derivedStateOf keeps the cost of the finer clock off
+    // composition; it only notifies when the index actually changes, not on
+    // every frame that feeds it.
+    val activeLine by remember(lines) {
+        derivedStateOf { lines.indexOfLast { it.timeMs <= clock.longValue } }
+    }
     val listState = rememberLazyListState()
     val keepScroll = remember(listState) { keepScrollInList(listState) }
     var browsing by remember { mutableStateOf(false) }
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+
+    // The bloom is a blurred copy of the line, so it is off wherever blur is:
+    // below API 31 Modifier.blur does nothing and the "glow" would land as a
+    // second sharp copy of the text — fake bold, not light. Both of the
+    // reduce-* settings turn it off too. Reduce animation because it is the
+    // switch for exactly this kind of flourish, and reduce dynamic blur
+    // because adding a blur under a setting that says it drops them would be
+    // the app disagreeing with itself.
+    val glowing = !reduceAnimation && !reduceDynamicBlur &&
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     // Only a finger on the list counts as browsing — watching
     // isScrollInProgress would trip on our own auto-scroll.
@@ -1033,6 +1675,13 @@ private fun LyricsPanel(
     // fight over the list's MutatorMutex was what leaked a stray scroll past
     // keepScrollInList and down to the sheet — reading the list's own
     // (synchronous) scroll state closes that window.
+    //
+    // The very first placement is a jump, not a scroll. The panel is built
+    // fresh each time it is opened, so an animated scroll there is the whole
+    // song racing past from the top before settling — which is where the
+    // stutter on opening came from. Later moves, which are one line at a time,
+    // still animate.
+    var placed by remember(lines) { mutableStateOf(false) }
     LaunchedEffect(activeLine, browsing) {
         if (!browsing && !listState.isScrollInProgress &&
             activeLine >= 0 && activeLine in lines.indices
@@ -1040,8 +1689,17 @@ private fun LyricsPanel(
             // A third of the way down the panel, whatever the panel's size — a
             // fixed pixel offset lands in a different place on every screen,
             // and on a tablet it put the playing line near the very top.
-            val third = listState.layoutInfo.viewportSize.height / 3
-            listState.animateScrollToItem(activeLine, scrollOffset = -third)
+            // Measured height is 0 until the list has been laid out once,
+            // which on the opening frame is exactly when this runs.
+            val viewport = snapshotFlow { listState.layoutInfo.viewportSize.height }
+                .first { it > 0 }
+            val third = viewport / 3
+            if (placed) {
+                listState.animateScrollToItem(activeLine, scrollOffset = -third)
+            } else {
+                listState.scrollToItem(activeLine, scrollOffset = -third)
+                placed = true
+            }
         }
     }
 
@@ -1062,8 +1720,14 @@ private fun LyricsPanel(
             .bleedHorizontally(PLAYER_GUTTER)
             .nestedScroll(keepScroll)
             .fadingEdges(),
-        contentPadding = PaddingValues(vertical = 40.dp, horizontal = PLAYER_GUTTER),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        // Each row carries GLOW_ROOM of its own inset for the halo, so the
+        // list hands that much back — otherwise the lines would sit a glow's
+        // width further apart and further in than they used to.
+        contentPadding = PaddingValues(
+            vertical = 40.dp - GLOW_ROOM,
+            horizontal = PLAYER_GUTTER - GLOW_ROOM,
+        ),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         itemsIndexed(lines) { index, line ->
             val distance = if (activeLine < 0) 0 else abs(index - activeLine)
@@ -1080,7 +1744,7 @@ private fun LyricsPanel(
                 },
                 label = "lyricBlur",
             )
-            val alpha by animateFloatAsState(
+            val lineAlpha by animateFloatAsState(
                 targetValue = when {
                     browsing -> 1f
                     isActive -> 1f
@@ -1096,28 +1760,80 @@ private fun LyricsPanel(
                 Icon(
                     imageVector = BitChordIcons.MusicNote,
                     contentDescription = "Instrumental",
-                    tint = Color.White.copy(alpha = alpha),
+                    tint = Color.White.copy(alpha = lineAlpha),
                     modifier = Modifier
                         .blur(blur, BlurredEdgeTreatment.Unbounded)
                         .clip(RoundedCornerShape(10.dp))
                         .clickable { onSeekToLine(line.timeMs) }
-                        .padding(vertical = 6.dp)
+                        // Matches the inset every sung line carries, so the
+                        // rhythm of the list doesn't break at a break.
+                        .padding(GLOW_ROOM)
                         .size(noteSize),
                 )
             } else {
-                Text(
-                    text = line.text,
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 27.sp,
-                        lineHeight = 33.sp,
-                    ),
-                    color = Color.White.copy(alpha = alpha),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .blur(blur, BlurredEdgeTreatment.Unbounded)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { onSeekToLine(line.timeMs) },
+                val style = MaterialTheme.typography.headlineLarge.copy(
+                    fontSize = 27.sp,
+                    lineHeight = 33.sp,
                 )
+                // The playing line swells a touch. Anchored to its left edge,
+                // so the words don't slide sideways under the highlight as it
+                // grows — scaling about the centre would fight the sweep.
+                val scale by animateFloatAsState(
+                    targetValue = if (isActive) 1.04f else 1f,
+                    label = "lyricScale",
+                )
+                // Apple's bloom on the line being sung. Fades in and out with
+                // the line rather than switching, so a handover is one line's
+                // light going down as the next one's comes up.
+                val glow by animateFloatAsState(
+                    targetValue = if (isActive && glowing) GLOW_ALPHA else 0f,
+                    animationSpec = tween(durationMillis = 420),
+                    label = "lyricGlow",
+                )
+                val shape = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = TransformOrigin(0f, 0.5f)
+                        alpha = lineAlpha
+                    }
+                    .blur(blur, BlurredEdgeTreatment.Unbounded)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { onSeekToLine(line.timeMs) }
+                if (line.isWordSynced && !browsing) {
+                    // Every word-synced line goes through the sweep, not just
+                    // the playing one — a line that has already been sung is
+                    // fully revealed and one still to come is not, which falls
+                    // out of the same arithmetic.
+                    //
+                    // Running it only on the active line meant swapping this
+                    // composable for a plain Text the instant a line handed
+                    // over, and the two disagreed about the brightness of the
+                    // words: the tail of the line popped up to meet the rest of
+                    // it in a single frame. Animating the tail instead lets a
+                    // finished line close up as it dims away.
+                    val tail by animateFloatAsState(
+                        targetValue = if (isActive) UNSUNG_ALPHA else 1f,
+                        label = "lyricTail",
+                    )
+                    SweptLyricLine(
+                        line = line,
+                        clock = clock,
+                        style = style,
+                        dimAlpha = tail,
+                        modifier = shape,
+                        glowAlpha = glow,
+                        glowRoom = GLOW_ROOM,
+                    )
+                } else {
+                    Text(
+                        text = line.text,
+                        style = style,
+                        color = Color.White,
+                        modifier = shape.padding(GLOW_ROOM),
+                    )
+                }
             }
         }
     }
@@ -1147,18 +1863,7 @@ private fun CurrentLyricLine(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val clock = remember { mutableLongStateOf(positionMs) }
-    LaunchedEffect(positionMs, isPlaying) {
-        clock.longValue = positionMs
-        if (!isPlaying) return@LaunchedEffect
-        var previousFrame = withFrameMillis { it }
-        while (true) {
-            withFrameMillis { frame ->
-                clock.longValue += frame - previousFrame
-                previousFrame = frame
-            }
-        }
-    }
+    val clock = rememberLyricClock(positionMs, isPlaying)
 
     val index by remember(lines) {
         derivedStateOf { lines.indexOfLast { it.timeMs <= clock.longValue } }
@@ -1209,14 +1914,27 @@ private fun CurrentLyricLine(
             )
             Spacer(Modifier.width(6.dp))
         }
-        Text(
-            text = text,
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
-        )
+        val swept = current?.takeIf { !instrumental && it.isWordSynced }
+        if (swept != null) {
+            SweptLyricLine(
+                line = swept,
+                clock = clock,
+                style = MaterialTheme.typography.titleMedium,
+                dimAlpha = UNSUNG_ALPHA_STRIP,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        } else {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
         Spacer(Modifier.width(6.dp))
         // Disclosure hint: this strip opens the full lyrics screen.
         Icon(
@@ -1864,14 +2582,154 @@ private fun formatTime(ms: Long): String {
 }
 
 /**
- * "Opus · 141 kbps · 48.0 kHz · Stereo" — whichever of those the player has
+ * The gap between the two timestamps under the seek bar: just the "Lossless"
+ * badge when one applies, and nothing otherwise. The measured stats line
+ * that used to fall back to lives inside the sleeve now (see the bottom-centre
+ * overlay on the artwork Box above), so there is no tap here to swap it in —
+ * the badge is a claim, the sleeve is where the evidence is.
+ */
+@Composable
+private fun LosslessOrStats(
+    isLoading: Boolean,
+    stillRacing: Boolean,
+    losslessRequested: Boolean,
+    nerdStats: NerdStats.Snapshot?,
+    modifier: Modifier = Modifier,
+) {
+    when {
+        // Still resolving — either the player itself is buffering, or a
+        // module is still racing YouTube for this track in the background
+        // (see [NerdStats.racingLossless]) even though YouTube already won
+        // and is audible. Either way nothing measured yet to confirm with,
+        // so this is a statement of intent, not a result — no shimmer, so
+        // it never reads as "confirmed" before it is.
+        // [stillRacing] on its own, not gated on the lossless preference: a
+        // module outranks YouTube on the strength of the source order alone,
+        // so the lookup runs — and can come back lossless — with that switch
+        // off. Gating this on it left the badge blank through the wait and
+        // then jumped straight to "Hi-Res Lossless".
+        (stillRacing || (isLoading && losslessRequested)) && nerdStats?.isLossless != true -> LosslessLabel(
+            text = "Upgrading Quality",
+            animated = false,
+            modifier = modifier,
+        )
+        nerdStats?.isLossless == true -> LosslessLabel(
+            // Same line Tidal, Qobuz and Apple Music draw it at — see
+            // [NerdStats.Snapshot.isHiRes].
+            text = if (nerdStats.isHiRes) "Hi-Res Lossless" else "Lossless",
+            // Shimmer is reserved for the thing that was asked for and
+            // confirmed. It is what makes the badge read as an achievement
+            // rather than a label, which only one of these two is.
+            animated = true,
+            modifier = modifier,
+        )
+        // Lossy, but the good end of lossy — a module's 320kbps tier, which
+        // for a great many tracks is the best copy that exists anywhere the
+        // app can reach. See [NerdStats.Snapshot.isHiQuality].
+        nerdStats?.isHiQuality == true -> LosslessLabel(
+            text = "Hi-Quality",
+            animated = false,
+            modifier = modifier,
+        )
+        else -> {}
+    }
+}
+
+/** A headphone glyph ahead of the quality tag — "Upgrading Quality", "Hi-Quality", "Lossless". */
+@Composable
+private fun LosslessLabel(text: String, animated: Boolean, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Headphones,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = if (animated) 0.7f else 0.45f),
+            modifier = Modifier.size(13.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        if (animated) {
+            ShimmerText(text = text)
+        } else {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + 1).sp,
+                ),
+                color = Color.White.copy(alpha = 0.45f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/**
+ * "Lossless", with a highlight band sweeping left to right across it every
+ * three seconds — confirmed, not just claimed, so it's worth the shine.
+ *
+ * The band's width is measured off the text itself via [onSizeChanged]
+ * rather than assumed, so the sweep always clears the word fully at both
+ * ends instead of being sized for whatever length happened to be typical.
+ */
+@Composable
+private fun ShimmerText(text: String) {
+    var widthPx by remember { mutableIntStateOf(0) }
+    val transition = rememberInfiniteTransition(label = "lossless-shimmer")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3_000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "lossless-shimmer-progress",
+    )
+    val baseColor = Color.White.copy(alpha = 0.55f)
+    val brush = if (widthPx <= 0) {
+        Brush.linearGradient(listOf(baseColor, baseColor))
+    } else {
+        val band = widthPx * 0.6f
+        val center = -band + progress * (widthPx + 2 * band)
+        Brush.linearGradient(
+            colorStops = arrayOf(0f to baseColor, 0.5f to Color.White, 1f to baseColor),
+            start = Offset(center - band, 0f),
+            end = Offset(center + band, 0f),
+        )
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium.copy(
+            brush = brush,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + 1).sp,
+        ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.onSizeChanged { widthPx = it.width },
+    )
+}
+
+/**
+ * "FLAC · 24-bit · 96.0 kHz · Stereo" — whichever of those the player has
  * actually reported. A figure it hasn't is dropped rather than filled in, so a
  * short line means little was known, never that something was invented.
+ *
+ * Bitrate is omitted once the stream is known to be lossless: the number is
+ * real but says nothing useful about the quality, and reading "1411 kbps" next
+ * to "FLAC" invites the comparison with a lossy figure that the two do not
+ * support.
+ *
+ * A stream that arrived worse than its source promised gets that stated
+ * outright rather than left to be spotted — see [NerdStats.Snapshot.downgraded].
  */
 private fun NerdStats.Snapshot.describe(): String? {
     val parts = buildList {
         codecLabel(mimeType)?.let(::add)
-        bitrateKbps?.let { add("$it kbps") }
+        bitDepth?.let { add("$it-bit") }
+        if (!isLossless) bitrateKbps?.let { add("$it kbps") }
         sampleRateHz?.let { add("%.1f kHz".format(it / 1000f)) }
         channels?.let {
             add(
@@ -1882,6 +2740,7 @@ private fun NerdStats.Snapshot.describe(): String? {
                 },
             )
         }
+        if (downgraded) add("↓ from ${claimed?.summary}")
     }
     return parts.joinToString(" · ").takeIf { it.isNotEmpty() }
 }
@@ -1893,5 +2752,7 @@ private fun codecLabel(mimeType: String?): String? = when {
     mimeType.endsWith("mp4a-latm") -> "AAC"
     mimeType.endsWith("vorbis") -> "Vorbis"
     mimeType.endsWith("mpeg") -> "MP3"
+    mimeType.endsWith("flac") -> "FLAC"
+    mimeType.endsWith("alac") -> "ALAC"
     else -> mimeType.substringAfter('/').uppercase()
 }

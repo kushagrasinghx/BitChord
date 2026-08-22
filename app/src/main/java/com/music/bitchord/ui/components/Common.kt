@@ -7,6 +7,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SwipeToDismissBox
@@ -19,6 +20,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.settings.AppSettings
 import kotlin.math.abs
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -90,9 +93,10 @@ val SHELF_CARD_WIDTH = 150.dp
 /**
  * One track row, used by search, library and detail pages.
  *
- * Swiping it either way adds the track to the queue — the row springs back
- * rather than dismissing, since nothing is being removed. Long-press opens
- * the actions menu.
+ * Swiping it either way queues the track or plays it next, per
+ * [AppSettings.swipeToPlayNext] — the row springs back rather than
+ * dismissing, since nothing is being removed. Long-press opens the actions
+ * menu.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -166,6 +170,7 @@ fun SongRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueueSwipeBackground(swipeState: SwipeToDismissBoxState) {
+    val playNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     Row(
         modifier = Modifier
             .fillMaxSize()
@@ -186,23 +191,23 @@ private fun QueueSwipeBackground(swipeState: SwipeToDismissBoxState) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        QueueSwipeLabel()
-        QueueSwipeLabel()
+        QueueSwipeLabel(playNext)
+        QueueSwipeLabel(playNext)
     }
 }
 
 @Composable
-private fun QueueSwipeLabel() {
+private fun QueueSwipeLabel(playNext: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            Icons.Rounded.PlaylistAdd,
+            if (playNext) Icons.Rounded.PlaylistPlay else Icons.Rounded.PlaylistAdd,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            text = "Queue",
+            text = if (playNext) "Play next" else "Queue",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
         )

@@ -38,6 +38,19 @@ data class Song(
      * that need it — see [com.music.bitchord.playback.toMediaItem].
      */
     val localPath: String? = null,
+    /**
+     * What a non-YouTube source says it can serve this recording at, as one of
+     * `LOSSLESS`, `HIGH` or `LOW` — null for every row that didn't come from
+     * one.
+     *
+     * Carried on the row rather than discovered at stream time because it is
+     * the only thing that distinguishes two catalogues holding the same track,
+     * and the choice between them has to be made *before* either is asked for
+     * a URL. Without it the picker was blind: a Deezer row and a 16-bit FLAC
+     * row looked identical, the FLAC lost a tie-break on artist spelling, and
+     * the track played as a 128kbps MP3.
+     */
+    val sourceQuality: String? = null,
 )
 
 /**

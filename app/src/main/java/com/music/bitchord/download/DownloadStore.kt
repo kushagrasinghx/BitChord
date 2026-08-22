@@ -7,7 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
+import com.music.bitchord.data.DebugLog as Log
 import androidx.annotation.RequiresApi
 import com.music.bitchord.data.model.Song
 import java.io.File
@@ -16,12 +16,18 @@ import java.io.OutputStream
 /**
  * Where a downloaded track goes, and how it gets there.
  *
- * The destination is the device's own Downloads folder, in a `BitChord`
+ * The destination is the device's own Music folder, in a `BitChord`
  * subfolder — somewhere the file manager lists, other players can open, and a
  * user can back up or delete without going through this app. That choice is
  * what makes this class necessary at all: an app-private directory would be
  * four lines of [File], but a shared one crosses the scoped-storage line and
  * the two sides of that line have nothing in common.
+ *
+ * It goes through the audio collection rather than Downloads specifically
+ * because the files are `.webm` — a container extension Android's own mime
+ * table ties to video regardless of what MIME type this class declares for
+ * it — and a Gallery app crawling Downloads for video-looking files does not
+ * care what column says otherwise. The audio collection is not on that path.
  *
  *  - **API 29+** goes through [MediaStore]. There is no filesystem path to
  *    write to; the store mints a row, hands back a content uri, and the file
@@ -43,10 +49,10 @@ object DownloadStore {
 
     private const val TAG = "BitChord"
 
-    /** The subfolder of Downloads that everything lands in. */
+    /** The subfolder of Music that everything lands in. */
     const val FOLDER = "BitChord"
 
-    private val relativePath = "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER"
+    private val relativePath = "${Environment.DIRECTORY_MUSIC}/$FOLDER"
 
     /**
      * Whether saving needs `WRITE_EXTERNAL_STORAGE` asked for at runtime.
@@ -68,7 +74,7 @@ object DownloadStore {
     /**
      * What the file is called: `Artist - Title.ext`.
      *
-     * Artist first because a Downloads folder is sorted by name and nothing
+     * Artist first because a Music folder is sorted by name and nothing
      * else — no tags to group by — so leading with the artist is the only thing
      * that puts an album back together in the listing.
      */
@@ -119,7 +125,7 @@ object DownloadStore {
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun mediaStoreEntry(context: Context, name: String): Uri? = runCatching {
         context.contentResolver.query(
-            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             arrayOf(MediaStore.MediaColumns._ID),
             "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND " +
                 "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?",
@@ -127,7 +133,7 @@ object DownloadStore {
             null,
         )?.use { cursor ->
             if (!cursor.moveToFirst()) return@use null
-            MediaStore.Downloads.EXTERNAL_CONTENT_URI.buildUpon()
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI.buildUpon()
                 .appendPath(cursor.getLong(0).toString())
                 .build()
         }
@@ -223,13 +229,13 @@ object DownloadStore {
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
             val uri = context.contentResolver
-                .insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                ?: error("Could not create $name in Downloads")
+                .insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values)
+                ?: error("Could not create $name in Music")
             return Pending(context, uri, name, part = null, target = null)
         }
 
         val target = legacyFile(name)
-        val folder = target.parentFile ?: error("No Downloads folder on this device")
+        val folder = target.parentFile ?: error("No Music folder on this device")
         if (!folder.exists() && !folder.mkdirs()) error("Could not create ${folder.path}")
         val part = File(folder, "$name.part")
         part.delete()
@@ -238,7 +244,7 @@ object DownloadStore {
 
     @Suppress("DEPRECATION")
     private fun legacyFile(name: String) = File(
-        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FOLDER),
+        File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), FOLDER),
         name,
     )
 }

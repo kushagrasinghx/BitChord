@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
-import android.util.Log
+import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.innertube.StreamResolver
@@ -316,7 +316,7 @@ object Downloads {
             // adopt it rather than writing a second copy beside it.
             val alreadyThere = DownloadStore.existing(context, name)
             if (alreadyThere != null) {
-                Log.d(TAG, "$name is already in Downloads; adopting it")
+                Log.d(TAG, "$name is already in Music; adopting it")
                 remember(song, track, alreadyThere)
                 clear(id)
                 return@withContext

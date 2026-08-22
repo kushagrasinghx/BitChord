@@ -190,7 +190,7 @@ class DownloadService : Service() {
                 // or a heads-up every time a track finishes.
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Songs being saved to your Downloads folder"
+                description = "Songs being saved to your Music folder"
                 setShowBadge(false)
             },
         )

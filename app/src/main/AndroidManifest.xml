@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <!-- Saving a track to Downloads outlives the screen it was asked from. -->
+    <!-- Saving a track to Music outlives the screen it was asked from. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -19,7 +19,7 @@
         android:maxSdkVersion="32" />
 
     <!--
-      Only for API 28 and below. From 29 the app writes to the shared Downloads
+      Only for API 28 and below. From 29 the app writes to the shared Music
       folder through MediaStore, which grants access to the rows it created and
       needs no permission at all — and this one stops being grantable there.
     -->

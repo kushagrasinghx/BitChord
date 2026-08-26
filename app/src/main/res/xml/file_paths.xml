@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the in-app updater's APK cache is shared, and only to the installer. -->
+<paths>
+    <cache-path
+        name="updates"
+        path="updates/" />
+</paths>

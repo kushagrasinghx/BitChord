@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -44,6 +45,8 @@ internal val ACTION_HEIGHT = 44.dp
  */
 internal val SCRIM_COLOR = Color.Black.copy(alpha = 0.28f)
 
+private val DOWNLOAD_ROW_HEIGHT = 4.dp
+
 /**
  * Once-per-launch nudge that a newer build is on GitHub Releases — the top
  * bar's [Icons.Rounded.SystemUpdate][androidx.compose.material.icons.rounded.SystemUpdate]
@@ -53,6 +56,11 @@ internal val SCRIM_COLOR = Color.Black.copy(alpha = 0.28f)
  * Shaped like an iOS system alert, which is the same lineage as the rest of the
  * app's Apple Music styling: frosted card, hairline rules, full-width actions
  * stacked under the message rather than a Material button pair in the corner.
+ *
+ * The update round trip happens here rather than in a browser: Download pulls
+ * the release's APK into the app cache (progress fills the hairline under the
+ * message), then Install hands it to the system installer. Where the release
+ * carries no APK at all, the actions fall back to opening the releases page.
  *
  * Sits over the whole app as an overlay rather than an Android [Dialog][androidx.compose.ui.window.Dialog]
  * so its glass can sample the same [HazeState] the rest of the app's frosted
@@ -64,10 +72,14 @@ fun UpdateAvailableDialog(
     version: String,
     hazeState: HazeState,
     onDismiss: () -> Unit,
-    onUpdate: () -> Unit,
+    onDownload: () -> Unit,
+    onCancelDownload: () -> Unit,
+    onInstall: () -> Unit,
+    onOpenReleasePage: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val state by AppUpdateChecker.download.collectAsStateWithLifecycle()
     val shape = RoundedCornerShape(ALERT_CORNER)
 
     Box(
@@ -76,7 +88,8 @@ fun UpdateAvailableDialog(
             .background(SCRIM_COLOR)
             // Tapping the scrim reads the same as Remind Me Later — nothing
             // about this update is mandatory, so backing out of it should be as
-            // easy as getting into it.
+            // easy as getting into it. Mid-download it only closes the sheet;
+            // the download keeps going and the top-bar icon reopens this.
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
@@ -119,7 +132,16 @@ fun UpdateAvailableDialog(
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = "bitchord $version is available to download.",
+                    text = when (state) {
+                        is AppUpdateChecker.DownloadState.Downloading ->
+                            "Downloading bitchord $version…"
+                        is AppUpdateChecker.DownloadState.Ready ->
+                            "bitchord $version is ready to install."
+                        is AppUpdateChecker.DownloadState.Failed ->
+                            "Couldn't download bitchord $version."
+                        else ->
+                            "bitchord $version is available to download."
+                    },
                     modifier = Modifier.padding(top = 4.dp),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 13.sp,
@@ -128,12 +150,63 @@ fun UpdateAvailableDialog(
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
+
+                // The download's progress, drawn as a thin fill across a
+                // hairline track — same weight as [AlertRule], so it reads as
+                // part of the card rather than a widget bolted onto it.
+                val downloading = state as? AppUpdateChecker.DownloadState.Downloading
+                if (downloading != null || state is AppUpdateChecker.DownloadState.Failed) {
+                    Box(
+                        Modifier
+                            .padding(top = 12.dp)
+                            .fillMaxWidth()
+                            .height(DOWNLOAD_ROW_HEIGHT)
+                            .clip(RoundedCornerShape(DOWNLOAD_ROW_HEIGHT / 2))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f)),
+                    ) {
+                        if (downloading != null && downloading.fraction > 0f) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(downloading.fraction)
+                                    .height(DOWNLOAD_ROW_HEIGHT)
+                                    .clip(RoundedCornerShape(DOWNLOAD_ROW_HEIGHT / 2))
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                        }
+                    }
+                }
+                if (state is AppUpdateChecker.DownloadState.Failed) {
+                    Text(
+                        text = (state as AppUpdateChecker.DownloadState.Failed).message,
+                        modifier = Modifier.padding(top = 6.dp),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
 
             AlertRule()
-            AlertAction(label = "Download Now", emphasised = true, onClick = onUpdate)
-            AlertRule()
-            AlertAction(label = "Remind Me Later", emphasised = false, onClick = onDismiss)
+            when (state) {
+                is AppUpdateChecker.DownloadState.Downloading -> {
+                    AlertAction(label = "Cancel", emphasised = false, onClick = onCancelDownload)
+                }
+                is AppUpdateChecker.DownloadState.Ready -> {
+                    AlertAction(label = "Install Now", emphasised = true, onClick = onInstall)
+                    AlertRule()
+                    AlertAction(label = "Later", emphasised = false, onClick = onDismiss)
+                }
+                is AppUpdateChecker.DownloadState.Failed -> {
+                    AlertAction(label = "Try Again", emphasised = true, onClick = onDownload)
+                    AlertRule()
+                    AlertAction(label = "Open Releases Page", emphasised = false, onClick = onOpenReleasePage)
+                }
+                else -> {
+                    AlertAction(label = "Download Now", emphasised = true, onClick = onDownload)
+                    AlertRule()
+                    AlertAction(label = "Remind Me Later", emphasised = false, onClick = onDismiss)
+                }
+            }
         }
     }
 }

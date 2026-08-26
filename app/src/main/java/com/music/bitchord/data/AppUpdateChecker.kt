@@ -151,6 +151,7 @@ object AppUpdateChecker {
 
     /** Back to square one after a failure, so the dialog offers Download again. */
     fun resetDownload() {
+        downloadCancelled = true
         _download.value = DownloadState.Idle
     }
 

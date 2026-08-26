@@ -118,6 +118,7 @@ import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.TopBarAccountButton
 import com.music.bitchord.ui.components.TopFadeBlur
 import com.music.bitchord.ui.components.LyricsSourcesDialog
+import com.music.bitchord.ui.screens.ChangelogScreen
 import com.music.bitchord.ui.components.UpdateAvailableDialog
 import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.media3.common.Player
@@ -167,6 +168,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
     var showSettings by remember { mutableStateOf(false) }
     var showAccountScrobbling by remember { mutableStateOf(false) }
     var showLyricsSources by remember { mutableStateOf(false) }
+    var showChangelog by remember { mutableStateOf(false) }
     var showListenBrainzLogin by remember { mutableStateOf(false) }
     var showLastfmLogin by remember { mutableStateOf(false) }
     // Discord Rich Presence: its own page under Account & integrations, its own
@@ -591,6 +593,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
         BackHandler(enabled = showDiscord) {
             showDiscord = false
         }
+        BackHandler(enabled = showChangelog) { showChangelog = false }
         BackHandler(enabled = showAccountScrobbling && !showDiscord) {
             showAccountScrobbling = false
         }
@@ -613,6 +616,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
             targetState = when {
                 showDiscord -> "discord"
                 showAccountScrobbling -> "account_scrobbling"
+                showChangelog -> "changelog"
                 showSettings -> "settings"
                 detail != null -> detail.browseId
                 else -> "tab:$selectedTab"
@@ -622,7 +626,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
             label = "content",
         ) { key ->
             val page = detailStack.lastOrNull()?.takeIf {
-                it.browseId == key && key != "settings" && key != "account_scrobbling" && key != "discord"
+                it.browseId == key && key != "settings" && key != "account_scrobbling" && key != "discord" && key != "changelog"
             }
             if (key == "discord") {
                 DiscordScreen(
@@ -648,6 +652,8 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     onOpenDiscord = { showDiscord = true },
                     contentPadding = listPadding,
                 )
+            } else if (key == "changelog") {
+                ChangelogScreen(contentPadding = listPadding)
             } else if (key == "settings") {
                 SettingsScreen(
                     signedIn = signedIn,
@@ -659,6 +665,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
                     onSignOut = { viewModel.signOut() },
                     onAccountScrobbling = { showAccountScrobbling = true },
                     onLyricsSources = { showLyricsSources = true },
+                    onChangelog = { showChangelog = true },
                     contentPadding = listPadding,
                 )
             } else if (page != null && page.browseId.startsWith("local:")) {
@@ -903,6 +910,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
             // the field takes that space — so its bar title is always up.
             scrolled = when {
                 showSettings || showAccountScrobbling || showDiscord -> true
+                showChangelog -> true
                 detail != null -> detailScrolled
                 else -> scrolled || selectedTab == TAB_SEARCH
             },
@@ -911,6 +919,7 @@ private fun BitChordApp(darkTheme: Boolean, viewModel: MainViewModel = viewModel
             onBack = when {
                 showDiscord -> ({ showDiscord = false })
                 showAccountScrobbling -> ({ showAccountScrobbling = false })
+                showChangelog -> ({ showChangelog = false })
                 showSettings -> ({ showSettings = false })
                 detail != null -> ({ viewModel.closeDetail(); Unit })
                 else -> null

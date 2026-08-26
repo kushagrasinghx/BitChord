@@ -124,6 +124,7 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onAccountScrobbling: () -> Unit,
     onLyricsSources: () -> Unit,
+    onChangelog: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -607,6 +608,15 @@ fun SettingsScreen(
                     )
                 },
                 onClick = { AppSettings.setHideVolumeBar(!hideVolumeBar) },
+            )
+        }
+
+        SettingsGroup(header = "About") {
+            SettingsRow(
+                icon = Icons.AutoMirrored.Rounded.Notes,
+                title = "Changelog",
+                subtitle = "Patch notes from recent releases",
+                onClick = onChangelog,
             )
         }
 

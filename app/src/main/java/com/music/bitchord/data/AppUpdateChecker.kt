@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
@@ -34,8 +36,18 @@ object AppUpdateChecker {
 
     data class UpdateInfo(val version: String, val releaseUrl: String, val apkUrl: String?)
 
+    /** One release, as the changelog surfaces it. */
+    data class ReleaseEntry(
+        val version: String,
+        val date: String?,
+        val notes: String?,
+        val url: String?,
+    )
+
     private const val LATEST_RELEASE_URL =
         "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest"
+    private const val RELEASES_URL =
+        "https://api.github.com/repos/kushagrasinghx/BitChord/releases?per_page=15"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -197,4 +209,30 @@ object AppUpdateChecker {
         }
         return false
     }
+
+    /** Recent published releases, newest first — the changelog's content. */
+    suspend fun fetchChangelog(): List<ReleaseEntry> = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = Request.Builder().url(RELEASES_URL).build()
+            val body = Http.client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) null else response.body?.string()
+            } ?: return@runCatching emptyList()
+            val array = json.parseToJsonElement(body) as? JsonArray ?: return@runCatching emptyList()
+            array.mapNotNull { element ->
+                val release = element as? JsonObject ?: return@mapNotNull null
+                if (release["draft"]?.jsonPrimitive?.booleanOrNull == true) return@mapNotNull null
+                ReleaseEntry(
+                    version = release["tag_name"]?.jsonPrimitive?.contentOrNull
+                        ?.removePrefix("v") ?: return@mapNotNull null,
+                    date = release["published_at"]?.jsonPrimitive?.contentOrNull?.take(10),
+                    notes = release["body"]?.jsonPrimitive?.contentOrNull,
+                    url = release["html_url"]?.jsonPrimitive?.contentOrNull,
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    /** Notes for exactly the running build, for the one-time post-update popup. */
+    suspend fun fetchNotesForCurrentVersion(): ReleaseEntry? =
+        fetchChangelog().firstOrNull { it.version == BuildConfig.VERSION_NAME }
 }

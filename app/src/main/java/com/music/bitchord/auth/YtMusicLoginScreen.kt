@@ -1,6 +1,7 @@
 package com.music.bitchord.auth
 
 import android.annotation.SuppressLint
+import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -26,7 +27,15 @@ private const val MUSIC_ORIGIN = "https://music.youtube.com"
 private const val LOGIN_URL =
     "https://accounts.google.com/ServiceLogin" +
         "?ltmpl=music&service=youtube&passive=true" +
-        "&continue=https%3A%2F%2Fmusic.youtube.com%2F"
+    "&continue=https%3A%2F%2Fmusic.youtube.com%2F"
+
+/**
+ * CookieManager cannot expire every Google HttpOnly cookie by name. Logging
+ * out inside this WebView is the reliable way to make Add account present the
+ * account chooser, without touching BitChord's separately encrypted sessions.
+ */
+private val LOGOUT_THEN_LOGIN_URL =
+    "https://accounts.google.com/Logout?continue=${Uri.encode(LOGIN_URL)}"
 
 private const val TAG = "BitChord"
 
@@ -99,7 +108,7 @@ fun YtMusicLoginScreen(
                 }
 
                 webView = this
-                loadUrl(if (mode == WebSessionMode.SIGN_IN) LOGIN_URL else "$MUSIC_ORIGIN/")
+                loadUrl(if (mode == WebSessionMode.SIGN_IN) LOGOUT_THEN_LOGIN_URL else "$MUSIC_ORIGIN/")
             }
         },
     )

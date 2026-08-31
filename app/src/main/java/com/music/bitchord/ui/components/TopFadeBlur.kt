@@ -20,7 +20,6 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
-import io.github.fletchmckee.liquid.liquid
 
 /**
  * The run the fade needs below the bar to get from full blur to none without
@@ -104,24 +103,18 @@ fun TopFadeBlur(
     // The bar fills itself solid instead when blur is reduced, so this has
     // nothing left to do.
     if (reduceDynamicBlur) return
+    // Liquid Glass is a replacement for the header treatment, not a second
+    // lens over it. The header's tall progressive strip magnifies the sampled
+    // shelf artwork into a distracting rectangle, so leave this area clean
+    // while Liquid Glass is enabled.
+    if (liquidState != null) return
 
     val height = topBarHeight() + FADE_RUN
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .then(
-                if (liquidState != null) {
-                    Modifier.liquid(liquidState) {
-                        frost = 10.dp
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
-                        refraction = 0.08f
-                        curve = 0.1f
-                        edge = 0f
-                        tint = pageColor.copy(alpha = 0.12f)
-                        saturation = 1.05f
-                    }
-                } else Modifier.hazeEffect(
+            .hazeEffect(
                     state = hazeState,
                 // Keyed to the colour of the page underneath, not the theme's.
                 //
@@ -138,7 +131,7 @@ fun TopFadeBlur(
                 // background, that is a black bar spreading unevenly down into
                 // the artwork: the exact artefact this was added to remove.
                 style = HazeMaterials.ultraThin(pageColor),
-                ) {
+            ) {
                 // This is intentionally the progressive Haze effect used by the
                 // original top treatment. The mask-based optimization changes
                 // the visual result on device and loses the soft blur shown in
@@ -152,8 +145,7 @@ fun TopFadeBlur(
                 // Uniform across the layer, so it would show as texture over
                 // the untouched foot of the ramp — the edge being hidden.
                 noiseFactor = 0f
-                }
-            ),
+            },
     )
 
     val scrim = remember(scrimColor) {

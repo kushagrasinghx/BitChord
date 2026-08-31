@@ -67,7 +67,9 @@ fun AccountProfileSelector(
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidState = LocalLiquidGlassState.current
     val shape = MaterialTheme.shapes.extraLarge
-    val liquidTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f)
+    // The sheet carries account names and handles: this deliberately keeps a
+    // much denser tint than a decorative pill so white text remains readable.
+    val liquidTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
     Column(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = .48f))
             .clickable(onClick = onDismiss),

@@ -54,6 +54,7 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import io.github.fletchmckee.liquid.liquid
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -136,6 +137,8 @@ fun FloatingBottomBar(
     val pillShape = RoundedCornerShape(percent = 50)
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val liquidState = LocalLiquidGlassState.current
+    val liquidTint = container.copy(alpha = 0.28f)
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     // The liquid settle is exactly the motion "reduce animation" promises to
     // drop — snapping both the indicator's travel and the glyph's pop to
@@ -196,6 +199,16 @@ fun FloatingBottomBar(
             .then(
                 if (reduceDynamicBlur) {
                     Modifier.background(container)
+                } else if (liquidState != null) {
+                    Modifier.liquid(liquidState) {
+                        frost = 12.dp
+                        this.shape = pillShape
+                        refraction = 0.13f
+                        curve = 0.15f
+                        edge = 0.08f
+                        tint = liquidTint
+                        saturation = 1.08f
+                    }
                 } else {
                     Modifier.optimizedHazeEffect(
                         state = hazeState,

@@ -2939,6 +2939,7 @@ private fun CircleGlyph(
 /** A non-interactive status light: it appears only while a real DJ mix is audible. */
 @Composable
 private fun DjMixIndicator() {
+    val description = stringResource(R.string.automix_dj_mixing)
     val transition = rememberInfiniteTransition(label = "djMix")
     val pulse by transition.animateFloat(
         initialValue = 0.82f,
@@ -2957,7 +2958,7 @@ private fun DjMixIndicator() {
             .size(34.dp)
             .clip(CircleShape)
             .background(Color(0xFF7C4DFF).copy(alpha = 0.30f + 0.12f * pulse))
-            .semantics { this.contentDescription = stringResource(R.string.automix_dj_mixing) },
+            .semantics { this.contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Icon(

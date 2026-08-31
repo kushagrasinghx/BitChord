@@ -31,6 +31,8 @@ import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AutomixPerformanceMode
+import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.playback.AudioCache
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -211,10 +213,19 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     fun request(trackId: String, uri: Uri, durationSeconds: Double) {
         if (trackId.isBlank()) return
         if (trackId in running) return
+        // JioSaavn playback is intentionally left alone. Its source-backed URI
+        // has no YouTube video id, so it cannot use the pinned YouTube Opus
+        // analysis copy below; treating its AAC cache as one was the leak this
+        // guard prevents.
+        if (!AutomixAnalysisSource.canAnalyzeSourceBackedTrack(sourceKindOf(uri))) {
+            Log.d(TAG, "Skipping Automix analysis for JioSaavn source track $trackId")
+            return
+        }
 
-        // Any complete rendition of this recording will do, not just the one the
-        // player happens to be on: see [chooseRendition]. Waiting on the live
-        // URI is what made analysis arrive after the transition that needed it.
+        // Only the canonical YouTube rendition of this recording will do, not
+        // the source substitute the player happens to be on: see
+        // [chooseRendition]. Waiting on the live URI is what made analysis
+        // arrive after the transition that needed it.
         // Queued before the cache is even consulted, so a track measured in an
         // earlier session short-circuits the whole path rather than being
         // re-earned from audio the cache may since have evicted.
@@ -240,7 +251,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val complete = if (local) {
             emptyList()
         } else {
-            cache.renditionsOf(uri).filter { it.isComplete && it.key !in badRenditions }
+            cache.renditionsOf(uri)
+                .filter { AutomixAnalysisSource.isCanonicalYouTubeRendition(uri.getQueryParameter("v"), it.key) }
+                .filter { it.isComplete && it.key !in badRenditions }
         }
         val usableComplete = local || complete.isNotEmpty()
 
@@ -427,6 +440,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // minutes earlier reported zero here, because the question was being
         // asked of the wrong copy of it.
         val candidate = cache.renditionsOf(uri)
+            .filter { AutomixAnalysisSource.isCanonicalYouTubeRendition(uri.getQueryParameter("v"), it.key) }
             .filter { it.cachedPrefix > 0L && it.key !in badRenditions }
             // The growth guard, applied as a filter rather than to the winner.
             // Applied afterwards it did not skip a copy, it ended the search: the
@@ -638,6 +652,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         durationSeconds: Double,
     ): AudioCache.Rendition? {
         val complete = cache.renditionsOf(uri)
+            .filter { AutomixAnalysisSource.isCanonicalYouTubeRendition(uri.getQueryParameter("v"), it.key) }
             .filter { it.isComplete && it.key !in badRenditions }
         if (complete.isEmpty()) return null
 
@@ -732,6 +747,12 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val rendition = chooseRendition(trackId, uri, durationSeconds) ?: return null
         return Copy(key = rendition.key, rendition = rendition) { cache.renditionDataSource(uri, rendition) }
     }
+
+    private fun sourceKindOf(uri: Uri): SourceKind? =
+        uri.takeIf { it.authority == "source" }
+            ?.getQueryParameter("s")
+            ?.let(SourceRegistry::config)
+            ?.kind
 
     /**
      * What a whole-track pass came back with.

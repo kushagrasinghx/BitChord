@@ -652,4 +652,21 @@
         <item>Lyrics are coming together</item>
         <item>Almost found the words</item>
     </string-array>
+    <string name="switch_account">Switch account</string>
+    <string name="accounts">Accounts</string>
+    <string name="profiles">Profiles</string>
+    <string name="personal">Personal</string>
+    <string name="brand_account">Brand account</string>
+    <string name="add_account">Add account</string>
+    <string name="manage_accounts">Manage accounts</string>
+    <string name="current_account">Current account</string>
+    <string name="current_profile">Current profile</string>
+    <string name="selected_account">Selected account</string>
+    <string name="listen_as">Listen as</string>
+    <string name="default_youtube_profile">YouTube Music default profile</string>
+    <string name="account_profiles_help">A Google account can have Personal and Brand profiles. Each has its own library, likes and history.</string>
+    <string name="choose_profile">Choose a profile</string>
+    <string name="use_this_profile">Use this profile</string>
+    <string name="switch_profile_hint">Switch using the avatar, then use this profile.</string>
+    <string name="profile_unavailable">No signed-in profile is available on this page yet.</string>
 </resources>

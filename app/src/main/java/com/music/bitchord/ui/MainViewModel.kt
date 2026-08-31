@@ -5,6 +5,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.R
 import com.music.bitchord.auth.AuthStore
+import com.music.bitchord.auth.GoogleAccountSession
+import com.music.bitchord.auth.YouTubeProfile
+import com.music.bitchord.auth.profileId
+import com.music.bitchord.auth.sessionId
+import com.music.bitchord.auth.adjacentProfile
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.LikeState
@@ -273,18 +278,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * acting as whichever channel YouTube Music serves by default.
      */
     private val _selectedChannelKey = MutableStateFlow(
-        authStore.channelPageId ?: authStore.channelDataSyncId,
+        authStore.activeSession?.activeProfileId ?: authStore.channelPageId ?: authStore.channelDataSyncId,
     )
     val selectedChannelKey: StateFlow<String?> = _selectedChannelKey.asStateFlow()
 
-    private val _selectedChannelName = MutableStateFlow(authStore.channelName)
+    private val _selectedChannelName = MutableStateFlow(
+        authStore.activeSession?.profiles?.firstOrNull { it.profileId == authStore.activeProfileId }?.name
+            ?: authStore.channelName,
+    )
     val selectedChannelName: StateFlow<String?> = _selectedChannelName.asStateFlow()
+
+    /** Source of truth for Google sessions and their YouTube identities. */
+    private val _googleAccounts = MutableStateFlow(authStore.sessions)
+    val googleAccounts: StateFlow<List<GoogleAccountSession>> = _googleAccounts.asStateFlow()
+    private val _activeAccountId = MutableStateFlow(authStore.activeSession?.accountId)
+    val activeAccountId: StateFlow<String?> = _activeAccountId.asStateFlow()
+    private val _activeProfileId = MutableStateFlow(authStore.activeProfileId)
+    val activeProfileId: StateFlow<String?> = _activeProfileId.asStateFlow()
 
     private val _history = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
     val history: StateFlow<UiState<List<Song>>> = _history.asStateFlow()
 
     private val _library = MutableStateFlow<UiState<LibraryPage>>(UiState.Loading)
     val library: StateFlow<UiState<LibraryPage>> = _library.asStateFlow()
+
+    /** In-memory cache is partitioned by account and profile; it is never shared. */
+    private data class ListenerSnapshot(
+        val account: Account?, val library: UiState<LibraryPage>,
+        val history: UiState<List<Song>>, val playlists: List<UserPlaylist>,
+        val owned: Map<String, Boolean>,
+    )
+    private val listenerCache = mutableMapOf<String, ListenerSnapshot>()
 
     /**
      * Album / artist / playlist pages, as a stack — opening an artist from an
@@ -517,10 +541,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Re-fetched rather than cached for the session: playlists are edited here. */
     fun loadPlaylists() {
         if (!_signedIn.value || _playlistsLoading.value) return
+        val identity = listenerKey()
         _playlistsLoading.value = true
         viewModelScope.launch {
-            YtMusicRepository.userPlaylists().onSuccess { _playlists.value = it }
-            _playlistsLoading.value = false
+            YtMusicRepository.userPlaylists().onSuccess { if (identity == listenerKey()) _playlists.value = it }
+            if (identity == listenerKey()) _playlistsLoading.value = false
         }
     }
 
@@ -963,8 +988,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun loadAccount() {
+        val identity = listenerKey()
         viewModelScope.launch {
             val account = YtMusicRepository.account().getOrNull()
+            if (identity != listenerKey()) return@launch
             _account.value = account
             // A channel picked in the in-app browser arrives as ids and nothing
             // else — the page's `ytcfg` never says what the channel is called.
@@ -972,7 +999,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // which is what the settings row needs to show.
             if (account != null && _selectedChannelKey.value != null) {
                 _selectedChannelName.value = account.name
-                authStore.setChannelName(account.name)
+                val accountId = _activeAccountId.value
+                val profileId = _activeProfileId.value
+                val session = accountId?.let { id -> authStore.sessions.firstOrNull { it.accountId == id } }
+                val updated = session?.let { saved -> saved.copy(
+                    name = account.name, email = account.email,
+                    profiles = saved.profiles.map { profile ->
+                        if (profile.profileId == profileId) profile.copy(
+                            name = account.name, handle = account.email, avatar = account.thumbnailUrl,
+                        ) else profile
+                    },
+                ) }
+                if (updated != null) {
+                    authStore.upsertSession(updated, activate = false)
+                    _googleAccounts.value = authStore.sessions
+                }
             }
         }
     }
@@ -996,12 +1037,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh(feed: Feed) {
         if (feed in _refreshing.value) return
         if (feed == Feed.LIBRARY && !_signedIn.value) return
+        val identity = listenerKey()
         _refreshing.value = _refreshing.value + feed
         viewModelScope.launch {
             when (feed) {
-                Feed.HOME -> fetchHome()
+                Feed.HOME -> fetchHome(identity)
                 Feed.EXPLORE -> fetchExplore()
-                Feed.LIBRARY -> fetchLibrary()
+                Feed.LIBRARY -> fetchLibrary(identity)
             }
             _refreshing.value = _refreshing.value - feed
         }
@@ -1028,14 +1070,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun loadHome() {
+        val identity = listenerKey()
         _home.value = UiState.Loading
-        viewModelScope.launch { fetchHome() }
+        viewModelScope.launch { fetchHome(identity) }
     }
 
-    private suspend fun fetchHome() {
+    private suspend fun fetchHome(identity: String?) {
+        val result = YtMusicRepository.home()
+        if (identity != listenerKey()) return
         homeContinuation = null
         homeSeenTitles.clear()
-        _home.value = YtMusicRepository.home().fold(
+        val next = result.fold(
             onSuccess = { feed ->
                 homeContinuation = feed.continuation
                 val shelves = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
@@ -1044,6 +1089,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             },
             onFailure = { UiState.Error(it.friendly()) },
         )
+        _home.value = next
     }
 
     /**
@@ -1054,37 +1100,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadMoreHome() {
         val token = homeContinuation ?: return
         if (_homeLoadingMore.value) return
+        val identity = listenerKey()
         _homeLoadingMore.value = true
         viewModelScope.launch {
             YtMusicRepository.moreHome(token).onSuccess { feed ->
-                val added = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-                // A page with nothing new signals the feed has looped back on
-                // itself rather than run dry with a token still attached —
-                // treat it the same as exhausted so scrolling can't spin here.
-                homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
-                if (added.isNotEmpty()) {
-                    val existing = (_home.value as? UiState.Success)?.data ?: emptyList()
-                    _home.value = UiState.Success(existing + added)
+                if (identity == listenerKey()) {
+                    val added = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
+                    // A page with nothing new signals the feed has looped back on
+                    // itself rather than run dry with a token still attached —
+                    // treat it the same as exhausted so scrolling can't spin here.
+                    homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
+                    if (added.isNotEmpty()) {
+                        val existing = (_home.value as? UiState.Success)?.data ?: emptyList()
+                        _home.value = UiState.Success(existing + added)
+                    }
                 }
             }
-            _homeLoadingMore.value = false
+            if (identity == listenerKey()) _homeLoadingMore.value = false
         }
     }
 
     fun loadLibrary() {
         if (!_signedIn.value) return
+        val identity = listenerKey()
         _library.value = UiState.Loading
-        viewModelScope.launch { fetchLibrary() }
+        viewModelScope.launch { fetchLibrary(identity) }
     }
 
-    private suspend fun fetchLibrary() {
-        _library.value = YtMusicRepository.library().fold(
+    private suspend fun fetchLibrary(identity: String?) {
+        val next = YtMusicRepository.library().fold(
             onSuccess = { page ->
                 if (page.isEmpty) UiState.Error(text(R.string.library_empty))
                 else UiState.Success(page)
             },
             onFailure = { UiState.Error(it.friendly()) },
         )
+        if (identity == listenerKey()) _library.value = next
     }
 
     /**
@@ -1101,15 +1152,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _history.value = UiState.Error(text(R.string.history_sign_in_required))
             return
         }
+        val identity = listenerKey()
         _history.value = UiState.Loading
         viewModelScope.launch {
-            _history.value = YtMusicRepository.history().fold(
+            val next = YtMusicRepository.history().fold(
                 onSuccess = { songs ->
                     if (songs.isEmpty()) UiState.Error(text(R.string.history_empty))
                     else UiState.Success(songs)
                 },
                 onFailure = { UiState.Error(it.friendly()) },
             )
+            if (identity == listenerKey()) _history.value = next
         }
     }
 
@@ -1799,7 +1852,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _channelsLoading.value = true
             YtMusicRepository.accountChannels()
-                .onSuccess { _channels.value = it }
+                .onSuccess {
+                    _channels.value = it
+                    persistDetectedProfiles(it)
+                }
             _channelsLoading.value = false
         }
     }
@@ -1813,14 +1869,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * time on top of the old one's.
      */
     fun selectChannel(channel: AccountChannel) {
-        if (channel.key == _selectedChannelKey.value) return
-        authStore.selectChannel(channel.pageId, channel.dataSyncId, channel.name)
-        Innertube.selectChannel(channel.pageId, channel.dataSyncId)
-        _selectedChannelKey.value = channel.key
-        _selectedChannelName.value = channel.name
-        clearListenerState()
-        reloadForAccount()
-        loadChannels(force = true)
+        val accountId = _activeAccountId.value ?: return
+        val profile = YouTubeProfile(
+            profileId = profileId(channel.pageId, channel.dataSyncId, channel.name),
+            name = channel.name, handle = channel.subtitle, avatar = channel.thumbnailUrl,
+            pageId = channel.pageId, dataSyncId = channel.dataSyncId,
+            isBrandAccount = channel.pageId != null,
+        )
+        selectProfile(accountId, profile.profileId, profile)
     }
 
     /**
@@ -1833,15 +1889,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * — is the same work either way.
      */
     fun onWebSession(session: CapturedSession, mode: WebSessionMode) {
-        val fresh = mode == WebSessionMode.SIGN_IN || session.cookie != authStore.cookie
-        if (fresh) {
-            // Clears any channel chosen under the previous login, which named
-            // an identity this cookie cannot act as.
-            authStore.onNewSession(session.cookie)
-            _channels.value = emptyList()
-        } else {
-            authStore.cookie = session.cookie
-        }
+        val accountId = sessionId(session.cookie, session.dataSyncId)
+        val previous = authStore.sessions.firstOrNull { it.accountId == accountId }
+        val profile = YouTubeProfile(
+            profileId = profileId(session.pageId, session.dataSyncId, previous?.name ?: "Personal"),
+            name = previous?.profiles?.firstOrNull { it.pageId == session.pageId }?.name ?: "Personal",
+            pageId = session.pageId, dataSyncId = session.dataSyncId, authUser = session.authUser,
+            isBrandAccount = session.pageId != null,
+        )
+        val profiles = (previous?.profiles.orEmpty().filterNot { it.profileId == profile.profileId } + profile)
+        val stored = GoogleAccountSession(
+            accountId = accountId, cookie = session.cookie, name = previous?.name.orEmpty(),
+            email = previous?.email.orEmpty(), profiles = profiles, activeProfileId = profile.profileId,
+        )
+        authStore.upsertSession(stored)
+        _googleAccounts.value = authStore.sessions
+        _activeAccountId.value = accountId
+        _activeProfileId.value = profile.profileId
+        _channels.value = emptyList()
+        authStore.cookie = session.cookie // legacy compatibility only
         // Assigned before the scope is adopted, never after: setting a cookie
         // that differs from the last one clears the scope and the channel with
         // it, which would throw away the identity just captured.
@@ -1859,17 +1925,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // Persisted so the choice survives a restart: the shell fetched on
             // the next launch reports the default channel, and without this the
             // app would quietly drift back to it.
-            authStore.selectChannel(
-                pageId = session.pageId,
-                dataSyncId = session.dataSyncId,
-                // Named by the account fetch below, which is the only thing
-                // that knows what the channel is called.
-                name = if (fresh) null else authStore.channelName,
-                authUser = session.authUser,
-            )
             Innertube.selectChannel(session.pageId, session.dataSyncId, session.authUser)
             _selectedChannelKey.value = session.pageId ?: session.dataSyncId
-            if (fresh) _selectedChannelName.value = null
+            _selectedChannelName.value = profile.name
         }
 
         // Every "this track can't be played" the resolver recorded under the
@@ -1880,8 +1938,65 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         StreamResolver.onSessionChanged()
         val wasSignedIn = _signedIn.value
         _signedIn.value = true
-        if (fresh || wasSignedIn) clearListenerState()
+        if (wasSignedIn) clearListenerState()
         reloadForAccount()
+        loadChannels(force = true)
+    }
+
+    /** Selects an identity without ever allowing a response to replace it. */
+    fun selectProfile(accountId: String, selectedProfileId: String, supplied: YouTubeProfile? = null) {
+        val source = _googleAccounts.value.firstOrNull { it.accountId == accountId } ?: return
+        val profile = supplied ?: source.profiles.firstOrNull { it.profileId == selectedProfileId } ?: return
+        if (accountId == _activeAccountId.value && profile.profileId == _activeProfileId.value) return
+        cacheCurrentListener()
+        val updated = source.copy(
+            profiles = (source.profiles.filterNot { it.profileId == profile.profileId } + profile),
+            activeProfileId = profile.profileId,
+        )
+        authStore.upsertSession(updated)
+        authStore.select(accountId, profile.profileId)
+        _googleAccounts.value = authStore.sessions
+        _activeAccountId.value = accountId
+        _activeProfileId.value = profile.profileId
+        authStore.cookie = updated.cookie
+        Innertube.cookie = updated.cookie
+        Innertube.selectChannel(profile.pageId, profile.dataSyncId, profile.authUser)
+        _selectedChannelKey.value = profile.profileId
+        _selectedChannelName.value = profile.name
+        StreamResolver.onSessionChanged()
+        clearListenerState(restoreCached = true)
+        reloadForAccount()
+    }
+
+    /** Returns false at an edge, allowing the avatar to play its elastic cue. */
+    fun stepProfile(forward: Boolean): Boolean {
+        val target = adjacentProfile(_googleAccounts.value, _activeAccountId.value, _activeProfileId.value, forward)
+            ?: return false
+        selectProfile(target.first, target.second)
+        return true
+    }
+
+    fun removeAccount(accountId: String) {
+        val fallback = authStore.removeAccount(accountId)
+        _googleAccounts.value = authStore.sessions
+        if (fallback == null) { signOut(); return }
+        selectProfile(fallback.accountId, fallback.activeProfileId ?: fallback.profiles.firstOrNull()?.profileId ?: return)
+    }
+
+    private fun persistDetectedProfiles(channels: List<AccountChannel>) {
+        val accountId = _activeAccountId.value ?: return
+        val current = authStore.sessions.firstOrNull { it.accountId == accountId } ?: return
+        val detected = channels.map { channel -> YouTubeProfile(
+            profileId(channel.pageId, channel.dataSyncId, channel.name), channel.name, channel.subtitle,
+            channel.thumbnailUrl, channel.pageId, channel.dataSyncId,
+            isBrandAccount = channel.pageId != null,
+        ) }
+        // Keep the captured active identity if Google's endpoint temporarily
+        // omits it; an empty/partial response must never erase a selection.
+        val profiles = (current.profiles.filter { known -> detected.none { it.profileId == known.profileId } } + detected)
+        val selected = current.activeProfileId ?: profiles.firstOrNull()?.profileId
+        authStore.upsertSession(current.copy(profiles = profiles, activeProfileId = selected), activate = false)
+        _googleAccounts.value = authStore.sessions
     }
 
     /**
@@ -1891,14 +2006,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * asking", so keeping them across a switch shows the new channel the old
      * one's music until each page happens to be refetched.
      */
-    private fun clearListenerState() {
+    private fun cacheCurrentListener() {
+        val key = listenerKey() ?: return
+        listenerCache[key] = ListenerSnapshot(
+            _account.value, _library.value, _history.value, _playlists.value, _playlistOwned.value,
+        )
+    }
+
+    private fun listenerKey(): String? = _activeAccountId.value?.let { accountId ->
+        _activeProfileId.value?.let { profileId -> "$accountId:$profileId" }
+    }
+
+    private fun clearListenerState(restoreCached: Boolean = false) {
+        _account.value = null
         LikeState.clear()
+        _playlistsLoading.value = false
         _playlists.value = emptyList()
         _playlistOwned.value = emptyMap()
         ownershipInFlight.clear()
         _songMenu.value = null
         _library.value = UiState.Loading
         _history.value = UiState.Loading
+        if (restoreCached) listenerCache[listenerKey()]?.let { cached ->
+            _account.value = cached.account
+            _library.value = cached.library
+            _history.value = cached.history
+            _playlists.value = cached.playlists
+            _playlistOwned.value = cached.owned
+        }
     }
 
     /**
@@ -1921,6 +2056,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun signOut() {
+        // In a multi-account install, sign out removes only the current Google
+        // session and restores another one. A legacy single-account install
+        // retains the familiar full sign-out behaviour.
+        val current = _activeAccountId.value
+        if (current != null && authStore.sessions.size > 1) {
+            removeAccount(current)
+            return
+        }
         authStore.signOut()
         Innertube.cookie = null
         // The mirror image: verdicts reached with a session in hand say nothing
@@ -1933,6 +2076,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _channels.value = emptyList()
         _selectedChannelKey.value = null
         _selectedChannelName.value = null
+        _googleAccounts.value = emptyList()
+        _activeAccountId.value = null
+        _activeProfileId.value = null
         _library.value = UiState.Loading
         // Ratings and playlists belong to the account that just left; keeping
         // them would show the next signed-in user someone else's hearts.

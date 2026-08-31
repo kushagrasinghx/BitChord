@@ -648,4 +648,21 @@
         <item>La letra está tomando forma</item>
         <item>La letra está casi lista</item>
     </string-array>
+    <string name="switch_account">Cambiar cuenta</string>
+    <string name="accounts">Cuentas</string>
+    <string name="profiles">Perfiles</string>
+    <string name="personal">Personal</string>
+    <string name="brand_account">Cuenta de marca</string>
+    <string name="add_account">Agregar cuenta</string>
+    <string name="manage_accounts">Administrar cuentas</string>
+    <string name="current_account">Cuenta actual</string>
+    <string name="current_profile">Perfil actual</string>
+    <string name="selected_account">Cuenta seleccionada</string>
+    <string name="listen_as">Escuchar como</string>
+    <string name="default_youtube_profile">Perfil predeterminado de YouTube Music</string>
+    <string name="account_profiles_help">Una cuenta de Google puede tener perfiles Personal y de marca. Cada uno tiene su propia biblioteca, Me gusta e historial.</string>
+    <string name="choose_profile">Elegir un perfil</string>
+    <string name="use_this_profile">Usar este perfil</string>
+    <string name="switch_profile_hint">Cambia con el avatar y luego usa este perfil.</string>
+    <string name="profile_unavailable">Aún no hay un perfil con sesión iniciada en esta página.</string>
 </resources>

@@ -607,7 +607,17 @@ object YtMusicRepository {
 
     private suspend fun <T> call(label: String, block: suspend () -> T): Result<T> =
         withContext(Dispatchers.IO) {
-            runCatching { block() }
+            runCatching { block() }.recoverCatching { failure ->
+                // Context cookies can rotate while a process is alive. Refresh
+                // once and retry; never loop or silently sign the listener out.
+                val rejected = failure.message?.contains("401") == true ||
+                    failure.message?.contains("403") == true ||
+                    failure.message?.contains("rejected", true) == true
+                if (!rejected || Innertube.cookie == null) throw failure
+                Log.w(TAG, "$label rejected; refreshing active session context once")
+                Innertube.refreshSessionScope()
+                block()
+            }
                 // runCatching catches Throwable, cancellation included, which
                 // would turn "the user typed another letter" into a failed
                 // Result and put the abandoned request's error on screen.

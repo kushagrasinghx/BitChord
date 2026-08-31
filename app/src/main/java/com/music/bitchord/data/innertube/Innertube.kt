@@ -349,6 +349,11 @@ object Innertube {
                 .getOrNull()
                 ?.let { fresh ->
                     scope = fresh
+                    channelOverride?.let { selected ->
+                        if (selected.pageId != fresh.pageId || selected.dataSyncId != fresh.dataSyncId) {
+                            Log.w(TAG, "server shell identity differs from selected profile; retaining override")
+                        }
+                    }
                     Log.d(
                         TAG,
                         "session scope: authUser=${fresh.authUser} " +
@@ -358,6 +363,13 @@ object Innertube {
                     )
                 }
         }
+    }
+
+    /** Re-read request context once after an authenticated rejection. */
+    suspend fun refreshSessionScope() {
+        if (cookie == null) return
+        scopeLock.withLock { scope = null }
+        ensureSessionScope()
     }
 
     /**

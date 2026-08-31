@@ -40,8 +40,69 @@ class AuthStore(context: Context) {
         get() = prefs.getString(KEY_COOKIE, null)
         set(value) = prefs.edit().putString(KEY_COOKIE, value).apply()
 
+    /**
+     * The durable account registry. Credentials remain in this encrypted store;
+     * the old single-cookie entry is migrated lazily so an update never logs a
+     * listener out.
+     */
+    var sessions: List<GoogleAccountSession>
+        get() {
+            val saved = sessionsFromJson(prefs.getString(KEY_SESSIONS, null))
+            if (saved.isNotEmpty()) return saved
+            val legacy = cookie ?: return emptyList()
+            val profile = YouTubeProfile(
+                profileId = profileId(channelPageId, channelDataSyncId, channelName ?: "Personal"),
+                name = channelName ?: "Personal",
+                pageId = channelPageId,
+                dataSyncId = channelDataSyncId,
+                authUser = channelAuthUser,
+                isBrandAccount = channelPageId != null,
+            )
+            return listOf(GoogleAccountSession(
+                accountId = sessionId(legacy, channelDataSyncId), cookie = legacy,
+                profiles = listOf(profile), activeProfileId = profile.profileId,
+            )).also { replaceSessions(it) }
+        }
+        set(value) = replaceSessions(value)
+
+    var activeAccountId: String?
+        get() = prefs.getString(KEY_ACTIVE_ACCOUNT, null)
+        set(value) = prefs.edit().putString(KEY_ACTIVE_ACCOUNT, value).apply()
+
+    var activeProfileId: String?
+        get() = prefs.getString(KEY_ACTIVE_PROFILE, null)
+        set(value) = prefs.edit().putString(KEY_ACTIVE_PROFILE, value).apply()
+
+    val activeSession: GoogleAccountSession?
+        get() = sessions.firstOrNull { it.accountId == activeAccountId }
+            ?: sessions.firstOrNull()
+
+    fun replaceSessions(value: List<GoogleAccountSession>) {
+        prefs.edit().putString(KEY_SESSIONS, value.toJson()).apply()
+    }
+
+    fun upsertSession(session: GoogleAccountSession, activate: Boolean = true) {
+        val next = sessions.filterNot { it.accountId == session.accountId } + session
+        replaceSessions(next)
+        if (activate) select(session.accountId, session.activeProfileId)
+    }
+
+    fun select(accountId: String, profileId: String?) {
+        activeAccountId = accountId
+        activeProfileId = profileId
+    }
+
+    fun removeAccount(accountId: String): GoogleAccountSession? {
+        val remaining = sessions.filterNot { it.accountId == accountId }
+        replaceSessions(remaining)
+        val fallback = remaining.firstOrNull()
+        select(fallback?.accountId.orEmpty(), fallback?.activeProfileId)
+        prefs.edit().putString(KEY_COOKIE, fallback?.cookie).apply()
+        return fallback
+    }
+
     val isSignedIn: Boolean
-        get() = cookie?.let { hasApiSid(it) } == true
+        get() = activeSession?.cookie?.let { hasApiSid(it) } == true
 
     /** The Discord account's bearer token. See DiscordRPC for why a user token. */
     var discordToken: String?
@@ -113,7 +174,8 @@ class AuthStore(context: Context) {
      * Signs out of YouTube Music only — the Discord login is a separate account.
      */
     fun signOut() {
-        prefs.edit().remove(KEY_COOKIE).apply()
+        prefs.edit().remove(KEY_COOKIE).remove(KEY_SESSIONS)
+            .remove(KEY_ACTIVE_ACCOUNT).remove(KEY_ACTIVE_PROFILE).apply()
         clearChannel()
         // The in-app browser keeps its own copy of the Google login, and a
         // sign-out that leaves it in place is not one: the next sign-in is
@@ -146,6 +208,9 @@ class AuthStore(context: Context) {
             setOf("SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID")
 
         private const val KEY_COOKIE = "cookie"
+        private const val KEY_SESSIONS = "google_account_sessions_v2"
+        private const val KEY_ACTIVE_ACCOUNT = "active_google_account_id_v2"
+        private const val KEY_ACTIVE_PROFILE = "active_youtube_profile_id_v2"
         private const val KEY_CHANNEL_PAGE_ID = "channel_page_id"
         private const val KEY_CHANNEL_DATASYNC_ID = "channel_datasync_id"
         private const val KEY_CHANNEL_NAME = "channel_name"

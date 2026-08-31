@@ -1253,6 +1253,7 @@ internal fun AccountCard(
     signedIn: Boolean,
     account: Account?,
     onSignIn: () -> Unit,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1260,7 +1261,13 @@ internal fun AccountCard(
             .padding(horizontal = GROUP_INSET)
             .clip(GroupShape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .then(if (signedIn) Modifier else Modifier.clickable(onClick = onSignIn))
+            .then(
+                when {
+                    signedIn && onClick != null -> Modifier.clickable(onClick = onClick)
+                    !signedIn -> Modifier.clickable(onClick = onSignIn)
+                    else -> Modifier
+                },
+            )
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

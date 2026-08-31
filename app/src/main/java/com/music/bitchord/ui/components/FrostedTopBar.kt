@@ -3,10 +3,13 @@ package com.music.bitchord.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +34,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +43,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -47,6 +54,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
@@ -240,16 +248,37 @@ fun FrostedTopBar(
 fun TopBarAccountButton(
     account: Account?,
     onClick: () -> Unit,
+    onSwipeProfile: ((forward: Boolean) -> Boolean)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val translation = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
     // Wrapped in an IconButton so it keeps the 48dp target, the ripple and the
     // spacing every other action in this bar has.
-    IconButton(onClick = onClick, modifier = modifier) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier
+            .graphicsLayer { translationY = translation.value }
+            .pointerInput(onSwipeProfile) {
+                if (onSwipeProfile == null) return@pointerInput
+                var drag = 0f
+                detectVerticalDragGestures(
+                    onVerticalDrag = { change, amount -> change.consume(); drag += amount },
+                    onDragEnd = {
+                        if (kotlin.math.abs(drag) < 28f) return@detectVerticalDragGestures
+                        if (!onSwipeProfile.invoke(drag > 0f)) scope.launch {
+                            translation.snapTo(if (drag > 0f) 9f else -9f)
+                            translation.animateTo(0f, spring())
+                        }
+                    },
+                )
+            },
+    ) {
         val photo = account?.thumbnailUrl
         if (photo != null) {
             AsyncImage(
                 model = photo,
-                contentDescription = stringResource(R.string.settings),
+                contentDescription = stringResource(R.string.switch_account),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(AVATAR_SIZE)
@@ -267,7 +296,7 @@ fun TopBarAccountButton(
             ) {
                 Icon(
                     Icons.Rounded.Person,
-                    contentDescription = stringResource(R.string.settings),
+                    contentDescription = stringResource(R.string.switch_account),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp),
                 )

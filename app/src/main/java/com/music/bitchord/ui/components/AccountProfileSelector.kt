@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.ManageAccounts
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,14 +58,18 @@ fun AccountProfileSelector(
             .clickable(onClick = onDismiss),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        LazyColumn(
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = MaterialTheme.shapes.extraLarge,
             modifier = Modifier.padding(top = 56.dp, start = 20.dp, end = 20.dp)
-                .clip(MaterialTheme.shapes.extraLarge).background(MaterialTheme.colorScheme.surface)
-                .clickable(onClick = {}),
+                .fillMaxWidth().clickable(onClick = {}),
         ) {
-            item { Text(stringResource(R.string.switch_account), style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(20.dp, 18.dp, 20.dp, 8.dp)) }
-            accounts.forEach { account ->
+            LazyColumn {
+                item { Text(stringResource(R.string.switch_account), style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(20.dp, 18.dp, 20.dp, 8.dp)) }
+                accounts.forEach { account ->
                 item {
                     Text(account.email.ifBlank { account.name.ifBlank { stringResource(R.string.accounts) } },
                         style = MaterialTheme.typography.labelLarge,
@@ -76,9 +81,10 @@ fun AccountProfileSelector(
                     ProfileRow(profile, account.accountId == activeAccountId && profile.profileId == activeProfileId,
                         managing, { onSelect(account, profile); onDismiss() }, { onRemoveAccount(account) })
                 }
+                }
+                item { SelectorAction(Icons.Rounded.Add, stringResource(R.string.add_account), onAddAccount) }
+                item { SelectorAction(Icons.Rounded.ManageAccounts, stringResource(R.string.manage_accounts)) { managing = !managing } }
             }
-            item { SelectorAction(Icons.Rounded.Add, stringResource(R.string.add_account), onAddAccount) }
-            item { SelectorAction(Icons.Rounded.ManageAccounts, stringResource(R.string.manage_accounts)) { managing = !managing } }
         }
     }
 }

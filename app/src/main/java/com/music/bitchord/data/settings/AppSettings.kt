@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.lyrics.LyricsSource
@@ -177,6 +178,12 @@ object AppSettings {
 
     /** Keep playing similar music once the queue runs out. */
     val autoplay = MutableStateFlow(true)
+
+    /** Whether the queue is held in shuffled order (Mix button). */
+    val shuffleEnabled = MutableStateFlow(false)
+
+    /** Repeat mode for the player — Off, All, or One. */
+    val repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
 
     /** Put the playing track's codec, bitrate and sample rate on the player. */
     val showNerdStats = MutableStateFlow(false)
@@ -485,6 +492,8 @@ object AppSettings {
             ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "DARK")
         }.getOrDefault(ThemeMode.DARK)
         autoplay.value = prefs.getBoolean(KEY_AUTOPLAY, true)
+        shuffleEnabled.value = prefs.getBoolean(KEY_SHUFFLE_ENABLED, false)
+        repeatMode.value = prefs.getInt(KEY_REPEAT_MODE, Player.REPEAT_MODE_OFF)
         showNerdStats.value = prefs.getBoolean(KEY_NERD_STATS, false)
         reduceAnimation.value = prefs.getBoolean(KEY_REDUCE_ANIMATION, false)
         highPerformanceMode.value = prefs.getBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
@@ -649,6 +658,16 @@ object AppSettings {
     fun setAutoplay(value: Boolean) {
         autoplay.value = value
         prefs.edit().putBoolean(KEY_AUTOPLAY, value).apply()
+    }
+
+    fun setShuffleEnabled(value: Boolean) {
+        shuffleEnabled.value = value
+        prefs.edit().putBoolean(KEY_SHUFFLE_ENABLED, value).apply()
+    }
+
+    fun setRepeatMode(value: Int) {
+        repeatMode.value = value
+        prefs.edit().putInt(KEY_REPEAT_MODE, value).apply()
     }
 
     fun setAudioQualityWifi(value: AudioQuality) {
@@ -1182,6 +1201,8 @@ object AppSettings {
     private const val KEY_SPEED = "playback_speed"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_AUTOPLAY = "autoplay"
+    private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"
+    private const val KEY_REPEAT_MODE = "repeat_mode"
     private const val KEY_NERD_STATS = "show_nerd_stats"
     private const val KEY_CACHE_LIMIT = "audio_cache_limit_bytes"
     private const val KEY_REDUCE_ANIMATION = "reduce_animation"

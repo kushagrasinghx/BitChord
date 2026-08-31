@@ -1239,7 +1239,7 @@ private fun BitChordApp(
             signedIn = signedIn,
             likeStatus = likeStatuses[song.videoId] ?: LikeStatus.INDIFFERENT,
             onToggleLike = { viewModel.toggleLike(song.videoId) },
-            onToggleShuffle = { controller?.let(QueueShuffle::toggle) },
+            onToggleShuffle = { controller?.let { it2 -> QueueShuffle.toggle(it2); AppSettings.setShuffleEnabled(QueueShuffle.enabled.value) } },
             onCycleRepeat = {
                 controller?.let {
                     val next = when (it.repeatMode) {
@@ -1247,6 +1247,8 @@ private fun BitChordApp(
                         Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
                         else -> Player.REPEAT_MODE_OFF
                     }
+                    // Persist the new repeat mode so it survives app restarts.
+                    AppSettings.setRepeatMode(next)
                     // Nothing else to do here: PlaybackService watches the
                     // repeat mode itself and takes AutoPlay's tracks out of
                     // the queue for the duration of repeat-all — and, unlike

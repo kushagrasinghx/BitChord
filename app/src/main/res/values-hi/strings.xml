@@ -195,6 +195,14 @@
     <string name="synced_lyrics">सिंक किए गए लिरिक्स</string>
     <string name="synced_lyrics_subtitle">गाए जाने के साथ प्लेयर पर शब्दों को हाइलाइट करता है</string>
     <string name="lyrics_sources">लिरिक्स के स्रोत</string>
+    <string name="lyrics_translate">लिरिक्स का अनुवाद करें</string>
+    <string name="lyrics_show_original">मूल लिरिक्स दिखाएँ</string>
+    <string name="lyrics_translation_preparing">लिरिक्स की भाषा पहचानी जा रही है…</string>
+    <string name="lyrics_translation_downloading">%1$s अनुवाद डाउनलोड हो रहा है…</string>
+    <string name="lyrics_translation_translating">%1$s में अनुवाद हो रहा है…</string>
+    <string name="lyrics_translated_to">%1$s में अनुवादित</string>
+    <string name="lyrics_already_in_language">लिरिक्स पहले से %1$s में हैं</string>
+    <string name="lyrics_translation_unavailable">अनुवाद उपलब्ध नहीं है</string>
     <string name="song_cache_limit">गाना कैश सीमा</string>
     <string name="clear_song_cache">गाना कैश साफ़ करें</string>
     <string name="clear_song_cache_subtitle">डाउनलोड किए गए ऑडियो द्वारा इस्तेमाल की गई जगह खाली करता है</string>

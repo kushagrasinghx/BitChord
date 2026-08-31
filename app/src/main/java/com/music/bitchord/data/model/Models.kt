@@ -1,5 +1,7 @@
 package com.music.bitchord.data.model
 
+import com.music.bitchord.playback.smart.QueueOrigin
+
 /** A playable YouTube Music track. */
 data class Song(
     val videoId: String,
@@ -28,6 +30,10 @@ data class Song(
      * bottom of the queue, below anything the user picked.
      */
     val fromAutoplay: Boolean = false,
+    /** Explicit queue intent used by DJ_CONTROL; PLAY_NEXT is never reordered. */
+    val queueOrigin: QueueOrigin = if (fromAutoplay) QueueOrigin.AUTOPLAY else QueueOrigin.USER_QUEUE,
+    /** Position within an album when the source exposes it. */
+    val trackNumber: Int? = null,
     /**
      * Explicit content or file URI for local device tracks or downloaded audio.
      */

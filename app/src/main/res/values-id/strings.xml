@@ -191,6 +191,14 @@
     <string name="synced_lyrics">Lirik tersinkron</string>
     <string name="synced_lyrics_subtitle">Menyorot kata-kata di pemutar saat dinyanyikan</string>
     <string name="lyrics_sources">Sumber lirik</string>
+    <string name="lyrics_translate">Terjemahkan lirik</string>
+    <string name="lyrics_show_original">Tampilkan lirik asli</string>
+    <string name="lyrics_translation_preparing">Mendeteksi bahasa lirik…</string>
+    <string name="lyrics_translation_downloading">Mengunduh terjemahan %1$s…</string>
+    <string name="lyrics_translation_translating">Menerjemahkan ke %1$s…</string>
+    <string name="lyrics_translated_to">Diterjemahkan ke %1$s</string>
+    <string name="lyrics_already_in_language">Lirik sudah dalam %1$s</string>
+    <string name="lyrics_translation_unavailable">Terjemahan tidak tersedia</string>
     <string name="song_cache_limit">Batas cache lagu</string>
     <string name="clear_song_cache">Bersihkan cache lagu</string>
     <string name="clear_song_cache_subtitle">Membebaskan ruang yang digunakan oleh audio yang diunduh</string>

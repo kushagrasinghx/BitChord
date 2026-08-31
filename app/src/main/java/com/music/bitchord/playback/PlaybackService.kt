@@ -888,6 +888,15 @@ class PlaybackService : MediaSessionService() {
 
                 override fun outgoing(lowPassHz: Float, highPassHz: Float) =
                     spareFilter.setCutoffs(lowPassHz, highPassHz)
+
+                override fun incomingEq(lowDb: Float, midDb: Float, highDb: Float) =
+                    activeFilter.setDjEq(lowDb, midDb, highDb)
+
+                override fun outgoingEq(lowDb: Float, midDb: Float, highDb: Float) =
+                    spareFilter.setDjEq(lowDb, midDb, highDb)
+
+                override fun outgoingEcho(delayMs: Float, feedback: Float, wet: Float) =
+                    spareFilter.setEcho(delayMs, feedback, wet)
             },
             analysisRunningFor = { item -> trackAnalyzer.isAnalysing(item.mediaId) },
         )
@@ -1126,7 +1135,13 @@ class PlaybackService : MediaSessionService() {
      * *before* the incoming one asks for it, so the app never holds two focus
      * requests at once and never briefly holds none.
      */
-    private fun adoptPlayer(outgoing: ExoPlayer, incoming: ExoPlayer) {
+    private fun adoptPlayer(
+        outgoing: ExoPlayer,
+        incoming: ExoPlayer,
+        renditionOnly: Boolean,
+    ) {
+        val incomingId = incoming.currentMediaItem?.mediaId
+
         setSessionOwner(outgoing, owns = false)
         setSessionOwner(incoming, owns = true)
 
@@ -1144,6 +1159,15 @@ class PlaybackService : MediaSessionService() {
 
         mediaSession?.player = SessionPlayer(incoming, requireNotNull(crossfade))
 
+        // A rendition handoff prepares the decoder on the unobserved player,
+        // so its input-format callback may have happened before the analytics
+        // listener moved across. Publish the decoder's current ground truth now
+        // instead of leaving the old quality in the diagnostics line.
+        if (renditionOnly) {
+            audioFormatFor = incomingId
+            publishNerdStats()
+        }
+
         // The queue moving on used to arrive here as an item transition on the
         // one player that owned the queue. It cannot any more — the incoming
         // track started as its own player's *first* item, which fires on a
@@ -1151,12 +1175,17 @@ class PlaybackService : MediaSessionService() {
         // that callback is driven explicitly instead. Without this the crossfade
         // would silently stop scrobbling, stop writing history, stop honouring
         // "sleep after this song" and stop reading ahead.
-        onTrackBecameCurrent(
-            incoming.currentMediaItem,
-            previousEnded = true,
-            reason = Player.MEDIA_ITEM_TRANSITION_REASON_AUTO,
-            alreadyAudible = true,
-        )
+        // A quality change trades decoders, not songs. Running the track-change
+        // path for it would duplicate history/scrobbles and could trigger a
+        // sleep-after-song timer in the middle of the same recording.
+        if (!renditionOnly) {
+            onTrackBecameCurrent(
+                incoming.currentMediaItem,
+                previousEnded = true,
+                reason = Player.MEDIA_ITEM_TRANSITION_REASON_AUTO,
+                alreadyAudible = true,
+            )
+        }
     }
 
     /**
@@ -1226,6 +1255,7 @@ class PlaybackService : MediaSessionService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        liveUpgradeDeferredFor = null
         // A *different* track is a clean slate for [recoverFrom], and so is the
         // same track becoming current for any reason other than that method's
         // own retry. The distinction is the whole of the reported loading loop.
@@ -1376,6 +1406,9 @@ class PlaybackService : MediaSessionService() {
 
     /** Which track [upgradeJob] is hunting for — see [lookForBetterCopy]. */
     private var upgradeFor: String? = null
+
+    /** Current audible play whose proved upgrade is intentionally deferred. */
+    private var liveUpgradeDeferredFor: String? = null
 
     /**
      * How many times each track has been picked up off the floor, so a stream
@@ -1766,6 +1799,11 @@ class PlaybackService : MediaSessionService() {
         val item = player.currentMediaItem ?: return
         val mediaId = item.mediaId
         val uri = item.localConfiguration?.uri
+        if (liveUpgradeDeferredFor == mediaId) return
+        if (uri?.getQueryParameter(QualityUpgrade.MARKER) != null) {
+            QualityUpgrade.unshelve(mediaId)
+            return
+        }
         val alreadyPending = QualityUpgrade.isPending(mediaId)
         val shelved = QualityUpgrade.shelvedFor(mediaId)
         if (shelved == null && !alreadyPending && !QualityUpgrade.couldStillUpgrade(mediaId, uri)) return
@@ -1991,6 +2029,39 @@ class PlaybackService : MediaSessionService() {
             return
         }
 
+        // A rendition is a property of a track play, not something to replace
+        // underneath audible PCM. Media positions do not provide sample-level
+        // alignment across Opus/AAC/FLAC or across different masters; trying to
+        // overlap them caused the repeated fragment reported at every song.
+        // Keep the proved bytes and apply them the next time this recording is
+        // opened (or immediately if playback is paused), never mid-note.
+        val playbackActive = withContext(Dispatchers.Main) {
+            player?.takeIf { it.currentMediaItem?.mediaId == mediaId }?.playWhenReady == true
+        }
+        if (playbackActive) {
+            withContext(Dispatchers.Main) {
+                QualityUpgrade.shelve(mediaId, stream)
+                liveUpgradeDeferredFor = mediaId
+                val current = player ?: return@withContext
+                val from = current.currentMediaItemIndex + 1
+                for (index in from until current.mediaItemCount) {
+                    val future = current.getMediaItemAt(index)
+                    if (future.mediaId != mediaId) continue
+                    val futureUri = future.localConfiguration?.uri?.toString() ?: continue
+                    if (futureUri.contains("${QualityUpgrade.MARKER}=")) continue
+                    current.replaceMediaItem(
+                        index,
+                        future.buildUpon().setUri(QualityUpgrade.upgradedUri(futureUri)).build(),
+                    )
+                }
+            }
+            TrackLog.d(
+                "BitChord",
+                "upgrade for $mediaId cached and deferred; audible sources stay fixed until track boundary",
+            )
+            return
+        }
+
         // There used to be an unconditional five-second hold here, keyed off the
         // track's own position, so that an upgrade arriving with the first note
         // could not cut the song a millisecond in. Its own reasoning said it was
@@ -2080,7 +2151,6 @@ class PlaybackService : MediaSessionService() {
                 TrackLog.d("BitChord", "upgrade for $mediaId proved but the queue moved on; shelved")
                 return@withContext
             }
-            val player = player ?: return@withContext
             if (now.duration > 0 && now.duration - now.position < UPGRADE_MIN_REMAINING_MS) {
                 TrackLog.d("BitChord", "upgrade abandoned: only ${now.duration - now.position}ms of the track left")
                 QualityUpgrade.forget(mediaId)
@@ -2111,17 +2181,26 @@ class PlaybackService : MediaSessionService() {
             // NerdStats cleanup for why the pre-upgrade claim has to be
             // captured here rather than looked up again on revert.
             val previousFormat = NerdStats.declaredFormat(mediaId)
-            swappingMediaId = mediaId
-            swapCutAt = SystemClock.elapsedRealtime()
-            player.replaceMediaItem(
-                player.currentMediaItemIndex,
-                now.item.buildUpon().setUri(upgradedUri).build(),
+            val handoffStartedAt = SystemClock.elapsedRealtime()
+            val landingPosition = crossfade?.handoffRendition(
+                expectedMediaId = mediaId,
+                replacement = now.item.buildUpon().setUri(upgradedUri).build(),
             )
-            player.seekTo(player.currentMediaItemIndex, now.position)
-            player.prepare()
+            if (landingPosition == null) {
+                // The proven rendition remains useful if a skip, pause-state
+                // race or newly armed crossfade took the standby player while
+                // it was being prepared. The audible player was never cut.
+                QualityUpgrade.shelve(mediaId, stream)
+                TrackLog.d("BitChord", "upgrade for $mediaId could not complete its prepared handoff; shelved")
+                return@withContext
+            }
             QualityUpgrade.unshelve(mediaId)
-            TrackLog.d("BitChord", "upgraded to ${stream.format.summary} at ${now.position}ms")
-            watchUpgrade(mediaId, now.uri, now.position, now.duration, previousFormat)
+            TrackLog.d(
+                "BitChord",
+                "upgraded to ${stream.format.summary} at ${landingPosition}ms via a " +
+                    "${SystemClock.elapsedRealtime() - handoffStartedAt}ms prepared handoff",
+            )
+            watchUpgrade(mediaId, now.uri, landingPosition, now.duration, previousFormat)
             // The opening again, this time sized for Automix rather than for
             // a container header.
             //
@@ -2457,14 +2536,31 @@ class PlaybackService : MediaSessionService() {
             } else {
                 NerdStats.clearDeclared(mediaId)
             }
-            swappingMediaId = mediaId
             val abandoned = item.localConfiguration?.uri
-            player.replaceMediaItem(
-                player.currentMediaItemIndex,
-                item.buildUpon().setUri(previousUri).build(),
+            val restoredAt = crossfade?.handoffRendition(
+                expectedMediaId = mediaId,
+                replacement = item.buildUpon().setUri(previousUri).build(),
             )
-            player.seekTo(player.currentMediaItemIndex, position)
-            player.prepare()
+            if (restoredAt == null) {
+                // Emergency fallback only. A broken rendition is worse than a
+                // seam, so if the standby cannot be used (for example because
+                // a track transition armed at the same instant), restore the
+                // known-good source through the original single-player path.
+                val current = this@PlaybackService.player ?: return@launch
+                if (current.currentMediaItem?.mediaId != mediaId) return@launch
+                val resumeAt = current.currentPosition.takeIf { it > 0L } ?: position
+                swappingMediaId = mediaId
+                swapCutAt = SystemClock.elapsedRealtime()
+                current.replaceMediaItem(
+                    current.currentMediaItemIndex,
+                    item.buildUpon().setUri(previousUri).build(),
+                )
+                current.seekTo(current.currentMediaItemIndex, resumeAt)
+                current.prepare()
+                TrackLog.w("BitChord", "upgrade emergency revert used the direct source replacement")
+            } else {
+                TrackLog.d("BitChord", "upgrade returned smoothly to the previous rendition at ${restoredAt}ms")
+            }
             // Whatever the replacement wrote is a prefix of a file nothing will
             // ever finish, under a key the *next* upgrade of this track would
             // key to as well — see [AudioCache.discardRendition]. Off the main

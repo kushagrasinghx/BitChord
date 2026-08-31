@@ -191,6 +191,14 @@
     <string name="synced_lyrics">同步歌词</string>
     <string name="synced_lyrics_subtitle">随着演唱在播放器上高亮显示歌词</string>
     <string name="lyrics_sources">歌词来源</string>
+    <string name="lyrics_translate">翻译歌词</string>
+    <string name="lyrics_show_original">显示原歌词</string>
+    <string name="lyrics_translation_preparing">正在检测歌词语言…</string>
+    <string name="lyrics_translation_downloading">正在下载%1$s翻译…</string>
+    <string name="lyrics_translation_translating">正在翻译为%1$s…</string>
+    <string name="lyrics_translated_to">已翻译为%1$s</string>
+    <string name="lyrics_already_in_language">歌词已经是%1$s</string>
+    <string name="lyrics_translation_unavailable">翻译不可用</string>
     <string name="song_cache_limit">歌曲缓存上限</string>
     <string name="clear_song_cache">清除歌曲缓存</string>
     <string name="clear_song_cache_subtitle">释放已下载音频占用的空间</string>

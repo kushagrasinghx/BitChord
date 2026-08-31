@@ -12,6 +12,8 @@ import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.lyrics.LyricsTranslation
+import com.music.bitchord.data.lyrics.LyricsTranslationState
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
@@ -175,6 +177,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private var lyricsJob: Job? = null
 
+    private val _lyricsTranslation = MutableStateFlow<LyricsTranslationState>(
+        LyricsTranslationState.Idle,
+    )
+    val lyricsTranslation: StateFlow<LyricsTranslationState> = _lyricsTranslation.asStateFlow()
+
+    /** One owner for translation, invalidated whenever its track changes. */
+    private var lyricsTranslationJob: Job? = null
+    private val lyricsTranslationGeneration = AtomicLong(0L)
+
     /**
      * What the loaded lyrics are for. Both the track *and* the settings that
      * chose them, so switching a source on or off re-runs the lookup rather
@@ -209,6 +220,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val key = videoId to sources
         if (lyricsFor == key) return
         lyricsFor = key
+        lyricsTranslationJob?.cancel()
+        lyricsTranslationGeneration.incrementAndGet()
+        _lyricsTranslation.value = LyricsTranslationState.Idle
         _lyrics.value = null
         _lyricsSource.value = null
         lyricsJob?.cancel()
@@ -247,6 +261,39 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _lyrics.value = found?.lines
             _lyricsSource.value = found?.source
             _lyricsChecked.value = true
+        }
+    }
+
+    /**
+     * Translates the loaded lyrics to the app/system locale on demand.
+     *
+     * Generation and track checks keep a late model download or inference from
+     * landing on the next song after the queue has already moved on.
+     */
+    fun translateLyrics(targetLanguageTag: String) {
+        val sourceLines = _lyrics.value?.takeIf { it.isNotEmpty() } ?: return
+        val trackId = lyricsFor?.first ?: return
+        val target = Locale.forLanguageTag(targetLanguageTag).language
+            .ifBlank { targetLanguageTag }
+        val current = _lyricsTranslation.value
+        if (current is LyricsTranslationState.Ready &&
+            Locale.forLanguageTag(current.targetLanguageTag).language == target
+        ) return
+        if (current is LyricsTranslationState.Loading &&
+            Locale.forLanguageTag(current.targetLanguageTag).language == target
+        ) return
+
+        lyricsTranslationJob?.cancel()
+        val generation = lyricsTranslationGeneration.incrementAndGet()
+        lyricsTranslationJob = viewModelScope.launch {
+            val result = LyricsTranslation.translate(sourceLines, target) { stage ->
+                if (generation == lyricsTranslationGeneration.get() && lyricsFor?.first == trackId) {
+                    _lyricsTranslation.value = LyricsTranslationState.Loading(target, stage)
+                }
+            }
+            if (generation == lyricsTranslationGeneration.get() && lyricsFor?.first == trackId) {
+                _lyricsTranslation.value = result
+            }
         }
     }
 

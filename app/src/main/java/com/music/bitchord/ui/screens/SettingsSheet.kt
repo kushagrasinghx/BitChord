@@ -118,6 +118,9 @@ import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
+import com.music.bitchord.playback.smart.AutomixMeteredPreviews
+import com.music.bitchord.playback.smart.AutomixPreservation
+import com.music.bitchord.playback.smart.AutomixQueueMode
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -155,6 +158,9 @@ fun SettingsScreen(
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+    val automixQueueMode by AppSettings.automixQueueMode.collectAsStateWithLifecycle()
+    val automixPreservation by AppSettings.automixPreservation.collectAsStateWithLifecycle()
+    val automixMeteredPreviews by AppSettings.automixMeteredPreviews.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
@@ -198,6 +204,7 @@ fun SettingsScreen(
 
     var picking by remember { mutableStateOf<QualityTarget?>(null) }
     var pickingDownloadQuality by remember { mutableStateOf(false) }
+    var showAutomixConfiguration by remember { mutableStateOf(false) }
     // What the last export or import did, shown on the row that did it rather
     // than as a toast: a backup is the one action here whose outcome nobody can
     // check by looking at the app afterwards. Held per direction, or an import's
@@ -346,11 +353,12 @@ fun SettingsScreen(
             SettingsRow(
                 icon = Icons.Rounded.AutoAwesome,
                 title = stringResource(R.string.automix),
-                subtitle = if (smartFade) {
-                    "Blends every transition, timed automatically from each track. Turn off if facing overheating or lag."
-                } else {
-                    "Times and blends transitions automatically, no slider needed. May not work as expected in low-mid range devices."
-                },
+                subtitle = stringResource(
+                    R.string.automix_active_configuration,
+                    automixQueueMode.localizedLabel(),
+                    automixPreservation.localizedLabel(),
+                    automixMeteredPreviews.localizedLabel(),
+                ),
                 trailing = {
                     Switch(
                         checked = smartFade,
@@ -361,7 +369,7 @@ fun SettingsScreen(
                         ),
                     )
                 },
-                onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
+                onClick = { showAutomixConfiguration = true },
             )
             RowDivider()
             SettingsRow(
@@ -831,6 +839,47 @@ fun SettingsScreen(
         }
     }
 
+    if (showAutomixConfiguration) {
+        AlertDialog(
+            onDismissRequest = { showAutomixConfiguration = false },
+            title = { Text(stringResource(R.string.automix_settings)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text(stringResource(R.string.automix_queue_control), style = MaterialTheme.typography.titleSmall)
+                    SegmentedControl(
+                        options = AutomixQueueMode.entries.map { it.localizedLabel() },
+                        selectedIndex = AutomixQueueMode.entries.indexOf(automixQueueMode),
+                        onSelect = { AppSettings.setAutomixQueueMode(AutomixQueueMode.entries[it]) },
+                    )
+                    Text(stringResource(R.string.automix_preservation), style = MaterialTheme.typography.titleSmall)
+                    SegmentedControl(
+                        options = AutomixPreservation.entries.map { it.localizedLabel() },
+                        selectedIndex = AutomixPreservation.entries.indexOf(automixPreservation),
+                        onSelect = { AppSettings.setAutomixPreservation(AutomixPreservation.entries[it]) },
+                    )
+                    Text(stringResource(R.string.automix_mobile_previews), style = MaterialTheme.typography.titleSmall)
+                    SegmentedControl(
+                        options = AutomixMeteredPreviews.entries.map { it.localizedLabel() },
+                        selectedIndex = AutomixMeteredPreviews.entries.indexOf(automixMeteredPreviews),
+                        onSelect = {
+                            AppSettings.setAutomixMeteredPreviews(AutomixMeteredPreviews.entries[it])
+                        },
+                    )
+                    Text(
+                        stringResource(R.string.automix_mobile_budget),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAutomixConfiguration = false }) {
+                    Text(stringResource(R.string.done))
+                }
+            },
+        )
+    }
+
     // Asked before the picker opens rather than after a file is chosen: the
     // thing being confirmed is that this device's own history is about to be
     // thrown away, and that is true whichever file gets picked.
@@ -1002,6 +1051,29 @@ private fun ThemeMode.localizedLabel(): String = stringResource(
         ThemeMode.SYSTEM -> R.string.system
         ThemeMode.LIGHT -> R.string.light
         ThemeMode.DARK -> R.string.dark
+    },
+)
+
+@Composable
+private fun AutomixQueueMode.localizedLabel(): String = stringResource(
+    if (this == AutomixQueueMode.DJ_CONTROL) R.string.automix_dj_control else R.string.automix_respect_queue,
+)
+
+@Composable
+private fun AutomixPreservation.localizedLabel(): String = stringResource(
+    when (this) {
+        AutomixPreservation.FULL_TRACK -> R.string.automix_full_track
+        AutomixPreservation.BALANCED -> R.string.automix_balanced
+        AutomixPreservation.DJ_FREEDOM -> R.string.automix_dj_freedom
+    },
+)
+
+@Composable
+private fun AutomixMeteredPreviews.localizedLabel(): String = stringResource(
+    when (this) {
+        AutomixMeteredPreviews.CACHE_ONLY -> R.string.automix_cache_only
+        AutomixMeteredPreviews.THREE -> R.string.automix_three_previews
+        AutomixMeteredPreviews.WIFI_EQUIVALENT -> R.string.automix_wifi_equivalent
     },
 )
 

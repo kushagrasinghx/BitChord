@@ -260,6 +260,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val supersedable = when {
             recorded == null -> false
             trackId in provisional -> usableComplete
+            // v1 analyses keep their trusted beat/key foundation and earn only
+            // the new local metrics when a complete copy is already available.
+            recorded.isUsable && recorded.integratedLoudnessLufs == null -> usableComplete && untried
             else -> !recorded.isUsable && untried
         }
         if (recorded != null && !supersedable) {
@@ -305,7 +308,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 // seven seconds recomputing the identical numbers. A provisional
                 // result is exempt: superseding one is the whole point of it.
                 val landed = results[trackId]
-                if (landed != null && landed.isUsable && trackId !in provisional) return@execute
+                if (landed != null && landed.isUsable && trackId !in provisional &&
+                    landed.integratedLoudnessLufs != null
+                ) return@execute
                 if (usableComplete) {
                     val outcome = analyze(trackId, uri, durationSeconds)
                     val whole = outcome.analysis
@@ -742,6 +747,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      */
     private class Structural(
         val features: TrackFeatures.Features?,
+        val loudness: LoudnessMetrics? = null,
         val decodedShort: Boolean = false,
     )
 
@@ -832,7 +838,10 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             pcm.samples
         }
 
-        return Structural(TrackFeatures.analyze(samples, effectiveDuration))
+        return Structural(
+            features = TrackFeatures.analyze(samples, effectiveDuration),
+            loudness = measureLoudness(samples, structRate),
+        )
     }
 
     /**
@@ -903,6 +912,14 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 "vocalMask=${if (head?.vocalMask != null || tail?.vocalMask != null) "model" else "dsp"}",
         )
 
+        val vocalMask = mergeMasks(features.energyCurve.size, head?.vocalMask, tail?.vocalMask)
+            ?: features.vocalActivityMask
+        val (sections, structuralConfidence) = inferMusicalSections(
+            duration = effectiveDuration,
+            phraseBoundaries = features.phraseBoundaries,
+            energyCurve = features.energyCurve,
+            vocalMask = vocalMask,
+        )
         return WholeTrack(
                 TrackAnalysis(
                     status = TrackAnalysis.STATUS_READY,
@@ -933,9 +950,13 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 // the heuristic rather than to nothing matters because the policy reads an
                 // absent mask and a neutral one identically — as "no evidence" — so a failed model
                 // pass would otherwise silently discard the estimate Phase 1 already had.
-                vocalActivityMask = mergeMasks(features.energyCurve.size, head?.vocalMask, tail?.vocalMask)
-                    ?: features.vocalActivityMask,
+                vocalActivityMask = vocalMask,
                 vocalProbability = features.vocalProbability,
+                integratedLoudnessLufs = structural.loudness?.integratedLufs,
+                shortTermLoudnessLufs = structural.loudness?.shortTermLufs,
+                truePeakDbtp = structural.loudness?.truePeakDbtp,
+                sections = sections,
+                structuralConfidence = structuralConfidence,
             ),
         )
     }

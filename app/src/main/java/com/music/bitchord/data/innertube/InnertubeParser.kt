@@ -345,7 +345,10 @@ object InnertubeParser {
             }
         }
         walk(root)
-        return out.values.toList()
+        val songs = out.values.toList()
+        return if (!pageCredit.albumId.isNullOrBlank()) {
+            songs.mapIndexed { index, song -> song.copy(trackNumber = index + 1) }
+        } else songs
     }
 
     /** A playlist page's own tracks, the ones YouTube suggests adding, and the token for the rest. */

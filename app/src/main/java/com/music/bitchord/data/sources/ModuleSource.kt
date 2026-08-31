@@ -167,6 +167,8 @@ class ModuleSource(
                 title = track.title,
                 artist = track.artist,
                 albumName = track.album.ifBlank { null },
+                albumId = track.albumId,
+                trackNumber = track.trackNumber.takeIf { it > 0 },
                 thumbnailUrl = track.albumCover,
                 durationText = track.duration.takeIf { it > 0 }
                     ?.let { "${it / 60}:${"%02d".format(Locale.ROOT, it % 60)}" },

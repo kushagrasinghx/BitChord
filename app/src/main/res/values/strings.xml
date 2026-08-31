@@ -195,6 +195,14 @@
     <string name="synced_lyrics">Synced lyrics</string>
     <string name="synced_lyrics_subtitle">Lights up the words on the player as they’re sung</string>
     <string name="lyrics_sources">Lyrics sources</string>
+    <string name="lyrics_translate">Translate lyrics</string>
+    <string name="lyrics_show_original">Show original lyrics</string>
+    <string name="lyrics_translation_preparing">Detecting lyric language…</string>
+    <string name="lyrics_translation_downloading">Downloading %1$s translation…</string>
+    <string name="lyrics_translation_translating">Translating to %1$s…</string>
+    <string name="lyrics_translated_to">Translated to %1$s</string>
+    <string name="lyrics_already_in_language">Lyrics are already in %1$s</string>
+    <string name="lyrics_translation_unavailable">Translation unavailable</string>
     <string name="song_cache_limit">Song cache limit</string>
     <string name="clear_song_cache">Clear song cache</string>
     <string name="clear_song_cache_subtitle">Frees space used by downloaded audio</string>
@@ -220,4 +228,19 @@
     <string name="miscellaneous_footer">When enabled, closing the app from the recent apps screen will also stop music playback.</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay won’t suggest a song already played or suggested this session</string>
     <string name="download_quality_subtitle">%1$s per track, whatever the connection</string>
+    <string name="automix_settings">Automix settings</string>
+    <string name="automix_active_configuration">%1$s · %2$s · mobile %3$s</string>
+    <string name="automix_queue_control">Queue control</string>
+    <string name="automix_preservation">Track preservation</string>
+    <string name="automix_mobile_previews">Mobile previews</string>
+    <string name="automix_mobile_budget">Previews are limited to 768 KiB each and 12 MiB per mobile session. Wi-Fi evaluates up to six candidates.</string>
+    <string name="automix_dj_control">DJ control</string>
+    <string name="automix_respect_queue">Respect queue</string>
+    <string name="automix_full_track">Full track</string>
+    <string name="automix_balanced">Balanced</string>
+    <string name="automix_dj_freedom">DJ freedom</string>
+    <string name="automix_cache_only">Cache only</string>
+    <string name="automix_three_previews">Up to 3</string>
+    <string name="automix_wifi_equivalent">Up to 6</string>
+    <string name="done">Done</string>
 </resources>

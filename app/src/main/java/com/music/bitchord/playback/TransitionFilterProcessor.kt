@@ -10,6 +10,7 @@ import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.min
 import kotlin.math.tan
+import kotlin.math.pow
 
 /**
  * The filter a track rides through a Automix transition: a low-pass that can
@@ -66,12 +67,28 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
 
     @Volatile
     private var targetHighPassHz: Float = OFF_HZ
+    @Volatile private var targetLowGain = 1f
+    @Volatile private var targetMidGain = 1f
+    @Volatile private var targetHighGain = 1f
+    @Volatile private var echoWet = 0f
+    @Volatile private var echoFeedback = 0f
+    @Volatile private var echoDelayMs = 0f
+    @Volatile private var echoClearRequested = false
 
     private var channelCount = 0
     private var sampleRate = 0
 
     private var currentLowPassHz = OPEN_HZ
     private var currentHighPassHz = OFF_HZ
+    private var currentLowGain = 1f
+    private var currentMidGain = 1f
+    private var currentHighGain = 1f
+    private var eqLowState = FloatArray(0)
+    private var eqMidState = FloatArray(0)
+    private var echoBuffer = FloatArray(0)
+    private var echoPosition = 0
+    private var lowEqAlpha = 0f
+    private var midEqAlpha = 0f
 
     /** Two integrator states per second-order section, per channel. */
     private var lowState = FloatArray(0)
@@ -98,6 +115,19 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     /** Parks both filters. Glided, not snapped — see the class doc. */
     fun open() = setCutoffs(OPEN_HZ, OFF_HZ)
 
+    fun setDjEq(lowDb: Float, midDb: Float, highDb: Float) {
+        targetLowGain = dbGain(lowDb.coerceIn(-48f, 6f))
+        targetMidGain = dbGain(midDb.coerceIn(-48f, 6f))
+        targetHighGain = dbGain(highDb.coerceIn(-48f, 6f))
+    }
+
+    fun setEcho(delayMs: Float, feedback: Float, wet: Float) {
+        echoDelayMs = delayMs.coerceIn(0f, 1_000f)
+        echoFeedback = feedback.coerceIn(0f, 0.35f)
+        echoWet = wet.coerceIn(0f, 0.30f)
+        if (echoWet <= 0f) echoClearRequested = true
+    }
+
     /**
      * 16-bit PCM only, matching [SpatialAudioProcessor] — and bowing out with
      * [AudioProcessor.AudioFormat.NOT_SET] rather than throwing for the same
@@ -123,25 +153,49 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         sampleRate = inputAudioFormat.sampleRate
         lowState = FloatArray(channelCount * STAGES * 2)
         highState = FloatArray(channelCount * STAGES * 2)
+        eqLowState = FloatArray(channelCount)
+        eqMidState = FloatArray(channelCount)
+        echoBuffer = FloatArray((sampleRate * channelCount).coerceAtLeast(channelCount))
+        lowEqAlpha = onePoleAlpha(220f)
+        midEqAlpha = onePoleAlpha(2_800f)
         currentLowPassHz = targetLowPassHz
         currentHighPassHz = targetHighPassHz
+        currentLowGain = targetLowGain
+        currentMidGain = targetMidGain
+        currentHighGain = targetHighGain
         return inputAudioFormat
     }
 
     override fun onFlush() {
         lowState.fill(0f)
         highState.fill(0f)
+        eqLowState.fill(0f)
+        eqMidState.fill(0f)
+        echoBuffer.fill(0f)
+        echoPosition = 0
         // Snapped, not glided: a flush means a seek or a fresh source, so there
         // is no continuous signal for a glide to be continuous with.
         currentLowPassHz = targetLowPassHz
         currentHighPassHz = targetHighPassHz
+        currentLowGain = targetLowGain
+        currentMidGain = targetMidGain
+        currentHighGain = targetHighGain
     }
 
     override fun onReset() {
         targetLowPassHz = OPEN_HZ
         targetHighPassHz = OFF_HZ
+        targetLowGain = 1f
+        targetMidGain = 1f
+        targetHighGain = 1f
+        echoWet = 0f
+        echoFeedback = 0f
+        echoDelayMs = 0f
         lowState = FloatArray(0)
         highState = FloatArray(0)
+        eqLowState = FloatArray(0)
+        eqMidState = FloatArray(0)
+        echoBuffer = FloatArray(0)
     }
 
     override fun queueInput(inputBuffer: java.nio.ByteBuffer) {
@@ -151,6 +205,12 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         if (frameCount == 0) return
         val outputBuffer = replaceOutputBuffer(frameCount * bytesPerFrame)
 
+        if (echoClearRequested) {
+            echoBuffer.fill(0f)
+            echoPosition = 0
+            echoClearRequested = false
+        }
+
         val targetLow = targetLowPassHz
         val targetHigh = targetHighPassHz
         // Parked at both ends *and* already settled there: nothing to do but
@@ -158,7 +218,9 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         // — a transition that has just finished is still gliding back open, and
         // cutting the filter out from under that glide is the click it exists
         // to avoid.
-        val parked = targetLow >= OPEN_HZ && targetHigh <= OFF_HZ &&
+        val eqParked = targetLowGain == 1f && targetMidGain == 1f && targetHighGain == 1f &&
+            currentLowGain == 1f && currentMidGain == 1f && currentHighGain == 1f
+        val parked = targetLow >= OPEN_HZ && targetHigh <= OFF_HZ && echoWet <= 0f && eqParked &&
             currentLowPassHz >= OPEN_HZ - SETTLED_HZ && currentHighPassHz <= OFF_HZ + SETTLED_HZ
         if (parked) {
             outputBuffer.put(inputBuffer)
@@ -174,6 +236,12 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
             val block = min(remaining, GLIDE_FRAMES)
             currentLowPassHz = glide(currentLowPassHz, targetLow)
             currentHighPassHz = glide(currentHighPassHz, targetHigh)
+            currentLowGain += (targetLowGain - currentLowGain) * GAIN_GLIDE_RATE
+            currentMidGain += (targetMidGain - currentMidGain) * GAIN_GLIDE_RATE
+            currentHighGain += (targetHighGain - currentHighGain) * GAIN_GLIDE_RATE
+            if (kotlin.math.abs(currentLowGain - targetLowGain) < GAIN_SETTLED) currentLowGain = targetLowGain
+            if (kotlin.math.abs(currentMidGain - targetMidGain) < GAIN_SETTLED) currentMidGain = targetMidGain
+            if (kotlin.math.abs(currentHighGain - targetHighGain) < GAIN_SETTLED) currentHighGain = targetHighGain
             val lowOn = currentLowPassHz < OPEN_HZ - SETTLED_HZ
             val highOn = currentHighPassHz > OFF_HZ + SETTLED_HZ
             if (lowOn) updateLowCoefficients()
@@ -181,9 +249,10 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
 
             repeat(block) {
                 for (channel in 0 until channelCount) {
-                    var sample = inputBuffer.short.toFloat()
+                    var sample = applyDjEq(channel, inputBuffer.short.toFloat())
                     if (lowOn) sample = lowPass(channel, sample)
                     if (highOn) sample = highPass(channel, sample)
+                    sample = applyEcho(channel, sample)
                     outputBuffer.putShort(clampToShort(sample))
                 }
             }
@@ -259,6 +328,31 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         return value
     }
 
+    private fun applyDjEq(channel: Int, input: Float): Float {
+        val low = eqLowState[channel] + lowEqAlpha * (input - eqLowState[channel])
+        val lowMid = eqMidState[channel] + midEqAlpha * (input - eqMidState[channel])
+        eqLowState[channel] = low
+        eqMidState[channel] = lowMid
+        val mid = lowMid - low
+        val high = input - lowMid
+        return low * currentLowGain + mid * currentMidGain + high * currentHighGain
+    }
+
+    private fun onePoleAlpha(hz: Float): Float =
+        (1.0 - exp(-2.0 * Math.PI * hz / sampleRate)).toFloat()
+
+    private fun applyEcho(channel: Int, input: Float): Float {
+        val wet = echoWet
+        if (wet <= 0f || echoBuffer.isEmpty() || echoDelayMs <= 0f) return input
+        val delayFrames = (sampleRate * echoDelayMs / 1_000f).toInt().coerceIn(1, sampleRate - 1)
+        val delaySamples = delayFrames * channelCount
+        val read = (echoPosition - delaySamples + echoBuffer.size) % echoBuffer.size
+        val delayed = echoBuffer[(read + channel) % echoBuffer.size]
+        echoBuffer[(echoPosition + channel) % echoBuffer.size] = input + delayed * echoFeedback
+        if (channel == channelCount - 1) echoPosition = (echoPosition + channelCount) % echoBuffer.size
+        return input * (1f - wet) + delayed * wet
+    }
+
     private fun clampToShort(value: Float): Short =
         value.coerceIn(Short.MIN_VALUE.toFloat(), Short.MAX_VALUE.toFloat()).toInt().toShort()
 
@@ -288,6 +382,10 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
 
         /** Per-sub-block glide fraction. ~30 ms time constant, just under one fade tick. */
         private const val GLIDE_RATE = 0.05f
+        private const val GAIN_GLIDE_RATE = 0.08f
+        private const val GAIN_SETTLED = 0.0001f
+
+        private fun dbGain(db: Float): Float = 10.0.pow(db / 20.0).toFloat()
 
         /** How close to a parked value counts as parked, so a glide terminates. */
         private const val SETTLED_HZ = 1f
@@ -313,10 +411,17 @@ interface TransitionFilters {
     /** The track fading out — the ghost player. */
     fun outgoing(lowPassHz: Float, highPassHz: Float)
 
+    fun incomingEq(lowDb: Float, midDb: Float, highDb: Float) = Unit
+    fun outgoingEq(lowDb: Float, midDb: Float, highDb: Float) = Unit
+    fun outgoingEcho(delayMs: Float, feedback: Float, wet: Float) = Unit
+
     /** Parks both. Called whenever a transition ends, however it ended. */
     fun open() {
         incoming(TransitionFilterProcessor.OPEN_HZ, TransitionFilterProcessor.OFF_HZ)
         outgoing(TransitionFilterProcessor.OPEN_HZ, TransitionFilterProcessor.OFF_HZ)
+        incomingEq(0f, 0f, 0f)
+        outgoingEq(0f, 0f, 0f)
+        outgoingEcho(0f, 0f, 0f)
     }
 
     /** For callers with no audio sink to filter — tests, and the default wiring. */

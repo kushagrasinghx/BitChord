@@ -18,7 +18,15 @@ import com.music.bitchord.playback.smart.TrackAnalysis
 import com.music.bitchord.playback.smart.TransitionStyle
 import com.music.bitchord.playback.smart.TransitionTrackInfo
 import com.music.bitchord.playback.smart.planTransition
+import com.music.bitchord.playback.smart.QueueOrigin
+import com.music.bitchord.playback.smart.AutomixCandidate
+import com.music.bitchord.playback.smart.AutomixMeteredPreviews
+import com.music.bitchord.playback.smart.AutomixQueueMode
+import com.music.bitchord.playback.smart.EnergyArc
+import com.music.bitchord.playback.smart.PreviewBudget
+import com.music.bitchord.playback.smart.scoreAutomixCandidate
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -33,7 +41,6 @@ import java.util.Locale
 /**
  * A real crossfade: two tracks audible at once, the outgoing one falling as the
  * incoming one rises, the way Spotify and Apple Music do it.
- *
  * ## Why there are two players
  *
  * One ExoPlayer renders one queue item at a time, so at a track boundary there
@@ -111,7 +118,11 @@ class CrossfadeController(
      * must answer `outgoing` — this class re-reads neither during a transition,
      * but everything else in the service does.
      */
-    private val onHandoff: (outgoing: ExoPlayer, incoming: ExoPlayer) -> Unit,
+    private val onHandoff: (
+        outgoing: ExoPlayer,
+        incoming: ExoPlayer,
+        renditionOnly: Boolean,
+    ) -> Unit,
     /**
      * Stored Automix analysis for a media item, or an empty [TrackAnalysis]
      * when there is none yet. This is the seam Phase 1's DSP analyzer plugs
@@ -160,6 +171,9 @@ class CrossfadeController(
 
         /** Incoming track rising on one player, outgoing falling on the other. */
         FADING,
+
+        /** A prepared rendition of the current track is taking over. */
+        QUALITY_SWITCHING,
 
         /** Something interrupted the fade; the outgoing track is being ramped away. */
         BAILING,
@@ -239,6 +253,12 @@ class CrossfadeController(
      * smarter timing, not a beatmatch.
      */
     private var incomingPlaybackRate: Double = 1.0
+    private var incomingAudibleCueMs = 0L
+    private var incomingAudibleStartPositionMs = 0L
+    private var prerollMs = 0L
+    private var prerollStarted = false
+    private var renditionFinalVolume = 1f
+    private var renditionSwitchActive = false
 
     /**
      * The style-specific half of the plan in flight — everything [rideFilters]
@@ -259,6 +279,10 @@ class CrossfadeController(
         val bassSwapFraction: Double = 0.7,
         val filterSweep: Double = 0.0,
         val vocalOverlap: Double = 0.0,
+        val outgoingGainDb: Double = 0.0,
+        val incomingGainDb: Double = 0.0,
+        val overlapHeadroomDb: Double = 0.0,
+        val echoDelayMs: Float = 250f,
     )
 
     private var fadeStartedAt = 0L
@@ -282,6 +306,14 @@ class CrossfadeController(
 
     /** Dedupes the per-tick plan log down to one line per distinct verdict. */
     private var lastPlanVerdict = ""
+    private val energyArc = EnergyArc()
+    private val manualDeferrals = mutableMapOf<String, Int>()
+    private val recentArtists = ArrayDeque<String>()
+    private var selectionCommittedForTrack = ""
+    private var observedTrackId = ""
+    private var loudnessTargetTrackId = ""
+    private var sessionTargetLufs = -14.0
+    private var tempoGlideJob: Job? = null
 
     /**
      * True while a transition is armed or running.
@@ -333,7 +365,14 @@ class CrossfadeController(
                 // does *not* fire when AutoPlay appends to the end, since the
                 // playing item doesn't change: extending the queue mid-fade is
                 // harmless and shouldn't cost the listener the blend.
-                Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> bail()
+                Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> {
+                    bail()
+                    energyArc.reset(SystemClock.elapsedRealtime())
+                    manualDeferrals.clear()
+                    recentArtists.clear()
+                    loudnessTargetTrackId = ""
+                    sessionTargetLufs = -14.0
+                }
                 Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> bail()
             }
         }
@@ -366,6 +405,7 @@ class CrossfadeController(
                         Phase.IDLE -> IDLE_STEP_MS
                         Phase.ARMING -> ARM_STEP_MS
                         Phase.FADING -> FADE_STEP_MS
+                        Phase.QUALITY_SWITCHING -> QUALITY_HANDOFF_STEP_MS
                         Phase.BAILING -> BAIL_STEP_MS
                     },
                 )
@@ -374,13 +414,14 @@ class CrossfadeController(
     }
 
     fun release() {
+        tempoGlideJob?.cancel()
+        tempoGlideJob = null
         listeningTo?.removeListener(listener)
         listeningTo = null
         active().volume = 1f
         AppSettings.smartMixInProgress.value = false
         filters.open()
     }
-
     // ---- Entry points -------------------------------------------------------
 
     /**
@@ -401,6 +442,215 @@ class CrossfadeController(
         if (phase != Phase.IDLE) bail()
     }
 
+    /**
+     * Moves the current song onto a different rendition without dismantling
+     * the decoder the listener is hearing.
+     *
+     * The replacement is opened on the standby player, sought to the moving
+     * playhead and allowed to render silently first. Only then do the players
+     * trade roles. The final relay is deliberately much shorter than a normal
+     * crossfade: these are two copies of the same recording, so a long overlap
+     * would be heard as comb filtering or an echo when their masters are not
+     * sample-aligned.
+     *
+     * Returns the position reached by the new rendition, or null when the old
+     * player was left untouched.
+     */
+    suspend fun handoffRendition(
+        expectedMediaId: String,
+        replacement: MediaItem,
+    ): Long? {
+        if (phase != Phase.IDLE) return null
+
+        val out = active()
+        val into = standby()
+        val index = out.currentMediaItemIndex
+        if (out === into || index == C.INDEX_UNSET) return null
+        if (out.currentMediaItem?.mediaId != expectedMediaId) return null
+        // Never replace a rendition under playback. Media timestamps are not
+        // sample alignment across codecs/masters, so even two READY decoders
+        // can replay or skip PCM at the relay point.
+        if (out.playWhenReady) return null
+
+        outgoing = out
+        incoming = into
+        handedOff = false
+        renditionFinalVolume = out.volume
+        renditionSwitchActive = true
+        phase = Phase.QUALITY_SWITCHING
+
+        try {
+
+        val items = (0 until out.mediaItemCount).map { itemIndex ->
+            if (itemIndex == index) replacement else out.getMediaItemAt(itemIndex)
+        }
+        queuedItemCount = items.size
+
+        into.skipSilenceEnabled = out.skipSilenceEnabled
+        into.repeatMode = out.repeatMode
+        into.shuffleModeEnabled = out.shuffleModeEnabled
+        into.setPlaybackSpeed(out.playbackParameters.speed)
+        into.volume = 0f
+        into.playWhenReady = false
+        into.setMediaItems(items, index, out.currentPosition)
+        into.prepare()
+
+        val prepareDeadline = SystemClock.elapsedRealtime() + QUALITY_HANDOFF_PREPARE_MS
+        while (phase == Phase.QUALITY_SWITCHING &&
+            into.playbackState != Player.STATE_READY &&
+            SystemClock.elapsedRealtime() < prepareDeadline
+        ) {
+            delay(QUALITY_HANDOFF_STEP_MS)
+        }
+        if (phase != Phase.QUALITY_SWITCHING || into.playbackState != Player.STATE_READY) {
+            if (phase == Phase.QUALITY_SWITCHING) bail()
+            return null
+        }
+        if (out.currentMediaItem?.mediaId != expectedMediaId) {
+            bail()
+            return null
+        }
+        val sourceDuration = out.duration
+        val replacementDuration = into.duration
+        if (sourceDuration > 0L && replacementDuration > 0L) {
+            val durationTolerance = maxOf(
+                QUALITY_DURATION_TOLERANCE_MS,
+                (sourceDuration * QUALITY_DURATION_TOLERANCE_FRACTION).roundToLong(),
+            )
+            if (abs(sourceDuration - replacementDuration) > durationTolerance) {
+                Log.w(
+                    TAG,
+                    "quality handoff refused: duration ${replacementDuration}ms " +
+                        "does not match ${sourceDuration}ms",
+                )
+                bail()
+                return null
+            }
+        }
+
+        // Preparation took place against a moving playhead. Seek once more now
+        // that the decoder exists, with a tiny lead to pay for starting the
+        // muted AudioTrack, then verify it while the old rendition remains the
+        // only audible one.
+        val target = out.currentPosition +
+            if (out.playWhenReady) QUALITY_SYNC_LEAD_MS else 0L
+        into.seekTo(index, target.coerceAtLeast(0L))
+        val seekDeadline = SystemClock.elapsedRealtime() + QUALITY_HANDOFF_SEEK_MS
+        while (phase == Phase.QUALITY_SWITCHING &&
+            into.playbackState != Player.STATE_READY &&
+            SystemClock.elapsedRealtime() < seekDeadline
+        ) {
+            delay(QUALITY_HANDOFF_STEP_MS)
+        }
+        if (phase != Phase.QUALITY_SWITCHING || into.playbackState != Player.STATE_READY) {
+            if (phase == Phase.QUALITY_SWITCHING) bail()
+            return null
+        }
+
+        into.playWhenReady = out.playWhenReady
+        if (out.playWhenReady) {
+            // Let the new sink advance silently before measuring it. A badly
+            // offset source gets one corrective seek; no listener hears it.
+            delay(QUALITY_SYNC_SETTLE_MS)
+            val drift = out.currentPosition - into.currentPosition
+            if (abs(drift) > QUALITY_SYNC_TOLERANCE_MS) {
+                into.seekTo((out.currentPosition + QUALITY_SYNC_LEAD_MS).coerceAtLeast(0L))
+                val correctionDeadline = SystemClock.elapsedRealtime() + QUALITY_HANDOFF_SEEK_MS
+                while (phase == Phase.QUALITY_SWITCHING &&
+                    into.playbackState != Player.STATE_READY &&
+                    SystemClock.elapsedRealtime() < correctionDeadline
+                ) {
+                    delay(QUALITY_HANDOFF_STEP_MS)
+                }
+                if (phase != Phase.QUALITY_SWITCHING || into.playbackState != Player.STATE_READY) {
+                    if (phase == Phase.QUALITY_SWITCHING) bail()
+                    return null
+                }
+                into.playWhenReady = out.playWhenReady
+                delay(QUALITY_SYNC_SETTLE_MS)
+            }
+            // Never let the replacement land behind the audible rendition: a
+            // behind landing literally replays the fragment just heard. One
+            // last correction is still safe because this deck remains muted.
+            val finalDrift = into.currentPosition - out.currentPosition
+            if (finalDrift < QUALITY_MIN_FORWARD_LEAD_MS ||
+                finalDrift > QUALITY_MAX_FORWARD_LEAD_MS
+            ) {
+                into.seekTo((out.currentPosition + QUALITY_TARGET_FORWARD_LEAD_MS).coerceAtLeast(0L))
+                val finalDeadline = SystemClock.elapsedRealtime() + QUALITY_HANDOFF_SEEK_MS
+                while (phase == Phase.QUALITY_SWITCHING &&
+                    into.playbackState != Player.STATE_READY &&
+                    SystemClock.elapsedRealtime() < finalDeadline
+                ) delay(QUALITY_HANDOFF_STEP_MS)
+                if (phase != Phase.QUALITY_SWITCHING || into.playbackState != Player.STATE_READY) {
+                    if (phase == Phase.QUALITY_SWITCHING) bail()
+                    return null
+                }
+                into.playWhenReady = out.playWhenReady
+                delay(QUALITY_SYNC_SETTLE_MS)
+            }
+        }
+
+        if (phase != Phase.QUALITY_SWITCHING ||
+            out.currentMediaItem?.mediaId != expectedMediaId ||
+            into.currentMediaItem?.mediaId != expectedMediaId ||
+            out.playWhenReady
+        ) {
+            if (phase == Phase.QUALITY_SWITCHING) bail()
+            return null
+        }
+        if (out.playWhenReady) {
+            val landingLead = into.currentPosition - out.currentPosition
+            if (landingLead !in QUALITY_MIN_FORWARD_LEAD_MS..QUALITY_MAX_FORWARD_LEAD_MS) {
+                Log.w(TAG, "quality handoff refused: replacement lead=${landingLead}ms")
+                bail()
+                return null
+            }
+        }
+
+        // A pause can land during the muted sync delay. Sample it again at the
+        // commit point so moving the session cannot turn that pause back into
+        // playback merely because the standby was still advancing silently.
+        into.playWhenReady = out.playWhenReady
+        reconcileQueue(out, into)
+        listenTo(into)
+        handedOff = true
+        onHandoff(out, into, true)
+
+        // A paused song has no audible seam to hide. Swapping the fully
+        // prepared player at unity gain also means resume starts cleanly.
+        if (!into.playWhenReady) {
+            into.volume = 1f
+            finish()
+            return into.currentPosition
+        }
+
+        val startedAt = SystemClock.elapsedRealtime()
+        while (phase == Phase.QUALITY_SWITCHING) {
+            val progress = (
+                (SystemClock.elapsedRealtime() - startedAt).toFloat() / QUALITY_HANDOFF_MS
+                ).coerceIn(0f, 1f)
+            val gains = qualityRelayGains(progress)
+            out.volume = renditionFinalVolume * gains.first
+            into.volume = renditionFinalVolume * gains.second
+            out.playWhenReady = into.playWhenReady
+            if (progress >= 1f) break
+            delay(QUALITY_HANDOFF_STEP_MS)
+        }
+
+        val newPlayerStillCurrent = active().currentMediaItem?.mediaId == expectedMediaId
+        val position = active().currentPosition.takeIf { newPlayerStillCurrent }
+        if (phase == Phase.QUALITY_SWITCHING) finish()
+        return position
+        } finally {
+            // The upgrade job is cancelled whenever the queue moves. A
+            // cancellation can land at any delay above; without this cleanup
+            // QUALITY_SWITCHING remains stuck and a muted standby may keep
+            // rendering over every later song even with Automix disabled.
+            if (phase == Phase.QUALITY_SWITCHING) finish()
+        }
+    }
+
     // ---- Ticker -------------------------------------------------------------
 
     private fun tick() {
@@ -410,7 +660,9 @@ class CrossfadeController(
         // pause button all get the same treatment for free. Which player follows
         // which flips at the handoff: before it the standby shadows the session,
         // after it the outgoing tail does.
-        if (phase == Phase.FADING || phase == Phase.BAILING) {
+        if (phase == Phase.FADING || phase == Phase.BAILING ||
+            (phase == Phase.QUALITY_SWITCHING && handedOff)
+        ) {
             outgoing?.playWhenReady = incoming?.playWhenReady ?: true
         }
 
@@ -427,6 +679,7 @@ class CrossfadeController(
             Phase.IDLE -> considerAutoTransition()
             Phase.ARMING -> driveArming()
             Phase.FADING -> driveFade()
+            Phase.QUALITY_SWITCHING -> Unit
             Phase.BAILING -> driveBail()
         }
     }
@@ -509,10 +762,19 @@ class CrossfadeController(
     private fun considerSmartTransition(duration: Long) {
         val player = active()
         val currentItem = player.currentMediaItem ?: return
+        observeEnergyArc(currentItem)
+        maybeSelectDjCandidate(player, currentItem, duration)
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val nextItem = player.getMediaItemAt(nextIndex)
         val nextDuration = nextItemDurationMs(nextIndex, nextItem)
+
+        // An explicit album sequence belongs to ExoPlayer's native queue
+        // handoff: no second deck, no cue, no EQ and no editorial cut.
+        if (isExplicitAlbumSequence(player, currentItem, nextItem)) {
+            AppSettings.smartTransitionWindow.value = null
+            return
+        }
 
         requestAnalysisAround(player, duration)
 
@@ -530,6 +792,7 @@ class CrossfadeController(
         // times per tick below, and the answer cannot change mid-tick.
         val currentAnalysis = analysisFor(currentItem)
         val nextAnalysis = analysisFor(nextItem)
+        updateSessionLoudness(currentItem, currentAnalysis)
         val analysisState = AppSettings.smartAnalysis.value
 
         val plan = planTransition(
@@ -541,6 +804,9 @@ class CrossfadeController(
             duration = duration / 1000.0,
             fadeSeconds = fallbackSeconds,
             mode = CrossfadeMode.SMART,
+            albumSequential = isExplicitAlbumSequence(player, currentItem, nextItem),
+            preservation = AppSettings.automixPreservation.value,
+            sessionTargetLufs = sessionTargetLufs,
         )
         // One line per distinct verdict rather than one per 250ms tick, so the
         // log says what the planner decided for this pair without burying it.
@@ -618,12 +884,19 @@ class CrossfadeController(
             smart = true,
             cueTimeMs = (plan.incomingCueTime * 1000).roundToLong(),
             playbackRate = plan.incomingPlaybackRate,
+            prerollMs = (plan.prerollSeconds * 1000).roundToLong(),
             renderStyle = Render(
                 style = plan.transitionStyle,
                 bassSwap = plan.bassSwap,
                 bassSwapFraction = plan.bassSwapFraction,
                 filterSweep = plan.filterSweep,
                 vocalOverlap = plan.vocalOverlap,
+                outgoingGainDb = plan.outgoingGainDb,
+                incomingGainDb = plan.incomingGainDb,
+                overlapHeadroomDb = plan.overlapHeadroomDb,
+                echoDelayMs = if (plan.outgoingBpm > 0) {
+                    (30_000.0 / plan.outgoingBpm).coerceIn(120.0, 750.0).toFloat()
+                } else 250f,
             ),
         )
     }
@@ -740,13 +1013,109 @@ class CrossfadeController(
         return if (seconds > 0) seconds * 1000L else 0L
     }
 
-    /** BitChord doesn't carry album metadata on [MediaMetadata] yet, so [TransitionTrackInfo.album] stays blank. */
     private fun MediaItem.toTransitionInfo(durationMs: Long) = TransitionTrackInfo(
         id = mediaId,
         durationMs = durationMs,
         title = mediaMetadata.title?.toString().orEmpty(),
         artist = mediaMetadata.artist?.toString().orEmpty(),
+        album = mediaMetadata.albumTitle?.toString().orEmpty(),
+        albumId = toSong().albumId.orEmpty(),
     )
+
+    private fun isExplicitAlbumSequence(player: ExoPlayer, current: MediaItem, next: MediaItem): Boolean {
+        if (player.shuffleModeEnabled) return false
+        val left = current.toSong()
+        val right = next.toSong()
+        if (left.queueOrigin == QueueOrigin.AUTOPLAY || right.queueOrigin == QueueOrigin.AUTOPLAY) return false
+        if (left.albumId.isNullOrBlank() || left.albumId != right.albumId) return false
+        val leftNumber = left.trackNumber
+        val rightNumber = right.trackNumber
+        return if (leftNumber != null && rightNumber != null) rightNumber == leftNumber + 1 else true
+    }
+
+    private fun updateSessionLoudness(item: MediaItem, analysis: TrackAnalysis) {
+        if (loudnessTargetTrackId == item.mediaId) return
+        val measured = analysis.integratedLoudnessLufs?.takeIf { it.isFinite() } ?: return
+        sessionTargetLufs = if (loudnessTargetTrackId.isBlank()) {
+            measured.coerceIn(-18.0, -10.0)
+        } else {
+            (sessionTargetLufs * 0.82 + measured.coerceIn(-18.0, -10.0) * 0.18)
+        }
+        loudnessTargetTrackId = item.mediaId
+    }
+
+    private fun observeEnergyArc(current: MediaItem) {
+        if (observedTrackId == current.mediaId) return
+        if (observedTrackId.isNotBlank()) energyArc.advance(SystemClock.elapsedRealtime())
+        observedTrackId = current.mediaId
+        selectionCommittedForTrack = ""
+        current.mediaMetadata.artist?.toString()?.takeIf { it.isNotBlank() }?.let {
+            recentArtists.addLast(it.lowercase(Locale.ROOT))
+            while (recentArtists.size > 8) recentArtists.removeFirst()
+        }
+    }
+
+    /** Bounded local DJ_CONTROL selection. PLAY_NEXT and album sequences are immutable. */
+    private fun maybeSelectDjCandidate(player: ExoPlayer, current: MediaItem, duration: Long) {
+        if (AppSettings.automixQueueMode.value != AutomixQueueMode.DJ_CONTROL) return
+        if (selectionCommittedForTrack == current.mediaId) return
+        val first = player.currentMediaItemIndex + 1
+        if (first !in 0 until player.mediaItemCount) return
+        val immediate = player.getMediaItemAt(first)
+        if (immediate.queueOrigin == QueueOrigin.PLAY_NEXT ||
+            isExplicitAlbumSequence(player, current, immediate)
+        ) {
+            selectionCommittedForTrack = current.mediaId
+            return
+        }
+
+        val metered = AppSettings.meteredConnection.value == true
+        val previewSetting = AppSettings.automixMeteredPreviews.value
+        val networkLimit = PreviewBudget().candidateLimit(metered, previewSetting)
+        val lookAhead = if (previewSetting == AutomixMeteredPreviews.CACHE_ONLY && metered) 6 else networkLimit
+        if (lookAhead <= 1) return
+        val lastExclusive = minOf(player.mediaItemCount, first + lookAhead)
+        val candidates = (first until lastExclusive).map { index ->
+            val item = player.getMediaItemAt(index)
+            val analysis = analysisFor(item)
+            if (!(metered && previewSetting == AutomixMeteredPreviews.CACHE_ONLY) || analysis.isUsable) {
+                requestAnalysis(item, nextItemDurationMs(index, item))
+            }
+            index to AutomixCandidate(
+                id = item.mediaId,
+                analysis = analysis,
+                queueDistance = index - first,
+                origin = item.queueOrigin,
+                cached = analysis.isUsable,
+                artist = item.mediaMetadata.artist?.toString().orEmpty(),
+                recentlyPlayed = item.mediaMetadata.artist?.toString()?.lowercase(Locale.ROOT)
+                    ?.let { it in recentArtists } ?: false,
+                manualDeferrals = manualDeferrals[item.mediaId] ?: 0,
+            )
+        }.filter { (_, candidate) ->
+            previewSetting != AutomixMeteredPreviews.CACHE_ONLY || !metered || candidate.cached
+        }
+        if (candidates.isEmpty()) return
+
+        // Give the fast head passes time to land; at 30 seconds remaining the
+        // decision is committed with whatever evidence exists, never causing silence.
+        val remaining = duration - player.currentPosition
+        val analyzed = candidates.count { it.second.analysis.isUsable }
+        if (analyzed < minOf(2, candidates.size) && remaining > DJ_SELECTION_DEADLINE_MS) return
+        val currentAnalysis = analysisFor(current)
+        val selected = candidates.maxByOrNull {
+            scoreAutomixCandidate(currentAnalysis, it.second, energyArc.target(SystemClock.elapsedRealtime()))
+        } ?: return
+        if (selected.first != first) {
+            candidates.filter { it.first < selected.first && it.second.origin == QueueOrigin.USER_QUEUE }
+                .forEach { (_, candidate) ->
+                    manualDeferrals[candidate.id] = (manualDeferrals[candidate.id] ?: 0) + 1
+                }
+            player.moveMediaItem(selected.first, first)
+            Log.d(TAG, "DJ_CONTROL selected ${selected.second.id} from +${selected.second.queueDistance}")
+        }
+        selectionCommittedForTrack = current.mediaId
+    }
 
     /**
      * Loads the standby player with the queue, positioned on the incoming track
@@ -769,6 +1138,7 @@ class CrossfadeController(
         smart: Boolean,
         cueTimeMs: Long = 0L,
         playbackRate: Double = 1.0,
+        prerollMs: Long = 0L,
         renderStyle: Render = Render(),
     ): Boolean {
         val out = active()
@@ -780,7 +1150,13 @@ class CrossfadeController(
         fadeMs = fade
         fadeEndMs = endMs
         smartFadeActive = smart
-        incomingCueTimeMs = cueTimeMs.coerceAtLeast(0L)
+        incomingAudibleCueMs = cueTimeMs.coerceAtLeast(0L)
+        this.prerollMs = prerollMs.coerceAtLeast(0L)
+        incomingCueTimeMs = maxOf(
+            0L,
+            incomingAudibleCueMs - (this.prerollMs * playbackRate).roundToLong(),
+        )
+        prerollStarted = false
         incomingPlaybackRate = playbackRate
         render = renderStyle
         armDeadline = SystemClock.elapsedRealtime() + ARM_TIMEOUT_MS
@@ -810,7 +1186,8 @@ class CrossfadeController(
         into.setPlaybackSpeed((AppSettings.playbackSpeed.value * incomingPlaybackRate).toFloat())
         into.volume = 0f
         into.setMediaItems(items, nextIndex, incomingCueTimeMs)
-        // Buffers without sounding. Started for real in [startFade].
+        // Buffers without sounding. A smart plan may start it muted during
+        // PREROLL_SYNC; it never becomes audible until [startFade].
         into.playWhenReady = false
         into.prepare()
 
@@ -845,6 +1222,22 @@ class CrossfadeController(
         // Wait for the track to actually reach the fade point. [fadeEndMs] is
         // the track's own duration in standard mode, or a Automix plan's
         // analyzed mix-out anchor when it ends before the file does.
+        val remainingToFade = (fadeEndMs - fadeMs - out.currentPosition).coerceAtLeast(0L)
+        if (ready && smartFadeActive && prerollMs > 0L && !prerollStarted &&
+            remainingToFade <= prerollMs
+        ) {
+            into.volume = 0f
+            into.playWhenReady = true
+            prerollStarted = true
+        }
+        if (prerollStarted && remainingToFade > 0L) {
+            val error = incomingAudibleCueMs - into.currentPosition -
+                (remainingToFade * incomingPlaybackRate).roundToLong()
+            val nudge = (error / remainingToFade.toDouble()).coerceIn(-MAX_SYNC_NUDGE, MAX_SYNC_NUDGE)
+            into.setPlaybackSpeed(
+                (AppSettings.playbackSpeed.value * incomingPlaybackRate * (1 + nudge)).toFloat(),
+            )
+        }
         val atFadePoint = fadeEndMs <= 0L || fadeEndMs - out.currentPosition <= fadeMs
         if (!atFadePoint) return
         if (ready) startFade()
@@ -868,8 +1261,18 @@ class CrossfadeController(
         // with a copy of it; those tracks would otherwise be lost at the swap.
         reconcileQueue(out, into)
 
+        val phaseError = if (prerollStarted) into.currentPosition - incomingAudibleCueMs else 0L
+        if (abs(phaseError) > MAX_AUDIBLE_PHASE_ERROR_MS && render.style == TransitionStyle.DJ_BLEND) {
+            Log.w(TAG, "phase error ${phaseError}ms; degrading beat blend to filtered handoff")
+            render = render.copy(style = TransitionStyle.DJ_FILTER, bassSwap = false, filterSweep = 1.0)
+            incomingPlaybackRate = 1.0
+            into.setPlaybackSpeed(AppSettings.playbackSpeed.value)
+        } else if (prerollStarted) {
+            into.setPlaybackSpeed((AppSettings.playbackSpeed.value * incomingPlaybackRate).toFloat())
+        }
         into.volume = 0f
-        into.playWhenReady = true
+        if (!prerollStarted) into.playWhenReady = true
+        incomingAudibleStartPositionMs = into.currentPosition
         fadeStartedAt = SystemClock.elapsedRealtime()
 
         Log.d(TAG, "handoff at cue=${into.currentPosition}ms out=${out.currentPosition}ms")
@@ -878,7 +1281,7 @@ class CrossfadeController(
         // firing on a player this class is about to demote.
         listenTo(into)
         handedOff = true
-        onHandoff(out, into)
+        onHandoff(out, into, false)
 
         // The outgoing player holds the whole queue too, and a standard
         // crossfade runs right up to its track's natural end — at which point
@@ -954,11 +1357,21 @@ class CrossfadeController(
             ?.coerceAtLeast(0L)
         val incomingCap = remainingIncoming?.div(3) ?: Long.MAX_VALUE
         val span = minOf(fadeMs, incomingCap).coerceAtLeast(1L)
-        val elapsed = (player.currentPosition - incomingCueTimeMs).coerceAtLeast(0L)
+        val elapsed = (player.currentPosition - incomingAudibleStartPositionMs).coerceAtLeast(0L)
         val progress = (elapsed.toFloat() / span).coerceIn(0f, 1f)
 
-        player.volume = riseGain(progress)
-        out.volume = fallGain(progress)
+        // Headroom exists only while both decks contribute. It returns to zero
+        // before either endpoint, avoiding the gain jump a fixed overlap pad
+        // would leave when the outgoing deck is retired.
+        val overlapAmount = sin(progress.coerceIn(0f, 1f) * PI.toFloat()).toDouble()
+        val overlapGain = dbToGain(render.overlapHeadroomDb * overlapAmount)
+        val (rise, fall) = if (render.style == TransitionStyle.PHRASE_CUT) {
+            val width = (PHRASE_CUT_MS.toFloat() / span).coerceIn(0.001f, 1f)
+            val edge = smoothStep((progress - (0.5f - width / 2f)) / width)
+            riseGain(edge) to fallGain(edge)
+        } else riseGain(progress) to fallGain(progress)
+        player.volume = rise * dbToGain(render.incomingGainDb) * overlapGain
+        out.volume = fall * dbToGain(render.outgoingGainDb) * overlapGain
         // Only from here, never during ARMING: the standby is silent until the
         // handoff, and [filters] describes the split between the track arriving
         // and the track leaving, which only exists once both are audible.
@@ -1041,25 +1454,42 @@ class CrossfadeController(
             settledAt = SystemClock.elapsedRealtime()
         }
         AppSettings.smartMixInProgress.value = false
-        // Unconditional and idempotent, like the speed reset below: correct
-        // whether or not this transition ever filtered anything.
+        val completedIncomingGain = render.incomingGainDb
+        val completedIncomingVolume = if (renditionSwitchActive) {
+            renditionFinalVolume
+        } else {
+            dbToGain(completedIncomingGain)
+        }
         filters.open()
         render = Render()
 
         if (handedOff) {
-            // The roles have already traded: the incoming player is the session
-            // and owns the queue from here, and the outgoing one is spare.
-            incoming?.let {
-                it.volume = 1f
-                // Undoes whatever [begin] stacked on for a beatmatched handoff.
-                // Unconditional and idempotent, so this is correct whether or
-                // not a stretch was ever actually applied.
-                it.setPlaybackSpeed(AppSettings.playbackSpeed.value)
+            incoming?.let { incomingPlayer ->
+                incomingPlayer.volume = completedIncomingVolume
+                val baseSpeed = AppSettings.playbackSpeed.value
+                val startSpeed = (baseSpeed * incomingPlaybackRate).toFloat()
+                if (abs(startSpeed - baseSpeed) > 0.003f) {
+                    tempoGlideJob?.cancel()
+                    tempoGlideJob = scope.launch {
+                        val glideDurationMs = 4_000L
+                        val startTime = SystemClock.elapsedRealtime()
+                        while (isActive) {
+                            val elapsed = SystemClock.elapsedRealtime() - startTime
+                            val p = (elapsed.toFloat() / glideDurationMs).coerceIn(0f, 1f)
+                            val factor = (1f - cos(p * Math.PI.toFloat())) / 2f
+                            val currentSpeed = startSpeed + (baseSpeed - startSpeed) * factor
+                            incomingPlayer.setPlaybackSpeed(currentSpeed)
+                            if (p >= 1f) break
+                            delay(40L)
+                        }
+                        incomingPlayer.setPlaybackSpeed(baseSpeed)
+                    }
+                } else {
+                    incomingPlayer.setPlaybackSpeed(baseSpeed)
+                }
             }
             outgoing?.let(::retire)
         } else {
-            // The transition never became audible, so the session player never
-            // moved and the standby is the one to throw away.
             outgoing?.volume = 1f
             incoming?.let(::retire)
         }
@@ -1069,6 +1499,12 @@ class CrossfadeController(
         handedOff = false
         queuedItemCount = 0
         incomingCueTimeMs = 0L
+        incomingAudibleCueMs = 0L
+        incomingAudibleStartPositionMs = 0L
+        prerollMs = 0L
+        prerollStarted = false
+        renditionFinalVolume = 1f
+        renditionSwitchActive = false
         incomingPlaybackRate = 1.0
         phase = Phase.IDLE
     }
@@ -1119,10 +1555,13 @@ class CrossfadeController(
      * locked: a pause parks the filter exactly where it parks the fade.
      */
     private fun rideFilters(progress: Float) {
+        if (render.style != TransitionStyle.ECHO_OUT) filters.outgoingEcho(0f, 0f, 0f)
         when (render.style) {
             TransitionStyle.DJ_FILTER -> rideFilterSweep(progress)
             TransitionStyle.DJ_BLEND ->
                 if (render.bassSwap) rideBassSwap(progress) else rideVocalSeparation(progress)
+            TransitionStyle.PHRASE_CUT -> ridePhraseCut(progress)
+            TransitionStyle.ECHO_OUT -> rideEchoOut(progress)
             // GAPLESS is an album being played through, where any filtering would
             // be an edit the record didn't ask for — so it stays open whatever
             // the material does.
@@ -1230,6 +1669,8 @@ class CrossfadeController(
             TransitionFilterProcessor.OPEN_HZ,
             entryHighPass(progress, sweep, ENTRY_HIGH_PASS_HZ, ENTRY_OPEN_BY),
         )
+        filters.outgoingEq(-8f * progress, -3f * progress, -2f * progress)
+        filters.incomingEq(-10f * (1f - progress), -3f * (1f - progress), 0f)
     }
 
     /**
@@ -1269,37 +1710,10 @@ class CrossfadeController(
     /**
      * Hands the low end from one track to the other, once, at the beat the
      * planner chose.
-     *
-     * Below [BASS_SWAP_HZ] exactly one track is present at any instant: the
-     * incoming track arrives with its low end lifted out, and takes it over as
-     * the outgoing track's is lifted in turn. Ramped over [BASS_SWAP_WIDTH] of
-     * the fade rather than switched, because a 24 dB/octave filter appearing in
-     * one buffer is a transient of its own.
-     *
-     * The midrange is handled far more lightly than in [rideFilterSweep] but is
-     * no longer left alone, which it was. This style is chosen for pairs that
-     * are beat-matched and close in tempo, so the two tracks are *meant* to
-     * sound simultaneous — but "simultaneous" and "two lead vocals at once" are
-     * not the same thing, and only the bass was ever being separated. So the
-     * incoming track still enters with its body lifted, over a shorter window
-     * and from a lower corner, and the outgoing track loses its top in the last
-     * half, where it is already quiet enough that the change reads as it
-     * receding rather than as an effect.
      */
     private fun rideBassSwap(progress: Float) {
         val swapAt = render.bassSwapFraction.coerceIn(0.05, 0.95)
-        // 0 before the swap window, 1 after it: how much of the low end has
-        // changed hands.
         val handover = ((progress - swapAt) / BASS_SWAP_WIDTH * 0.5 + 0.5).coerceIn(0.0, 1.0)
-        // The incoming track's own low end is already being held out by the
-        // swap, so whichever corner sits higher is the one doing the work.
-        // Scaled up by however much the two are actually singing over each other.
-        // A blend is chosen for pairs on a shared grid, which is the case where
-        // nothing about the arrangement separates two lead vocals — they sit in
-        // the same bar and the same range for the whole overlap — so the fixed
-        // corner that was here handled a marginal collision and a head-on one
-        // identically. At full collision the entry corner reaches
-        // [BLEND_ENTRY_CLASH_HIGH_PASS_HZ] and holds longer.
         val clash = render.vocalOverlap.coerceIn(0.0, 1.0)
         val entry = maxOf(
             bassCutoff(1.0 - handover),
@@ -1312,6 +1726,16 @@ class CrossfadeController(
         )
         filters.incoming(TransitionFilterProcessor.OPEN_HZ, entry)
         filters.outgoing(blendExitLowPass(progress, clash), bassCutoff(handover))
+        filters.incomingEq(
+            -36f * (1f - handover.toFloat()),
+            -2.5f * (1f - progress) - (4f * clash.toFloat() * (1f - progress)),
+            0f,
+        )
+        filters.outgoingEq(
+            -36f * handover.toFloat(),
+            -3f * progress - (5f * clash.toFloat() * progress),
+            -2f * progress,
+        )
     }
 
     /**
@@ -1356,19 +1780,90 @@ class CrossfadeController(
             incomingPlaybackRate != 1.0
         )
 
-    /** Equal-power pair: [riseGain]² + [fallGain]² = 1, so the blend never dips. */
-    private fun riseGain(progress: Float): Float =
-        sin(progress.coerceIn(0f, 1f) * PI.toFloat() / 2f)
+    /** Pro DJ S-Curve Constant-Loudness Envelope: maintains full mix body and energy without center dip */
+    private fun riseGain(progress: Float): Float {
+        val p = progress.coerceIn(0f, 1f)
+        return sin(p * PI.toFloat() / 2f).pow(0.85f)
+    }
 
-    private fun fallGain(progress: Float): Float =
-        cos(progress.coerceIn(0f, 1f) * PI.toFloat() / 2f)
+    private fun fallGain(progress: Float): Float {
+        val p = progress.coerceIn(0f, 1f)
+        return cos(p * PI.toFloat() / 2f).pow(0.85f)
+    }
 
-    // There is deliberately no second, equal-gain pair here any more. It existed
-    // for the handoff of a track from one player to the other, where the two
-    // signals were the same signal and so summed in amplitude rather than in
-    // power. Nothing in this class renders the same audio twice now, so every
-    // gain it applies is a gain against a genuinely different track, and
-    // equal-power is right everywhere.
+    private fun dbToGain(db: Double): Float = 10.0.pow(db / 20.0).toFloat()
+
+    /**
+     * A narrow, correlated-signal relay rather than an equal-power crossfade.
+     *
+     * Each side first glides to -1.9 dB, then trades that gain over only the
+     * middle tenth of the window. The sum never drops below 0.8 for aligned
+     * sources, while the interval in which two imperfectly aligned masters can
+     * interfere is kept to a few milliseconds.
+     */
+    private fun qualityRelayGains(progress: Float): Pair<Float, Float> {
+        val p = progress.coerceIn(0f, 1f)
+        return when {
+            p < QUALITY_RELAY_FROM -> {
+                val shaped = smoothStep(p / QUALITY_RELAY_FROM)
+                (1f - shaped) to 0f
+            }
+
+            p <= QUALITY_RELAY_TO -> {
+                0f to 0f
+            }
+
+            else -> {
+                val shaped = smoothStep((p - QUALITY_RELAY_TO) / (1f - QUALITY_RELAY_TO))
+                0f to shaped
+            }
+        }
+    }
+
+    /** 80–160ms-style downbeat relay, rendered without seeking either deck. */
+    private fun ridePhraseCut(progress: Float) {
+        val width = (PHRASE_CUT_MS.toFloat() / fadeMs.coerceAtLeast(1L)).coerceIn(0.001f, 1f)
+        val edge = smoothStep((progress - (0.5f - width / 2f)) / width)
+        filters.outgoing(
+            glide(TransitionFilterProcessor.OPEN_HZ.toDouble(), 1_100.0, edge.toDouble()).toFloat(),
+            TransitionFilterProcessor.OFF_HZ,
+        )
+        filters.incoming(
+            TransitionFilterProcessor.OPEN_HZ,
+            glide(850.0, TransitionFilterProcessor.OFF_HZ.toDouble(), edge.toDouble()).toFloat(),
+        )
+        filters.outgoingEq(-18f * edge, -8f * edge, -4f * edge)
+        filters.incomingEq(-18f * (1f - edge), -5f * (1f - edge), 0f)
+    }
+
+    /**
+     * The DSP tail is intentionally conservative: a half-beat impression made
+     * with a short spectral hold. Wet and feedback stay bounded in the plan;
+     * when evidence is insufficient the planner never selects this style.
+     */
+    private fun rideEchoOut(progress: Float) {
+        val maximumEchoMs = (render.echoDelayMs * 2f).coerceAtLeast(1f)
+        val width = (maximumEchoMs / fadeMs.coerceAtLeast(1L)).coerceIn(0.001f, 1f)
+        val tail = ((progress - (1f - width)) / width).coerceIn(0f, 1f)
+        filters.outgoing(
+            glide(TransitionFilterProcessor.OPEN_HZ.toDouble(), 420.0, tail.toDouble()).toFloat(),
+            TransitionFilterProcessor.OFF_HZ,
+        )
+        filters.incoming(
+            TransitionFilterProcessor.OPEN_HZ,
+            entryHighPass(progress, 0.22, 720.0, 0.45),
+        )
+        filters.outgoingEq(-10f * tail, -5f * tail, -2f * tail)
+        filters.incomingEq(-9f * (1f - progress), -3f * (1f - progress), 0f)
+        filters.outgoingEcho(render.echoDelayMs, 0.28f, 0.22f * tail)
+    }
+
+    private fun smoothStep(value: Float): Float {
+        val x = value.coerceIn(0f, 1f)
+        return x * x * (3f - 2f * x)
+    }
+
+    // Equal-power crossfade is used across tracks to maintain constant perceived energy.
 
     private companion object {
         const val TAG = "BitChordCrossfade"
@@ -1379,11 +1874,30 @@ class CrossfadeController(
          * Once real analysis lands, the overlap is sized from tempo and
          * structure instead and this is never read.
          */
-        const val DEFAULT_SMART_FALLBACK_SECONDS = 6.0
+        const val DEFAULT_SMART_FALLBACK_SECONDS = 8.0
 
         /** Ramp used when a fade is interrupted. */
         const val BAIL_MS = 120L
 
+        /** Decoder-ready, same-song quality handoff timings. */
+        const val QUALITY_HANDOFF_PREPARE_MS = 8_000L
+        const val QUALITY_HANDOFF_SEEK_MS = 3_000L
+        const val QUALITY_HANDOFF_MS = 80L
+        const val QUALITY_HANDOFF_STEP_MS = 10L
+        const val QUALITY_SYNC_SETTLE_MS = 45L
+        const val QUALITY_SYNC_LEAD_MS = 30L
+        const val QUALITY_SYNC_TOLERANCE_MS = 35L
+        const val QUALITY_MIN_FORWARD_LEAD_MS = 4L
+        const val QUALITY_TARGET_FORWARD_LEAD_MS = 18L
+        const val QUALITY_MAX_FORWARD_LEAD_MS = 45L
+        const val QUALITY_DURATION_TOLERANCE_MS = 2_000L
+        const val QUALITY_DURATION_TOLERANCE_FRACTION = 0.02
+        const val MAX_AUDIBLE_PHASE_ERROR_MS = 65L
+        const val MAX_SYNC_NUDGE = 0.015
+        const val DJ_SELECTION_DEADLINE_MS = 30_000L
+        const val PHRASE_CUT_MS = 120L
+        const val QUALITY_RELAY_FROM = 0.45f
+        const val QUALITY_RELAY_TO = 0.55f
         /**
          * Head start the standby gets to open the incoming track and buffer to
          * its cue point.

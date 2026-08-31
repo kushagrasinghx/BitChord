@@ -28,6 +28,7 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.playback.smart.QueueOrigin
 import com.music.bitchord.ui.rememberIsForeground
 import kotlinx.coroutines.delay
 import java.io.File
@@ -191,6 +192,8 @@ fun MediaItem.toSong() = Song(
     albumId = mediaMetadata.extras?.getString(EXTRA_ALBUM_ID),
     albumName = mediaMetadata.albumTitle?.toString(),
     fromAutoplay = this.fromAutoplay,
+    queueOrigin = queueOrigin,
+    trackNumber = mediaMetadata.extras?.getInt(EXTRA_TRACK_NUMBER)?.takeIf { it > 0 },
     localUri = mediaMetadata.extras?.getString(EXTRA_LOCAL_URI),
     localPath = mediaMetadata.extras?.getString(EXTRA_LOCAL_PATH),
 )
@@ -199,12 +202,22 @@ fun MediaItem.toSong() = Song(
 val MediaItem.fromAutoplay: Boolean
     get() = mediaMetadata.extras?.getBoolean(EXTRA_FROM_AUTOPLAY) == true
 
+val MediaItem.queueOrigin: QueueOrigin
+    get() = mediaMetadata.extras?.getString(EXTRA_QUEUE_ORIGIN)?.let {
+        runCatching { QueueOrigin.valueOf(it) }.getOrNull()
+    } ?: if (fromAutoplay) QueueOrigin.AUTOPLAY else QueueOrigin.USER_QUEUE
+
+val MediaItem.trackNumber: Int?
+    get() = mediaMetadata.extras?.getInt(EXTRA_TRACK_NUMBER)?.takeIf { it > 0 }
+
 /**
  * Marks a queue entry as AutoPlay's rather than the user's. Carried on the
  * MediaItem so it survives the trip through the session — the queue belongs to
  * the player, and the UI only ever sees it back through a MediaController.
  */
 private const val EXTRA_FROM_AUTOPLAY = "bitchord.fromAutoplay"
+private const val EXTRA_QUEUE_ORIGIN = "bitchord.queueOrigin"
+private const val EXTRA_TRACK_NUMBER = "bitchord.trackNumber"
 
 /**
  * The artist and album pages this track hangs under, when they are known.
@@ -350,9 +363,14 @@ fun Song.toMediaItem(): MediaItem {
         // reach.
         else -> "bitchord://watch?v=$videoId${matchQuery()}"
     }
+    val preferredUri = if (offlineUri == null && QualityUpgrade.shelvedFor(videoId) != null &&
+        !uriString.contains("${QualityUpgrade.MARKER}=")
+    ) {
+        QualityUpgrade.upgradedUri(uriString)
+    } else uriString
     return MediaItem.Builder()
         .setMediaId(videoId)
-        .setUri(resolvePlaybackUri(uriString, localPath))
+        .setUri(resolvePlaybackUri(preferredUri, localPath))
     .setMediaMetadata(
         MediaMetadata.Builder()
             .setTitle(title)
@@ -393,12 +411,14 @@ fun Song.toMediaItem(): MediaItem {
             // back a null duration, [LastPlayed] stored a null, and the restored
             // queue lost the `&d=` its matching depends on.
             .apply {
-                if (fromAutoplay || offlineUri != null || durationText != null ||
-                    artistId != null || albumId != null
+                if (fromAutoplay || queueOrigin != QueueOrigin.USER_QUEUE || trackNumber != null ||
+                    offlineUri != null || durationText != null || artistId != null || albumId != null
                 ) {
                     setExtras(
                         bundleOf(
                             EXTRA_FROM_AUTOPLAY to fromAutoplay,
+                            EXTRA_QUEUE_ORIGIN to queueOrigin.name,
+                            EXTRA_TRACK_NUMBER to trackNumber,
                             EXTRA_LOCAL_URI to offlineUri,
                             EXTRA_LOCAL_PATH to localPath,
                             EXTRA_DURATION to durationText,

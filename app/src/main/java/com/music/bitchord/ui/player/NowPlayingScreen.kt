@@ -1185,6 +1185,7 @@ fun NowPlayingScreen(
             // collapses, and re-subscribing to a flow on every frame of that
             // collapse is a waste of a subscription.
             val smartFadeOn by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+            val mixing by AppSettings.smartMixInProgress.collectAsStateWithLifecycle()
             val smartAnalysis by AppSettings.smartAnalysis.collectAsStateWithLifecycle()
             // Height the artwork block below turns out not to need, spent by the
             // controls at the foot of the screen. Filled in from inside the box,
@@ -1596,6 +1597,10 @@ fun NowPlayingScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
+                    if (mixing) {
+                        DjMixIndicator()
+                        Spacer(Modifier.width(8.dp))
+                    }
                     CircleGlyph(
                         icon = Icons.Rounded.MoreHoriz,
                         contentDescription = stringResource(R.string.more),
@@ -1712,7 +1717,6 @@ fun NowPlayingScreen(
                     }
                 }
             }
-            val mixing by AppSettings.smartMixInProgress.collectAsStateWithLifecycle()
             val transitionWindow by AppSettings.smartTransitionWindow.collectAsStateWithLifecycle()
             ThinSlider(
                 value = shown,
@@ -2928,6 +2932,45 @@ private fun CircleGlyph(
             contentDescription = contentDescription,
             tint = Color.White,
             modifier = Modifier.size(19.dp),
+        )
+    }
+}
+
+/** A non-interactive status light: it appears only while a real DJ mix is audible. */
+@Composable
+private fun DjMixIndicator() {
+    val transition = rememberInfiniteTransition(label = "djMix")
+    val pulse by transition.animateFloat(
+        initialValue = 0.82f,
+        targetValue = 1.14f,
+        animationSpec = infiniteRepeatable(tween(520, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "djMixPulse",
+    )
+    val drift by transition.animateFloat(
+        initialValue = -4f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(tween(720, easing = LinearEasing), RepeatMode.Reverse),
+        label = "djMixDrift",
+    )
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF7C4DFF).copy(alpha = 0.30f + 0.12f * pulse))
+            .semantics { this.contentDescription = stringResource(R.string.automix_dj_mixing) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.GraphicEq,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier
+                .size(20.dp)
+                .graphicsLayer {
+                    scaleX = pulse
+                    scaleY = pulse
+                    rotationZ = drift
+                },
         )
     }
 }

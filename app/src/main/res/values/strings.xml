@@ -201,6 +201,7 @@
     <string name="automix_ai">Automix AI [BETA]</string>
     <string name="automix_ai_disabled_subtitle">For electronic music. Opt in to on-device transition ranking.</string>
     <string name="automix_ai_enabled_subtitle">For electronic music when a model is available. Standard Automix safely handles other genres and low-confidence mixes.</string>
+    <string name="automix_dj_mixing">DJ mix in progress</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="equalizer">Equalizer</string>

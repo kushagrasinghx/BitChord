@@ -197,6 +197,7 @@
     <string name="automix_ai">IA de mezcla automática [BETA]</string>
     <string name="automix_ai_disabled_subtitle">Para música electrónica. Activa el ranking de transiciones en el dispositivo.</string>
     <string name="automix_ai_enabled_subtitle">Para música electrónica cuando haya un modelo disponible. La mezcla automática normal protege otros géneros y mezclas de baja confianza.</string>
+    <string name="automix_dj_mixing">Mezcla DJ en curso</string>
     <string name="skip_silence">Omitir silencios</string>
     <string name="skip_silence_subtitle">Recorta pausas de más de un segundo</string>
     <string name="equalizer">Ecualizador</string>

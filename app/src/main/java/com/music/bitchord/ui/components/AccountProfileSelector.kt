@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -40,13 +41,20 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.auth.GoogleAccountSession
 import com.music.bitchord.auth.YouTubeProfile
+import com.music.bitchord.data.settings.AppSettings
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 
 /** Shared compact selector for every visible YouTube account avatar. */
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun AccountProfileSelector(
     accounts: List<GoogleAccountSession>,
     activeAccountId: String?,
     activeProfileId: String?,
+    hazeState: HazeState,
     onSelect: (GoogleAccountSession, YouTubeProfile) -> Unit,
     onAddAccount: () -> Unit,
     onRemoveAccount: (GoogleAccountSession) -> Unit,
@@ -55,17 +63,32 @@ fun AccountProfileSelector(
     modifier: Modifier = Modifier,
 ) {
     var managing by remember { mutableStateOf(false) }
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val shape = MaterialTheme.shapes.extraLarge
     Column(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = .48f))
             .clickable(onClick = onDismiss),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
+            color = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onSurface,
-            shape = MaterialTheme.shapes.extraLarge,
-            modifier = Modifier.padding(top = 56.dp, start = 20.dp, end = 20.dp)
-                .fillMaxWidth().clickable(onClick = {}),
+            shape = shape,
+            modifier = Modifier
+                .padding(top = 56.dp, start = 20.dp, end = 20.dp)
+                .fillMaxWidth()
+                .clip(shape)
+                .then(
+                    if (reduceDynamicBlur) {
+                        Modifier.background(MaterialTheme.colorScheme.surface)
+                    } else {
+                        Modifier.optimizedHazeEffect(
+                            state = hazeState,
+                            style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
+                        )
+                    },
+                )
+                .clickable(onClick = {}),
         ) {
             LazyColumn {
                 item { Text(stringResource(R.string.switch_account), style = MaterialTheme.typography.titleLarge,

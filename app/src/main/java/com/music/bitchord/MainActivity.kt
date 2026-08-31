@@ -2514,6 +2514,7 @@ private fun BitChordApp(
                 accounts = googleAccounts,
                 activeAccountId = activeAccountId,
                 activeProfileId = activeProfileId,
+                hazeState = hazeState,
                 onSelect = { selected, profile -> viewModel.selectProfile(selected.accountId, profile.profileId) },
                 onAddAccount = {
                     showAccountSelector = false

@@ -348,6 +348,14 @@ object Innertube {
                 .onFailure { Log.w(TAG, "could not read the session scope: ${it.message}") }
                 .getOrNull()
                 ?.let { fresh ->
+                    // A login/profile switch can happen while the shell is in
+                    // flight. Never install the old cookie's answer under the
+                    // new one: that is a guaranteed 401 and, worse, can credit
+                    // a play to the profile that just left.
+                    if (cookie != session) {
+                        Log.d(TAG, "discarding a session scope from an account that is no longer active")
+                        return@let
+                    }
                     scope = fresh
                     channelOverride?.let { selected ->
                         if (selected.pageId != fresh.pageId || selected.dataSyncId != fresh.dataSyncId) {
@@ -549,6 +557,7 @@ object Innertube {
      */
     suspend fun accountSwitcher(): JsonObject {
         requireSession()
+        ensureSessionScope()
         val session = scope
         val text = withRetry {
             client.get("$YOUTUBE_ORIGIN/getAccountSwitcherEndpoint") {
@@ -835,33 +844,43 @@ object Innertube {
      * play that started from a play that happened. Its base URL already carries
      * `ver`, `c` and `cver`, so unlike the others it is sent as-is.
      */
-    suspend fun pingAtr(baseUrl: String, cpn: String): Int = client.get(baseUrl) {
-        parameter("cpn", cpn)
-        statsHeaders()
-    }.status.value
+    suspend fun pingAtr(baseUrl: String, cpn: String): Int {
+        // Playback can outlive the Activity that restored the session. Ensure
+        // the selected profile's headers exist before this first history ping.
+        if (cookie != null) ensureSessionScope()
+        val session = scope
+        return client.get(baseUrl) {
+            parameter("cpn", cpn)
+            statsHeaders(session)
+        }.status.value
+    }
 
     /** Shared shape of the s.youtube.com stats pings, including session auth. */
     private suspend fun pingStats(
         baseUrl: String,
         cpn: String,
         extras: HttpRequestBuilder.() -> Unit,
-    ): Int = client.get(baseUrl) {
-        parameter("ver", "2")
-        parameter("c", "WEB_REMIX")
-        parameter("cver", webRemixVersion)
-        parameter("cpn", cpn)
-        // What the web client says about itself. Cheap, and the pings are
-        // weighted by how much they look like a real session.
-        parameter("cplayer", "UNIPLAYER")
-        parameter("cbr", "Chrome")
-        parameter("cbrver", "141.0.0.0")
-        parameter("cos", "Windows")
-        parameter("cosver", "10.0")
-        parameter("hl", "en_US")
-        parameter("cr", "US")
-        extras()
-        statsHeaders()
-    }.status.value
+    ): Int {
+        if (cookie != null) ensureSessionScope()
+        val session = scope
+        return client.get(baseUrl) {
+            parameter("ver", "2")
+            parameter("c", "WEB_REMIX")
+            parameter("cver", webRemixVersion)
+            parameter("cpn", cpn)
+            // What the web client says about itself. Cheap, and the pings are
+            // weighted by how much they look like a real session.
+            parameter("cplayer", "UNIPLAYER")
+            parameter("cbr", "Chrome")
+            parameter("cbrver", "141.0.0.0")
+            parameter("cos", "Windows")
+            parameter("cosver", "10.0")
+            parameter("hl", "en_US")
+            parameter("cr", "US")
+            extras()
+            statsHeaders(session)
+        }.status.value
+    }
 
     /**
      * The three headers the tracking block asks for by name — `USER_AUTH`,
@@ -869,7 +888,7 @@ object Innertube {
      * player response; sending fewer is what makes a ping land somewhere other
      * than the listener's own history.
      */
-    private fun HttpRequestBuilder.statsHeaders() {
+    private fun HttpRequestBuilder.statsHeaders(session: SessionScope?) {
         header("X-Origin", MUSIC_ORIGIN)
         header("Origin", MUSIC_ORIGIN)
         header("Referer", "$MUSIC_ORIGIN/")
@@ -877,8 +896,8 @@ object Innertube {
         visitorData?.let { header("X-Goog-Visitor-Id", it) }
         cookie?.let { c ->
             header("Cookie", c)
-            header("X-Goog-AuthUser", authUserFor(scope))
-            pageIdFor(scope)?.let { header("X-Goog-PageId", it) }
+            header("X-Goog-AuthUser", authUserFor(session))
+            pageIdFor(session)?.let { header("X-Goog-PageId", it) }
             sapisidFrom(c)?.let { header("Authorization", sapisidHash(it)) }
         }
     }
@@ -1100,6 +1119,11 @@ object Innertube {
         query: Map<String, String> = emptyMap(),
         bodyExtras: JsonObjectBuilder.() -> Unit,
     ): JsonObject {
+        // This is the common authenticated request path: Home, Library,
+        // likes, playlists, account menus and all their continuations pass
+        // through it. Waiting here makes restoration process-wide rather than
+        // a special case implemented by whichever screen happened to open.
+        if (cookie != null) ensureSessionScope()
         val session = scope
         val clientVersion = webRemixVersion
         val response = withRetry {
@@ -1189,21 +1213,13 @@ object Innertube {
         playerClient: PlayerClient,
         signatureTimestamp: Int?,
         authenticated: Boolean = false,
-    ): JsonObject =
-        client.post("${playerClient.apiBase()}/player") {
-            // A much tighter budget than the shared 30 seconds, because this is
-            // the one request on a loop. A player call that is going to answer
-            // answers in 120-330ms; one that is going to hang is indifferent to
-            // how long it is given, and there are up to seven clients walked
-            // per track, each of which may be retried. At the shared ceiling a
-            // single unlucky client turned a walk that normally costs two
-            // seconds into forty-nine, which the listener spends staring at a
-            // track that will in the end be served by extraction anyway. Six
-            // seconds is twenty times a healthy answer and cheap to give up on.
-            //
-            // Set here rather than on the shared client on purpose: browse and
-            // search return payloads orders of magnitude larger over the same
-            // connection, and a ceiling right for this would truncate those.
+    ): JsonObject {
+        // Anonymous player clients intentionally remain anonymous. The two
+        // signed-in player paths (WEB_REMIX and age-gate recovery), however,
+        // must use the same restored profile context as browse and history.
+        if (authenticated && cookie != null) ensureSessionScope()
+        val session = scope
+        return client.post("${playerClient.apiBase()}/player") {
             timeout { requestTimeoutMillis = PLAYER_TIMEOUT_MS }
             contentType(ContentType.Application.Json)
             parameter("prettyPrint", "false")
@@ -1212,21 +1228,12 @@ object Innertube {
             header("X-YouTube-Client-Version", playerClient.clientVersion)
             playerClient.origin?.let { header("Origin", it) }
             playerClient.referer?.let { header("Referer", it) }
-            // Shared with browse/search so one session is seen throughout,
-            // rather than a device that mints a new identity per request.
             visitorData?.let { header("X-Goog-Visitor-Id", it) }
             if (authenticated) {
                 cookie?.let { c ->
                     header("Cookie", c)
-                    header("X-Goog-AuthUser", authUserFor(scope))
-                    pageIdFor(scope)?.let { header("X-Goog-PageId", it) }
-                    // Hashed against the host this request is actually going
-                    // to, not against music.youtube.com unconditionally. Google
-                    // recomputes the digest over the origin it sees and rejects
-                    // a mismatch with 401, so an app client posting to
-                    // www.youtube.com signed for the music origin is not a
-                    // weaker request — it is a refused one, which would have
-                    // made the age-gate retry below look like a dead end.
+                    header("X-Goog-AuthUser", authUserFor(session))
+                    pageIdFor(session)?.let { header("X-Goog-PageId", it) }
                     val origin = playerClient.origin
                         ?: if (playerClient.usesMusicHost) MUSIC_ORIGIN else YOUTUBE_ORIGIN
                     sapisidFrom(c)?.let { header("Authorization", sapisidHash(it, origin)) }
@@ -1261,6 +1268,7 @@ object Innertube {
                 },
             )
         }.body<JsonObject>()
+    }
 
     /** Browser-shaped clients are served from the Music host; app clients from YouTube proper. */
     private fun PlayerClient.apiBase(): String = if (usesMusicHost) MUSIC_BASE else YT_BASE

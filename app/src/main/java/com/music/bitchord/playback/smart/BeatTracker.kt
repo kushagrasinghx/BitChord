@@ -206,7 +206,9 @@ class BeatTracker(private val context: Context) {
     companion object {
         private const val TAG = "BitChordBeatTracker"
         private const val MODEL_ASSET = "beat_this_int8.onnx"
-        private const val INFERENCE_THREADS = 4
+        // Analysis runs behind playback on mobile. Two workers leave room for
+        // the decoder and Media3 instead of waking every big core at once.
+        private const val INFERENCE_THREADS = 2
 
         /** The window the model was trained on, and the margin discarded from each chunk's edges. */
         const val CHUNK_FRAMES = 1500

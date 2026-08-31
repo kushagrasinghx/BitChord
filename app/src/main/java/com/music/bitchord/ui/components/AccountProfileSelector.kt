@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ManageAccounts
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -49,6 +50,7 @@ fun AccountProfileSelector(
     onSelect: (GoogleAccountSession, YouTubeProfile) -> Unit,
     onAddAccount: () -> Unit,
     onRemoveAccount: (GoogleAccountSession) -> Unit,
+    onOpenSettings: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -84,6 +86,7 @@ fun AccountProfileSelector(
                 }
                 item { SelectorAction(Icons.Rounded.Add, stringResource(R.string.add_account), onAddAccount) }
                 item { SelectorAction(Icons.Rounded.ManageAccounts, stringResource(R.string.manage_accounts)) { managing = !managing } }
+                item { SelectorAction(Icons.Rounded.Settings, stringResource(R.string.settings), onOpenSettings) }
             }
         }
     }

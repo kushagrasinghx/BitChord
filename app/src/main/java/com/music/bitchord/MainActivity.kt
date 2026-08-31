@@ -2523,6 +2523,10 @@ private fun BitChordApp(
                     viewModel.removeAccount(selected.accountId)
                     showAccountSelector = false
                 },
+                onOpenSettings = {
+                    showAccountSelector = false
+                    showSettings = true
+                },
                 onDismiss = { showAccountSelector = false },
             )
         }

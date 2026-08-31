@@ -169,6 +169,7 @@ fun SettingsScreen(
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
+    val automixAiEnabled by AppSettings.automixAiEnabled.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
@@ -429,6 +430,26 @@ fun SettingsScreen(
                 subtitle = stringResource(R.string.automix_performance_subtitle),
                 value = automixPerformance.localizedLabel(),
                 onClick = { pickingAutomixPerformance = true },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.AutoAwesome,
+                title = stringResource(R.string.automix_ai),
+                subtitle = stringResource(
+                    if (automixAiEnabled) R.string.automix_ai_enabled_subtitle
+                    else R.string.automix_ai_disabled_subtitle,
+                ),
+                trailing = {
+                    Switch(
+                        checked = automixAiEnabled,
+                        onCheckedChange = AppSettings::setAutomixAiEnabled,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setAutomixAiEnabled(!automixAiEnabled) },
             )
             RowDivider()
             SettingsRow(

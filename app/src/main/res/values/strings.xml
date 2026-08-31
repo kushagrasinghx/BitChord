@@ -198,6 +198,9 @@
     <string name="automix_mode_balanced_subtitle">2 threads · recommended balance of speed, heat and battery</string>
     <string name="automix_mode_performance">Performance</string>
     <string name="automix_mode_performance_subtitle">4 threads · fastest analysis · higher heat and battery use</string>
+    <string name="automix_ai">Automix AI [BETA]</string>
+    <string name="automix_ai_disabled_subtitle">Opt in to future on-device transition ranking</string>
+    <string name="automix_ai_enabled_subtitle">Enabled. Standard Automix stays in control until an AI model is bundled.</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="equalizer">Equalizer</string>

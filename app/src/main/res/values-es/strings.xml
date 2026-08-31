@@ -194,6 +194,9 @@
     <string name="automix_mode_balanced_subtitle">2 hilos · equilibrio recomendado entre velocidad, calor y batería</string>
     <string name="automix_mode_performance">Rendimiento</string>
     <string name="automix_mode_performance_subtitle">4 hilos · análisis más rápido · mayor calor y consumo</string>
+    <string name="automix_ai">IA de mezcla automática [BETA]</string>
+    <string name="automix_ai_disabled_subtitle">Activa el uso futuro de ranking de transiciones en el dispositivo</string>
+    <string name="automix_ai_enabled_subtitle">Activada. La mezcla automática normal seguirá funcionando hasta incluir un modelo de IA.</string>
     <string name="skip_silence">Omitir silencios</string>
     <string name="skip_silence_subtitle">Recorta pausas de más de un segundo</string>
     <string name="equalizer">Ecualizador</string>

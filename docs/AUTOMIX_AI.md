@@ -1,0 +1,89 @@
+# Automix AI: future transition ranker
+
+`Automix AI [BETA]` is an opt-in persisted preference. It deliberately does
+not replace the deterministic Automix planner until a trained model is shipped.
+With no bundled model, the existing beat/key/phrase/vocal safety rules remain
+the source of truth. This prevents a switch in Settings from claiming an AI
+decision that the APK cannot make.
+
+## Goal
+
+The future model ranks already-safe transition candidates; it must not create
+an unsafe transition or bypass the current fallback policy. The planner still
+owns hard guards such as missing analysis, incompatible tempo stretch, and
+simultaneous vocals.
+
+The model should answer one compact question per prepared pair:
+
+```text
+Given candidate A and candidate B, which safe transition is preferable?
+```
+
+It should return a compatibility score and optional ranking among existing
+plans (`beatmatched`, musical crossfade, or simple crossfade). It must never
+run over a complete decoded track during playback.
+
+## Recommended first model
+
+Start with a small tabular ranker:
+
+- Gradient-boosted trees (LightGBM/XGBoost) exported to ONNX, or
+- an INT8 MLP with two hidden layers of 16–32 units.
+
+Target APK contribution: under 0.5 MB; target inference: milliseconds once per
+upcoming pair. Reuse the existing ONNX Runtime dependency. Do not add a second
+ML runtime or network service.
+
+## Feature schema
+
+Only consume data already produced by Automix analysis or by the current plan:
+
+- outgoing/incoming BPM and absolute stretch ratio;
+- key compatibility / Camelot distance;
+- beat and downbeat confidence;
+- phrase-boundary alignment error;
+- intro/outro and proposed overlap duration;
+- energy difference and energy-curve slope;
+- vocal activity and predicted simultaneous-vocal fraction;
+- analysis completeness and model confidence;
+- selected performance mode, strictly for telemetry analysis—not as a musical
+  feature at inference time.
+
+Never train on account identity, listening history, handles, cookies, device
+identifiers, or raw user audio uploaded from the app.
+
+## Dataset and labels
+
+Use licensed, consented audio or synthetic feature rows. Store feature rows and
+candidate plans, not raw listener playback history. Each label should be a
+human preference between two safe transitions, with at least two reviewers for
+ambiguous pairs. Keep an explicit `no-good-transition` label; forcing a mix is
+worse than a normal crossfade.
+
+Split train/validation/test by artist and recording, not by random excerpts,
+to avoid a model memorising production traits. Report per-genre, tempo-distance
+and vocal-clash slices.
+
+## Acceptance gate before bundling
+
+1. Export a deterministic ONNX model with a versioned feature schema.
+2. Add JVM tests for input ordering, missing-feature defaults and model output
+   bounds.
+3. Compare against the current planner on a held-out labelled set. The model
+   may only rank among candidates the deterministic safety policy accepts.
+4. Profile on low/mid/high Android hardware: no playback underruns, no full
+   track decode, and no concurrent model analyses.
+5. Cache scores by model version plus both track/rendition identifiers.
+6. Roll out behind `automix_ai_enabled`; if loading or inference fails, log a
+   non-sensitive diagnostic and use the existing planner immediately.
+
+## Runtime contract
+
+The future `AiTransitionRanker` belongs beside `TransitionPlanner`. It receives
+immutable feature values and returns either a bounded score or `null`. `null`,
+a missing model, a malformed output, or a disabled setting must all produce the
+same normal deterministic transition plan. No retries, downloading, or model
+training may happen on the playback path.
+
+This keeps Automix useful offline, predictable under battery/thermal pressure,
+and safe while the model evolves.

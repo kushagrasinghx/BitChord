@@ -129,6 +129,7 @@ fun MiniPlayer(
     // a pill instead of a rounded rectangle. Same idiom as [FloatingBottomBar]
     // directly below it, so the two shapes are the same family.
     val shape = RoundedCornerShape(percent = 50)
+    val liquidTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.16f)
     Box(
         modifier = modifier
             .padding(horizontal = PAGE_GUTTER)
@@ -139,11 +140,11 @@ fun MiniPlayer(
                 } else if (liquidState != null) {
                     Modifier.liquid(liquidState) {
                         frost = 12.dp
-                        shape = shape
+                        this.shape = shape
                         refraction = 0.14f
                         curve = 0.16f
                         edge = 0.08f
-                        tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.16f)
+                        tint = liquidTint
                         saturation = 1.12f
                     }
                 } else {

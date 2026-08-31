@@ -67,6 +67,7 @@ fun AccountProfileSelector(
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidState = LocalLiquidGlassState.current
     val shape = MaterialTheme.shapes.extraLarge
+    val liquidTint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f)
     Column(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = .48f))
             .clickable(onClick = onDismiss),
@@ -86,11 +87,11 @@ fun AccountProfileSelector(
                     } else if (liquidState != null) {
                         Modifier.liquid(liquidState) {
                             frost = 14.dp
-                            shape = shape
+                            this.shape = shape
                             refraction = 0.16f
                             curve = 0.18f
                             edge = 0.08f
-                            tint = MaterialTheme.colorScheme.surface.copy(alpha = 0.18f)
+                            tint = liquidTint
                             saturation = 1.1f
                         }
                     } else {

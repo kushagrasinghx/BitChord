@@ -15,7 +15,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
@@ -102,20 +104,11 @@ fun TopFadeBlur(
     if (reduceDynamicBlur) return
 
     val height = topBarHeight() + FADE_RUN
-    val blurMask = remember {
-        Brush.verticalGradient(
-            colorStops = Array(SCRIM_STOPS) { i ->
-                val t = i / (SCRIM_STOPS - 1f)
-                t to Color.Black.copy(alpha = PEAK * (1f - EaseOutCubic.transform(t)))
-            },
-        )
-    }
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .optimizedHazeEffect(
+            .hazeEffect(
                 state = hazeState,
                 // Keyed to the colour of the page underneath, not the theme's.
                 //
@@ -133,10 +126,16 @@ fun TopFadeBlur(
                 // the artwork: the exact artefact this was added to remove.
                 style = HazeMaterials.ultraThin(pageColor),
             ) {
-                // A mask preserves the same eased fade without varying the blur
-                // shader itself. That avoids progressive blur's extra render
-                // cost while keeping the lower edge invisible.
-                mask = blurMask
+                // This is intentionally the progressive Haze effect used by the
+                // original top treatment. The mask-based optimization changes
+                // the visual result on device and loses the soft blur shown in
+                // the header reference. Reduce dynamic blur still exits before
+                // this layer is composed.
+                progressive = HazeProgressive.verticalGradient(
+                    easing = EaseOutCubic,
+                    startIntensity = PEAK,
+                    endIntensity = 0f,
+                )
                 // Uniform across the layer, so it would show as texture over
                 // the untouched foot of the ramp — the edge being hidden.
                 noiseFactor = 0f

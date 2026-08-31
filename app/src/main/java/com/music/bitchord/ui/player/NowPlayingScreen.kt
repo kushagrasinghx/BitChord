@@ -1185,6 +1185,10 @@ fun NowPlayingScreen(
             // collapses, and re-subscribing to a flow on every frame of that
             // collapse is a waste of a subscription.
             val smartFadeOn by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+            // The scrubber retains its existing transition sheen while a real
+            // Smart Mix is active. This state is independent from the removed
+            // header icon.
+            val mixing by AppSettings.smartMixInProgress.collectAsStateWithLifecycle()
             val smartAnalysis by AppSettings.smartAnalysis.collectAsStateWithLifecycle()
             // Height the artwork block below turns out not to need, spent by the
             // controls at the foot of the screen. Filled in from inside the box,

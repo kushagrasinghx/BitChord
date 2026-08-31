@@ -1,7 +1,5 @@
 package com.music.bitchord.playback.smart
 
-import com.music.bitchord.data.sources.SourceKind
-
 /**
  * Keeps Automix analysis on the canonical YouTube Opus rendition.
  *
@@ -12,8 +10,6 @@ import com.music.bitchord.data.sources.SourceKind
  * upgrades.
  */
 internal object AutomixAnalysisSource {
-    fun canAnalyzeSourceBackedTrack(kind: SourceKind?): Boolean = kind != SourceKind.JIOSAAVN
-
     fun isCanonicalYouTubeRendition(videoId: String?, cacheKey: String): Boolean =
         videoId == null || cacheKey == videoId
 }

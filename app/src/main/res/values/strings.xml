@@ -199,8 +199,8 @@
     <string name="automix_mode_performance">Performance</string>
     <string name="automix_mode_performance_subtitle">4 threads · fastest analysis · higher heat and battery use</string>
     <string name="automix_ai">Automix AI [BETA]</string>
-    <string name="automix_ai_disabled_subtitle">Opt in to future on-device transition ranking</string>
-    <string name="automix_ai_enabled_subtitle">Enabled. Standard Automix stays in control until an AI model is bundled.</string>
+    <string name="automix_ai_disabled_subtitle">For electronic music. Opt in to on-device transition ranking.</string>
+    <string name="automix_ai_enabled_subtitle">For electronic music when a model is available. Standard Automix safely handles other genres and low-confidence mixes.</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="equalizer">Equalizer</string>

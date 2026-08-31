@@ -34,6 +34,25 @@ Target APK contribution: under 0.5 MB; target inference: milliseconds once per
 upcoming pair. Reuse the existing ONNX Runtime dependency. Do not add a second
 ML runtime or network service.
 
+## Genre scope and future models
+
+The first model is deliberately an electronic/DJ model. It should be trained
+and evaluated only for styles with reliable meter and phrase structure (for
+example house, techno, trance and drum & bass). The app must expose this scope
+in Settings and always retain normal Automix as the fallback for pop, rock,
+urban, jazz, ballads and low-confidence analysis.
+
+Do not make one model appear universal by mixing incompatible labels. To add a
+genre family later, create a versioned training run with examples from that
+family, evaluate it independently, and either:
+
+- add a lightweight genre/suitability gate that chooses the right ranker; or
+- train a single mixed-genre ranker only after its per-genre validation beats
+  the deterministic planner for every supported family.
+
+The runtime must choose normal Automix whenever genre/suitability is unknown,
+the AI score is malformed, or its confidence is below the documented threshold.
+
 ## Feature schema
 
 Only consume data already produced by Automix analysis or by the current plan:

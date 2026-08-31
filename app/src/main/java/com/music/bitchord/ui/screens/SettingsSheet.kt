@@ -122,6 +122,7 @@ import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.R
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
@@ -167,6 +168,7 @@ fun SettingsScreen(
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+    val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
@@ -228,6 +230,7 @@ fun SettingsScreen(
 
     var picking by remember { mutableStateOf<QualityTarget?>(null) }
     var pickingDownloadQuality by remember { mutableStateOf(false) }
+    var pickingAutomixPerformance by remember { mutableStateOf(false) }
     // What the last export or import did, shown on the row that did it rather
     // than as a toast: a backup is the one action here whose outcome nobody can
     // check by looking at the app afterwards. Held per direction, or an import's
@@ -418,6 +421,14 @@ fun SettingsScreen(
                     )
                 },
                 onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.Tune,
+                title = stringResource(R.string.automix_performance),
+                subtitle = stringResource(R.string.automix_performance_subtitle),
+                value = automixPerformance.localizedLabel(),
+                onClick = { pickingAutomixPerformance = true },
             )
             RowDivider()
             SettingsRow(
@@ -994,6 +1005,21 @@ fun SettingsScreen(
         }
     }
 
+    if (pickingAutomixPerformance) {
+        ModalBottomSheet(
+            onDismissRequest = { pickingAutomixPerformance = false },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            AutomixPerformanceSheet(
+                selected = automixPerformance,
+                onSelect = { mode ->
+                    AppSettings.setAutomixPerformanceMode(mode)
+                    pickingAutomixPerformance = false
+                },
+            )
+        }
+    }
+
     // Asked before the picker opens rather than after a file is chosen: the
     // thing being confirmed is that this device's own history is about to be
     // thrown away, and that is true whichever file gets picked.
@@ -1226,6 +1252,15 @@ private fun ThemeMode.localizedLabel(): String = stringResource(
     },
 )
 
+@Composable
+private fun AutomixPerformanceMode.localizedLabel(): String = stringResource(
+    when (this) {
+        AutomixPerformanceMode.EFFICIENT -> R.string.automix_mode_efficient
+        AutomixPerformanceMode.BALANCED -> R.string.automix_mode_balanced
+        AutomixPerformanceMode.PERFORMANCE -> R.string.automix_mode_performance
+    },
+)
+
 private fun openEqualizer(context: Context, sessionId: Int) {
     val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
         putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
@@ -1381,6 +1416,83 @@ private fun QualitySheet(
                     )
                     Text(
                         text = stringResource(R.string.quality_hourly, quality.detail, quality.hourly),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (chosen) {
+                    Spacer(Modifier.width(12.dp))
+                    Icon(
+                        Icons.Rounded.Check,
+                        contentDescription = stringResource(R.string.selected),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** CPU budget picker for the background models that prepare Automix. */
+@Composable
+private fun AutomixPerformanceSheet(
+    selected: AutomixPerformanceMode,
+    onSelect: (AutomixPerformanceMode) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Row(
+            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Tune,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = stringResource(R.string.automix_performance),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.automix_performance_warning),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+        AutomixPerformanceMode.entries.forEach { mode ->
+            val chosen = mode == selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(mode)
+                    }
+                    .padding(horizontal = 22.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = mode.localizedLabel(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = stringResource(
+                            when (mode) {
+                                AutomixPerformanceMode.EFFICIENT -> R.string.automix_mode_efficient_subtitle
+                                AutomixPerformanceMode.BALANCED -> R.string.automix_mode_balanced_subtitle
+                                AutomixPerformanceMode.PERFORMANCE -> R.string.automix_mode_performance_subtitle
+                            },
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

@@ -185,6 +185,15 @@
     <string name="crossfade">Fundido cruzado</string>
     <string name="crossfade_subtitle">Mezcla una pista con la siguiente</string>
     <string name="automix">Mezcla automática [BETA]</string>
+    <string name="automix_performance">Rendimiento de mezcla automática</string>
+    <string name="automix_performance_subtitle">Define cuánta CPU puede usar el análisis en segundo plano</string>
+    <string name="automix_performance_warning">El rendimiento alto analiza más rápido, pero puede consumir más batería y calentar el teléfono.</string>
+    <string name="automix_mode_efficient">Eficiente</string>
+    <string name="automix_mode_efficient_subtitle">1 hilo · menor calor y consumo · el análisis puede tardar más</string>
+    <string name="automix_mode_balanced">Equilibrado</string>
+    <string name="automix_mode_balanced_subtitle">2 hilos · equilibrio recomendado entre velocidad, calor y batería</string>
+    <string name="automix_mode_performance">Rendimiento</string>
+    <string name="automix_mode_performance_subtitle">4 hilos · análisis más rápido · mayor calor y consumo</string>
     <string name="skip_silence">Omitir silencios</string>
     <string name="skip_silence_subtitle">Recorta pausas de más de un segundo</string>
     <string name="equalizer">Ecualizador</string>

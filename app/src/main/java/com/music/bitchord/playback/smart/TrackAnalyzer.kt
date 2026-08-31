@@ -26,8 +26,11 @@ package com.music.bitchord.playback.smart
 import android.content.Context
 import android.media.MediaDataSource
 import android.net.Uri
+import android.os.Process
 import android.util.Log
 import androidx.media3.common.util.UnstableApi
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.playback.AudioCache
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -297,6 +300,15 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
 
         executor.execute {
             try {
+                // Efficient mode yields to decoding and playback rather than
+                // competing for a core. Thread count remains the speed knob.
+                Process.setThreadPriority(
+                    if (AppSettings.automixPerformanceMode.value == AutomixPerformanceMode.EFFICIENT) {
+                        Process.THREAD_PRIORITY_BACKGROUND
+                    } else {
+                        Process.THREAD_PRIORITY_DEFAULT
+                    },
+                )
                 // [restoreOnce] queues onto this same single-threaded executor,
                 // so a stored result for this track has landed by now if there
                 // was one — but the decision to get here was taken a tick

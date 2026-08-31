@@ -189,6 +189,15 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Blends one track into the next</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_performance">Automix performance</string>
+    <string name="automix_performance_subtitle">Sets how much CPU background analysis may use</string>
+    <string name="automix_performance_warning">Higher performance analyses tracks faster, but can use more battery and make the phone warmer.</string>
+    <string name="automix_mode_efficient">Efficient</string>
+    <string name="automix_mode_efficient_subtitle">1 thread · lowest heat and battery use · analysis may take longer</string>
+    <string name="automix_mode_balanced">Balanced</string>
+    <string name="automix_mode_balanced_subtitle">2 threads · recommended balance of speed, heat and battery</string>
+    <string name="automix_mode_performance">Performance</string>
+    <string name="automix_mode_performance_subtitle">4 threads · fastest analysis · higher heat and battery use</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="equalizer">Equalizer</string>

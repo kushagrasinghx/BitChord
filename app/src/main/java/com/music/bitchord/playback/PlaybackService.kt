@@ -631,6 +631,7 @@ class PlaybackService : MediaSessionService() {
         // state lives.
         NerdStats.forgetLastSession()
         QualityUpgrade.forgetLastSession()
+        com.music.bitchord.playback.smart.AutomixAiRanker.initialize(this)
 
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider.Builder(this)
@@ -3270,6 +3271,7 @@ class PlaybackService : MediaSessionService() {
         publishWidgetState(playing = false)
         AudioCache.cancel()
         trackAnalyzer.release()
+        com.music.bitchord.playback.smart.AutomixAiRanker.release()
         // The YouTube Music history entry for whatever was playing, closed out
         // on the same terms as the ListenBrainz submit below: a swipe-away never
         // fires STATE_ENDED, and the tracker's own scope outlives this service,

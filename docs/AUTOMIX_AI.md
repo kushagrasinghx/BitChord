@@ -1,10 +1,13 @@
-# Automix AI: future transition ranker
+# Automix AI: electronic transition ranker
 
-`Automix AI [BETA]` is an opt-in persisted preference. It deliberately does
-not replace the deterministic Automix planner until a trained model is shipped.
-With no bundled model, the existing beat/key/phrase/vocal safety rules remain
-the source of truth. This prevents a switch in Settings from claiming an AI
-decision that the APK cannot make.
+`Automix AI [BETA]` is an opt-in persisted preference. The first bundled model
+is a small ONNX logistic ranker trained from UnmixDB electronic-music mix
+annotations (5,424 positive transitions; held-out AUC 0.904). It is encoded as
+an Android asset and loaded locally only when the switch is enabled.
+
+The deterministic beat/key/phrase/vocal safety rules remain the source of
+truth. The model never creates a transition: it only turns a low-scoring
+already-safe `DJ_BLEND` into the existing conservative `DJ_FILTER` plan.
 
 ## Goal
 
@@ -23,9 +26,14 @@ It should return a compatibility score and optional ranking among existing
 plans (`beatmatched`, musical crossfade, or simple crossfade). It must never
 run over a complete decoded track during playback.
 
-## Recommended first model
+## Bundled first model
 
-Start with a small tabular ranker:
+The shipped ranker consumes four bounded plan facts: normalised BPM distance,
+stretch distance, overlap duration and fade-duration difference (neutral for
+the current one-overlap plan). Its artifact is 549 B. It is deliberately tiny
+because the hard musical work remains in Automix's DSP and deterministic policy.
+
+Future models can use a larger tabular ranker:
 
 - Gradient-boosted trees (LightGBM/XGBoost) exported to ONNX, or
 - an INT8 MLP with two hidden layers of 16–32 units.
@@ -83,7 +91,7 @@ Split train/validation/test by artist and recording, not by random excerpts,
 to avoid a model memorising production traits. Report per-genre, tempo-distance
 and vocal-clash slices.
 
-## Acceptance gate before bundling
+## Acceptance gate before bundling a replacement
 
 1. Export a deterministic ONNX model with a versioned feature schema.
 2. Add JVM tests for input ordering, missing-feature defaults and model output
@@ -98,10 +106,10 @@ and vocal-clash slices.
 
 ## Runtime contract
 
-The future `AiTransitionRanker` belongs beside `TransitionPlanner`. It receives
-immutable feature values and returns either a bounded score or `null`. `null`,
-a missing model, a malformed output, or a disabled setting must all produce the
-same normal deterministic transition plan. No retries, downloading, or model
+`AutomixAiRanker` belongs beside `TransitionPlanner`. It receives immutable
+feature values and returns either a bounded score or `null`. `null`, a missing
+model, a malformed output, or a disabled setting must all produce the same
+normal deterministic transition plan. No retries, downloading, or model
 training may happen on the playback path.
 
 This keeps Automix useful offline, predictable under battery/thermal pressure,

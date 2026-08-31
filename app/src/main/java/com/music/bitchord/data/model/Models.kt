@@ -161,36 +161,6 @@ data class Account(
     val thumbnailUrl: String?,
 )
 
-/**
- * One identity the signed-in session can act as: the Google account's own
- * channel, plus any brand channel it owns.
- *
- * A brand channel is a separate YouTube identity attached to the same login,
- * and YouTube Music treats it as a separate listener — its own library, likes,
- * history and recommendations. Nothing in the cookie says which one is meant,
- * so a client that never asks gets whichever one the web player happens to
- * default to, which is why a listener whose music lives on a brand channel
- * signs in and is shown a stranger's account.
- *
- * @param pageId `X-Goog-PageId`. Null for the account's own channel, which is
- *   not a delegated page and must not be given one.
- * @param dataSyncId `context.user.onBehalfOfUser`, taken from the switcher's
- *   `datasyncIdToken` — never guessed, since Google answers one it cannot tie
- *   to the session with 401.
- */
-data class AccountChannel(
-    val name: String,
-    val subtitle: String,
-    val thumbnailUrl: String?,
-    val pageId: String?,
-    val dataSyncId: String?,
-    /** Whether YouTube's own switcher marks this as the session's active one. */
-    val activeOnWeb: Boolean,
-) {
-    /** Identity of the selection, stable across refetches of the list. */
-    val key: String get() = pageId ?: dataSyncId ?: name
-}
-
 data class HomeShelf(
     val title: String,
     val items: List<ShelfItem>,

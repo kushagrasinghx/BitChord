@@ -88,10 +88,6 @@ object Innertube {
                 scope = null
                 visitorData = null
                 visitorDataIsSessionBound = false
-                // The chosen channel belonged to the account that just left.
-                // A `dataSyncId` from one login sent under another's cookie is
-                // answered with 401 on every request, so it goes with it.
-                channelOverride = null
             }
             field = value
         }
@@ -210,115 +206,6 @@ object Innertube {
     private var scope: SessionScope? = null
 
     private val scopeLock = Mutex()
-
-    /** A channel the listener picked, standing in for the shell's default. */
-    class ChannelSelection(
-        val pageId: String?,
-        val dataSyncId: String?,
-        /**
-         * Which Google account in the cookie jar the channel belongs to. Null
-         * leaves the shell's own answer alone — a brand channel sits under the
-         * account that owns it, so this only differs when the listener switched
-         * to a channel of a *different* signed-in Google account.
-         */
-        val authUser: String? = null,
-    )
-
-    /**
-     * The channel to act as, when the listener has said which.
-     *
-     * [fetchSessionScope] can only report the one music.youtube.com serves by
-     * default, and for an account whose music lives on a brand channel that is
-     * the wrong one — the library, the likes and the history all belong to the
-     * other identity. Once a channel has been chosen it outranks the shell
-     * completely, including when what it chose is the account's own channel and
-     * the shell is the one offering a brand page.
-     */
-    @Volatile
-    private var channelOverride: ChannelSelection? = null
-
-    /**
-     * Act as this channel from now on; both null goes back to the shell's
-     * default. Takes effect on the next request — nothing is cached from it.
-     */
-    fun selectChannel(pageId: String?, dataSyncId: String?, authUser: String? = null) {
-        channelOverride = if (pageId == null && dataSyncId == null) {
-            null
-        } else {
-            ChannelSelection(pageId, dataSyncId, authUser)
-        }
-        Log.d(
-            TAG,
-            "acting as channel pageId=${pageId ?: "none"} authUser=${authUser ?: "as-is"} " +
-                "(override=${channelOverride != null})",
-        )
-    }
-
-    /**
-     * Takes the session scope from a page the listener was actually looking at,
-     * rather than working it out later from a fetch of our own.
-     *
-     * The shell fetch in [fetchSessionScope] can only ever report the channel
-     * music.youtube.com serves this app by default, and the whole reason the
-     * in-app browser exists is that the listener has just told it, by hand,
-     * that they want a different one. That answer is written into the page's
-     * own `ytcfg`, so it is read from there and adopted whole.
-     *
-     * Adopting also settles [ensureSessionScope] — a scope already in hand is
-     * not refetched — so the shell cannot quietly overwrite the choice with its
-     * default on the next request.
-     *
-     * A page that reported itself signed out is ignored apart from its client
-     * version: its `DATASYNC_ID` belongs to no account, and sending one Google
-     * cannot tie to the session is answered with 401 on every request.
-     */
-    fun adoptSessionScope(
-        pageId: String?,
-        dataSyncId: String?,
-        authUser: String?,
-        visitorData: String?,
-        clientVersion: String?,
-        loggedIn: Boolean,
-    ) {
-        val version = clientVersion ?: scope?.clientVersion
-        if (!loggedIn) {
-            Log.w(TAG, "captured page was signed out; not scoping requests to it")
-            scope = version?.let { SessionScope(null, null, "0", it) }
-            return
-        }
-        scope = SessionScope(
-            dataSyncId = dataSyncId?.takeIf { it.isNotBlank() },
-            pageId = pageId?.takeIf { it.isNotBlank() },
-            authUser = authUser?.takeIf { it.isNotBlank() } ?: "0",
-            clientVersion = version,
-        )
-        // The page's own visitor id, bound to this session — strictly better
-        // than the anonymous one [fetchVisitorData] mints. See [visitorData].
-        visitorData?.takeIf { it.isNotBlank() }?.let {
-            this.visitorData = it
-            visitorDataIsSessionBound = true
-        }
-        Log.d(TAG, "adopted page scope: pageId=${pageId ?: "none"} authUser=${authUser ?: "0"}")
-    }
-
-    /** The brand channel to send, chosen one first. */
-    private fun pageIdFor(session: SessionScope?): String? =
-        (channelOverride ?: return session?.pageId).pageId
-
-    /**
-     * The account to send as `onBehalfOfUser`, chosen one first.
-     *
-     * No falling back to the shell's value once a channel has been chosen: the
-     * shell's id names the default identity, and pairing it with another
-     * channel's [pageId] describes an account/page combination that doesn't
-     * exist.
-     */
-    private fun dataSyncIdFor(session: SessionScope?): String? =
-        (channelOverride ?: return session?.dataSyncId).dataSyncId
-
-    /** Which account in the cookie jar, chosen channel's first. */
-    private fun authUserFor(session: SessionScope?): String =
-        channelOverride?.authUser ?: session?.authUser ?: "0"
 
     /**
      * The WEB_REMIX version to claim, live if the shell has been read.
@@ -511,51 +398,6 @@ object Innertube {
 
     /** Signed-in profile: display name, email/handle and avatar. */
     suspend fun accountMenu(): JsonObject = postMusic("account/account_menu") {}
-
-    /**
-     * Every channel this session can act as, as Innertube's account switcher
-     * lists them: the account's own channel first, then its brand channels.
-     *
-     * Each entry carries the two things a request needs to be made *as* that
-     * channel — a `pageIdToken` and a `datasyncIdToken` — which is the whole
-     * reason to ask rather than to reason about it. See [selectChannel].
-     */
-    suspend fun accountsList(): JsonObject = postMusic("account/accounts_list") {}
-
-    /**
-     * The same list from youtube.com's own switcher, as a second route.
-     *
-     * Worth having both. `accounts_list` is the tidier call but it is not
-     * uniformly answered for every client identity, and a listener whose music
-     * is on a brand channel is stuck with the wrong library until *something*
-     * enumerates their channels. This endpoint is what the youtube.com avatar
-     * menu itself calls, and it answers a plain signed GET.
-     *
-     * The body is JSON behind Google's XSSI guard — a `)]}'` line that exists
-     * to make the response invalid JavaScript — so it is trimmed before parsing
-     * rather than being handed to the JSON reader as-is.
-     */
-    suspend fun accountSwitcher(): JsonObject {
-        requireSession()
-        val session = scope
-        val text = withRetry {
-            client.get("$YOUTUBE_ORIGIN/getAccountSwitcherEndpoint") {
-                header("User-Agent", WEB_USER_AGENT)
-                header("Accept-Language", "en-US,en;q=0.9")
-                header("X-Origin", YOUTUBE_ORIGIN)
-                header("Referer", "$YOUTUBE_ORIGIN/")
-                cookie?.let { c ->
-                    header("Cookie", c)
-                    header("X-Goog-AuthUser", authUserFor(session))
-                    sapisidFrom(c)?.let {
-                        header("Authorization", sapisidHash(it, YOUTUBE_ORIGIN))
-                    }
-                }
-            }.bodyAsText()
-        }
-        val body = text.substringAfter(")]}'", text).trim()
-        return json.parseToJsonElement(body).jsonObject
-    }
 
     /**
      * The watch queue that YouTube Music would play after [videoId] — the
@@ -857,8 +699,8 @@ object Innertube {
         visitorData?.let { header("X-Goog-Visitor-Id", it) }
         cookie?.let { c ->
             header("Cookie", c)
-            header("X-Goog-AuthUser", authUserFor(scope))
-            pageIdFor(scope)?.let { header("X-Goog-PageId", it) }
+            header("X-Goog-AuthUser", scope?.authUser ?: "0")
+            scope?.pageId?.let { header("X-Goog-PageId", it) }
             sapisidFrom(c)?.let { header("Authorization", sapisidHash(it)) }
         }
     }
@@ -1101,8 +943,8 @@ object Innertube {
                     // Which account in the jar, and which brand channel of it.
                     // Both were fixed at "the first one" before — see
                     // [SessionScope].
-                    header("X-Goog-AuthUser", authUserFor(session))
-                    pageIdFor(session)?.let { header("X-Goog-PageId", it) }
+                    header("X-Goog-AuthUser", session?.authUser ?: "0")
+                    session?.pageId?.let { header("X-Goog-PageId", it) }
                     sapisidFrom(c)?.let { header("Authorization", sapisidHash(it)) }
                 }
                 setBody(
@@ -1122,7 +964,7 @@ object Innertube {
                                 // `onBehalfOfUser` it cannot tie to the cookie
                                 // with 401, so a guess here would take the
                                 // whole app down rather than just history.
-                                dataSyncIdFor(session)?.let { put("onBehalfOfUser", it) }
+                                session?.dataSyncId?.let { put("onBehalfOfUser", it) }
                             }
                             putJsonObject("request") { put("useSsl", true) }
                         }
@@ -1198,8 +1040,8 @@ object Innertube {
             if (authenticated) {
                 cookie?.let { c ->
                     header("Cookie", c)
-                    header("X-Goog-AuthUser", authUserFor(scope))
-                    pageIdFor(scope)?.let { header("X-Goog-PageId", it) }
+                    header("X-Goog-AuthUser", scope?.authUser ?: "0")
+                    scope?.pageId?.let { header("X-Goog-PageId", it) }
                     // Hashed against the host this request is actually going
                     // to, not against music.youtube.com unconditionally. Google
                     // recomputes the digest over the origin it sees and rejects

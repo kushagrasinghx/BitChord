@@ -4,7 +4,6 @@ import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.Account
-import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.ArtistPage
 import com.music.bitchord.data.model.HomeFeed
 import com.music.bitchord.data.model.HomeShelf
@@ -214,26 +213,6 @@ object YtMusicRepository {
     suspend fun account(): Result<Account> = call("account") {
         InnertubeParser.parseAccount(Innertube.accountMenu())
             ?: error("No account details")
-    }
-
-    /**
-     * The channels this login can act as — its own, plus any brand channels.
-     *
-     * Two endpoints are asked in turn because either can come back with an
-     * envelope holding no `accountItem` at all, and the two do not fail
-     * together: `accounts_list` is the first-party route and the switcher is
-     * what youtube.com's own avatar menu uses. An empty list from the first is
-     * not an answer, it is a shape this parser didn't recognise, so it is
-     * treated the same as a failure and the other route is tried.
-     */
-    suspend fun accountChannels(): Result<List<AccountChannel>> = call("channels") {
-        val viaInnertube = runCatching {
-            InnertubeParser.parseAccountChannels(Innertube.accountsList())
-        }.onFailure { Log.w(TAG, "accounts_list unavailable: ${it.message}") }
-            .getOrNull()
-            .orEmpty()
-        if (viaInnertube.isNotEmpty()) return@call viaInnertube
-        InnertubeParser.parseAccountChannels(Innertube.accountSwitcher())
     }
 
     /**

@@ -49,78 +49,9 @@ class AuthStore(context: Context) {
         set(value) = prefs.edit().putString(KEY_DISCORD_TOKEN, value).apply()
 
     /**
-     * The channel the listener chose to act as, if they chose one.
-     *
-     * Stored beside the cookie rather than in the plain settings because it is
-     * only meaningful with that cookie and must not outlive it: a `dataSyncId`
-     * from one login, replayed under another, is answered with 401 on every
-     * request. [signOut] and [onNewSession] both clear it for that reason.
-     *
-     * A null [channelPageId] with a [channelDataSyncId] set is a real state,
-     * not an absent one — it is the account's own channel, deliberately chosen
-     * over a brand channel the web player would otherwise default to.
-     */
-    val channelPageId: String? get() = prefs.getString(KEY_CHANNEL_PAGE_ID, null)
-    val channelDataSyncId: String? get() = prefs.getString(KEY_CHANNEL_DATASYNC_ID, null)
-
-    /** The chosen channel's display name, for the settings row. */
-    val channelName: String? get() = prefs.getString(KEY_CHANNEL_NAME, null)
-
-    /** Which Google account in the jar it belongs to; null means "as the shell says". */
-    val channelAuthUser: String? get() = prefs.getString(KEY_CHANNEL_AUTH_USER, null)
-
-    fun selectChannel(
-        pageId: String?,
-        dataSyncId: String?,
-        name: String?,
-        authUser: String? = null,
-    ) = prefs.edit()
-        .putString(KEY_CHANNEL_PAGE_ID, pageId)
-        .putString(KEY_CHANNEL_DATASYNC_ID, dataSyncId)
-        .putString(KEY_CHANNEL_NAME, name)
-        .putString(KEY_CHANNEL_AUTH_USER, authUser)
-        .apply()
-
-    /**
-     * The chosen channel's name, once something knows it.
-     *
-     * Separate from [selectChannel] because the two are learned at different
-     * times: a channel picked in the in-app browser is identified by ids the
-     * moment it is picked, and named only after the next account fetch comes
-     * back to say what it is called.
-     */
-    fun setChannelName(name: String?) =
-        prefs.edit().putString(KEY_CHANNEL_NAME, name).apply()
-
-    /** Back to whichever channel YouTube Music serves by default. */
-    fun clearChannel() = prefs.edit()
-        .remove(KEY_CHANNEL_PAGE_ID)
-        .remove(KEY_CHANNEL_DATASYNC_ID)
-        .remove(KEY_CHANNEL_NAME)
-        .remove(KEY_CHANNEL_AUTH_USER)
-        .apply()
-
-    /**
-     * A fresh login lands here. The cookie is new, so any channel chosen under
-     * the old one names an identity this session cannot act as.
-     */
-    fun onNewSession(cookie: String) {
-        this.cookie = cookie
-        clearChannel()
-    }
-
-    /**
      * Signs out of YouTube Music only — the Discord login is a separate account.
      */
-    fun signOut() {
-        prefs.edit().remove(KEY_COOKIE).apply()
-        clearChannel()
-        // The in-app browser keeps its own copy of the Google login, and a
-        // sign-out that leaves it in place is not one: the next sign-in is
-        // waved straight through as the account just signed out of, with no
-        // opportunity to choose another. See [BrowserSession].
-        BrowserSession.clearGoogleCookies()
-    }
+    fun signOut() = prefs.edit().remove(KEY_COOKIE).apply()
 
     companion object {
         /**
@@ -146,10 +77,6 @@ class AuthStore(context: Context) {
             setOf("SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID")
 
         private const val KEY_COOKIE = "cookie"
-        private const val KEY_CHANNEL_PAGE_ID = "channel_page_id"
-        private const val KEY_CHANNEL_DATASYNC_ID = "channel_datasync_id"
-        private const val KEY_CHANNEL_NAME = "channel_name"
-        private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
         private const val KEY_DISCORD_TOKEN = "discord_token"
     }
 }

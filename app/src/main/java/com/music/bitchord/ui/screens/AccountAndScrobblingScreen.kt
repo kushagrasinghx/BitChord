@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -34,9 +33,7 @@ import kotlin.math.roundToInt
 fun AccountAndScrobblingScreen(
     signedIn: Boolean,
     account: Account?,
-    channelName: String?,
     onSignIn: () -> Unit,
-    onSwitchChannel: () -> Unit,
     onSignOut: () -> Unit,
     onOpenListenBrainzLogin: () -> Unit,
     onOpenLastfmLogin: () -> Unit,
@@ -74,19 +71,6 @@ fun AccountAndScrobblingScreen(
         AccountCard(signedIn = signedIn, account = account, onSignIn = onSignIn)
 
         if (signedIn) {
-            SettingsGroup(
-                footer = "A Google account can own brand channels, and each one is a " +
-                    "separate YouTube Music listener with its own library, likes and " +
-                    "history. Pick the one your music is on.",
-            ) {
-                SettingsRow(
-                    icon = Icons.Rounded.SwitchAccount,
-                    title = "Listen as",
-                    subtitle = channelName ?: "YouTube Music's default channel",
-                    onClick = onSwitchChannel,
-                )
-            }
-
             SettingsGroup {
                 DestructiveRow(label = "Sign out", onClick = onSignOut)
             }

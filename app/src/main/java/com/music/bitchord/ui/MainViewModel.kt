@@ -16,10 +16,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.innertube.StreamResolver
-import com.music.bitchord.auth.CapturedSession
-import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.data.model.Account
-import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.HomeShelf
@@ -255,29 +252,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _account = MutableStateFlow<Account?>(null)
     val account: StateFlow<Account?> = _account.asStateFlow()
-
-    /**
-     * The channels this login can act as. Empty until the picker asks for
-     * them — it is one more request per sign-in and nothing else on the
-     * settings page needs the answer.
-     */
-    private val _channels = MutableStateFlow<List<AccountChannel>>(emptyList())
-    val channels: StateFlow<List<AccountChannel>> = _channels.asStateFlow()
-
-    private val _channelsLoading = MutableStateFlow(false)
-    val channelsLoading: StateFlow<Boolean> = _channelsLoading.asStateFlow()
-
-    /**
-     * The chosen channel's [AccountChannel.key], or null while the app is
-     * acting as whichever channel YouTube Music serves by default.
-     */
-    private val _selectedChannelKey = MutableStateFlow(
-        authStore.channelPageId ?: authStore.channelDataSyncId,
-    )
-    val selectedChannelKey: StateFlow<String?> = _selectedChannelKey.asStateFlow()
-
-    private val _selectedChannelName = MutableStateFlow(authStore.channelName)
-    val selectedChannelName: StateFlow<String?> = _selectedChannelName.asStateFlow()
 
     private val _history = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
     val history: StateFlow<UiState<List<Song>>> = _history.asStateFlow()
@@ -956,16 +930,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun loadAccount() {
         viewModelScope.launch {
-            val account = YtMusicRepository.account().getOrNull()
-            _account.value = account
-            // A channel picked in the in-app browser arrives as ids and nothing
-            // else — the page's `ytcfg` never says what the channel is called.
-            // The account menu, asked *as* that channel, answers with its name,
-            // which is what the settings row needs to show.
-            if (account != null && _selectedChannelKey.value != null) {
-                _selectedChannelName.value = account.name
-                authStore.setChannelName(account.name)
-            }
+            _account.value = YtMusicRepository.account().getOrNull()
         }
     }
 
@@ -1773,131 +1738,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    /**
-     * Loads the channel list, unless it is already in hand.
-     *
-     * @param force refetch even if it is — after a switch, since the list
-     *   itself reports which channel is active.
-     */
-    fun loadChannels(force: Boolean = false) {
-        if (!_signedIn.value) return
-        if (_channelsLoading.value) return
-        if (!force && _channels.value.isNotEmpty()) return
-        viewModelScope.launch {
-            _channelsLoading.value = true
-            YtMusicRepository.accountChannels()
-                .onSuccess { _channels.value = it }
-            _channelsLoading.value = false
-        }
-    }
-
-    /**
-     * Acts as [channel] from here on.
-     *
-     * Everything already on screen belongs to the channel being left — its
-     * library, its hearts, its playlists — so the switch clears them and
-     * refetches rather than letting the new identity's pages arrive one at a
-     * time on top of the old one's.
-     */
-    fun selectChannel(channel: AccountChannel) {
-        if (channel.key == _selectedChannelKey.value) return
-        authStore.selectChannel(channel.pageId, channel.dataSyncId, channel.name)
-        Innertube.selectChannel(channel.pageId, channel.dataSyncId)
-        _selectedChannelKey.value = channel.key
-        _selectedChannelName.value = channel.name
-        clearListenerState()
-        reloadForAccount()
-        loadChannels(force = true)
-    }
-
-    /**
-     * A session lifted out of the in-app browser — a fresh sign-in, or the same
-     * login now pointed at a different channel.
-     *
-     * One path for both because they differ in exactly one thing: whether the
-     * cookie is new. What follows — adopt the identity the captured page
-     * reported, remember it, and refetch everything that belongs to a listener
-     * — is the same work either way.
-     */
-    fun onWebSession(session: CapturedSession, mode: WebSessionMode) {
-        val fresh = mode == WebSessionMode.SIGN_IN || session.cookie != authStore.cookie
-        if (fresh) {
-            // Clears any channel chosen under the previous login, which named
-            // an identity this cookie cannot act as.
-            authStore.onNewSession(session.cookie)
-            _channels.value = emptyList()
-        } else {
-            authStore.cookie = session.cookie
-        }
-        // Assigned before the scope is adopted, never after: setting a cookie
-        // that differs from the last one clears the scope and the channel with
-        // it, which would throw away the identity just captured.
-        Innertube.cookie = session.cookie
-        Innertube.adoptSessionScope(
-            pageId = session.pageId,
-            dataSyncId = session.dataSyncId,
-            authUser = session.authUser,
-            visitorData = session.visitorData,
-            clientVersion = session.clientVersion,
-            loggedIn = session.loggedIn,
-        )
-
-        if (session.loggedIn && (session.pageId != null || session.dataSyncId != null)) {
-            // Persisted so the choice survives a restart: the shell fetched on
-            // the next launch reports the default channel, and without this the
-            // app would quietly drift back to it.
-            authStore.selectChannel(
-                pageId = session.pageId,
-                dataSyncId = session.dataSyncId,
-                // Named by the account fetch below, which is the only thing
-                // that knows what the channel is called.
-                name = if (fresh) null else authStore.channelName,
-                authUser = session.authUser,
-            )
-            Innertube.selectChannel(session.pageId, session.dataSyncId, session.authUser)
-            _selectedChannelKey.value = session.pageId ?: session.dataSyncId
-            if (fresh) _selectedChannelName.value = null
-        }
-
-        // Every "this track can't be played" the resolver recorded under the
-        // previous session was reached under different rules. An age-gated
-        // track is the whole point of signing in, and it is the one verdict a
-        // session overturns — so a listener who signs in to play a track must
-        // not spend the next ten minutes being told it still cannot be played.
+    fun onSignedIn(cookie: String) {
+        authStore.cookie = cookie
+        Innertube.cookie = cookie
+        // Every "this track can't be played" the resolver recorded while there
+        // was no session was recorded under different rules. An age-gated track
+        // is the whole point of signing in, and it is the one verdict a session
+        // overturns — so a listener who signs in to play a track must not spend
+        // the next ten minutes being told it still cannot be played.
         StreamResolver.onSessionChanged()
-        val wasSignedIn = _signedIn.value
         _signedIn.value = true
-        if (fresh || wasSignedIn) clearListenerState()
-        reloadForAccount()
-    }
-
-    /**
-     * Drops everything on screen that belongs to the identity being left.
-     *
-     * The hearts, the playlists and the library are all answers to "who is
-     * asking", so keeping them across a switch shows the new channel the old
-     * one's music until each page happens to be refetched.
-     */
-    private fun clearListenerState() {
-        LikeState.clear()
-        _playlists.value = emptyList()
-        _playlistOwned.value = emptyMap()
-        ownershipInFlight.clear()
-        _songMenu.value = null
-        _library.value = UiState.Loading
-        _history.value = UiState.Loading
-    }
-
-    /**
-     * Everything that is "the signed-in listener's", refetched.
-     *
-     * The scope comes first, and inside one coroutine rather than beside them:
-     * which channel the session acts as decides what "the library" and "the
-     * history" even refer to, so loading them first and scoping second shows
-     * the listener the wrong account's music and then silently disagrees with
-     * itself.
-     */
-    private fun reloadForAccount() {
+        // Before the reloads below, and the reason they are inside a coroutine
+        // now: which of the cookie's accounts was just signed into decides what
+        // "the library" and "the history" even refer to. Loading them first and
+        // scoping second shows the listener the wrong account's music and then
+        // silently disagrees with itself.
         viewModelScope.launch {
             Innertube.ensureSessionScope()
             loadHome()
@@ -1916,10 +1771,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         StreamResolver.onSessionChanged()
         _signedIn.value = false
         _account.value = null
-        Innertube.selectChannel(null, null)
-        _channels.value = emptyList()
-        _selectedChannelKey.value = null
-        _selectedChannelName.value = null
         _library.value = UiState.Loading
         // Ratings and playlists belong to the account that just left; keeping
         // them would show the next signed-in user someone else's hearts.

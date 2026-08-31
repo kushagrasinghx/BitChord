@@ -88,7 +88,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.auth.DiscordLoginScreen
-import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
@@ -107,7 +106,6 @@ import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ThemeMode
-import com.music.bitchord.ui.components.AccountChannelDialog
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
@@ -270,11 +268,7 @@ private fun BitChordApp(
             PlayerDeepLink.handled()
         }
     }
-    /**
-     * What the in-app browser is open for, or null while it is closed —
-     * signing in, or picking a channel in YouTube Music's own Accounts list.
-     */
-    var webSession by remember { mutableStateOf<WebSessionMode?>(null) }
+    var showLogin by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     // Replay: the page, the stories over it, and the share sheet over those.
     // Three states rather than one enum because they stack — the stories are
@@ -299,7 +293,6 @@ private fun BitChordApp(
     var libraryShowAll by remember { mutableStateOf<HomeShelf?>(null) }
     var showLyricsSources by remember { mutableStateOf(false) }
     var showAppLanguage by remember { mutableStateOf(false) }
-    var showChannelPicker by remember { mutableStateOf(false) }
     var showListenBrainzLogin by remember { mutableStateOf(false) }
     var showLastfmLogin by remember { mutableStateOf(false) }
     /**
@@ -392,10 +385,6 @@ private fun BitChordApp(
     val filter by viewModel.filter.collectAsStateWithLifecycle()
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     val account by viewModel.account.collectAsStateWithLifecycle()
-    val channels by viewModel.channels.collectAsStateWithLifecycle()
-    val channelsLoading by viewModel.channelsLoading.collectAsStateWithLifecycle()
-    val selectedChannelKey by viewModel.selectedChannelKey.collectAsStateWithLifecycle()
-    val selectedChannelName by viewModel.selectedChannelName.collectAsStateWithLifecycle()
     val historyState by viewModel.history.collectAsStateWithLifecycle()
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val lyricsSource by viewModel.lyricsSource.collectAsStateWithLifecycle()
@@ -1446,18 +1435,10 @@ private fun BitChordApp(
                         AccountAndScrobblingScreen(
                             signedIn = signedIn,
                             account = account,
-                            channelName = selectedChannelName,
                             onSignIn = {
                                 showAccountScrobbling = false
                                 showSettings = false
-                                webSession = WebSessionMode.SIGN_IN
-                            },
-                            onSwitchChannel = {
-                                // Asked for on open rather than on sign-in: it
-                                // is a request per session that most listeners,
-                                // who have exactly one channel, never need.
-                                viewModel.loadChannels()
-                                showChannelPicker = true
+                                showLogin = true
                             },
                             onSignOut = { viewModel.signOut() },
                             onOpenListenBrainzLogin = { showListenBrainzLogin = true },
@@ -1480,7 +1461,7 @@ private fun BitChordApp(
                             account = account,
                             onSignIn = {
                                 showSettings = false
-                                webSession = WebSessionMode.SIGN_IN
+                                showLogin = true
                             },
                             onSignOut = { viewModel.signOut() },
                             onAccountScrobbling = { showAccountScrobbling = true },
@@ -1632,7 +1613,7 @@ private fun BitChordApp(
                             state = homeState,
                             listState = homeListState,
                             signedIn = signedIn,
-                            onSignIn = { webSession = WebSessionMode.SIGN_IN },
+                            onSignIn = { showLogin = true },
                             onItemClick = { item ->
                                 when {
                                     item.videoId != null -> playRadio(
@@ -1769,7 +1750,7 @@ private fun BitChordApp(
                             onShowAll = { shelf -> libraryShowAll = shelf },
                             replayCard = replayCards.firstOrNull(),
                             onOpenReplay = { showReplay = true },
-                            onSignIn = { webSession = WebSessionMode.SIGN_IN },
+                            onSignIn = { showLogin = true },
                             onRetry = viewModel::loadLibrary,
                             refreshing = MainViewModel.Feed.LIBRARY in refreshing,
                             onRefresh = { viewModel.refresh(MainViewModel.Feed.LIBRARY) },
@@ -2318,14 +2299,8 @@ private fun BitChordApp(
         }
 
         // ---- Google sign-in (full screen WebView) ----
-        webSession?.let { mode ->
-            BackHandler { webSession = null }
-            // Raised by "Use this channel", read by the browser as "take the
-            // session from the page as it now stands". A counter rather than a
-            // flag so a second tap, after a failed first one, is still a new
-            // request rather than a value that was already true.
-            var captureRequest by remember(mode) { mutableIntStateOf(0) }
-            var captureFailed by remember(mode) { mutableStateOf(false) }
+        if (showLogin) {
+            BackHandler { showLogin = false }
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                 Column(Modifier.fillMaxSize()) {
                     Row(
@@ -2335,52 +2310,24 @@ private fun BitChordApp(
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = { webSession = null }) {
+                        IconButton(onClick = { showLogin = false }) {
                             Icon(
                                 Icons.Rounded.Close,
                                 contentDescription = "Close",
                                 tint = MaterialTheme.colorScheme.onBackground,
                             )
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = when (mode) {
-                                    WebSessionMode.SIGN_IN -> "Sign in to YouTube Music"
-                                    WebSessionMode.SWITCH_CHANNEL -> "Choose a channel"
-                                },
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onBackground,
-                            )
-                            if (mode == WebSessionMode.SWITCH_CHANNEL) {
-                                Text(
-                                    text = if (captureFailed) {
-                                        "No session on this page yet — open YouTube Music first"
-                                    } else {
-                                        "Switch with the avatar, then tap Use this channel"
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                )
-                            }
-                        }
-                        if (mode == WebSessionMode.SWITCH_CHANNEL) {
-                            TextButton(onClick = {
-                                captureFailed = false
-                                captureRequest++
-                            }) {
-                                Text("Use this channel")
-                            }
-                        }
+                        Text(
+                            "Sign in to YouTube Music",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
                     }
                     YtMusicLoginScreen(
-                        mode = mode,
-                        captureRequest = captureRequest,
-                        onCaptureUnavailable = { captureFailed = true },
-                        onCaptured = { session ->
-                            viewModel.onWebSession(session, mode)
-                            webSession = null
-                            if (mode == WebSessionMode.SIGN_IN) selectedTab = 2
+                        onCookiesCaptured = { cookie ->
+                            viewModel.onSignedIn(cookie)
+                            showLogin = false
+                            selectedTab = 2
                         },
                     )
                 }
@@ -2427,22 +2374,6 @@ private fun BitChordApp(
             LyricsSourcesDialog(
                 hazeState = hazeState,
                 onDismiss = { showLyricsSources = false },
-            )
-        }
-
-        if (showChannelPicker) {
-            BackHandler { showChannelPicker = false }
-            AccountChannelDialog(
-                channels = channels,
-                loading = channelsLoading,
-                selectedKey = selectedChannelKey,
-                hazeState = hazeState,
-                onSelect = { viewModel.selectChannel(it) },
-                onChooseInYouTube = {
-                    showChannelPicker = false
-                    webSession = WebSessionMode.SWITCH_CHANNEL
-                },
-                onDismiss = { showChannelPicker = false },
             )
         }
 

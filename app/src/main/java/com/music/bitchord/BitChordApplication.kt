@@ -42,10 +42,6 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // the listener, from one that was never registered at all. Fire and
         // forget — every caller works without it, just less precisely.
         if (authStore.cookie != null) {
-            // After the cookie, never before: setting the cookie clears any
-            // channel the last session was acting as, so restoring the choice
-            // first would restore it into the value about to be wiped.
-            Innertube.selectChannel(authStore.channelPageId, authStore.channelDataSyncId)
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this)

@@ -1,7 +1,6 @@
 package com.music.bitchord.data.innertube
 
 import com.music.bitchord.data.model.Account
-import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.ArtistPage
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
@@ -690,49 +689,6 @@ object InnertubeParser {
         )
     }
 
-    /**
-     * The channels a switcher response offers, in the order YouTube lists them.
-     *
-     * Read by scanning for `accountItem` rather than by walking a fixed path:
-     * the two endpoints that produce this list ([Innertube.accountsList] and
-     * [Innertube.accountSwitcher]) wrap the same item renderer in different
-     * envelopes, and the wrapper is not the part worth agreeing on.
-     *
-     * The two tokens are likewise found by name anywhere inside the item. They
-     * arrive as a list of single-key objects under `supportedTokens`, in no
-     * promised order and alongside tokens meant for other purposes, so a
-     * positional read of that list would be a guess about a structure Google
-     * never said was ordered.
-     *
-     * An entry with neither token is dropped. There would be nothing to send
-     * for it, and offering a channel that silently keeps the current one is
-     * worse than not listing it.
-     */
-    fun parseAccountChannels(root: JsonElement): List<AccountChannel> =
-        collectRenderers(root, "accountItem").mapNotNull { item ->
-            val name = item.o("accountName").runs()
-                .ifBlank { item.o("accountName").s("simpleText").orEmpty() }
-            if (name.isBlank()) return@mapNotNull null
-            val pageId = item.findString("pageId")
-            // `<accountSyncId>||<sessionSyncId>`; only the first half names the
-            // account, exactly as in the shell's own DATASYNC_ID.
-            val dataSyncId = item.findString("datasyncIdToken")
-                ?.substringBefore("||")
-                ?.takeIf { it.isNotBlank() }
-            if (pageId == null && dataSyncId == null) return@mapNotNull null
-            AccountChannel(
-                name = name,
-                subtitle = item.o("channelHandle").runs()
-                    .ifBlank { item.o("channelHandle").s("simpleText").orEmpty() }
-                    .ifBlank { item.o("accountByline").runs() }
-                    .ifBlank { item.o("accountByline").s("simpleText").orEmpty() },
-                thumbnailUrl = item.o("accountPhoto").a("thumbnails").best(),
-                pageId = pageId,
-                dataSyncId = dataSyncId,
-                activeOnWeb = (item["isSelected"] as? JsonPrimitive)?.content == "true",
-            )
-        }.distinctBy { it.key }
-
     /** Tracks of a watch queue (`next` response) — the AutoPlay radio mix. */
     fun parseWatchQueue(root: JsonElement): List<Song> {
         val out = LinkedHashMap<String, Song>()
@@ -1079,19 +1035,6 @@ private fun JsonElement?.a(key: String): JsonArray? =
 
 private fun JsonElement?.s(key: String): String? =
     ((this as? JsonObject)?.get(key) as? JsonPrimitive)?.contentOrNull
-
-/**
- * The first string under [key] anywhere in the subtree, by name rather than by
- * path — for a value whose position is not promised. See [InnertubeParser.parseAccountChannels].
- */
-private fun JsonElement?.findString(key: String): String? = when (this) {
-    is JsonObject -> {
-        (this[key] as? JsonPrimitive)?.contentOrNull
-            ?: values.firstNotNullOfOrNull { it.findString(key) }
-    }
-    is JsonArray -> firstNotNullOfOrNull { it.findString(key) }
-    else -> null
-}
 
 private fun JsonElement?.runs(): String =
     this.a("runs")?.joinToString("") { it.s("text").orEmpty() }.orEmpty()

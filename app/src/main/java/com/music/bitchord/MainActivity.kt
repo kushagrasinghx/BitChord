@@ -63,6 +63,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -110,6 +111,7 @@ import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
+import com.music.bitchord.ui.components.LocalLiquidGlassState
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
@@ -180,6 +182,8 @@ import com.music.bitchord.ui.theme.SystemBarIcons
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import io.github.fletchmckee.liquid.liquefiable
+import io.github.fletchmckee.liquid.rememberLiquidState
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -195,6 +199,8 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val highPerformance by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
+            val liquidGlassBeta by AppSettings.liquidGlassBeta.collectAsStateWithLifecycle()
+            val liquidState = rememberLiquidState()
             val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
             val composeView = LocalView.current
             LaunchedEffect(highPerformance, performanceRefreshRate, composeView) {
@@ -206,6 +212,11 @@ class MainActivity : AppCompatActivity() {
                 ThemeMode.DARK -> true
             }
             BitChordTheme(darkTheme = darkTheme) {
+                CompositionLocalProvider(
+                    LocalLiquidGlassState provides liquidState.takeIf {
+                        liquidGlassBeta && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                    },
+                ) {
                 // The window's width, measured rather than asked for.
                 //
                 // `Configuration.screenWidthDp` is the wrong question here: in a
@@ -219,6 +230,7 @@ class MainActivity : AppCompatActivity() {
                 // the split is about to be laid out in.
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     BitChordApp(darkTheme = darkTheme, windowWidth = maxWidth)
+                }
                 }
             }
         }
@@ -1422,7 +1434,9 @@ private fun BitChordApp(
                             fadeIn(tween(180)) togetherWith fadeOut(tween(180))
                         }
                     },
-                    modifier = Modifier.hazeSource(hazeState),
+                    modifier = Modifier
+                        .hazeSource(hazeState)
+                        .then(LocalLiquidGlassState.current?.let { Modifier.liquefiable(it) } ?: Modifier),
                     label = "content",
                 ) { key ->
                     // Every branch below reads `key` rather than the state that

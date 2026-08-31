@@ -208,6 +208,9 @@
     <string name="reduce_animation_subtitle">Detiene el degradado del reproductor principal</string>
     <string name="reduce_dynamic_blur">Reducir desenfoque dinámico</string>
     <string name="reduce_dynamic_blur_subtitle">Cambia el cristal esmerilado por fondos sólidos</string>
+    <string name="liquid_glass_beta">Liquid Glass [BETA]</string>
+    <string name="liquid_glass_beta_subtitle">Solo Android 13+. Reemplaza el desenfoque normal en superficies compatibles; puede usar más GPU y calentar el dispositivo.</string>
+    <string name="liquid_glass_beta_unavailable">Requiere Android 13 o posterior</string>
     <string name="full_screen_cover_art">Portada a pantalla completa</string>
     <string name="animated_cover_art">Portada animada</string>
     <string name="synced_lyrics">Letras sincronizadas</string>

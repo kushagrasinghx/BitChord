@@ -226,6 +226,9 @@ object AppSettings {
     /** Drops haze blur (status bar, mini player, bottom fade, lyrics focus) for a solid-fill look. */
     val reduceDynamicBlur = MutableStateFlow(false)
 
+    /** Optional Android 13+ replacement for regular frosted surfaces. */
+    val liquidGlassBeta = MutableStateFlow(false)
+
     /** Blurs unfocused lyric lines, keeping the active line sharp. */
     val lyricsBlur = MutableStateFlow(true)
 
@@ -516,6 +519,7 @@ object AppSettings {
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         convertVideoToAudio.value = prefs.getBoolean(KEY_CONVERT_VIDEO_TO_AUDIO, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
+        liquidGlassBeta.value = prefs.getBoolean(KEY_LIQUID_GLASS_BETA, false)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
@@ -774,6 +778,11 @@ object AppSettings {
         val editor = prefs.edit().putBoolean(KEY_REDUCE_BLUR, value)
         if (value) editor.putBoolean(KEY_HIGH_PERFORMANCE_MODE, false)
         editor.apply()
+    }
+
+    fun setLiquidGlassBeta(value: Boolean) {
+        liquidGlassBeta.value = value
+        prefs.edit().putBoolean(KEY_LIQUID_GLASS_BETA, value).apply()
     }
 
     fun setHighPerformanceMode(value: Boolean) {
@@ -1224,6 +1233,7 @@ object AppSettings {
     private const val KEY_DONT_REPEAT_SUGGESTIONS = "dont_repeat_suggestions"
     private const val KEY_CONVERT_VIDEO_TO_AUDIO = "convert_video_to_audio"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
+    private const val KEY_LIQUID_GLASS_BETA = "liquid_glass_beta"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"

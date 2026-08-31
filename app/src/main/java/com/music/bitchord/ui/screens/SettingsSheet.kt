@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.audiofx.AudioEffect
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
@@ -175,6 +176,8 @@ fun SettingsScreen(
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val liquidGlassBeta by AppSettings.liquidGlassBeta.collectAsStateWithLifecycle()
+    val liquidGlassSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
@@ -569,6 +572,31 @@ fun SettingsScreen(
                     )
                 },
                 onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.AutoAwesome,
+                title = stringResource(R.string.liquid_glass_beta),
+                subtitle = stringResource(
+                    if (liquidGlassSupported) {
+                        R.string.liquid_glass_beta_subtitle
+                    } else {
+                        R.string.liquid_glass_beta_unavailable
+                    },
+                ),
+                enabled = liquidGlassSupported,
+                trailing = {
+                    Switch(
+                        checked = liquidGlassBeta,
+                        onCheckedChange = AppSettings::setLiquidGlassBeta,
+                        enabled = liquidGlassSupported,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setLiquidGlassBeta(!liquidGlassBeta) },
             )
             RowDivider()
             // Left out where the player won't honour it: a window too wide for

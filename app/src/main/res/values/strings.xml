@@ -212,6 +212,9 @@
     <string name="reduce_animation_subtitle">Freezes the main player\'s gradient instead of drifting</string>
     <string name="reduce_dynamic_blur">Reduce dynamic blur</string>
     <string name="reduce_dynamic_blur_subtitle">Swaps frosted glass for solid fills across the app</string>
+    <string name="liquid_glass_beta">Liquid Glass [BETA]</string>
+    <string name="liquid_glass_beta_subtitle">Android 13+ only. Replaces regular blur on supported surfaces; may use more GPU and warm your device.</string>
+    <string name="liquid_glass_beta_unavailable">Requires Android 13 or newer</string>
     <string name="full_screen_cover_art">Full-screen cover art</string>
     <string name="animated_cover_art">Animated cover art</string>
     <string name="synced_lyrics">Synced lyrics</string>

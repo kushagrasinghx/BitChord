@@ -20,6 +20,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import io.github.fletchmckee.liquid.liquid
 
 /**
  * The run the fade needs below the bar to get from full blur to none without
@@ -99,6 +100,7 @@ fun TopFadeBlur(
     scrimColor: Color,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val liquidState = LocalLiquidGlassState.current
     // The bar fills itself solid instead when blur is reduced, so this has
     // nothing left to do.
     if (reduceDynamicBlur) return
@@ -108,8 +110,19 @@ fun TopFadeBlur(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
-            .hazeEffect(
-                state = hazeState,
+            .then(
+                if (liquidState != null) {
+                    Modifier.liquid(liquidState) {
+                        frost = 10.dp
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
+                        refraction = 0.08f
+                        curve = 0.1f
+                        edge = 0f
+                        tint = pageColor.copy(alpha = 0.12f)
+                        saturation = 1.05f
+                    }
+                } else Modifier.hazeEffect(
+                    state = hazeState,
                 // Keyed to the colour of the page underneath, not the theme's.
                 //
                 // Both halves of this material are flat colour: the style's
@@ -125,7 +138,7 @@ fun TopFadeBlur(
                 // background, that is a black bar spreading unevenly down into
                 // the artwork: the exact artefact this was added to remove.
                 style = HazeMaterials.ultraThin(pageColor),
-            ) {
+                ) {
                 // This is intentionally the progressive Haze effect used by the
                 // original top treatment. The mask-based optimization changes
                 // the visual result on device and loses the soft blur shown in
@@ -139,7 +152,8 @@ fun TopFadeBlur(
                 // Uniform across the layer, so it would show as texture over
                 // the untouched foot of the ramp — the edge being hidden.
                 noiseFactor = 0f
-            },
+                }
+            ),
     )
 
     val scrim = remember(scrimColor) {

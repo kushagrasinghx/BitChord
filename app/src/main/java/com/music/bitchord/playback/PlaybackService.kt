@@ -97,6 +97,9 @@ const val ACTION_TOGGLE_AUTOPLAY = "com.music.bitchord.action.TOGGLE_AUTOPLAY"
 /** Session command used by the media notification's Shuffle button. */
 const val ACTION_TOGGLE_SHUFFLE = "com.music.bitchord.action.TOGGLE_SHUFFLE"
 
+/** Session command used by the Mix Now button on the Now Playing screen. */
+const val ACTION_TRIGGER_SMART_MIX_NOW = "com.music.bitchord.action.TRIGGER_SMART_MIX_NOW"
+
 /**
  * Background playback via Media3. A [MediaSessionService] gives us the media
  * notification, lockscreen/Bluetooth controls, and Android Auto surface for
@@ -197,6 +200,7 @@ class PlaybackService : MediaSessionService() {
     private val favoriteCommand = SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY)
     private val autoplayCommand = SessionCommand(ACTION_TOGGLE_AUTOPLAY, Bundle.EMPTY)
     private val shuffleCommand = SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY)
+    private val smartMixNowCommand = SessionCommand(ACTION_TRIGGER_SMART_MIX_NOW, Bundle.EMPTY)
 
     private var favoriteActionJob: Job? = null
     private var autoplayLoadJob: Job? = null
@@ -253,6 +257,7 @@ class PlaybackService : MediaSessionService() {
                 .add(favoriteCommand)
                 .add(autoplayCommand)
                 .add(shuffleCommand)
+                .add(smartMixNowCommand)
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(commands)
@@ -270,6 +275,9 @@ class PlaybackService : MediaSessionService() {
                 ACTION_TOGGLE_SHUFFLE -> toggleShuffleFromNotification()
                 ACTION_TOGGLE_FAVORITE -> session.player.currentMediaItem?.mediaId?.let {
                     toggleFavoriteFromNotification(it)
+                }
+                ACTION_TRIGGER_SMART_MIX_NOW -> {
+                    crossfade?.triggerMixNow()
                 }
                 else -> return Futures.immediateFuture(
                     SessionResult(SessionError.ERROR_NOT_SUPPORTED),

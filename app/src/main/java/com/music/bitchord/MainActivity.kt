@@ -123,6 +123,7 @@ import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.playback.toggleAutoplay
+import com.music.bitchord.playback.triggerSmartMixNow
 import com.music.bitchord.playback.smart.QueueOrigin
 import com.music.bitchord.download.DownloadSession
 import com.music.bitchord.download.DownloadStore
@@ -1123,9 +1124,6 @@ private fun BitChordApp(
             onPrevious = { controller?.seekToPrevious() },
             onSeekFraction = { fraction ->
                 controller?.let { player ->
-                    // Read at the moment of the seek, not from the
-                    // polled snapshot the screen draws with: a track
-                    // change updates the current item before it updates
                     // the duration, so a fraction dropped seconds after
                     // a transition would otherwise be scaled by the
                     // previous song's length.

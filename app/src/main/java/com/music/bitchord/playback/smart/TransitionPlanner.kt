@@ -171,6 +171,11 @@ data class TransitionPlan(
     val outgoingGainDb: Double = 0.0,
     val incomingGainDb: Double = 0.0,
     val overlapHeadroomDb: Double = 0.0,
+    val pitchShiftFactor: Double = 1.0,
+    val keyShiftSemitones: Int = 0,
+    val outgoingKey: String = "",
+    val incomingKey: String = "",
+    val harmonicLabel: String = "",
 ) {
     /** Convenience for the engine, which schedules in milliseconds. */
     val fadeMs: Long get() = (fadeSeconds * 1000).roundToLong()
@@ -322,8 +327,13 @@ internal fun incomingCuePoint(analysis: TrackAnalysis): Double {
 
 /** Where the incoming track first makes sound, so the fade is not cued into its lead-in silence. */
 private fun incomingStartPoint(analysis: TrackAnalysis): Double =
-    listOfNotNull(analysis.audibleStartTime, analysis.pickupTime, analysis.firstBeat)
-        .firstOrNull { it.isFinite() && it >= 0 } ?: 0.0
+    listOfNotNull(
+        analysis.audibleStartTime,
+        analysis.pickupTime,
+        analysis.firstBeat.takeIf { it.isFinite() && it > 0 },
+    )
+        .filter { it.isFinite() && it >= 0 }
+        .minOrNull() ?: 0.0
 
 // ---------------------------------------------------------------------------
 // WSOLA-style beat-matched phrase-switch plan (ported from WsolaPlanner.kt)
@@ -675,7 +685,7 @@ fun planWsolaTransition(
 
     val coverableBeats = floor(max(0.0, incomingDropTime - audibleStart) / incomingBeatSeconds).toInt()
     val overlapBeats = min(fadeBeats, coverableBeats)
-    if (overlapBeats < 1) return WsolaPlanResult.Refused("incoming-no-intro")
+    if (overlapBeats < MIN_FADE_BEATS) return WsolaPlanResult.Refused("incoming-no-intro")
 
     val nominalOutgoingOverlap = overlapBeats * outgoingBeatSeconds
     val startTarget = overlapEndTarget - nominalOutgoingOverlap
@@ -969,10 +979,29 @@ fun planTransition(
         }
 
     val effectivePreservation = effectivePreservation(preservation, analysis.structuralConfidence)
-    val policy = assessTransitionTier(
+val policy = assessTransitionTier(
         analysis,
         nextAnalysis,
         maximumStretch(effectivePreservation),
+    )
+    val (keyShiftSemitones, pitchShiftFactor) = if (analysis.keyConfidence >= 0.35 && nextAnalysis.keyConfidence >= 0.35) {
+        CamelotHarmonics.calculateKeyShift(analysis.key, nextAnalysis.key)
+    } else 0 to 1.0
+
+    val harmonicLabel = if (analysis.key.isNotBlank() && nextAnalysis.key.isNotBlank()) {
+        CamelotHarmonics.describeHarmonicMatch(analysis.key, nextAnalysis.key)
+    } else ""
+
+    // Loudness and peak safety are a final stage shared by every route. The
+    // former phrase-switch returned early with all three gains at zero, so the
+    // supposedly best transition was also the one most likely to jump level.
+    val outgoingGain = loudnessGainDb(analysis.integratedLoudnessLufs, sessionTargetLufs)
+    val incomingGain = loudnessGainDb(nextAnalysis.integratedLoudnessLufs, sessionTargetLufs)
+    val headroom = overlapHeadroomDb(
+        analysis.truePeakDbtp,
+        nextAnalysis.truePeakDbtp,
+        outgoingGain,
+        incomingGain,
     )
     if (policy.tier == TransitionTier.PLAIN_CROSSFADE) {
         val transitionStart = max(0.0, mixAnchor - standardFade)
@@ -985,6 +1014,14 @@ fun planTransition(
             fadeSeconds = mixAnchor - transitionStart,
             transitionStyle = TransitionStyle.EQUAL_POWER,
             incomingCueTime = incomingStartPoint(nextAnalysis),
+            outgoingGainDb = outgoingGain,
+            incomingGainDb = incomingGain,
+            overlapHeadroomDb = headroom,
+            pitchShiftFactor = pitchShiftFactor,
+            keyShiftSemitones = keyShiftSemitones,
+            outgoingKey = analysis.key,
+            incomingKey = nextAnalysis.key,
+            harmonicLabel = harmonicLabel,
             policyReasons = policy.reasons,
             reason = if (started) "smart-plain-crossfade" else "before-plain-crossfade-window",
         )
@@ -1004,6 +1041,14 @@ fun planTransition(
                         1 + maximumStretch(effectivePreservation),
                     )
                 } else 1.0,
+                outgoingGainDb = outgoingGain,
+                incomingGainDb = incomingGain,
+                overlapHeadroomDb = headroom,
+                pitchShiftFactor = pitchShiftFactor,
+                keyShiftSemitones = keyShiftSemitones,
+                outgoingKey = analysis.key,
+                incomingKey = nextAnalysis.key,
+                harmonicLabel = harmonicLabel,
                 policyReasons = policy.reasons,
                 reason = if (started) "smart-phrase-switch" else "before-phrase-switch",
             )
@@ -1021,7 +1066,8 @@ fun planTransition(
     val sameBeatBlend = policy.tier == TransitionTier.BEATMATCHED && currentBpm > 0 && nextBpm > 0 &&
         abs(1 - normalizedTempoRatio(currentBpm, nextBpm)) <= 0.05 &&
         analysis.beatConfidence.orZero() >= MIN_BEATMATCH_CONFIDENCE &&
-        nextAnalysis.beatConfidence.orZero() >= MIN_BEATMATCH_CONFIDENCE
+        nextAnalysis.beatConfidence.orZero() >= MIN_BEATMATCH_CONFIDENCE &&
+        harmonicallyCompatible(trustedKey(analysis), trustedKey(nextAnalysis))
     // Keep the selected/preserved musical exit fixed. Moving it earlier after
     // policy evaluation both violated preservation and severed the final phrase.
     val mixEnd = max(0.0, mixAnchor)
@@ -1051,9 +1097,8 @@ fun planTransition(
     // skipped the beginning of the next musical sentence.
     val incomingHandoffTime = incomingDropTime
     val rawIncomingCueTime = incomingStartPoint(nextAnalysis)
-    val analyzedIncomingHandoff = nextAnalysis.mixInTime
-    val hasIncomingPreroll = analyzedIncomingHandoff.isFinite() &&
-        analyzedIncomingHandoff > rawIncomingCueTime + 0.5
+    val hasIncomingPreroll = incomingHandoffTime.isFinite() &&
+        incomingHandoffTime > rawIncomingCueTime + 0.5
     val incomingCueTime = if (hasIncomingPreroll) rawIncomingCueTime else incomingHandoffTime
     val introPreroll = max(
         0.0,
@@ -1077,6 +1122,10 @@ fun planTransition(
                 standardFade,
                 minFadeSeconds,
                 "smart-insufficient-intro",
+            ).copy(
+                outgoingGainDb = outgoingGain,
+                incomingGainDb = incomingGain,
+                overlapHeadroomDb = headroom,
             )
         }
         val targetStart = max(0.0, mixEnd - totalOverlap)
@@ -1112,14 +1161,6 @@ fun planTransition(
     val alignedOverlap = mixEnd - transitionStart
     val hasBassContent = analysis.lowEnergyCurve.isNotEmpty() || nextAnalysis.lowEnergyCurve.isNotEmpty()
     val started = playbackTime >= transitionStart
-    val outgoingGain = loudnessGainDb(analysis.integratedLoudnessLufs, sessionTargetLufs)
-    val incomingGain = loudnessGainDb(nextAnalysis.integratedLoudnessLufs, sessionTargetLufs)
-    val headroom = overlapHeadroomDb(
-        analysis.truePeakDbtp,
-        nextAnalysis.truePeakDbtp,
-        outgoingGain,
-        incomingGain,
-    )
     val clearPhraseBoundary = analysis.structuralConfidence >= 0.72 &&
         nextAnalysis.structuralConfidence >= 0.72 &&
         analysis.phraseBoundaries.any { abs(it - mixEnd) <= beatSeconds * 0.55 }
@@ -1145,6 +1186,7 @@ fun planTransition(
         transitionBeats = transitionBeats,
         bassSwap = sameBeatBlend || hasBassContent,
         transitionStyle = selectedStyle,
+        handoffFraction = if (selectedStyle == TransitionStyle.PHRASE_CUT) 0.9 else HANDOFF_FRACTION,
         // The two styles are alternatives, not a scale: a matched pair hands the
         // low end over on a beat and otherwise stays open, while an unmatched
         // pair has no shared grid to hand anything over on and instead pulls the
@@ -1160,10 +1202,19 @@ fun planTransition(
             incomingPlaybackRate = incomingPlaybackRate,
         ),
         policyReasons = policy.reasons,
-        prerollSeconds = min(beatSeconds * 8, max(0.0, incomingHandoffTime - finalIncomingCueTime)),
+        prerollSeconds = min(
+            beatSeconds * 8,
+            max(0.0, incomingHandoffTime - finalIncomingCueTime) /
+                incomingPlaybackRate.coerceAtLeast(0.8),
+        ),
         outgoingGainDb = outgoingGain,
         incomingGainDb = incomingGain,
         overlapHeadroomDb = headroom,
+        pitchShiftFactor = pitchShiftFactor,
+        keyShiftSemitones = keyShiftSemitones,
+        outgoingKey = analysis.key,
+        incomingKey = nextAnalysis.key,
+        harmonicLabel = harmonicLabel,
         outgoingBpm = currentBpm,
         incomingBpm = alignedIncomingBpm,
         reason = if (started) "smart-duration" else "before-smart-duration",

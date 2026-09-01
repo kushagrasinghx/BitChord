@@ -83,9 +83,13 @@ fun preserveMixOut(
 
     // Creative policies still cut on a phrase or downbeat, never mid-beat.
     if (policy != AutomixPreservation.FULL_TRACK) {
-        val boundaries = (analysis.phraseBoundaries + analysis.downbeats)
+        val phrase = analysis.phraseBoundaries
             .filter { it >= safe && it <= end }
-        safe = boundaries.minOrNull() ?: safe
+            .minOrNull()
+        val downbeat = analysis.downbeats
+            .filter { it >= safe && it <= end }
+            .minOrNull()
+        safe = phrase ?: downbeat ?: safe
     }
     return safe
 }
@@ -138,7 +142,16 @@ private fun rhythmicScore(left: TrackAnalysis, right: TrackAnalysis): Double {
 }
 
 private fun trackEnergy(analysis: TrackAnalysis): Double {
-    val section = analysis.sections.maxByOrNull { it.end }?.energy
+    // Candidate energy is the section that will actually take over, not the
+    // last section of the file (normally a quiet outro).
+    val entry = analysis.mixInCandidates
+        .maxByOrNull { it.score }
+        ?.time
+        ?: analysis.mixInTime.takeIf { it > 0 }
+        ?: analysis.audibleStartTime
+        ?: 0.0
+    val section = analysis.sections.firstOrNull { entry in it.start..it.end }?.energy
+        ?: analysis.sections.firstOrNull { it.start >= entry }?.energy
     if (section != null) return section.coerceIn(0.0, 1.0)
     val values = analysis.energyCurve.map { it.energy }.filter { it.isFinite() }.sorted()
     if (values.isEmpty()) return 0.5

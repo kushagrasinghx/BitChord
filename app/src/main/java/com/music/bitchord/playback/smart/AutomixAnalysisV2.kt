@@ -125,12 +125,30 @@ fun inferMusicalSections(
     phraseBoundaries: List<Double>,
     energyCurve: List<EnergySample>,
     vocalMask: List<Double>,
+    audibleStart: Double = 0.0,
+    contentEnd: Double = duration,
+    downbeats: List<Double> = emptyList(),
 ): Pair<List<MusicalSection>, Double> {
     if (duration <= 0 || energyCurve.size < 4) return emptyList<MusicalSection>() to 0.0
-    val boundaries = (listOf(0.0) + phraseBoundaries + duration)
-        .filter { it.isFinite() && it in 0.0..duration }
+    val contentStart = audibleStart.takeIf { it.isFinite() && it >= 0 }?.coerceAtMost(duration) ?: 0.0
+    val contentFinish = contentEnd.takeIf { it.isFinite() && it > contentStart }
+        ?.coerceAtMost(duration) ?: duration
+    val suppliedBoundaries = phraseBoundaries
+        .filter { it.isFinite() && it in contentStart..contentFinish }
         .distinct().sorted()
-        .let { if (it.size >= 3) it else listOf(0.0, duration * .25, duration * .5, duration * .75, duration) }
+    val usedFallback = suppliedBoundaries.size < 2
+    val boundaries = (listOf(contentStart) + suppliedBoundaries + contentFinish)
+        .filter { it.isFinite() && it in contentStart..contentFinish }
+        .distinct().sorted()
+        .let {
+            if (it.size >= 3) it else listOf(
+                contentStart,
+                contentStart + (contentFinish - contentStart) * .25,
+                contentStart + (contentFinish - contentStart) * .5,
+                contentStart + (contentFinish - contentStart) * .75,
+                contentFinish,
+            )
+        }
     val energies = energyCurve.map { it.energy }.filter { it.isFinite() }.sorted()
     val floor = energies[(energies.lastIndex * .1).toInt()]
     val ceiling = energies[(energies.lastIndex * .9).toInt()].coerceAtLeast(floor + 1e-9)
@@ -143,7 +161,8 @@ fun inferMusicalSections(
         val vocal = if (vocalMask.size == energyCurve.size && points.isNotEmpty()) {
             points.map { vocalMask[it.index] }.average()
         } else 0.5
-        val position = (start + end) / 2 / duration
+        val position = ((start + end) / 2 - contentStart) /
+            (contentFinish - contentStart).coerceAtLeast(1e-9)
         val level = norm(energy)
         val previous = rawEnergy(boundaries.getOrNull(index - 1), start, energyCurve)?.let(::norm) ?: level
         val next = rawEnergy(end, boundaries.getOrNull(index + 2), energyCurve)?.let(::norm) ?: level
@@ -177,8 +196,22 @@ fun inferMusicalSections(
         } else merged += section
     }
     val known = merged.count { it.type != MusicalSectionType.UNKNOWN }.toDouble() / merged.size
-    val boundaryEvidence = (phraseBoundaries.size / 6.0).coerceIn(0.0, 1.0)
-    return merged to (known * .7 + boundaryEvidence * .3).coerceIn(0.0, 1.0)
+    val alignment = if (suppliedBoundaries.isNotEmpty() && downbeats.isNotEmpty()) {
+        suppliedBoundaries.count { boundary ->
+            downbeats.any { beat -> abs(beat - boundary) <= 0.12 }
+        }.toDouble() / suppliedBoundaries.size
+    } else 0.0
+    val spans = boundaries.zipWithNext { left, right -> right - left }.filter { it > 0.5 }
+    val medianSpan = spans.sorted().getOrNull(spans.size / 2) ?: 0.0
+    val regularity = if (medianSpan > 0 && spans.isNotEmpty()) {
+        spans.count { abs(it - medianSpan) <= medianSpan * .28 }.toDouble() / spans.size
+    } else 0.0
+    val confidence = if (usedFallback) {
+        known * 0.2
+    } else {
+        known * .45 + alignment * .35 + regularity * .20
+    }
+    return merged to confidence.coerceIn(0.0, 0.95)
 }
 
 private fun rawEnergy(start: Double?, end: Double?, curve: List<EnergySample>): Double? {

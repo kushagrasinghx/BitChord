@@ -82,6 +82,9 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -93,6 +96,7 @@ import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -1946,7 +1950,6 @@ fun NowPlayingScreen(
                 // databases behind the panel, whose timings you are looking at
                 // is worth the room the credit takes next to it.
                 Row(
-                    // Measured at the pill's own height so the button can be
                     // sized off it rather than off a number that happens to
                     // match today: the pill is as tall as the label's line
                     // height plus its padding, which moves with the font scale,

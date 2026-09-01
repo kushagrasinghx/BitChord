@@ -899,26 +899,60 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val headGrid = head?.grid
         val tailGrid = tail?.grid
 
-        // The tail governs where the outgoing track is mixed out, so it takes precedence; the
-        // head is what a track uses when it is the *incoming* side of a different transition.
-        val leading = tailGrid ?: headGrid
+        // Entry decisions must use the head grid; the previous tail-first BPM
+        // was then combined with head downbeats, producing a grid that described
+        // no real region of the recording. Tail downbeats remain available for
+        // the outgoing anchor. If the two local tempi disagree materially, keep
+        // the events but lower confidence so beatmatch degrades safely.
+        val leading = headGrid ?: tailGrid
+        val localGridAgreement = if (headGrid != null && tailGrid != null &&
+            headGrid.bpm > 0 && tailGrid.bpm > 0
+        ) {
+            var ratio = tailGrid.bpm / headGrid.bpm
+            while (ratio > 1.5) ratio /= 2.0
+            while (ratio < 0.67) ratio *= 2.0
+            abs(ratio - 1.0) <= 0.015
+        } else true
+        val safeBeatConfidence = if (localGridAgreement) {
+            leading?.beatConfidence ?: features.beatConfidence
+        } else {
+            minOf(
+                leading?.beatConfidence ?: features.beatConfidence,
+                tailGrid?.beatConfidence ?: features.beatConfidence,
+                0.54,
+            )
+        }
+        val localDownbeats = (headGrid?.downbeats.orEmpty() + tailGrid?.downbeats.orEmpty())
+            .ifEmpty { features.downbeats }
+            .sorted()
+            .fold(mutableListOf<Double>()) { merged, beat ->
+                if (merged.lastOrNull()?.let { abs(it - beat) < 0.05 } != true) merged += beat
+                merged
+            }
 
         Log.d(
             TAG,
             "Analysed $trackId: bpm=${leading?.bpm ?: features.bpm} " +
-                "conf=${leading?.beatConfidence ?: features.beatConfidence} " +
+                "conf=$safeBeatConfidence " +
                 "key=${features.key} contentEnd=${features.contentEndTime} " +
                 "mixOutCandidates=${features.mixOutCandidates.size} " +
                 "vocalMask=${if (head?.vocalMask != null || tail?.vocalMask != null) "model" else "dsp"}",
         )
 
-        val vocalMask = mergeMasks(features.energyCurve.size, head?.vocalMask, tail?.vocalMask)
-            ?: features.vocalActivityMask
+        val vocalMask = mergeMasks(
+            features.energyCurve.size,
+            features.vocalActivityMask,
+            head?.vocalMask,
+            tail?.vocalMask,
+        ) ?: features.vocalActivityMask
         val (sections, structuralConfidence) = inferMusicalSections(
             duration = effectiveDuration,
             phraseBoundaries = features.phraseBoundaries,
             energyCurve = features.energyCurve,
             vocalMask = vocalMask,
+            audibleStart = features.audibleStartTime,
+            contentEnd = features.contentEndTime.takeIf { it > 0 } ?: effectiveDuration,
+            downbeats = localDownbeats,
         )
         return WholeTrack(
                 TrackAnalysis(
@@ -928,10 +962,8 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                     contentEndTime = features.contentEndTime.takeIf { it > 0 } ?: effectiveDuration,
                     bpm = leading?.bpm ?: features.bpm,
                 beatInterval = leading?.beatInterval ?: features.beatInterval,
-                beatConfidence = leading?.beatConfidence ?: features.beatConfidence,
-                downbeats = (headGrid?.downbeats.orEmpty() + tailGrid?.downbeats.orEmpty())
-                    .ifEmpty { features.downbeats }
-                    .sorted(),
+                beatConfidence = safeBeatConfidence,
+                downbeats = localDownbeats,
                 firstBeat = headGrid?.firstBeat ?: features.firstBeat,
                 phraseBoundaries = features.phraseBoundaries,
                 key = features.key,
@@ -1097,14 +1129,24 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val maxSeconds = (VocalTracker.FIXED_FRAMES - 2) * VocalSpectrogram.hop / VocalSpectrogram.sampleRate
         val maxSamples = (maxSeconds * stereo.sampleRate).toInt().coerceAtMost(stereo.left.size)
         if (maxSamples <= 0) return null
-        val left = if (maxSamples < stereo.left.size) stereo.left.copyOf(maxSamples) else stereo.left
-        val right = if (maxSamples < stereo.right.size) stereo.right.copyOf(maxSamples) else stereo.right
+        // A tail region is wider than the vocal model. Taking its first samples
+        // left the actual mix-out (the final ~7.5 s) unmeasured. Head windows
+        // keep their beginning; tail windows keep their end.
+        val useTail = actualStart > maxOf(1.0, features.duration * 0.35)
+        val sampleOffset = if (useTail) stereo.left.size - maxSamples else 0
+        val left = if (maxSamples < stereo.left.size) {
+            stereo.left.copyOfRange(sampleOffset, sampleOffset + maxSamples)
+        } else stereo.left
+        val right = if (maxSamples < stereo.right.size) {
+            stereo.right.copyOfRange(sampleOffset, sampleOffset + maxSamples)
+        } else stereo.right
+        val modelStart = actualStart + sampleOffset.toDouble() / stereo.sampleRate
 
         val values = vocals.track(left, right, stereo.sampleRate) ?: return null
 
         val mask = DoubleArray(curve.size) { NEUTRAL_VOCAL }
         for (index in curve.indices) {
-            val frame = ((curve[index].time - actualStart) * VocalSpectrogram.frameRate).toInt()
+            val frame = ((curve[index].time - modelStart) * VocalSpectrogram.frameRate).toInt()
             if (frame in values.indices) mask[index] = values[frame].toDouble()
         }
         return mask
@@ -1115,9 +1157,16 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      * which the caller answers by keeping the DSP heuristic rather than reporting a mask of
      * nothing but [NEUTRAL_VOCAL].
      */
-    private fun mergeMasks(size: Int, head: DoubleArray?, tail: DoubleArray?): List<Double>? {
+    private fun mergeMasks(
+        size: Int,
+        fallback: List<Double>,
+        head: DoubleArray?,
+        tail: DoubleArray?,
+    ): List<Double>? {
         if (size <= 0 || (head == null && tail == null)) return null
-        val merged = DoubleArray(size) { NEUTRAL_VOCAL }
+        val merged = DoubleArray(size) { index ->
+            fallback.getOrNull(index)?.takeIf { it.isFinite() } ?: NEUTRAL_VOCAL
+        }
         for (source in listOfNotNull(head, tail)) {
             for (index in merged.indices) {
                 if (index < source.size && source[index] != NEUTRAL_VOCAL) merged[index] = source[index]

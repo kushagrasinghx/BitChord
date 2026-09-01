@@ -1,5 +1,6 @@
 package com.music.bitchord
 
+import com.music.bitchord.playback.smart.CamelotHarmonics
 import com.music.bitchord.playback.smart.CrossfadeMode
 import com.music.bitchord.playback.smart.TrackAnalysis
 import com.music.bitchord.playback.smart.TransitionStyle
@@ -108,5 +109,40 @@ class ProDjAutoMixEngineTest {
         // Equal-power sum check
         val powerSum = (rise * rise) + (fall * fall)
         assertTrue("Power sum should be close to or above 1.0 at center ($powerSum)", powerSum >= 0.95f)
+    }
+
+    @Test
+    fun `Camelot harmonics detects energy boost and relative keys`() {
+        val c1 = CamelotHarmonics.toCamelot("A minor")
+        val c2 = CamelotHarmonics.toCamelot("E minor")
+        assertEquals("8A", c1)
+        assertEquals("9A", c2)
+
+        val energyBoostLabel = CamelotHarmonics.describeHarmonicMatch("A minor", "E minor")
+        assertTrue(energyBoostLabel.contains("8A ➔ 9A"))
+        assertTrue(energyBoostLabel.contains("Quinta (+1 Energía)"))
+
+        val relativeKeyLabel = CamelotHarmonics.describeHarmonicMatch("C major", "A minor")
+        assertTrue(relativeKeyLabel.contains("8B ➔ 8A"))
+        assertTrue(relativeKeyLabel.contains("Relativa Armónica"))
+    }
+
+    @Test
+    fun `Micro pitch shift computes exact exponential factor for harmonic modulation`() {
+        val (semitones, factor) = CamelotHarmonics.calculateKeyShift("A minor", "B minor")
+        // Incoming B minor shifts -2 semitones down to match A minor
+        assertEquals(-2, semitones)
+        assertEquals(0.8908987, factor, 0.001)
+
+        val trackA = createTrackAnalysis(bpm = 124.0, key = "A minor")
+        val trackB = createTrackAnalysis(bpm = 124.0, key = "B minor")
+        val plan = planTransition(
+            analysis = trackA,
+            nextAnalysis = trackB,
+            duration = trackA.duration,
+            mode = CrossfadeMode.SMART,
+        )
+        assertEquals(-2, plan.keyShiftSemitones)
+        assertEquals(0.891, plan.pitchShiftFactor, 0.01)
     }
 }

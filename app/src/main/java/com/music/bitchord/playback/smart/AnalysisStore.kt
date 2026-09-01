@@ -193,7 +193,10 @@ class AnalysisStore(private val context: Context) {
             lowEnergyCurve = lowEnergyCurve.map { it.toSample() },
             vocalActivityMask = vocalActivityMask,
             vocalProbability = vocalProbability,
-            integratedLoudnessLufs = integratedLoudnessLufs,
+            // Schema 3 changes cue/phrase geometry. Keep the old beat/key data
+            // usable immediately, but mark the v2 metrics incomplete so a full
+            // cached/local copy refreshes the structure lazily.
+            integratedLoudnessLufs = integratedLoudnessLufs.takeIf { version >= 3 },
             shortTermLoudnessLufs = shortTermLoudnessLufs,
             truePeakDbtp = truePeakDbtp,
             sections = sections.map { it.toSection() },
@@ -292,7 +295,7 @@ class AnalysisStore(private val context: Context) {
          * re-analysis costs seconds, and a beat grid interpreted under the wrong
          * assumptions is silently wrong for the life of the file.
          */
-        const val SCHEMA_VERSION = 2
+        const val SCHEMA_VERSION = 3
 
         /** A few thousand tracks' worth, at tens of kilobytes each. */
         const val MAX_ENTRIES = 2_000

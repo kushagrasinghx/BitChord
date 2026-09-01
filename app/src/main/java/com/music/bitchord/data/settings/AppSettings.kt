@@ -151,7 +151,7 @@ object AppSettings {
      *
      * See [com.music.bitchord.playback.smart.TransitionPlanner].
      */
-    val smartFadeEnabled = MutableStateFlow(false)
+    val smartFadeEnabled = MutableStateFlow(true)
     val automixQueueMode = MutableStateFlow(AutomixQueueMode.DJ_CONTROL)
     val automixPreservation = MutableStateFlow(AutomixPreservation.BALANCED)
     val automixMeteredPreviews = MutableStateFlow(AutomixMeteredPreviews.THREE)
@@ -399,6 +399,9 @@ object AppSettings {
      */
     val smartTransitionWindow = MutableStateFlow<TransitionWindow?>(null)
 
+    /** Live harmonic transition details and Mix Now readiness for the DJ player UI. */
+    val smartTransitionInfo = MutableStateFlow<SmartTransitionInfo?>(null)
+
     /** The ceiling that applies to a stream started right now. */
     val effectiveAudioQuality: AudioQuality
         get() = if (meteredConnection.value == true) {
@@ -449,7 +452,7 @@ object AppSettings {
         downloadQuality.value = readDownloadQuality()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
-        smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
+        smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, true)
         automixQueueMode.value = readEnum(KEY_AUTOMIX_QUEUE_MODE, AutomixQueueMode.DJ_CONTROL)
         automixPreservation.value = readEnum(KEY_AUTOMIX_PRESERVATION, AutomixPreservation.BALANCED)
         automixMeteredPreviews.value = readEnum(
@@ -1147,8 +1150,7 @@ object AppSettings {
  *
  * The three no-result states are kept apart because they call for different
  * reactions: [WAITING] resolves itself once bytes arrive, [ANALYSING] resolves
- * itself in a few seconds, and [FAILED] never resolves at all. From outside
- * they look identical, which is precisely why the line has to say which.
+ * itself in a few seconds, and [FAILED] never resolves at all.
  */
 enum class TrackAnalysisState {
     /** Nothing in flight and no result — usually waiting on bytes to arrive. */
@@ -1163,11 +1165,6 @@ enum class TrackAnalysisState {
     /**
      * Measured off the track's opening, with the whole-track pass running now to
      * replace those numbers with better ones.
-     *
-     * Its own state rather than either neighbour, because it is genuinely both:
-     * reporting [ANALYSING] made a track that was already usable look like it
-     * had gone backwards, and reporting [ANALYSED] would hide that the cue and
-     * the tempo are about to move.
      */
     REFINING,
 
@@ -1196,3 +1193,18 @@ data class SmartAnalysis(
  * transition is planned to occupy.
  */
 data class TransitionWindow(val start: Float, val end: Float)
+
+/**
+ * Live harmonic analysis, Camelot keys, and Mix Now action availability
+ * for the Now Playing DJ interface.
+ */
+data class SmartTransitionInfo(
+    val outgoingKey: String = "",
+    val incomingKey: String = "",
+    val outgoingCamelot: String = "",
+    val incomingCamelot: String = "",
+    val harmonicLabel: String = "",
+    val keyShiftSemitones: Int = 0,
+    val canMixNow: Boolean = false,
+    val isMixing: Boolean = false,
+)

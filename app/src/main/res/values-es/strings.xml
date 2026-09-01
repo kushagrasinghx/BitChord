@@ -195,6 +195,14 @@
     <string name="synced_lyrics">Letras sincronizadas</string>
     <string name="synced_lyrics_subtitle">Ilumina las palabras mientras se cantan</string>
     <string name="lyrics_sources">Fuentes de letras</string>
+    <string name="lyrics_translate">Traducir letra</string>
+    <string name="lyrics_show_original">Mostrar letra original</string>
+    <string name="lyrics_translation_preparing">Detectando el idioma de la letra…</string>
+    <string name="lyrics_translation_downloading">Descargando la traducción al %1$s…</string>
+    <string name="lyrics_translation_translating">Traduciendo al %1$s…</string>
+    <string name="lyrics_translated_to">Traducida al %1$s</string>
+    <string name="lyrics_already_in_language">La letra ya está en %1$s</string>
+    <string name="lyrics_translation_unavailable">Traducción no disponible</string>
     <string name="song_cache_limit">Límite de caché de canciones</string>
     <string name="clear_song_cache">Borrar caché de canciones</string>
     <string name="clear_song_cache_subtitle">Libera espacio usado por el audio descargado</string>
@@ -220,4 +228,19 @@
     <string name="miscellaneous_footer">Al activarlo, cerrar la app desde recientes también detiene la música.</string>
     <string name="dont_repeat_songs_subtitle">La reproducción automática no sugerirá una canción ya reproducida o sugerida en esta sesión</string>
     <string name="download_quality_subtitle">%1$s por pista, sin importar la conexión</string>
+    <string name="automix_settings">Configuración de Automix</string>
+    <string name="automix_active_configuration">%1$s · %2$s · datos %3$s</string>
+    <string name="automix_queue_control">Control de la cola</string>
+    <string name="automix_preservation">Preservación de la canción</string>
+    <string name="automix_mobile_previews">Previews con datos móviles</string>
+    <string name="automix_mobile_budget">Cada preview se limita a 768 KiB y la sesión móvil a 12 MiB. En Wi-Fi se evalúan hasta seis candidatos.</string>
+    <string name="automix_dj_control">Control DJ</string>
+    <string name="automix_respect_queue">Respetar cola</string>
+    <string name="automix_full_track">Canción completa</string>
+    <string name="automix_balanced">Equilibrado</string>
+    <string name="automix_dj_freedom">Libertad DJ</string>
+    <string name="automix_cache_only">Sólo caché</string>
+    <string name="automix_three_previews">Hasta 3</string>
+    <string name="automix_wifi_equivalent">Hasta 6</string>
+    <string name="done">Listo</string>
 </resources>

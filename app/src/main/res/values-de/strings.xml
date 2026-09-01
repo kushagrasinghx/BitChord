@@ -195,6 +195,14 @@
     <string name="synced_lyrics">Synchronisierte Songtexte</string>
     <string name="synced_lyrics_subtitle">Hebt die Wörter im Player passend zum Gesang hervor</string>
     <string name="lyrics_sources">Songtext-Quellen</string>
+    <string name="lyrics_translate">Songtext übersetzen</string>
+    <string name="lyrics_show_original">Originalen Songtext anzeigen</string>
+    <string name="lyrics_translation_preparing">Songtextsprache wird erkannt…</string>
+    <string name="lyrics_translation_downloading">%1$s-Übersetzung wird heruntergeladen…</string>
+    <string name="lyrics_translation_translating">Übersetzung ins %1$s…</string>
+    <string name="lyrics_translated_to">Ins %1$s übersetzt</string>
+    <string name="lyrics_already_in_language">Der Songtext ist bereits auf %1$s</string>
+    <string name="lyrics_translation_unavailable">Übersetzung nicht verfügbar</string>
     <string name="song_cache_limit">Song-Cache-Limit</string>
     <string name="clear_song_cache">Song-Cache leeren</string>
     <string name="clear_song_cache_subtitle">Gibt den von heruntergeladenem Audio belegten Speicher frei</string>

@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.player
 
 import android.database.ContentObserver
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.media.AudioManager
 import android.os.Build
@@ -12,6 +13,7 @@ import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -24,8 +26,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -63,6 +67,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListItemInfo
 import androidx.compose.foundation.lazy.LazyListState
@@ -77,6 +82,9 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -84,9 +92,11 @@ import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -143,6 +153,7 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
@@ -162,6 +173,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.music.bitchord.ui.rememberIsForeground
+import com.music.bitchord.R
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
@@ -174,6 +186,8 @@ import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.lyrics.LyricsTranslationStage
+import com.music.bitchord.data.lyrics.LyricsTranslationState
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.model.LikeStatus
@@ -617,6 +631,8 @@ fun NowPlayingScreen(
     lyrics: List<LyricLine>?,
     lyricsSource: LyricsSource?,
     lyricsUnavailable: Boolean,
+    lyricsTranslation: LyricsTranslationState,
+    onTranslateLyrics: (String) -> Unit,
     /** The width of the window the player is in — see [fullBleedArtworkAvailable]. */
     windowWidth: Dp,
     /**
@@ -698,7 +714,24 @@ fun NowPlayingScreen(
     // The queue lives inside the player, Apple-style, rather than in a sheet.
     var queueOpen by remember { mutableStateOf(false) }
     var lyricsOpen by remember { mutableStateOf(false) }
-    LaunchedEffect(song.videoId) { lyricsOpen = false }
+    var showingTranslation by remember { mutableStateOf(false) }
+    val targetLanguageTag = Resources.getSystem().configuration.locales[0]?.toLanguageTag()
+        ?: Locale.getDefault().toLanguageTag()
+    val targetLanguage = Locale.forLanguageTag(targetLanguageTag).language
+    val readyTranslation = (lyricsTranslation as? LyricsTranslationState.Ready)
+        ?.takeIf { Locale.forLanguageTag(it.targetLanguageTag).language == targetLanguage }
+    val translatedLyrics = readyTranslation?.lines
+        ?.takeIf { it.size == lyrics?.size }
+    val displayedLyrics = if (showingTranslation) translatedLyrics ?: lyrics else lyrics
+    LaunchedEffect(song.videoId) {
+        lyricsOpen = false
+        showingTranslation = false
+    }
+    // A completed request reveals itself. A late result for an old track is
+    // rejected in MainViewModel before it can reach this effect.
+    LaunchedEffect(readyTranslation) {
+        if (readyTranslation != null) showingTranslation = true
+    }
 
     // Back out of the lyrics panel to the player, and only from the player
     // itself out to the mini player.
@@ -1716,6 +1749,8 @@ fun NowPlayingScreen(
                 if (lyricsOpen) {
                     LyricsPanel(
                         lines = lyrics.orEmpty(),
+                        translatedLines = translatedLyrics,
+                        showTranslation = showingTranslation,
                         positionMs = positionMs,
                         isPlaying = isPlaying,
                         onSeekToLine = onSeek,
@@ -1794,7 +1829,7 @@ fun NowPlayingScreen(
                 ) {
                     if (!lyrics.isNullOrEmpty()) {
                         CurrentLyricLine(
-                            lines = lyrics,
+                            lines = displayedLyrics ?: lyrics,
                             trackKey = song.videoId,
                             positionMs = positionMs,
                             isPlaying = isPlaying,
@@ -1915,16 +1950,36 @@ fun NowPlayingScreen(
                 // databases behind the panel, whose timings you are looking at
                 // is worth the room the credit takes next to it.
                 Row(
-                    // Measured at the pill's own height so the button can be
                     // sized off it rather than off a number that happens to
                     // match today: the pill is as tall as the label's line
                     // height plus its padding, which moves with the font scale,
                     // and the circle has to keep matching it when it does.
-                    modifier = Modifier.height(IntrinsicSize.Min),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val targetLocale = Locale.forLanguageTag(targetLanguageTag)
+                    val uiLocale = context.resources.configuration.locales[0] ?: Locale.getDefault()
+                    val targetName = targetLocale.getDisplayLanguage(uiLocale)
+                        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(uiLocale) else it.toString() }
+                    val translationForTarget = when (lyricsTranslation) {
+                        is LyricsTranslationState.Loading ->
+                            Locale.forLanguageTag(lyricsTranslation.targetLanguageTag).language == targetLanguage
+                        is LyricsTranslationState.Ready -> readyTranslation != null
+                        is LyricsTranslationState.AlreadyInTargetLanguage ->
+                            Locale.forLanguageTag(lyricsTranslation.targetLanguageTag).language == targetLanguage
+                        is LyricsTranslationState.Unavailable ->
+                            Locale.forLanguageTag(lyricsTranslation.targetLanguageTag).language == targetLanguage
+                        LyricsTranslationState.Idle -> false
+                    }
                     Box(
                         modifier = Modifier
+                            // Reserves the rest of the row so the reference-style
+                            // translation capsule stays pinned to the right, but
+                            // keeps the credit pill itself only as wide as its text.
+                            .weight(1f)
+                            .wrapContentWidth(Alignment.Start)
                             .clip(RoundedCornerShape(percent = 50))
                             .background(Color.White.copy(alpha = 0.10f))
                             .padding(horizontal = 18.dp, vertical = 8.dp),
@@ -1936,13 +1991,94 @@ fun NowPlayingScreen(
                             // as "No lyrics found" said the opposite of what
                             // the screen was showing.
                             text = when {
+                                translationForTarget && lyricsTranslation is LyricsTranslationState.Loading ->
+                                    when (lyricsTranslation.stage) {
+                                        LyricsTranslationStage.IDENTIFYING ->
+                                            stringResource(R.string.lyrics_translation_preparing)
+                                        LyricsTranslationStage.DOWNLOADING_MODEL ->
+                                            stringResource(R.string.lyrics_translation_downloading, targetName)
+                                        LyricsTranslationStage.TRANSLATING ->
+                                            stringResource(R.string.lyrics_translation_translating, targetName)
+                                    }
+                                translationForTarget && lyricsTranslation is LyricsTranslationState.AlreadyInTargetLanguage ->
+                                    stringResource(R.string.lyrics_already_in_language, targetName)
+                                translationForTarget && lyricsTranslation is LyricsTranslationState.Unavailable ->
+                                    stringResource(R.string.lyrics_translation_unavailable)
+                                showingTranslation && readyTranslation != null ->
+                                    stringResource(R.string.lyrics_translated_to, targetName)
                                 lyricsSource != null -> "Lyrics by ${lyricsSource.label}"
                                 lyrics.isNullOrEmpty() -> "No lyrics found"
                                 else -> "Lyrics saved with this download"
                             },
                             style = MaterialTheme.typography.labelLarge,
                             color = Color.White.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    val translationLoading = translationForTarget &&
+                        lyricsTranslation is LyricsTranslationState.Loading
+                    val translationAlready = translationForTarget &&
+                        lyricsTranslation is LyricsTranslationState.AlreadyInTargetLanguage
+                    val translationUnavailable = translationForTarget &&
+                        lyricsTranslation is LyricsTranslationState.Unavailable
+                    val translationActive = showingTranslation && readyTranslation != null
+                    val translationShape = RoundedCornerShape(17.dp)
+                    Box(
+                        modifier = Modifier
+                            .width(62.dp)
+                            .height(46.dp)
+                            .clip(translationShape)
+                            .background(
+                                Color.White.copy(alpha = if (translationActive) 0.18f else 0.08f),
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = when {
+                                    translationUnavailable -> MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                                    translationActive -> Color.White.copy(alpha = 0.75f)
+                                    else -> Color.White.copy(alpha = 0.38f)
+                                },
+                                shape = translationShape,
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                if (!translationLoading && !translationAlready) {
+                                    haptics.play(Haptic.Tap)
+                                    if (readyTranslation != null) {
+                                        showingTranslation = !showingTranslation
+                                    } else {
+                                        onTranslateLyrics(targetLanguageTag)
+                                    }
+                                }
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (translationLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White.copy(alpha = 0.85f),
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(19.dp),
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.Translate,
+                                contentDescription = if (translationActive) {
+                                    stringResource(R.string.lyrics_show_original)
+                                } else {
+                                    stringResource(R.string.lyrics_translate)
+                                },
+                                tint = when {
+                                    translationUnavailable -> MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
+                                    translationActive -> Color.White
+                                    else -> Color.White.copy(alpha = 0.8f)
+                                },
+                                modifier = Modifier.size(23.dp),
+                            )
+                        }
                     }
                     Spacer(Modifier.width(8.dp))
                     Box(
@@ -2490,6 +2626,8 @@ private fun ContentDrawScope.sweepTo(layout: TextLayoutResult, revealedChars: Fl
 @Composable
 private fun LyricsPanel(
     lines: List<LyricLine>,
+    translatedLines: List<LyricLine>?,
+    showTranslation: Boolean,
     positionMs: Long,
     isPlaying: Boolean,
     onSeekToLine: (Long) -> Unit,
@@ -2639,6 +2777,11 @@ private fun LyricsPanel(
         verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         itemsIndexed(lines) { index, line ->
+            val displayLine = if (showTranslation) {
+                translatedLines?.getOrNull(index) ?: line
+            } else {
+                line
+            }
             // Signed rather than absolute: a line already sung and one still to
             // come are not the same distance from being read, even at the same
             // number of rows away, so the two fade at different rates below.
@@ -2708,41 +2851,48 @@ private fun LyricsPanel(
                 // Lead and answering vocal are one row: they are one line of
                 // the song, they scale and dim together, and tapping either
                 // seeks to the same place.
-                Column(modifier = shape) {
-                    PanelVoice(
-                        line = line,
-                        clock = clock,
-                        style = style,
-                        isActive = isActive,
-                        browsing = browsing,
-                        glowAlpha = glow,
-                        room = GLOW_ROOM,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    line.background?.let { backing ->
+                Crossfade(
+                    targetState = displayLine,
+                    animationSpec = if (reduceAnimation) snap() else tween(durationMillis = 180),
+                    label = "lyricTranslation",
+                    modifier = shape,
+                ) { renderedLine ->
+                    Column {
                         PanelVoice(
-                            line = backing.withoutBracketPunctuation(),
+                            line = renderedLine,
                             clock = clock,
-                            style = style.copy(
-                                fontSize = BACKING_FONT_SIZE,
-                                lineHeight = BACKING_LINE_HEIGHT,
-                            ),
+                            style = style,
                             isActive = isActive,
                             browsing = browsing,
-                            // No bloom on the second voice. The glow marks
-                            // what is being sung *at you*; putting it on both
-                            // makes the row read as two equal lines, which is
-                            // the thing this split exists to stop.
-                            glowAlpha = 0f,
-                            room = 0.dp,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                // No top inset: the lead's own bottom room is
-                                // the gap, which leaves the two voices closer
-                                // to each other than to the rows either side.
-                                .padding(start = GLOW_ROOM, end = GLOW_ROOM, bottom = GLOW_ROOM)
-                                .graphicsLayer { alpha = BACKING_ALPHA },
+                            glowAlpha = glow,
+                            room = GLOW_ROOM,
+                            modifier = Modifier.fillMaxWidth(),
                         )
+                        renderedLine.background?.let { backing ->
+                            PanelVoice(
+                                line = backing.withoutBracketPunctuation(),
+                                clock = clock,
+                                style = style.copy(
+                                    fontSize = BACKING_FONT_SIZE,
+                                    lineHeight = BACKING_LINE_HEIGHT,
+                                ),
+                                isActive = isActive,
+                                browsing = browsing,
+                                // No bloom on the second voice. The glow marks
+                                // what is being sung *at you*; putting it on both
+                                // makes the row read as two equal lines, which is
+                                // the thing this split exists to stop.
+                                glowAlpha = 0f,
+                                room = 0.dp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    // No top inset: the lead's own bottom room is
+                                    // the gap, which leaves the two voices closer
+                                    // to each other than to the rows either side.
+                                    .padding(start = GLOW_ROOM, end = GLOW_ROOM, bottom = GLOW_ROOM)
+                                    .graphicsLayer { alpha = BACKING_ALPHA },
+                            )
+                        }
                     }
                 }
             }

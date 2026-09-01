@@ -91,6 +91,16 @@ data class TrackAnalysis(
     val vocalActivityMask: List<Double> = emptyList(),
     /** Whole-track vocal likelihood, distinct from the per-sample [vocalActivityMask]. */
     val vocalProbability: Double = 0.0,
+    /** BS.1770-style programme loudness; null until the lazy v2 pass has run. */
+    val integratedLoudnessLufs: Double? = null,
+    /** Loudest three-second window, used to keep the handoff itself consistent. */
+    val shortTermLoudnessLufs: Double? = null,
+    /** Four-times oversampled peak estimate in dBTP. */
+    val truePeakDbtp: Double? = null,
+    /** Arrangement inferred from bar energy, repetition and vocal activity. */
+    val sections: List<MusicalSection> = emptyList(),
+    /** Overall confidence in [sections], 0..1. */
+    val structuralConfidence: Double = 0.0,
 ) {
     /**
      * Whether this analysis actually describes a track, as opposed to standing

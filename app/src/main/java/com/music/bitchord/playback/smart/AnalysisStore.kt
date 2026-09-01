@@ -74,10 +74,10 @@ class AnalysisStore(private val context: Context) {
         }
         return runCatching {
             val stored = json.decodeFromString(Stored.serializer(), file.readText())
-            // An entry from an older build may hold numbers computed a different
-            // way, and a wrong beat grid is worse than none — so it is dropped
-            // and re-earned rather than migrated.
-            require(stored.version == SCHEMA_VERSION) { "schema ${stored.version}" }
+            // v1 remains a valid beat/key foundation. Missing v2 fields are
+            // represented by defaults and completed lazily when audio is next
+            // available, rather than invalidating the whole library.
+            require(stored.version in 1..SCHEMA_VERSION) { "schema ${stored.version}" }
             stored.toAnalysis(trackId)
         }
             .onFailure {
@@ -162,6 +162,11 @@ class AnalysisStore(private val context: Context) {
         val lowEnergyCurve: List<StoredEnergy> = emptyList(),
         val vocalActivityMask: List<Double> = emptyList(),
         val vocalProbability: Double = 0.0,
+        val integratedLoudnessLufs: Double? = null,
+        val shortTermLoudnessLufs: Double? = null,
+        val truePeakDbtp: Double? = null,
+        val sections: List<StoredSection> = emptyList(),
+        val structuralConfidence: Double = 0.0,
     ) {
         fun toAnalysis(trackId: String) = TrackAnalysis(
             status = TrackAnalysis.STATUS_READY,
@@ -188,6 +193,14 @@ class AnalysisStore(private val context: Context) {
             lowEnergyCurve = lowEnergyCurve.map { it.toSample() },
             vocalActivityMask = vocalActivityMask,
             vocalProbability = vocalProbability,
+            // Schema 3 changes cue/phrase geometry. Keep the old beat/key data
+            // usable immediately, but mark the v2 metrics incomplete so a full
+            // cached/local copy refreshes the structure lazily.
+            integratedLoudnessLufs = integratedLoudnessLufs.takeIf { version >= 3 },
+            shortTermLoudnessLufs = shortTermLoudnessLufs,
+            truePeakDbtp = truePeakDbtp,
+            sections = sections.map { it.toSection() },
+            structuralConfidence = structuralConfidence,
         )
 
         companion object {
@@ -214,6 +227,11 @@ class AnalysisStore(private val context: Context) {
                 lowEnergyCurve = analysis.lowEnergyCurve.map(StoredEnergy::of),
                 vocalActivityMask = analysis.vocalActivityMask.map(::round),
                 vocalProbability = analysis.vocalProbability,
+                integratedLoudnessLufs = analysis.integratedLoudnessLufs?.let(::round),
+                shortTermLoudnessLufs = analysis.shortTermLoudnessLufs?.let(::round),
+                truePeakDbtp = analysis.truePeakDbtp?.let(::round),
+                sections = analysis.sections.map(StoredSection::of),
+                structuralConfidence = round(analysis.structuralConfidence),
             )
         }
     }
@@ -236,6 +254,37 @@ class AnalysisStore(private val context: Context) {
         }
     }
 
+    @Serializable
+    private data class StoredSection(
+        val start: Double,
+        val end: Double,
+        val type: String,
+        val confidence: Double,
+        val energy: Double,
+        val vocalActivity: Double,
+    ) {
+        fun toSection() = MusicalSection(
+            start = start,
+            end = end,
+            type = runCatching { MusicalSectionType.valueOf(type) }
+                .getOrDefault(MusicalSectionType.UNKNOWN),
+            confidence = confidence,
+            energy = energy,
+            vocalActivity = vocalActivity,
+        )
+
+        companion object {
+            fun of(section: MusicalSection) = StoredSection(
+                round(section.start),
+                round(section.end),
+                section.type.name,
+                round(section.confidence),
+                round(section.energy),
+                round(section.vocalActivity),
+            )
+        }
+    }
+
     private companion object {
         const val TAG = "BitChordAnalysisStore"
         const val DIRECTORY = "smart_analysis"
@@ -246,7 +295,7 @@ class AnalysisStore(private val context: Context) {
          * re-analysis costs seconds, and a beat grid interpreted under the wrong
          * assumptions is silently wrong for the life of the file.
          */
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 3
 
         /** A few thousand tracks' worth, at tens of kilobytes each. */
         const val MAX_ENTRIES = 2_000

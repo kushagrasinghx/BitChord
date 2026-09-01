@@ -203,6 +203,14 @@
     <string name="synced_lyrics">Синхронизированный текст</string>
     <string name="synced_lyrics_subtitle">Подсвечивает слова в плеере по мере исполнения</string>
     <string name="lyrics_sources">Источники текстов</string>
+    <string name="lyrics_translate">Перевести текст</string>
+    <string name="lyrics_show_original">Показать оригинал</string>
+    <string name="lyrics_translation_preparing">Определение языка текста…</string>
+    <string name="lyrics_translation_downloading">Загрузка перевода на %1$s…</string>
+    <string name="lyrics_translation_translating">Перевод на %1$s…</string>
+    <string name="lyrics_translated_to">Переведено на %1$s</string>
+    <string name="lyrics_already_in_language">Текст уже на %1$s</string>
+    <string name="lyrics_translation_unavailable">Перевод недоступен</string>
     <string name="song_cache_limit">Лимит кэша песен</string>
     <string name="clear_song_cache">Очистить кэш песен</string>
     <string name="clear_song_cache_subtitle">Освобождает место, занятое загруженным аудио</string>

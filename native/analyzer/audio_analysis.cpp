@@ -455,10 +455,38 @@ void BuildStructure(const EnvelopeResult& envelope, AnalysisResult& result) {
       break;
     }
   }
-  const double raw_intro = std::max(
-    phrase_start + phrase_seconds,
-    strong_window * envelope.window_seconds
-  );
+  // Find the early phrase where the arrangement actually opens. The former
+  // cue was always exactly eight bars after the first inferred downbeat, even
+  // when that boundary had no musical change. Compare four-second windows on
+  // either side of four-bar downbeats and prefer a real energy rise/novelty.
+  double detected_drop = 0.0;
+  double detected_drop_score = -1.0;
+  const double early_limit = std::min(60.0, envelope.content_end * 0.42);
+  const size_t compare_windows = std::max<size_t>(1, 4.0 / envelope.window_seconds);
+  for (size_t bar = 4; bar < result.downbeats.size(); bar += 4) {
+    const double candidate = result.downbeats[bar];
+    if (candidate < envelope.audible_start + 4.0 || candidate > early_limit) continue;
+    const size_t at = static_cast<size_t>(candidate / envelope.window_seconds);
+    const double before = Average(
+      envelope.levels,
+      at > compare_windows ? at - compare_windows : 0,
+      at
+    );
+    const double after = Average(envelope.levels, at, at + compare_windows);
+    const double rise = (after - before) / std::max(1e-6, envelope.reference);
+    const double novelty = std::abs(after - before) / std::max(1e-6, envelope.reference);
+    const double score = rise * 1.4 + novelty * 0.35 +
+      Clamp(after / std::max(1e-6, envelope.reference), 0, 1.5) * 0.15;
+    if (score > detected_drop_score) {
+      detected_drop_score = score;
+      detected_drop = candidate;
+    }
+  }
+  // A weak maximum is not evidence; retain the conservative eight-bar prior.
+  if (detected_drop_score < 0.18) detected_drop = 0.0;
+  const double raw_intro = detected_drop > 0.0
+    ? detected_drop
+    : std::max(phrase_start + phrase_seconds, strong_window * envelope.window_seconds);
   result.intro_end_time = Clamp(
     NearestDownbeat(result.downbeats, raw_intro, raw_intro),
     envelope.audible_start,
@@ -557,7 +585,7 @@ void BuildStructure(const EnvelopeResult& envelope, AnalysisResult& result) {
   if (result.mix_in_time > result.audible_start_time + 0.1) {
     mix_ins.push_back({result.mix_in_time, 0.9, "intro_drop"});
   }
-  const double drop_cue = result.beat_interval > 0 ? phrase_start + result.beat_interval * 32.0 : result.intro_end_time;
+  const double drop_cue = result.intro_end_time;
   if (drop_cue > result.mix_in_time + 0.5 && drop_cue < envelope.content_end * 0.4) {
     const double aligned_drop = DownbeatAtOrBefore(result.downbeats, drop_cue, drop_cue);
     mix_ins.push_back({aligned_drop, 0.95, "main_drop"});

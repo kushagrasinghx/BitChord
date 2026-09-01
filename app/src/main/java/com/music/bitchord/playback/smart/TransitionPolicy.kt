@@ -430,6 +430,7 @@ fun resolveMixOutAnchor(
 fun assessTransitionTier(
     analysis: TrackAnalysis,
     nextAnalysis: TrackAnalysis,
+    maximumStretchDeviation: Double = MAX_STRETCH_DEVIATION,
 ): TransitionPolicyVerdict {
     val outgoingBpm = analysis.bpm.orZero()
     val incomingBpm = nextAnalysis.bpm.orZero()
@@ -453,7 +454,7 @@ fun assessTransitionTier(
     }
 
     val stretchRatio = outgoingBpm / alignTempoOctave(outgoingBpm, incomingBpm)
-    if (abs(stretchRatio - 1) > MAX_STRETCH_DEVIATION) reasons += "tempo-distance"
+    if (abs(stretchRatio - 1) > maximumStretchDeviation) reasons += "tempo-distance"
     if (outgoingConfidence < MIN_BEATMATCH_CONFIDENCE || incomingConfidence < MIN_BEATMATCH_CONFIDENCE) {
         reasons += "beat-confidence"
     }

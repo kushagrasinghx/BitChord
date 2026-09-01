@@ -32,6 +32,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import com.music.bitchord.playback.smart.PreviewBudget
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
@@ -117,7 +120,7 @@ object AudioCache {
      * just resolved the stream — and a blind request is the one case where
      * spending more would be the listener's data spent on a guess.
      */
-    private const val MAX_ANALYSIS_HEAD_BYTES = 4L * 1024 * 1024
+    private const val MAX_ANALYSIS_HEAD_BYTES = PreviewBudget.PREVIEW_BYTES
 
     /**
      * The most [requestAnalysisHead] will pull for one track when its size *is*
@@ -132,7 +135,10 @@ object AudioCache {
      * Taking the whole file in one request is also what keeps the entry
      * single-sourced; see [analysisHeadSize].
      */
-    private const val MAX_ANALYSIS_TRACK_BYTES = 16L * 1024 * 1024
+    private const val MAX_ANALYSIS_TRACK_BYTES = PreviewBudget.PREVIEW_BYTES
+
+    private val analysisPreviewSlots = Semaphore(PreviewBudget.MAX_CONCURRENT_DOWNLOADS)
+    private val analysisPreviewBudget = PreviewBudget()
 
     /**
      * How long [renditionKeysFor]'s answer is reused. Short enough that a
@@ -774,20 +780,28 @@ object AudioCache {
         // top of a fetch that is still running.
         if (!analysisHeadsInFlight.add(videoId)) return
         scope.launch {
-            try {
-                val total = runCatching { StreamResolver.contentLength(videoId) }.getOrNull() ?: 0L
-                val want = analysisHeadSize(total)
-                if (!clearPartialHead(videoId, want)) return@launch
-                fetch(
-                    cacheKey = videoId,
-                    uri = Uri.parse("bitchord://watch?v=$videoId"),
-                    position = 0,
-                    length = want,
-                    pinKey = true,
-                )
-                if (total > 0) recordContentLength(videoId, total)
-            } finally {
-                analysisHeadsInFlight.remove(videoId)
+            analysisPreviewSlots.withPermit {
+                try {
+                    val total = runCatching { StreamResolver.contentLength(videoId) }.getOrNull() ?: 0L
+                    val want = analysisHeadSize(total)
+                    val metered = AppSettings.meteredConnection.value == true
+                    val allowed = !metered ||
+                        AppSettings.automixMeteredPreviews.value !=
+                        com.music.bitchord.playback.smart.AutomixMeteredPreviews.CACHE_ONLY
+                    if (!allowed) return@withPermit
+                    if (!clearPartialHead(videoId, want)) return@withPermit
+                    if (!analysisPreviewBudget.reserve(metered, want)) return@withPermit
+                    fetch(
+                        cacheKey = videoId,
+                        uri = Uri.parse("bitchord://watch?v=$videoId"),
+                        position = 0,
+                        length = want,
+                        pinKey = true,
+                    )
+                    if (total > 0) recordContentLength(videoId, total)
+                } finally {
+                    analysisHeadsInFlight.remove(videoId)
+                }
             }
         }
     }

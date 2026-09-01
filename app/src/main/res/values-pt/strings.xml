@@ -195,6 +195,14 @@
     <string name="synced_lyrics">Letras sincronizadas</string>
     <string name="synced_lyrics_subtitle">Destaca as palavras no player conforme são cantadas</string>
     <string name="lyrics_sources">Fontes de letras</string>
+    <string name="lyrics_translate">Traduzir letra</string>
+    <string name="lyrics_show_original">Mostrar letra original</string>
+    <string name="lyrics_translation_preparing">Detectando o idioma da letra…</string>
+    <string name="lyrics_translation_downloading">Baixando tradução para %1$s…</string>
+    <string name="lyrics_translation_translating">Traduzindo para %1$s…</string>
+    <string name="lyrics_translated_to">Traduzida para %1$s</string>
+    <string name="lyrics_already_in_language">A letra já está em %1$s</string>
+    <string name="lyrics_translation_unavailable">Tradução indisponível</string>
     <string name="song_cache_limit">Limite de cache de músicas</string>
     <string name="clear_song_cache">Limpar cache de músicas</string>
     <string name="clear_song_cache_subtitle">Libera espaço usado pelo áudio baixado</string>

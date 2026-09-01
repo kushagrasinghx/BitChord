@@ -191,6 +191,14 @@
     <string name="synced_lyrics">同期歌詞</string>
     <string name="synced_lyrics_subtitle">歌われている歌詞をプレイヤー上でハイライト表示します</string>
     <string name="lyrics_sources">歌詞のソース</string>
+    <string name="lyrics_translate">歌詞を翻訳</string>
+    <string name="lyrics_show_original">元の歌詞を表示</string>
+    <string name="lyrics_translation_preparing">歌詞の言語を検出中…</string>
+    <string name="lyrics_translation_downloading">%1$sの翻訳をダウンロード中…</string>
+    <string name="lyrics_translation_translating">%1$sに翻訳中…</string>
+    <string name="lyrics_translated_to">%1$sに翻訳済み</string>
+    <string name="lyrics_already_in_language">歌詞はすでに%1$sです</string>
+    <string name="lyrics_translation_unavailable">翻訳を利用できません</string>
     <string name="song_cache_limit">曲キャッシュの上限</string>
     <string name="clear_song_cache">曲のキャッシュを削除</string>
     <string name="clear_song_cache_subtitle">ダウンロードした音声が使用している容量を解放します</string>

@@ -6,6 +6,7 @@ import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.TrackMatcher
+import com.music.bitchord.playback.smart.QueueOrigin
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -54,5 +55,7 @@ suspend fun loadAutoplayTracks(
     } catch (failure: Throwable) {
         return Result.failure(failure)
     }
-    return Result.success(resolved.map { it.copy(fromAutoplay = true) })
+    return Result.success(resolved.map {
+        it.copy(fromAutoplay = true, queueOrigin = QueueOrigin.AUTOPLAY)
+    })
 }

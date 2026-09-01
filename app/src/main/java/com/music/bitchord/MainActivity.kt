@@ -123,6 +123,8 @@ import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.toMediaItem
 import com.music.bitchord.playback.toggleAutoplay
+import com.music.bitchord.playback.triggerSmartMixNow
+import com.music.bitchord.playback.smart.QueueOrigin
 import com.music.bitchord.download.DownloadSession
 import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.download.DownloadTarget
@@ -389,6 +391,7 @@ private fun BitChordApp(
     val lyrics by viewModel.lyrics.collectAsStateWithLifecycle()
     val lyricsSource by viewModel.lyricsSource.collectAsStateWithLifecycle()
     val lyricsChecked by viewModel.lyricsChecked.collectAsStateWithLifecycle()
+    val lyricsTranslation by viewModel.lyricsTranslation.collectAsStateWithLifecycle()
     val searchHistory by viewModel.searchHistory.collectAsStateWithLifecycle()
     val searchSuggestions by viewModel.suggestions.collectAsStateWithLifecycle()
     val detailStack by viewModel.detailStack.collectAsStateWithLifecycle()
@@ -615,7 +618,7 @@ private fun BitChordApp(
             controller?.let {
                 it.addMediaItem(
                     (it.currentMediaItemIndex + 1).coerceAtMost(it.mediaItemCount),
-                    resolved.toMediaItem(),
+                    resolved.copy(queueOrigin = QueueOrigin.PLAY_NEXT).toMediaItem(),
                 )
             }
         }
@@ -1121,9 +1124,6 @@ private fun BitChordApp(
             onPrevious = { controller?.seekToPrevious() },
             onSeekFraction = { fraction ->
                 controller?.let { player ->
-                    // Read at the moment of the seek, not from the
-                    // polled snapshot the screen draws with: a track
-                    // change updates the current item before it updates
                     // the duration, so a fraction dropped seconds after
                     // a transition would otherwise be scaled by the
                     // previous song's length.
@@ -1220,6 +1220,8 @@ private fun BitChordApp(
             lyrics = lyrics,
             lyricsSource = lyricsSource,
             lyricsUnavailable = lyricsChecked && lyrics.isNullOrEmpty(),
+            lyricsTranslation = lyricsTranslation,
+            onTranslateLyrics = viewModel::translateLyrics,
             docked = docked,
             onClearQueue = {
                 // Keep what's playing; drop everything queued after it.

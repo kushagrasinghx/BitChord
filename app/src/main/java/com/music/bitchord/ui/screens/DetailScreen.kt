@@ -236,9 +236,13 @@ fun DetailScreen(
     // an album's track numbers stay the album's rather than becoming positions
     // in the filtered list.
     val matches = remember(songs, query) { songs.matching(query) }
-    // What a tap plays: the list as it is being read. Playing the whole release
-    // from a filtered row would start a queue the user cannot see.
-    val queue = remember(matches) { matches.map { it.value } }
+    // What a tap plays: for playlists the full list (preserving context), so
+    // searching and tapping still stays inside the playlist. For albums / other
+    // browse types the filtered set is used — playing an entire album from a
+    // single search hit would queue tracks the user never asked for.
+    val queue = remember(songs, matches, page.type) {
+        if (page.type == BrowseType.PLAYLIST) songs else matches.map { it.value }
+    }
     val suggested = remember(page.suggestedSongs, query) {
         page.suggestedSongs.matching(query).map { it.value }
     }
@@ -447,7 +451,10 @@ fun DetailScreen(
                             } else {
                                 song.copy(thumbnailUrl = song.thumbnailUrl ?: page.thumbnailUrl)
                             },
-                            onClick = { onSongClick(queue, position) },
+                            onClick = {
+                                val startIdx = if (page.type == BrowseType.PLAYLIST) entry.index else position
+                                onSongClick(queue, startIdx)
+                            },
                             onLongPress = { onSongLongPress(song) },
                             onSwipeToQueue = { onSongSwipe(song) },
                             rowBackground = Color.Transparent,

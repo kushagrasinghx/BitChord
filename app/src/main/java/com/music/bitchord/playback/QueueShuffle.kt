@@ -31,7 +31,9 @@ object QueueShuffle {
 
     /** Whether the queue is currently held in shuffled order. */
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
-
+    fun setEnabled(enabled: Boolean) {
+        _enabled.value = enabled
+    }
     /** Media ids in their pre-shuffle order. Empty while shuffle is off. */
     private var original: List<String> = emptyList()
 

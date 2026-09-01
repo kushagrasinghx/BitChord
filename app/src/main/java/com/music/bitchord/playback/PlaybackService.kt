@@ -2933,7 +2933,7 @@ class PlaybackService : MediaSessionService() {
         player.setPlaybackSpeed(AppSettings.playbackSpeed.value)
         // Restore persisted shuffle and repeat states on startup.
         if (AppSettings.shuffleEnabled.value) {
-            QueueShuffle.enabled.value = true
+            QueueShuffle.setEnabled(true)
         }
         player.repeatMode = AppSettings.repeatMode.value
     }

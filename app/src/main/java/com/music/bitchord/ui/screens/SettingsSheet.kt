@@ -67,6 +67,7 @@ import androidx.compose.material.icons.rounded.Wifi
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.media3.common.util.UnstableApi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -173,6 +174,7 @@ fun SettingsScreen(
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val automixAiEnabled by AppSettings.automixAiEnabled.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
+    val convertVideoToAudio by AppSettings.convertVideoToAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -522,8 +524,8 @@ fun SettingsScreen(
                 subtitle = stringResource(R.string.video_audio_conversion_subtitle),
                 trailing = {
                     Switch(
-                        checked = !convertVideoToAudio,
-                        onCheckedChange = { AppSettings.setConvertVideoToAudio(!it) },
+                        checked = convertVideoToAudio,
+                        onCheckedChange = AppSettings::setConvertVideoToAudio,
                         colors = SwitchDefaults.colors(
                             checkedTrackColor = MaterialTheme.colorScheme.primary,
                             checkedBorderColor = MaterialTheme.colorScheme.primary,

@@ -179,6 +179,8 @@
     <string name="automix">Automix [BETA]</string>
     <string name="skip_silence">Pomiń ciszę</string>
     <string name="skip_silence_subtitle">Przycinanie przerw dłuższych niż sekunda</string>
+    <string name="video_audio_conversion">Konwersja wideo na audio</string>
+    <string name="video_audio_conversion_subtitle">Preferuj wersję audio dla filmów, gdy jest dostępna</string>
     <string name="equalizer">Equalizer</string>
     <string name="equalizer_subtitle">Panel systemowy Twojego urządzenia</string>
     <string name="show_nerd_stats">Pokaż statystyki dla nerdów</string>

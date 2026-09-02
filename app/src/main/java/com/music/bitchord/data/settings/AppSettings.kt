@@ -199,6 +199,7 @@ object AppSettings {
     /** Opt-in for the future on-device transition-ranking model. */
     val automixAiEnabled = MutableStateFlow(false)
     val skipSilence = MutableStateFlow(false)
+    val convertVideoToAudio = MutableStateFlow(true)
 
     /** Requested PCM representation at the Android AudioTrack boundary. */
     val outputPcmMode = MutableStateFlow(OutputPcmMode.PCM_16)
@@ -526,6 +527,7 @@ object AppSettings {
         }.getOrDefault(AutomixPerformanceMode.BALANCED)
         automixAiEnabled.value = prefs.getBoolean(KEY_AUTOMIX_AI_ENABLED, false)
         skipSilence.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
+        convertVideoToAudio.value = prefs.getBoolean(KEY_VIDEO_AUDIO_CONVERSION, true)
         outputPcmMode.value = runCatching {
             OutputPcmMode.valueOf(
                 prefs.getString(KEY_OUTPUT_PCM_MODE, OutputPcmMode.PCM_16.name)
@@ -762,6 +764,11 @@ object AppSettings {
     fun setSkipSilence(value: Boolean) {
         skipSilence.value = value
         prefs.edit().putBoolean(KEY_SKIP_SILENCE, value).apply()
+    }
+
+    fun setConvertVideoToAudio(value: Boolean) {
+        convertVideoToAudio.value = value
+        prefs.edit().putBoolean(KEY_VIDEO_AUDIO_CONVERSION, value).apply()
     }
 
     fun setPlaybackSpeed(value: Float) {
@@ -1285,6 +1292,7 @@ object AppSettings {
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
     private const val KEY_AUTOMIX_AI_ENABLED = "automix_ai_enabled"
     private const val KEY_SKIP_SILENCE = "skip_silence"
+    private const val KEY_VIDEO_AUDIO_CONVERSION = "video_audio_conversion"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"
     private const val KEY_PREFER_USB_DAC = "prefer_usb_dac"
     private const val KEY_SPEED = "playback_speed"

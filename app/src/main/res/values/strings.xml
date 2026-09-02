@@ -207,6 +207,8 @@
     <string name="automix_ai_enabled_subtitle">For electronic music when a model is available. Standard Automix safely handles other genres and low-confidence mixes.</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
+    <string name="video_audio_conversion">Video to audio conversion</string>
+    <string name="video_audio_conversion_subtitle">Prefer the audio version of video uploads when available</string>
     <string name="equalizer">Equalizer</string>
     <string name="equalizer_subtitle">Your device\'s system panel</string>
     <string name="show_nerd_stats">Show stats for nerds</string>

@@ -554,6 +554,7 @@ private fun BitChordApp(
     // the track already playing rather than only the next one.
     val syncedLyricsEnabled by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
+    val convertVideoToAudioEnabled by AppSettings.convertVideoToAudio.collectAsStateWithLifecycle()
     LaunchedEffect(player.song?.videoId, player.durationMs, syncedLyricsEnabled, lyricsSources) {
         player.song?.let {
             viewModel.loadLyrics(
@@ -666,6 +667,27 @@ private fun BitChordApp(
             convertedFromVideo = null
             convertedAudioId = null
             switchingAudioVersion = false
+        }
+    }
+
+    LaunchedEffect(player.song?.videoId, convertVideoToAudioEnabled) {
+        val song = player.song ?: return@LaunchedEffect
+        val c = controller ?: return@LaunchedEffect
+        if (convertVideoToAudioEnabled && song.isVideo && convertedAudioId != song.videoId && !switchingAudioVersion) {
+            val index = c.currentMediaItemIndex
+            if (index !in 0 until c.mediaItemCount) return@LaunchedEffect
+            switchingAudioVersion = true
+            val audio = runCatching { YtMusicRepository.resolveAudio(song) }.getOrNull()
+            switchingAudioVersion = false
+            if (audio == null || audio.videoId == song.videoId) return@LaunchedEffect
+            if (c.currentMediaItemIndex != index || c.currentMediaItem?.mediaId != song.videoId) return@LaunchedEffect
+            val position = c.currentPosition
+            val wasPlaying = c.isPlaying
+            convertedFromVideo = song
+            convertedAudioId = audio.videoId
+            c.replaceMediaItem(index, audio.copy(isVideoOrigin = true).toMediaItem())
+            c.seekTo(index, position)
+            if (wasPlaying) c.play()
         }
     }
 

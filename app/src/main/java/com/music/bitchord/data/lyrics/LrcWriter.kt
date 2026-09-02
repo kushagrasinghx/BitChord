@@ -26,6 +26,10 @@ package com.music.bitchord.data.lyrics
  */
 internal fun List<LyricLine>.toLrc(): String {
     if (isEmpty()) return ""
+    // Plain unsynced lyrics have no timestamps — emit clean text rows
+    if (none { it.timeMs > 0L }) {
+        return joinToString("\n") { it.flattened() }
+    }
     // Sorted here rather than assumed: the providers each sort their own output,
     // but this is one line of insurance against a file whose stamps run
     // backwards — which every reader renders as lyrics that jump about.

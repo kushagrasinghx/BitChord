@@ -53,4 +53,9 @@ enum class LyricsSource(
         detail = "Whole lines, from the biggest lyrics database there is",
         wordSynced = false,
     ),
+    GENIUS(
+        label = "Genius",
+        detail = "Plain text fallback, massive web catalogue",
+        wordSynced = false,
+    ),
 }

@@ -45,9 +45,22 @@ object TrackMatcher {
         val artist: String = "",
         /** Runtime in whole seconds; null when the queue row never carried one. */
         val durationSec: Int? = null,
+        /** Release name, when the queue knows it. Used to separate catalogue collisions. */
+        val album: String? = null,
+        /** Explicit/clean edition, null when the originating catalogue did not say. */
+        val isExplicit: Boolean? = null,
+        /** Music-video timing includes visual intros/outros that catalogue audio omits. */
+        val isVideo: Boolean = false,
     )
 
-    fun targetOf(song: Song) = Target(song.title, song.artist, secondsOf(song.durationText))
+    fun targetOf(song: Song) = Target(
+        song.title,
+        song.artist,
+        secondsOf(song.durationText),
+        song.albumName,
+        song.isExplicit,
+        song.isVideo,
+    )
 
     // ── Asking ──────────────────────────────────────────────────────────────
 
@@ -81,6 +94,14 @@ object TrackMatcher {
     internal fun primaryArtist(artist: String): String =
         artist.lowercase(Locale.ROOT).split(ARTIST_SEPARATORS).firstOrNull()?.trim().orEmpty()
 
+    /** Whether both credits name at least one of the same artists. */
+    internal fun sharesArtist(wanted: String, got: String): Boolean {
+        val want = artistNames(wanted)
+        val have = artistNames(got)
+        return want.isNotEmpty() && have.isNotEmpty() &&
+            want.any { w -> have.any { h -> sameArtist(w, h) } }
+    }
+
     // ── Judging ─────────────────────────────────────────────────────────────
 
     /**
@@ -96,6 +117,42 @@ object TrackMatcher {
     fun best(candidates: List<Song>, target: Target): Song? = ranked(candidates, target).firstOrNull()
 
     /**
+     * The catalogue counterpart for a music-video upload selected explicitly
+     * by the listener.
+     *
+     * A video and the song it promotes can legitimately differ by well over a
+     * minute: the video includes an intro, an outro and sometimes dialogue.
+     * The ordinary source matcher must reject that gap because it is choosing
+     * a stream without anyone watching it. The player audio switch is a
+     * different contract: it asks YouTube Music's *Songs* shelf for the
+     * official release of a known video. Here an exact recording title,
+     * identical version markers and a shared artist are enough to establish
+     * that relationship; duration only ranks equivalent releases and never
+     * vetoes one.
+     *
+     * This remains deliberately stricter than a search engine's first row.
+     * A cover, remix or karaoke version still cannot cross the switch just
+     * because it happens to share a title.
+     */
+    fun bestOfficialAudioForVideo(candidates: List<Song>, target: Target): Song? {
+        val wanted = parseTitle(target.title, target.artist)
+        if (wanted.core.isEmpty()) return null
+        return candidates
+            .mapNotNull { candidate ->
+                val got = parseTitle(candidate.title, candidate.artist)
+                if (wanted.core != got.core || wanted.versions != got.versions) return@mapNotNull null
+                val artist = artistScore(target.artist, candidate.artist) ?: return@mapNotNull null
+                val duration = target.durationSec?.let { expected ->
+                    secondsOf(candidate.durationText)?.let { actual -> -abs(expected - actual) } ?: -120
+                } ?: 0
+                candidate to (artist * 1_000 + duration)
+            }
+            .sortedByDescending { it.second }
+            .firstOrNull()
+            ?.first
+    }
+
+    /**
      * Every candidate that really is [target], most confident first.
      *
      * The whole list rather than the winner, because identity is not the only
@@ -107,6 +164,18 @@ object TrackMatcher {
     fun ranked(candidates: List<Song>, target: Target): List<Song> =
         candidates
             .mapNotNull { candidate -> score(candidate, target)?.let { candidate to it } }
+            // A runtime-identical cover is only a last-resort explanation for
+            // catalogues crediting the same master differently. If this search
+            // also returned anything carrying the requested artist, there is
+            // no reason to keep the different-artist rows in contention. Apart
+            // from preventing covers winning ties, this avoids opening their
+            // stream URLs while a correct lossy result waits to be returned.
+            .let { scored ->
+                val credited = scored.filter { (candidate, _) ->
+                    artistScore(target.artist, candidate.artist) != null
+                }
+                credited.ifEmpty { scored }
+            }
             .sortedByDescending { it.second }
             .map { it.first }
 
@@ -127,9 +196,21 @@ object TrackMatcher {
         // the album cut.
         if (wanted.versions != got.versions) return null
 
-        val duration = durationScore(target.durationSec, secondsOf(candidate.durationText))
-            ?: return null
-        val artist = artistScore(target.artist, candidate.artist)
+        val creditedArtist = artistScore(target.artist, candidate.artist)
+        val duration = durationScore(
+            target.durationSec,
+            secondsOf(candidate.durationText),
+            // A music video may carry a long visual intro or outro. That drift
+            // is credible only when the catalogue row names the same artist;
+            // duration must never make an unrelated artist into the song.
+            // YouTube does not reliably label official music videos as video
+            // rows (square release artwork is common), so the flag cannot be
+            // the only way through the wider window. Exact title/version plus
+            // a shared artist is strong enough; a different artist still gets
+            // the ordinary 30-second ceiling below.
+            allowVideoDrift = creditedArtist != null,
+        ) ?: return null
+        val artist = creditedArtist
             // The credits don't merely differ in spelling, they name different
             // people — and sometimes that is because they are describing the
             // same recording from different ends of it. Film catalogues are
@@ -149,9 +230,63 @@ object TrackMatcher {
             // there is nothing corroborating anything, and the strict refusal
             // stands. The match still scores below a genuine credit match, so
             // it never wins where a properly-credited copy exists.
-            ?: CREDITS_DISAGREE.takeIf { withinSeconds(candidate, target, CREDIT_OVERRIDE_SEC) }
+            // A music video's runtime includes visuals and therefore cannot
+            // vouch for a catalogue row credited to completely different
+            // people. This exact exception is what admitted the 3:30 Lovely
+            // track for Yo Yo Honey Singh's 3:31 "Brown Rang" video.
+            ?: CREDITS_DISAGREE.takeIf {
+                !target.isVideo && withinSeconds(candidate, target, CREDIT_OVERRIDE_SEC)
+            }
             ?: return null
-        return BASE + artist + duration + contextScore(wanted, got)
+        val explicit = explicitScore(target.isExplicit, candidate.isExplicit) ?: return null
+        return BASE + artist + duration + albumScore(target.album, candidate.albumName) + explicit +
+            contextScore(wanted, got)
+    }
+
+    /**
+     * Whether otherwise valid rows describe more than one release while the
+     * requested track gives us no release with which to choose between them.
+     *
+     * JioSaavn has catalogue collisions where title and artist are identical
+     * but the audio is not. Picking the runtime-nearest row is unsafe there:
+     * a different recording can be only a second nearer than the wanted one.
+     * The caller uses this as a conservative source miss and leaves the track
+     * on YouTube instead of guessing.
+     */
+    fun hasConflictingAlbums(candidates: List<Song>, target: Target): Boolean {
+        if (!target.album.isNullOrBlank()) return false
+        val comparable = if (target.durationSec != null) {
+            candidates.filter { withinSeconds(it, target, DURATION_LIMIT_SEC) }
+        } else {
+            candidates
+        }
+        // No catalogue audio is within the normal song window. This is the
+        // shape of an unlabelled music video with a long visual intro/outro;
+        // release disagreement cannot be resolved from that video runtime and
+        // must not veto the search engine's top same-artist result.
+        if (target.durationSec != null && comparable.isEmpty()) return false
+        return comparable.mapNotNull { albumKey(it.albumName) }.distinct().size > 1
+    }
+
+    /**
+     * Resolves a JioSaavn release collision only when one candidate is plainly
+     * more specifically credited than every other close-duration candidate.
+     *
+     * A film's original release often names the complete vocal ensemble while
+     * compilation rows reduce it to the lead singer or add composer/lyricist
+     * credits. That is useful evidence, but not enough to guess on a tie: a
+     * unique, fuller credit may win; otherwise callers must keep the fallback.
+     */
+    fun uniquelyMostCreditedCloseMatch(candidates: List<Song>, target: Target): Song? {
+        val close = candidates.filter { withinSeconds(it, target, DURATION_LIMIT_SEC) }
+        if (close.size < 2) return null
+        val ranked = close.map { it to artistNames(it.artist).size }
+        val topCredits = ranked.maxOfOrNull { it.second } ?: return null
+        // A single name cannot establish that a row is the canonical recording
+        // rather than a compilation's abbreviated credit.
+        if (topCredits < 2) return null
+        val winners = ranked.filter { it.second == topCredits }.map { it.first }
+        return winners.singleOrNull()
     }
 
     /**
@@ -314,7 +449,7 @@ object TrackMatcher {
         val want = artistNames(wanted)
         val have = artistNames(got)
         if (want.isEmpty() || have.isEmpty()) return 0
-        val shared = want.any { w -> have.any { h -> sameArtist(w, h) } }
+        val shared = sharesArtist(wanted, got)
         if (!shared) return null
         return if (want == have) ARTIST_EXACT else ARTIST_SHARED
     }
@@ -360,14 +495,52 @@ object TrackMatcher {
      * consulted when both sides state a runtime — most module rows do, and a
      * queue row usually does.
      */
-    private fun durationScore(wanted: Int?, got: Int?): Int? {
+    private fun durationScore(wanted: Int?, got: Int?, allowVideoDrift: Boolean = false): Int? {
         if (wanted == null || got == null) return 0
         val drift = abs(wanted - got)
         return when {
+            drift > DURATION_LIMIT_SEC && allowVideoDrift && drift <= VIDEO_DURATION_LIMIT_SEC -> 0
             drift > DURATION_LIMIT_SEC -> null
             drift <= DURATION_TIGHT_SEC -> DURATION_TIGHT
             else -> DURATION_LOOSE
         }
+    }
+
+    // ── Album ───────────────────────────────────────────────────
+
+    /**
+     * Exact release agreement is deliberately stronger than the difference
+     * between a tight and a loose runtime. That lets the known album beat a
+     * different release whose duration happens to be one second closer.
+     * A disagreement is not a veto: compilations and reissues can contain the
+     * same master, and title/artist/runtime still have to do their usual work.
+     */
+    private fun albumScore(wanted: String?, got: String?): Int {
+        val want = albumKey(wanted) ?: return 0
+        val have = albumKey(got) ?: return 0
+        return if (want == have) ALBUM_EXACT else 0
+    }
+
+    /**
+     * Clean and uncensored editions can be otherwise metadata-identical. When
+     * both catalogues state the flag they must agree; an unknown source is not
+     * rejected because it has made no contradictory claim.
+     */
+    private fun explicitScore(wanted: Boolean?, got: Boolean?): Int? = when {
+        wanted == null || got == null -> 0
+        wanted != got -> null
+        else -> EXPLICIT_EXACT
+    }
+
+    /** Punctuation, spacing and a trailing edition label are catalogue formatting, not release identity. */
+    private fun albumKey(value: String?): String? {
+        var text = value?.lowercase(Locale.ROOT)?.trim().orEmpty()
+        if (text.isEmpty()) return null
+        repeat(BRACKET_PASSES) { text = BRACKETED.replace(text, " ") }
+        val words = text.split(WORD_SPLIT)
+            .map { it.replace(NON_ALNUM, "") }
+            .filter { it.isNotEmpty() && it !in ALBUM_NOISE_WORDS }
+        return words.joinToString("").takeIf { it.isNotEmpty() }
     }
 
     /** "3:45" or "1:02:03" as whole seconds; null for anything else. */
@@ -396,7 +569,7 @@ object TrackMatcher {
      * it by at least 25, so this only ever decides what plays when nothing
      * properly credited exists.
      */
-    private const val CREDITS_DISAGREE = -15
+    private const val CREDITS_DISAGREE = -30
 
     /**
      * How exactly two runtimes must agree before that is allowed to stand in
@@ -406,6 +579,8 @@ object TrackMatcher {
     private const val CREDIT_OVERRIDE_SEC = 2
     private const val DURATION_TIGHT = 40
     private const val DURATION_LOOSE = 15
+    private const val ALBUM_EXACT = 35
+    private const val EXPLICIT_EXACT = 20
     private const val CONTEXT_SHARED = 20
 
     /** Within this many seconds is the same master, allowing for trimmed silence. */
@@ -417,6 +592,8 @@ object TrackMatcher {
      * enough to rule out an extended cut or a full-album upload.
      */
     private const val DURATION_LIMIT_SEC = 30
+    /** Visual intros/outros can make the video substantially longer than its audio master. */
+    private const val VIDEO_DURATION_LIMIT_SEC = 90
 
     private const val BRACKET_PASSES = 3
     private const val DASH_PASSES = 3
@@ -466,6 +643,11 @@ object TrackMatcher {
         "featuring", "with", "new", "latest", "free", "download", "remaster",
         "remastered", "explicit", "clean", "bonus", "track", "deluxe", "original",
         "album", "single", "hd", "hq", "4k", "mp3",
+    )
+
+    private val ALBUM_NOISE_WORDS = setOf(
+        "album", "deluxe", "edition", "expanded", "remaster", "remastered",
+        "version", "explicit", "clean", "bonus", "anniversary",
     )
 
     /** Trailing labels an upload hangs on a title with no brackets to hold them. */

@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.replay
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,6 +12,7 @@ import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.data.stats.ReplaySummary
+import com.music.bitchord.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -115,45 +117,63 @@ private fun runs(vararg parts: Pair<String, Boolean>): List<HeadlineRun> =
     parts.map { HeadlineRun(it.first, it.second) }
 
 /** The sentence at the top of [page]. */
-fun ReplaySummary.storyHeadline(page: ReplayStoryPage): List<HeadlineRun> = when (page) {
+fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<HeadlineRun> = when (page) {
     ReplayStoryPage.INTRO -> runs(
-        "This is your " to false,
+        context.getString(R.string.replay_intro_start) to false,
         "Replay" to true,
-        " — the year in music you actually played." to false,
+        context.getString(R.string.replay_intro_end) to false,
     )
     ReplayStoryPage.MINUTES -> runs(
-        "You listened to " to false,
-        "${formatMinutes(totalMs)} minutes" to true,
-        " of music." to false,
+        context.getString(R.string.replay_minutes_start) to false,
+        context.getString(R.string.replay_minutes_value, formatMinutes(totalMs)) to true,
+        context.getString(R.string.replay_minutes_end) to false,
     )
     ReplayStoryPage.SONGS -> runs(
-        "You played " to false,
-        countOf(totalPlays, "song") to true,
-        ", one was your anthem." to false,
+        context.getString(R.string.replay_songs_start) to false,
+        context.replayCount(totalPlays, R.plurals.replay_song_count) to true,
+        context.getString(R.string.replay_songs_end) to false,
     )
     ReplayStoryPage.ARTISTS -> runs(
-        "There was one " to false,
-        "artist" to true,
-        " you never got tired of." to false,
+        context.getString(R.string.replay_artist_start) to false,
+        context.getString(R.string.replay_artist_focus) to true,
+        context.getString(R.string.replay_artist_end) to false,
     )
     ReplayStoryPage.ALBUMS -> runs(
-        "One " to false,
-        "album" to true,
-        " you kept coming back to." to false,
+        context.getString(R.string.replay_album_start) to false,
+        context.getString(R.string.replay_album_focus) to true,
+        context.getString(R.string.replay_album_end) to false,
     )
     ReplayStoryPage.GENRES -> runs(
-        "There was one " to false,
-        "genre" to true,
-        " you came back to again and again." to false,
+        context.getString(R.string.replay_genre_start) to false,
+        context.getString(R.string.replay_genre_focus) to true,
+        context.getString(R.string.replay_genre_end) to false,
     )
     ReplayStoryPage.HABITS -> runs(
-        "You got through " to false,
-        countOf(distinctSongs, "song") to true,
-        " by " to false,
-        countOf(distinctArtists, "artist") to true,
+        context.getString(R.string.replay_habits_start) to false,
+        context.replayCount(distinctSongs, R.plurals.replay_song_count) to true,
+        context.getString(R.string.replay_habits_middle) to false,
+        context.replayCount(distinctArtists, R.plurals.replay_artist_count) to true,
         "." to false,
     )
-    ReplayStoryPage.SUMMARY -> runs("That was " to false, label to true, "." to false)
+    ReplayStoryPage.SUMMARY -> runs(
+        context.getString(R.string.replay_summary_start) to false,
+        label to true,
+        "." to false,
+    )
+}
+
+fun ReplayPeriod.localizedChip(context: Context): String = when (this) {
+    ReplayPeriod.THIS_MONTH -> context.getString(R.string.this_month)
+    ReplayPeriod.THIS_YEAR -> context.getString(R.string.this_year)
+    ReplayPeriod.ALL_TIME -> context.getString(R.string.all_time)
+}
+
+fun ReplaySummary.localizedLabel(context: Context): String = when (period) {
+    ReplayPeriod.THIS_MONTH -> DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
+        .format(LocalDate.now())
+        .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+    ReplayPeriod.THIS_YEAR -> LocalDate.now().year.toString()
+    ReplayPeriod.ALL_TIME -> context.getString(R.string.all_time)
 }
 
 /**
@@ -223,12 +243,12 @@ enum class ReplayStoryPage {
  * read as a number, and "21 hours" is one they read as an amount. Past a
  * thousand hours neither works and it becomes days.
  */
-fun formatListening(ms: Long): String {
+fun formatListening(context: Context, ms: Long): String {
     val minutes = ms / 60_000
     return when {
-        minutes < 60 -> "$minutes min"
-        minutes < 1_440 -> "${minutes / 60} hr ${minutes % 60} min"
-        else -> "${grouped(minutes)} min"
+        minutes < 60 -> context.getString(R.string.minutes_short, minutes)
+        minutes < 1_440 -> context.getString(R.string.hours_minutes_short, minutes / 60, minutes % 60)
+        else -> context.getString(R.string.minutes_grouped_short, grouped(minutes))
     }
 }
 
@@ -238,21 +258,22 @@ fun formatMinutes(ms: Long): String = grouped(ms / 60_000)
 fun grouped(value: Long): String = String.format(Locale.US, "%,d", value)
 
 /** "3 pm", "midnight" — an hour of the day said the way anyone would say it. */
-fun formatHour(hour: Int): String = when (hour) {
-    0 -> "midnight"
-    12 -> "midday"
-    in 1..11 -> "$hour am"
-    else -> "${hour - 12} pm"
+fun formatHour(context: Context, hour: Int): String = when (hour) {
+    0 -> context.getString(R.string.midnight)
+    12 -> context.getString(R.string.midday)
+    in 1..11 -> context.getString(R.string.hour_am, hour)
+    else -> context.getString(R.string.hour_pm, hour - 12)
 }
 
 /** `2026-08-14` as "14 August". */
-fun formatDay(iso: String): String = runCatching {
-    LocalDate.parse(iso).format(DateTimeFormatter.ofPattern("d MMMM", Locale.getDefault()))
+fun formatDay(context: Context, iso: String): String = runCatching {
+    LocalDate.parse(iso).format(
+        DateTimeFormatter.ofPattern("d MMMM", context.resources.configuration.locales[0]),
+    )
 }.getOrDefault(iso)
 
-/** The plural of [noun] for [count], and the count with it. */
-fun countOf(count: Int, noun: String): String =
-    "${grouped(count.toLong())} $noun" + if (count == 1) "" else "s"
+fun Context.replayCount(count: Int, plural: Int): String =
+    resources.getQuantityString(plural, count, grouped(count.toLong()))
 
 // ── Rows and cards ──────────────────────────────────────────────────────────
 
@@ -352,12 +373,13 @@ data class ReplayHeroCard(
  * a Replay of loose singles has no album chart, and a card reading "—" is worse
  * than three cards.
  */
-fun ReplaySummary.cards(): List<ReplayHeroCard> = buildList {
+fun ReplaySummary.cards(context: Context): List<ReplayHeroCard> = buildList {
     add(
         ReplayHeroCard(
-            label = "Minutes listened",
+            label = context.getString(R.string.minutes_listened),
             value = formatMinutes(totalMs),
-            detail = "${countOf(totalPlays, "play")} · $label",
+            detail = "${context.replayCount(totalPlays, R.plurals.replay_play_count)} · " +
+                localizedLabel(context),
             artworkUrl = songs.firstOrNull()?.song?.thumbnailUrl,
             page = ReplayStoryPage.MINUTES,
         ),
@@ -365,9 +387,10 @@ fun ReplaySummary.cards(): List<ReplayHeroCard> = buildList {
     artists.firstOrNull()?.let {
         add(
             ReplayHeroCard(
-                label = "Top artist",
+                label = context.getString(R.string.top_artist),
                 value = it.title,
-                detail = "${formatListening(it.ms)} · ${countOf(it.plays, "play")}",
+                detail = "${formatListening(context, it.ms)} · " +
+                    context.replayCount(it.plays, R.plurals.replay_play_count),
                 artworkUrl = it.artworkUrl,
                 page = ReplayStoryPage.ARTISTS,
             ),
@@ -376,9 +399,9 @@ fun ReplaySummary.cards(): List<ReplayHeroCard> = buildList {
     songs.firstOrNull()?.let {
         add(
             ReplayHeroCard(
-                label = "Top song",
+                label = context.getString(R.string.top_song),
                 value = it.song.title,
-                detail = "${it.song.artist} · ${countOf(it.plays, "play")}",
+                detail = "${it.song.artist} · ${context.replayCount(it.plays, R.plurals.replay_play_count)}",
                 artworkUrl = it.song.thumbnailUrl,
                 page = ReplayStoryPage.SONGS,
             ),
@@ -387,13 +410,12 @@ fun ReplaySummary.cards(): List<ReplayHeroCard> = buildList {
     albums.firstOrNull()?.let {
         add(
             ReplayHeroCard(
-                label = "Top album",
+                label = context.getString(R.string.top_album),
                 value = it.title,
-                detail = listOfNotNull(it.subtitle, formatListening(it.ms)).joinToString(" · "),
+                detail = listOfNotNull(it.subtitle, formatListening(context, it.ms)).joinToString(" · "),
                 artworkUrl = it.artworkUrl,
                 page = ReplayStoryPage.ALBUMS,
             ),
         )
     }
 }
-

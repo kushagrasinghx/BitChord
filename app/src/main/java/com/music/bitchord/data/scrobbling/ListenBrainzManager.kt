@@ -18,6 +18,7 @@ object ListenBrainzManager {
         song: Song?,
         positionMs: Long,
         durationMsOverride: Long? = null,
+        primaryArtistOnly: Boolean = false,
     ): Boolean {
         if (token.isBlank() || song == null) return false
         return withContext(Dispatchers.IO) {
@@ -28,7 +29,8 @@ object ListenBrainzManager {
                 val durationPart = if (durationMs > 0) "\"duration_ms\":$durationMs," else ""
                 val releaseName = song.albumName.orEmpty()
                 val releasePart = if (releaseName.isBlank()) "" else "\"release_name\":\"${escapeJson(releaseName)}\","
-                val trackMetadata = """{"track_metadata":{"artist_name":"${escapeJson(song.artist)}","track_name":"${escapeJson(song.title)}",$releasePart"additional_info":{${durationPart}"position_ms":$positionMs,"submission_client":"BitChord"}}}"""
+                val artist = if (primaryArtistOnly) song.artist.primaryArtist() else song.artist
+                val trackMetadata = """{"track_metadata":{"artist_name":"${escapeJson(artist)}","track_name":"${escapeJson(song.title)}",$releasePart"additional_info":{${durationPart}"position_ms":$positionMs,"submission_client":"BitChord"}}}"""
                 val bodyJson = "{\"listen_type\":\"playing_now\",\"payload\":[$trackMetadata]}"
                 Log.d(TAG, "submitPlayingNow: $bodyJson")
                 val body = bodyJson.toRequestBody("application/json".toMediaType())
@@ -63,6 +65,7 @@ object ListenBrainzManager {
         startMs: Long,
         endMs: Long,
         durationMsOverride: Long? = null,
+        primaryArtistOnly: Boolean = false,
     ): Boolean {
         if (token.isBlank() || song == null) return false
         return withContext(Dispatchers.IO) {
@@ -76,7 +79,8 @@ object ListenBrainzManager {
                 if (listenedAtStart < MIN_LISTEN_TS) {
                     listenedAtStart = System.currentTimeMillis() / 1000L
                 }
-                val trackMetadata = """{"listened_at":$listenedAtStart,"track_metadata":{"artist_name":"${escapeJson(song.artist)}","track_name":"${escapeJson(song.title)}",$releasePart"additional_info":{${durationPart}"start_ms":$startMs,"end_ms":$endMs,"submission_client":"BitChord"}}}"""
+                val artist = if (primaryArtistOnly) song.artist.primaryArtist() else song.artist
+                val trackMetadata = """{"listened_at":$listenedAtStart,"track_metadata":{"artist_name":"${escapeJson(artist)}","track_name":"${escapeJson(song.title)}",$releasePart"additional_info":{${durationPart}"start_ms":$startMs,"end_ms":$endMs,"submission_client":"BitChord"}}}"""
                 val bodyJson = "{\"listen_type\":\"single\",\"payload\":[$trackMetadata]}"
                 Log.d(TAG, "submitFinished: $bodyJson")
                 val body = bodyJson.toRequestBody("application/json".toMediaType())

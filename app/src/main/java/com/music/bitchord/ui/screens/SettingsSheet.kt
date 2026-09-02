@@ -3,6 +3,9 @@ package com.music.bitchord.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.media.audiofx.AudioEffect
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -41,10 +44,13 @@ import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.FilterAlt
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.MotionPhotosOff
@@ -54,7 +60,6 @@ import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Waves
@@ -76,6 +81,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -90,6 +96,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.LinkAnnotation
@@ -107,10 +114,17 @@ import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.thumbnailBorder
+import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
+import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.data.model.Account
+import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.OutputPcmMode
+import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.R
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
@@ -156,11 +170,14 @@ fun SettingsScreen(
     val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+    val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
+    val automixAiEnabled by AppSettings.automixAiEnabled.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
-    val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val liquidGlassBeta by AppSettings.liquidGlassBeta.collectAsStateWithLifecycle()
+    val liquidGlassSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
@@ -170,15 +187,35 @@ fun SettingsScreen(
     val showLyricsLogs by AppSettings.showLyricsLogs.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
+    val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
+    val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
+    val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
     val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
+    val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val sourceConfigs by SourceRegistry.configs.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
-    val convertVideoToAudio by AppSettings.convertVideoToAudio.collectAsStateWithLifecycle()
+    val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
+    val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
+    val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
+    val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
+    val currentDisplay = LocalView.current.display
+    val supportedRefreshRates = remember(currentDisplay) {
+        currentDisplay.supportedPerformanceRefreshRates()
+    }
+    val selectedPerformanceRefreshRate = remember(currentDisplay, performanceRefreshRate) {
+        currentDisplay.resolvePerformanceRefreshRate(performanceRefreshRate)
+    }
+
+    LaunchedEffect(selectedPerformanceRefreshRate, performanceRefreshRate) {
+        if (selectedPerformanceRefreshRate != performanceRefreshRate) {
+            AppSettings.setPerformanceRefreshRate(selectedPerformanceRefreshRate)
+        }
+    }
 
     // Whether the module index URL is baked into this build.
     val losslessConfigured = BuildConfig.MODULE_INDEX_URL.trim().isNotEmpty()
@@ -201,6 +238,7 @@ fun SettingsScreen(
 
     var picking by remember { mutableStateOf<QualityTarget?>(null) }
     var pickingDownloadQuality by remember { mutableStateOf(false) }
+    var pickingAutomixPerformance by remember { mutableStateOf(false) }
     // What the last export or import did, shown on the row that did it rather
     // than as a toast: a backup is the one action here whose outcome nobody can
     // check by looking at the app afterwards. Held per direction, or an import's
@@ -208,7 +246,27 @@ fun SettingsScreen(
     var exportStatus by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf<String?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
+    var showPerformanceWarning by remember { mutableStateOf(false) }
+    var showPerformanceConfirmation by remember { mutableStateOf(false) }
     val backupScope = rememberCoroutineScope()
+
+    val batterySettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        showPerformanceConfirmation = true
+    }
+    val localMusicFolderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { folder ->
+        if (folder == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                folder,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+        AppSettings.setLocalMusicFolderUri(folder.toString())
+    }
 
     /**
      * Both halves go through the system document picker rather than a path of
@@ -224,9 +282,11 @@ fun SettingsScreen(
         backupScope.launch {
             exportStatus = Backup.exportTo(context, target).fold(
                 onSuccess = { months ->
-                    "Exported settings and ${countOfMonths(months)}"
+                    context.getString(R.string.export_succeeded, context.countOfMonths(months))
                 },
-                onFailure = { "Export failed: ${it.message ?: "unknown error"}" },
+                onFailure = {
+                    context.getString(R.string.export_failed, it.message ?: context.getString(R.string.unknown_error))
+                },
             )
         }
     }
@@ -236,8 +296,12 @@ fun SettingsScreen(
         if (source == null) return@rememberLauncherForActivityResult
         backupScope.launch {
             importStatus = Backup.importFrom(context, source).fold(
-                onSuccess = { "Imported ${countOfMonths(it.months)} from v${it.from}" },
-                onFailure = { "Import failed: ${it.message ?: "unknown error"}" },
+                onSuccess = {
+                    context.getString(R.string.import_succeeded, context.countOfMonths(it.months), it.from)
+                },
+                onFailure = {
+                    context.getString(R.string.import_failed, it.message ?: context.getString(R.string.unknown_error))
+                },
             )
         }
     }
@@ -269,7 +333,7 @@ fun SettingsScreen(
                 icon = Icons.Rounded.Person,
                 title = stringResource(R.string.account_integrations),
                 subtitle = account?.email?.takeIf { it.isNotBlank() }
-                    ?: if (signedIn) "Signed in" else "Not signed in",
+                    ?: stringResource(if (signedIn) R.string.signed_in else R.string.not_signed_in),
                 onClick = onAccountScrobbling,
             )
         }
@@ -280,11 +344,11 @@ fun SettingsScreen(
         // above lists that as the module's own row now. Lossless itself is no
         // longer a setting at all — see
         // [SourceResolver.requestForNow][com.music.bitchord.data.sources.SourceResolver.requestForNow].
-        SettingsGroup(header = "Audio quality") {
+        SettingsGroup(header = stringResource(R.string.audio_quality)) {
             SettingsRow(
                 icon = Icons.Rounded.Extension,
-                title = "Sources",
-                subtitle = "Where audio comes from, and in what order",
+                title = stringResource(R.string.source),
+                subtitle = stringResource(R.string.sources_subtitle),
                 onClick = onSources,
             )
             RowDivider()
@@ -327,9 +391,42 @@ fun SettingsScreen(
                 onCheckedChange = AppSettings::setWifiOnlyDownloads,
                 badge = stringResource(R.string.blocking).takeIf { wifiOnlyDownloads && metered == true },
             )
+            SettingsSubRow(
+                title = "Export compatible downloads",
+                checked = exportDownloads,
+                onCheckedChange = AppSettings::setExportDownloads,
+                badge = "Music/BitChord".takeIf { exportDownloads },
+            )
         }
 
         SettingsGroup(header = stringResource(R.string.playback)) {
+            SettingsRow(
+                icon = Icons.Rounded.GraphicEq,
+                title = "Output precision",
+                subtitle = buildString {
+                    append(outputStatus.sink)
+                    append(" · ")
+                    append(outputStatus.deviceName)
+                    (outputStatus.actualSampleRateHz ?: outputStatus.sampleRatesHz.firstOrNull())
+                        ?.let { append(" · ${it / 1000.0} kHz") }
+                    append(" · ")
+                    append(AudioOutputStatus.encodingLabel(outputStatus))
+                },
+            )
+            SegmentedControl(
+                options = OutputPcmMode.entries.map(OutputPcmMode::label),
+                selectedIndex = OutputPcmMode.entries.indexOf(outputPcmMode),
+                onSelect = { AppSettings.setOutputPcmMode(OutputPcmMode.entries[it]) },
+                modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
+            )
+            RowDivider()
+            SettingsSubRow(
+                title = "Prefer USB DAC",
+                checked = preferUsbDac,
+                onCheckedChange = AppSettings::setPreferUsbDac,
+                badge = "Connected".takeIf { outputStatus.isUsb },
+            )
+            RowDivider()
             // Automix decides its own length from each pair of tracks —
             // tempo, key, structure — so it replaces the manual slider rather
             // than needing it set to anything first.
@@ -350,9 +447,9 @@ fun SettingsScreen(
                 icon = Icons.Rounded.AutoAwesome,
                 title = stringResource(R.string.automix),
                 subtitle = if (smartFade) {
-                    "Blends every transition, timed automatically from each track. Turn off if facing overheating or lag."
+                    stringResource(R.string.automix_enabled_subtitle)
                 } else {
-                    "Times and blends transitions automatically, no slider needed. May not work as expected in low-mid range devices."
+                    stringResource(R.string.automix_disabled_subtitle)
                 },
                 trailing = {
                     Switch(
@@ -365,6 +462,34 @@ fun SettingsScreen(
                     )
                 },
                 onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.Tune,
+                title = stringResource(R.string.automix_performance),
+                subtitle = stringResource(R.string.automix_performance_subtitle),
+                value = automixPerformance.localizedLabel(),
+                onClick = { pickingAutomixPerformance = true },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.AutoAwesome,
+                title = stringResource(R.string.automix_ai),
+                subtitle = stringResource(
+                    if (automixAiEnabled) R.string.automix_ai_enabled_subtitle
+                    else R.string.automix_ai_disabled_subtitle,
+                ),
+                trailing = {
+                    Switch(
+                        checked = automixAiEnabled,
+                        onCheckedChange = AppSettings::setAutomixAiEnabled,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setAutomixAiEnabled(!automixAiEnabled) },
             )
             RowDivider()
             SettingsRow(
@@ -382,23 +507,6 @@ fun SettingsScreen(
                     )
                 },
                 onClick = { AppSettings.setSkipSilence(!skipSilence) },
-            )
-            RowDivider()
-            SettingsRow(
-                icon = Icons.Rounded.SurroundSound,
-                title = stringResource(R.string.spatial_audio),
-                subtitle = stringResource(R.string.spatial_audio_subtitle),
-                trailing = {
-                    Switch(
-                        checked = spatialAudio,
-                        onCheckedChange = AppSettings::setSpatialAudio,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
             )
             RowDivider()
             SettingsRow(
@@ -426,7 +534,7 @@ fun SettingsScreen(
             )
         }
 
-        
+
 
         SettingsGroup(header = stringResource(R.string.appearance)) {
             SettingsRow(icon = Icons.Rounded.Brightness4, title = stringResource(R.string.theme))
@@ -469,6 +577,31 @@ fun SettingsScreen(
                     )
                 },
                 onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.AutoAwesome,
+                title = stringResource(R.string.liquid_glass_beta),
+                subtitle = stringResource(
+                    if (liquidGlassSupported) {
+                        R.string.liquid_glass_beta_subtitle
+                    } else {
+                        R.string.liquid_glass_beta_unavailable
+                    },
+                ),
+                enabled = liquidGlassSupported,
+                trailing = {
+                    Switch(
+                        checked = liquidGlassBeta,
+                        onCheckedChange = AppSettings::setLiquidGlassBeta,
+                        enabled = liquidGlassSupported,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setLiquidGlassBeta(!liquidGlassBeta) },
             )
             RowDivider()
             // Left out where the player won't honour it: a window too wide for
@@ -529,7 +662,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Integrate Spotify Canvas",
+                        text = stringResource(R.string.integrate_spotify_canvas),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.weight(1f),
@@ -584,11 +717,102 @@ fun SettingsScreen(
                     subtitle = lyricsSources
                         .sortedBy { it.ordinal }
                         .joinToString(", ") { it.label }
-                        .ifEmpty { "None — no lyrics will be fetched" },
+                        .ifEmpty { stringResource(R.string.no_lyrics_sources_enabled) },
                     trailing = { Chevron() },
                     onClick = onLyricsSources,
                 )
             }
+        }
+
+        SettingsGroup(header = stringResource(R.string.performance)) {
+            SettingsRow(
+                icon = BitChordIcons.Performance,
+                title = stringResource(R.string.high_performance_mode),
+                subtitle = if (highPerformanceMode) {
+                    stringResource(R.string.high_performance_active, selectedPerformanceRefreshRate)
+                } else {
+                    stringResource(R.string.high_performance_subtitle)
+                },
+                badge = stringResource(R.string.beta),
+                trailing = {
+                    Switch(
+                        checked = highPerformanceMode,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                showPerformanceWarning = true
+                            } else {
+                                AppSettings.setHighPerformanceMode(false)
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = {
+                    if (highPerformanceMode) {
+                        AppSettings.setHighPerformanceMode(false)
+                    } else {
+                        showPerformanceWarning = true
+                    }
+                },
+            )
+            if (highPerformanceMode) {
+                RowDivider()
+                SettingsRow(
+                    icon = BitChordIcons.FrameRate,
+                    title = stringResource(R.string.refresh_rate),
+                )
+                SegmentedControl(
+                    options = supportedRefreshRates.map { "$it Hz" },
+                    selectedIndex = supportedRefreshRates.indexOf(selectedPerformanceRefreshRate),
+                    onSelect = { index ->
+                        AppSettings.setPerformanceRefreshRate(supportedRefreshRates[index])
+                    },
+                    modifier = Modifier.padding(
+                        start = TEXT_INSET,
+                        end = ROW_INSET,
+                        bottom = 14.dp,
+                    ),
+                )
+            }
+        }
+
+        SettingsGroup(header = stringResource(R.string.local_music)) {
+            SettingsRow(
+                icon = Icons.Rounded.Folder,
+                title = stringResource(R.string.local_music_folder),
+                subtitle = LocalMediaRepository.selectedFolderLabel(localMusicFolderUri)
+                    ?: stringResource(R.string.all_audio_folders),
+                onClick = { localMusicFolderPicker.launch(null) },
+            )
+            if (localMusicFolderUri.isNotBlank()) {
+                RowDivider()
+                SettingsRow(
+                    icon = Icons.Rounded.LibraryMusic,
+                    title = stringResource(R.string.use_all_audio_folders),
+                    subtitle = stringResource(R.string.use_all_audio_folders_subtitle),
+                    onClick = { AppSettings.setLocalMusicFolderUri("") },
+                )
+            }
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.FilterAlt,
+                title = stringResource(R.string.filter_non_music_audio),
+                subtitle = stringResource(R.string.filter_non_music_audio_subtitle),
+                trailing = {
+                    Switch(
+                        checked = filterNonMusicAudio,
+                        onCheckedChange = AppSettings::setFilterNonMusicAudio,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setFilterNonMusicAudio(!filterNonMusicAudio) },
+            )
         }
 
         val cacheLimitMb = (cacheLimitBytes / (1024 * 1024)).toInt()
@@ -597,10 +821,9 @@ fun SettingsScreen(
                 icon = Icons.Rounded.Storage,
                 title = stringResource(R.string.song_cache_limit),
                 subtitle = if (cacheLimitMb > CACHE_WARNING_MB) {
-                    "Up to ${formatCacheSize(cacheLimitMb)} of downloaded audio kept on " +
-                        "disk — that's a real chunk of most phones' free storage."
+                    stringResource(R.string.song_cache_large_subtitle, formatCacheSize(cacheLimitMb))
                 } else {
-                    "Downloaded audio kept on disk for instant seeking and replays"
+                    stringResource(R.string.song_cache_limit_subtitle)
                 },
                 value = formatCacheSize(cacheLimitMb),
                 sliderValue = cacheLimitMb.toFloat(),
@@ -618,7 +841,7 @@ fun SettingsScreen(
                 subtitle = stringResource(R.string.clear_song_cache_subtitle),
                 onClick = {
                     AudioCache.clear {
-                        Toast.makeText(context, "Song cache cleared", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.song_cache_cleared), Toast.LENGTH_SHORT).show()
                     }
                 },
             )
@@ -631,7 +854,7 @@ fun SettingsScreen(
                     val loader = SingletonImageLoader.get(context)
                     loader.memoryCache?.clear()
                     loader.diskCache?.clear()
-                    Toast.makeText(context, "Image cache cleared", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.image_cache_cleared), Toast.LENGTH_SHORT).show()
                 },
             )
         }
@@ -648,9 +871,9 @@ fun SettingsScreen(
                 icon = Icons.Rounded.LocalOffer,
                 title = stringResource(R.string.work_out_genres),
                 subtitle = if (replayGenres) {
-                    "Asks Last.fm what an artist plays — their name is sent, nothing else"
+                    stringResource(R.string.replay_genres_enabled_subtitle)
                 } else {
-                    "Replay's genre chart is hidden while this is off"
+                    stringResource(R.string.replay_genres_disabled_subtitle)
                 },
                 trailing = {
                     Switch(
@@ -688,9 +911,9 @@ fun SettingsScreen(
                 icon = Icons.Rounded.PlaylistPlay,
                 title = stringResource(R.string.play_next_on_swipe),
                 subtitle = if (swipeToPlayNext) {
-                    "Swiping a song plays it next"
+                    stringResource(R.string.swipe_plays_next)
                 } else {
-                    "Swiping a song adds it to the end of the queue when disabled"
+                    stringResource(R.string.swipe_adds_to_queue)
                 },
                 trailing = {
                     Switch(
@@ -872,6 +1095,21 @@ fun SettingsScreen(
         }
     }
 
+    if (pickingAutomixPerformance) {
+        ModalBottomSheet(
+            onDismissRequest = { pickingAutomixPerformance = false },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            AutomixPerformanceSheet(
+                selected = automixPerformance,
+                onSelect = { mode ->
+                    AppSettings.setAutomixPerformanceMode(mode)
+                    pickingAutomixPerformance = false
+                },
+            )
+        }
+    }
+
     // Asked before the picker opens rather than after a file is chosen: the
     // thing being confirmed is that this device's own history is about to be
     // thrown away, and that is true whichever file gets picked.
@@ -880,11 +1118,7 @@ fun SettingsScreen(
             onDismissRequest = { confirmImport = false },
             title = { Text(stringResource(R.string.import_backup_title)) },
             text = {
-                Text(
-                    "This replaces the settings and the listening history on this device " +
-                        "with whatever is in the file. What is here now cannot be got back, " +
-                        "so export it first if you want to keep it.",
-                )
+                Text(stringResource(R.string.import_backup_warning))
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -895,7 +1129,61 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmImport = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmImport = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showPerformanceWarning) {
+        AlertDialog(
+            onDismissRequest = { showPerformanceWarning = false },
+            title = { Text(stringResource(R.string.high_performance_before_enabling)) },
+            text = { Text(stringResource(R.string.high_performance_battery_warning)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPerformanceWarning = false
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        }
+                        val settingsIntent = intent.takeIf {
+                            it.resolveActivity(context.packageManager) != null
+                        } ?: Intent(Settings.ACTION_SETTINGS)
+                        batterySettingsLauncher.launch(settingsIntent)
+                    },
+                ) {
+                    Text(stringResource(R.string.open_battery_settings))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPerformanceWarning = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showPerformanceConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showPerformanceConfirmation = false },
+            title = { Text(stringResource(R.string.enable_high_performance_title)) },
+            text = { Text(stringResource(R.string.enable_high_performance_confirmation)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPerformanceConfirmation = false
+                        AppSettings.setHighPerformanceMode(true)
+                    },
+                ) {
+                    Text(stringResource(R.string.enable))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPerformanceConfirmation = false }) {
+                    Text(stringResource(R.string.not_yet))
+                }
             },
         )
     }
@@ -904,12 +1192,12 @@ fun SettingsScreen(
         var tokenInput by remember { mutableStateOf(listenBrainzToken) }
         AlertDialog(
             onDismissRequest = { showListenBrainzTokenDialog = false },
-            title = { Text("ListenBrainz Token") },
+            title = { Text(stringResource(R.string.listenbrainz_token)) },
             text = {
                 OutlinedTextField(
                     value = tokenInput,
                     onValueChange = { tokenInput = it },
-                    label = { Text("API Token") },
+                    label = { Text(stringResource(R.string.api_token)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -919,12 +1207,12 @@ fun SettingsScreen(
                     AppSettings.setListenBrainzToken(tokenInput.trim())
                     showListenBrainzTokenDialog = false
                 }) {
-                    Text("Save")
+                    Text(stringResource(R.string.save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showListenBrainzTokenDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -937,7 +1225,7 @@ fun SettingsScreen(
         var lastfmLoading by remember { mutableStateOf(false) }
         AlertDialog(
             onDismissRequest = { if (!lastfmLoading) showLastfmLoginDialog = false },
-            title = { Text("Last.fm Login") },
+            title = { Text(stringResource(R.string.lastfm_login)) },
             text = {
                 Column {
                     if (lastfmError != null) {
@@ -951,7 +1239,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = usernameInput,
                         onValueChange = { usernameInput = it },
-                        label = { Text("Username") },
+                        label = { Text(stringResource(R.string.username)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -959,7 +1247,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = { passwordInput = it },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.password)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -985,10 +1273,10 @@ fun SettingsScreen(
                                         showLastfmLoginDialog = false
                                     }
                                     .onFailure { e ->
-                                        lastfmError = e.message ?: "Login failed"
+                                        lastfmError = e.message ?: context.getString(R.string.login_failed)
                                     }
                             } catch (e: Exception) {
-                                lastfmError = e.message ?: "Login failed"
+                                lastfmError = e.message ?: context.getString(R.string.login_failed)
                             } finally {
                                 lastfmLoading = false
                             }
@@ -996,12 +1284,12 @@ fun SettingsScreen(
                     },
                     enabled = !lastfmLoading && usernameInput.isNotBlank() && passwordInput.isNotBlank(),
                 ) {
-                    Text(if (lastfmLoading) "Signing in..." else "Sign in")
+                    Text(stringResource(if (lastfmLoading) R.string.signing_in else R.string.sign_in))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLastfmLoginDialog = false }, enabled = !lastfmLoading) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -1010,14 +1298,22 @@ fun SettingsScreen(
 }
 
 /** "3 months of listening" — the unit a backup is actually measured in. */
-private fun countOfMonths(months: Int): String =
-    if (months == 0) "no listening history" else "$months month${if (months == 1) "" else "s"} of listening"
+private fun Context.countOfMonths(months: Int): String = if (months == 0) {
+    getString(R.string.no_listening_history)
+} else {
+    resources.getQuantityString(R.plurals.listening_month_count, months, months)
+}
 
 /** Which ceiling the open picker is editing. */
-private enum class QualityTarget(val title: String, val icon: ImageVector) {
-    WIFI("Wi-Fi", Icons.Rounded.Wifi),
-    CELLULAR("Mobile data", Icons.Rounded.SignalCellularAlt),
+private enum class QualityTarget(val icon: ImageVector) {
+    WIFI(Icons.Rounded.Wifi),
+    CELLULAR(Icons.Rounded.SignalCellularAlt),
 }
+
+@Composable
+private fun QualityTarget.localizedTitle(): String = stringResource(
+    if (this == QualityTarget.WIFI) R.string.wifi else R.string.mobile_data,
+)
 
 @Composable
 private fun AudioQuality.localizedLabel(): String = stringResource(
@@ -1046,6 +1342,15 @@ private fun ThemeMode.localizedLabel(): String = stringResource(
     },
 )
 
+@Composable
+private fun AutomixPerformanceMode.localizedLabel(): String = stringResource(
+    when (this) {
+        AutomixPerformanceMode.EFFICIENT -> R.string.automix_mode_efficient
+        AutomixPerformanceMode.BALANCED -> R.string.automix_mode_balanced
+        AutomixPerformanceMode.PERFORMANCE -> R.string.automix_mode_performance
+    },
+)
+
 private fun openEqualizer(context: Context, sessionId: Int) {
     val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
         putExtra(AudioEffect.EXTRA_AUDIO_SESSION, sessionId)
@@ -1053,7 +1358,7 @@ private fun openEqualizer(context: Context, sessionId: Int) {
         putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
     }
     runCatching { context.startActivity(intent) }.onFailure {
-        Toast.makeText(context, "No system equalizer on this device", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.no_equalizer), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -1073,6 +1378,7 @@ internal fun AccountCard(
     signedIn: Boolean,
     account: Account?,
     onSignIn: () -> Unit,
+    onClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -1080,7 +1386,13 @@ internal fun AccountCard(
             .padding(horizontal = GROUP_INSET)
             .clip(GroupShape)
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .then(if (signedIn) Modifier else Modifier.clickable(onClick = onSignIn))
+            .then(
+                when {
+                    signedIn && onClick != null -> Modifier.clickable(onClick = onClick)
+                    !signedIn -> Modifier.clickable(onClick = onSignIn)
+                    else -> Modifier
+                },
+            )
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1109,7 +1421,8 @@ internal fun AccountCard(
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                text = account?.name ?: if (signedIn) "Signed in" else "Not signed in",
+                text = account?.name
+                    ?: stringResource(if (signedIn) R.string.signed_in else R.string.not_signed_in),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
@@ -1118,7 +1431,9 @@ internal fun AccountCard(
             Spacer(Modifier.height(2.dp))
             Text(
                 text = account?.email?.takeIf { it.isNotBlank() }
-                    ?: if (signedIn) "YouTube Music account" else "Tap to sign in with Google",
+                    ?: stringResource(
+                        if (signedIn) R.string.youtube_music_account else R.string.tap_to_sign_in_google,
+                    ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -1154,12 +1469,15 @@ private fun QualitySheet(
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
-                    text = "Audio quality",
+                    text = stringResource(R.string.audio_quality),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = "While on ${target.title.lowercase(Locale.ROOT)}",
+                    text = stringResource(
+                        R.string.audio_quality_connection,
+                        target.localizedTitle().lowercase(Locale.getDefault()),
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1187,7 +1505,7 @@ private fun QualitySheet(
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        text = "${quality.detail} · ${quality.hourly}",
+                        text = stringResource(R.string.quality_hourly, quality.detail, quality.hourly),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1196,7 +1514,84 @@ private fun QualitySheet(
                     Spacer(Modifier.width(12.dp))
                     Icon(
                         Icons.Rounded.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.selected),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** CPU budget picker for the background models that prepare Automix. */
+@Composable
+private fun AutomixPerformanceSheet(
+    selected: AutomixPerformanceMode,
+    onSelect: (AutomixPerformanceMode) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Row(
+            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Tune,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = stringResource(R.string.automix_performance),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.automix_performance_warning),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+        AutomixPerformanceMode.entries.forEach { mode ->
+            val chosen = mode == selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(mode)
+                    }
+                    .padding(horizontal = 22.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = mode.localizedLabel(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = stringResource(
+                            when (mode) {
+                                AutomixPerformanceMode.EFFICIENT -> R.string.automix_mode_efficient_subtitle
+                                AutomixPerformanceMode.BALANCED -> R.string.automix_mode_balanced_subtitle
+                                AutomixPerformanceMode.PERFORMANCE -> R.string.automix_mode_performance_subtitle
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (chosen) {
+                    Spacer(Modifier.width(12.dp))
+                    Icon(
+                        Icons.Rounded.Check,
+                        contentDescription = stringResource(R.string.selected),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp),
                     )
@@ -1235,12 +1630,12 @@ private fun DownloadQualitySheet(
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
-                    text = "Download quality",
+                    text = stringResource(R.string.download_quality),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = "For files kept on this device",
+                    text = stringResource(R.string.download_quality_dialog_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1269,7 +1664,7 @@ private fun DownloadQualitySheet(
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        text = "${quality.detail} · ${quality.perTrack} per track",
+                        text = stringResource(R.string.quality_per_track, quality.detail, quality.perTrack),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1278,7 +1673,7 @@ private fun DownloadQualitySheet(
                     Spacer(Modifier.width(12.dp))
                     Icon(
                         Icons.Rounded.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.selected),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp),
                     )

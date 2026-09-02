@@ -633,7 +633,7 @@ object StreamResolver {
 
     /**
      * As [resolve], but for a file being kept rather than a stream being heard:
-     * the best AAC the *download* setting allows, and no connection has a say.
+     * the best Opus the *download* setting allows, and no connection has a say.
      *
      * The format is not a preference here, it is the only option. Every
      * adaptive audio format YouTube offers is either AAC in MP4 or Opus (or
@@ -692,11 +692,11 @@ object StreamResolver {
      */
     suspend fun resolveForDownload(videoId: String, maxKbps: Int): Stream {
         val stream = downloadStream(videoId, maxKbps)
-        // Belt and braces on the one invariant the media store enforces for us,
-        // and enforces badly: everything in [downloadStream] selects for MP4,
-        // and this is where a format that somehow slipped through says so in a
-        // sentence rather than three frames away as an insert failure.
-        check(stream.downloadExtension == "m4a") { "Can't save ${stream.mimeType} — try again" }
+        // YouTube fallback is Opus-in-WebM; configured sources may still have
+        // supplied AAC-in-MP4. Both are taggable and storable audio containers.
+        check(stream.downloadExtension in setOf("m4a", "webm")) {
+            "Can't save ${stream.mimeType} — try again"
+        }
         return stream
     }
 
@@ -721,27 +721,27 @@ object StreamResolver {
                 val responses = mutableMapOf<PlayerClient, JsonObject>()
                 playerStream(
                     videoId,
-                    { response -> pickAac(response, maxKbps).also { if (it.isNotEmpty()) offered = true } },
+                    { response -> pickOpus(response, maxKbps).also { if (it.isNotEmpty()) offered = true } },
                     responses,
                 )?.let { return@withContext it }
             }
 
             // Not "try again later" — every client being refused at once is a state
             // that lasts hours, and it is precisely the state [resolve] extracts its
-            // way out of. Still asking for MP4, because this is still a download:
+            // way out of. Still asking for Opus, because this is still a download:
             // the failsafe is a different route to the bytes, not a licence to
             // fetch a container that cannot then be saved.
-            TrackLog.w(TAG, "no client minted a usable MP4 URL for $videoId; extracting")
+            TrackLog.w(TAG, "no client minted a usable Opus URL for $videoId; extracting")
             runCatching {
                 newPipeStream(videoId) { candidates ->
-                    // Capped the same way [pickAac] is, off the same setting, or
+                    // Capped the same way [pickOpus] is, off the same setting, or
                     // the failsafe would quietly hand back a rendition the user
                     // said they didn't want to keep.
-                    underCeiling(candidates.filter { it.second.isM4a }, maxKbps)
+                    underCeiling(candidates.filter { it.second.isWebmOpus }, maxKbps)
                         ?.also { offered = true }
                 }
             }.onSuccess { return@withContext it }
-                .onFailure { TrackLog.w(TAG, "extraction found no MP4 for $videoId: ${it.message}") }
+                .onFailure { TrackLog.w(TAG, "extraction found no Opus for $videoId: ${it.message}") }
 
             if (offered) error("Couldn't reach a downloadable copy just now — try again")
             error("No downloadable audio for this track")
@@ -983,6 +983,7 @@ object StreamResolver {
          * is the thing a download actually cares about.
          */
         val isAac: Boolean get() = "mp4" in mimeType.lowercase(Locale.ROOT)
+        val isOpus: Boolean get() = "opus" in mimeType.lowercase(Locale.ROOT)
     }
 
     private fun audioFormats(response: JsonObject): List<Audio> =
@@ -1048,8 +1049,8 @@ object StreamResolver {
      * temporary decision into it, so a download is capped by a decision made
      * about downloads, or not at all.
      */
-    private fun pickAac(response: JsonObject, maxKbps: Int): List<Audio> =
-        rankByQuality(audioFormats(response).filter { it.isAac }, maxKbps)
+    private fun pickOpus(response: JsonObject, maxKbps: Int): List<Audio> =
+        rankByQuality(audioFormats(response).filter { it.isOpus }, maxKbps)
 
     private fun JsonObject.str(key: String): String? = this[key]?.jsonPrimitive?.content
 
@@ -1735,6 +1736,9 @@ object StreamResolver {
      */
     private val AudioStream.isM4a: Boolean
         get() = format == MediaFormat.M4A
+
+    private val AudioStream.isWebmOpus: Boolean
+        get() = format == MediaFormat.WEBMA_OPUS
 
     // ---- Cache --------------------------------------------------------------
 

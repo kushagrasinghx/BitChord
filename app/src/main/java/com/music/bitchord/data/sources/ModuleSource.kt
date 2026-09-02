@@ -242,7 +242,7 @@ class ModuleSource(
                 TrackLog.w(TAG, "${config.displayName}: getStreamUrl failed for $upstreamId — ${e.message}")
                 return@withContext null
             }
-            val url = streamResponse.streamUrl.ifBlank { null } ?: run {
+            val url = streamResponse.streamUrl?.ifBlank { null } ?: run {
                 TrackLog.w(TAG, "${config.displayName}: empty stream URL for $upstreamId")
                 return@withContext null
             }
@@ -260,8 +260,10 @@ class ModuleSource(
                 url = url,
                 format = StreamFormat(
                     codec = codecOf(trackMeta?.mimeType, trackMeta?.audioQuality, url),
-                    kbps = kbpsFor(trackMeta?.audioQuality, url),
-                    sampleRateHz = trackMeta?.sampleRate?.toInt()?.takeIf { it > 0 },
+                    kbps = trackMeta?.bitrate ?: kbpsFor(trackMeta?.audioQuality, url),
+                    sampleRateHz = trackMeta?.sampleRate?.let {
+                        if (it < 1000) (it * 1000).toInt() else it.toInt()
+                    }?.takeIf { it > 0 },
                     bitDepth = trackMeta?.bitDepth?.takeIf { it > 0 },
                 ),
             )
@@ -285,6 +287,11 @@ class ModuleSource(
         mimeType?.substringAfterLast('/')?.substringBefore(';')?.trim()?.lowercase(Locale.ROOT)
             ?.takeIf { it.isNotEmpty() }
             ?.let { return it }
+        val qualityText = quality.orEmpty().uppercase(Locale.ROOT)
+        // Tidal's MAX endpoint identifies its Dolby Atmos HLS rendition as
+        // EAC3_JOC. Older module responses expose only "Dolby Atmos", so
+        // preserve its real codec instead of reducing the stream to unknown.
+        if ("ATMOS" in qualityText || "EAC3_JOC" in qualityText || "EC-3" in qualityText) return "eac3-joc"
         if (qualityTier(quality.orEmpty()) == LOSSLESS) return "flac"
         return url.substringBefore('?').substringAfterLast('.').lowercase(Locale.ROOT)
             .takeIf { it in AUDIO_EXTENSIONS }

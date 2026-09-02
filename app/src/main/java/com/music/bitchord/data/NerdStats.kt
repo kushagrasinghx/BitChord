@@ -2,6 +2,7 @@ package com.music.bitchord.data
 
 import com.music.bitchord.data.sources.StreamFormat
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -75,6 +76,13 @@ object NerdStats {
                 else -> claimed?.isLossless == true
             }
 
+        /** Dolby Atmos decoded as E-AC-3 JOC; deliberately distinct from lossless. */
+        val isDolbyAtmos: Boolean
+            get() = when {
+                mimeType != null -> isDolbyAtmosMime(mimeType)
+                else -> claimed?.isDolbyAtmos == true
+            }
+
         /**
          * Whether this is better than CD quality — the line Tidal, Qobuz and
          * Apple Music all draw it at: past 16-bit or past 48kHz, not merely
@@ -126,6 +134,9 @@ object NerdStats {
     fun isLosslessMime(mimeType: String?): Boolean =
         mimeType != null && LOSSLESS_CODEC_SUFFIXES.any { mimeType.endsWith(it) }
 
+    fun isDolbyAtmosMime(mimeType: String?): Boolean =
+        mimeType != null && (mimeType.endsWith("eac3-joc") || mimeType.endsWith("eac3"))
+
     /**
      * The bitrate a lossy stream has to reach to be worth calling out.
      *
@@ -150,11 +161,20 @@ object NerdStats {
     val racingLossless = MutableStateFlow<Set<String>>(emptySet())
 
     fun onLosslessRaceStart(videoId: String) {
-        racingLossless.value += videoId
+        // Upgrade lookups also run for read-ahead items, so two loader threads
+        // can arrive here together. Assigning `value += videoId` is a
+        // read/modify/write sequence: both threads can read the same old set and
+        // the last assignment then erases the other track's marker. That left
+        // the audible track upgrading in the background while Now Playing fell
+        // through to its plain "High quality" label. StateFlow.update retries
+        // the transform atomically when another writer wins that race.
+        racingLossless.update { it + videoId }
     }
 
     fun onLosslessRaceEnd(videoId: String) {
-        racingLossless.value -= videoId
+        // Atomic for the same reason as start: completing one read-ahead lookup
+        // must not discard a concurrently-started lookup for another track.
+        racingLossless.update { it - videoId }
     }
 
     /**

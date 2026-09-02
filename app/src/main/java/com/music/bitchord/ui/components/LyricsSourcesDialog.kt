@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.components
 
+import com.music.bitchord.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -30,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -45,7 +48,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
@@ -96,7 +98,7 @@ fun LyricsSourcesDialog(
                     if (reduceDynamicBlur) {
                         Modifier.background(MaterialTheme.colorScheme.surface)
                     } else {
-                        Modifier.hazeEffect(
+                        Modifier.optimizedHazeEffect(
                             state = hazeState,
                             style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
                         )
@@ -117,7 +119,7 @@ fun LyricsSourcesDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "Lyrics Sources",
+                    text = stringResource(R.string.lyrics_sources),
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.W600,
@@ -126,9 +128,7 @@ fun LyricsSourcesDialog(
                     textAlign = TextAlign.Center,
                 )
                 Text(
-                    text = "Tried in this order — drag to reorder. The highest-priority " +
-                        "source to answer at all wins, unless Prioritize Syllable Lyrics says " +
-                        "to keep looking for a word-synced one.",
+                    text = stringResource(R.string.lyrics_sources_order),
                     modifier = Modifier.padding(top = 4.dp),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 13.sp,
@@ -163,12 +163,12 @@ fun LyricsSourcesDialog(
 
             AlertRule()
             AlertAction(
-                label = "Reset to Default",
+                label = stringResource(R.string.reset_to_default),
                 emphasised = false,
                 onClick = AppSettings::resetLyricsSourceSettings,
             )
             AlertRule()
-            AlertAction(label = "Done", emphasised = true, onClick = onDismiss)
+            AlertAction(label = stringResource(R.string.done), emphasised = true, onClick = onDismiss)
         }
     }
 }
@@ -201,13 +201,12 @@ private fun SyllableSyncToggle(checked: Boolean, onToggle: () -> Unit) {
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = "Prioritize Syllable Lyrics",
+                text = stringResource(R.string.prioritize_syllable_lyrics),
                 style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = "Keep searching past a whole-line match for a word-by-word one, " +
-                    "wherever it falls in the order above",
+                text = stringResource(R.string.prioritize_syllable_lyrics_subtitle),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
             )
@@ -216,7 +215,7 @@ private fun SyllableSyncToggle(checked: Boolean, onToggle: () -> Unit) {
         if (checked) {
             Icon(
                 imageVector = Icons.Rounded.Check,
-                contentDescription = "Enabled",
+                contentDescription = stringResource(R.string.enabled),
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(19.dp),
             )
@@ -328,7 +327,7 @@ private fun ReorderableSourceList(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.DragHandle,
-                            contentDescription = "Drag to reorder",
+                            contentDescription = stringResource(R.string.drag_to_reorder),
                             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                             modifier = Modifier
                                 .padding(horizontal = 6.dp)
@@ -421,7 +420,7 @@ private fun ReorderableSourceList(
                         if (checked) {
                             Icon(
                                 imageVector = Icons.Rounded.Check,
-                                contentDescription = "Enabled",
+                                contentDescription = stringResource(R.string.enabled),
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(19.dp),
                             )

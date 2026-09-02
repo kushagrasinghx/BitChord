@@ -99,7 +99,7 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     fun open() = setCutoffs(OPEN_HZ, OFF_HZ)
 
     /**
-     * 16-bit PCM only, matching [SpatialAudioProcessor] — and bowing out with
+     * 16-bit PCM only, bowing out with
      * [AudioProcessor.AudioFormat.NOT_SET] rather than throwing for the same
      * reason it does: `DefaultAudioSink` configures every processor in its chain
      * whether or not the effect is switched on, and a throw from any of them

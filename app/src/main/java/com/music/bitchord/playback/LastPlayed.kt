@@ -7,78 +7,126 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * The queue as it stood when the app was last used, so a cold start opens on
- * the track you left off on instead of an empty player.
+ * A bounded queue snapshot for restoring playback after process death.
  *
- * Persisted as its own small record rather than by serialising [Song]: the
- * fields below are all a MediaItem carries, so they are all that survives a
- * round trip through the player anyway, and a stored format is better off not
- * moving every time the domain model does.
+ * Queue contents are serialized only when Media3 reports that the playlist
+ * changed. The frequently changing index and position are stored separately as
+ * primitives, so progress sampling never walks or serializes the song list.
  */
 object LastPlayed {
 
-    /** A restored queue: the tracks, which one was current, and how far in. */
     class Snapshot(val songs: List<Song>, val index: Int, val positionMs: Long)
 
     private lateinit var prefs: SharedPreferences
     private val json = Json { ignoreUnknownKeys = true }
 
     fun init(context: Context) {
-        prefs = context.getSharedPreferences("bitchord_last_played", Context.MODE_PRIVATE)
+        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    fun save(songs: List<Song>, index: Int, positionMs: Long) {
-        if (songs.isEmpty()) return
-        // AutoPlay keeps extending the queue, so it can run to hundreds of
-        // tracks by the end of an evening. Store a window around where we are
-        // instead of the lot — the current track has to be inside it, and what
-        // follows is what resuming actually plays.
-        val start = (index - KEEP_BEHIND).coerceIn(0, maxOf(0, songs.size - MAX_TRACKS))
-        val window = songs.subList(start, minOf(songs.size, start + MAX_TRACKS))
+    internal fun window(size: Int, index: Int): IntRange {
+        if (size <= 0) return IntRange.EMPTY
+        val safeIndex = index.coerceIn(0, size - 1)
+        val start = (safeIndex - MAX_QUEUE_HISTORY).coerceAtLeast(0)
+        return start until (safeIndex + 1 + KEEP_AHEAD).coerceAtMost(size)
+    }
+
+    /** Persist at most 25 previous entries, the current one, and 50 upcoming entries. */
+    fun saveQueue(songs: List<Song>, index: Int) {
+        if (songs.isEmpty()) {
+            clear()
+            return
+        }
+        val safeIndex = index.coerceIn(songs.indices)
+        val bounds = window(songs.size, safeIndex)
         val stored = StoredQueue(
-            tracks = window.map {
-                StoredTrack(
-                    it.videoId,
-                    it.title,
-                    it.artist,
-                    it.thumbnailUrl,
-                    it.fromAutoplay,
-                    it.localUri,
-                    it.localPath,
-                    it.durationText,
-                )
-            },
-            index = (index - start).coerceIn(0, window.lastIndex),
-            positionMs = positionMs.coerceAtLeast(0L),
+            tracks = songs.subList(bounds.first, bounds.last + 1).map { StoredTrack.from(it) },
         )
+        val encoded = runCatching {
+            json.encodeToString(StoredQueue.serializer(), stored)
+        }.getOrNull() ?: return
         prefs.edit()
-            .putString(
-                KEY_QUEUE,
-                runCatching { json.encodeToString(StoredQueue.serializer(), stored) }.getOrNull(),
-            )
+            .putString(KEY_QUEUE, encoded)
+            .putInt(KEY_INDEX, safeIndex - bounds.first)
+            .apply()
+    }
+
+    /**
+     * Atomically replaces the restart snapshot and waits until it reaches disk.
+     * Used at an explicit queue boundary, where restoring the queue from before
+     * that boundary would be worse than the small cost of a synchronous write.
+     */
+    fun saveQueueImmediately(songs: List<Song>, index: Int, positionMs: Long) {
+        if (songs.isEmpty()) {
+            clearImmediately()
+            return
+        }
+        val safeIndex = index.coerceIn(songs.indices)
+        val bounds = window(songs.size, safeIndex)
+        val stored = StoredQueue(
+            tracks = songs.subList(bounds.first, bounds.last + 1).map { StoredTrack.from(it) },
+        )
+        val encoded = runCatching {
+            json.encodeToString(StoredQueue.serializer(), stored)
+        }.getOrNull() ?: return
+        prefs.edit()
+            .putString(KEY_QUEUE, encoded)
+            .putInt(KEY_INDEX, safeIndex - bounds.first)
+            .putLong(KEY_POSITION, positionMs.coerceAtLeast(0L))
+            .commit()
+    }
+
+    /** Update only cheap scalar state; this performs no queue conversion or JSON work. */
+    fun savePlaybackState(index: Int, positionMs: Long) {
+        if (!prefs.contains(KEY_QUEUE)) return
+        prefs.edit()
+            .putInt(KEY_INDEX, index.coerceAtLeast(0))
+            .putLong(KEY_POSITION, positionMs.coerceAtLeast(0L))
             .apply()
     }
 
     fun load(): Snapshot? {
         val raw = prefs.getString(KEY_QUEUE, null) ?: return null
-        val stored = runCatching { json.decodeFromString<StoredQueue>(raw) }.getOrNull() ?: return null
+        val stored = runCatching { json.decodeFromString<StoredQueue>(raw) }.getOrNull()
+            ?: return null
         if (stored.tracks.isEmpty()) return null
+        val songs = stored.tracks.map(StoredTrack::toSong)
+        val index = if (prefs.contains(KEY_INDEX)) {
+            prefs.getInt(KEY_INDEX, 0)
+        } else {
+            stored.legacyIndex ?: 0
+        }
+        val positionMs = if (prefs.contains(KEY_POSITION)) {
+            prefs.getLong(KEY_POSITION, 0L)
+        } else {
+            stored.legacyPositionMs ?: 0L
+        }
         return Snapshot(
-            songs = stored.tracks.map {
-                Song(
-                    it.id,
-                    it.title,
-                    it.artist,
-                    it.artwork,
-                    durationText = it.duration,
-                    fromAutoplay = it.auto,
-                    localUri = it.local,
-                    localPath = it.path,
-                )
-            },
-            index = stored.index.coerceIn(0, stored.tracks.lastIndex),
-            positionMs = stored.positionMs.coerceAtLeast(0L),
+            songs = songs,
+            index = index.coerceIn(songs.indices),
+            positionMs = positionMs.coerceAtLeast(0L),
         )
+    }
+
+    fun clear() {
+        prefs.edit().clear().apply()
+    }
+
+    /** Remove a stale queue before another one is installed. */
+    fun clearImmediately() {
+        prefs.edit().clear().commit()
+    }
+
+    @Serializable
+    private data class StoredQueue(
+        val tracks: List<StoredTrack>,
+        /** Compatibility with queue snapshots written before scalar state was separated. */
+        val index: Int? = null,
+        /** Compatibility with queue snapshots written before scalar state was separated. */
+        val positionMs: Long? = null,
+    ) {
+        val legacyIndex: Int? get() = index
+        val legacyPositionMs: Long? get() = positionMs
     }
 
     @Serializable
@@ -87,45 +135,48 @@ object LastPlayed {
         val title: String,
         val artist: String,
         val artwork: String? = null,
-        /** Whether AutoPlay queued it — the queue's sections outlive a restart. */
         val auto: Boolean = false,
-        /**
-         * Where it plays from on disk, when that is anywhere. Not a detail the
-         * player needs to resume — [id] alone finds the file again either way —
-         * but it is what the UI reads to tell a track off the device from one
-         * off YouTube, and a restored queue that dropped it had the player's
-         * menu offering to rate, download and share a local file.
-         */
         val local: String? = null,
         val path: String? = null,
-        /**
-         * How long the track runs, as the row that queued it said.
-         *
-         * Carried across a restart because it is what a cross-source match is
-         * made on — see [TrackMatcher][com.music.bitchord.data.sources.TrackMatcher].
-         * Dropping it did not look like it cost anything: nothing on screen
-         * reads a queue row's duration, since the player takes its own from
-         * the decoder. But every duration-based rule in the matcher degrades
-         * silently to nothing without it, so a track resumed after a restart
-         * was matched on title and artist alone while the same track queued
-         * from a search was matched properly. That is the worst shape a bug
-         * can have — the same song behaving differently depending on how long
-         * ago the app was opened.
-         */
         val duration: String? = null,
-    )
+        val album: String? = null,
+        val explicit: Boolean? = null,
+        val video: Boolean = false,
+    ) {
+        fun toSong() = Song(
+            videoId = id,
+            title = title,
+            artist = artist,
+            thumbnailUrl = artwork,
+            durationText = duration,
+            albumName = album,
+            isExplicit = explicit,
+            isVideo = video,
+            fromAutoplay = auto,
+            localUri = local,
+            localPath = path,
+        )
 
-    @Serializable
-    private data class StoredQueue(
-        val tracks: List<StoredTrack>,
-        val index: Int,
-        val positionMs: Long,
-    )
+        companion object {
+            fun from(song: Song) = StoredTrack(
+                id = song.videoId,
+                title = song.title,
+                artist = song.artist,
+                artwork = song.thumbnailUrl,
+                auto = song.fromAutoplay,
+                local = song.localUri,
+                path = song.localPath,
+                duration = song.durationText,
+                album = song.albumName,
+                explicit = song.isExplicit,
+                video = song.isVideo,
+            )
+        }
+    }
 
-    /** How much of what's already been played is worth keeping for "previous". */
-    private const val KEEP_BEHIND = 10
-
-    private const val MAX_TRACKS = 60
-
+    private const val KEEP_AHEAD = 50
+    private const val PREFS_NAME = "bitchord_last_played"
     private const val KEY_QUEUE = "queue"
+    private const val KEY_INDEX = "index"
+    private const val KEY_POSITION = "position"
 }

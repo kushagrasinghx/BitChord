@@ -61,13 +61,14 @@ android {
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+    }
 
-        // Automix's DSP analyzer (native/analyzer). 64-bit only: minSdk 26
-        // already postdates the 64-bit requirement, so a 32-bit slice would
-        // double the native payload for devices that do not exist in the
-        // install base.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
 
@@ -231,6 +232,9 @@ dependencies {
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
     implementation("dev.chrisbanes.haze:haze:1.3.1")
     implementation("dev.chrisbanes.haze:haze-materials:1.3.1")
+
+    // Optional Android 13+ GPU liquid-glass treatment. It is off by default.
+    implementation("io.github.fletchmckee.liquid:liquid:1.1.1")
 
     // ---- Markdown rendering (release notes in the update dialog) ----
     // Pure Compose, not an AndroidView wrapper — needed so the text composes

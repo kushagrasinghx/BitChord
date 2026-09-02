@@ -14,11 +14,13 @@ import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.TransitionWindow
 import com.music.bitchord.playback.smart.CrossfadeMode
+import com.music.bitchord.playback.smart.AutomixAiRanker
 import com.music.bitchord.playback.smart.TrackAnalysis
 import com.music.bitchord.playback.smart.TransitionStyle
 import com.music.bitchord.playback.smart.TransitionTrackInfo
 import com.music.bitchord.playback.smart.planTransition
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -197,6 +199,7 @@ class CrossfadeController(
 
     /** Which player this class's own listener is currently attached to. */
     private var listeningTo: ExoPlayer? = null
+    private var tickerJob: Job? = null
 
     /** Length of the transition in flight, in ms. Fixed when it begins. */
     private var fadeMs = 0L
@@ -358,7 +361,8 @@ class CrossfadeController(
 
     fun start() {
         listenTo(active())
-        scope.launch {
+        tickerJob?.cancel()
+        tickerJob = scope.launch {
             while (isActive) {
                 tick()
                 delay(
@@ -374,6 +378,8 @@ class CrossfadeController(
     }
 
     fun release() {
+        tickerJob?.cancel()
+        tickerJob = null
         listeningTo?.removeListener(listener)
         listeningTo = null
         active().volume = 1f
@@ -512,6 +518,14 @@ class CrossfadeController(
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val nextItem = player.getMediaItemAt(nextIndex)
+        // Even a manual catalogue match is still video-origin. AutoMix's
+        // analysis and cueing are deliberately never applied to either side
+        // of a transition involving a video row.
+        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) {
+            AppSettings.smartTransitionWindow.value = null
+            AppSettings.smartMixInProgress.value = false
+            return
+        }
         val nextDuration = nextItemDurationMs(nextIndex, nextItem)
 
         requestAnalysisAround(player, duration)
@@ -532,7 +546,7 @@ class CrossfadeController(
         val nextAnalysis = analysisFor(nextItem)
         val analysisState = AppSettings.smartAnalysis.value
 
-        val plan = planTransition(
+        val basePlan = planTransition(
             analysis = currentAnalysis,
             nextAnalysis = nextAnalysis,
             currentTrack = currentItem.toTransitionInfo(duration),
@@ -542,6 +556,9 @@ class CrossfadeController(
             fadeSeconds = fallbackSeconds,
             mode = CrossfadeMode.SMART,
         )
+        // AI only ranks an already-safe DJ blend. It never changes what is
+        // playing and falls back to this unmodified plan when disabled or unavailable.
+        val plan = AutomixAiRanker.refine(basePlan, currentAnalysis, nextAnalysis)
         // One line per distinct verdict rather than one per 250ms tick, so the
         // log says what the planner decided for this pair without burying it.
         val verdict = "${plan.reason}|${plan.transitionStyle}|fade=${plan.fadeMs}" +
@@ -645,6 +662,7 @@ class CrossfadeController(
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val nextItem = player.getMediaItemAt(nextIndex)
+        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) return
         requestAnalysis(currentItem, duration)
         requestAnalysis(nextItem, nextItemDurationMs(nextIndex, nextItem))
     }

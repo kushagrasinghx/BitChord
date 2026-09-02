@@ -126,6 +126,9 @@ object SourceResolver {
         title = uri.getQueryParameter("n").orEmpty(),
         artist = uri.getQueryParameter("a").orEmpty(),
         durationSec = uri.getQueryParameter("d")?.toIntOrNull(),
+        album = uri.getQueryParameter("l"),
+        isExplicit = uri.getQueryParameter("e")?.let { it == "1" },
+        isVideo = uri.getQueryParameter("m") == "1",
     )
 
     /**
@@ -202,7 +205,10 @@ object SourceResolver {
      * gets its hearing.
      */
     suspend fun substituteForYouTube(target: TrackMatcher.Target): SourceStream? {
-        if (target.title.isBlank()) return null
+        // Video rows always use YouTube's own stream unless the listener
+        // explicitly converts the current item in the player. A module match
+        // is another recording and can be a wrong song altogether.
+        if (target.title.isBlank() || target.isVideo) return null
         val active = SourceRegistry.active()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
         val request = requestForNow()
@@ -246,7 +252,7 @@ object SourceResolver {
      * been pinned, so the ordinary resolve at playback time is untouched.
      */
     suspend fun prefetchSubstitute(target: TrackMatcher.Target): SourceStream? {
-        if (target.title.isBlank()) return null
+        if (target.title.isBlank() || target.isVideo) return null
         val active = SourceRegistry.active()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
         val quick = rankedAbove(youtube.configId, active).filter { it.kind.worthPrefetching }
@@ -308,7 +314,7 @@ object SourceResolver {
         target: TrackMatcher.Target,
         playing: StreamFormat? = null,
     ): SourceStream? {
-        if (target.title.isBlank() || target.durationSec == null) return null
+        if (target.title.isBlank() || target.durationSec == null || target.isVideo) return null
         val request = requestForNow()
         val active = SourceRegistry.active()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
@@ -346,6 +352,7 @@ object SourceResolver {
             request,
             waitForAll = true,
             strictLength = true,
+            requireSharedArtist = true,
         ) { candidate, stream ->
             worthSwapping(stream.format, playing).also { worth ->
                 // Named rather than skipped silently. This is the one refusal
@@ -529,20 +536,24 @@ object SourceResolver {
                 waitForAll = true,
                 strictLength = strictLength,
             ) ?: continue
-            if (stream.format.isLossless == true) {
+            // Dolby Atmos is not bit-exact PCM, but it is the native premium
+            // rendition that playback already prefers.  Keep it on the same
+            // first-class download path instead of throwing it away and
+            // falling back to YouTube solely because it has no bitrate tag.
+            if (stream.format.isLossless == true || stream.format.isDolbyAtmos) {
                 TrackLog.d(
                     TAG,
                     "download: '${target.title}' from ${source.displayName} at ${stream.format.summary}",
                 )
                 // Nothing is waiting on it any more, and leaving it running
                 // would hold this whole call open on a source whose answer has
-                // just been beaten by a bit-exact one.
+                // just been beaten by the requested premium rendition.
                 elsewhereBest.cancel()
                 return@coroutineScope stream
             }
             TrackLog.d(
                 TAG,
-                "${source.displayName} offered ${stream.format.summary} to download; not bit-exact",
+                "${source.displayName} offered ${stream.format.summary} to download; not lossless or Dolby",
             )
             if (isBetter(stream.format, best?.second?.format)) best = source to stream
         }
@@ -600,7 +611,7 @@ object SourceResolver {
      * in the audio for nothing. 160 to 320 clears it; 128 to 192 does not.
      */
     internal fun worthSwapping(candidate: StreamFormat, playing: StreamFormat?): Boolean {
-        if (candidate.isLossless == true) return true
+        if (candidate.isLossless == true || candidate.isDolbyAtmos) return true
         val gain = (candidate.kbps ?: return false) - (playing?.kbps ?: return false)
         return gain >= UPGRADE_MIN_GAIN_KBPS
     }
@@ -647,8 +658,8 @@ object SourceResolver {
             .let { active.take(it) }
 
     /**
-     * The first stream any of [sources] can serve for [target] — **all of them
-     * asked at once** — or null if none of them has the recording.
+     * The best stream the configured [sources] can serve for [target] — **all
+     * of them asked at once** — or null if none of them has the recording.
      *
      * ### Why they race rather than queue
      *
@@ -686,9 +697,15 @@ object SourceResolver {
      * seconds to find a 128kbps MP3 is correctly ignored. That is the trade this
      * whole path exists to make: sound now, quality shortly after.
      *
-     * Sources still running when an answer is taken are cancelled — the second
-     * look re-asks them properly, and leaving them running would spend a
-     * listener's radio on a result nothing is waiting for.
+     * On the latency-critical path, sources still running when an answer is
+     * taken are cancelled — the second look re-asks them properly, and leaving
+     * them running would spend a listener's radio on a result nothing is waiting
+     * for. The background-upgrade path passes [waitForAll], however: it already
+     * chose to wait for every source's patient search window, so it must also
+     * collect the resulting streams before choosing. Previously that flag only
+     * reached each source's search call; this loop still returned the first
+     * usable stream and cancelled the rest, which could discard an exact Tidal
+     * FLAC or JioSaavn 320 result during an upgrade.
      *
      * @return the winning source alongside its stream, so callers can name it in
      *   a log line without searching the list again.
@@ -699,11 +716,21 @@ object SourceResolver {
         request: StreamRequest,
         waitForAll: Boolean = false,
         strictLength: Boolean = false,
+        requireSharedArtist: Boolean = false,
         accept: (MusicSource, SourceStream) -> Boolean = { _, _ -> true },
     ): Pair<MusicSource, SourceStream>? = coroutineScope {
         val running: MutableList<Deferred<Pair<MusicSource, SourceStream?>>> = sources
             .map { source ->
-                async { source to matchAndStream(source, target, request, waitForAll, strictLength) }
+                async {
+                    source to matchAndStream(
+                        source,
+                        target,
+                        request,
+                        waitForAll,
+                        strictLength,
+                        requireSharedArtist,
+                    )
+                }
             }
             .toMutableList()
         var best: Pair<MusicSource, SourceStream>? = null
@@ -724,9 +751,12 @@ object SourceResolver {
                     if (!accept(source, stream)) continue
                     if (isBetter(stream.format, best?.second?.format)) best = source to stream
                 }
-                // Something usable is in hand. Everything better than it is a
-                // maybe, and waiting for a maybe costs the listener a certainty.
-                if (best != null) break
+                // Playback needs the first usable answer so sound can start.
+                // An upgrade is different: it runs while audio is already
+                // playing, and its caller explicitly requested every source's
+                // patient result. Let every source finish so a fast lower tier
+                // cannot cancel a later, better rendition.
+                if (best != null && !waitForAll) break
             }
         } finally {
             running.forEach { it.cancel() }
@@ -761,12 +791,40 @@ object SourceResolver {
         request: StreamRequest,
         waitForAll: Boolean = false,
         strictLength: Boolean = false,
+        requireSharedArtist: Boolean = false,
     ): SourceStream? {
         for (query in TrackMatcher.queries(target)) {
             val candidates = attempt(source) {
                 source.search(query, limit = MATCH_CANDIDATES, waitForAll = waitForAll)
             } ?: return null
             var matches = TrackMatcher.ranked(candidates, target)
+            if (requireSharedArtist) {
+                matches = matches.filter { TrackMatcher.sharesArtist(target.artist, it.artist) }
+            }
+            // JioSaavn can return different audio under the same title and
+            // artist on different releases. With no album on the requested
+            // track there is no honest way to choose between those rows;
+            // duration is not enough when the wrong recording is only a
+            // second away. Treat it as this source missing and retain the
+            // known-correct fallback.
+            if (source.kind == SourceKind.JIOSAAVN &&
+                TrackMatcher.hasConflictingAlbums(matches, target)
+            ) {
+                val canonical = TrackMatcher.uniquelyMostCreditedCloseMatch(matches, target)
+                if (canonical == null) {
+                    TrackLog.w(
+                        TAG,
+                        "${source.displayName} returned conflicting albums for '${target.title}'; refusing to guess",
+                    )
+                    continue
+                }
+                TrackLog.d(
+                    TAG,
+                    "${source.displayName} resolved conflicting albums for '${target.title}' " +
+                        "using the uniquely fullest credit: '${canonical.artist}'",
+                )
+                matches = listOf(canonical)
+            }
             // The extra bar for standing in for one specific recording: the
             // replacement has to be the same *length*, to the second or so. A
             // title and an artist can agree across two different edits of a
@@ -857,14 +915,22 @@ object SourceResolver {
             // a track already playing can check it — see [SourceStream.durationSec].
             val stream = opened.copy(durationSec = TrackMatcher.secondsOf(match.durationText))
             val served = stream.format
-            if (!wantsLossless || served.isLossless == true || served.statesNothingLossy) {
+            if (!wantsLossless || served.isLossless == true || served.isDolbyAtmos || served.statesNothingLossy) {
                 TrackLog.d(
                     TAG,
-                    "${source.displayName} matched '${match.title}' by '${match.artist}' → ${served.summary}",
+                    "${source.displayName} matched '${match.title}' by '${match.artist}' " +
+                        "id='${match.videoId}' album='${match.albumName ?: "?"}' " +
+                        "duration=${match.durationText ?: "?"} explicit=${match.isExplicit ?: "?"} " +
+                        "→ ${served.summary}",
                 )
                 return stream
             }
-            TrackLog.d(TAG, "${source.displayName} offered ${served.summary} for '${match.title}'; looking further")
+            TrackLog.d(
+                TAG,
+                "${source.displayName} offered ${served.summary} for '${match.title}' " +
+                    "by '${match.artist}' id='${match.videoId}' album='${match.albumName ?: "?"}' " +
+                    "duration=${match.durationText ?: "?"} explicit=${match.isExplicit ?: "?"}; looking further",
+            )
             // The floor is the *best* of what was refused, not the first of
             // it. These arrive in match order, which has nothing to do with
             // quality: a 320kbps AAC and a 128kbps MP3 are both rejections,
@@ -892,6 +958,7 @@ object SourceResolver {
     internal fun isBetter(candidate: StreamFormat, current: StreamFormat?): Boolean {
         if (current == null) return true
         if (candidate.isLossless != current.isLossless) return candidate.isLossless == true
+        if (candidate.isDolbyAtmos != current.isDolbyAtmos) return candidate.isDolbyAtmos
         return (candidate.kbps ?: 0) > (current.kbps ?: 0)
     }
 

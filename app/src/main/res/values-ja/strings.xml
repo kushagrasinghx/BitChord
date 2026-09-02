@@ -129,10 +129,6 @@
     <string name="widget_preview_artist">アーティスト</string>
     <string name="download_quality">ダウンロード品質</string>
     <string name="download_wifi_only">Wi-Fi接続時のみダウンロード</string>
-    <string name="spatial_audio">空間オーディオ</string>
-    <string name="spatial_audio_subtitle">よりイマーシブな体験のためにステレオトラックを広げます</string>
-    <string name="video_audio_conversion">動画の曲をオーディオ版に変換しない</string>
-    <string name="video_audio_conversion_subtitle">カタログのオーディオ版に差し替えず、ミュージックビデオをそのまま再生します</string>
     <string name="animated_cover_cellular">モバイルデータでアニメーションカバーを再生</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">よく聴いた曲、アーティスト、アルバム、ジャンル</string>
@@ -163,6 +159,10 @@
     <string name="chinese">中国語（簡体字）</string>
     <string name="hebrew">ヘブライ語</string>
     <string name="show_all">すべて表示</string>
+    <string name="grid_view">グリッド表示</string>
+    <string name="list_view">リスト表示</string>
+    <string name="switch_to_grid_view">グリッド表示に切り替え</string>
+    <string name="switch_to_list_view">リスト表示に切り替え</string>
     <string name="audio_quality">音質</string>
     <string name="playback">再生</string>
     <string name="appearance">外観</string>
@@ -218,4 +218,412 @@
     <string name="miscellaneous_footer">オンにすると、最近のアプリ画面からアプリを終了した際に音楽の再生も停止します。</string>
     <string name="dont_repeat_songs_subtitle">オートプレイは、このセッションで既に再生または提案された曲を再度提案しません</string>
     <string name="download_quality_subtitle">接続にかかわらず、1トラックあたり%1$s</string>
+    <string name="filter_non_music_audio">音楽以外の音声を除外</string>
+    <string name="filter_non_music_audio_subtitle">30秒未満のクリップ、WAVファイル、ボイスメモ、録音、システム音を非表示にします</string>
+    <string name="performance">パフォーマンス</string>
+    <string name="high_performance_mode">高パフォーマンスモード</string>
+    <string name="high_performance_subtitle">フルアニメーションとぼかしを使用し、より高いディスプレイリフレッシュレートをリクエストします</string>
+    <string name="high_performance_active">%1$d Hzをリクエスト中です。必要に応じてAndroidが下げることがあります。</string>
+    <string name="beta">ベータ</string>
+    <string name="refresh_rate">リフレッシュレート</string>
+    <string name="high_performance_before_enabling">有効にする前に</string>
+    <string name="high_performance_battery_warning">まずBitChordのバッテリー使用を「制限なし」に設定してください。リフレッシュレートを上げるとバッテリー、CPU、GPUの消費が増え、デバイスが熱くなることがあります。</string>
+    <string name="open_battery_settings">バッテリー設定を開く</string>
+    <string name="enable_high_performance_title">高パフォーマンスモードを有効にしますか？</string>
+    <string name="enable_high_performance_confirmation">BitChordのバッテリー使用が「制限なし」に設定されている場合のみ有効にしてください。デバイスが熱くなったり電力が少なくなったりすると、Androidがリフレッシュレートを制限することがあります。</string>
+    <string name="enable">有効にする</string>
+    <string name="not_yet">今はしない</string>
+    <string name="activity">アクティビティ</string>
+    <string name="activity_competing">参加中</string>
+    <string name="activity_dialog_message">カードの上に表示される動詞です。</string>
+    <string name="activity_listening">再生中</string>
+    <string name="activity_name_message">プロフィールで動詞の後に続く文言です。空欄にすると%1$sが使われます。</string>
+    <string name="activity_playing">プレイ中</string>
+    <string name="activity_watching">視聴中</string>
+    <string name="add_custom_module">カスタムモジュールを追加</string>
+    <string name="add_named_source">%1$sを追加</string>
+    <string name="add_to_queue">再生キューに追加</string>
+    <string name="after_this_song">この曲の後に</string>
+    <string name="always_on">常にオン</string>
+    <string name="api_token">APIトークン</string>
+    <string name="audio_quality_connection">%1$s接続時</string>
+    <string name="autoplay">AutoPlay</string>
+    <string name="back_in_future_version">今後のバージョンで復活予定</string>
+    <string name="buttons">ボタン</string>
+    <string name="clear_name">名前を消去</string>
+    <string name="close_lyrics">歌詞を閉じる</string>
+    <string name="connect_account_first">先にアカウントを連携してください</string>
+    <string name="connected_presence_off">接続済み、プレゼンスはオフ</string>
+    <string name="copy_log">ログをコピー</string>
+    <string name="couldnt_find">%1$sが見つかりませんでした</string>
+    <string name="couldnt_open_link">リンクを開けませんでした</string>
+    <string name="create_playlist">プレイリストを作成</string>
+    <string name="custom_module">カスタムモジュール</string>
+    <string name="customize_card">カードをカスタマイズ</string>
+    <string name="customize_card_subtitle">ステータス、文言、両方のボタン</string>
+    <string name="delete">削除</string>
+    <string name="disconnect">接続を解除</string>
+    <string name="discord">Discord</string>
+    <string name="discord_account">Discordアカウント</string>
+    <string name="discord_button_variables">{song_name}、{artist_name}、{album_name}は現在の曲に置き換えられます。</string>
+    <string name="discord_buttons_footer">{song_name}、{artist_name}、{album_name}は曲の情報に置き換えられます。1つ目のボタンはYouTube Musicで曲を開き、2つ目はこのプロジェクトを開きます。</string>
+    <string name="discord_presence_footer">曲、再生位置、再生状態が変わるとカードが更新されます。再生が止まると消去されます。</string>
+    <string name="discord_sign_in_footer">ログインするとDiscordのログインページが開きます。BitChordに何かが入力されることはありません。</string>
+    <string name="discord_token">Discordトークン</string>
+    <string name="discord_token_description">Discordアカウントトークンを貼り付けてください。このデバイス内で暗号化され、Discordにのみ送信されます。</string>
+    <string name="discord_token_rejected">Discordがそのトークンを拒否しました。</string>
+    <string name="discord_token_warning">Discordはアプリがプレゼンスを設定できるAPIを提供していないため、この機能はあなたのアカウントとしてログインし、Discordのプロトコルを使用します。トークンはこのデバイス内で暗号化され、Discordにのみ送信されます。アカウント全体へのアクセス権を与えることになり、アカウントの自動化はDiscordの利用規約に違反します。このリスクを受け入れられる場合のみ使用してください。</string>
+    <string name="dislike">低評価</string>
+    <string name="done">完了</string>
+    <string name="download">ダウンロード</string>
+    <string name="download_quality_dialog_subtitle">このデバイスに保存するファイル向け</string>
+    <string name="downloaded">ダウンロード済み</string>
+    <string name="drag_to_reorder">ドラッグして並べ替え</string>
+    <string name="enabled">有効</string>
+    <string name="enter_token_instead">代わりにトークンを入力</string>
+    <string name="enter_token_instead_subtitle">ログインページが読み込まれない場合に使用してください</string>
+    <string name="enter_token_to_enable">有効にするにはトークンを入力してください</string>
+    <string name="first_button">1つ目のボタン</string>
+    <string name="got_it">了解</string>
+    <string name="high_quality">高音質</string>
+    <string name="instrumental">インストゥルメンタル</string>
+    <string name="pause">一時停止</string>
+    <string name="lyrics_by">歌詞提供：%1$s</string>
+    <string name="no_lyrics_found">歌詞が見つかりません</string>
+    <string name="lyrics_saved_with_download">このダウンロードに歌詞を保存済み</string>
+    <string name="shuffle_on">シャッフル: オン</string>
+    <string name="shuffle_off">シャッフル: オフ</string>
+    <string name="repeat_one">1曲をリピート</string>
+    <string name="repeat_all">すべてリピート</string>
+    <string name="repeat_off">リピート: オフ</string>
+    <string name="autoplay_on">AutoPlay: オン</string>
+    <string name="autoplay_off">AutoPlay: オフ</string>
+    <string name="autoplay_queue_description">次に再生される、似た曲</string>
+    <string name="autoplay_empty_description">似た曲が引き続き再生されます</string>
+    <string name="high_quality_upgrading">高音質、アップグレード中</string>
+    <string name="upgrading_quality">音質をアップグレード中</string>
+    <string name="hi_res_lossless">ハイレゾロスレス</string>
+    <string name="bit_depth">%1$dビット</string>
+    <string name="mono">モノラル</string>
+    <string name="stereo">ステレオ</string>
+    <string name="channel_count">%1$dch</string>
+    <string name="downgraded_from">↓ %1$sから</string>
+    <string name="history">履歴</string>
+    <string name="sources">ソース</string>
+    <string name="wifi">Wi-Fi</string>
+    <string name="mobile_data">モバイルデータ</string>
+    <string name="couldnt_load_tracks">これらのトラックを読み込めませんでした</string>
+    <string name="wifi_only_download_refusal">ダウンロードはWi-Fiのみに制限されています。モバイルデータを使うには設定でオフにしてください。</string>
+    <string name="pinned_playlist_limit">ピン留めできるプレイリストは%1$d件までです</string>
+    <string name="custom_module_description">組み込みのソースより先に試される、互換性のあるモジュールインデックスです。保存すると現在のカスタムモジュールが置き換わります。</string>
+    <string name="downloaded_playlist">ダウンロード済みのプレイリスト</string>
+    <string name="library_sign_in_description">Googleアカウントにログインすると、高評価した曲、プレイリスト、YouTube Musicの履歴が表示されます。</string>
+    <string name="downloads_progress">ダウンロード · %1$d%%</string>
+    <string name="downloads_finished">ダウンロード · 完了</string>
+    <string name="downloading_progress">ダウンロード中 · %1$d%%</string>
+    <string name="starting">開始しています</string>
+    <string name="saved_to_bitchord_folder">Music/BitChordに保存済み</string>
+    <string name="nothing_downloading">ダウンロード中の項目はありません</string>
+    <string name="nothing_to_explore">現在探索できるものはありません</string>
+    <string name="no_youtube_music_results">YouTube Musicからの結果はありません</string>
+    <string name="library_empty">ライブラリにはまだ何もありません</string>
+    <string name="history_sign_in_required">これまでの再生履歴を見るにはログインしてください</string>
+    <string name="history_empty">まだ何も再生されていません</string>
+    <string name="no_results">結果がありません</string>
+    <string name="downloaded_playlist_empty">このプレイリストの曲はこのデバイスに残っていません</string>
+    <string name="no_local_audio_found">このデバイスにオーディオファイルが見つかりません</string>
+    <string name="no_internet_connection">インターネット接続がありません</string>
+    <string name="youtube_request_rejected">YouTube Musicがリクエストを拒否しました。もう一度ログインしてみてください。</string>
+    <string name="something_went_wrong">問題が発生しました</string>
+    <string name="unknown_artist">不明なアーティスト</string>
+    <plurals name="downloads_failed_count">
+        <item quantity="other">ダウンロード · %1$d件失敗</item>
+    </plurals>
+    <plurals name="download_waiting_count">
+        <item quantity="other">%1$d件待機中</item>
+    </plurals>
+    <plurals name="download_done_count">
+        <item quantity="other">%1$d件完了</item>
+    </plurals>
+    <plurals name="download_failed_count">
+        <item quantity="other">%1$d件失敗</item>
+    </plurals>
+    <plurals name="all_songs_downloaded">
+        <item quantity="other">%1$d曲すべてダウンロード済み</item>
+    </plurals>
+    <string name="your_playlists">あなたのプレイリスト</string>
+    <string name="who_can_see_it">公開範囲</string>
+    <string name="about_artist">アーティストについて</string>
+    <string name="about_album">アルバムについて</string>
+    <string name="nothing_matches">「%1$s」に一致するものはありません</string>
+    <string name="close_search">検索を閉じる</string>
+    <string name="less">折りたたむ</string>
+    <string name="song_count_with_minutes">%1$s、%2$d分</string>
+    <string name="song_count_with_duration">%1$s、%2$s</string>
+    <string name="song_count_with_hours_minutes">%1$s、%2$s %3$d分</string>
+    <plurals name="hour_count">
+        <item quantity="other">%1$d時間</item>
+    </plurals>
+    <plurals name="songs_will_play_next">
+        <item quantity="other">%1$d曲が次に再生されます</item>
+    </plurals>
+    <plurals name="songs_added_to_queue">
+        <item quantity="other">%1$d曲を再生キューに追加しました</item>
+    </plurals>
+    <plurals name="log_copied_line_count">
+        <item quantity="other">ログをコピーしました · %1$d行</item>
+    </plurals>
+    <string name="integrate_spotify_canvas">Spotify Canvasを設定</string>
+    <string name="lastfm_login">Last.fmログイン</string>
+    <string name="lastfm_login_description">Last.fmアカウントでログインするとスクロブリングが有効になります。</string>
+    <string name="lastfm_now_playing_subtitle">今聴いているものをLast.fmに反映します</string>
+    <string name="lead_with_song">曲名を先頭に</string>
+    <string name="lead_with_song_subtitle">太字の行にアーティストではなく曲名を表示します</string>
+    <string name="like">高評価</string>
+    <string name="listenbrainz_token">ListenBrainzトークン</string>
+    <string name="listenbrainz_token_description">スクロブリングを有効にするには、ListenBrainzのユーザートークンを貼り付けてください。</string>
+    <string name="listening_history">再生履歴</string>
+    <string name="lyrics_not_available">歌詞は利用できません</string>
+    <string name="lyrics_sources_order">ソースはこの順番で試されます。ドラッグして並べ替えられます。音節単位の歌詞が優先されていない限り、歌詞が見つかった最初のソースが採用されます。</string>
+    <string name="max_delay">最大遅延</string>
+    <string name="max_delay_subtitle">スクロブルまでの最大遅延（秒）</string>
+    <string name="min_song_duration">最小の曲の長さ</string>
+    <string name="min_song_duration_subtitle">これより短い曲はスクロブルされません</string>
+    <string name="module_index_description">互換性のあるモジュールインデックスJSONのURLを貼り付けてください。Tidal、Qobuz、Apple Musicなどのサービスから検索・ストリーミングするJavaScriptプラグインを含めることができます。</string>
+    <string name="module_index_url">モジュールインデックスURL</string>
+    <string name="monthly_listeners">月間リスナー数 %1$s人</string>
+    <string name="name">名前</string>
+    <string name="no_lyrics_for_track">この曲の歌詞はありません</string>
+    <string name="no_playlists_yet">プレイリストはまだありません。上の行から作成してください。</string>
+    <string name="no_tracks_here">ここにはトラックがありません</string>
+    <string name="not_connected">未接続</string>
+    <string name="nothing_playing">再生中の曲はありません</string>
+    <string name="one_hour">1時間</string>
+    <string name="open_album">アルバムを開く</string>
+    <string name="open_artist">アーティストを開く</string>
+    <string name="pause_after_a_while">しばらくしたら再生を一時停止</string>
+    <string name="pause_after_song">この曲が終わったら一時停止します</string>
+    <string name="pause_countdown">あと%1$sで再生が一時停止します</string>
+    <string name="pick_something">何かを選ぶとここに表示されます</string>
+    <string name="play_to_preview">プレビューを表示するには何かを再生してください。</string>
+    <string name="playlist_name">プレイリスト名</string>
+    <string name="presence">プレゼンス</string>
+    <string name="preview">プレビュー</string>
+    <string name="prioritize_syllable_lyrics">音節単位の歌詞を優先</string>
+    <string name="prioritize_syllable_lyrics_subtitle">行単位で一致しても、単語ごとの歌詞を求めて検索を続けます</string>
+    <string name="quality_hourly">%1$s · %2$s</string>
+    <string name="quality_per_track">%1$s · 1トラックあたり%2$s</string>
+    <string name="queued">待機中</string>
+    <string name="remove">削除</string>
+    <string name="remove_from_liked">高く評価した音楽から削除</string>
+    <string name="remove_from_playlist">このプレイリストから削除</string>
+    <string name="remove_from_queue">再生キューから削除</string>
+    <string name="rename_playlist">プレイリスト名を変更</string>
+    <string name="replace_custom_module">カスタムモジュールを置き換え</string>
+    <string name="reset_to_default">デフォルトに戻す</string>
+    <string name="rich_presence_footer">Discordのプロフィールに再生中の曲を表示します。</string>
+    <string name="save_name">名前を保存</string>
+    <string name="saved_to_downloads">ダウンロードに保存済み</string>
+    <string name="saved_to_youtube_music_account">YouTube Musicアカウントに保存済み</string>
+    <string name="scrobble_delay">スクロブル遅延</string>
+    <string name="scrobble_delay_subtitle">曲のどの時点でスクロブルするか</string>
+    <string name="scrobble_timing">スクロブルのタイミング</string>
+    <string name="scrobble_tracks">トラックをスクロブル</string>
+    <string name="scrobble_tracks_subtitle">再生をLast.fmのタイムラインに記録します</string>
+    <string name="scrobbling_footer">再生した曲をLast.fmとListenBrainzにスクロブルします。</string>
+    <string name="scrobbling_paused_footer">Last.fmとListenBrainzは今回のリリースでは一時停止しており、後日再開されます。既存の連携は保存されたままです。</string>
+    <string name="search_this_folder">このフォルダ内を検索</string>
+    <string name="search_this_list">このリスト内を検索</string>
+    <string name="second_button">2つ目のボタン</string>
+    <string name="share">共有</string>
+    <string name="sharing_as">@%1$sとして共有中</string>
+    <string name="sharing_listens">再生履歴を共有中</string>
+    <string name="show_what_playing">再生中の曲を表示する</string>
+    <string name="signed_in_as">%1$sとしてログイン済み</string>
+    <string name="signing_in">ログイン中…</string>
+    <string name="sleep_timer">スリープタイマー</string>
+    <string name="sources_no_lossless">有効なソースの中にロスレスオーディオを提供できるものがありません。トランスコードなしでロスレスファイルを再生するにはカスタムモジュールを追加してください。</string>
+    <string name="sources_order_footer">ソースにトラックがない、またはアクセスできない場合、BitChordは次のソースを試します。YouTubeより上のソースは、より良いバージョンが見つかった場合にその録音を置き換えられます。</string>
+    <string name="sources_order_header">ソース（この順番で試行）</string>
+    <string name="sources_quality_capped">この接続は「高音質」より低く設定されているため、ストリームはその上限に合わせてトランスコードされます。ダウンロードには影響しません。</string>
+    <string name="sources_subtitle">音声の取得元と使用する順序</string>
+    <string name="spdc_token">sp_dcトークン</string>
+    <string name="spotify_canvas_setup">Spotify Canvasの設定</string>
+    <string name="spotify_canvas_setup_description">Spotify Canvasを使うには、Spotifyのsp_dc cookieを入力してください。</string>
+    <string name="spotify_canvas_setup_steps">1. ブラウザでopen.spotify.comにログインします。\n2. デベロッパーツールを開き、[Application]と[Cookies]を選択します。\n3. sp_dc cookieの値をコピーします。\n4. 下に貼り付けます。</string>
+    <string name="status">ステータス</string>
+    <string name="status_dialog_message">プレゼンスが有効な間、アカウントに表示される内容です。</string>
+    <string name="status_dnd">取り込み中</string>
+    <string name="status_dnd_detail">赤いダッシュ。通知も無効になります。</string>
+    <string name="status_idle">退席中</string>
+    <string name="status_idle_detail">オレンジの三日月、離席として表示されます</string>
+    <string name="status_online">オンライン</string>
+    <string name="status_online_detail">緑のドット</string>
+    <string name="subscribers">登録者数 %1$s人</string>
+    <string name="tap_to_connect">タップして接続</string>
+    <string name="tap_to_sign_in">タップしてログイン</string>
+    <string name="tap_to_sign_in_discord">タップしてDiscordでログイン</string>
+    <string name="token">トークン</string>
+    <string name="turn_off_timer">タイマーをオフにする</string>
+    <string name="undo_dislike">低評価を取り消す</string>
+    <string name="up_next">次の曲</string>
+    <string name="verb_competing">参加中</string>
+    <string name="verb_listening">再生中</string>
+    <string name="verb_playing">プレイ中</string>
+    <string name="verb_watching">視聴中</string>
+    <plurals name="minute_count">
+        <item quantity="other">%1$d分</item>
+    </plurals>
+    <string name="biggest_day_note">最も聴いた日は%1$sで、%2$sの再生時間でした。</string>
+    <string name="close_replay">Replayを閉じる</string>
+    <string name="couldnt_draw_picture">画像を作成できませんでした</string>
+    <string name="default_replay_holder">BitChordリスナー</string>
+    <string name="different_albums">さまざまなアルバム</string>
+    <string name="genres_pending">再生履歴が増えるとジャンルが表示されます</string>
+    <string name="hour_am">午前%1$d時</string>
+    <string name="hour_pm">午後%1$d時</string>
+    <string name="hours_minutes_short">%1$d時間%2$d分</string>
+    <string name="listen_most_around">最もよく聴くのは%1$s頃です。</string>
+    <string name="listening_shape">あなたの再生パターン</string>
+    <string name="member_since">登録日</string>
+    <string name="member_since_value">登録日：%1$s</string>
+    <string name="midday">正午</string>
+    <string name="midnight">真夜中</string>
+    <string name="minutes">分</string>
+    <string name="minutes_grouped_short">%1$s分</string>
+    <string name="minutes_listened">再生時間（分）</string>
+    <string name="minutes_short">%1$d分</string>
+    <string name="not_enough_listening">再生履歴がまだ十分ではありません</string>
+    <string name="not_enough_this_month">今月もう少し曲を再生するとReplayが解放されます。</string>
+    <string name="pinned">ピン留め済み</string>
+    <string name="replay_across">にわたって</string>
+    <string name="replay_album_end">があなたの心を掴みました。</string>
+    <string name="replay_album_focus">1枚のアルバム</string>
+    <string name="replay_album_start">今回は、</string>
+    <string name="replay_artist_end">に何度も戻ってきました。</string>
+    <string name="replay_artist_focus">1組のアーティスト</string>
+    <string name="replay_artist_start">今月はずっと、</string>
+    <string name="replay_empty_description">もう少し聴くと、BitChordがあなたの履歴からReplayを作成します。</string>
+    <string name="replay_genre_end">があなたのサウンドを形作りました。</string>
+    <string name="replay_genre_focus">あなたのジャンル</string>
+    <string name="replay_genre_start">合わせて、</string>
+    <string name="replay_habits_middle">、そのきっかけは</string>
+    <string name="replay_habits_start">あなたが探求したのは</string>
+    <string name="replay_hours_across">%1$s時間</string>
+    <string name="replay_intro_end">の準備ができました。</string>
+    <string name="replay_intro_start">あなたの</string>
+    <string name="replay_minutes_end">です。</string>
+    <string name="replay_minutes_start">音楽と過ごした時間は</string>
+    <string name="replay_minutes_value">%1$s</string>
+    <string name="replay_mostly_around">、主に%1$s頃でした。</string>
+    <string name="replay_private_counting">このデバイス内の再生履歴から非公開で集計されています</string>
+    <string name="replay_share_card_description">主な再生ハイライトをまとめた、洗練されたカードです。</string>
+    <string name="replay_share_summary_description">曲、アーティスト、アルバム、ジャンル、傾向をまとめた全体像です。</string>
+    <string name="replay_songs_end">があなたの1か月を彩りました。</string>
+    <string name="replay_songs_start">合計</string>
+    <string name="replay_summary_start">あなたの再生スタイルは</string>
+    <string name="saved">保存済み</string>
+    <string name="share_my_replay">自分のReplayを共有</string>
+    <string name="share_your_replay">あなたのReplayを共有</string>
+    <string name="tap_share_for_picture">共有をタップして画像を作成</string>
+    <string name="top_album">トップアルバム</string>
+    <string name="top_artist">トップアーティスト</string>
+    <string name="top_genre">トップジャンル</string>
+    <string name="top_song">トップ曲</string>
+    <string name="when_you_listen_most">最もよく聴く時間帯</string>
+    <string name="your_biggest_day">最も聴いた日：%1$s</string>
+    <string name="your_listening_experience">あなたの再生体験</string>
+    <string name="your_replay">あなたのReplay</string>
+    <plurals name="replay_artist_count">
+        <item quantity="other">%1$s組のアーティスト</item>
+    </plurals>
+    <plurals name="replay_play_count">
+        <item quantity="other">%1$s回再生</item>
+    </plurals>
+    <plurals name="replay_song_count">
+        <item quantity="other">%1$s曲</item>
+    </plurals>
+    <string name="all_audio_folders">すべてのオーディオフォルダ</string>
+    <string name="local_music_folder">ローカルミュージックフォルダ</string>
+    <string name="sort_music">音楽を並べ替え</string>
+    <string name="sort_title_ascending">アルファベット順（A→Z）</string>
+    <string name="sort_title_descending">アルファベット順（Z→A）</string>
+    <string name="sort_date_added">追加日（新しい順）</string>
+    <string name="sort_date_modified">更新日（新しい順）</string>
+    <string name="use_all_audio_folders">すべてのオーディオフォルダを使用</string>
+    <string name="use_all_audio_folders_subtitle">フォルダの制限を解除し、デバイス全体の音楽をスキャンします</string>
+    <string name="album">アルバム</string>
+    <string name="artist">アーティスト</string>
+    <string name="playlist">プレイリスト</string>
+    <string name="open">開く</string>
+    <string name="open_playlist">プレイリストを開く</string>
+    <string name="pin">ピン留め</string>
+    <string name="unpin">ピン留めを解除</string>
+    <string name="rename">名前を変更</string>
+    <string name="downloading">ダウンロード中</string>
+    <string name="delete_playlist">プレイリストを削除</string>
+    <string name="delete_download">ダウンロードを削除</string>
+    <string name="delete_playlist_confirmation">「%1$s」を削除しますか？もう一度タップして確定します。</string>
+    <string name="delete_download_confirmation">「%1$s」をこのデバイスから削除しますか？もう一度タップして確定します。</string>
+    <string name="running">実行中</string>
+    <string name="automix_analysis_status">オートミックス · この曲：%1$s · 次：%2$s</string>
+    <string name="analysis_complete">分析済み</string>
+    <string name="analysis_refining">分析済み、調整中…</string>
+    <string name="analysis_in_progress">分析中…</string>
+    <string name="waiting">待機中</string>
+    <string name="automix_enabled_subtitle">トラック自体からすべての切り替えのタイミングとブレンドを計算します。端末が熱くなったり再生が途切れたりする場合はオフにしてください。</string>
+    <string name="automix_disabled_subtitle">スライダーなしで切り替えのタイミングとブレンドを自動的に計算します。低スペック端末ではパフォーマンスが変わることがあります。</string>
+    <string name="no_lyrics_sources_enabled">なし。歌詞は取得されません。</string>
+    <string name="song_cache_large_subtitle">ダウンロードした音声を最大%1$sまでディスクに保持します。空き容量をかなり使用することがあります。</string>
+    <string name="song_cache_limit_subtitle">即座にシークや再生ができるよう、ダウンロードした音声をディスクに保持します</string>
+    <string name="replay_genres_enabled_subtitle">Last.fmにアーティストのジャンルを問い合わせます。送信されるのはアーティスト名のみです。</string>
+    <string name="replay_genres_disabled_subtitle">オフの間はReplayのジャンルグラフが表示されません</string>
+    <string name="swipe_plays_next">曲をスワイプすると次に再生します</string>
+    <string name="swipe_adds_to_queue">オフにすると、スワイプした曲は再生キューの末尾に追加されます</string>
+    <string name="import_backup_warning">これによりこのデバイスの設定と再生履歴がファイルの内容で置き換えられます。保持したい場合は先に現在のデータをエクスポートしてください。</string>
+    <string name="youtube_music_account">YouTube Musicアカウント</string>
+    <string name="tap_to_sign_in_google">タップしてGoogleでログイン</string>
+    <string name="export_succeeded">設定と%1$sをエクスポートしました</string>
+    <string name="export_failed">エクスポートに失敗しました：%1$s</string>
+    <string name="import_succeeded">v%2$sから%1$sをインポートしました</string>
+    <string name="import_failed">インポートに失敗しました：%1$s</string>
+    <string name="unknown_error">不明なエラー</string>
+    <string name="no_listening_history">再生履歴なし</string>
+    <plurals name="listening_month_count">
+        <item quantity="other">%1$dか月の再生履歴</item>
+    </plurals>
+    <string name="no_local_albums">ここにはまだアルバムやプレイリストに属するものがありません。完全なアルバムやプレイリストをダウンロードするとここに表示されます。</string>
+    <string name="play_your_replay">あなたのReplayを再生</string>
+    <string name="counted_on_device_with_bitchord">BitChordでこのデバイス内で集計</string>
+    <string name="this_month">今月</string>
+    <string name="this_year">今年</string>
+    <string name="all_time">すべての期間</string>
+    <string-array name="lyrics_intro_lines">
+        <item>ビートが着地中</item>
+        <item>曲がスタート</item>
+        <item>ウォーミングアップ中</item>
+        <item>ムードを演出中</item>
+        <item>まずベース、言葉は後で</item>
+        <item>お楽しみに</item>
+        <item>盛り上がりを感じて</item>
+        <item>今はグルーヴだけ</item>
+        <item>サビが近づいています</item>
+        <item>少し間を置いて</item>
+        <item>ボーカルの出番</item>
+        <item>最初の音が鳴った</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>歌詞を取得中</item>
+        <item>言葉を探しています</item>
+        <item>歌詞を呼び出し中</item>
+        <item>歌詞を読み込み中</item>
+        <item>歌詞カードを確認中</item>
+        <item>歌詞集を検索中</item>
+        <item>歌詞を並べています</item>
+        <item>言葉がもうすぐ届きます</item>
+        <item>アーカイブを確認中</item>
+        <item>ぴったりの言葉を探しています</item>
+        <item>歌詞がまとまりつつあります</item>
+        <item>もう少しで言葉が見つかりそう</item>
+    </string-array>
 </resources>

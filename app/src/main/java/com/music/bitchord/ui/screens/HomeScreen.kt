@@ -64,6 +64,7 @@ import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.SignInBanner
 import com.music.bitchord.ui.components.feedMoreSkeleton
 import com.music.bitchord.ui.components.feedSkeleton
+import com.music.bitchord.ui.components.recentlyPlayedSkeleton
 import com.music.bitchord.ui.components.heroCardWidth
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.player.MeshGradientBackground
@@ -81,7 +82,7 @@ fun HomeScreen(
     pullState: PullToRefreshState,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues,
-    title: String = "Listen Now",
+    title: String,
     signedIn: Boolean = true,
     onSignIn: (() -> Unit)? = null,
     /**
@@ -93,6 +94,7 @@ fun HomeScreen(
     // Explore doesn't page — only Home has a continuation worth following.
     onLoadMore: (() -> Unit)? = null,
     loadingMore: Boolean = false,
+    recentlyPlayedLoading: Boolean = false,
 ) {
     PullToRefresh(
         refreshing = refreshing,
@@ -121,10 +123,19 @@ fun HomeScreen(
             when (state) {
                 is UiState.Loading -> feedSkeleton()
                 is UiState.Error -> item {
-                    MessageState(state.message, actionLabel = "Retry", onAction = onRetry)
+                    MessageState(state.message, actionLabel = stringResource(R.string.retry), onAction = onRetry)
                 }
                 is UiState.Success -> {
-                    itemsIndexedShelves(state.data, onItemClick, onItemLongPress)
+                    if (recentlyPlayedLoading) recentlyPlayedSkeleton()
+                    // The loading skeleton already owns the hero slot. Until
+                    // Recently Played lands, every real shelf must retain its
+                    // compact-card layout instead of briefly becoming a hero.
+                    itemsIndexedShelves(
+                        shelves = state.data,
+                        onItemClick = onItemClick,
+                        onItemLongPress = onItemLongPress,
+                        firstIsHero = !recentlyPlayedLoading,
+                    )
                     if (loadingMore) feedMoreSkeleton()
                 }
             }
@@ -157,10 +168,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
     shelves: List<HomeShelf>,
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
+    firstIsHero: Boolean = true,
 ) {
     shelves.forEachIndexed { index, shelf ->
         item(key = shelf.title + index) {
-            if (index == 0) {
+            if (index == 0 && firstIsHero) {
                 HeroShelf(shelf = shelf, onItemClick = onItemClick, onItemLongPress = onItemLongPress)
             } else {
                 Shelf(shelf = shelf, onItemClick = onItemClick, onItemLongPress = onItemLongPress)
@@ -465,7 +477,7 @@ internal fun ShelfCard(
             if (isPinned) {
                 Icon(
                     imageVector = BitChordIcons.Pin,
-                    contentDescription = "Pinned",
+                    contentDescription = stringResource(R.string.pinned),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(14.dp),
                 )

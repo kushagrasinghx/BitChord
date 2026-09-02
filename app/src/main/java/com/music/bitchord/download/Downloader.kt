@@ -4,6 +4,7 @@ import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
+import com.music.bitchord.data.sources.StreamFormat
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -199,6 +200,43 @@ object Downloader {
             written
         }
     }
+
+    /**
+     * Verify that a source URL is a file in the container it advertised before
+     * it is allowed to become a download route.
+     *
+     * Some module backends label an HLS master playlist as FLAC. Downloading
+     * that text faithfully produces a tiny `.flac` which no player can open;
+     * rejecting it here lets the ordinary YouTube fallback take over instead.
+     */
+    suspend fun isDirectAudioFile(
+        url: String,
+        headers: Map<String, String>,
+        format: StreamFormat,
+    ): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = Request.Builder().url(url)
+                .header("Range", "bytes=0-31")
+                .apply { headers.forEach { (name, value) -> header(name, value) } }
+                .build()
+            Http.client.newCall(request).execute().use { response ->
+                if (response.code !in 200..299) return@use false
+                val type = response.header("Content-Type").orEmpty().lowercase()
+                if ("mpegurl" in type || "vnd.apple.mpegurl" in type) return@use false
+                val head = response.body?.byteStream()?.readNBytes(32) ?: return@use false
+                if (head.startsWith("#EXTM3U".toByteArray())) return@use false
+                when (format.codec?.lowercase()) {
+                    "flac", "x-flac" -> head.startsWith("fLaC".toByteArray())
+                    "m4a", "mp4", "alac" -> head.size >= 8 &&
+                        head.copyOfRange(4, 8).contentEquals("ftyp".toByteArray())
+                    else -> head.isNotEmpty()
+                }
+            }
+        }.onFailure { Log.w(TAG, "could not probe source file: ${it.message}") }.getOrDefault(false)
+    }
+
+    private fun ByteArray.startsWith(prefix: ByteArray): Boolean =
+        size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
 
     private fun open(url: String, position: Long, length: Long) = Http.client
         .newCall(

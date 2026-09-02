@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.music.bitchord.R
 import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
@@ -59,6 +61,7 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
+import java.util.Locale
 
 /**
  * Where a track goes: one of the account's playlists, or a new one.
@@ -101,11 +104,14 @@ fun PlaylistPickerSheet(
             SheetTrackHeader(song)
             HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
         }
-        SheetHeading(if (song != null) "ADD TO PLAYLIST" else "YOUR PLAYLISTS")
+        SheetHeading(
+            stringResource(if (song != null) R.string.add_to_playlist else R.string.your_playlists)
+                .uppercase(Locale.getDefault()),
+        )
 
         ActionRow(
             icon = BitChordIcons.Plus,
-            label = "New playlist",
+            label = stringResource(R.string.new_playlist),
             onClick = { creating = true },
         )
 
@@ -125,7 +131,7 @@ fun PlaylistPickerSheet(
             }
 
             playlists.isEmpty() -> Text(
-                text = "No playlists yet — the row above makes one.",
+                text = stringResource(R.string.no_playlists_yet),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
@@ -233,19 +239,19 @@ private fun NewPlaylistForm(
                 IconButton(onClick = it) {
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.back),
                         tint = MaterialTheme.colorScheme.onBackground,
                     )
                 }
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "New playlist",
+                    text = stringResource(R.string.new_playlist),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = "Saved to your YouTube Music account",
+                    text = stringResource(R.string.saved_to_youtube_music_account),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -264,7 +270,7 @@ private fun NewPlaylistForm(
             Box(Modifier.weight(1f)) {
                 if (name.isEmpty()) {
                     Text(
-                        text = "Playlist name",
+                        text = stringResource(R.string.playlist_name),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -294,7 +300,7 @@ private fun NewPlaylistForm(
                 ) {
                     Icon(
                         Icons.Rounded.Close,
-                        contentDescription = "Clear name",
+                        contentDescription = stringResource(R.string.clear_name),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp),
                     )
@@ -302,7 +308,7 @@ private fun NewPlaylistForm(
             }
         }
 
-        SheetHeading("WHO CAN SEE IT")
+        SheetHeading(stringResource(R.string.who_can_see_it).uppercase(Locale.getDefault()))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -327,7 +333,7 @@ private fun NewPlaylistForm(
                 .fillMaxWidth()
                 .padding(horizontal = 22.dp),
         ) {
-            Text("Create playlist")
+            Text(stringResource(R.string.create_playlist))
         }
         Spacer(Modifier.height(28.dp))
     }
@@ -374,12 +380,12 @@ internal fun RenamePlaylistForm(
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back),
                     tint = MaterialTheme.colorScheme.onBackground,
                 )
             }
             Text(
-                text = "Rename playlist",
+                text = stringResource(R.string.rename_playlist),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.weight(1f),
@@ -417,7 +423,7 @@ internal fun RenamePlaylistForm(
                 .fillMaxWidth()
                 .padding(horizontal = 22.dp),
         ) {
-            Text("Save name")
+            Text(stringResource(R.string.save_name))
         }
         Spacer(Modifier.height(28.dp))
     }

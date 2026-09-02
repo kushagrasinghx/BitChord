@@ -38,7 +38,10 @@ data class ModuleSearchResponse(
 /** The top-level response object from `getTrackStreamUrl()`. */
 @Serializable
 data class ModuleStreamResponse(
-    @SerialName("streamUrl") val streamUrl: String = "",
+    // A source can answer a valid JSON error payload with `streamUrl: null`.
+    // Treat it as an unavailable rendition, not a parser crash that burns the
+    // source-resolution budget before the JioSaavn/YouTube fallback runs.
+    @SerialName("streamUrl") val streamUrl: String? = null,
     @SerialName("track") val track: ModuleStreamTrack? = null,
 )
 
@@ -50,5 +53,6 @@ data class ModuleStreamTrack(
     @SerialName("mimeType") val mimeType: String? = null,
     @SerialName("bitDepth") val bitDepth: Int? = null,
     @SerialName("sampleRate") val sampleRate: Double? = null,
+    @SerialName("bitrate") val bitrate: Int? = null,
     @SerialName("audioModes") val audioModes: List<String>? = null,
 )

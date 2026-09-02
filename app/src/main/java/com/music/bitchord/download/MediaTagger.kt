@@ -59,16 +59,21 @@ object MediaTagger {
     fun carriesTags(extension: String): Boolean = extension in TAGGABLE
 
     /** @param lyrics what [LyricsTag] found, or null when there are none to write. */
+    internal class Artwork(val bytes: ByteArray, val mime: String)
+
+    /** Fetch artwork before publication so batch downloads can overlap it with audio. */
+    internal fun artworkFor(track: Song): Artwork? = fetchCover(track)
+
     internal fun embed(
         context: Context,
         uri: Uri,
         track: Song,
         extension: String,
         lyrics: LyricsTag.Embeddable? = null,
+        artwork: Artwork? = null,
     ) {
         if (!carriesTags(extension)) return
         val original = readAll(context, uri) ?: return
-        val cover = fetchCover(track)
         // The portable field and this app's own. Split here rather than inside
         // each tagger so all three agree on which string goes where.
         val plain = lyrics?.plain
@@ -82,7 +87,7 @@ object MediaTagger {
                     track.artist,
                     track.albumName,
                     plain,
-                    cover?.bytes,
+                    artwork?.bytes,
                     coverIsPng = false,
                     wordLyrics = words,
                 )
@@ -92,8 +97,8 @@ object MediaTagger {
                     track.artist,
                     track.albumName,
                     plain,
-                    cover?.bytes,
-                    cover?.mime ?: "image/jpeg",
+                    artwork?.bytes,
+                    artwork?.mime ?: "image/jpeg",
                     wordLyrics = words,
                 )
                 else -> WebmTagger.tag(
@@ -102,8 +107,8 @@ object MediaTagger {
                     track.artist,
                     track.albumName,
                     plain,
-                    cover?.bytes,
-                    cover?.mime ?: "image/jpeg",
+                    artwork?.bytes,
+                    artwork?.mime ?: "image/jpeg",
                     wordLyrics = words,
                 )
             }
@@ -117,9 +122,7 @@ object MediaTagger {
         writeAll(context, uri, tagged)
     }
 
-    private class Cover(val bytes: ByteArray, val mime: String)
-
-    private fun fetchCover(track: Song): Cover? {
+    private fun fetchCover(track: Song): Artwork? {
         val url = track.artworkAt(1200) ?: return null
         return runCatching {
             val request = okhttp3.Request.Builder().url(url).build()
@@ -130,7 +133,7 @@ object MediaTagger {
                 val scaled = downscale(bitmap, COVER_MAX_SIDE)
                 val out = ByteArrayOutputStream()
                 scaled.compress(Bitmap.CompressFormat.JPEG, 92, out)
-                Cover(out.toByteArray(), "image/jpeg")
+                Artwork(out.toByteArray(), "image/jpeg")
             }
         }.onFailure { Log.d(TAG, "no cover embedded for ${track.videoId}: ${it.message}") }.getOrNull()
     }

@@ -2,6 +2,7 @@ package com.music.bitchord.data.sources
 
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.jiosaavn.JioSaavnService
+import com.music.bitchord.data.jiosaavn.prioritizeExplicit
 import com.music.bitchord.data.model.Song
 
 private const val TAG = "BitChord"
@@ -19,11 +20,12 @@ class JioSaavnSource(
 
     override suspend fun search(query: String, limit: Int, waitForAll: Boolean): List<Song> {
         TrackLog.d(TAG, "▶ JioSaavn searchSongs() query=\"$query\" limit=$limit")
-        val results = JioSaavnService.searchSongs(query)
-        TrackLog.d(TAG, "  ✓ JioSaavn returned ${results.size} tracks" + results.take(3)
+        val results = prioritizeExplicit(JioSaavnService.searchSongs(query))
+        TrackLog.d(TAG, "  ✓ JioSaavn returned ${results.size} tracks" + results.take(5)
             .joinToString(prefix = ": ", separator = "; ") { "'${it.title}' by '${
                 it.moreInfo.artistMap.primaryArtists.joinToString(", ") { a -> a.name }
-            }' ${it.moreInfo.duration}s" }.takeIf { results.isNotEmpty() }.orEmpty())
+            }' ${it.moreInfo.duration}s id=${it.id} album='${it.moreInfo.album}' " +
+                "explicit=${it.explicitContent}" }.takeIf { results.isNotEmpty() }.orEmpty())
         return results.take(limit).map { raw ->
             val primaryArtists = raw.moreInfo.artistMap.primaryArtists.joinToString(", ") { it.name }
             val artistName = primaryArtists.ifBlank { "Unknown Artist" }
@@ -37,6 +39,11 @@ class JioSaavnSource(
                 videoId = SourceRegistry.trackKey(config.id, raw.id),
                 title = raw.title,
                 artist = artistName,
+                // Keep the release identity JioSaavn already gave us. Its
+                // catalogue contains different recordings under the same
+                // title and artist (notably the two "Brown Rang" rows), so
+                // dropping this left duration to choose between them.
+                albumName = raw.moreInfo.album.ifBlank { null },
                 thumbnailUrl = thumbnail,
                 // JioSaavn provides duration in seconds, but Song expects durationText ("M:SS")
                 // Alternatively, Song.durationMillis() will parse durationText. Let's just 
@@ -46,7 +53,8 @@ class JioSaavnSource(
                     val s = seconds % 60
                     String.format("%d:%02d", m, s)
                 },
-                sourceQuality = "HIGH"
+                sourceQuality = "HIGH",
+                isExplicit = raw.isExplicit,
             )
         }
     }

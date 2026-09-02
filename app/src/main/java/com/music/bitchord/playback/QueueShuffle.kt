@@ -2,6 +2,7 @@ package com.music.bitchord.playback
 
 import androidx.media3.common.Player
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,12 +31,16 @@ object QueueShuffle {
 
     /** Whether the queue is currently held in shuffled order. */
     val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
-
+    fun setEnabled(enabled: Boolean) {
+        _enabled.value = enabled
+    }
     /** Media ids in their pre-shuffle order. Empty while shuffle is off. */
     private var original: List<String> = emptyList()
 
     fun toggle(player: Player) {
         if (_enabled.value) restore(player) else shuffle(player)
+        // Persist the new state so it survives app restarts.
+        AppSettings.setShuffleEnabled(_enabled.value)
     }
 
     /**
@@ -46,6 +51,7 @@ object QueueShuffle {
     fun enableForNextQueue() {
         original = emptyList()
         _enabled.value = true
+        AppSettings.setShuffleEnabled(true)
     }
 
     /**

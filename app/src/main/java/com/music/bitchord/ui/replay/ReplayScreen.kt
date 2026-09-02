@@ -34,9 +34,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -58,6 +60,11 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.rememberArtworkColors
 import com.music.bitchord.ui.theme.AccentRed
+
+/** Whether the Replay page is being shown in dark mode (vs light). */
+@Composable
+private fun isDarkMode(): Boolean =
+    MaterialTheme.colorScheme.background.luminance() < 0.5f
 
 /**
  * The Replay page: four cards, four charts and a way to share the lot.
@@ -107,6 +114,7 @@ fun ReplayScreen(
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
 ) {
+    val context = LocalContext.current
     val summary = state.summary
     val leadArtwork = summary?.songs?.firstOrNull()?.song?.thumbnailUrl
     val palette = rememberArtworkColors(leadArtwork)
@@ -120,45 +128,53 @@ fun ReplayScreen(
         // The mesh is built to sit behind a player, where the only thing over it
         // is a handful of large controls. A page of ranked lists needs a good
         // deal more separation than that, so most of it is put back under ink.
+        val dark = isDarkMode()
         Box(
             Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(
+                        if (dark) listOf(
                             Color.Black.copy(alpha = 0.30f),
                             Color.Black.copy(alpha = 0.72f),
                             Color.Black.copy(alpha = 0.88f),
+                        ) else listOf(
+                            Color.White.copy(alpha = 0.25f),
+                            Color.White.copy(alpha = 0.65f),
+                            Color.White.copy(alpha = 0.82f),
                         ),
                     ),
                 ),
         )
+
+        val textColor = if (dark) Color.White else Color.Black
+        val textVariant = if (dark) Color.White.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.55f)
 
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = contentPadding,
         ) {
-            item("heading") { Heading(state, onPeriodChange) }
+            item("heading") { Heading(state, onPeriodChange, dark) }
 
             when {
                 state.loading && summary == null -> item("loading") {
                     Box(Modifier.fillMaxWidth().padding(64.dp), Alignment.Center) {
-                        CircularProgressIndicator(color = Color.White.copy(alpha = 0.6f))
+                        CircularProgressIndicator(color = textColor.copy(alpha = 0.6f))
                     }
                 }
-                summary == null || summary.isEmpty -> item("empty") { EmptyReplay(state.period) }
+                summary == null || summary.isEmpty -> item("empty") { EmptyReplay(state.period, dark) }
                 else -> {
                     item("cards") {
                         ReplayCardRow(
-                            cards = summary.cards(),
+                            cards = summary.cards(context),
                             holder = holder,
                             memberSince = state.memberSince,
                             onOpenStory = onOpenStory,
                         )
                     }
                     item("open") {
-                        ReplayActionRow(BitChordIcons.Play, "Play your Replay") {
+                        ReplayActionRow(BitChordIcons.Play, stringResource(R.string.play_your_replay), dark) {
                             onOpenStory(ReplayStoryPage.INTRO)
                         }
                     }
@@ -167,6 +183,7 @@ fun ReplayScreen(
                         key = "songs",
                         title = topSongs,
                         rows = summary.songRows(CHART_LENGTH),
+                        dark = dark,
                         onClick = { index ->
                             summary.songs.getOrNull(index)?.let { onPlaySong(it.song) }
                         },
@@ -175,6 +192,7 @@ fun ReplayScreen(
                         key = "artists",
                         title = topArtists,
                         rows = summary.artistRows(CHART_LENGTH),
+                        dark = dark,
                         circular = true,
                         onClick = { index ->
                             val artist = summary.artists.getOrNull(index) ?: return@chart
@@ -185,6 +203,7 @@ fun ReplayScreen(
                         key = "albums",
                         title = topAlbums,
                         rows = summary.albumRows(CHART_LENGTH),
+                        dark = dark,
                         onClick = { index ->
                             val album = summary.albums.getOrNull(index) ?: return@chart
                             onOpenAlbum(album.browseId, album.title, album.subtitle, album.artworkUrl)
@@ -195,22 +214,27 @@ fun ReplayScreen(
                             key = "genres",
                             title = topGenres,
                             rows = summary.genreRows(CHART_LENGTH),
+                            dark = dark,
                             onClick = {},
                         )
                     } else if (ArtistFacts.genresAvailable) {
                         item("genres-pending") {
                             Note(
-                                text = "Genres are still being worked out. They fill in " +
-                                    "as you listen, and the chart appears once there is " +
-                                    "enough to rank.",
+                                text = stringResource(R.string.genres_pending),
+                                dark = dark,
                                 modifier = Modifier.padding(horizontal = PAGE_GUTTER + 10.dp),
                             )
                         }
                     }
 
-                    item("habits") { Habits(summary) }
+                    item("habits") { Habits(summary, dark) }
                     item("share") {
-                        ReplayActionRow(Icons.Rounded.IosShare, "Share my Replay", onShare)
+                        ReplayActionRow(
+                            Icons.Rounded.IosShare,
+                            stringResource(R.string.share_my_replay),
+                            dark,
+                            onShare,
+                        )
                     }
                 }
             }
@@ -221,31 +245,24 @@ fun ReplayScreen(
 // ── Heading ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit) {
+private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, dark: Boolean) {
+    val context = LocalContext.current
+    val textColor = if (dark) Color.White else Color.Black
     Column(Modifier.padding(horizontal = PAGE_GUTTER + 10.dp)) {
-        // Clear of the fade under the top bar, which runs a good way past the
-        // bar itself — see [TopFadeBlur]. A release page has its sleeve up here
-        // and is meant to be blurred; this page leads with type, and type read
-        // through a blur reads as a rendering fault.
-        //
-        // Only far enough to reach the weak tail of that fade, not past the
-        // whole of it: the ramp eases out, so almost all of the blur is in its
-        // first third and clearing that is enough to keep the title crisp. The
-        // rest was a screen's worth of nothing above the heading.
         Spacer(Modifier.height(48.dp))
         Text(
-            text = "Replay",
+            text = stringResource(R.string.replay),
             style = MaterialTheme.typography.displayLarge,
             fontWeight = FontWeight.W800,
-            color = Color.White,
+            color = textColor,
         )
         Text(
-            text = state.summary?.label ?: state.period.chip,
+            text = state.summary?.localizedLabel(context) ?: state.period.localizedChip(context),
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White.copy(alpha = 0.6f),
+            color = textColor.copy(alpha = 0.6f),
         )
         Spacer(Modifier.height(14.dp))
-        PeriodPicker(state.period, onPeriodChange)
+        PeriodPicker(state.period, onPeriodChange, dark)
         Spacer(Modifier.height(18.dp))
     }
 }
@@ -259,26 +276,28 @@ private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit) 
  * would make it a lie for the first thirty days of every month.
  */
 @Composable
-private fun PeriodPicker(selected: ReplayPeriod, onSelect: (ReplayPeriod) -> Unit) {
+private fun PeriodPicker(selected: ReplayPeriod, onSelect: (ReplayPeriod) -> Unit, dark: Boolean) {
+    val context = LocalContext.current
+    val textColor = if (dark) Color.White else Color.Black
     Row(
         Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.10f))
+            .background(textColor.copy(alpha = 0.10f))
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         ReplayPeriod.entries.forEach { period ->
             val active = period == selected
             val background by animateColorAsState(
-                if (active) Color.White.copy(alpha = 0.92f) else Color.Transparent,
+                if (active) textColor.copy(alpha = 0.92f) else Color.Transparent,
                 tween(160),
                 label = "periodChip",
             )
             Text(
-                text = period.chip,
+                text = period.localizedChip(context),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.W700,
-                color = if (active) Color.Black else Color.White.copy(alpha = 0.75f),
+                color = if (active) if (dark) Color.Black else Color.White else textColor.copy(alpha = 0.75f),
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
                     .background(background)
@@ -335,13 +354,14 @@ private fun ReplayCardRow(
  * it was the loudest thing there and read like one.
  */
 @Composable
-private fun ReplayActionRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun ReplayActionRow(icon: ImageVector, label: String, dark: Boolean, onClick: () -> Unit) {
+    val textColor = if (dark) Color.White else Color.Black
     Row(
         Modifier
             .padding(horizontal = PAGE_GUTTER + 10.dp, vertical = 18.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.12f))
+            .background(textColor.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -349,20 +369,20 @@ private fun ReplayActionRow(icon: ImageVector, label: String, onClick: () -> Uni
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color.White,
+            tint = textColor,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(12.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            color = textColor,
             modifier = Modifier.weight(1f),
         )
         Icon(
             imageVector = BitChordIcons.ChevronRight,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.5f),
+            tint = textColor.copy(alpha = 0.5f),
             modifier = Modifier.size(16.dp),
         )
     }
@@ -374,24 +394,26 @@ private fun LazyListScope.chart(
     key: String,
     title: String,
     rows: List<ReplayRow>,
+    dark: Boolean,
     onClick: (Int) -> Unit,
     circular: Boolean = false,
 ) {
     if (rows.isEmpty()) return
-    item("$key-title") { SectionTitle(title) }
+    item("$key-title") { SectionTitle(title, dark) }
     items(rows, key = { "$key-${it.key}" }) { row ->
-        ReplayChartRow(row, circular) { onClick(row.rank - 1) }
+        ReplayChartRow(row, circular, dark) { onClick(row.rank - 1) }
     }
     item("$key-gap") { Spacer(Modifier.height(20.dp)) }
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+private fun SectionTitle(text: String, dark: Boolean) {
+    val textColor = if (dark) Color.White else Color.Black
     Text(
         text = text,
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.W800,
-        color = Color.White,
+        color = textColor,
         modifier = Modifier.padding(
             start = PAGE_GUTTER + 10.dp,
             end = PAGE_GUTTER + 10.dp,
@@ -402,7 +424,9 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun ReplayChartRow(row: ReplayRow, circular: Boolean, onClick: () -> Unit) {
+private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onClick: () -> Unit) {
+    val textColor = if (dark) Color.White else Color.Black
+    val textVariant = if (dark) Color.White.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.55f)
     val shape = if (circular) CircleShape else RoundedCornerShape(6.dp)
     Row(
         Modifier
@@ -428,15 +452,15 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, onClick: () -> Uni
                 text = row.title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.W600,
-                color = Color.White,
+                color = textColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = listOfNotNull(row.subtitle, formatListening(row.ms))
+                text = listOfNotNull(row.subtitle, formatListening(LocalContext.current, row.ms))
                     .joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.55f),
+                color = textVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -445,7 +469,7 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, onClick: () -> Uni
             Text(
                 text = row.plays.toString(),
                 style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.45f),
+                color = textColor.copy(alpha = 0.45f),
             )
         }
     }
@@ -454,46 +478,53 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, onClick: () -> Uni
 // ── Tail ────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun Habits(summary: ReplaySummary) {
+private fun Habits(summary: ReplaySummary, dark: Boolean) {
+    val context = LocalContext.current
     Column(Modifier.padding(horizontal = PAGE_GUTTER + 10.dp)) {
-        SectionTitleInline("The shape of it")
+        SectionTitleInline(stringResource(R.string.listening_shape), dark)
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile("Songs", summary.distinctSongs.toString(), Modifier.weight(1f))
-            StatTile("Artists", summary.distinctArtists.toString(), Modifier.weight(1f))
-            StatTile("Albums", summary.distinctAlbums.toString(), Modifier.weight(1f))
+            StatTile(stringResource(R.string.songs), summary.distinctSongs.toString(), dark, Modifier.weight(1f))
+            StatTile(stringResource(R.string.artists), summary.distinctArtists.toString(), dark, Modifier.weight(1f))
+            StatTile(stringResource(R.string.albums), summary.distinctAlbums.toString(), dark, Modifier.weight(1f))
         }
         summary.peakHour?.let {
             Spacer(Modifier.height(10.dp))
-            Note("You listen most around ${formatHour(it)}.")
+            Note(stringResource(R.string.listen_most_around, formatHour(context, it)), dark)
         }
         summary.busiestDay?.let {
             Spacer(Modifier.height(6.dp))
             Note(
-                "Your biggest day was ${formatDay(it)} — " +
-                    "${formatListening(summary.busiestDayMs)} of it.",
+                stringResource(
+                    R.string.biggest_day_note,
+                    formatDay(context, it),
+                    formatListening(context, summary.busiestDayMs),
+                ),
+                dark,
             )
         }
     }
 }
 
 @Composable
-private fun SectionTitleInline(text: String) {
+private fun SectionTitleInline(text: String, dark: Boolean) {
+    val textColor = if (dark) Color.White else Color.Black
     Text(
         text = text,
         style = MaterialTheme.typography.headlineMedium,
         fontWeight = FontWeight.W800,
-        color = Color.White,
+        color = textColor,
         modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
     )
 }
 
 @Composable
-private fun StatTile(label: String, value: String, modifier: Modifier = Modifier) {
+private fun StatTile(label: String, value: String, dark: Boolean, modifier: Modifier = Modifier) {
+    val textColor = if (dark) Color.White else Color.Black
     Column(
         modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.09f))
+            .background(textColor.copy(alpha = 0.09f))
             .padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -501,29 +532,32 @@ private fun StatTile(label: String, value: String, modifier: Modifier = Modifier
             text = value,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.W800,
-            color = Color.White,
+            color = textColor,
         )
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.55f),
+            color = textColor.copy(alpha = 0.55f),
             letterSpacing = 1.sp,
         )
     }
 }
 
 @Composable
-private fun Note(text: String, modifier: Modifier = Modifier) {
+private fun Note(text: String, dark: Boolean, modifier: Modifier = Modifier) {
+    val textColor = if (dark) Color.White else Color.Black
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
-        color = Color.White.copy(alpha = 0.6f),
+        color = textColor.copy(alpha = 0.6f),
         modifier = modifier,
     )
 }
 
 @Composable
-private fun EmptyReplay(period: ReplayPeriod) {
+private fun EmptyReplay(period: ReplayPeriod, dark: Boolean) {
+    val emptyColor = if (dark) Color.White else Color.Black
+    val emptyVariant = if (dark) Color.White.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.4f)
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 36.dp, vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -531,26 +565,24 @@ private fun EmptyReplay(period: ReplayPeriod) {
         Icon(
             imageVector = BitChordIcons.Clock,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.4f),
+            tint = emptyVariant,
             modifier = Modifier.size(44.dp),
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "Not enough listening yet",
+            text = stringResource(R.string.not_enough_listening),
             style = MaterialTheme.typography.titleLarge,
-            color = Color.White,
+            color = emptyColor,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(8.dp))
         Text(
             text = when (period) {
-                ReplayPeriod.THIS_MONTH -> "There isn't much from this month yet. " +
-                    "Try All time, or come back after a few more sessions."
-                else -> "Play some music and your Replay builds itself — every " +
-                    "minute is counted here on the device, and nothing is sent anywhere."
+                ReplayPeriod.THIS_MONTH -> stringResource(R.string.not_enough_this_month)
+                else -> stringResource(R.string.replay_empty_description)
             },
             style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.6f),
+            color = emptyColor.copy(alpha = 0.6f),
             textAlign = TextAlign.Center,
         )
     }

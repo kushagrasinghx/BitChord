@@ -17,20 +17,26 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Setup local.properties from Secrets
+    - name: Setup Secrets (Keystore & local.properties)
       run: |
         echo "MODULE_INDEX_URL=${{ secrets.MODULE_INDEX_URL }}" > local.properties
         echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> local.properties
         echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+        
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks
+        echo "storeFile=bitchord-release.jks" > keystore.properties
+        echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> keystore.properties
+        echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties
+        echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Prod Release APK
-      run: ./gradlew assembleProdRelease
+    - name: Build Signed Dev Release APK
+      run: ./gradlew assembleDevRelease
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: bitchord-prod-release-unsigned
-        path: app/build/outputs/apk/prod/release/app-prod-release-unsigned.apk
+        name: bitchord-dev-release-signed
+        path: app/build/outputs/apk/dev/release/app-dev-release.apk

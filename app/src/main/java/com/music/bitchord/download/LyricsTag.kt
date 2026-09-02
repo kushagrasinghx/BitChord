@@ -63,15 +63,15 @@ internal object LyricsTag {
         }
         if (sources.isEmpty()) return null
 
-        // Three of the four sources match on the track's length, and LRCLIB
-        // *ranks* on it. Asking without one is worse than not asking: the fuzzy
-        // fallback would return the closest hit to zero seconds, which is the
-        // shortest edit in the database rather than the one being downloaded,
-        // and its timings would be wrong for the whole file.
+        // Album and playlist rows do not always carry a duration. That must not
+        // make bulk downloads the one path that never saves lyrics: the title,
+        // artist and album still give the providers a useful match, whereas a
+        // track played once gets its duration backfilled by the player and
+        // would otherwise appear to be the only downloadable one with words.
+        // Providers that need a runtime treat zero as unknown.
         val durationMs = track.durationMillis()
         if (durationMs <= 0L) {
-            Log.d(TAG, "no duration for ${track.videoId}; skipping lyrics")
-            return null
+            Log.d(TAG, "no duration for ${track.videoId}; looking up lyrics by title and artist")
         }
 
         val found = try {

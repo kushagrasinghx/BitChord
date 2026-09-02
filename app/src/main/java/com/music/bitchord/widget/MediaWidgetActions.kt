@@ -24,12 +24,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * restricted, and a `MediaController` binds. Same handshake the app itself uses,
  * from [rememberMediaController][com.music.bitchord.playback.rememberMediaController].
  *
- * It also means **play works with the app dead**, with nothing extra plumbed in:
- * the bind creates [PlaybackService], whose `onCreate` already restores the last
- * queue, so by the time the controller connects there is something to play. The
- * one thing that restore deliberately leaves undone is `prepare()` — it exists so
- * a cold app can *show* where you left off without pulling a stream for a track
- * nobody has asked for yet — so that is done here, at the point somebody has.
+ * Binding also creates [PlaybackService] when needed; its bounded persisted
+ * queue is restored before the controller connects, so widget playback works
+ * after process death without serializing the full live queue on progress ticks.
  */
 class MediaWidgetActions : BroadcastReceiver() {
 
@@ -72,8 +69,7 @@ class MediaWidgetActions : BroadcastReceiver() {
     }
 
     private fun MediaController.execute(action: String) {
-        // Nothing restored and nothing queued: the buttons have nothing to act on.
-        // Reachable if the persisted snapshot outlived the queue behind it.
+        // No live or restored queue means the buttons have nothing to control.
         if (mediaItemCount == 0) return
         when (action) {
             ACTION_TOGGLE -> if (playWhenReady) {
@@ -100,10 +96,7 @@ class MediaWidgetActions : BroadcastReceiver() {
         }
     }
 
-    /**
-     * The restored queue is left idle on purpose (see the class comment), and an
-     * idle player ignores everything until it is prepared.
-     */
+    /** An idle player ignores transport commands until it is prepared. */
     private fun MediaController.prepareIfIdle() {
         if (playbackState == Player.STATE_IDLE) prepare()
     }

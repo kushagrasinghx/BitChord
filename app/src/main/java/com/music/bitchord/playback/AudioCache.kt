@@ -5,6 +5,7 @@ import android.media.MediaDataSource
 import android.net.Uri
 import android.os.SystemClock
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
@@ -200,6 +201,20 @@ object AudioCache {
             evictor,
             StandaloneDatabaseProvider(context),
         )
+        // Builds before album/explicit/video-aware and credit-aware matching
+        // may have cached a completely different recording under a YouTube
+        // track's `#alt` key.
+        // Those bytes otherwise outlive the matcher fix: playback serves them
+        // without resolving, then refuses the correct 320kbps replacement as
+        // no quality gain. Drop only the substitution-capable entries once;
+        // ordinary YouTube cache entries remain warm.
+        val state = context.getSharedPreferences(CACHE_STATE_PREFS, Context.MODE_PRIVATE)
+        if (state.getInt(KEY_MATCHING_SCHEMA, 0) < MATCHING_SCHEMA) {
+            val stale = cache.keys.filter { it.endsWith(ALT_SUFFIX) }
+            stale.forEach { runCatching { cache.removeResource(it) } }
+            state.edit().putInt(KEY_MATCHING_SCHEMA, MATCHING_SCHEMA).apply()
+            TrackLog.d(TAG, "invalidated ${stale.size} source cache entries after matcher upgrade")
+        }
         // A SimpleCache can only be opened once per process, so the ceiling
         // moves by mutating this evictor rather than reopening the cache —
         // see [DynamicLruCacheEvictor].
@@ -370,6 +385,11 @@ object AudioCache {
             ?: spec.key
             ?: spec.uri.toString()
     }
+
+    private const val CACHE_STATE_PREFS = "audio_cache_state"
+    private const val KEY_MATCHING_SCHEMA = "matching_schema"
+    private const val MATCHING_SCHEMA = 2
+    private const val ALT_SUFFIX = "#alt"
 
     /**
      * Wraps [upstream] so everything played is written to disk on the way
@@ -780,7 +800,10 @@ object AudioCache {
                 if (!clearPartialHead(videoId, want)) return@launch
                 fetch(
                     cacheKey = videoId,
-                    uri = Uri.parse("bitchord://watch?v=$videoId"),
+                    // Do not inherit a JioSaavn/lossless StreamChoice from
+                    // playback. The base key is reserved for the lightweight
+                    // YouTube Opus copy used by Automix analysis.
+                    uri = Uri.parse(AutomixAnalysisSource.opusUri(videoId)),
                     position = 0,
                     length = want,
                     pinKey = true,

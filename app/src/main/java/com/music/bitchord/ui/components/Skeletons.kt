@@ -173,6 +173,11 @@ private fun HeroShelfSkeleton() {
     }
 }
 
+/** Reserved at the very top of Play while the independent Recently played request is in flight. */
+fun LazyListScope.recentlyPlayedSkeleton() {
+    item(key = "skeleton:recently-played") { HeroShelfSkeleton() }
+}
+
 /** The compact carousel of square cards used by every shelf below the first. */
 @Composable
 fun ShelfSkeleton(index: Int = 0, cardWidth: Dp = SHELF_CARD_WIDTH, cardCorner: Dp = 12.dp) {

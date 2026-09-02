@@ -128,6 +128,7 @@ fun LibraryScreen(
     downloadedPlaylists: List<SavedCollection> = emptyList(),
 ) {
     val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+    val onDevice = stringResource(R.string.on_device)
     PullToRefresh(
         refreshing = refreshing,
         onRefresh = onRefresh,
@@ -151,9 +152,9 @@ fun LibraryScreen(
             // it the page still has to say the feature exists, or the only way
             // to discover it is to have already used it.
             item(key = "replay") { ReplayBanner(replayCard, onOpenReplay) }
-            item(key = "shelf:$ON_DEVICE") {
+            item(key = "shelf:$onDevice") {
                 val onDeviceShelf = HomeShelf(
-                    title = ON_DEVICE,
+                    title = onDevice,
                     items = listOf(
                         ShelfItem(
                             title = stringResource(R.string.downloads),
@@ -180,7 +181,9 @@ fun LibraryScreen(
                             // make that header read "Downloaded playlist" over
                             // "PLAYLIST • 12 SONGS", and the shelf this card
                             // is on already says where it lives.
-                            subtitle = playlist.subtitle.ifBlank { "Downloaded playlist" },
+                            subtitle = playlist.subtitle.ifBlank {
+                                stringResource(R.string.downloaded_playlist)
+                            },
                             thumbnailUrl = playlist.thumbnailUrl,
                             videoId = null,
                             browseId = Downloads.pageIdFor(playlist.id),
@@ -197,9 +200,8 @@ fun LibraryScreen(
             if (!signedIn) {
                 item {
                     MessageState(
-                        message = "Sign in to your Google account to see your YouTube Music " +
-                            "liked songs, playlists and history.",
-                        actionLabel = "Sign in",
+                        message = stringResource(R.string.library_sign_in_description),
+                        actionLabel = stringResource(R.string.sign_in),
                         onAction = onSignIn,
                     )
                 }
@@ -208,7 +210,7 @@ fun LibraryScreen(
             when (state) {
                 is UiState.Loading -> librarySkeleton()
                 is UiState.Error -> item {
-                    MessageState(state.message, actionLabel = "Retry", onAction = onRetry)
+                    MessageState(state.message, actionLabel = stringResource(R.string.retry), onAction = onRetry)
                 }
                 is UiState.Success -> {
                     // A fresh account has no Playlists shelf at all, and that
@@ -328,7 +330,7 @@ private fun ReplayBanner(card: ReplayHeroCard?, onClick: () -> Unit) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "Your Replay",
+                    text = stringResource(R.string.your_replay),
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.White,
                 )
@@ -336,7 +338,7 @@ private fun ReplayBanner(card: ReplayHeroCard?, onClick: () -> Unit) {
                     // The numbers when there are any, because "5,231 minutes" is
                     // a reason to tap and a description of the feature is not.
                     text = card?.let { "${it.value} ${it.label.lowercase(Locale.ROOT)} · ${it.detail}" }
-                        ?: "Top songs, artists, albums and genres — counted on this device",
+                        ?: stringResource(R.string.replay_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.82f),
                     maxLines = 2,
@@ -377,7 +379,7 @@ private fun PlaylistShelf(
         leadingCard = {
             NewShelfCard(
                 icon = BitChordIcons.Plus,
-                label = "New playlist",
+                label = stringResource(R.string.new_playlist),
                 subtitle = stringResource(R.string.saved_to_youtube_music),
                 onClick = onNewPlaylist,
             )
@@ -466,7 +468,7 @@ fun LibraryGridPage(
                 item(key = "leading") {
                     NewShelfCard(
                         icon = BitChordIcons.Plus,
-                        label = "New playlist",
+                        label = stringResource(R.string.new_playlist),
                         subtitle = stringResource(R.string.saved_to_youtube_music),
                         onClick = onNewPlaylist,
                         modifier = Modifier.fillMaxWidth(),
@@ -505,4 +507,3 @@ private fun HomeShelf.pinnedFirst(pinned: List<String>): HomeShelf {
 
 /** The library feed whose cards are the account's own — see [PlaylistShelf]. */
 private const val PLAYLISTS = YtMusicRepository.PLAYLISTS_SHELF
-private const val ON_DEVICE = "On Device"

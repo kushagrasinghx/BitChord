@@ -33,9 +33,13 @@ data class StreamFormat(
     val isLossless: Boolean?
         get() = codec?.let { it in LOSSLESS_CODECS }
 
+    /** Dolby Atmos carried in E-AC-3 JOC. This is immersive, but not lossless. */
+    val isDolbyAtmos: Boolean
+        get() = codec in DOLBY_ATMOS_CODECS
+
     /** "24-bit · 192 kHz", "FLAC", "320 kbps" — whichever parts are known. */
     val summary: String
-        get() = listOfNotNull(
+        get() = if (isDolbyAtmos) "Dolby Atmos" else listOfNotNull(
             codec?.uppercase(Locale.ROOT),
             bitDepth?.let { "$it-bit" },
             sampleRateHz?.let { "${"%.1f".format(Locale.ROOT, it / 1000f).removeSuffix(".0")} kHz" },
@@ -44,6 +48,7 @@ data class StreamFormat(
 
     private companion object {
         val LOSSLESS_CODECS = setOf("flac", "alac", "wav", "aiff", "ape", "wv", "dsf", "dff")
+        val DOLBY_ATMOS_CODECS = setOf("eac3-joc", "ec3-joc", "dolby-atmos")
     }
 }
 

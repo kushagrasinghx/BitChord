@@ -7,9 +7,6 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 
 /** Most AutoPlay-suggested tracks kept queued ahead of the current one at once. */
 const val MAX_QUEUED_AUTOPLAY = 10
@@ -45,14 +42,7 @@ suspend fun loadAutoplayTracks(
     val extra = QueueBuilder.extend(existing, related, limit)
     if (extra.isEmpty()) return Result.success(emptyList())
 
-    val resolved = try {
-        coroutineScope {
-            extra.map { async { YtMusicRepository.resolveAudio(it) } }.awaitAll()
-        }
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (failure: Throwable) {
-        return Result.failure(failure)
-    }
-    return Result.success(resolved.map { it.copy(fromAutoplay = true) })
+    return Result.success(extra.map {
+        it.copy(fromAutoplay = true, radioName = seedSong.radioName)
+    })
 }

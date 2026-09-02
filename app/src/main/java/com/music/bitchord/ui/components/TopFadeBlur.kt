@@ -99,18 +99,23 @@ fun TopFadeBlur(
     scrimColor: Color,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val liquidState = LocalLiquidGlassState.current
     // The bar fills itself solid instead when blur is reduced, so this has
     // nothing left to do.
     if (reduceDynamicBlur) return
+    // Liquid Glass is a replacement for the header treatment, not a second
+    // lens over it. The header's tall progressive strip magnifies the sampled
+    // shelf artwork into a distracting rectangle, so leave this area clean
+    // while Liquid Glass is enabled.
+    if (liquidState != null) return
 
     val height = topBarHeight() + FADE_RUN
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
             .hazeEffect(
-                state = hazeState,
+                    state = hazeState,
                 // Keyed to the colour of the page underneath, not the theme's.
                 //
                 // Both halves of this material are flat colour: the style's
@@ -127,10 +132,11 @@ fun TopFadeBlur(
                 // the artwork: the exact artefact this was added to remove.
                 style = HazeMaterials.ultraThin(pageColor),
             ) {
-                // Cubic rather than haze's quadratic, and eased out rather than
-                // in: the ramp falls away quickly under the bar and then spends
-                // the rest of its run near nothing, which is what hides where
-                // the layer ends. The mirror of the bottom fade's arrival.
+                // This is intentionally the progressive Haze effect used by the
+                // original top treatment. The mask-based optimization changes
+                // the visual result on device and loses the soft blur shown in
+                // the header reference. Reduce dynamic blur still exits before
+                // this layer is composed.
                 progressive = HazeProgressive.verticalGradient(
                     easing = EaseOutCubic,
                     startIntensity = PEAK,

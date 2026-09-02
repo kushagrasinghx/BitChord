@@ -22,6 +22,7 @@ class ScrobbleManager(
     private var songStartedAt: Long = 0L
     private var songStarted = false
     var useNowPlaying = true
+    var usePrimaryArtistOnly = false
 
     fun destroy() {
         scrobbleJob?.cancel()
@@ -114,10 +115,11 @@ class ScrobbleManager(
     }
 
     private fun scrobbleSong(song: Song, durationSeconds: Int) {
+        val scrobbleArtist = song.artist.forScrobble()
         scope.launch {
             LastFM
                 .scrobble(
-                    artist = song.artist,
+                    artist = scrobbleArtist,
                     track = song.title,
                     duration = durationSeconds,
                     timestamp = songStartedAt,
@@ -132,10 +134,11 @@ class ScrobbleManager(
     }
 
     private fun updateNowPlaying(song: Song) {
+        val scrobbleArtist = song.artist.forScrobble()
         scope.launch {
             LastFM
                 .updateNowPlaying(
-                    artist = song.artist,
+                    artist = scrobbleArtist,
                     track = song.title,
                     album = song.albumName,
                     duration = song.durationText?.let { parseDurationSeconds(it) },
@@ -175,6 +178,8 @@ class ScrobbleManager(
         val seconds = parts[1].toIntOrNull() ?: return 0
         return minutes * 60 + seconds
     }
+
+    private fun String.forScrobble(): String = if (usePrimaryArtistOnly) primaryArtist() else this
 
     companion object {
         private const val TAG = "ScrobbleManager"

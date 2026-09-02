@@ -26,6 +26,7 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.util.Log
+import com.music.bitchord.data.settings.AppSettings
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -94,12 +95,16 @@ object VocalSpectrogram {
 class VocalTracker(private val context: Context) {
 
     @Volatile private var session: OrtSession? = null
+    @Volatile private var sessionThreads = 0
     private val lock = Any()
 
     private fun session(): OrtSession? {
-        session?.let { return it }
+        val threads = AppSettings.automixPerformanceMode.value.inferenceThreads
+        session?.takeIf { sessionThreads == threads }?.let { return it }
         synchronized(lock) {
-            session?.let { return it }
+            session?.takeIf { sessionThreads == threads }?.let { return it }
+            runCatching { session?.close() }
+            session = null
             return runCatching {
                 val file = File(context.filesDir, MODEL_ASSET)
                 if (!file.exists() || file.length() == 0L) {
@@ -108,7 +113,7 @@ class VocalTracker(private val context: Context) {
                     }
                 }
                 val options = OrtSession.SessionOptions().apply {
-                    setIntraOpNumThreads(INFERENCE_THREADS)
+                    setIntraOpNumThreads(threads)
                     setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
                     // Same reasoning as BeatTracker: the arena retains every block it allocates for
                     // the life of the session, which a backgrounded music player cannot justify.
@@ -116,7 +121,10 @@ class VocalTracker(private val context: Context) {
                     setMemoryPatternOptimization(false)
                 }
                 OrtEnvironment.getEnvironment().createSession(file.absolutePath, options)
-                    .also { session = it }
+                    .also {
+                        session = it
+                        sessionThreads = threads
+                    }
             }.onFailure { Log.w(TAG, "Vocal model unavailable; no mask will be produced", it) }
                 .getOrNull()
         }
@@ -252,14 +260,13 @@ class VocalTracker(private val context: Context) {
         synchronized(lock) {
             runCatching { session?.close() }
             session = null
+            sessionThreads = 0
         }
     }
 
     companion object {
         private const val TAG = "BitChordVocalTracker"
         private const val MODEL_ASSET = "vocals_umxhq_int8.onnx"
-        private const val INFERENCE_THREADS = 4
-
         /** The model's fixed input width, ~22.8 s, chosen upstream to cover a transition overlap. */
         const val FIXED_FRAMES = 960
 

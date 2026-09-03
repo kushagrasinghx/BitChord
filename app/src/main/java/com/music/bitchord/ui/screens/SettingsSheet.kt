@@ -980,17 +980,6 @@ fun SettingsScreen(
             )
         }
 
-        SettingsGroup(header = stringResource(R.string.language)) {
-            val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
-                ?: Locale.getDefault().language
-            SettingsRow(
-                icon = Icons.Rounded.Language,
-                title = stringResource(R.string.app_language),
-                subtitle = stringResource(languageDisplayNameRes(selectedLanguage)),
-                onClick = onAppLanguage,
-            )
-        }
-
         SettingsGroup(header = "Advanced Options") {
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
@@ -1024,6 +1013,17 @@ fun SettingsScreen(
                     )
                 },
                 onClick = { AppSettings.setShowLyricsLogs(!showLyricsLogs) },
+            )
+        }
+
+        SettingsGroup(header = stringResource(R.string.language)) {
+            val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
+                ?: Locale.getDefault().language
+            SettingsRow(
+                icon = Icons.Rounded.Language,
+                title = stringResource(R.string.app_language),
+                subtitle = stringResource(languageDisplayNameRes(selectedLanguage)),
+                onClick = onAppLanguage,
             )
         }
 

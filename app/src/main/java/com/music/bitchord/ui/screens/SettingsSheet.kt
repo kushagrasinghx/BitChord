@@ -174,11 +174,8 @@ fun SettingsScreen(
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
-<<<<<<< HEAD
     val convertVideoToAudio by AppSettings.convertVideoToAudio.collectAsStateWithLifecycle()
-=======
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
->>>>>>> 49dbcdf463a7bd445774191462a55bad7913b2ce
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()

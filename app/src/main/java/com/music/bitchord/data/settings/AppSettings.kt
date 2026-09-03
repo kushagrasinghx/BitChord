@@ -801,15 +801,14 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SKIP_SILENCE, value).apply()
     }
 
-<<<<<<< HEAD
     fun setConvertVideoToAudio(value: Boolean) {
         convertVideoToAudio.value = value
         prefs.edit().putBoolean(KEY_VIDEO_AUDIO_CONVERSION, value).apply()
-=======
+    }
+
     fun setSpatialAudio(value: Boolean) {
         spatialAudio.value = value
         prefs.edit().putBoolean(KEY_SPATIAL_AUDIO, value).apply()
->>>>>>> 49dbcdf463a7bd445774191462a55bad7913b2ce
     }
 
     fun setPlaybackSpeed(value: Float) {
@@ -1039,10 +1038,6 @@ object AppSettings {
     fun setPreferUsbDac(value: Boolean) {
         preferUsbDac.value = value
         prefs.edit().putBoolean(KEY_PREFER_USB_DAC, value).apply()
-    }
-
-    fun setSpatialAudio(value: Boolean) {
-        // Placeholder for future implementation
     }
 
     fun setExportDownloads(value: Boolean) {

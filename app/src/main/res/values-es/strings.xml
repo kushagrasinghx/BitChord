@@ -133,6 +133,8 @@
     <string name="widget_preview_artist">Artista</string>
     <string name="download_quality">Calidad de descarga</string>
     <string name="download_wifi_only">Descargar solo mediante Wi-Fi</string>
+    <string name="spatial_audio">Audio espacial</string>
+    <string name="spatial_audio_subtitle">Amplía las pistas estéreo para una experiencia más inmersiva</string>
     <string name="animated_cover_cellular">Reproducir portada animada con datos móviles</string>
     <string name="replay">Resumen anual</string>
     <string name="replay_subtitle">Tus canciones, artistas, álbumes y géneros principales</string>
@@ -162,6 +164,8 @@
     <string name="russian">Ruso</string>
     <string name="chinese">Chino (simplificado)</string>
     <string name="hebrew">Hebreo</string>
+    <string name="italian">Italiano</string>
+    <string name="turkish">Turco</string>
     <string name="show_all">Ver todo</string>
     <string name="grid_view">Cuadrícula</string>
     <string name="list_view">Lista</string>
@@ -190,9 +194,6 @@
     <string name="automix_mode_balanced_subtitle">2 hilos · equilibrio recomendado entre velocidad, calor y batería</string>
     <string name="automix_mode_performance">Rendimiento</string>
     <string name="automix_mode_performance_subtitle">4 hilos · análisis más rápido · mayor calor y consumo</string>
-    <string name="automix_ai">Inteligencia de mezcla [BETA]</string>
-    <string name="automix_ai_disabled_subtitle">Para música electrónica. Activa el ranking de transiciones en el dispositivo.</string>
-    <string name="automix_ai_enabled_subtitle">Para música electrónica cuando haya un modelo disponible. La mezcla automática normal protege otros géneros y mezclas de baja confianza.</string>
     <string name="skip_silence">Omitir silencios</string>
     <string name="skip_silence_subtitle">Recorta pausas de más de un segundo</string>
     <string name="equalizer">Ecualizador</string>

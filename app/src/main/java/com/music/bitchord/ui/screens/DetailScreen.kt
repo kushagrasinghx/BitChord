@@ -113,6 +113,18 @@ import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlin.math.roundToInt
 import java.util.Locale
 
+/**
+ * Ordering for the track list on an album or playlist page — the same idea as
+ * the Downloads folder's sort, but without a date: a catalogue row carries
+ * none, so [DEFAULT] (the release's own running order) is the only option
+ * that isn't alphabetical.
+ */
+enum class SongSort {
+    DEFAULT,
+    TITLE_ASC,
+    TITLE_DESC,
+}
+
 private const val MAX_ARTIST_SONGS = 20
 private const val SONGS_PER_COLUMN = 4
 
@@ -210,8 +222,22 @@ fun DetailScreen(
      * wouldn't just be refused.
      */
     onToggleLibrary: (() -> Unit)? = null,
+    /**
+     * How the track list is ordered — the release's own running order by
+     * default, or alphabetical. Owned by the caller rather than this page
+     * because the control for it lives in the top bar, alongside the account
+     * photo, not in this header.
+     */
+    songSort: SongSort = SongSort.DEFAULT,
 ) {
-    val songs = (page.songs as? UiState.Success)?.data.orEmpty()
+    val rawSongs = (page.songs as? UiState.Success)?.data.orEmpty()
+    val songs = remember(rawSongs, songSort) { rawSongs.sortedForDetail(songSort) }
+    // What a numbered row shows regardless of [songSort] — an album's track
+    // numbers are the sleeve's own and must not relabel themselves to match
+    // wherever a sort put the row.
+    val originalTrackNumbers = remember(rawSongs) {
+        rawSongs.withIndex().associate { (i, s) -> s.videoId to i + 1 }
+    }
     val isArtist = page.type == BrowseType.ARTIST
     val palette = rememberArtworkPalette(page.thumbnailUrl)
 
@@ -462,8 +488,8 @@ fun DetailScreen(
                             onSwipeToQueue = { onSongSwipe(song) },
                             rowBackground = Color.Transparent,
                             // The track's place on the release, not its place in
-                            // what the filter left standing.
-                            trackNumber = (entry.index + 1).takeIf { numbered },
+                            // what the filter — or a sort — left standing.
+                            trackNumber = originalTrackNumbers[song.videoId].takeIf { numbered },
                             subtitleColor = palette.onBackgroundVariant,
                             downloadedTint = downloadedTint,
                             isCurrent = isCurrent,
@@ -815,6 +841,12 @@ private fun DetailSearchField(
             )
         }
     }
+}
+
+private fun List<Song>.sortedForDetail(sort: SongSort): List<Song> = when (sort) {
+    SongSort.DEFAULT -> this
+    SongSort.TITLE_ASC -> sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+    SongSort.TITLE_DESC -> sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
 }
 
 /**

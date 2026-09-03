@@ -129,6 +129,8 @@
     <string name="widget_preview_artist">アーティスト</string>
     <string name="download_quality">ダウンロード品質</string>
     <string name="download_wifi_only">Wi-Fi接続時のみダウンロード</string>
+    <string name="spatial_audio">空間オーディオ</string>
+    <string name="spatial_audio_subtitle">よりイマーシブな体験のためにステレオトラックを広げます</string>
     <string name="animated_cover_cellular">モバイルデータでアニメーションカバーを再生</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">よく聴いた曲、アーティスト、アルバム、ジャンル</string>
@@ -158,6 +160,8 @@
     <string name="russian">ロシア語</string>
     <string name="chinese">中国語（簡体字）</string>
     <string name="hebrew">ヘブライ語</string>
+    <string name="italian">イタリア語</string>
+    <string name="turkish">トルコ語</string>
     <string name="show_all">すべて表示</string>
     <string name="grid_view">グリッド表示</string>
     <string name="list_view">リスト表示</string>

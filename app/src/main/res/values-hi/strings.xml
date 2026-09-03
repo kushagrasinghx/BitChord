@@ -133,6 +133,8 @@
     <string name="widget_preview_artist">कलाकार</string>
     <string name="download_quality">डाउनलोड क्वालिटी</string>
     <string name="download_wifi_only">केवल Wi-Fi पर डाउनलोड करें</string>
+    <string name="spatial_audio">स्पेशियल ऑडियो</string>
+    <string name="spatial_audio_subtitle">ज़्यादा इमर्सिव अनुभव के लिए स्टीरियो ट्रैक को चौड़ा करता है</string>
     <string name="animated_cover_cellular">मोबाइल डेटा पर एनिमेटेड कवर चलाएं</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">आपके टॉप गाने, कलाकार, एल्बम और शैलियां</string>
@@ -162,6 +164,8 @@
     <string name="russian">रूसी</string>
     <string name="chinese">चीनी (सरलीकृत)</string>
     <string name="hebrew">हिब्रू</string>
+    <string name="italian">इतालवी</string>
+    <string name="turkish">तुर्की</string>
     <string name="show_all">सभी देखें</string>
     <string name="grid_view">ग्रिड</string>
     <string name="list_view">लिस्ट</string>

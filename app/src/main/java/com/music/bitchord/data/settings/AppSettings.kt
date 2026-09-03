@@ -12,7 +12,17 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * Stream bitrate ceiling. HIGH means "whatever the best available format is".
+ * Stream bitrate ceiling on the YouTube fallback path — MEDIUM, HIGH and
+ * LOSSLESS all mean "whatever the best available Opus format is" there; what
+ * actually tells them apart is which other sources are allowed to answer
+ * *before* YouTube gets asked. That part is
+ * [SourceRegistry.applyQualityPreset][com.music.bitchord.data.sources.SourceRegistry.applyQualityPreset]'s
+ * job, kept in step with whichever rung is picked here:
+ *
+ * - [LOSSLESS] — Ricky's Addon (the built-in module source) and JioSaavn both on.
+ * - [HIGH] — Ricky's Addon off, JioSaavn on.
+ * - [MEDIUM] and [LOW] — both off; YouTube's own Opus ladder is all there is,
+ *   capped at [maxKbps].
  *
  * [hourly] is what the ceiling costs in data over an hour of listening, which
  * is the only part of this a user actually cares about on a metered plan.
@@ -24,8 +34,9 @@ enum class AudioQuality(
     val hourly: String,
 ) {
     LOW(64, "Low", "~64 kbps · smallest download", "29 MB/hr"),
-    MEDIUM(128, "Medium", "~128 kbps · balanced", "58 MB/hr"),
-    HIGH(Int.MAX_VALUE, "High", "Best available · ~171 kbps Opus", "77 MB/hr"),
+    MEDIUM(Int.MAX_VALUE, "Medium", "Best available · ~171 kbps Opus", "77 MB/hr"),
+    HIGH(Int.MAX_VALUE, "High", "JioSaavn up to 320kbps, YouTube fallback", "144 MB/hr"),
+    LOSSLESS(Int.MAX_VALUE, "Lossless", "Ricky's Addon + JioSaavn, bit-exact where available", "300+ MB/hr"),
 }
 
 /**
@@ -97,6 +108,18 @@ enum class LocalMusicSort {
     DATE_MODIFIED,
 }
 
+/**
+ * Stable persisted ordering for a Library "Show all" grid — playlists or
+ * albums. A card there only ever carries a title, so unlike [LocalMusicSort]
+ * there is nothing date-based to offer.
+ */
+enum class LibrarySort {
+    /** Whatever order the shelf itself arrived in — YouTube Music's own. */
+    DEFAULT,
+    TITLE_ASC,
+    TITLE_DESC,
+}
+
 /** Display mode for music lists: compact rows or grid cards. */
 enum class LibraryViewType {
     LIST,
@@ -123,11 +146,12 @@ object AppSettings {
 
     /**
      * Quality ceilings, one per kind of connection — the point of the split is
-     * that Wi-Fi can stay on High while mobile data is capped. Both default to
-     * High; the mobile plan is the user's to budget, not ours to assume.
+     * that Wi-Fi can stay on Lossless while mobile data is capped. Both
+     * default to Lossless; the mobile plan is the user's to budget, not ours
+     * to assume.
      */
-    val audioQualityWifi = MutableStateFlow(AudioQuality.HIGH)
-    val audioQualityCellular = MutableStateFlow(AudioQuality.HIGH)
+    val audioQualityWifi = MutableStateFlow(AudioQuality.LOSSLESS)
+    val audioQualityCellular = MutableStateFlow(AudioQuality.LOSSLESS)
 
     /**
      * What a saved file should be, answered on its own terms.
@@ -199,9 +223,6 @@ object AppSettings {
 
     /** The CPU budget used by Beat This! and vocal analysis for Automix. */
     val automixPerformanceMode = MutableStateFlow(AutomixPerformanceMode.BALANCED)
-
-    /** Opt-in for the future on-device transition-ranking model. */
-    val automixAiEnabled = MutableStateFlow(false)
     val skipSilence = MutableStateFlow(false)
     val convertVideoToAudio = MutableStateFlow(true)
 
@@ -211,6 +232,13 @@ object AppSettings {
     /** Prefer an attached USB audio output over the system's normal route. */
     val preferUsbDac = MutableStateFlow(false)
 
+    /**
+     * Widens stereo output via [com.music.bitchord.playback.SpatialAudioProcessor],
+     * a stereo widening + cross-feed effect running inside ExoPlayer's own
+     * pipeline. Not true object-based spatial audio — YouTube only ever hands
+     * us a stereo stream, so there's no Atmos-style source to render.
+     */
+    val spatialAudio = MutableStateFlow(false)
     val playbackSpeed = MutableStateFlow(1.0f)
     val themeMode = MutableStateFlow(ThemeMode.DARK)
 
@@ -356,6 +384,7 @@ object AppSettings {
     val downloadedMusicSort = MutableStateFlow(LocalMusicSort.TITLE_ASC)
     val localMusicViewType = MutableStateFlow(LibraryViewType.LIST)
     val downloadedMusicViewType = MutableStateFlow(LibraryViewType.LIST)
+    val librarySort = MutableStateFlow(LibrarySort.DEFAULT)
 
     /** Empty means every MediaStore folder; otherwise this is a persisted SAF tree URI. */
     val localMusicFolderUri = MutableStateFlow("")
@@ -529,7 +558,6 @@ object AppSettings {
                 prefs.getString(KEY_AUTOMIX_PERFORMANCE_MODE, null) ?: AutomixPerformanceMode.BALANCED.name,
             )
         }.getOrDefault(AutomixPerformanceMode.BALANCED)
-        automixAiEnabled.value = prefs.getBoolean(KEY_AUTOMIX_AI_ENABLED, false)
         skipSilence.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
         convertVideoToAudio.value = prefs.getBoolean(KEY_VIDEO_AUDIO_CONVERSION, true)
         outputPcmMode.value = runCatching {
@@ -539,6 +567,7 @@ object AppSettings {
             )
         }.getOrDefault(OutputPcmMode.PCM_16)
         preferUsbDac.value = prefs.getBoolean(KEY_PREFER_USB_DAC, false)
+        spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         playbackSpeed.value = prefs.getFloat(KEY_SPEED, 1.0f)
         themeMode.value = runCatching {
             ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "DARK")
@@ -595,6 +624,9 @@ object AppSettings {
         downloadedMusicSort.value = readLocalMusicSort(KEY_DOWNLOADED_MUSIC_SORT)
         localMusicViewType.value = readLibraryViewType(KEY_LOCAL_MUSIC_VIEW_TYPE)
         downloadedMusicViewType.value = readLibraryViewType(KEY_DOWNLOADED_MUSIC_VIEW_TYPE)
+        librarySort.value = prefs.getString(KEY_LIBRARY_SORT, null)
+            ?.let { saved -> LibrarySort.entries.firstOrNull { it.name == saved } }
+            ?: LibrarySort.DEFAULT
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         pinnedPlaylists.value = readPinnedPlaylists()
         discordToken.value = authStore.discordToken.orEmpty()
@@ -650,8 +682,8 @@ object AppSettings {
     }
 
     private fun readQuality(key: String): AudioQuality {
-        val stored = prefs.getString(key, null) ?: return AudioQuality.HIGH
-        return runCatching { AudioQuality.valueOf(stored) }.getOrDefault(AudioQuality.HIGH)
+        val stored = prefs.getString(key, null) ?: return AudioQuality.LOSSLESS
+        return runCatching { AudioQuality.valueOf(stored) }.getOrDefault(AudioQuality.LOSSLESS)
     }
 
     /**
@@ -764,19 +796,20 @@ object AppSettings {
         prefs.edit().putString(KEY_AUTOMIX_PERFORMANCE_MODE, value.name).apply()
     }
 
-    fun setAutomixAiEnabled(value: Boolean) {
-        automixAiEnabled.value = value
-        prefs.edit().putBoolean(KEY_AUTOMIX_AI_ENABLED, value).apply()
-    }
-
     fun setSkipSilence(value: Boolean) {
         skipSilence.value = value
         prefs.edit().putBoolean(KEY_SKIP_SILENCE, value).apply()
     }
 
+<<<<<<< HEAD
     fun setConvertVideoToAudio(value: Boolean) {
         convertVideoToAudio.value = value
         prefs.edit().putBoolean(KEY_VIDEO_AUDIO_CONVERSION, value).apply()
+=======
+    fun setSpatialAudio(value: Boolean) {
+        spatialAudio.value = value
+        prefs.edit().putBoolean(KEY_SPATIAL_AUDIO, value).apply()
+>>>>>>> 49dbcdf463a7bd445774191462a55bad7913b2ce
     }
 
     fun setPlaybackSpeed(value: Float) {
@@ -1149,6 +1182,11 @@ object AppSettings {
         prefs.edit().putString(KEY_DOWNLOADED_MUSIC_SORT, value.name).apply()
     }
 
+    fun setLibrarySort(value: LibrarySort) {
+        librarySort.value = value
+        prefs.edit().putString(KEY_LIBRARY_SORT, value.name).apply()
+    }
+
     fun setLocalMusicViewType(value: LibraryViewType) {
         localMusicViewType.value = value
         prefs.edit().putString(KEY_LOCAL_MUSIC_VIEW_TYPE, value.name).apply()
@@ -1302,11 +1340,11 @@ object AppSettings {
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
-    private const val KEY_AUTOMIX_AI_ENABLED = "automix_ai_enabled"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_VIDEO_AUDIO_CONVERSION = "video_audio_conversion"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"
     private const val KEY_PREFER_USB_DAC = "prefer_usb_dac"
+    private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_SPEED = "playback_speed"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_AUTOPLAY = "autoplay"
@@ -1336,6 +1374,7 @@ object AppSettings {
     private const val KEY_FILTER_NON_MUSIC_AUDIO = "filter_non_music_audio"
     private const val KEY_LOCAL_MUSIC_SORT = "local_music_sort"
     private const val KEY_DOWNLOADED_MUSIC_SORT = "downloaded_music_sort"
+    private const val KEY_LIBRARY_SORT = "library_sort"
     private const val KEY_LOCAL_MUSIC_VIEW_TYPE = "local_music_view_type"
     private const val KEY_DOWNLOADED_MUSIC_VIEW_TYPE = "downloaded_music_view_type"
     private const val KEY_LOCAL_MUSIC_FOLDER_URI = "local_music_folder_uri"

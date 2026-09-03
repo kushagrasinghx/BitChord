@@ -141,6 +141,8 @@
     <string name="widget_preview_artist">Исполнитель</string>
     <string name="download_quality">Качество загрузки</string>
     <string name="download_wifi_only">Загружать только по Wi-Fi</string>
+    <string name="spatial_audio">Пространственный звук</string>
+    <string name="spatial_audio_subtitle">Расширяет стереодорожки для более глубокого погружения</string>
     <string name="animated_cover_cellular">Воспроизводить анимированную обложку через мобильные данные</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Ваши любимые песни, исполнители, альбомы и жанры</string>
@@ -170,6 +172,8 @@
     <string name="russian">Русский</string>
     <string name="chinese">Китайский (упрощённый)</string>
     <string name="hebrew">Иврит</string>
+    <string name="italian">Итальянский</string>
+    <string name="turkish">Турецкий</string>
     <string name="show_all">Показать все</string>
     <string name="grid_view">Сетка</string>
     <string name="list_view">Список</string>

@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
@@ -61,6 +64,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -163,6 +167,23 @@ fun SongActionsSheet(
         SheetTrackHeader(song, subtitleColor = palette.onBackgroundVariant)
         HorizontalDivider(thickness = 0.5.dp, color = palette.divider)
 
+        // Leads the list whenever it's available: it answers the one
+        // question a quality-upgraded track raises above all the others
+        // here, so it shouldn't be buried under rows that apply every time.
+        onRollbackToOriginal?.let {
+            ActionRow(
+                icon = Icons.AutoMirrored.Rounded.Undo,
+                label = stringResource(R.string.revert_to_original),
+                accent = palette.accent,
+                onClick = it,
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 6.dp),
+                thickness = 0.5.dp,
+                color = palette.divider,
+            )
+        }
+
         if (signedIn && !isOffline) {
             ActionRow(
                 icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
@@ -246,14 +267,6 @@ fun SongActionsSheet(
                 accent = palette.accent,
             ) { pickingSleepTimer = true }
         }
-        onRollbackToOriginal?.let {
-            ActionRow(
-                icon = Icons.AutoMirrored.Rounded.Undo,
-                label = stringResource(R.string.revert_to_original),
-                accent = palette.accent,
-                onClick = it,
-            )
-        }
         if (!isOffline) {
             onShare?.let {
                 ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
@@ -277,6 +290,12 @@ fun SongActionsSheet(
  * `ModalBottomSheet`'s because the host has to pass a transparent container for
  * the wash to be visible at all — and a transparent container has nothing left
  * to clip or to hang a handle on.
+ *
+ * The row list is capped to a fraction of the screen and scrolls internally.
+ * Left unbounded, a track with every optional row present — playlist removal,
+ * revert, share, the log — runs past the bottom of the screen with no way to
+ * reach what's cut off: a plain Column neither scrolls nor shrinks, so the
+ * sheet just grows past the window and sits there stuck at full height.
  */
 @Composable
 private fun TintedSheet(
@@ -285,6 +304,7 @@ private fun TintedSheet(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.85f
     Box(
         modifier
             .fillMaxWidth()
@@ -299,10 +319,12 @@ private fun TintedSheet(
             washFraction = 0.75f,
             artPx = ROW_ART_PX,
         )
-        Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().heightIn(max = maxHeight)) {
             // Drawn rather than taken from BottomSheetDefaults, whose handle
             // carries 22dp of padding on each side — half a row's worth of
-            // nothing between the grip and the track it is about.
+            // nothing between the grip and the track it is about. Kept outside
+            // the scrolling rows below so it stays put as a grab target rather
+            // than travelling with the list.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -316,7 +338,12 @@ private fun TintedSheet(
                         .background(palette.onBackground.copy(alpha = 0.35f)),
                 )
             }
-            content()
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                content = content,
+            )
         }
     }
 }

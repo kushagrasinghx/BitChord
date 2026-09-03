@@ -134,6 +134,8 @@
     <string name="widget_preview_artist">Artista</string>
     <string name="download_quality">Qualidade de download</string>
     <string name="download_wifi_only">Baixar apenas por Wi-Fi</string>
+    <string name="spatial_audio">Áudio espacial</string>
+    <string name="spatial_audio_subtitle">Amplia as faixas estéreo para uma experiência mais imersiva</string>
     <string name="animated_cover_cellular">Reproduzir capa animada com dados móveis</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Suas músicas, artistas, álbuns e gêneros mais ouvidos</string>
@@ -163,6 +165,8 @@
     <string name="russian">Russo</string>
     <string name="chinese">Chinês (simplificado)</string>
     <string name="hebrew">Hebraico</string>
+    <string name="italian">Italiano</string>
+    <string name="turkish">Turco</string>
     <string name="show_all">Ver tudo</string>
     <string name="grid_view">Grade</string>
     <string name="list_view">Lista</string>

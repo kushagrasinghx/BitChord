@@ -3,7 +3,41 @@ name: Android CI
 on: [push, pull_request]
 
 jobs:
-  build:
+  build-dev-debug:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Setup local.properties
+      run: |
+        echo "MODULE_INDEX_URL=${{ secrets.MODULE_INDEX_URL }}" > local.properties
+        echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> local.properties
+        echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build Dev Debug APK
+      run: ./gradlew assembleDevDebug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bitchord-dev-debug
+        path: app/build/outputs/apk/dev/debug/*.apk
+
+  build-prod-release:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +56,7 @@ jobs:
         echo "MODULE_INDEX_URL=${{ secrets.MODULE_INDEX_URL }}" > local.properties
         echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> local.properties
         echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
-        
+
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks
         echo "storeFile=bitchord-release.jks" > keystore.properties
         echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> keystore.properties
@@ -32,11 +66,11 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build Signed Dev Release APK
-      run: ./gradlew assembleDevRelease
+    - name: Build Signed Prod Release APK
+      run: ./gradlew assembleProdRelease
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: bitchord-dev-release-signed
-        path: app/build/outputs/apk/dev/release/app-dev-release.apk
+        name: bitchord-prod-release-signed
+        path: app/build/outputs/apk/prod/release/*.apk

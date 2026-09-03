@@ -1,0 +1,384 @@
+build	UNKNOWN STEP	﻿2026-09-03T11:45:40.5227965Z Current runner version: '2.337.0'
+build	UNKNOWN STEP	2026-09-03T11:45:40.5255398Z ##[group]Runner Image Provisioner
+build	UNKNOWN STEP	2026-09-03T11:45:40.5256439Z Hosted Compute Agent
+build	UNKNOWN STEP	2026-09-03T11:45:40.5257178Z Version: 20260819.586
+build	UNKNOWN STEP	2026-09-03T11:45:40.5258038Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+build	UNKNOWN STEP	2026-09-03T11:45:40.5259198Z Build Date: 2026-08-18T23:20:18Z
+build	UNKNOWN STEP	2026-09-03T11:45:40.5260253Z Worker ID: {3fd0ee19-ebd8-46c8-bfc3-71462b68b1b1}
+build	UNKNOWN STEP	2026-09-03T11:45:40.5261122Z Azure Region: northcentralus
+build	UNKNOWN STEP	2026-09-03T11:45:40.5262000Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:40.5264090Z ##[group]Operating System
+build	UNKNOWN STEP	2026-09-03T11:45:40.5265005Z Ubuntu
+build	UNKNOWN STEP	2026-09-03T11:45:40.5265660Z 24.04.4
+build	UNKNOWN STEP	2026-09-03T11:45:40.5266410Z LTS
+build	UNKNOWN STEP	2026-09-03T11:45:40.5267101Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:40.5267795Z ##[group]Runner Image
+build	UNKNOWN STEP	2026-09-03T11:45:40.5268626Z Image: ubuntu-24.04
+build	UNKNOWN STEP	2026-09-03T11:45:40.5269717Z Version: 20260823.283.1
+build	UNKNOWN STEP	2026-09-03T11:45:40.5271178Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260823.283/images/ubuntu/Ubuntu2404-Readme.md
+build	UNKNOWN STEP	2026-09-03T11:45:40.5272856Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260823.283
+build	UNKNOWN STEP	2026-09-03T11:45:40.5273900Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:40.5275250Z ##[group]GITHUB_TOKEN Permissions
+build	UNKNOWN STEP	2026-09-03T11:45:40.5277210Z Contents: read
+build	UNKNOWN STEP	2026-09-03T11:45:40.5278053Z Metadata: read
+build	UNKNOWN STEP	2026-09-03T11:45:40.5278906Z Packages: read
+build	UNKNOWN STEP	2026-09-03T11:45:40.5279657Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:40.5281887Z Secret source: Actions
+build	UNKNOWN STEP	2026-09-03T11:45:40.5283164Z Prepare workflow directory
+build	UNKNOWN STEP	2026-09-03T11:45:40.5730292Z Prepare all required actions
+build	UNKNOWN STEP	2026-09-03T11:45:40.5802134Z Getting action download info
+build	UNKNOWN STEP	2026-09-03T11:45:40.8425961Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+build	UNKNOWN STEP	2026-09-03T11:45:40.9716596Z Download action repository 'actions/setup-java@v4' (SHA:cf277c60eb25467037889841efdb72551f06f6c3)
+build	UNKNOWN STEP	2026-09-03T11:45:41.4698020Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+build	UNKNOWN STEP	2026-09-03T11:45:41.6858545Z Complete job name: build
+build	UNKNOWN STEP	2026-09-03T11:45:41.7695837Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-09-03T11:45:41.7705401Z ##[group]Run actions/checkout@v4
+build	UNKNOWN STEP	2026-09-03T11:45:41.7706636Z with:
+build	UNKNOWN STEP	2026-09-03T11:45:41.7707374Z   repository: kushagrasinghx/BitChord
+build	UNKNOWN STEP	2026-09-03T11:45:41.7712198Z   token: ***
+build	UNKNOWN STEP	2026-09-03T11:45:41.7712949Z   ssh-strict: true
+build	UNKNOWN STEP	2026-09-03T11:45:41.7713665Z   ssh-user: git
+build	UNKNOWN STEP	2026-09-03T11:45:41.7714324Z   persist-credentials: true
+build	UNKNOWN STEP	2026-09-03T11:45:41.7715020Z   clean: true
+build	UNKNOWN STEP	2026-09-03T11:45:41.7715757Z   sparse-checkout-cone-mode: true
+build	UNKNOWN STEP	2026-09-03T11:45:41.7716543Z   fetch-depth: 1
+build	UNKNOWN STEP	2026-09-03T11:45:41.7717228Z   fetch-tags: false
+build	UNKNOWN STEP	2026-09-03T11:45:41.7717920Z   show-progress: true
+build	UNKNOWN STEP	2026-09-03T11:45:41.7718605Z   lfs: false
+build	UNKNOWN STEP	2026-09-03T11:45:41.7719613Z   submodules: false
+build	UNKNOWN STEP	2026-09-03T11:45:41.7720377Z   set-safe-directory: true
+build	UNKNOWN STEP	2026-09-03T11:45:41.7721092Z   allow-unsafe-pr-checkout: false
+build	UNKNOWN STEP	2026-09-03T11:45:41.7722316Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:41.8761971Z Syncing repository: kushagrasinghx/BitChord
+build	UNKNOWN STEP	2026-09-03T11:45:41.8765548Z ##[group]Getting Git version info
+build	UNKNOWN STEP	2026-09-03T11:45:41.8767335Z Working directory is '/home/runner/work/BitChord/BitChord'
+build	UNKNOWN STEP	2026-09-03T11:45:41.8769846Z [command]/usr/bin/git version
+build	UNKNOWN STEP	2026-09-03T11:45:41.8843743Z git version 2.55.0
+build	UNKNOWN STEP	2026-09-03T11:45:41.8883066Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:41.8890994Z Temporarily overriding HOME='/home/runner/work/_temp/a20dbe69-bf15-4719-bcbc-bba1e9576a6d' before making global git config changes
+build	UNKNOWN STEP	2026-09-03T11:45:41.8893362Z Adding repository directory to the temporary git global config as a safe directory
+build	UNKNOWN STEP	2026-09-03T11:45:41.8895349Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BitChord/BitChord
+build	UNKNOWN STEP	2026-09-03T11:45:41.8952677Z Deleting the contents of '/home/runner/work/BitChord/BitChord'
+build	UNKNOWN STEP	2026-09-03T11:45:41.8967625Z ##[group]Initializing the repository
+build	UNKNOWN STEP	2026-09-03T11:45:41.8972680Z [command]/usr/bin/git init /home/runner/work/BitChord/BitChord
+build	UNKNOWN STEP	2026-09-03T11:45:41.9086712Z hint: Using 'master' as the name for the initial branch. This default branch name
+build	UNKNOWN STEP	2026-09-03T11:45:41.9089424Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+build	UNKNOWN STEP	2026-09-03T11:45:41.9091993Z hint: to use in all of your new repositories, which will suppress this warning,
+build	UNKNOWN STEP	2026-09-03T11:45:41.9094125Z hint: call:
+build	UNKNOWN STEP	2026-09-03T11:45:41.9095282Z hint:
+build	UNKNOWN STEP	2026-09-03T11:45:41.9096931Z hint: 	git config --global init.defaultBranch <name>
+build	UNKNOWN STEP	2026-09-03T11:45:41.9098484Z hint:
+build	UNKNOWN STEP	2026-09-03T11:45:41.9100226Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+build	UNKNOWN STEP	2026-09-03T11:45:41.9102578Z hint: 'development'. The just-created branch can be renamed via this command:
+build	UNKNOWN STEP	2026-09-03T11:45:41.9104806Z hint:
+build	UNKNOWN STEP	2026-09-03T11:45:41.9106019Z hint: 	git branch -m <name>
+build	UNKNOWN STEP	2026-09-03T11:45:41.9107324Z hint:
+build	UNKNOWN STEP	2026-09-03T11:45:41.9109754Z hint: Disable this message with "git config set advice.defaultBranchName false"
+build	UNKNOWN STEP	2026-09-03T11:45:41.9112228Z Initialized empty Git repository in /home/runner/work/BitChord/BitChord/.git/
+build	UNKNOWN STEP	2026-09-03T11:45:41.9115412Z [command]/usr/bin/git remote add origin https://github.com/kushagrasinghx/BitChord
+build	UNKNOWN STEP	2026-09-03T11:45:41.9168034Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:41.9170502Z ##[group]Disabling automatic garbage collection
+build	UNKNOWN STEP	2026-09-03T11:45:41.9172534Z [command]/usr/bin/git config --local gc.auto 0
+build	UNKNOWN STEP	2026-09-03T11:45:41.9210027Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:41.9212101Z ##[group]Setting up auth
+build	UNKNOWN STEP	2026-09-03T11:45:41.9217570Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build	UNKNOWN STEP	2026-09-03T11:45:41.9257685Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build	UNKNOWN STEP	2026-09-03T11:45:41.9701942Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	UNKNOWN STEP	2026-09-03T11:45:41.9742877Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build	UNKNOWN STEP	2026-09-03T11:45:41.9975563Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	UNKNOWN STEP	2026-09-03T11:45:42.0250251Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build	UNKNOWN STEP	2026-09-03T11:45:42.0259261Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+build	UNKNOWN STEP	2026-09-03T11:45:42.0302280Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:42.0303311Z ##[group]Fetching the repository
+build	UNKNOWN STEP	2026-09-03T11:45:42.0313067Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +6682f0d5372d0f79ebc7c4043e40a3836367a089:refs/remotes/pull/111/merge
+build	UNKNOWN STEP	2026-09-03T11:45:43.1056406Z From https://github.com/kushagrasinghx/BitChord
+build	UNKNOWN STEP	2026-09-03T11:45:43.1058525Z  * [new ref]         6682f0d5372d0f79ebc7c4043e40a3836367a089 -> pull/111/merge
+build	UNKNOWN STEP	2026-09-03T11:45:43.1064355Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:43.1066635Z ##[group]Determining the checkout info
+build	UNKNOWN STEP	2026-09-03T11:45:43.1069493Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:43.1073028Z [command]/usr/bin/git sparse-checkout disable
+build	UNKNOWN STEP	2026-09-03T11:45:43.1129621Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+build	UNKNOWN STEP	2026-09-03T11:45:43.1166198Z ##[group]Checking out the ref
+build	UNKNOWN STEP	2026-09-03T11:45:43.1169902Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/111/merge
+build	UNKNOWN STEP	2026-09-03T11:45:43.2674495Z Note: switching to 'refs/remotes/pull/111/merge'.
+build	UNKNOWN STEP	2026-09-03T11:45:43.2675612Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.2676495Z You are in 'detached HEAD' state. You can look around, make experimental
+build	UNKNOWN STEP	2026-09-03T11:45:43.2678682Z changes and commit them, and you can discard any commits you make in this
+build	UNKNOWN STEP	2026-09-03T11:45:43.2681895Z state without impacting any branches by switching back to a branch.
+build	UNKNOWN STEP	2026-09-03T11:45:43.2683302Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.2684224Z If you want to create a new branch to retain commits you create, you may
+build	UNKNOWN STEP	2026-09-03T11:45:43.2686441Z do so (now or later) by using -c with the switch command. Example:
+build	UNKNOWN STEP	2026-09-03T11:45:43.2687723Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.2688252Z   git switch -c <new-branch-name>
+build	UNKNOWN STEP	2026-09-03T11:45:43.2689292Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.2689801Z Or undo this operation with:
+build	UNKNOWN STEP	2026-09-03T11:45:43.2690602Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.2691059Z   git switch -
+build	UNKNOWN STEP	2026-09-03T11:45:43.2691681Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.2692697Z Turn off this advice by setting config variable advice.detachedHead to false
+build	UNKNOWN STEP	2026-09-03T11:45:43.2694209Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.2695917Z HEAD is now at 6682f0d Merge 64ca6b62295119b6034f52da181a6c36d37d1e81 into fe7c99ca692a9c19aa70b5706fddd4436bd399f4
+build	UNKNOWN STEP	2026-09-03T11:45:43.2705134Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:43.2750502Z [command]/usr/bin/git log -1 --format=%H
+build	UNKNOWN STEP	2026-09-03T11:45:43.2777998Z 6682f0d5372d0f79ebc7c4043e40a3836367a089
+build	UNKNOWN STEP	2026-09-03T11:45:43.3219857Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-09-03T11:45:43.3225489Z ##[group]Run actions/setup-java@v4
+build	UNKNOWN STEP	2026-09-03T11:45:43.3226587Z with:
+build	UNKNOWN STEP	2026-09-03T11:45:43.3227398Z   java-version: 17
+build	UNKNOWN STEP	2026-09-03T11:45:43.3228322Z   distribution: temurin
+build	UNKNOWN STEP	2026-09-03T11:45:43.3229694Z   cache: gradle
+build	UNKNOWN STEP	2026-09-03T11:45:43.3230594Z   java-package: jdk
+build	UNKNOWN STEP	2026-09-03T11:45:43.3231519Z   check-latest: false
+build	UNKNOWN STEP	2026-09-03T11:45:43.3232457Z   server-id: github
+build	UNKNOWN STEP	2026-09-03T11:45:43.3233399Z   server-username: GITHUB_ACTOR
+build	UNKNOWN STEP	2026-09-03T11:45:43.3234512Z   server-password: GITHUB_TOKEN
+build	UNKNOWN STEP	2026-09-03T11:45:43.3235605Z   overwrite-settings: true
+build	UNKNOWN STEP	2026-09-03T11:45:43.3236626Z   job-status: success
+build	UNKNOWN STEP	2026-09-03T11:45:43.3247199Z   token: ***
+build	UNKNOWN STEP	2026-09-03T11:45:43.3248138Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:43.4970138Z ##[warning]setup-java v4 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+build	UNKNOWN STEP	2026-09-03T11:45:43.4982729Z ##[group]Installed distributions
+build	UNKNOWN STEP	2026-09-03T11:45:43.5024155Z Resolved Java 17.0.20+1 from tool-cache
+build	UNKNOWN STEP	2026-09-03T11:45:43.5025471Z Setting Java 17.0.20+1 as the default
+build	UNKNOWN STEP	2026-09-03T11:45:43.5035923Z (node:2182) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build	UNKNOWN STEP	2026-09-03T11:45:43.5038961Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build	UNKNOWN STEP	2026-09-03T11:45:43.5041376Z Creating toolchains.xml for JDK version 17 from temurin
+build	UNKNOWN STEP	2026-09-03T11:45:43.5123479Z Writing to /home/runner/.m2/toolchains.xml
+build	UNKNOWN STEP	2026-09-03T11:45:43.5124833Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.5125466Z Java configuration:
+build	UNKNOWN STEP	2026-09-03T11:45:43.5126970Z   Distribution: temurin
+build	UNKNOWN STEP	2026-09-03T11:45:43.5128522Z   Version: 17.0.20+1
+build	UNKNOWN STEP	2026-09-03T11:45:43.5130876Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:45:43.5132692Z 
+build	UNKNOWN STEP	2026-09-03T11:45:43.5134173Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:43.5152036Z Creating settings.xml with server-id: github
+build	UNKNOWN STEP	2026-09-03T11:45:43.5190201Z Writing to /home/runner/.m2/settings.xml
+build	UNKNOWN STEP	2026-09-03T11:45:43.7645541Z Cache hit for: setup-java-Linux-x64-gradle-6e625ef297f89049f7f0513af7cab6c4c95693743f08e5224c3bc3b7ea576909
+build	UNKNOWN STEP	2026-09-03T11:45:43.7753137Z (node:2182) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+build	UNKNOWN STEP	2026-09-03T11:45:44.9111083Z Received 117440512 of 1037939732 (11.3%), 111.9 MBs/sec
+build	UNKNOWN STEP	2026-09-03T11:45:45.9110574Z Received 301989888 of 1037939732 (29.1%), 143.9 MBs/sec
+build	UNKNOWN STEP	2026-09-03T11:45:46.9087301Z Received 532676608 of 1037939732 (51.3%), 169.3 MBs/sec
+build	UNKNOWN STEP	2026-09-03T11:45:47.9089784Z Received 666894336 of 1037939732 (64.3%), 159.0 MBs/sec
+build	UNKNOWN STEP	2026-09-03T11:45:48.9127947Z Received 884998144 of 1037939732 (85.3%), 168.6 MBs/sec
+build	UNKNOWN STEP	2026-09-03T11:45:49.5683917Z Received 1037939732 of 1037939732 (100.0%), 174.9 MBs/sec
+build	UNKNOWN STEP	2026-09-03T11:45:49.5684686Z Cache Size: ~990 MB (1037939732 B)
+build	UNKNOWN STEP	2026-09-03T11:45:49.5730908Z [command]/usr/bin/tar -xf /home/runner/work/_temp/9aa0b89e-9af5-4e85-a4d5-0494831b3493/cache.tzst -P -C /home/runner/work/BitChord/BitChord --use-compress-program unzstd
+build	UNKNOWN STEP	2026-09-03T11:45:53.9337637Z Cache restored successfully
+build	UNKNOWN STEP	2026-09-03T11:45:54.5359590Z Cache restored from key: setup-java-Linux-x64-gradle-6e625ef297f89049f7f0513af7cab6c4c95693743f08e5224c3bc3b7ea576909
+build	UNKNOWN STEP	2026-09-03T11:45:54.5639955Z ##[group]Run echo "MODULE_INDEX_URL=***" > local.properties
+build	UNKNOWN STEP	2026-09-03T11:45:54.5640799Z [36;1mecho "MODULE_INDEX_URL=***" > local.properties[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5641308Z [36;1mecho "LASTFM_API_KEY=***" >> local.properties[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5641780Z [36;1mecho "LASTFM_SECRET=***" >> local.properties[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5642121Z [36;1m[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5660644Z [36;1mecho "***" | base64 -d > ***-release.jks[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5661106Z [36;1mecho "storeFile=***-release.jks" > keystore.properties[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5661571Z [36;1mecho "storePassword=***" >> keystore.properties[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5661991Z [36;1mecho "keyAlias=***" >> keystore.properties[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5662407Z [36;1mecho "keyPassword=***" >> keystore.properties[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5707051Z shell: /usr/bin/bash -e {0}
+build	UNKNOWN STEP	2026-09-03T11:45:54.5707354Z env:
+build	UNKNOWN STEP	2026-09-03T11:45:54.5707720Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:45:54.5708335Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:45:54.5709145Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:54.5857162Z ##[group]Run chmod +x gradlew
+build	UNKNOWN STEP	2026-09-03T11:45:54.5857509Z [36;1mchmod +x gradlew[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.5896258Z shell: /usr/bin/bash -e {0}
+build	UNKNOWN STEP	2026-09-03T11:45:54.5896545Z env:
+build	UNKNOWN STEP	2026-09-03T11:45:54.5896934Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:45:54.5897493Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:45:54.5897896Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:54.6002565Z ##[group]Run ./gradlew assembleDevRelease
+build	UNKNOWN STEP	2026-09-03T11:45:54.6002975Z [36;1m./gradlew assembleDevRelease[0m
+build	UNKNOWN STEP	2026-09-03T11:45:54.6041340Z shell: /usr/bin/bash -e {0}
+build	UNKNOWN STEP	2026-09-03T11:45:54.6041633Z env:
+build	UNKNOWN STEP	2026-09-03T11:45:54.6041975Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:45:54.6042519Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:45:54.6042929Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:45:55.4561309Z 
+build	UNKNOWN STEP	2026-09-03T11:45:55.4589880Z Welcome to Gradle 8.11.1!
+build	UNKNOWN STEP	2026-09-03T11:45:55.4639386Z 
+build	UNKNOWN STEP	2026-09-03T11:45:55.4639926Z Here are the highlights of this release:
+build	UNKNOWN STEP	2026-09-03T11:45:55.4640604Z  - Parallel load and store for Configuration Cache
+build	UNKNOWN STEP	2026-09-03T11:45:55.4641344Z  - Java compilation errors at the end of the build output
+build	UNKNOWN STEP	2026-09-03T11:45:55.4642215Z  - Consolidated report for warnings and deprecations
+build	UNKNOWN STEP	2026-09-03T11:45:55.4642640Z 
+build	UNKNOWN STEP	2026-09-03T11:45:55.4643076Z For more details see https://docs.gradle.org/8.11.1/release-notes.html
+build	UNKNOWN STEP	2026-09-03T11:45:55.4643623Z 
+build	UNKNOWN STEP	2026-09-03T11:45:55.5546015Z Starting a Gradle Daemon (subsequent builds will be faster)
+build	UNKNOWN STEP	2026-09-03T11:46:08.4551468Z 
+build	UNKNOWN STEP	2026-09-03T11:46:08.4586900Z > Configure project :app
+build	UNKNOWN STEP	2026-09-03T11:46:08.4640089Z Checking the license for package NDK (Side by side) 27.0.12077973 in /usr/local/lib/android/sdk/licenses
+build	UNKNOWN STEP	2026-09-03T11:46:08.4641590Z License for package NDK (Side by side) 27.0.12077973 accepted.
+build	UNKNOWN STEP	2026-09-03T11:46:08.4669822Z Preparing "Install NDK (Side by side) 27.0.12077973 v.27.0.12077973".
+build	UNKNOWN STEP	2026-09-03T11:46:24.3545690Z "Install NDK (Side by side) 27.0.12077973 v.27.0.12077973" ready.
+build	UNKNOWN STEP	2026-09-03T11:46:24.3546758Z Installing NDK (Side by side) 27.0.12077973 in /usr/local/lib/android/sdk/ndk/27.0.12077973
+build	UNKNOWN STEP	2026-09-03T11:46:24.3548412Z "Install NDK (Side by side) 27.0.12077973 v.27.0.12077973" complete.
+build	UNKNOWN STEP	2026-09-03T11:46:24.6545479Z "Install NDK (Side by side) 27.0.12077973 v.27.0.12077973" finished.
+build	UNKNOWN STEP	2026-09-03T11:46:25.7570520Z Configuration 'newPipeExtractorRaw' was resolved during configuration time.
+build	UNKNOWN STEP	2026-09-03T11:46:25.7599836Z This is a build performance and scalability issue.
+build	UNKNOWN STEP	2026-09-03T11:46:25.7600869Z See https://github.com/gradle/gradle/issues/2298
+build	UNKNOWN STEP	2026-09-03T11:46:25.7625734Z Run with --info for a stacktrace.
+build	UNKNOWN STEP	2026-09-03T11:46:26.6544855Z 
+build	UNKNOWN STEP	2026-09-03T11:46:26.6565215Z > Task :app:preBuild UP-TO-DATE
+build	UNKNOWN STEP	2026-09-03T11:46:26.6590183Z > Task :app:preProdReleaseBuild UP-TO-DATE
+build	UNKNOWN STEP	2026-09-03T11:46:26.9574357Z > Task :app:stripNewPipeExtractorUtils
+build	UNKNOWN STEP	2026-09-03T11:46:28.9548382Z 
+build	UNKNOWN STEP	2026-09-03T11:46:28.9563397Z > Task :app:configureCMakeRelWithDebInfo[arm64-v8a]
+build	UNKNOWN STEP	2026-09-03T11:46:28.9580488Z Checking the license for package CMake 3.22.1 in /usr/local/lib/android/sdk/licenses
+build	UNKNOWN STEP	2026-09-03T11:46:28.9581551Z License for package CMake 3.22.1 accepted.
+build	UNKNOWN STEP	2026-09-03T11:46:28.9582363Z Preparing "Install CMake 3.22.1 v.3.22.1".
+build	UNKNOWN STEP	2026-09-03T11:46:28.9583063Z "Install CMake 3.22.1 v.3.22.1" ready.
+build	UNKNOWN STEP	2026-09-03T11:46:28.9587076Z Installing CMake 3.22.1 in /usr/local/lib/android/sdk/cmake/3.22.1
+build	UNKNOWN STEP	2026-09-03T11:46:28.9588048Z "Install CMake 3.22.1 v.3.22.1" complete.
+build	UNKNOWN STEP	2026-09-03T11:46:28.9589095Z "Install CMake 3.22.1 v.3.22.1" finished.
+build	UNKNOWN STEP	2026-09-03T11:46:32.6544437Z 
+build	UNKNOWN STEP	2026-09-03T11:46:32.6545090Z > Task :app:buildCMakeRelWithDebInfo[arm64-v8a]
+build	UNKNOWN STEP	2026-09-03T11:46:32.7640109Z > Task :app:configureCMakeRelWithDebInfo[x86_64]
+build	UNKNOWN STEP	2026-09-03T11:46:35.7546655Z > Task :app:buildCMakeRelWithDebInfo[x86_64]
+build	UNKNOWN STEP	2026-09-03T11:46:35.7547493Z > Task :app:preDevReleaseBuild UP-TO-DATE
+build	UNKNOWN STEP	2026-09-03T11:46:35.8560535Z > Task :app:mergeDevReleaseJniLibFolders
+build	UNKNOWN STEP	2026-09-03T11:46:37.1560132Z > Task :app:mergeDevReleaseArtProfile
+build	UNKNOWN STEP	2026-09-03T11:46:37.2545060Z > Task :app:buildKotlinToolingMetadata
+build	UNKNOWN STEP	2026-09-03T11:46:37.2592402Z > Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+build	UNKNOWN STEP	2026-09-03T11:46:37.4575043Z > Task :app:mergeDevReleaseNativeLibs
+build	UNKNOWN STEP	2026-09-03T11:46:37.4619977Z > Task :app:generateDevReleaseBuildConfig
+build	UNKNOWN STEP	2026-09-03T11:46:37.8580081Z > Task :app:generateDevReleaseResValues
+build	UNKNOWN STEP	2026-09-03T11:46:37.8581771Z > Task :app:checkDevReleaseAarMetadata
+build	UNKNOWN STEP	2026-09-03T11:46:38.1546520Z > Task :app:stripDevReleaseDebugSymbols
+build	UNKNOWN STEP	2026-09-03T11:46:38.3549861Z > Task :app:mapDevReleaseSourceSetPaths
+build	UNKNOWN STEP	2026-09-03T11:46:38.3579626Z > Task :app:generateDevReleaseResources
+build	UNKNOWN STEP	2026-09-03T11:46:38.7544980Z > Task :app:extractDevReleaseNativeSymbolTables
+build	UNKNOWN STEP	2026-09-03T11:46:42.7570084Z > Task :app:packageDevReleaseResources
+build	UNKNOWN STEP	2026-09-03T11:46:42.8557667Z > Task :app:mergeDevReleaseResources
+build	UNKNOWN STEP	2026-09-03T11:46:43.6546161Z > Task :app:createDevReleaseCompatibleScreenManifests
+build	UNKNOWN STEP	2026-09-03T11:46:43.6569737Z > Task :app:extractDeepLinksDevRelease
+build	UNKNOWN STEP	2026-09-03T11:46:43.8544361Z > Task :app:parseDevReleaseLocalResources
+build	UNKNOWN STEP	2026-09-03T11:46:44.2559783Z > Task :app:processDevReleaseMainManifest
+build	UNKNOWN STEP	2026-09-03T11:46:44.4544884Z > Task :app:processDevReleaseManifest
+build	UNKNOWN STEP	2026-09-03T11:46:44.5576941Z > Task :app:processDevReleaseManifestForPackage
+build	UNKNOWN STEP	2026-09-03T11:46:44.5599633Z > Task :app:javaPreCompileDevRelease
+build	UNKNOWN STEP	2026-09-03T11:46:46.3569992Z > Task :app:checkDevReleaseDuplicateClasses
+build	UNKNOWN STEP	2026-09-03T11:46:46.3599599Z > Task :app:mergeDevReleaseStartupProfile
+build	UNKNOWN STEP	2026-09-03T11:46:46.3659796Z > Task :app:mergeDevReleaseShaders
+build	UNKNOWN STEP	2026-09-03T11:46:46.3719870Z > Task :app:compileDevReleaseShaders NO-SOURCE
+build	UNKNOWN STEP	2026-09-03T11:46:46.3749747Z > Task :app:generateDevReleaseAssets UP-TO-DATE
+build	UNKNOWN STEP	2026-09-03T11:46:46.6579804Z > Task :app:mergeDevReleaseAssets
+build	UNKNOWN STEP	2026-09-03T11:46:46.6649578Z > Task :app:mergeDevReleaseNativeDebugMetadata
+build	UNKNOWN STEP	2026-09-03T11:46:46.9580066Z > Task :app:extractDevReleaseVersionControlInfo
+build	UNKNOWN STEP	2026-09-03T11:46:46.9609611Z > Task :app:extractProguardFiles
+build	UNKNOWN STEP	2026-09-03T11:46:47.2560244Z > Task :app:collectDevReleaseDependencies
+build	UNKNOWN STEP	2026-09-03T11:46:47.5559759Z > Task :app:sdkDevReleaseDependencyData
+build	UNKNOWN STEP	2026-09-03T11:46:47.5619696Z > Task :app:validateSigningDevRelease
+build	UNKNOWN STEP	2026-09-03T11:46:47.5620630Z > Task :app:writeDevReleaseAppMetadata
+build	UNKNOWN STEP	2026-09-03T11:46:47.5621218Z > Task :app:writeDevReleaseSigningConfigVersions
+build	UNKNOWN STEP	2026-09-03T11:46:48.0574051Z > Task :app:compressDevReleaseAssets
+build	UNKNOWN STEP	2026-09-03T11:46:48.6549888Z > Task :app:processDevReleaseResources
+build	UNKNOWN STEP	2026-09-03T11:46:49.0553020Z > Task :app:desugarDevReleaseFileDependencies
+build	UNKNOWN STEP	2026-09-03T11:46:51.7569857Z > Task :app:optimizeDevReleaseResources
+build	UNKNOWN STEP	2026-09-03T11:47:07.2549724Z > Task :app:mergeExtDexDevRelease
+build	UNKNOWN STEP	2026-09-03T11:47:18.6545183Z > Task :app:compileDevReleaseKotlin
+build	UNKNOWN STEP	2026-09-03T11:48:16.0557935Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/MainActivity.kt:298:21 'val LocalClipboardManager: ProvidableCompositionLocal<ClipboardManager>' is deprecated. Use LocalClipboard instead which supports suspend functions.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0640552Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/MainActivity.kt:2356:48 Elvis operator (?:) always returns the left operand of non-nullable type 'MediaController'.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0700653Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/data/AppUpdateChecker.kt:199:27 'static field ACTION_INSTALL_PACKAGE: String' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0727705Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:3266:14 'fun setEnableAudioTrackPlaybackParams(p0: Boolean): DefaultAudioSink.Builder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0760829Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4032:50 'constructor(p0: MediaSession): MediaSession.ConnectionResult.AcceptedResultBuilder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0820469Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4092:26 'fun setFolderType(p0: Int?): MediaMetadata.Builder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0823096Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4092:54 'static field FOLDER_TYPE_MIXED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0880813Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4120:94 'static field FOLDER_TYPE_ALBUMS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0940420Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4121:102 'static field FOLDER_TYPE_ALBUMS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0970524Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4122:98 'static field FOLDER_TYPE_PLAYLISTS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.0994203Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4123:88 'static field FOLDER_TYPE_MIXED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1030379Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4126:96 'static field FOLDER_TYPE_PLAYLISTS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1057011Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4127:98 'static field FOLDER_TYPE_MIXED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1080722Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4128:102 'static field FOLDER_TYPE_MIXED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1112218Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4204:38 'fun setFolderType(p0: Int?): MediaMetadata.Builder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1130761Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4204:66 'static field FOLDER_TYPE_PLAYLISTS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1180488Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4287:30 'fun setFolderType(p0: Int?): MediaMetadata.Builder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1210355Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4287:58 'static field FOLDER_TYPE_MIXED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1212994Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4290:110 'static field FOLDER_TYPE_ALBUMS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1215958Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4291:122 'static field FOLDER_TYPE_ALBUMS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1240404Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4292:116 'static field FOLDER_TYPE_PLAYLISTS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1280327Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4293:101 'static field FOLDER_TYPE_MIXED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1310378Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4294:110 'static field FOLDER_TYPE_PLAYLISTS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1330365Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4313:42 'fun setFolderType(p0: Int?): MediaMetadata.Builder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1360231Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4313:70 'static field FOLDER_TYPE_PLAYLISTS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1391099Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4325:22 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1420191Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4589:41 'static field FOLDER_TYPE_MIXED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1450354Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4615:22 'fun setFolderType(p0: Int?): MediaMetadata.Builder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1473699Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4615:78 'static field FOLDER_TYPE_MIXED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1510414Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4615:111 'static field FOLDER_TYPE_ALBUMS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1540339Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4643:22 'fun setFolderType(p0: Int?): MediaMetadata.Builder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1580417Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4643:50 'static field FOLDER_TYPE_ALBUMS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1600361Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4673:26 'fun setFolderType(p0: Int?): MediaMetadata.Builder' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1620597Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/PlaybackService.kt:4673:54 'static field FOLDER_TYPE_ALBUMS: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1690781Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/SpatialAudioProcessor.kt:80:18 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1710980Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/TransitionFilterProcessor.kt:131:18 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1750335Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/playback/smart/AudioDecoder.kt:215:65 'static field INFO_OUTPUT_BUFFERS_CHANGED: Int' is deprecated. Deprecated in Java.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1798512Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/components/Common.kt:397:41 'val Icons.Rounded.PlaylistPlay: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.PlaylistPlay.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1830725Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/components/Common.kt:397:73 'val Icons.Rounded.PlaylistAdd: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.PlaylistAdd.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1856782Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/player/CanvasArtworkPlayer.kt:79:8 Annotation 'androidx.media3.common.util.UnstableApi' is not annotated with '@RequiresOptIn'. '@OptIn' has no effect.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1920489Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/player/NowPlayingScreen.kt:2890:24 Unnecessary non-null assertion (!!) on a non-null receiver of type 'LyricLine'.
+build	UNKNOWN STEP	2026-09-03T11:48:16.1980063Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/screens/DetailScreen.kt:1019:17 Experimental Haze API
+build	UNKNOWN STEP	2026-09-03T11:48:16.2038098Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/screens/DetailScreen.kt:1532:78 Redundant call of conversion method.
+build	UNKNOWN STEP	2026-09-03T11:48:16.2101837Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/screens/LocalMusicScreen.kt:1193:36 'val Icons.Rounded.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.ArrowBack.
+build	UNKNOWN STEP	2026-09-03T11:48:16.2147764Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/screens/LocalMusicScreen.kt:1530:35 'val Icons.Rounded.Sort: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.Sort.
+build	UNKNOWN STEP	2026-09-03T11:48:16.2220966Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/screens/SettingsSheet.kt:906:38 'val Icons.Rounded.PlaylistPlay: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.PlaylistPlay.
+build	UNKNOWN STEP	2026-09-03T11:48:16.2260771Z w: file:///home/runner/work/BitChord/BitChord/app/src/main/java/com/music/***/ui/screens/SettingsSheet.kt:961:38 'val Icons.Rounded.VolumeOff: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Rounded.VolumeOff.
+build	UNKNOWN STEP	2026-09-03T11:48:20.7543994Z 
+build	UNKNOWN STEP	2026-09-03T11:48:20.7559967Z > Task :app:compileDevReleaseJavaWithJavac
+build	UNKNOWN STEP	2026-09-03T11:48:45.6553870Z > Task :app:dexBuilderDevRelease
+build	UNKNOWN STEP	2026-09-03T11:48:45.7555253Z > Task :app:mergeDevReleaseGlobalSynthetics
+build	UNKNOWN STEP	2026-09-03T11:48:46.5560026Z > Task :app:generateDevReleaseLintVitalReportModel
+build	UNKNOWN STEP	2026-09-03T11:48:46.8544678Z > Task :app:processDevReleaseJavaRes
+build	UNKNOWN STEP	2026-09-03T11:48:50.0548622Z > Task :app:mergeDevReleaseJavaResource
+build	UNKNOWN STEP	2026-09-03T11:48:56.1550012Z > Task :app:mergeDexDevRelease
+build	UNKNOWN STEP	2026-09-03T11:48:57.9544601Z > Task :app:compileDevReleaseArtProfile
+build	UNKNOWN STEP	2026-09-03T11:49:16.5557566Z > Task :app:lintVitalAnalyzeDevRelease
+build	UNKNOWN STEP	2026-09-03T11:49:37.5554899Z > Task :app:lintVitalReportDevRelease
+build	UNKNOWN STEP	2026-09-03T11:49:37.5573748Z > Task :app:lintVitalDevRelease
+build	UNKNOWN STEP	2026-09-03T11:49:40.5544567Z > Task :app:packageDevRelease
+build	UNKNOWN STEP	2026-09-03T11:49:40.5545604Z > Task :app:createDevReleaseApkListingFileRedirect
+build	UNKNOWN STEP	2026-09-03T11:49:40.5546478Z > Task :app:assembleDevRelease
+build	UNKNOWN STEP	2026-09-03T11:49:40.6599022Z 
+build	UNKNOWN STEP	2026-09-03T11:49:40.6599556Z BUILD SUCCESSFUL in 3m 45s
+build	UNKNOWN STEP	2026-09-03T11:49:40.6600112Z 56 actionable tasks: 56 executed
+build	UNKNOWN STEP	2026-09-03T11:49:40.9791578Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-09-03T11:49:40.9792937Z ##[group]Run actions/upload-artifact@v4
+build	UNKNOWN STEP	2026-09-03T11:49:40.9793232Z with:
+build	UNKNOWN STEP	2026-09-03T11:49:40.9793493Z   name: ***-dev-release-signed
+build	UNKNOWN STEP	2026-09-03T11:49:40.9793844Z   path: app/build/outputs/apk/dev/release/app-dev-release.apk
+build	UNKNOWN STEP	2026-09-03T11:49:40.9794212Z   if-no-files-found: warn
+build	UNKNOWN STEP	2026-09-03T11:49:40.9794478Z   compression-level: 6
+build	UNKNOWN STEP	2026-09-03T11:49:40.9794714Z   overwrite: false
+build	UNKNOWN STEP	2026-09-03T11:49:40.9794954Z   include-hidden-files: false
+build	UNKNOWN STEP	2026-09-03T11:49:40.9795201Z env:
+build	UNKNOWN STEP	2026-09-03T11:49:40.9795519Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:49:40.9796050Z   JAVA_HOME_17_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.20-1/x64
+build	UNKNOWN STEP	2026-09-03T11:49:40.9796452Z ##[endgroup]
+build	UNKNOWN STEP	2026-09-03T11:49:41.1469790Z (node:2718) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build	UNKNOWN STEP	2026-09-03T11:49:41.1470775Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build	UNKNOWN STEP	2026-09-03T11:49:41.1489552Z ##[warning]No files were found with the provided path: app/build/outputs/apk/dev/release/app-dev-release.apk. No artifacts will be uploaded.
+build	UNKNOWN STEP	2026-09-03T11:49:41.1751391Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-09-03T11:49:41.1752728Z Post job cleanup.
+build	UNKNOWN STEP	2026-09-03T11:49:41.3190806Z (node:2731) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+build	UNKNOWN STEP	2026-09-03T11:49:41.3192196Z (Use `node --trace-deprecation ...` to show where the warning was created)
+build	UNKNOWN STEP	2026-09-03T11:49:41.3197554Z Cache hit occurred on the primary key setup-java-Linux-x64-gradle-6e625ef297f89049f7f0513af7cab6c4c95693743f08e5224c3bc3b7ea576909, not saving cache.
+build	UNKNOWN STEP	2026-09-03T11:49:41.3395104Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+build	UNKNOWN STEP	2026-09-03T11:49:41.3396391Z Post job cleanup.
+build	UNKNOWN STEP	2026-09-03T11:49:41.4323306Z [command]/usr/bin/git version
+build	UNKNOWN STEP	2026-09-03T11:49:41.4371539Z git version 2.55.0
+build	UNKNOWN STEP	2026-09-03T11:49:41.4415497Z Temporarily overriding HOME='/home/runner/work/_temp/d43cbacd-f58c-4e2f-b846-b8855d88120c' before making global git config changes
+build	UNKNOWN STEP	2026-09-03T11:49:41.4416921Z Adding repository directory to the temporary git global config as a safe directory
+build	UNKNOWN STEP	2026-09-03T11:49:41.4422153Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/BitChord/BitChord
+build	UNKNOWN STEP	2026-09-03T11:49:41.4462244Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+build	UNKNOWN STEP	2026-09-03T11:49:41.4497677Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+build	UNKNOWN STEP	2026-09-03T11:49:41.4752749Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+build	UNKNOWN STEP	2026-09-03T11:49:41.4780441Z http.https://github.com/.extraheader
+build	UNKNOWN STEP	2026-09-03T11:49:41.4793473Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+build	UNKNOWN STEP	2026-09-03T11:49:41.4833296Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+build	UNKNOWN STEP	2026-09-03T11:49:41.5109642Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+build	UNKNOWN STEP	2026-09-03T11:49:41.5155208Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+build	UNKNOWN STEP	2026-09-03T11:49:41.5554849Z Cleaning up orphan processes
+build	UNKNOWN STEP	2026-09-03T11:49:41.5859278Z Terminate orphan process: pid (2242) (java)
+build	UNKNOWN STEP	2026-09-03T11:49:41.5892045Z Terminate orphan process: pid (2585) (java)
+build	UNKNOWN STEP	2026-09-03T11:49:41.5902529Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

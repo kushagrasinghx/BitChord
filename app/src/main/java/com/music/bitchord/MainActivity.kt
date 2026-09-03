@@ -49,10 +49,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -110,6 +114,7 @@ import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.components.LocalLiquidGlassState
@@ -179,6 +184,7 @@ import com.music.bitchord.ui.screens.LibraryGridPage
 import com.music.bitchord.ui.screens.LibraryScreen
 import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
+import com.music.bitchord.ui.screens.SongSort
 import com.music.bitchord.ui.replay.ReplayScreen
 import com.music.bitchord.ui.replay.cards
 import com.music.bitchord.ui.replay.ReplayShareSheet
@@ -353,6 +359,7 @@ private fun BitChordApp(
     // A Library shelf's "Show all" — the shelf it was opened from, so its own
     // cards can be laid out again as a full-screen grid. See [LibraryGridPage].
     var libraryShowAll by remember { mutableStateOf<HomeShelf?>(null) }
+    var librarySortMenuOpen by remember { mutableStateOf(false) }
     var showLyricsSources by remember { mutableStateOf(false) }
     var showAppLanguage by remember { mutableStateOf(false) }
     var showAccountSelector by remember { mutableStateOf(false) }
@@ -481,6 +488,11 @@ private fun BitChordApp(
     // has a cover and a track list, so it takes the bar every other release page
     // takes. Hence the folder question rather than the prefix.
     val isLocalDetail = detail?.browseId.isDeviceFolder()
+    // Keyed on the browse id, like the page's own search filter, so opening a
+    // different release starts back at the release's own running order rather
+    // than carrying over whatever the last one was sorted by.
+    var songSort by remember(detail?.browseId) { mutableStateOf(SongSort.DEFAULT) }
+    var songSortMenuOpen by remember { mutableStateOf(false) }
     val likeStatuses by viewModel.likeStatuses.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val playlistsLoading by viewModel.playlistsLoading.collectAsStateWithLifecycle()
@@ -503,6 +515,7 @@ private fun BitChordApp(
     val savedDownloads by Downloads.saved.collectAsStateWithLifecycle()
     val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
     val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
+    val librarySort by AppSettings.librarySort.collectAsStateWithLifecycle()
     // The releases those files were asked for as — read here rather than in the
     // page so the Downloads folder recomposes when one is added, the same way it
     // does when a file is.
@@ -1861,6 +1874,7 @@ private fun BitChordApp(
                             } else {
                                 null
                             },
+                            songSort = songSort,
                             contentPadding = listPadding,
                         )
                     } else when (key.removePrefix(TAB_KEY).toIntOrNull() ?: selectedTab) {
@@ -2126,6 +2140,72 @@ private fun BitChordApp(
                                         contentDescription = stringResource(R.string.listening_history),
                                         tint = MaterialTheme.colorScheme.onSurface,
                                     )
+                                }
+                            }
+                            // Left of the account photo, and only on a Library
+                            // "Show all" grid — the same control the Downloads
+                            // folder offers (see `LocalSearchField`), adapted to
+                            // the one thing a playlist or album card carries: a
+                            // title.
+                            if (libraryShowAll != null && detail == null) {
+                                Box {
+                                    IconButton(onClick = { librarySortMenuOpen = true }) {
+                                        Icon(
+                                            Icons.Rounded.Sort,
+                                            contentDescription = stringResource(R.string.sort_library),
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = librarySortMenuOpen,
+                                        onDismissRequest = { librarySortMenuOpen = false },
+                                    ) {
+                                        LibrarySort.entries.forEach { option ->
+                                            DropdownMenuItem(
+                                                text = { Text(option.localizedLabel()) },
+                                                trailingIcon = if (option == librarySort) {
+                                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                                } else null,
+                                                onClick = {
+                                                    AppSettings.setLibrarySort(option)
+                                                    librarySortMenuOpen = false
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            // Left of the account photo, and only on an album or
+                            // playlist page — an artist page has no single track
+                            // list to reorder, and the device folders already
+                            // carry this same control themselves (see
+                            // `LocalSearchField`).
+                            if (detail != null && !isLocalDetail && detail.type != BrowseType.ARTIST) {
+                                Box {
+                                    IconButton(onClick = { songSortMenuOpen = true }) {
+                                        Icon(
+                                            Icons.Rounded.Sort,
+                                            contentDescription = stringResource(R.string.sort_songs),
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = songSortMenuOpen,
+                                        onDismissRequest = { songSortMenuOpen = false },
+                                    ) {
+                                        SongSort.entries.forEach { option ->
+                                            DropdownMenuItem(
+                                                text = { Text(option.localizedLabel()) },
+                                                trailingIcon = if (option == songSort) {
+                                                    { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                                } else null,
+                                                onClick = {
+                                                    songSort = option
+                                                    songSortMenuOpen = false
+                                                },
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             // Left of the account photo, and only there while
@@ -2887,6 +2967,20 @@ private fun BitChordApp(
 
 private fun tween(durationMillis: Int) =
     androidx.compose.animation.core.tween<Float>(durationMillis)
+
+@Composable
+private fun LibrarySort.localizedLabel(): String = when (this) {
+    LibrarySort.DEFAULT -> stringResource(R.string.sort_default)
+    LibrarySort.TITLE_ASC -> stringResource(R.string.sort_title_ascending)
+    LibrarySort.TITLE_DESC -> stringResource(R.string.sort_title_descending)
+}
+
+@Composable
+private fun SongSort.localizedLabel(): String = when (this) {
+    SongSort.DEFAULT -> stringResource(R.string.sort_default)
+    SongSort.TITLE_ASC -> stringResource(R.string.sort_title_ascending)
+    SongSort.TITLE_DESC -> stringResource(R.string.sort_title_descending)
+}
 
 /**
  * Whether this page id is one of the two device folders — `local:downloads` and

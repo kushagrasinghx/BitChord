@@ -133,6 +133,8 @@
     <string name="widget_preview_artist">Künstler</string>
     <string name="download_quality">Download-Qualität</string>
     <string name="download_wifi_only">Nur über WLAN herunterladen</string>
+    <string name="spatial_audio">Räumliches Audio</string>
+    <string name="spatial_audio_subtitle">Verbreitert Stereo-Tracks für ein intensiveres Klangerlebnis</string>
     <string name="animated_cover_cellular">Animiertes Cover bei mobilen Daten abspielen</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Deine meistgehörten Songs, Künstler, Alben und Genres</string>
@@ -162,6 +164,8 @@
     <string name="russian">Russisch</string>
     <string name="chinese">Chinesisch (vereinfacht)</string>
     <string name="hebrew">Hebräisch</string>
+    <string name="italian">Italienisch</string>
+    <string name="turkish">Türkisch</string>
     <string name="show_all">Alle anzeigen</string>
     <string name="grid_view">Raster</string>
     <string name="list_view">Liste</string>

@@ -104,7 +104,7 @@ fun SourcesScreen(
     }
 
     /** Whether the ceiling in force right now would cap a lossless stream anyway. */
-    val cappedByQuality = (if (metered == true) cellularQuality else wifiQuality) != AudioQuality.HIGH
+    val cappedByQuality = (if (metered == true) cellularQuality else wifiQuality) != AudioQuality.LOSSLESS
     // Asked of the kinds themselves rather than of the module specifically, so
     // a source added later answers this on its own terms instead of being
     // invisible to it.

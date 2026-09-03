@@ -60,6 +60,7 @@ import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Waves
@@ -172,9 +173,9 @@ fun SettingsScreen(
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
-    val automixAiEnabled by AppSettings.automixAiEnabled.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val convertVideoToAudio by AppSettings.convertVideoToAudio.collectAsStateWithLifecycle()
+    val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -475,26 +476,6 @@ fun SettingsScreen(
             )
             RowDivider()
             SettingsRow(
-                icon = Icons.Rounded.AutoAwesome,
-                title = stringResource(R.string.automix_ai),
-                subtitle = stringResource(
-                    if (automixAiEnabled) R.string.automix_ai_enabled_subtitle
-                    else R.string.automix_ai_disabled_subtitle,
-                ),
-                trailing = {
-                    Switch(
-                        checked = automixAiEnabled,
-                        onCheckedChange = AppSettings::setAutomixAiEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
-                    )
-                },
-                onClick = { AppSettings.setAutomixAiEnabled(!automixAiEnabled) },
-            )
-            RowDivider()
-            SettingsRow(
                 icon = Icons.AutoMirrored.Rounded.VolumeOff,
                 title = stringResource(R.string.skip_silence),
                 subtitle = stringResource(R.string.skip_silence_subtitle),
@@ -509,6 +490,23 @@ fun SettingsScreen(
                     )
                 },
                 onClick = { AppSettings.setSkipSilence(!skipSilence) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.SurroundSound,
+                title = stringResource(R.string.spatial_audio),
+                subtitle = stringResource(R.string.spatial_audio_subtitle),
+                trailing = {
+                    Switch(
+                        checked = spatialAudio,
+                        onCheckedChange = AppSettings::setSpatialAudio,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
             )
             RowDivider()
             SettingsRow(
@@ -1076,6 +1074,7 @@ fun SettingsScreen(
                         QualityTarget.WIFI -> AppSettings.setAudioQualityWifi(quality)
                         QualityTarget.CELLULAR -> AppSettings.setAudioQualityCellular(quality)
                     }
+                    SourceRegistry.applyQualityPreset(quality)
                     picking = null
                 },
             )
@@ -1323,6 +1322,7 @@ private fun AudioQuality.localizedLabel(): String = stringResource(
         AudioQuality.LOW -> R.string.low
         AudioQuality.MEDIUM -> R.string.medium
         AudioQuality.HIGH -> R.string.high
+        AudioQuality.LOSSLESS -> R.string.lossless
     },
 )
 

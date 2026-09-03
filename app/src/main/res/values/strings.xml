@@ -145,6 +145,8 @@
     <string name="convert_to_audio">Convert to audio</string>
     <string name="converting_to_audio">Converting to audio…</string>
     <string name="revert_to_original">Revert to original</string>
+    <string name="spatial_audio">Spatial audio</string>
+    <string name="spatial_audio_subtitle">Widens stereo tracks for a more immersive feel</string>
     <string name="animated_cover_cellular">Play animated cover over cellular</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Your top songs, artists, albums and genres</string>
@@ -174,6 +176,8 @@
     <string name="russian">Russian</string>
     <string name="chinese">Chinese (Simplified)</string>
     <string name="hebrew">Hebrew</string>
+    <string name="italian">Italian</string>
+    <string name="turkish">Turkish</string>
     <string name="show_all">Show all</string>
     <string name="grid_view">Grid</string>
     <string name="list_view">List</string>
@@ -202,9 +206,6 @@
     <string name="automix_mode_balanced_subtitle">2 threads · recommended balance of speed, heat and battery</string>
     <string name="automix_mode_performance">Performance</string>
     <string name="automix_mode_performance_subtitle">4 threads · fastest analysis · higher heat and battery use</string>
-    <string name="automix_ai">Mix Intelligence [BETA]</string>
-    <string name="automix_ai_disabled_subtitle">For electronic music. Opt in to on-device transition ranking.</string>
-    <string name="automix_ai_enabled_subtitle">For electronic music when a model is available. Standard Automix safely handles other genres and low-confidence mixes.</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="video_audio_conversion">Video to audio conversion</string>
@@ -601,6 +602,9 @@
     <string name="sort_title_descending">Alphabetical (Z to A)</string>
     <string name="sort_date_added">Date added (newest first)</string>
     <string name="sort_date_modified">Date modified (newest first)</string>
+    <string name="sort_default">Default order</string>
+    <string name="sort_library">Sort</string>
+    <string name="sort_songs">Sort songs</string>
     <string name="use_all_audio_folders">Use all audio folders</string>
     <string name="use_all_audio_folders_subtitle">Remove the folder limit and scan music across the device</string>
     <string name="album">album</string>

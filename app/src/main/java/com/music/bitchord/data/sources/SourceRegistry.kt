@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Log
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.settings.AudioQuality
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -202,10 +203,40 @@ object SourceRegistry {
         publish(configs.value.map { if (it.id == configId) it.copy(enabled = enabled) else it })
     }
 
-    /** Toggle the MODULE source on or off by its config id. */
+    /** Toggle the MODULE source ("Ricky's Addon") on or off by its config id. */
     fun setModuleEnabled(enabled: Boolean) {
         val module = configs.value.firstOrNull { it.kind == SourceKind.MODULE } ?: return
         setEnabled(module.id, enabled)
+    }
+
+    /** Toggle the JioSaavn source on or off by its config id. */
+    fun setJioSaavnEnabled(enabled: Boolean) {
+        val jioSaavn = configs.value.firstOrNull { it.kind == SourceKind.JIOSAAVN } ?: return
+        setEnabled(jioSaavn.id, enabled)
+    }
+
+    /**
+     * Puts the module and JioSaavn switches where the chosen [AudioQuality]
+     * rung says they belong — see the rung-by-rung breakdown on
+     * [AudioQuality] itself. Called wherever the user picks a rung on the
+     * Settings screen, so the Sources screen always reads back whichever
+     * quality is currently in force rather than a stale manual toggle.
+     */
+    fun applyQualityPreset(quality: AudioQuality) {
+        when (quality) {
+            AudioQuality.LOSSLESS -> {
+                setModuleEnabled(true)
+                setJioSaavnEnabled(true)
+            }
+            AudioQuality.HIGH -> {
+                setModuleEnabled(false)
+                setJioSaavnEnabled(true)
+            }
+            AudioQuality.MEDIUM, AudioQuality.LOW -> {
+                setModuleEnabled(false)
+                setJioSaavnEnabled(false)
+            }
+        }
     }
 
     /** The user's own module index, if they have set one. */

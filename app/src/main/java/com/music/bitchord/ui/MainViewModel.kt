@@ -2105,7 +2105,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             pageId = session.pageId, dataSyncId = session.dataSyncId, authUser = session.authUser,
             isBrandAccount = session.pageId != null,
         )
-        val profiles = (previous?.profiles.orEmpty().filterNot { it.profileId == profile.profileId } + profile)
+        // A profile captured before its channel existed carries a provisional,
+        // name-hash id (see profileId()) since Google reports no pageId/dataSyncId
+        // for it yet. Once this same login reports real ids, that placeholder is
+        // the same identity under a new id — drop it rather than keep both.
+        val hasRealIdentity = profile.pageId != null || profile.dataSyncId != null
+        val profiles = (previous?.profiles.orEmpty().filterNot {
+            it.profileId == profile.profileId || (hasRealIdentity && it.profileId.startsWith("profile:"))
+        } + profile)
         val stored = GoogleAccountSession(
             accountId = accountId, cookie = session.cookie, name = previous?.name.orEmpty(),
             email = previous?.email.orEmpty(), profiles = profiles, activeProfileId = profile.profileId,
@@ -2199,10 +2206,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             channel.thumbnailUrl, channel.pageId, channel.dataSyncId,
             isBrandAccount = channel.pageId != null,
         ) }
+        // A profile captured before its channel existed carries a provisional,
+        // name-hash id (see profileId()) rather than the pageId/dataSyncId Google
+        // reports here once the channel is live. Once Google actually reports a
+        // channel, that placeholder is stale — it would have been listed here
+        // too if it still lacked real ids — and it's dropped rather than kept
+        // alongside the identity it was standing in for. An empty response
+        // (channel not created yet, or a transient miss) must never drop it.
+        val stalePlaceholder = if (detected.isEmpty()) emptySet() else current.profiles
+            .filter { it.profileId.startsWith("profile:") }
+            .map { it.profileId }
+            .toSet()
         // Keep the captured active identity if Google's endpoint temporarily
         // omits it; an empty/partial response must never erase a selection.
-        val profiles = (current.profiles.filter { known -> detected.none { it.profileId == known.profileId } } + detected)
-        val selected = current.activeProfileId ?: profiles.firstOrNull()?.profileId
+        val profiles = (current.profiles.filter { known ->
+            known.profileId !in stalePlaceholder && detected.none { it.profileId == known.profileId }
+        } + detected)
+        val selected = when {
+            current.activeProfileId != null && current.activeProfileId !in stalePlaceholder -> current.activeProfileId
+            current.activeProfileId in stalePlaceholder -> detected.singleOrNull()?.profileId
+            else -> null
+        } ?: profiles.firstOrNull()?.profileId
         authStore.upsertSession(current.copy(profiles = profiles, activeProfileId = selected), activate = false)
         _googleAccounts.value = authStore.sessions
     }

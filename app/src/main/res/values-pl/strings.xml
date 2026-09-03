@@ -134,6 +134,8 @@
     <string name="widget_preview_artist">Artysta</string>
     <string name="download_quality">Jakość pobierania</string>
     <string name="download_wifi_only">Pobieraj tylko przez Wi-Fi</string>
+    <string name="spatial_audio">Dźwięk przestrzenny</string>
+    <string name="spatial_audio_subtitle">Większa immersja dzięki poszerzeniu utworów stereo</string>
     <string name="animated_cover_cellular">Odtwarzaj animowaną okładkę w sieci komórkowej</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Twoje top utwory, artyści, albumy i gatunki</string>
@@ -162,6 +164,8 @@
     <string name="japanese">Japoński</string>
     <string name="russian">Rosyjski</string>
     <string name="chinese">Chiński (uproszczony)</string>
+    <string name="italian">Włoski</string>
+    <string name="turkish">Turecki</string>
     <string name="show_all">Pokaż wszystkie</string>
     <string name="audio_quality">Jakość audio</string>
     <string name="playback">Odtwarzanie</string>

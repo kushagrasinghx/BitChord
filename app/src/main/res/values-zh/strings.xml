@@ -129,6 +129,8 @@
     <string name="widget_preview_artist">艺人</string>
     <string name="download_quality">下载质量</string>
     <string name="download_wifi_only">仅通过 Wi-Fi 下载</string>
+    <string name="spatial_audio">空间音频</string>
+    <string name="spatial_audio_subtitle">拓宽立体声音轨，带来更沉浸的体验</string>
     <string name="animated_cover_cellular">在移动数据下播放动态封面</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">你的热门歌曲、艺人、专辑和流派</string>
@@ -158,6 +160,8 @@
     <string name="russian">俄语</string>
     <string name="chinese">中文（简体）</string>
     <string name="hebrew">希伯来语</string>
+    <string name="italian">意大利语</string>
+    <string name="turkish">土耳其语</string>
     <string name="show_all">查看全部</string>
     <string name="grid_view">网格</string>
     <string name="list_view">列表</string>

@@ -134,6 +134,8 @@
     <string name="widget_preview_artist">אמן</string>
     <string name="download_quality">איכות הורדה</string>
     <string name="download_wifi_only">הורדה ב-Wi-Fi בלבד</string>
+    <string name="spatial_audio">אודיו מרחבי</string>
+    <string name="spatial_audio_subtitle">מרחיב רצועות סטריאו לתחושה סוחפת יותר</string>
     <string name="animated_cover_cellular">הפעלת עטיפה מונפשת ברשת הסלולרית</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">השירים, האמנים, האלבומים והז\'אנרים המובילים שלך</string>
@@ -162,6 +164,8 @@
     <string name="japanese">יפנית</string>
     <string name="russian">רוסית</string>
     <string name="chinese">סינית (מפושטת)</string>
+    <string name="italian">איטלקית</string>
+    <string name="turkish">טורקית</string>
     <string name="show_all">הצג הכול</string>
     <string name="grid_view">רשת</string>
     <string name="list_view">רשימה</string>

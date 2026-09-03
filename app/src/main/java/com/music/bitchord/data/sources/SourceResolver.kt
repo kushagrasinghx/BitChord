@@ -62,10 +62,10 @@ object SourceResolver {
         // the module's `HIGH` tier) while changing nothing about the two lossy
         // sources. It was a switch whose only real effect was to downgrade the
         // one source that could do better.
-        return if (ceiling != AudioQuality.HIGH) {
-            StreamRequest.Capped(ceiling.maxKbps)
-        } else {
-            StreamRequest.Lossless
+        return when {
+            ceiling == AudioQuality.LOSSLESS -> StreamRequest.Lossless
+            ceiling.maxKbps == Int.MAX_VALUE -> StreamRequest.Best
+            else -> StreamRequest.Capped(ceiling.maxKbps)
         }
     }
 

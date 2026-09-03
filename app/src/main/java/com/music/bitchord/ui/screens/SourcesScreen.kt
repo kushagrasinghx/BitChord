@@ -117,34 +117,20 @@ fun SourcesScreen(
             .padding(contentPadding),
     ) {
         Text(
-            text = "Sources",
+            text = stringResource(R.string.source),
             style = MaterialTheme.typography.displayLarge,
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
         )
 
         SettingsGroup(
-            header = "Sources — tried in this order",
+            header = stringResource(R.string.sources_order_header),
             footer = buildString {
-                append(
-                    "A source that doesn't have the track, or can't be reached, is " +
-                        "stepped over rather than failing playback — the next one down plays it " +
-                        "instead. Anything ranked above YouTube is offered a YouTube track's " +
-                        "recording first, and keeps it if what it returns is better than what " +
-                        "YouTube would have served.",
-                )
+                append(stringResource(R.string.sources_footer_main))
                 if (cappedByQuality) {
-                    append(
-                        "\n\nThe quality ceiling for this connection is set below High, so " +
-                            "everything is being transcoded to fit it — lossless is not being " +
-                            "asked for. Downloads are unaffected.",
-                    )
+                    append(stringResource(R.string.sources_footer_capped))
                 } else if (!anyLosslessSource) {
-                    append(
-                        "\n\nNothing enabled here can serve lossless. Add a custom module below " +
-                            "and tracks it holds a lossless rendition of will play as the file " +
-                            "itself rather than as a transcode.",
-                    )
+                    append(stringResource(R.string.sources_footer_no_lossless))
                 }
             },
         ) {
@@ -175,7 +161,7 @@ fun SourcesScreen(
             if (ordered.isNotEmpty()) RowDivider()
             SettingsRow(
                 icon = Icons.Rounded.Add,
-                title = if (custom == null) "Add custom module" else "Replace custom module",
+                title = if (custom == null) stringResource(R.string.add_custom_module) else stringResource(R.string.replace_custom_module),
                 subtitle = custom?.baseUrl ?: SourceKind.CUSTOM_MODULE.detail,
                 onClick = onEditCustomModule,
             )
@@ -286,7 +272,7 @@ private fun SourceRow(
         Spacer(Modifier.width(8.dp))
         if (onToggle == null) {
             Text(
-                text = "Always on",
+                text = stringResource(R.string.always_on),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -304,15 +290,16 @@ private fun SourceRow(
 }
 
 /** The second line of a row: what this source is, or what is wrong with it. */
+@Composable
 private fun SourceConfig.statusLine(health: SourceHealth?): String = when {
-    !isComplete -> "Tap to finish setting up"
+    !isComplete -> stringResource(R.string.source_setup_required)
     health is SourceHealth.Ok -> listOfNotNull(
         health.detail,
         kind.labels.take(3).joinToString(" · "),
     ).joinToString(" — ")
     health is SourceHealth.Rejected -> health.reason
-    health is SourceHealth.Unreachable -> "Can't reach it right now — ${health.reason}"
-    kind.needsServer -> "Checking…"
+    health is SourceHealth.Unreachable -> stringResource(R.string.source_unreachable, health.reason)
+    kind.needsServer -> stringResource(R.string.checking)
     else -> kind.labels.take(3).joinToString(" · ")
 }
 
@@ -342,7 +329,7 @@ private fun ServerEditorDialog(
 
     AlertDialog(
         onDismissRequest = { if (!testing) onDismiss() },
-        title = { Text(if (isNew) "Add ${config.kind.label.lowercase(Locale.ROOT)}" else config.displayName) },
+        title = { Text(if (isNew) stringResource(R.string.add_source_x, config.kind.label.lowercase(Locale.ROOT)) else config.displayName) },
         text = {
             Column {
                 OutlinedTextField(
@@ -355,9 +342,7 @@ private fun ServerEditorDialog(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Paste the URL of a compatible module index JSON. The index " +
-                        "lists JS plugins that can search and stream from services like Tidal, " +
-                        "Qobuz, Apple Music and more.",
+                    text = stringResource(R.string.paste_module_url),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -375,7 +360,7 @@ private fun ServerEditorDialog(
                     Text(
                         text = when (health) {
                             is SourceHealth.Ok ->
-                                listOfNotNull("Connected", health.detail).joinToString(" — ")
+                                listOfNotNull(stringResource(R.string.connected), health.detail).joinToString(" — ")
                             is SourceHealth.Rejected -> health.reason
                             is SourceHealth.Unreachable -> health.reason
                         },
@@ -409,7 +394,7 @@ private fun ServerEditorDialog(
                     },
                     enabled = !testing && candidate.isComplete,
                 ) {
-                    Text(if (testing) "Testing…" else "Test")
+                    Text(if (testing) stringResource(R.string.testing) else stringResource(R.string.test))
                 }
                 TextButton(
                     onClick = { onSave(candidate) },

@@ -107,6 +107,10 @@ import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlin.math.roundToInt
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.music.bitchord.R
+import com.music.bitchord.ui.NO_TRACKS_SENTINEL
 
 private const val MAX_ARTIST_SONGS = 20
 private const val SONGS_PER_COLUMN = 4
@@ -249,9 +253,7 @@ fun DetailScreen(
     // The credit line the header shows is the artist as far as the catalogue
     // services are concerned. A browse card's subtitle sometimes omits it, in
     // which case the tracks themselves know who it is.
-    val credit = remember(page.subtitle, songs) {
-        page.headerLines(songs.size).first.ifBlank { songs.firstOrNull()?.artist.orEmpty() }
-    }
+    val credit = page.headerLines(songs.size).first.ifBlank { songs.firstOrNull()?.artist.orEmpty() }
     var canvas by remember(page.browseId) { mutableStateOf<CanvasArtwork?>(null) }
     LaunchedEffect(page.browseId, page.title, credit, canvasEnabled) {
         if (!canvasEnabled || page.type != BrowseType.ALBUM) {
@@ -386,7 +388,7 @@ fun DetailScreen(
             ) {
                 item(key = "about") {
                     AboutSection(
-                        title = if (isArtist) "About the artist" else "About the album",
+                        title = if (isArtist) stringResource(R.string.about_artist) else stringResource(R.string.about_album),
                         text = page.description,
                         palette = palette,
                     )
@@ -395,13 +397,13 @@ fun DetailScreen(
 
             when (val state = page.songs) {
                 is UiState.Loading -> detailSkeleton(isArtist)
-                is UiState.Error -> item { MessageState(state.message) }
+                is UiState.Error -> item { MessageState(if (state.message == NO_TRACKS_SENTINEL) stringResource(R.string.no_tracks_here) else state.message) }
                 is UiState.Success -> if (isArtist) {
                     // An artist's full song list would bury the album shelves, so
                     // it pages sideways four at a time and stops at twenty.
                     item {
                         val top = state.data.take(MAX_ARTIST_SONGS)
-                        SectionHeading("Top songs", palette)
+                        SectionHeading(stringResource(R.string.top_songs), palette)
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -464,7 +466,7 @@ fun DetailScreen(
             // into the list above — see [DetailPage.suggestedSongs].
             if (suggested.isNotEmpty()) {
                 item(key = "suggested-heading") {
-                    SectionHeading("Suggested", palette)
+                    SectionHeading(stringResource(R.string.suggested), palette)
                 }
                 itemsIndexed(
                     suggested,
@@ -644,7 +646,7 @@ private fun ReleaseHeader(
                     }
                     CircleIconButton(
                         icon = BitChordIcons.Shuffle,
-                        contentDescription = "Shuffle",
+                        contentDescription = stringResource(R.string.shuffle),
                         palette = palette,
                         onClick = onShuffle,
                         haptic = Haptic.Resume,
@@ -666,7 +668,7 @@ private fun ReleaseHeader(
                     // the download moved to the overflow beside it.
                     CircleIconButton(
                         icon = if (searching) Icons.Rounded.Close else BitChordIcons.Search,
-                        contentDescription = if (searching) "Close search" else "Search this list",
+                        contentDescription = if (searching) stringResource(R.string.clear_search) else stringResource(R.string.search_this_list),
                         palette = palette,
                         onClick = onSearch,
                         size = circleSize,
@@ -674,7 +676,7 @@ private fun ReleaseHeader(
                     onMore?.let { more ->
                         CircleIconButton(
                             icon = Icons.Rounded.MoreHoriz,
-                            contentDescription = "More",
+                            contentDescription = stringResource(R.string.more),
                             palette = palette,
                             onClick = { more(songs) },
                             size = circleSize,
@@ -740,7 +742,7 @@ private fun DetailSearchField(
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) {
                 Text(
-                    text = "Search this ${type.label?.lowercase(Locale.ROOT) ?: "list"}",
+                    text = stringResource(R.string.search_this_x, type.label()?.lowercase(Locale.ROOT) ?: stringResource(R.string.generic_list)),
                     style = MaterialTheme.typography.bodyLarge,
                     color = palette.onBackgroundVariant,
                     maxLines = 1,
@@ -1042,7 +1044,7 @@ private fun ActionRow(
         // Circular Shuffle button
         CircleIconButton(
             icon = BitChordIcons.Shuffle,
-            contentDescription = "Shuffle",
+            contentDescription = stringResource(R.string.shuffle),
             palette = palette,
             onClick = onShuffle,
             haptic = Haptic.Resume,
@@ -1092,7 +1094,7 @@ private fun PlayPill(
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            text = "Play",
+            text = stringResource(R.string.play),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -1166,14 +1168,14 @@ private fun ArtistStatsRow(
         subscriberCountText?.let {
             StatChip(
                 icon = Icons.Rounded.Person,
-                text = "${it.substringBefore(' ')} subscribers",
+                text = stringResource(R.string.subscribers_x, it.substringBefore(' ')),
                 palette = palette,
             )
         }
         monthlyListenerCount?.let {
             StatChip(
                 icon = Icons.Rounded.GraphicEq,
-                text = "${it.substringBefore(' ')} monthly listeners",
+                text = stringResource(R.string.monthly_listeners_x, it.substringBefore(' ')),
                 palette = palette,
             )
         }
@@ -1324,7 +1326,7 @@ private fun CompactSongRow(
         ) {
             Icon(
                 Icons.Rounded.MoreVert,
-                contentDescription = "More",
+                contentDescription = stringResource(R.string.more),
                 tint = palette.onBackgroundVariant,
                 modifier = Modifier.size(20.dp),
             )
@@ -1396,7 +1398,7 @@ private fun SuggestedSongRow(
         ) {
             Icon(
                 Icons.Rounded.Add,
-                contentDescription = "Add to playlist",
+                contentDescription = stringResource(R.string.add_to_playlist),
                 tint = palette.accent,
                 modifier = Modifier.size(20.dp),
             )
@@ -1454,15 +1456,16 @@ private fun SectionCard(
  * it: the player knows an album's artist but not its year, search knows both,
  * and a home card frequently knows neither.
  */
+@Composable
 private fun DetailPage.headerLines(trackCount: Int): Pair<String, String> {
     val parts = subtitle.split("•", "·").map { it.trim() }.filter { it.isNotEmpty() }
     val year = parts.lastOrNull { it.length == 4 && it.all(Char::isDigit) }
     val kind = parts.firstOrNull { it.lowercase(Locale.ROOT) in KIND_WORDS }
     val credit = parts.filter { it != year && it != kind }.joinToString(", ")
     val meta = listOfNotNull(
-        kind ?: type.label,
+        kind ?: type.label(),
         year,
-        trackCount.takeIf { it > 0 }?.let { "$it ${if (it == 1) "song" else "songs"}" },
+        trackCount.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.song_count_plural, it, it) },
     ).joinToString(" • ").uppercase(Locale.ROOT)
     return credit to meta
 }
@@ -1472,26 +1475,28 @@ private val KIND_WORDS = setOf(
     "album", "single", "ep", "playlist", "artist", "podcast", "episode", "song", "video",
 )
 
-private val BrowseType.label: String?
-    get() = when (this) {
-        BrowseType.ALBUM -> "Album"
-        BrowseType.PLAYLIST -> "Playlist"
-        BrowseType.ARTIST -> "Artist"
-        BrowseType.OTHER -> null
-    }
+@Composable
+private fun BrowseType.label(): String? = when (this) {
+    BrowseType.ALBUM -> stringResource(R.string.album_label)
+    BrowseType.PLAYLIST -> stringResource(R.string.playlist_label)
+    BrowseType.ARTIST -> stringResource(R.string.artist_label)
+    BrowseType.OTHER -> null
+}
 
 /** "12 songs, 41 minutes" — omitting the time when the rows carry no durations. */
+@Composable
 private fun List<Song>.playtimeSummary(): String {
-    val count = "$size ${if (size == 1) "song" else "songs"}"
+    val count = pluralStringResource(R.plurals.song_count_plural, size, size)
     val minutes = sumOf { it.durationText.toSeconds() } / 60
     return when {
         minutes <= 0 -> count
-        minutes < 60 -> "$count, $minutes minutes"
+        minutes < 60 -> "$count, ${pluralStringResource(R.plurals.minutes_count, minutes, minutes)}"
         else -> {
             val hours = minutes / 60
             val rest = minutes % 60
-            val hourLabel = "$hours ${if (hours == 1) "hour" else "hours"}"
-            if (rest == 0) "$count, $hourLabel" else "$count, $hourLabel $rest minutes"
+            val hourLabel = pluralStringResource(R.plurals.hours_count, hours, hours)
+            if (rest == 0) "$count, $hourLabel"
+            else "$count, $hourLabel ${pluralStringResource(R.plurals.minutes_count, rest, rest)}"
         }
     }
 }

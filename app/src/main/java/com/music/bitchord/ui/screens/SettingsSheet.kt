@@ -221,9 +221,9 @@ fun SettingsScreen(
         backupScope.launch {
             exportStatus = Backup.exportTo(context, target).fold(
                 onSuccess = { months ->
-                    "Exported settings and ${countOfMonths(months)}"
+                    context.getString(R.string.export_ok_x, monthsHistory(context, months))
                 },
-                onFailure = { "Export failed: ${it.message ?: "unknown error"}" },
+                onFailure = { context.getString(R.string.export_failed_x, it.message ?: context.getString(R.string.unknown_error)) },
             )
         }
     }
@@ -233,8 +233,8 @@ fun SettingsScreen(
         if (source == null) return@rememberLauncherForActivityResult
         backupScope.launch {
             importStatus = Backup.importFrom(context, source).fold(
-                onSuccess = { "Imported ${countOfMonths(it.months)} from v${it.from}" },
-                onFailure = { "Import failed: ${it.message ?: "unknown error"}" },
+                onSuccess = { context.getString(R.string.import_ok_x, monthsHistory(context, it.months), it.from) },
+                onFailure = { context.getString(R.string.import_failed_x, it.message ?: context.getString(R.string.unknown_error)) },
             )
         }
     }
@@ -277,11 +277,11 @@ fun SettingsScreen(
         // above lists that as the module's own row now. Lossless itself is no
         // longer a setting at all — see
         // [SourceResolver.requestForNow][com.music.bitchord.data.sources.SourceResolver.requestForNow].
-        SettingsGroup(header = "Audio quality") {
+        SettingsGroup(header = stringResource(R.string.audio_quality)) {
             SettingsRow(
                 icon = Icons.Rounded.Extension,
-                title = "Sources",
-                subtitle = "Where audio comes from, and in what order",
+                title = stringResource(R.string.source),
+                subtitle = stringResource(R.string.sources_row_subtitle),
                 onClick = onSources,
             )
             RowDivider()
@@ -347,9 +347,9 @@ fun SettingsScreen(
                 icon = Icons.Rounded.AutoAwesome,
                 title = stringResource(R.string.automix),
                 subtitle = if (smartFade) {
-                    "Blends every transition, timed automatically from each track. Turn off if facing overheating or lag."
+                    stringResource(R.string.automix_on_sub)
                 } else {
-                    "Times and blends transitions automatically, no slider needed. May not work as expected in low-mid range devices."
+                    stringResource(R.string.automix_off_sub)
                 },
                 trailing = {
                     Switch(
@@ -541,7 +541,7 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Integrate Spotify Canvas",
+                        text = stringResource(R.string.integrate_spotify),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.weight(1f),
@@ -579,7 +579,7 @@ fun SettingsScreen(
                     subtitle = lyricsSources
                         .sortedBy { it.ordinal }
                         .joinToString(", ") { it.label }
-                        .ifEmpty { "None — no lyrics will be fetched" },
+                        .ifEmpty { stringResource(R.string.lyrics_none) },
                     trailing = { Chevron() },
                     onClick = onLyricsSources,
                 )
@@ -592,10 +592,9 @@ fun SettingsScreen(
                 icon = Icons.Rounded.Storage,
                 title = stringResource(R.string.song_cache_limit),
                 subtitle = if (cacheLimitMb > CACHE_WARNING_MB) {
-                    "Up to ${formatCacheSize(cacheLimitMb)} of downloaded audio kept on " +
-                        "disk — that's a real chunk of most phones' free storage."
+                    stringResource(R.string.cache_warn_x, formatCacheSize(cacheLimitMb))
                 } else {
-                    "Downloaded audio kept on disk for instant seeking and replays"
+                    stringResource(R.string.cache_keep_sub)
                 },
                 value = formatCacheSize(cacheLimitMb),
                 sliderValue = cacheLimitMb.toFloat(),
@@ -613,7 +612,7 @@ fun SettingsScreen(
                 subtitle = stringResource(R.string.clear_song_cache_subtitle),
                 onClick = {
                     AudioCache.clear {
-                        Toast.makeText(context, "Song cache cleared", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.song_cache_cleared), Toast.LENGTH_SHORT).show()
                     }
                 },
             )
@@ -626,7 +625,7 @@ fun SettingsScreen(
                     val loader = SingletonImageLoader.get(context)
                     loader.memoryCache?.clear()
                     loader.diskCache?.clear()
-                    Toast.makeText(context, "Image cache cleared", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.image_cache_cleared), Toast.LENGTH_SHORT).show()
                 },
             )
         }
@@ -643,9 +642,9 @@ fun SettingsScreen(
                 icon = Icons.Rounded.LocalOffer,
                 title = stringResource(R.string.work_out_genres),
                 subtitle = if (replayGenres) {
-                    "Asks Last.fm what an artist plays — their name is sent, nothing else"
+                    stringResource(R.string.genres_on_sub)
                 } else {
-                    "Replay's genre chart is hidden while this is off"
+                    stringResource(R.string.genres_off_sub)
                 },
                 trailing = {
                     Switch(
@@ -683,9 +682,9 @@ fun SettingsScreen(
                 icon = Icons.Rounded.PlaylistPlay,
                 title = stringResource(R.string.play_next_on_swipe),
                 subtitle = if (swipeToPlayNext) {
-                    "Swiping a song plays it next"
+                    stringResource(R.string.swipe_on_sub)
                 } else {
-                    "Swiping a song adds it to the end of the queue when disabled"
+                    stringResource(R.string.swipe_off_sub)
                 },
                 trailing = {
                     Switch(
@@ -839,11 +838,7 @@ fun SettingsScreen(
             onDismissRequest = { confirmImport = false },
             title = { Text(stringResource(R.string.import_backup_title)) },
             text = {
-                Text(
-                    "This replaces the settings and the listening history on this device " +
-                        "with whatever is in the file. What is here now cannot be got back, " +
-                        "so export it first if you want to keep it.",
-                )
+                Text(stringResource(R.string.import_backup_body))
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -854,7 +849,7 @@ fun SettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmImport = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmImport = false }) { Text(stringResource(R.string.cancel)) }
             },
         )
     }
@@ -863,12 +858,12 @@ fun SettingsScreen(
         var tokenInput by remember { mutableStateOf(listenBrainzToken) }
         AlertDialog(
             onDismissRequest = { showListenBrainzTokenDialog = false },
-            title = { Text("ListenBrainz Token") },
+            title = { Text(stringResource(R.string.listenbrainz_token_title)) },
             text = {
                 OutlinedTextField(
                     value = tokenInput,
                     onValueChange = { tokenInput = it },
-                    label = { Text("API Token") },
+                    label = { Text(stringResource(R.string.api_token)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -878,12 +873,12 @@ fun SettingsScreen(
                     AppSettings.setListenBrainzToken(tokenInput.trim())
                     showListenBrainzTokenDialog = false
                 }) {
-                    Text("Save")
+                    Text(stringResource(R.string.save))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showListenBrainzTokenDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -894,9 +889,10 @@ fun SettingsScreen(
         var passwordInput by remember { mutableStateOf("") }
         var lastfmError by remember { mutableStateOf<String?>(null) }
         var lastfmLoading by remember { mutableStateOf(false) }
+        val loginFailedText = stringResource(R.string.login_failed)
         AlertDialog(
             onDismissRequest = { if (!lastfmLoading) showLastfmLoginDialog = false },
-            title = { Text("Last.fm Login") },
+            title = { Text(stringResource(R.string.lastfm_login_title)) },
             text = {
                 Column {
                     if (lastfmError != null) {
@@ -910,7 +906,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = usernameInput,
                         onValueChange = { usernameInput = it },
-                        label = { Text("Username") },
+                        label = { Text(stringResource(R.string.username)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -918,7 +914,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = passwordInput,
                         onValueChange = { passwordInput = it },
-                        label = { Text("Password") },
+                        label = { Text(stringResource(R.string.password)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -944,10 +940,10 @@ fun SettingsScreen(
                                         showLastfmLoginDialog = false
                                     }
                                     .onFailure { e ->
-                                        lastfmError = e.message ?: "Login failed"
+                                        lastfmError = e.message ?: loginFailedText
                                     }
                             } catch (e: Exception) {
-                                lastfmError = e.message ?: "Login failed"
+                                lastfmError = e.message ?: loginFailedText
                             } finally {
                                 lastfmLoading = false
                             }
@@ -955,12 +951,12 @@ fun SettingsScreen(
                     },
                     enabled = !lastfmLoading && usernameInput.isNotBlank() && passwordInput.isNotBlank(),
                 ) {
-                    Text(if (lastfmLoading) "Signing in..." else "Sign in")
+                    Text(if (lastfmLoading) stringResource(R.string.signing_in) else stringResource(R.string.sign_in))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLastfmLoginDialog = false }, enabled = !lastfmLoading) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             },
         )
@@ -969,14 +965,55 @@ fun SettingsScreen(
 }
 
 /** "3 months of listening" — the unit a backup is actually measured in. */
-private fun countOfMonths(months: Int): String =
-    if (months == 0) "no listening history" else "$months month${if (months == 1) "" else "s"} of listening"
+private fun monthsHistory(context: android.content.Context, months: Int): String =
+    if (months == 0) context.getString(R.string.history_none)
+    else context.resources.getQuantityString(R.plurals.months_history, months, months)
 
 /** Which ceiling the open picker is editing. */
-private enum class QualityTarget(val title: String, val icon: ImageVector) {
-    WIFI("Wi-Fi", Icons.Rounded.Wifi),
-    CELLULAR("Mobile data", Icons.Rounded.SignalCellularAlt),
+private enum class QualityTarget(val icon: ImageVector) {
+    WIFI(Icons.Rounded.Wifi),
+    CELLULAR(Icons.Rounded.SignalCellularAlt),
 }
+
+@Composable
+private fun QualityTarget.title(): String = stringResource(
+    when (this) {
+        QualityTarget.WIFI -> R.string.quality_wifi
+        QualityTarget.CELLULAR -> R.string.quality_mobile
+    },
+)
+
+@Composable
+private fun AudioQuality.streamDetailsLine(): String = stringResource(
+    R.string.quality_pair_x,
+    stringResource(
+        when (this) {
+            AudioQuality.LOW -> R.string.aq_low_detail
+            AudioQuality.MEDIUM -> R.string.aq_med_detail
+            AudioQuality.HIGH -> R.string.aq_high_detail
+        },
+    ),
+    stringResource(
+        when (this) {
+            AudioQuality.LOW -> R.string.aq_low_hourly
+            AudioQuality.MEDIUM -> R.string.aq_med_hourly
+            AudioQuality.HIGH -> R.string.aq_high_hourly
+        },
+    ),
+)
+
+@Composable
+private fun DownloadQuality.keepDetailsLine(): String = stringResource(
+    R.string.quality_pertrack_x,
+    stringResource(
+        when (this) {
+            DownloadQuality.STANDARD -> R.string.dq_std_detail
+            DownloadQuality.HIGH -> R.string.dq_high_detail
+            DownloadQuality.LOSSLESS -> R.string.dq_lossless_detail
+        },
+    ),
+    perTrack,
+)
 
 @Composable
 private fun AudioQuality.localizedLabel(): String = stringResource(
@@ -1012,7 +1049,7 @@ private fun openEqualizer(context: Context, sessionId: Int) {
         putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
     }
     runCatching { context.startActivity(intent) }.onFailure {
-        Toast.makeText(context, "No system equalizer on this device", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.no_equalizer), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -1113,12 +1150,12 @@ private fun QualitySheet(
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
-                    text = "Audio quality",
+                    text = stringResource(R.string.audio_quality),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = "While on ${target.title.lowercase(Locale.ROOT)}",
+                    text = stringResource(R.string.while_on_x, target.title().lowercase(Locale.ROOT)),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1146,7 +1183,7 @@ private fun QualitySheet(
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        text = "${quality.detail} · ${quality.hourly}",
+                        text = quality.streamDetailsLine(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1155,7 +1192,7 @@ private fun QualitySheet(
                     Spacer(Modifier.width(12.dp))
                     Icon(
                         Icons.Rounded.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.selected),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp),
                     )
@@ -1194,12 +1231,12 @@ private fun DownloadQualitySheet(
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
-                    text = "Download quality",
+                    text = stringResource(R.string.download_quality),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
-                    text = "For files kept on this device",
+                    text = stringResource(R.string.for_files_kept),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -1228,7 +1265,7 @@ private fun DownloadQualitySheet(
                         color = MaterialTheme.colorScheme.onBackground,
                     )
                     Text(
-                        text = "${quality.detail} · ${quality.perTrack} per track",
+                        text = quality.keepDetailsLine(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1237,7 +1274,7 @@ private fun DownloadQualitySheet(
                     Spacer(Modifier.width(12.dp))
                     Icon(
                         Icons.Rounded.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.selected),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp),
                     )

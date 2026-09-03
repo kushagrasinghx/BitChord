@@ -158,7 +158,7 @@ fun ReplayScreen(
                         )
                     }
                     item("open") {
-                        ReplayActionRow(BitChordIcons.Play, "Play your Replay") {
+                        ReplayActionRow(BitChordIcons.Play, stringResource(R.string.play_your_replay)) {
                             onOpenStory(ReplayStoryPage.INTRO)
                         }
                     }
@@ -200,9 +200,7 @@ fun ReplayScreen(
                     } else if (ArtistFacts.genresAvailable) {
                         item("genres-pending") {
                             Note(
-                                text = "Genres are still being worked out. They fill in " +
-                                    "as you listen, and the chart appears once there is " +
-                                    "enough to rank.",
+                                text = stringResource(R.string.genres_working_out),
                                 modifier = Modifier.padding(horizontal = PAGE_GUTTER + 10.dp),
                             )
                         }
@@ -210,7 +208,7 @@ fun ReplayScreen(
 
                     item("habits") { Habits(summary) }
                     item("share") {
-                        ReplayActionRow(Icons.Rounded.IosShare, "Share my Replay", onShare)
+                        ReplayActionRow(Icons.Rounded.IosShare, stringResource(R.string.share_replay), onShare)
                     }
                 }
             }
@@ -536,7 +534,7 @@ private fun EmptyReplay(period: ReplayPeriod) {
         )
         Spacer(Modifier.height(16.dp))
         Text(
-            text = "Not enough listening yet",
+            text = stringResource(R.string.replay_not_enough),
             style = MaterialTheme.typography.titleLarge,
             color = Color.White,
             textAlign = TextAlign.Center,
@@ -544,10 +542,8 @@ private fun EmptyReplay(period: ReplayPeriod) {
         Spacer(Modifier.height(8.dp))
         Text(
             text = when (period) {
-                ReplayPeriod.THIS_MONTH -> "There isn't much from this month yet. " +
-                    "Try All time, or come back after a few more sessions."
-                else -> "Play some music and your Replay builds itself — every " +
-                    "minute is counted here on the device, and nothing is sent anywhere."
+                ReplayPeriod.THIS_MONTH -> stringResource(R.string.replay_empty_month)
+                else -> stringResource(R.string.replay_empty_default)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = Color.White.copy(alpha = 0.6f),

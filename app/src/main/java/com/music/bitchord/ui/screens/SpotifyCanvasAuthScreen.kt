@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import androidx.compose.ui.res.stringResource
+import com.music.bitchord.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,10 +38,10 @@ fun SpotifyCanvasAuthScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Spotify Canvas Setup") },
+                title = { Text(stringResource(R.string.spotify_setup_title)) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateUp) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             )
@@ -52,16 +54,13 @@ fun SpotifyCanvasAuthScreen(
                 .padding(16.dp)
         ) {
             Text(
-                text = "To enable Spotify Canvas integration, you need to provide your 'sp_dc' cookie from Spotify.",
+                text = stringResource(R.string.spotify_need_cookie),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
             Text(
-                text = "1. Open your browser and log into open.spotify.com\n" +
-                       "2. Open Developer Tools (F12) -> Application -> Cookies\n" +
-                       "3. Find the cookie named 'sp_dc' and copy its value\n" +
-                       "4. Paste it below",
+                text = stringResource(R.string.spotify_steps),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
@@ -81,7 +80,7 @@ fun SpotifyCanvasAuthScreen(
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Save")
+                Text(stringResource(R.string.save))
             }
         }
     }

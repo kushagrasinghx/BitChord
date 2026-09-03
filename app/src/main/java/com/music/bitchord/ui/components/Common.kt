@@ -456,7 +456,7 @@ fun DownloadedBadge(videoId: String, tint: Color, modifier: Modifier = Modifier)
     Spacer(Modifier.width(8.dp))
     Icon(
         Icons.Rounded.DownloadDone,
-        contentDescription = "Downloaded",
+        contentDescription = stringResource(R.string.downloaded_desc),
         tint = tint,
         modifier = modifier.size(16.dp),
     )

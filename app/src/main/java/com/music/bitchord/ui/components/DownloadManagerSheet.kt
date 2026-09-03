@@ -56,6 +56,7 @@ import com.music.bitchord.download.DownloadSession
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import androidx.compose.ui.res.pluralStringResource
 
 /**
  * The download indicator in the top bar, beside the account photo.
@@ -317,7 +318,7 @@ private fun DownloadManagerRow(
                 text = listOfNotNull(
                     item.song.artist.takeIf { it.isNotBlank() },
                     item.from?.takeIf { it.isNotBlank() && it != item.song.artist },
-                ).joinToString(" · ").ifBlank { "Unknown artist" },
+                ).joinToString(" · ").ifBlank { stringResource(R.string.unknown_artist) },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -325,7 +326,7 @@ private fun DownloadManagerRow(
             )
             Spacer(Modifier.height(4.dp))
             when (progress) {
-                is DownloadProgress.Queued -> RowStatus("Queued")
+                is DownloadProgress.Queued -> RowStatus(stringResource(R.string.download_row_queued))
                 is DownloadProgress.Running -> {
                     LinearProgressIndicator(
                         // Indeterminate until the first response names a
@@ -343,9 +344,9 @@ private fun DownloadManagerRow(
                     Spacer(Modifier.height(3.dp))
                     RowStatus(
                         if (progress.fraction > 0f) {
-                            "Downloading · ${(progress.fraction * 100).toInt()}%"
+                            stringResource(R.string.downloading_percent_x, (progress.fraction * 100).toInt())
                         } else {
-                            "Starting"
+                            stringResource(R.string.download_notification_starting)
                         },
                     )
                 }
@@ -359,8 +360,8 @@ private fun DownloadManagerRow(
         // track can be stopped, a failed one can be asked for again, and a
         // finished one needs nothing at all.
         when {
-            failed != null -> RowAction(Icons.Rounded.Refresh, "Retry", onRetry)
-            !progress.settled -> RowAction(Icons.Rounded.Close, "Cancel", onCancel)
+            failed != null -> RowAction(Icons.Rounded.Refresh, stringResource(R.string.retry), onRetry)
+            !progress.settled -> RowAction(Icons.Rounded.Close, stringResource(R.string.cancel), onCancel)
             else -> Spacer(Modifier.width(36.dp))
         }
     }
@@ -406,17 +407,18 @@ private fun RowAction(
  * bar, and what a percentage cannot say is that thirty-nine of forty arrived and
  * one did not, which is the only outcome anybody needs to act on.
  */
+@Composable
 private fun DownloadSession.State.summary(): String {
     val parts = buildList {
-        if (waiting > 0) add("$waiting waiting")
-        if (finished > 0) add("$finished done")
-        if (failed > 0) add("$failed failed")
+        if (waiting > 0) add(pluralStringResource(R.plurals.batch_waiting, waiting, waiting))
+        if (finished > 0) add(pluralStringResource(R.plurals.batch_done, finished, finished))
+        if (failed > 0) add(pluralStringResource(R.plurals.batch_failed, failed, failed))
     }
     return when {
-        parts.isEmpty() -> "Nothing downloading"
+        parts.isEmpty() -> stringResource(R.string.nothing_downloading)
         busy -> parts.joinToString(" · ")
         failed > 0 -> parts.joinToString(" · ")
-        else -> "All $finished ${if (finished == 1) "song" else "songs"} downloaded"
+        else -> pluralStringResource(R.plurals.batch_downloaded, finished, finished)
     }
 }
 

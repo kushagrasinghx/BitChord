@@ -19,6 +19,9 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.music.bitchord.R
 
 /**
  * The Replay's state: which stretch of listening is being shown, and the
@@ -352,12 +355,13 @@ data class ReplayHeroCard(
  * a Replay of loose singles has no album chart, and a card reading "—" is worse
  * than three cards.
  */
+@Composable
 fun ReplaySummary.cards(): List<ReplayHeroCard> = buildList {
     add(
         ReplayHeroCard(
-            label = "Minutes listened",
+            label = stringResource(R.string.card_minutes),
             value = formatMinutes(totalMs),
-            detail = "${countOf(totalPlays, "play")} · $label",
+            detail = stringResource(R.string.lead_stats_x, pluralStringResource(R.plurals.plays_count, totalPlays, grouped(totalPlays.toLong())), label),
             artworkUrl = songs.firstOrNull()?.song?.thumbnailUrl,
             page = ReplayStoryPage.MINUTES,
         ),
@@ -365,9 +369,9 @@ fun ReplaySummary.cards(): List<ReplayHeroCard> = buildList {
     artists.firstOrNull()?.let {
         add(
             ReplayHeroCard(
-                label = "Top artist",
+                label = stringResource(R.string.card_top_artist),
                 value = it.title,
-                detail = "${formatListening(it.ms)} · ${countOf(it.plays, "play")}",
+                detail = stringResource(R.string.lead_stats_x, formatListening(it.ms), pluralStringResource(R.plurals.plays_count, it.plays, grouped(it.plays.toLong()))),
                 artworkUrl = it.artworkUrl,
                 page = ReplayStoryPage.ARTISTS,
             ),
@@ -376,9 +380,9 @@ fun ReplaySummary.cards(): List<ReplayHeroCard> = buildList {
     songs.firstOrNull()?.let {
         add(
             ReplayHeroCard(
-                label = "Top song",
+                label = stringResource(R.string.card_top_song),
                 value = it.song.title,
-                detail = "${it.song.artist} · ${countOf(it.plays, "play")}",
+                detail = stringResource(R.string.lead_stats_x, it.song.artist, pluralStringResource(R.plurals.plays_count, it.plays, grouped(it.plays.toLong()))),
                 artworkUrl = it.song.thumbnailUrl,
                 page = ReplayStoryPage.SONGS,
             ),
@@ -387,7 +391,7 @@ fun ReplaySummary.cards(): List<ReplayHeroCard> = buildList {
     albums.firstOrNull()?.let {
         add(
             ReplayHeroCard(
-                label = "Top album",
+                label = stringResource(R.string.card_top_album),
                 value = it.title,
                 detail = listOfNotNull(it.subtitle, formatListening(it.ms)).joinToString(" · "),
                 artworkUrl = it.artworkUrl,

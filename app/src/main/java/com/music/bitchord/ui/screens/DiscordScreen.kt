@@ -69,6 +69,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
 
 /** Which dot Discord draws on the avatar, and what it tells other people. */
 enum class DiscordPresenceStatus(val value: String, val label: String, val detail: String) {
@@ -183,12 +184,12 @@ fun DiscordScreen(
 
         if (!connected) {
             SettingsGroup(
-                footer = "Signing in opens Discord's own login page. Nothing is typed into this app.",
+                footer = stringResource(R.string.discord_signin_footer),
             ) {
                 SettingsRow(
                     icon = Icons.Rounded.Key,
-                    title = "Enter a token instead",
-                    subtitle = "For when the login page won't load",
+                    title = stringResource(R.string.enter_token_instead),
+                    subtitle = stringResource(R.string.token_login_subtitle),
                     onClick = { onOpenDialog(DiscordDialog.TOKEN) },
                 )
             }
@@ -196,25 +197,19 @@ fun DiscordScreen(
 
         AnimatedVisibility(visible = !infoDismissed) {
             NoticeCard(
-                text = "Discord has no API for an app to set your presence, so this " +
-                    "signs in as your account and speaks its protocol. Your token is " +
-                    "stored encrypted on this device and only ever sent to Discord — " +
-                    "but it is your whole account, and automating one is against " +
-                    "Discord's terms of service. Bans for presence alone aren't a " +
-                    "thing anyone reports; it's still your call.",
+                text = stringResource(R.string.discord_no_api),
                 onDismiss = { AppSettings.setDiscordInfoDismissed(true) },
             )
         }
 
         SettingsGroup(
-            header = "Rich presence",
-            footer = "The card updates on every track change, seek, and pause — and " +
-                "clears itself when playback stops.",
+            header = stringResource(R.string.rich_presence),
+            footer = stringResource(R.string.discord_card_updates),
         ) {
             SettingsRow(
                 icon = discordIcon,
-                title = "Show what I'm playing",
-                subtitle = if (connected) null else "Connect an account first",
+                title = stringResource(R.string.show_playing),
+                subtitle = if (connected) null else stringResource(R.string.connect_account_first),
                 enabled = connected,
                 trailing = {
                     Switch(
@@ -232,8 +227,8 @@ fun DiscordScreen(
             RowDivider()
             SettingsRow(
                 icon = Icons.AutoMirrored.Rounded.Label,
-                title = "Lead with the song",
-                subtitle = "Puts the title on the bold line, in place of the artist",
+                title = stringResource(R.string.lead_with_song),
+                subtitle = stringResource(R.string.lead_with_song_sub),
                 enabled = connected && rpcEnabled,
                 trailing = {
                     Switch(
@@ -251,8 +246,8 @@ fun DiscordScreen(
             RowDivider()
             SettingsRow(
                 icon = Icons.Rounded.Tune,
-                title = "Customise the card",
-                subtitle = "Status, wording, and the two buttons",
+                title = stringResource(R.string.customise_card),
+                subtitle = stringResource(R.string.customise_card_sub),
                 enabled = connected && rpcEnabled,
                 trailing = {
                     Switch(
@@ -271,38 +266,36 @@ fun DiscordScreen(
 
         AnimatedVisibility(visible = connected && rpcEnabled && advancedMode) {
             Column(Modifier.fillMaxWidth()) {
-                SettingsGroup(header = "Presence") {
+                SettingsGroup(header = stringResource(R.string.presence_header)) {
                     SettingsRow(
                         icon = Icons.Rounded.RadioButtonChecked,
-                        title = "Status",
+                        title = stringResource(R.string.discord_status_title),
                         value = statusOf(status).label,
                         onClick = { onOpenDialog(DiscordDialog.STATUS) },
                     )
                     RowDivider()
                     SettingsRow(
                         icon = Icons.Rounded.Tune,
-                        title = "Activity",
+                        title = stringResource(R.string.discord_activity_title),
                         value = kindOf(activityType).label,
                         onClick = { onOpenDialog(DiscordDialog.ACTIVITY_TYPE) },
                     )
                     RowDivider()
                     SettingsRow(
                         icon = Icons.AutoMirrored.Rounded.Label,
-                        title = "Name",
+                        title = stringResource(R.string.discord_name_title),
                         subtitle = activityName.ifEmpty { appName() },
                         onClick = { onOpenDialog(DiscordDialog.ACTIVITY_NAME) },
                     )
                 }
 
                 SettingsGroup(
-                    header = "Buttons",
-                    footer = "{song_name}, {artist_name} and {album_name} are replaced " +
-                        "with the track. The first button opens the song on YouTube " +
-                        "Music, the second this project.",
+                    header = stringResource(R.string.buttons_header),
+                    footer = stringResource(R.string.buttons_footer),
                 ) {
                     SettingsRow(
                         icon = Icons.Rounded.SmartButton,
-                        title = "First button",
+                        title = stringResource(R.string.first_button),
                         subtitle = button1Text.ifEmpty { DiscordRPC.DEFAULT_BUTTON_1 },
                         trailing = {
                             Switch(
@@ -319,7 +312,7 @@ fun DiscordScreen(
                     RowDivider()
                     SettingsRow(
                         icon = Icons.Rounded.SmartButton,
-                        title = "Second button",
+                        title = stringResource(R.string.second_button),
                         subtitle = button2Text.ifEmpty { DiscordRPC.DEFAULT_BUTTON_2 },
                         trailing = {
                             Switch(
@@ -338,8 +331,8 @@ fun DiscordScreen(
         }
 
         SettingsGroup(
-            header = "Preview",
-            footer = if (song == null) "Play something to see it filled in." else null,
+            header = stringResource(R.string.preview_header),
+            footer = if (song == null) stringResource(R.string.preview_empty) else null,
         ) {
             RichPresencePreview(
                 song = song,
@@ -358,7 +351,7 @@ fun DiscordScreen(
         if (connected) {
             SettingsGroup {
                 DestructiveRow(
-                    label = "Disconnect",
+                    label = stringResource(R.string.disconnect_action),
                     onClick = { AppSettings.clearDiscordAccount() },
                 )
             }
@@ -486,7 +479,7 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = "Got it",
+                text = stringResource(R.string.got_it),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
@@ -706,6 +699,7 @@ fun DiscordDialogHost(
 ) {
     when (which) {
         DiscordDialog.TOKEN -> {
+            val rejectedText = stringResource(R.string.discord_rejected_token)
             val scope = rememberCoroutineScope()
             var input by remember { mutableStateOf("") }
             var error by remember { mutableStateOf<String?>(null) }
@@ -736,7 +730,7 @@ fun DiscordDialogHost(
                             AppSettings.setDiscordToken(trimmed)
                             onDismiss()
                         }.onFailure {
-                            error = "Discord rejected that token."
+                            error = rejectedText
                             checking = false
                         }
                     }
@@ -747,14 +741,24 @@ fun DiscordDialogHost(
 
         DiscordDialog.STATUS -> {
             val current by AppSettings.discordStatus.collectAsStateWithLifecycle()
+            val statusLabels = mapOf(
+                DiscordPresenceStatus.ONLINE to stringResource(R.string.status_online),
+                DiscordPresenceStatus.IDLE to stringResource(R.string.status_idle),
+                DiscordPresenceStatus.DND to stringResource(R.string.status_dnd),
+            )
+            val statusDetails = mapOf(
+                DiscordPresenceStatus.ONLINE to stringResource(R.string.status_online_detail),
+                DiscordPresenceStatus.IDLE to stringResource(R.string.status_idle_detail),
+                DiscordPresenceStatus.DND to stringResource(R.string.status_dnd_detail),
+            )
             ChoiceAlert(
                 hazeState = hazeState,
-                title = "Status",
-                message = "What your account shows while a presence is up.",
+                title = stringResource(R.string.discord_status_title),
+                message = stringResource(R.string.status_chooser_msg),
                 options = DiscordPresenceStatus.entries,
                 selected = statusOf(current),
-                label = { it.label },
-                detail = { it.detail },
+                label = { statusLabels.getValue(it) },
+                detail = { statusDetails.getValue(it) },
                 onSelect = {
                     AppSettings.setDiscordStatus(it.value)
                     onDismiss()
@@ -770,8 +774,8 @@ fun DiscordDialogHost(
             val name = AppSettings.discordActivityName.value.ifEmpty { appName() }
             ChoiceAlert(
                 hazeState = hazeState,
-                title = "Activity",
-                message = "The verb above the card.",
+                title = stringResource(R.string.discord_activity_title),
+                message = stringResource(R.string.activity_chooser_msg),
                 options = DiscordActivityKind.entries,
                 selected = kindOf(current),
                 label = { it.label },
@@ -789,9 +793,8 @@ fun DiscordDialogHost(
             var input by remember { mutableStateOf(current) }
             TextValueAlert(
                 hazeState = hazeState,
-                title = "Name",
-                message = "What follows the verb on the profile. Leave it empty for " +
-                    "${appName()}.",
+                title = stringResource(R.string.discord_name_title),
+                message = stringResource(R.string.activity_name_msg_x, appName()),
                 placeholder = appName(),
                 value = input,
                 onValueChange = { input = it },
@@ -810,9 +813,8 @@ fun DiscordDialogHost(
             var input by remember { mutableStateOf(current) }
             TextValueAlert(
                 hazeState = hazeState,
-                title = if (first) "First button" else "Second button",
-                message = "{song_name}, {artist_name} and {album_name} are replaced " +
-                    "with the track.",
+                title = if (first) stringResource(R.string.first_button) else stringResource(R.string.second_button),
+                message = stringResource(R.string.button_msg_short),
                 placeholder = if (first) DiscordRPC.DEFAULT_BUTTON_1 else DiscordRPC.DEFAULT_BUTTON_2,
                 value = input,
                 onValueChange = { input = it },

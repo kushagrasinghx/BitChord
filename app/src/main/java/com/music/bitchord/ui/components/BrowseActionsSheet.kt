@@ -42,6 +42,9 @@ import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.music.bitchord.R
 
 /**
  * The album or playlist a long-press is acting on.
@@ -170,10 +173,10 @@ fun BrowseActionsSheet(
         BrowseSheetHeader(target)
         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
 
-        onPlay?.let { ActionRow(Icons.Rounded.PlayArrow, "Play", onClick = it) }
-        onShuffle?.let { ActionRow(BitChordIcons.Shuffle, "Shuffle", onClick = it) }
-        ActionRow(Icons.AutoMirrored.Rounded.PlaylistPlay, "Play next", onClick = onPlayNext)
-        ActionRow(Icons.AutoMirrored.Rounded.QueueMusic, "Add to queue", onClick = onAddToQueue)
+        onPlay?.let { ActionRow(Icons.Rounded.PlayArrow, stringResource(R.string.play), onClick = it) }
+        onShuffle?.let { ActionRow(BitChordIcons.Shuffle, stringResource(R.string.shuffle), onClick = it) }
+        ActionRow(Icons.AutoMirrored.Rounded.PlaylistPlay, stringResource(R.string.play_next), onClick = onPlayNext)
+        ActionRow(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.add_to_queue), onClick = onAddToQueue)
         onDownloadAll?.let { download ->
             // Saying which of the three it is, rather than offering the same row
             // whatever the state — this is where a release is asked for now that
@@ -206,46 +209,46 @@ fun BrowseActionsSheet(
                     downloaded -> BitChordIcons.Check
                     else -> BitChordIcons.Download
                 },
-                label = "Download all",
+                label = stringResource(R.string.download_all),
                 value = when {
-                    waiting -> "Downloading"
-                    downloaded -> "Downloaded"
+                    waiting -> stringResource(R.string.download_row_downloading)
+                    downloaded -> stringResource(R.string.downloaded_desc)
                     else -> null
                 },
                 onClick = download,
             )
         }
         onOpen?.let {
-            ActionRow(BitChordIcons.ChevronRight, "Open ${target.type.noun}".trim(), onClick = it)
+            ActionRow(BitChordIcons.ChevronRight, stringResource(R.string.open_x, target.type.noun()).trim(), onClick = it)
         }
         onTogglePin?.let {
-            ActionRow(BitChordIcons.Pin, if (isPinned) "Unpin" else "Pin", onClick = it)
+            ActionRow(BitChordIcons.Pin, if (isPinned) stringResource(R.string.unpin_action) else stringResource(R.string.pin_action), onClick = it)
         }
         if (onRename != null) {
-            ActionRow(Icons.Rounded.Edit, "Rename") { renaming = true }
+            ActionRow(Icons.Rounded.Edit, stringResource(R.string.rename_short)) { renaming = true }
         }
         if (onDelete != null) {
             if (confirmingDelete) {
                 ActionRow(
                     icon = Icons.Rounded.DeleteForever,
-                    label = "Delete \"${target.title}\" — tap to confirm",
+                    label = stringResource(R.string.delete_confirm_x, target.title),
                     tint = MaterialTheme.colorScheme.error,
                     onClick = onDelete,
                 )
             } else {
-                ActionRow(Icons.Rounded.Delete, "Delete playlist") { confirmingDelete = true }
+                ActionRow(Icons.Rounded.Delete, stringResource(R.string.delete_playlist)) { confirmingDelete = true }
             }
         }
         if (onDeleteDownload != null) {
             if (confirmingDeleteDownload) {
                 ActionRow(
                     icon = Icons.Rounded.DeleteForever,
-                    label = "Remove \"${target.title}\" from this device — tap to confirm",
+                    label = stringResource(R.string.remove_device_confirm_x, target.title),
                     tint = MaterialTheme.colorScheme.error,
                     onClick = onDeleteDownload,
                 )
             } else {
-                ActionRow(Icons.Rounded.Delete, "Delete download") { confirmingDeleteDownload = true }
+                ActionRow(Icons.Rounded.Delete, stringResource(R.string.delete_download)) { confirmingDeleteDownload = true }
             }
         }
         Spacer(Modifier.height(24.dp))
@@ -286,9 +289,9 @@ private fun BrowseSheetHeader(target: BrowseTarget) {
                 // unknown kind has neither, and gets the track count instead —
                 // which by then is the one thing actually known about it.
                 text = target.subtitle.ifBlank {
-                    target.type.noun.replaceFirstChar { it.uppercase(Locale.ROOT) }.ifBlank {
+                    target.type.noun().replaceFirstChar { it.uppercase(Locale.ROOT) }.ifBlank {
                         target.songs.size.takeIf { it > 0 }
-                            ?.let { "$it ${if (it == 1) "song" else "songs"}" }
+                            ?.let { pluralStringResource(R.plurals.song_count_plural, it, it) }
                             .orEmpty()
                     }
                 },
@@ -306,10 +309,10 @@ private fun BrowseSheetHeader(target: BrowseTarget) {
  * is a home card nobody has identified yet — "Open" without a noun is still a
  * true label for it, and guessing "album" would not be.
  */
-private val BrowseType.noun: String
-    get() = when (this) {
-        BrowseType.ALBUM -> "album"
-        BrowseType.PLAYLIST -> "playlist"
-        BrowseType.ARTIST -> "artist"
-        BrowseType.OTHER -> ""
-    }
+@Composable
+private fun BrowseType.noun(): String = when (this) {
+    BrowseType.ALBUM -> stringResource(R.string.album_label).lowercase(Locale.ROOT)
+    BrowseType.PLAYLIST -> stringResource(R.string.playlist_label).lowercase(Locale.ROOT)
+    BrowseType.ARTIST -> stringResource(R.string.artist_label).lowercase(Locale.ROOT)
+    BrowseType.OTHER -> ""
+}

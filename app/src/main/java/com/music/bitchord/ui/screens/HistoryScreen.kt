@@ -1,4 +1,4 @@
-package com.music.bitchord.ui.screens
+﻿package com.music.bitchord.ui.screens
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,12 +16,14 @@ import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.songListSkeleton
+import androidx.compose.ui.res.stringResource
+import com.music.bitchord.R
 
 /**
  * What the account has been listening to, most recent first.
  *
  * A plain list rather than a page with a header: no single cover stands for a
- * history, and borrowing one — the newest track's, say — would claim the page
+ * history, and borrowing one â€” the newest track's, say â€” would claim the page
  * belonged to it.
  *
  * Tapping a row plays it with the rest of the history behind it, so the list
@@ -50,7 +52,7 @@ fun HistoryScreen(
             is UiState.Error -> item(key = "history:message") {
                 MessageState(
                     message = state.message,
-                    actionLabel = "Try again",
+                    actionLabel = stringResource(R.string.try_again),
                     onAction = onRetry,
                 )
             }
@@ -88,3 +90,4 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexed(
     count = songs.size,
     key = { "${songs[it].videoId}:$it" },
 ) { index -> row(index, songs[index]) }
+

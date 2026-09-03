@@ -81,6 +81,9 @@ import com.music.bitchord.ui.components.topBarHeight
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.music.bitchord.R
 
 private const val LOCAL_TAB_SONGS = 0
 private const val LOCAL_TAB_ARTISTS = 1
@@ -204,7 +207,7 @@ fun LocalMusicScreen(
         ) {
             LocalTab(
                 icon = Icons.Rounded.MusicNote,
-                label = "Songs",
+                label = stringResource(R.string.songs),
                 selected = selectedTab == LOCAL_TAB_SONGS,
                 onClick = {
                     selectedTab = LOCAL_TAB_SONGS
@@ -213,7 +216,7 @@ fun LocalMusicScreen(
             )
             LocalTab(
                 icon = Icons.Rounded.Person,
-                label = "Artists",
+                label = stringResource(R.string.artists),
                 selected = selectedTab == LOCAL_TAB_ARTISTS,
                 onClick = {
                     selectedTab = LOCAL_TAB_ARTISTS
@@ -222,7 +225,7 @@ fun LocalMusicScreen(
             )
             LocalTab(
                 icon = Icons.Rounded.Album,
-                label = "Albums",
+                label = stringResource(R.string.albums),
                 selected = selectedTab == LOCAL_TAB_ALBUMS,
                 onClick = {
                     selectedTab = LOCAL_TAB_ALBUMS
@@ -453,7 +456,7 @@ private fun ArtistRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = "$songCount ${if (songCount == 1) "song" else "songs"}",
+                text = pluralStringResource(R.plurals.song_count_plural, songCount, songCount),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -731,7 +734,7 @@ private fun DrillDownSongList(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.back),
                         tint = MaterialTheme.colorScheme.onBackground,
                     )
                 }
@@ -764,7 +767,7 @@ private fun DrillDownSongList(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MoreHoriz,
-                            contentDescription = "More",
+                            contentDescription = stringResource(R.string.more),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -800,7 +803,7 @@ private fun DrillDownSongList(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "Play",
+                        text = stringResource(R.string.play),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
@@ -825,7 +828,7 @@ private fun DrillDownSongList(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "Shuffle",
+                        text = stringResource(R.string.shuffle),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
@@ -892,7 +895,7 @@ private fun LocalSearchField(
         Box(Modifier.weight(1f)) {
             if (query.isEmpty()) {
                 Text(
-                    text = "Search this folder",
+                    text = stringResource(R.string.search_folder),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -918,7 +921,7 @@ private fun LocalSearchField(
             ) {
                 Icon(
                     Icons.Rounded.Close,
-                    contentDescription = "Clear search",
+                    contentDescription = stringResource(R.string.clear_search),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp),
                 )

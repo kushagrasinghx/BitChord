@@ -42,6 +42,7 @@ import kotlinx.serialization.json.putJsonObject
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.Locale
+import androidx.appcompat.app.AppCompatDelegate
 
 /**
  * Minimal Innertube (youtubei) client.
@@ -953,7 +954,7 @@ object Innertube {
                             putJsonObject("client") {
                                 put("clientName", "WEB_REMIX")
                                 put("clientVersion", clientVersion)
-                                put("hl", "en")
+                                put("hl", appLanguageTag())
                                 put("gl", "US")
                                 visitorData?.let { put("visitorData", it) }
                             }
@@ -1083,6 +1084,16 @@ object Innertube {
                 },
             )
         }.body<JsonObject>()
+
+    /**
+     * The language asked of YouTube, so shelf titles and the server's other
+     * words come back in the app's language instead of always English.
+     * Region (`gl`) deliberately stays put: it chooses *which* charts and
+     * content surface, not what language they are described in.
+     */
+    private fun appLanguageTag(): String =
+        AppCompatDelegate.getApplicationLocales().get(0)?.language
+            ?: Locale.getDefault().language
 
     /** Browser-shaped clients are served from the Music host; app clients from YouTube proper. */
     private fun PlayerClient.apiBase(): String = if (usesMusicHost) MUSIC_BASE else YT_BASE

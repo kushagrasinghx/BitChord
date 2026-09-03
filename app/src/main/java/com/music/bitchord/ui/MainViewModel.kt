@@ -59,6 +59,15 @@ import com.music.bitchord.playback.StreamChoice
 import java.util.concurrent.atomic.AtomicLong
 import java.util.Locale
 
+/**
+ * The exact words a page with an empty listing carries as its error message.
+ *
+ * One shared sentinel so screens can tell "this page is empty" apart from a
+ * real load failure without retyping the words — compare by identity, render
+ * with `R.string.no_tracks_here`.
+ */
+internal const val NO_TRACKS_SENTINEL = "No tracks here"
+
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authStore = AuthStore(app)
@@ -1406,8 +1415,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
          * message: an own playlist with nothing in it lands here, and adding the
          * first track to it has to be able to tell "this page is empty" apart
          * from "this page failed to load" — see [appendToOpenPlaylist].
+         * Compares by identity with [NO_TRACKS_SENTINEL], never by retyping
+         * the words.
          */
-        private const val NO_TRACKS = "No tracks here"
+        private const val NO_TRACKS = NO_TRACKS_SENTINEL
 
         /**
          * What a downloaded playlist's page says once the files under it are

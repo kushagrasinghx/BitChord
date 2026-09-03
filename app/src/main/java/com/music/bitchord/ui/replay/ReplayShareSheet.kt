@@ -57,6 +57,8 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
+import androidx.compose.ui.res.stringResource
+import com.music.bitchord.R
 
 /**
  * The picture, and the apps that can take it.
@@ -99,7 +101,7 @@ fun ReplayShareSheet(
             .padding(bottom = 20.dp),
     ) {
         Text(
-            text = "Share my Replay",
+            text = stringResource(R.string.share_replay),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.W800,
             color = MaterialTheme.colorScheme.onBackground,
@@ -107,9 +109,9 @@ fun ReplayShareSheet(
         )
         Text(
             text = if (page == null) {
-                "One picture with the whole year on it."
+                stringResource(R.string.share_desc_year)
             } else {
-                "The card you were looking at, as a picture."
+                stringResource(R.string.share_desc_card)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -132,12 +134,12 @@ fun ReplayShareSheet(
             when {
                 image != null -> Image(
                     bitmap = image.asImageBitmap(),
-                    contentDescription = "Your Replay",
+                    contentDescription = stringResource(R.string.your_replay_title),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 failed -> Text(
-                    text = "Couldn't draw the picture",
+                    text = stringResource(R.string.couldnt_draw_picture),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -164,7 +166,7 @@ fun ReplayShareSheet(
         val ready = poster != null
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ShareAction(
-                label = if (saved) "Saved" else "Save",
+                label = if (saved) stringResource(R.string.saved_short) else stringResource(R.string.save),
                 icon = Icons.Rounded.Download,
                 accent = false,
                 enabled = ready && !saved,
@@ -174,7 +176,7 @@ fun ReplayShareSheet(
                 scope.launch { saved = saveToGallery(context, image, summary.label) }
             }
             ShareAction(
-                label = "Share",
+                label = stringResource(R.string.share_action),
                 icon = Icons.Rounded.IosShare,
                 accent = true,
                 enabled = ready,

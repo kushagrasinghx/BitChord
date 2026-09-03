@@ -42,6 +42,8 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import androidx.compose.ui.res.stringResource
+import com.music.bitchord.R
 
 /**
  * The transport buttons' touch target. Material's default 48dp is what a bar
@@ -211,7 +213,7 @@ fun MiniPlayer(
             ) {
                 Icon(
                     Icons.Rounded.SkipNext,
-                    contentDescription = "Next",
+                    contentDescription = stringResource(R.string.widget_next),
                     tint = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.size(GLYPH_SIZE),
                 )

@@ -199,7 +199,7 @@ fun LibraryScreen(
                     MessageState(
                         message = "Sign in to your Google account to see your YouTube Music " +
                             "liked songs, playlists and history.",
-                        actionLabel = "Sign in",
+                        actionLabel = stringResource(R.string.sign_in),
                         onAction = onSignIn,
                     )
                 }
@@ -208,7 +208,7 @@ fun LibraryScreen(
             when (state) {
                 is UiState.Loading -> librarySkeleton()
                 is UiState.Error -> item {
-                    MessageState(state.message, actionLabel = "Retry", onAction = onRetry)
+                    MessageState(state.message, actionLabel = stringResource(R.string.retry), onAction = onRetry)
                 }
                 is UiState.Success -> {
                     // A fresh account has no Playlists shelf at all, and that
@@ -328,7 +328,7 @@ private fun ReplayBanner(card: ReplayHeroCard?, onClick: () -> Unit) {
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "Your Replay",
+                    text = stringResource(R.string.your_replay_title),
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.White,
                 )
@@ -377,7 +377,7 @@ private fun PlaylistShelf(
         leadingCard = {
             NewShelfCard(
                 icon = BitChordIcons.Plus,
-                label = "New playlist",
+                label = stringResource(R.string.new_playlist),
                 subtitle = stringResource(R.string.saved_to_youtube_music),
                 onClick = onNewPlaylist,
             )
@@ -466,7 +466,7 @@ fun LibraryGridPage(
                 item(key = "leading") {
                     NewShelfCard(
                         icon = BitChordIcons.Plus,
-                        label = "New playlist",
+                        label = stringResource(R.string.new_playlist),
                         subtitle = stringResource(R.string.saved_to_youtube_music),
                         onClick = onNewPlaylist,
                         modifier = Modifier.fillMaxWidth(),

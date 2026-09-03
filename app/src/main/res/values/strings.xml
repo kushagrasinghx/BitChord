@@ -221,4 +221,368 @@
     <string name="miscellaneous_footer">When enabled, closing the app from the recent apps screen will also stop music playback.</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay won’t suggest a song already played or suggested this session</string>
     <string name="download_quality_subtitle">%1$s per track, whatever the connection</string>
+    <string name="import_backup_body">This replaces the settings and the listening history on this device with whatever is in the file. What is here now cannot be got back, so export it first if you want to keep it.</string>
+    <string name="listenbrainz_token_title">ListenBrainz Token</string>
+    <string name="listenbrainz_hint">Paste your ListenBrainz user token to enable scrobbling.</string>
+    <string name="api_token">API Token</string>
+    <string name="lastfm_login_title">Last.fm Login</string>
+    <string name="lastfm_signin_hint">Sign in with your Last.fm account to enable scrobbling.</string>
+    <string name="signing_in">Signing in…</string>
+    <string name="discord_token_title">Discord Token</string>
+    <string name="discord_token_hint">Paste your Discord account token. It stays on this device, encrypted, and is only ever sent to Discord.</string>
+    <string name="token_placeholder">Token</string>
+    <string name="remove_action">Remove</string>
+    <string name="create_playlist">Create playlist</string>
+    <string name="save_name">Save name</string>
+    <string name="no_playlists_yet">No playlists yet — the row above makes one.</string>
+    <string name="playlist_name">Playlist name</string>
+    <string name="rename_playlist">Rename playlist</string>
+    <string name="rename_short">Rename</string>
+    <string name="clear_name_desc">Clear name</string>
+    <string name="saved_to_yt_account">Saved to your YouTube Music account</string>
+    <string name="sheet_add_to_playlist">ADD TO PLAYLIST</string>
+    <string name="sheet_your_playlists">YOUR PLAYLISTS</string>
+    <string name="sheet_who_can_see">WHO CAN SEE IT</string>
+    <string name="privacy_private">Private</string>
+    <string name="privacy_unlisted">Unlisted</string>
+    <string name="privacy_public">Public</string>
+    <string name="like_action">Like</string>
+    <string name="remove_liked">Remove from Liked Music</string>
+    <string name="dislike_action">Dislike</string>
+    <string name="undo_dislike">Undo dislike</string>
+    <string name="remove_from_this_playlist">Remove from this playlist</string>
+    <string name="add_to_queue">Add to queue</string>
+    <string name="open_album">Open album</string>
+    <string name="open_artist">Open artist</string>
+    <string name="open_x">Open %1$s</string>
+    <string name="playlist_label">Playlist</string>
+    <string name="share_action">Share</string>
+    <string name="copy_log">Copy Log</string>
+    <string name="download_row_queued">Queued</string>
+    <string name="download_row_downloading">Downloading</string>
+    <string name="download_row_saved">Saved to Downloads</string>
+    <string name="download_row_delete">Delete</string>
+    <string name="download_row_download">Download</string>
+    <string name="pin_action">Pin</string>
+    <string name="unpin_action">Unpin</string>
+    <string name="delete_playlist">Delete playlist</string>
+    <string name="delete_download">Delete download</string>
+    <string name="delete_confirm_x">Delete “%1$s” — tap to confirm</string>
+    <string name="remove_device_confirm_x">Remove “%1$s” from this device — tap to confirm</string>
+    <string name="lyrics_order_hint">Tried in this order — drag to reorder. The highest-priority source to answer at all wins, unless Prioritize Syllable Lyrics says to keep looking for a word-synced one.</string>
+    <string name="prioritize_syllable">Prioritize Syllable Lyrics</string>
+    <string name="syllable_hint">Keep searching past a whole-line match for a word-by-word one, wherever it falls in the order above</string>
+    <string name="reset_to_default">Reset to Default</string>
+    <string name="done_action">Done</string>
+    <string name="enabled_desc">Enabled</string>
+    <string name="drag_reorder_desc">Drag to reorder</string>
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="sleep_countdown_x">%1$s until playback pauses</string>
+    <string name="sleep_after_track">Pausing when this song ends</string>
+    <string name="sleep_idle">Pause playback after a while</string>
+    <string name="after_this_song">After this song</string>
+    <string name="one_hour">1 hour</string>
+    <string name="minutes_x">%1$d minutes</string>
+    <string name="turn_off_timer">Turn off timer</string>
+    <string name="running_desc">Running</string>
+    <string name="downloaded_desc">Downloaded</string>
+    <string name="listening_history">Listening history</string>
+    <string name="nothing_playing">Nothing playing</string>
+    <string name="pick_something">Pick something and it turns up here</string>
+    <string name="no_tracks_here">No tracks here</string>
+    <string name="couldnt_load_tracks">Couldn\'t load these tracks</string>
+    <string name="couldnt_find_x">Couldn\'t find %1$s</string>
+    <string name="couldnt_open_link">Couldn\'t open that link</string>
+    <string name="wifi_only_toast">Downloads are set to Wi-Fi only — turn that off in Settings to use mobile data</string>
+    <string name="custom_module_title">Custom module</string>
+    <string name="custom_module_msg">A compatible module index, tried ahead of the built-in one. Only one at a time — saving replaces the current one.</string>
+    <string name="module_index_hint">Module index URL</string>
+    <string name="artist_label">Artist</string>
+    <string name="album_label">Album</string>
+    <string name="close_lyrics_desc">Close lyrics</string>
+    <string name="up_next_title">Up next</string>
+    <string name="autoplay_on">AutoPlay on</string>
+    <string name="autoplay_off">AutoPlay off</string>
+    <string name="no_lyrics_track">No lyrics for this track</string>
+    <string name="instrumental_desc">Instrumental</string>
+    <string name="lyrics_not_available">Lyrics not available</string>
+    <string name="autoplay_follow">Similar music, picked to follow on</string>
+    <string name="autoplay_keep">Similar music will keep playing</string>
+    <string name="remove_from_queue_desc">Remove from queue</string>
+    <string name="hires_lossless">Hi-Res Lossless</string>
+    <string name="hi_quality">Hi-Quality</string>
+    <string name="upgrading_quality">Upgrading Quality</string>
+    <string name="hiquality_upgrading">Hi-Quality, Upgrading Quality</string>
+    <string name="automix_line_x">Automix · this song %1$s · next %2$s</string>
+    <string name="replay_not_enough">Not enough listening yet</string>
+    <string name="replay_empty_month">There isn\'t much from this month yet. Try All time, or come back after a few more sessions.</string>
+    <string name="replay_empty_default">Play some music and your Replay builds itself — every minute is counted here on the device, and nothing is sent anywhere.</string>
+    <string name="genres_working_out">Genres are still being worked out. They fill in as you listen, and the chart appears once there is enough to rank.</string>
+    <string name="share_replay">Share my Replay</string>
+    <string name="share_desc_year">One picture with the whole year on it.</string>
+    <string name="share_desc_card">The card you were looking at, as a picture.</string>
+    <string name="saved_short">Saved</string>
+    <string name="your_replay_title">Your Replay</string>
+    <string name="couldnt_draw_picture">Couldn\'t draw the picture</string>
+    <string name="replay_counted_here">Counted here on your phone. Nothing was sent anywhere to work it out.</string>
+    <string name="tap_share_picture">Tap share to turn all of this into one picture.</string>
+    <string name="card_minutes">Minutes listened</string>
+    <string name="card_top_artist">Top artist</string>
+    <string name="card_top_song">Top song</string>
+    <string name="card_top_album">Top album</string>
+    <string name="recap_minutes">Minutes</string>
+    <string name="recap_top_song">Top song</string>
+    <string name="recap_top_artist">Top artist</string>
+    <string name="recap_top_album">Top album</string>
+    <string name="recap_top_genre">Top genre</string>
+    <string name="subscribers_x">%1$s subscribers</string>
+    <string name="monthly_listeners_x">%1$s monthly listeners</string>
+    <string name="search_this_list">Search this list</string>
+    <string name="search_this_x">Search this %1$s</string>
+    <string name="generic_list">list</string>
+    <string name="search_folder">Search this folder</string>
+    <string name="story_hours_plays">That\'s %1$s hours across %2$s.</string>
+    <string name="story_across_plays">Across %1$s.</string>
+    <string name="story_peak_hour">Mostly around %1$s.</string>
+    <string name="lead_stats_x">%1$s · %2$s</string>
+    <string name="discord_signin_footer">Signing in opens Discord\'s own login page. Nothing is typed into this app.</string>
+    <string name="enter_token_instead">Enter a token instead</string>
+    <string name="token_login_subtitle">For when the login page won\'t load</string>
+    <string name="discord_no_api">Discord has no API for an app to set your presence, so this signs in as your account and speaks its protocol. Your token is stored encrypted on this device and only ever sent to Discord — but it is your whole account, and automating one is against Discord\'s terms of service. Bans for presence alone aren\'t a thing anyone reports; it\'s still your call.</string>
+    <string name="discord_card_updates">The card updates on every track change, seek, and pause — and clears itself when playback stops.</string>
+    <string name="show_playing">Show what I\'m playing</string>
+    <string name="connect_account_first">Connect an account first</string>
+    <string name="lead_with_song">Lead with the song</string>
+    <string name="lead_with_song_sub">Puts the title on the bold line, in place of the artist</string>
+    <string name="customise_card">Customise the card</string>
+    <string name="customise_card_sub">Status, wording, and the two buttons</string>
+    <string name="presence_header">Presence</string>
+    <string name="discord_status_title">Status</string>
+    <string name="discord_activity_title">Activity</string>
+    <string name="discord_name_title">Name</string>
+    <string name="status_chooser_msg">What your account shows while a presence is up.</string>
+    <string name="activity_chooser_msg">The verb above the card.</string>
+    <string name="activity_name_msg_x">What follows the verb on the profile. Leave it empty for %1$s.</string>
+    <string name="buttons_header">Buttons</string>
+    <string name="buttons_footer">{song_name}, {artist_name} and {album_name} are replaced with the track. The first button opens the song on YouTube Music, the second this project.</string>
+    <string name="button_msg_short">{song_name}, {artist_name} and {album_name} are replaced with the track.</string>
+    <string name="first_button">First button</string>
+    <string name="second_button">Second button</string>
+    <string name="preview_header">Preview</string>
+    <string name="preview_empty">Play something to see it filled in.</string>
+    <string name="discord_rejected_token">Discord rejected that token.</string>
+    <string name="status_online">Online</string>
+    <string name="status_online_detail">Green dot</string>
+    <string name="status_idle">Idle</string>
+    <string name="status_idle_detail">Amber crescent — as if away</string>
+    <string name="status_dnd">Do not disturb</string>
+    <string name="status_dnd_detail">Red dash — suppresses their notifications too</string>
+    <string name="disconnect_action">Disconnect</string>
+    <string name="got_it">Got it</string>
+    <string name="discord_tap_connect">Tap to connect</string>
+    <string name="discord_connected_off">Connected, presence off</string>
+    <string name="discord_sharing_as_x">Sharing as @%1$s</string>
+    <string name="discord_sharing">Sharing your listens</string>
+    <string name="integrate_spotify">Integrate Spotify Canvas</string>
+    <string name="spotify_setup_title">Spotify Canvas Setup</string>
+    <string name="spotify_need_cookie">To enable Spotify Canvas integration, you need to provide your \'sp_dc\' cookie from Spotify.</string>
+    <string name="spotify_steps">1. Open your browser and log into open.spotify.com\n2. Open Developer Tools (F12) -> Application -> Cookies\n3. Find the cookie named \'sp_dc\' and copy its value\n4. Paste it below</string>
+    <string name="while_on_x">While on %1$s</string>
+    <string name="quality_wifi">Wi-Fi</string>
+    <string name="quality_mobile">Mobile data</string>
+    <string name="for_files_kept">For files kept on this device</string>
+    <string name="quality_pair_x">%1$s · %2$s</string>
+    <string name="quality_pertrack_x">%1$s · %2$s per track</string>
+    <string name="aq_low_detail">~64 kbps · smallest download</string>
+    <string name="aq_low_hourly">29 MB/hr</string>
+    <string name="aq_med_detail">~128 kbps · balanced</string>
+    <string name="aq_med_hourly">58 MB/hr</string>
+    <string name="aq_high_detail">Best available · ~171 kbps Opus</string>
+    <string name="aq_high_hourly">77 MB/hr</string>
+    <string name="dq_std_detail">~128 kbps AAC · fits more on the device</string>
+    <string name="dq_high_detail">Best AAC on offer, usually ~256 kbps</string>
+    <string name="dq_lossless_detail">Bit-exact if a source has it, best AAC if not</string>
+    <string name="always_on">Always on</string>
+    <string name="add_source_x">Add %1$s</string>
+    <string name="paste_module_url">Paste the URL of a compatible module index JSON. The index lists JS plugins that can search and stream from services like Tidal, Qobuz, Apple Music and more.</string>
+    <string name="sources_order_header">Sources — tried in this order</string>
+    <string name="sources_footer_main">A source that doesn\'t have the track, or can\'t be reached, is stepped over rather than failing playback — the next one down plays it instead. Anything ranked above YouTube is offered a YouTube track\'s recording first, and keeps it if what it returns is better than what YouTube would have served.</string>
+    <string name="sources_footer_capped">The quality ceiling for this connection is set below High, so everything is being transcoded to fit it — lossless is not being asked for. Downloads are unaffected.</string>
+    <string name="sources_footer_no_lossless">Nothing enabled here can serve lossless. Add a custom module below and tracks it holds a lossless rendition of will play as the file itself rather than as a transcode.</string>
+    <string name="add_custom_module">Add custom module</string>
+    <string name="replace_custom_module">Replace custom module</string>
+    <string name="sources_row_subtitle">Where audio comes from, and in what order</string>
+    <string name="pinned_desc">Pinned</string>
+    <string name="close_replay_desc">Close Replay</string>
+    <string name="acc_presence_footer">Show what you\'re playing on your Discord profile, updating as the track does.</string>
+    <string name="acc_scrobble_footer">Scrobble your listens to Last.fm and ListenBrainz.</string>
+    <string name="scrobble_tracks">Scrobble tracks</string>
+    <string name="scrobble_tracks_sub">Log plays to your Last.fm timeline</string>
+    <string name="scrobble_np_sub">Update Last.fm with what you\'re listening to</string>
+    <string name="scrobble_timing">Scrobble timing</string>
+    <string name="scrobble_min_dur">Min song duration</string>
+    <string name="scrobble_min_dur_sub">Songs shorter than this won\'t scrobble</string>
+    <string name="scrobble_delay">Scrobble delay</string>
+    <string name="scrobble_delay_sub">How far into a song before scrobbling</string>
+    <string name="scrobble_max">Max delay</string>
+    <string name="scrobble_max_sub">Cap on scrobble delay in seconds</string>
+    <string name="scrobble_paused_footer">Last.fm and ListenBrainz are paused for this release and will return in a future version. Anything you have already connected stays saved.</string>
+    <string name="back_future">Back in a future version</string>
+    <plurals name="plays_count">
+        <item quantity="one">%1$s play</item>
+        <item quantity="other">%1$s plays</item>
+    </plurals>
+    <plurals name="minutes_count">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <plurals name="hours_count">
+        <item quantity="one">%1$d hour</item>
+        <item quantity="other">%1$d hours</item>
+    </plurals>
+    <string-array name="intro_lines">
+        <item>Beat\'s landing</item>
+        <item>Song\'s starting</item>
+        <item>Intro\'s cooking</item>
+        <item>Warming up</item>
+        <item>Here we go</item>
+        <item>Setting the mood</item>
+        <item>Drums are in</item>
+        <item>Bass first, words later</item>
+        <item>Turn it up</item>
+        <item>Vibe check</item>
+        <item>Wait for it</item>
+        <item>Feel that build</item>
+        <item>Let it ride</item>
+        <item>Just the groove for now</item>
+        <item>Speakers breathing</item>
+        <item>Rolling in</item>
+        <item>Hold tight</item>
+        <item>Riff o\'clock</item>
+        <item>Strings first</item>
+        <item>Hook\'s on the way</item>
+        <item>Eyes closed</item>
+        <item>Loading the vibe</item>
+        <item>Almost words</item>
+        <item>Pure heat, no words</item>
+        <item>Tuning in</item>
+        <item>Buckle up</item>
+        <item>Let it breathe</item>
+        <item>That opening though</item>
+        <item>Bass is talking</item>
+        <item>Lyrics loading</item>
+        <item>Give it a sec</item>
+        <item>Building something</item>
+        <item>Cue the vocals</item>
+        <item>Slow burn</item>
+        <item>First notes in</item>
+        <item>Nod along</item>
+        <item>Groove\'s on deck</item>
+        <item>Melody first</item>
+        <item>Ease into it</item>
+        <item>Big things coming</item>
+        <item>Stage is set</item>
+        <item>The calm before</item>
+        <item>Sit with it</item>
+        <item>Any second now</item>
+        <item>Volume up, phone down</item>
+        <item>Drums doing the talking</item>
+        <item>Locked in</item>
+        <item>Something\'s brewing</item>
+        <item>Finding its feet</item>
+        <item>Deep breath</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>Getting lyrics</item>
+        <item>Chasing the words</item>
+        <item>Digging up the lyrics</item>
+        <item>Words incoming</item>
+        <item>On the hunt for lyrics</item>
+        <item>Fetching the verses</item>
+        <item>Tracking down the words</item>
+        <item>Lyrics loading</item>
+        <item>Reading between the lines</item>
+        <item>Scanning for lyrics</item>
+        <item>Words on the way</item>
+        <item>Looking this one up</item>
+        <item>Checking the lyric sheet</item>
+        <item>Pulling up the words</item>
+        <item>Searching the songbook</item>
+        <item>Lining up the lyrics</item>
+        <item>One sec, finding the words</item>
+        <item>Combing through for lyrics</item>
+        <item>Lyrics inbound</item>
+        <item>Sourcing the verses</item>
+        <item>Cross-checking the words</item>
+        <item>Rounding up the lyrics</item>
+        <item>Text hunt in progress</item>
+        <item>Syncing up the words</item>
+        <item>Peeking at the lyric sheet</item>
+        <item>Almost got the words</item>
+        <item>Fishing for lyrics</item>
+        <item>Grabbing the transcript</item>
+        <item>Lyrics, one moment</item>
+        <item>Tuning in the words</item>
+        <item>Locating the verses</item>
+        <item>Words are en route</item>
+        <item>Checking the archives</item>
+        <item>Piecing the lyrics together</item>
+        <item>Loading up the words</item>
+        <item>Lyric search underway</item>
+        <item>Finding the right words</item>
+        <item>Tracking the lyric sheet</item>
+        <item>Verses incoming</item>
+        <item>Getting the words lined up</item>
+        <item>Hang tight, fetching lyrics</item>
+        <item>Looking for the hook</item>
+        <item>Words are loading</item>
+        <item>Lyrics on their way</item>
+        <item>Checking what\'s sung here</item>
+        <item>Reading the room for lyrics</item>
+        <item>Lyric lookup in progress</item>
+        <item>Bringing up the words</item>
+        <item>Just a sec, finding words</item>
+        <item>Lyrics coming together</item>
+    </string-array>
+    <string name="about_artist">About the artist</string>
+    <string name="about_album">About the album</string>
+    <string name="unknown_artist">Unknown artist</string>
+    <string name="downloading_percent_x">Downloading · %1$d%%</string>
+    <string name="nothing_downloading">Nothing downloading</string>
+    <plurals name="batch_downloaded">
+        <item quantity="one">All %1$d song downloaded</item>
+        <item quantity="other">All %1$d songs downloaded</item>
+    </plurals>
+    <plurals name="batch_waiting">
+        <item quantity="one">%1$d waiting</item>
+        <item quantity="other">%1$d waiting</item>
+    </plurals>
+    <plurals name="batch_done">
+        <item quantity="one">%1$d done</item>
+        <item quantity="other">%1$d done</item>
+    </plurals>
+    <plurals name="batch_failed">
+        <item quantity="one">%1$d failed</item>
+        <item quantity="other">%1$d failed</item>
+    </plurals>
+    <string name="play_your_replay">Play your Replay</string>
+    <string name="automix_on_sub">Blends every transition, timed automatically from each track. Turn off if facing overheating or lag.</string>
+    <string name="automix_off_sub">Times and blends transitions automatically, no slider needed. May not work as expected in low-mid range devices.</string>
+    <string name="genres_on_sub">Asks Last.fm what an artist plays — their name is sent, nothing else</string>
+    <string name="genres_off_sub">Replay\'s genre chart is hidden while this is off</string>
+    <string name="swipe_on_sub">Swiping a song plays it next</string>
+    <string name="swipe_off_sub">With this off, swiping a song adds it to the end of the queue</string>
+    <string name="lyrics_none">None — no lyrics will be fetched</string>
+    <string name="cache_warn_x">Up to %1$s of downloaded audio kept on disk — that\'s a real chunk of most phones\' free storage.</string>
+    <string name="cache_keep_sub">Downloaded audio kept on disk for instant seeking and replays</string>
+    <string name="export_ok_x">Exported settings and %1$s</string>
+    <string name="export_failed_x">Export failed: %1$s</string>
+    <string name="import_ok_x">Imported %1$s from v%2$s</string>
+    <string name="import_failed_x">Import failed: %1$s</string>
+    <string name="unknown_error">unknown error</string>
+    <string name="history_none">no listening history</string>
+    <plurals name="months_history">
+        <item quantity="one">%1$d month of listening</item>
+        <item quantity="other">%1$d months of listening</item>
+    </plurals>
 </resources>

@@ -76,6 +76,8 @@ import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.rememberArtworkColors
 import com.music.bitchord.ui.theme.AccentRed
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 /**
  * The Replay as a run of full-screen cards you tap through.
@@ -360,7 +362,7 @@ private fun StoryChrome(
         Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) {
             Icon(
                 imageVector = Icons.Rounded.Close,
-                contentDescription = "Close Replay",
+                contentDescription = stringResource(R.string.close_replay_desc),
                 tint = Color.White,
                 modifier = Modifier
                     .size(30.dp)
@@ -482,7 +484,7 @@ private fun StoryPage(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.IosShare,
-                    contentDescription = "Share my Replay",
+                    contentDescription = stringResource(R.string.share_replay),
                     tint = Color.White,
                     modifier = Modifier.size(20.dp),
                 )
@@ -528,7 +530,7 @@ private fun ColumnScope.Intro(summary: ReplaySummary, headline: List<HeadlineRun
     ArtworkCollage(summary)
     Spacer(Modifier.weight(1f))
     Text(
-        text = "Counted here on your phone. Nothing was sent anywhere to work it out.",
+        text = stringResource(R.string.replay_counted_here),
         style = MaterialTheme.typography.bodyMedium,
         color = Color.White.copy(alpha = 0.5f),
     )
@@ -546,14 +548,13 @@ private fun ColumnScope.Minutes(summary: ReplaySummary, headline: List<HeadlineR
         // count rather than as a small number. Under an hour, the plays are the
         // only figure worth restating.
         text = buildString {
+            val plays = pluralStringResource(R.plurals.plays_count, summary.totalPlays, grouped(summary.totalPlays.toLong()))
             if (summary.hours >= 1) {
-                append("That's ${grouped(summary.hours)} hours across ")
+                append(stringResource(R.string.story_hours_plays, grouped(summary.hours), plays))
             } else {
-                append("Across ")
+                append(stringResource(R.string.story_across_plays, plays))
             }
-            append(countOf(summary.totalPlays, "play"))
-            append(".")
-            summary.peakHour?.let { append(" Mostly around ${formatHour(it)}.") }
+            summary.peakHour?.let { append(" " + stringResource(R.string.story_peak_hour, formatHour(it))) }
         },
         style = MaterialTheme.typography.bodyLarge,
         color = Color.White.copy(alpha = 0.62f),
@@ -603,7 +604,7 @@ private fun ColumnScope.Leaderboard(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "${formatListening(lead.ms)} · ${countOf(lead.plays, "play")}",
+                text = stringResource(R.string.lead_stats_x, formatListening(lead.ms), pluralStringResource(R.plurals.plays_count, lead.plays, grouped(lead.plays.toLong()))),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.55f),
             )
@@ -716,14 +717,14 @@ private fun BigStat(value: String, label: String) {
 private fun ColumnScope.Recap(summary: ReplaySummary, headline: List<HeadlineRun>) {
     Headline(headline)
     Spacer(Modifier.height(20.dp))
-    RecapLine("Minutes", formatMinutes(summary.totalMs))
-    summary.songs.firstOrNull()?.let { RecapLine("Top song", it.song.title) }
-    summary.artists.firstOrNull()?.let { RecapLine("Top artist", it.title) }
-    summary.albums.firstOrNull()?.let { RecapLine("Top album", it.title) }
-    summary.genres.firstOrNull()?.let { RecapLine("Top genre", it.title) }
+    RecapLine(stringResource(R.string.recap_minutes), formatMinutes(summary.totalMs))
+    summary.songs.firstOrNull()?.let { RecapLine(stringResource(R.string.recap_top_song), it.song.title) }
+    summary.artists.firstOrNull()?.let { RecapLine(stringResource(R.string.recap_top_artist), it.title) }
+    summary.albums.firstOrNull()?.let { RecapLine(stringResource(R.string.recap_top_album), it.title) }
+    summary.genres.firstOrNull()?.let { RecapLine(stringResource(R.string.recap_top_genre), it.title) }
     Spacer(Modifier.weight(1f))
     Text(
-        text = "Tap share to turn all of this into one picture.",
+        text = stringResource(R.string.tap_share_picture),
         style = MaterialTheme.typography.bodyLarge,
         color = Color.White.copy(alpha = 0.55f),
     )

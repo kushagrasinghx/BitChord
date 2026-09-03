@@ -121,7 +121,7 @@ fun HomeScreen(
             when (state) {
                 is UiState.Loading -> feedSkeleton()
                 is UiState.Error -> item {
-                    MessageState(state.message, actionLabel = "Retry", onAction = onRetry)
+                    MessageState(state.message, actionLabel = stringResource(R.string.retry), onAction = onRetry)
                 }
                 is UiState.Success -> {
                     itemsIndexedShelves(state.data, onItemClick, onItemLongPress)
@@ -465,7 +465,7 @@ internal fun ShelfCard(
             if (isPinned) {
                 Icon(
                     imageVector = BitChordIcons.Pin,
-                    contentDescription = "Pinned",
+                    contentDescription = stringResource(R.string.pinned_desc),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(14.dp),
                 )

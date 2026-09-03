@@ -117,6 +117,10 @@ object AppSettings {
     /** Only for the Discord token — everything else on here is plain prefs. */
     private lateinit var authStore: AuthStore
 
+    const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
+    const val MAX_CACHE_LIMIT_BYTES = 10L * 1024 * 1024 * 1024
+    private const val DEFAULT_PERFORMANCE_REFRESH_RATE = 120
+
     /**
      * Quality ceilings, one per kind of connection — the point of the split is
      * that Wi-Fi can stay on High while mobile data is capped. Both default to
@@ -711,6 +715,10 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_AUTOPLAY, value).apply()
     }
 
+    fun setAutoPlay(value: Boolean) {
+        setAutoplay(value)
+    }
+
     fun setShuffleEnabled(value: Boolean) {
         shuffleEnabled.value = value
         prefs.edit().putBoolean(KEY_SHUFFLE_ENABLED, value).apply()
@@ -1000,6 +1008,10 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_PREFER_USB_DAC, value).apply()
     }
 
+    fun setSpatialAudio(value: Boolean) {
+        // Placeholder for future implementation
+    }
+
     fun setExportDownloads(value: Boolean) {
         exportDownloads.value = value
         prefs.edit().putBoolean(KEY_EXPORT_DOWNLOADS, value).apply()
@@ -1123,6 +1135,11 @@ object AppSettings {
     }
 
     fun setLocalMusicSort(value: LocalMusicSort) {
+        localMusicSort.value = value
+        prefs.edit().putString(KEY_LOCAL_MUSIC_SORT, value.name).apply()
+    }
+
+    fun setLibrarySort(value: LocalMusicSort) {
         localMusicSort.value = value
         prefs.edit().putString(KEY_LOCAL_MUSIC_SORT, value.name).apply()
     }
@@ -1271,11 +1288,6 @@ object AppSettings {
         KEY_LOCAL_MUSIC_FOLDER_URI,
         KEY_LAST_VERSION_CODE,
     )
-
-    const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
-    const val MAX_CACHE_LIMIT_BYTES = 10L * 1024 * 1024 * 1024
-
-    private const val DEFAULT_PERFORMANCE_REFRESH_RATE = 120
 
     private fun normalizePerformanceRefreshRate(value: Int): Int =
         value.takeIf { it in 50..240 } ?: DEFAULT_PERFORMANCE_REFRESH_RATE

@@ -11,7 +11,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Set up JDK 17
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -23,7 +23,7 @@ jobs:
         echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> local.properties
         echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
         
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/bitchord-release.jks
         echo "storeFile=bitchord-release.jks" > keystore.properties
         echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> keystore.properties
         echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties

@@ -1,0 +1,25 @@
+workflows:
+  android-release:
+    name: BitChord Release APK
+    instance_type: mac_mini_m2
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: development
+    environment:
+      java: 17
+      groups:
+        - keystore_credentials
+      vars:
+            CM_KEYSTORE_PATH: /tmp/bitchord.jks
+    scripts:
+      - name: Decode Keystore
+        script: |
+          echo $CM_KEYSTORE | base64 --decode > $CM_KEYSTORE_PATH
+      - name: Build Release APK
+        script: |
+          ./gradlew assembleProdRelease
+    artifacts:
+      - app/build/outputs/apk/**/*.apk

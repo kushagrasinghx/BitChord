@@ -53,11 +53,39 @@ object YtMusicRepository {
             val recent = async { runCatching { recentlyPlayed() }.getOrNull() }
             val homeRaw = async { Innertube.browse("FEmusic_home") }
             val newReleases = async { runCatching { shelvesOf("FEmusic_new_releases") }.getOrDefault(emptyList()) }
+            val exploreShelvesAsync = async { explore().getOrDefault(emptyList()) }
+            
             val home = homeRaw.await()
-            val shelves = listOfNotNull(recent.await()) +
-                InnertubeParser.parseHome(home) +
-                newReleases.await()
-            HomeFeed(shelves, InnertubeParser.continuationToken(home))
+            val parsedHomeShelves = InnertubeParser.parseHome(home)
+            val exploreShelves = exploreShelvesAsync.await()
+            val newReleaseShelves = newReleases.await()
+            
+            val allShelves = mutableListOf<HomeShelf>()
+            val addedTitles = mutableSetOf<String>()
+            
+            val shelvesPool = parsedHomeShelves + newReleaseShelves + exploreShelves
+            
+            fun addShelf(title: String) {
+                val matching = shelvesPool.find { it.title.equals(title, ignoreCase = true) }
+                if (matching != null && addedTitles.add(matching.title)) {
+                    allShelves.add(matching)
+                }
+            }
+
+            recent.await()?.let { allShelves.add(it) }
+            addShelf("Listen Again")
+            addShelf("Quick Picks")
+            addShelf("New Albums & Singles")
+            addShelf("Top Artists")
+            addShelf("Fresh Drops")
+            
+            for (shelf in parsedHomeShelves) {
+                if (addedTitles.add(shelf.title)) {
+                    allShelves.add(shelf)
+                }
+            }
+            
+            HomeFeed(allShelves, InnertubeParser.continuationToken(home))
         }
     }
 

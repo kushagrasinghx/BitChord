@@ -47,6 +47,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Person
@@ -551,7 +552,7 @@ private fun BitChordApp(
 
     val tabs = listOf(
         BottomTab(stringResource(R.string.play), BitChordIcons.Play),
-        BottomTab(stringResource(R.string.explore), BitChordIcons.Explore),
+        BottomTab("Social", androidx.compose.material.icons.Icons.Rounded.People),
         BottomTab(stringResource(R.string.library), BitChordIcons.Library),
         BottomTab(stringResource(R.string.search), BitChordIcons.Search),
     )
@@ -1113,6 +1114,7 @@ private fun BitChordApp(
             isPlaying = player.isPlaying,
             isLoading = player.isLoading,
             positionMs = player.position.positionMs,
+            currentPositionProvider = { controller?.currentPosition ?: player.position.positionMs },
             durationMs = player.durationMs,
             onPlayPause = {
                 controller?.let { if (it.isPlaying) it.pause() else it.play() }
@@ -1426,6 +1428,7 @@ private fun BitChordApp(
                         DiscordScreen(
                             song = player.song,
                             positionMs = player.position.positionMs,
+            currentPositionProvider = { controller?.currentPosition ?: player.position.positionMs },
                             durationMs = player.durationMs,
                             onOpenLogin = { showDiscordLogin = true },
                             onOpenDialog = { discordDialog = it },
@@ -1646,40 +1649,7 @@ private fun BitChordApp(
                             onLoadMore = viewModel::loadMoreHome,
                             loadingMore = homeLoadingMore,
                         )
-                        TAB_EXPLORE -> HomeScreen(
-                            state = exploreState,
-                            listState = exploreListState,
-                            title = "Explore",
-                            onItemClick = { item ->
-                                when {
-                                    item.videoId != null -> playRadio(
-                                        Song(
-                                            videoId = item.videoId,
-                                            title = item.title,
-                                            // The card's own subtitle is billed
-                                            // as "Song • Chelsea Wolfe"; only
-                                            // the credit belongs in the field
-                                            // the player, mini player and
-                                            // everything downstream read.
-                                            artist = InnertubeParser.artistFromSubtitle(item.subtitle),
-                                            thumbnailUrl = item.thumbnailUrl,
-                                        ),
-                                    )
-                                    item.browseId != null -> viewModel.openDetail(
-                                        browseId = item.browseId,
-                                        title = item.title,
-                                        subtitle = item.subtitle,
-                                        thumbnailUrl = item.thumbnailUrl,
-                                    )
-                                }
-                            },
-                            onItemLongPress = onBrowseLongPress,
-                            onRetry = viewModel::loadExplore,
-                            refreshing = MainViewModel.Feed.EXPLORE in refreshing,
-                            onRefresh = { viewModel.refresh(MainViewModel.Feed.EXPLORE) },
-                            pullState = explorePull,
-                            contentPadding = listPadding,
-                        )
+                        TAB_EXPLORE -> com.music.bitchord.ui.screens.SocialScreen(contentPadding = listPadding)
                         TAB_SEARCH -> SearchScreen(
                             query = query,
                             onQueryChange = viewModel::onQueryChange,

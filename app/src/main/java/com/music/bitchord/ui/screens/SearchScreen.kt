@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.NorthWest
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -456,6 +457,36 @@ private fun SearchField(
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
+
+    val voiceSearchLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val spokenText = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (spokenText != null) {
+                onQueryChange(spokenText)
+                onSubmit()
+                focusManager.clearFocus()
+            }
+        }
+    }
+
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            }
+            try {
+                voiceSearchLauncher.launch(intent)
+            } catch (e: android.content.ActivityNotFoundException) {
+                // Ignore if no speech recognition app is installed
+            }
+        }
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
     // Both ways of saying "search this" do the same two things, so they're
     // written once here rather than twice.
     val submit = {
@@ -528,6 +559,34 @@ private fun SearchField(
                 Icon(
                     Icons.Rounded.Close,
                     contentDescription = stringResource(R.string.clear_search),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            }
+                            try {
+                voiceSearchLauncher.launch(intent)
+            } catch (e: android.content.ActivityNotFoundException) {
+                // Ignore if no speech recognition app is installed
+            }
+                        } else {
+                            permissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Rounded.Mic,
+                    contentDescription = stringResource(R.string.voice_search),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp),
                 )

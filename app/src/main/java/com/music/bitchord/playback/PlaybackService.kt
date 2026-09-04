@@ -120,7 +120,7 @@ class PlaybackService : MediaSessionService() {
      * [adoptPlayer] — so anything reading it must read it *now* rather than
      * capturing it.
      */
-    private var player: ExoPlayer? = null
+    var player: ExoPlayer? = null
 
     /**
      * The idle player. Between transitions it holds nothing; to arm one,
@@ -830,6 +830,7 @@ class PlaybackService : MediaSessionService() {
         val exoPlayer = buildPlayer(spatialAudioProcessorA, transitionFilterA, ownsSession = true)
         val sparePlayer = buildPlayer(spatialAudioProcessorB, transitionFilterB, ownsSession = false)
         player = exoPlayer
+        globalPlayer = exoPlayer
         spare = sparePlayer
         // Both sinks feed the same session id, so the system equalizer and any
         // other effect attached to the app applies to whichever player happens
@@ -1169,6 +1170,12 @@ class PlaybackService : MediaSessionService() {
      * the song you are listening to, which is whichever one the session is on.
      */
     private fun setSessionOwner(target: ExoPlayer, owns: Boolean) {
+        // Resetting to an empty builder first forces ExoPlayer to completely release
+        // the existing audio focus and audio session, so the subsequent request for
+        // AUDIO_ATTRIBUTES is seen as a new session. Without this, Media3 can
+        // mistakenly retain the previous track's focus state across the gap,
+        // leaving the new track playing with no audible output.
+        target.setAudioAttributes(androidx.media3.common.AudioAttributes.Builder().build(), false)
         target.setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ owns)
         target.setHandleAudioBecomingNoisy(owns)
     }
@@ -1429,7 +1436,7 @@ class PlaybackService : MediaSessionService() {
             return false
         }
 
-        private companion object {
+        companion object {
             /** Media3 and the coroutine machinery both wrap; nothing nests deeper than this. */
             const val CAUSE_DEPTH = 8
         }
@@ -3356,7 +3363,7 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    private companion object {
+    companion object {
         /**
          * Shared by both players. Identical on purpose: they take turns being
          * the session, and a difference here would be an audible change of
@@ -3384,6 +3391,11 @@ class PlaybackService : MediaSessionService() {
          * because whatever is tearing down is waiting on it.
          */
         const val DISCORD_TEARDOWN_TIMEOUT_MS = 3_000L
+
+        /**
+         * Global exo player instance for MediaLibraryService.
+         */
+        var globalPlayer: androidx.media3.exoplayer.ExoPlayer? = null
 
         /**
          * Size of each range the player fetches. The same figure read-ahead

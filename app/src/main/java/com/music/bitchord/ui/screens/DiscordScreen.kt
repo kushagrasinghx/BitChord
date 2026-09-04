@@ -113,6 +113,7 @@ private fun kindOf(value: String) =
 fun DiscordScreen(
     song: Song?,
     positionMs: Long,
+    currentPositionProvider: () -> Long = { positionMs },
     durationMs: Long,
     onOpenLogin: () -> Unit,
     onOpenDialog: (DiscordDialog) -> Unit,
@@ -511,6 +512,7 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
 private fun RichPresencePreview(
     song: Song?,
     positionMs: Long,
+    currentPositionProvider: () -> Long = { positionMs },
     durationMs: Long,
     heading: String,
     verb: String,

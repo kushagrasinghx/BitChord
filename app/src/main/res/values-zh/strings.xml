@@ -71,8 +71,6 @@
     <string name="lossless_source_subtitle">直接从来源获取 FLAC 和 ALAC</string>
     <string name="overridden">已覆盖</string>
     <string name="add_module_source">添加模块来源</string>
-    <string name="link">链接</string>
-    <string name="name_optional">名称（可选）</string>
     <string name="remove_source">移除此来源</string>
     <string name="test">测试</string>
     <string name="testing">测试中…</string>
@@ -244,8 +242,6 @@
     <string name="activity_name_message">显示在个人资料中动词后面的内容。留空则使用 %1$s。</string>
     <string name="activity_playing">玩</string>
     <string name="activity_watching">观看</string>
-    <string name="add_custom_module">添加自定义模块</string>
-    <string name="add_named_source">添加 %1$s</string>
     <string name="add_to_queue">添加到播放队列</string>
     <string name="after_this_song">在这首歌之后</string>
     <string name="always_on">始终开启</string>
@@ -262,7 +258,6 @@
     <string name="couldnt_find">找不到%1$s</string>
     <string name="couldnt_open_link">无法打开该链接</string>
     <string name="create_playlist">创建播放列表</string>
-    <string name="custom_module">自定义模块</string>
     <string name="customize_card">自定义卡片</string>
     <string name="customize_card_subtitle">状态、文字和两个按钮</string>
     <string name="delete">删除</string>
@@ -319,7 +314,6 @@
     <string name="couldnt_load_tracks">无法加载这些曲目</string>
     <string name="wifi_only_download_refusal">下载已限制为仅使用 Wi-Fi。请在设置中关闭此项以使用移动数据。</string>
     <string name="pinned_playlist_limit">最多只能固定 %1$d 个播放列表</string>
-    <string name="custom_module_description">兼容的模块索引，会在内置来源之前尝试使用。保存后将替换当前的自定义模块。</string>
     <string name="downloaded_playlist">已下载的播放列表</string>
     <string name="library_sign_in_description">登录 Google 账号即可查看你喜欢的歌曲、播放列表和 YouTube Music 历史记录。</string>
     <string name="downloads_progress">下载 · %1$d%%</string>
@@ -393,8 +387,6 @@
     <string name="max_delay_subtitle">Scrobble 的最大延迟（秒）</string>
     <string name="min_song_duration">最短歌曲时长</string>
     <string name="min_song_duration_subtitle">短于此时长的歌曲不会被 Scrobble</string>
-    <string name="module_index_description">粘贴兼容的模块索引 JSON 的 URL。其中可以列出用于从 Tidal、Qobuz 和 Apple Music 等服务搜索与播放的 JavaScript 插件。</string>
-    <string name="module_index_url">模块索引 URL</string>
     <string name="monthly_listeners">%1$s 位月度听众</string>
     <string name="name">名称</string>
     <string name="no_lyrics_for_track">此曲目没有歌词</string>
@@ -423,7 +415,6 @@
     <string name="remove_from_playlist">从此播放列表中移除</string>
     <string name="remove_from_queue">从播放队列中移除</string>
     <string name="rename_playlist">重命名播放列表</string>
-    <string name="replace_custom_module">替换自定义模块</string>
     <string name="reset_to_default">恢复默认设置</string>
     <string name="rich_presence_footer">在你的 Discord 个人资料中显示正在播放的内容。</string>
     <string name="save_name">保存名称</string>

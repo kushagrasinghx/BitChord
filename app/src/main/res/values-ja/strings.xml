@@ -71,8 +71,6 @@
     <string name="lossless_source_subtitle">ソースから直接FLACやALACを取得</string>
     <string name="overridden">上書き済み</string>
     <string name="add_module_source">モジュールソースを追加</string>
-    <string name="link">リンク</string>
-    <string name="name_optional">名前（任意）</string>
     <string name="remove_source">このソースを削除</string>
     <string name="test">テスト</string>
     <string name="testing">テスト中…</string>
@@ -244,8 +242,6 @@
     <string name="activity_name_message">プロフィールで動詞の後に続く文言です。空欄にすると%1$sが使われます。</string>
     <string name="activity_playing">プレイ中</string>
     <string name="activity_watching">視聴中</string>
-    <string name="add_custom_module">カスタムモジュールを追加</string>
-    <string name="add_named_source">%1$sを追加</string>
     <string name="add_to_queue">再生キューに追加</string>
     <string name="after_this_song">この曲の後に</string>
     <string name="always_on">常にオン</string>
@@ -262,7 +258,6 @@
     <string name="couldnt_find">%1$sが見つかりませんでした</string>
     <string name="couldnt_open_link">リンクを開けませんでした</string>
     <string name="create_playlist">プレイリストを作成</string>
-    <string name="custom_module">カスタムモジュール</string>
     <string name="customize_card">カードをカスタマイズ</string>
     <string name="customize_card_subtitle">ステータス、文言、両方のボタン</string>
     <string name="delete">削除</string>
@@ -319,7 +314,6 @@
     <string name="couldnt_load_tracks">これらのトラックを読み込めませんでした</string>
     <string name="wifi_only_download_refusal">ダウンロードはWi-Fiのみに制限されています。モバイルデータを使うには設定でオフにしてください。</string>
     <string name="pinned_playlist_limit">ピン留めできるプレイリストは%1$d件までです</string>
-    <string name="custom_module_description">組み込みのソースより先に試される、互換性のあるモジュールインデックスです。保存すると現在のカスタムモジュールが置き換わります。</string>
     <string name="downloaded_playlist">ダウンロード済みのプレイリスト</string>
     <string name="library_sign_in_description">Googleアカウントにログインすると、高評価した曲、プレイリスト、YouTube Musicの履歴が表示されます。</string>
     <string name="downloads_progress">ダウンロード · %1$d%%</string>
@@ -393,8 +387,6 @@
     <string name="max_delay_subtitle">スクロブルまでの最大遅延（秒）</string>
     <string name="min_song_duration">最小の曲の長さ</string>
     <string name="min_song_duration_subtitle">これより短い曲はスクロブルされません</string>
-    <string name="module_index_description">互換性のあるモジュールインデックスJSONのURLを貼り付けてください。Tidal、Qobuz、Apple Musicなどのサービスから検索・ストリーミングするJavaScriptプラグインを含めることができます。</string>
-    <string name="module_index_url">モジュールインデックスURL</string>
     <string name="monthly_listeners">月間リスナー数 %1$s人</string>
     <string name="name">名前</string>
     <string name="no_lyrics_for_track">この曲の歌詞はありません</string>
@@ -423,7 +415,6 @@
     <string name="remove_from_playlist">このプレイリストから削除</string>
     <string name="remove_from_queue">再生キューから削除</string>
     <string name="rename_playlist">プレイリスト名を変更</string>
-    <string name="replace_custom_module">カスタムモジュールを置き換え</string>
     <string name="reset_to_default">デフォルトに戻す</string>
     <string name="rich_presence_footer">Discordのプロフィールに再生中の曲を表示します。</string>
     <string name="save_name">名前を保存</string>

@@ -75,8 +75,6 @@
     <string name="lossless_source_subtitle">FLAC und ALAC direkt von der Quelle</string>
     <string name="overridden">Überschrieben</string>
     <string name="add_module_source">Modulquelle hinzufügen</string>
-    <string name="link">Link</string>
-    <string name="name_optional">Name (optional)</string>
     <string name="remove_source">Diese Quelle entfernen</string>
     <string name="test">Testen</string>
     <string name="testing">Wird getestet…</string>
@@ -248,8 +246,6 @@
     <string name="activity_name_message">Was nach dem Verb im Profil folgt. Leer lassen, um %1$s zu verwenden.</string>
     <string name="activity_playing">Spielt</string>
     <string name="activity_watching">Sieht zu</string>
-    <string name="add_custom_module">Eigenes Modul hinzufügen</string>
-    <string name="add_named_source">%1$s hinzufügen</string>
     <string name="add_to_queue">Zur Warteschlange hinzufügen</string>
     <string name="after_this_song">Nach diesem Song</string>
     <string name="always_on">Immer an</string>
@@ -266,7 +262,6 @@
     <string name="couldnt_find">%1$s konnte nicht gefunden werden</string>
     <string name="couldnt_open_link">Dieser Link konnte nicht geöffnet werden</string>
     <string name="create_playlist">Playlist erstellen</string>
-    <string name="custom_module">Eigenes Modul</string>
     <string name="customize_card">Karte anpassen</string>
     <string name="customize_card_subtitle">Status, Text und beide Schaltflächen</string>
     <string name="delete">Löschen</string>
@@ -323,7 +318,6 @@
     <string name="couldnt_load_tracks">Diese Titel konnten nicht geladen werden</string>
     <string name="wifi_only_download_refusal">Downloads sind auf WLAN beschränkt. Schalte das in den Einstellungen aus, um mobile Daten zu nutzen.</string>
     <string name="pinned_playlist_limit">Es können nur %1$d Playlists angeheftet werden</string>
-    <string name="custom_module_description">Ein kompatibler Modulindex, der vor der integrierten Quelle versucht wird. Das Speichern ersetzt das aktuelle eigene Modul.</string>
     <string name="downloaded_playlist">Heruntergeladene Playlist</string>
     <string name="library_sign_in_description">Melde dich mit deinem Google-Konto an, um deine gelikten Songs, Playlists und den YouTube-Music-Verlauf zu sehen.</string>
     <string name="downloads_progress">Downloads · %1$d%%</string>
@@ -406,8 +400,6 @@
     <string name="max_delay_subtitle">Maximale Scrobble-Verzögerung in Sekunden</string>
     <string name="min_song_duration">Mindestdauer des Songs</string>
     <string name="min_song_duration_subtitle">Kürzere Songs werden nicht gescrobbelt</string>
-    <string name="module_index_description">Füge die URL eines kompatiblen Modulindex-JSON ein. Es kann JavaScript-Plugins auflisten, die Dienste wie Tidal, Qobuz und Apple Music durchsuchen und von dort streamen.</string>
-    <string name="module_index_url">Modulindex-URL</string>
     <string name="monthly_listeners">%1$s monatliche Hörer</string>
     <string name="name">Name</string>
     <string name="no_lyrics_for_track">Keine Songtexte für diesen Titel</string>
@@ -436,7 +428,6 @@
     <string name="remove_from_playlist">Aus dieser Playlist entfernen</string>
     <string name="remove_from_queue">Aus der Warteschlange entfernen</string>
     <string name="rename_playlist">Playlist umbenennen</string>
-    <string name="replace_custom_module">Eigenes Modul ersetzen</string>
     <string name="reset_to_default">Auf Standard zurücksetzen</string>
     <string name="rich_presence_footer">Zeige, was du gerade hörst, auf deinem Discord-Profil.</string>
     <string name="save_name">Namen speichern</string>

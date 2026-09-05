@@ -4,7 +4,10 @@ import android.util.Log
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.Http
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -58,6 +61,33 @@ class ModuleManager {
         val jsCode: String,
         val baseUrl: String,
     )
+
+    // ── Sharing one answer between every caller that wants it ──────────────
+
+    /**
+     * Where every module call this class makes is started, deliberately *not*
+     * the caller's scope, and why the losers of a race no longer cost the
+     * module's server a wasted answer. See [SharedCalls].
+     */
+    private val calls = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * A cache key from its parts, each one length-prefixed.
+     *
+     * Not a separator character, because there isn't a safe one: a query is
+     * arbitrary user-adjacent text and a track id is whatever the module's
+     * backend uses, so any byte picked as a delimiter is a byte one of them
+     * may legitimately contain. Length prefixes make the parts unambiguous
+     * whatever they hold. A collision here would not fail — it would serve one
+     * track's stream URL for another.
+     */
+    private fun keyOf(vararg parts: String) = parts.joinToString("|") { "${it.length}:$it" }
+
+    private val loads = SharedCalls<LoadedModule>(ttlMs = 0, scope = calls, log = ::logReuse)
+    private val searches = SharedCalls<ModuleSearchResponse>(SEARCH_TTL_MS, calls, ::logReuse)
+    private val streams = SharedCalls<ModuleStreamResponse>(STREAM_TTL_MS, calls, ::logReuse)
+
+    private fun logReuse(line: String) = TrackLog.d(TAG, line)
 
     // ── Index ─────────────────────────────────────────────────────────────
 
@@ -140,6 +170,27 @@ class ModuleManager {
     suspend fun loadModule(
         module: SpineModule,
         resolveBaseUrl: suspend (String) -> String = { it },
+    ): Result<LoadedModule> = loads.get(
+        key = module.id,
+        describe = { "▶ loadModule(${module.id})" },
+    ) {
+        loadModuleNow(module, resolveBaseUrl)
+    }
+
+    /**
+     * The download and engine initialisation itself.
+     *
+     * Shared only while it is running, never by time: what it returns depends
+     * on whether [QuickJsExecutor] still holds an engine for the module, and
+     * that pool evicts on its own schedule. Caching the answer across time
+     * would hand back a [LoadedModule] whose engine had since been closed —
+     * the exact failure the `isLoaded` check below exists to catch. Sharing the
+     * *download* between two callers who miss together is the part worth
+     * having, and it is the part that reaches the network.
+     */
+    private suspend fun loadModuleNow(
+        module: SpineModule,
+        resolveBaseUrl: suspend (String) -> String,
     ): Result<LoadedModule> = withContext(Dispatchers.IO) {
         val cached = loadedModules[module.id]
         if (cached != null) {
@@ -191,6 +242,22 @@ class ModuleManager {
         query: String,
         limit: Int = 50,
         settings: Map<String, String> = emptyMap(),
+    ): Result<ModuleSearchResponse> = searches.get(
+        // Everything the module is told, because everything the module is told
+        // can change the answer. The settings belong in the key as much as the
+        // query does: the same search under a different quality tier is a
+        // different question.
+        key = keyOf(loaded.module.id, query, limit.toString(), contextArg(settings)),
+        describe = { "▶ searchTracks() module=${loaded.module.id} query=\"$query\" limit=$limit" },
+    ) {
+        searchTracksNow(loaded, query, limit, settings)
+    }
+
+    private suspend fun searchTracksNow(
+        loaded: LoadedModule,
+        query: String,
+        limit: Int,
+        settings: Map<String, String>,
     ): Result<ModuleSearchResponse> = withContext(Dispatchers.IO) {
         val contextArg = contextArg(settings)
         TrackLog.d(TAG, "▶ searchTracks() module=${loaded.module.id} query=\"$query\" limit=$limit")
@@ -225,6 +292,18 @@ class ModuleManager {
         trackId: String,
         quality: String = "",
         settings: Map<String, String> = emptyMap(),
+    ): Result<ModuleStreamResponse> = streams.get(
+        key = keyOf(loaded.module.id, trackId, quality, contextArg(settings)),
+        describe = { "▶ getStreamUrl() module=${loaded.module.id} trackId=$trackId quality=$quality" },
+    ) {
+        getStreamUrlNow(loaded, trackId, quality, settings)
+    }
+
+    private suspend fun getStreamUrlNow(
+        loaded: LoadedModule,
+        trackId: String,
+        quality: String,
+        settings: Map<String, String>,
     ): Result<ModuleStreamResponse> = withContext(Dispatchers.IO) {
         val contextArg = contextArg(settings)
         TrackLog.d(TAG, "▶ getStreamUrl() module=${loaded.module.id} trackId=$trackId quality=$quality")
@@ -288,8 +367,20 @@ class ModuleManager {
         QuickJsExecutor.unload(moduleId)
     }
 
+    /**
+     * Everything this manager is holding, dropped.
+     *
+     * The shared answers go with the engines rather than outliving them. This
+     * is reached when a source is edited or removed — the module index, and so
+     * every answer that came out of it, is about a configuration that no longer
+     * exists, and serving one from cache afterwards would be answering a
+     * question about the old server with the new one selected.
+     */
     fun unloadAll() {
         loadedModules.clear()
+        loads.clear()
+        searches.clear()
+        streams.clear()
         QuickJsExecutor.unloadAll()
     }
 
@@ -302,5 +393,39 @@ class ModuleManager {
          * published or pulled today is picked up without restarting the app.
          */
         const val INDEX_TTL_MS = 10 * 60 * 1000L
+
+        /**
+         * How long a search answer is trusted, on the same reasoning as
+         * [INDEX_TTL_MS] and for a question that changes even less often:
+         * whether a catalogue holds a given recording is not a fact that turns
+         * over minute to minute. Every query that reaches here is a
+         * [TrackMatcher][com.music.bitchord.data.sources.TrackMatcher] one —
+         * title and artist for a track being matched, never anything a user
+         * typed — so nobody is ever looking at these results waiting for them
+         * to refresh.
+         */
+        const val SEARCH_TTL_MS = 10 * 60 * 1000L
+
+        /**
+         * How long a stream URL is reused.
+         *
+         * Shorter than the rest, because this one has an expiry that is not
+         * ours to set: a module's URL is signed, at around five hours on the
+         * catalogues in use here. Five minutes is far enough inside that to be
+         * certain a reused URL still works, and long enough to cover what
+         * actually repeats — the two candidates one match tries in turn, and
+         * the second look arriving at the same track moments later. The same
+         * trade [StreamChoice][com.music.bitchord.playback.StreamChoice] makes,
+         * with a wider margin because nothing here can tell whether the bytes
+         * behind the URL were ever successfully read.
+         */
+        const val STREAM_TTL_MS = 5 * 60 * 1000L
+
+        /**
+         * How many shared answers to keep. A queue's worth of tracks at two
+         * queries and a stream call each, several times over, with room to
+         * spare — the point is a bound, not a budget.
+         */
+        const val MAX_SHARED = 128
     }
 }

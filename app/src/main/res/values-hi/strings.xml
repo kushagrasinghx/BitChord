@@ -75,8 +75,6 @@
     <string name="lossless_source_subtitle">सीधे स्रोत से FLAC और ALAC</string>
     <string name="overridden">बदल दिया गया</string>
     <string name="add_module_source">मॉड्यूल स्रोत जोड़ें</string>
-    <string name="link">लिंक</string>
-    <string name="name_optional">नाम (वैकल्पिक)</string>
     <string name="remove_source">यह स्रोत हटाएं</string>
     <string name="test">जांचें</string>
     <string name="testing">जांच हो रही है…</string>
@@ -248,8 +246,6 @@
     <string name="activity_name_message">प्रोफ़ाइल पर क्रिया के बाद क्या आता है। %1$s इस्तेमाल करने के लिए इसे खाली छोड़ें।</string>
     <string name="activity_playing">चलाना</string>
     <string name="activity_watching">देखना</string>
-    <string name="add_custom_module">कस्टम मॉड्यूल जोड़ें</string>
-    <string name="add_named_source">%1$s जोड़ें</string>
     <string name="add_to_queue">कतार में जोड़ें</string>
     <string name="after_this_song">इस गाने के बाद</string>
     <string name="always_on">हमेशा चालू</string>
@@ -266,7 +262,6 @@
     <string name="couldnt_find">%1$s नहीं मिला</string>
     <string name="couldnt_open_link">वह लिंक नहीं खोला जा सका</string>
     <string name="create_playlist">प्लेलिस्ट बनाएं</string>
-    <string name="custom_module">कस्टम मॉड्यूल</string>
     <string name="customize_card">कार्ड कस्टमाइज़ करें</string>
     <string name="customize_card_subtitle">स्टेटस, शब्द और दोनों बटन</string>
     <string name="delete">मिटाएं</string>
@@ -323,7 +318,6 @@
     <string name="couldnt_load_tracks">ये ट्रैक लोड नहीं हो सके</string>
     <string name="wifi_only_download_refusal">डाउनलोड केवल Wi-Fi तक सीमित हैं। मोबाइल डेटा इस्तेमाल करने के लिए सेटिंग्स में इसे बंद करें।</string>
     <string name="pinned_playlist_limit">केवल %1$d प्लेलिस्ट पिन की जा सकती हैं</string>
-    <string name="custom_module_description">एक संगत मॉड्यूल इंडेक्स, जिसे बिल्ट-इन स्रोत से पहले आज़माया जाता है। सेव करने पर मौजूदा कस्टम मॉड्यूल बदल जाता है।</string>
     <string name="downloaded_playlist">डाउनलोड की गई प्लेलिस्ट</string>
     <string name="library_sign_in_description">अपने पसंदीदा गाने, प्लेलिस्ट और YouTube Music इतिहास देखने के लिए अपने Google खाते में साइन इन करें।</string>
     <string name="downloads_progress">डाउनलोड · %1$d%%</string>
@@ -406,8 +400,6 @@
     <string name="max_delay_subtitle">सेकंड में अधिकतम स्क्रॉबल देरी</string>
     <string name="min_song_duration">गाने की न्यूनतम अवधि</string>
     <string name="min_song_duration_subtitle">इससे छोटे गाने स्क्रॉबल नहीं होंगे</string>
-    <string name="module_index_description">एक संगत मॉड्यूल इंडेक्स JSON का URL पेस्ट करें। इसमें Tidal, Qobuz और Apple Music जैसी सेवाओं से खोजने और स्ट्रीम करने वाले JavaScript प्लगिन शामिल हो सकते हैं।</string>
-    <string name="module_index_url">मॉड्यूल इंडेक्स URL</string>
     <string name="monthly_listeners">%1$s मासिक श्रोता</string>
     <string name="name">नाम</string>
     <string name="no_lyrics_for_track">इस ट्रैक के लिए कोई लिरिक्स नहीं हैं</string>
@@ -436,7 +428,6 @@
     <string name="remove_from_playlist">इस प्लेलिस्ट से हटाएं</string>
     <string name="remove_from_queue">कतार से हटाएं</string>
     <string name="rename_playlist">प्लेलिस्ट का नाम बदलें</string>
-    <string name="replace_custom_module">कस्टम मॉड्यूल बदलें</string>
     <string name="reset_to_default">डिफ़ॉल्ट पर रीसेट करें</string>
     <string name="rich_presence_footer">अपनी Discord प्रोफ़ाइल पर दिखाएं कि आप क्या चला रहे हैं।</string>
     <string name="save_name">नाम सेव करें</string>

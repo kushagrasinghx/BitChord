@@ -20,8 +20,7 @@ jobs:
 
     - name: Setup local.properties
       run: |
-        echo "MODULE_INDEX_URL=${{ secrets.MODULE_INDEX_URL }}" > local.properties
-        echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> local.properties
+        echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
         echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
 
     - name: Grant execute permission for gradlew
@@ -53,8 +52,7 @@ jobs:
 
     - name: Setup Secrets (Keystore & local.properties)
       run: |
-        echo "MODULE_INDEX_URL=${{ secrets.MODULE_INDEX_URL }}" > local.properties
-        echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" >> local.properties
+        echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
         echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
 
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks

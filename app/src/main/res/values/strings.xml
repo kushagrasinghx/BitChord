@@ -81,8 +81,6 @@
     <string name="lossless_source_subtitle">FLAC and ALAC straight from the source</string>
     <string name="overridden">Overridden</string>
     <string name="add_module_source">Add a module source</string>
-    <string name="link">Link</string>
-    <string name="name_optional">Name (optional)</string>
     <string name="remove_source">Remove this source</string>
     <string name="test">Test</string>
     <string name="testing">Testing…</string>
@@ -125,6 +123,8 @@
     <string name="personalized_recommendations">Get personalized recommendations for you</string>
     <string name="play_next">Play next</string>
     <string name="queue">Queue</string>
+    <string name="source_unrecognised">BitChord could not tell what that link is</string>
+    <string name="source_already_added">Already added as %1$s</string>
     <string name="source_setup_required">Tap to finish setting up</string>
     <string name="source_skipped_by_quality">Not used on %1$s · quality is set to %2$s</string>
     <string name="source_unreachable">Can’t reach it right now · %1$s</string>
@@ -228,6 +228,8 @@
     <string name="liquid_glass_subtitle">Real refracting glass on the floating nav bar. Android 12+ only; uses more GPU.</string>
     <string name="liquid_glass_unavailable">Requires Android 12 or newer</string>
     <string name="full_screen_cover_art">Full-screen cover art</string>
+    <string name="legacy_mesh_gradient">Legacy mesh gradient</string>
+    <string name="legacy_mesh_gradient_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
     <string name="animated_cover_art">Animated cover art</string>
     <string name="synced_lyrics">Synced lyrics</string>
     <string name="synced_lyrics_subtitle">Lights up the words on the player as they’re sung</string>
@@ -279,8 +281,8 @@
     <string name="activity_name_message">What follows the verb on the profile. Leave it empty to use %1$s.</string>
     <string name="activity_playing">Playing</string>
     <string name="activity_watching">Watching</string>
-    <string name="add_custom_module">Add custom module</string>
-    <string name="add_named_source">Add %1$s</string>
+    <string name="add_addon">Add an addon</string>
+    <string name="add_addon_detail">Point BitChord at an addon server you host or were given a link to</string>
     <string name="add_to_queue">Add to queue</string>
     <string name="after_this_song">After this song</string>
     <string name="always_on">Always on</string>
@@ -297,7 +299,6 @@
     <string name="couldnt_find">Couldn\'t find %1$s</string>
     <string name="couldnt_open_link">Couldn\'t open that link</string>
     <string name="create_playlist">Create playlist</string>
-    <string name="custom_module">Custom module</string>
     <string name="customize_card">Customize the card</string>
     <string name="customize_card_subtitle">Status, wording and both buttons</string>
     <string name="delete">Delete</string>
@@ -354,7 +355,6 @@
     <string name="couldnt_load_tracks">Could not load these tracks</string>
     <string name="wifi_only_download_refusal">Downloads are limited to Wi-Fi. Turn that off in Settings to use mobile data.</string>
     <string name="pinned_playlist_limit">Only %1$d playlists can be pinned</string>
-    <string name="custom_module_description">A compatible module index, tried before the built-in source. Saving replaces the current custom module.</string>
     <string name="downloaded_playlist">Downloaded playlist</string>
     <string name="library_sign_in_description">Sign in to your Google account to see your liked songs, playlists, and YouTube Music history.</string>
     <string name="downloads_progress">Downloads · %1$d%%</string>
@@ -442,8 +442,7 @@
     <string name="max_delay_subtitle">Maximum scrobble delay in seconds</string>
     <string name="min_song_duration">Minimum song duration</string>
     <string name="min_song_duration_subtitle">Shorter songs will not scrobble</string>
-    <string name="module_index_description">Paste the URL of a compatible module index JSON. It can list JavaScript plugins that search and stream from services such as Tidal, Qobuz and Apple Music.</string>
-    <string name="module_index_url">Module index URL</string>
+    <string name="addon_url_description">Paste the addon’s URL — either its root or its manifest.json. BitChord reads what it can search and stream, then asks it for tracks over plain HTTP.</string>
     <string name="monthly_listeners">%1$s monthly listeners</string>
     <string name="name">Name</string>
     <string name="no_lyrics_for_track">No lyrics for this track</string>
@@ -472,7 +471,6 @@
     <string name="remove_from_playlist">Remove from this playlist</string>
     <string name="remove_from_queue">Remove from queue</string>
     <string name="rename_playlist">Rename playlist</string>
-    <string name="replace_custom_module">Replace custom module</string>
     <string name="reset_to_default">Reset to default</string>
     <string name="rich_presence_footer">Show what you are playing on your Discord profile.</string>
     <string name="save_name">Save name</string>
@@ -495,7 +493,7 @@
     <string name="signed_in_as">Signed in as %1$s</string>
     <string name="signing_in">Signing in…</string>
     <string name="sleep_timer">Sleep timer</string>
-    <string name="sources_no_lossless">No enabled source can provide lossless audio. Add a custom module to play available lossless files without transcoding.</string>
+    <string name="sources_no_lossless">No enabled source can provide lossless audio. Add an addon to play lossless files without transcoding.</string>
     <string name="sources_order_footer">If a source does not have a track or cannot be reached, BitChord tries the next one. Sources above YouTube can replace its recording when they return a better version.</string>
     <string name="sources_order_header">Sources, tried in this order</string>
     <string name="sources_quality_capped">This connection is set below High quality, so streams are transcoded to fit that limit. Downloads are unaffected.</string>

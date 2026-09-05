@@ -637,9 +637,16 @@ fun NowPlayingScreen(
     val stillCovered by remember(song.videoId) {
         derivedStateOf { canvasCover.floatValue > 0.999f }
     }
+    // v1.5's backdrop, kept behind a switch — see [AppSettings.legacyMeshGradient].
+    val legacyMesh by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     // The backdrop's colours, taken off the artwork's own arrangement rather
     // than quantised out of it — see [ArtworkMesh].
-    val artMesh = rememberArtworkMesh(song.thumbnailUrl, canvasFrame, ART_PX)
+    //
+    // Only read for the backdrop that uses it. Each of these keeps a decode and
+    // a pixel readback of its own on every track change, and the two answer the
+    // same picture in two different ways, so whichever is not on screen is pure
+    // cost — the legacy path pays [rememberArtworkColors] instead.
+    val artMesh = if (legacyMesh) null else rememberArtworkMesh(song.thumbnailUrl, canvasFrame, ART_PX)
     // Asked of every clip, Spotify's Canvas and every other source alike — see
     // CanvasArtworkPlayer's refreshFrameEveryMs. A clip's own colours move as
     // it plays regardless of who published it, and the backdrop should follow.
@@ -1119,10 +1126,24 @@ fun NowPlayingScreen(
         // the anchor for a blurred layer, and moving it would re-blur the whole
         // screen on every frame of the drag. Above it the mesh holds one colour,
         // so a seam left behind a collapsed sleeve shows nothing at all.
-        ArtworkMeshBackdrop(
-            mesh = artMesh,
-            seam = if (heroMode) heroHeight else 0.dp,
-        )
+        if (legacyMesh) {
+            // v1.5's backdrop, restored verbatim: no seam, because the blobs
+            // are not anchored to anything on screen — they fill the player and
+            // the artwork simply sits on top of them. Keyed on the track, so
+            // they drift when the player opens and on every skip, then rest.
+            // Position ticks recompose this screen twice a second and must not
+            // drag a full-screen blur along with them, which is why the palette
+            // is passed as one immutable value.
+            MeshGradientBackground(
+                palette = rememberArtworkColors(song.thumbnailUrl, canvasFrame),
+                trackKey = song.videoId,
+            )
+        } else {
+            ArtworkMeshBackdrop(
+                mesh = artMesh,
+                seam = if (heroMode) heroHeight else 0.dp,
+            )
+        }
 
         // The artwork, edge to edge and running up behind the status bar,
         // dissolving into the backdrop where the sleeve's bottom edge would
@@ -1259,11 +1280,11 @@ fun NowPlayingScreen(
                             // swiping the sleeve and tapping skip feel like one
                             // gesture with two spellings.
                             when {
-                                total >= swipeThreshold && hasNext -> {
+                                total <= -swipeThreshold -> {
                                     haptics.play(Haptic.SkipNext)
                                     onNext()
                                 }
-                                total <= -swipeThreshold && hasPrevious -> {
+                                total >= swipeThreshold -> {
                                     haptics.play(Haptic.SkipPrevious)
                                     onPrevious()
                                 }

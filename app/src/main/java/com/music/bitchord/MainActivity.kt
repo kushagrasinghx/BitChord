@@ -125,6 +125,7 @@ import com.music.bitchord.ui.screens.DiscordDialogHost
 import com.music.bitchord.ui.screens.DiscordScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.SettingsScreen
+import com.music.bitchord.ui.screens.SourceEditorAlert
 import com.music.bitchord.ui.screens.SourcesScreen
 import com.music.bitchord.ui.screens.SpotifyCanvasAuthScreen
 import com.music.bitchord.playback.LinkRequest
@@ -171,9 +172,9 @@ import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
 import com.music.bitchord.ui.components.isGlassSupported
+import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.ui.components.ListenBrainzTokenAlert
-import com.music.bitchord.ui.components.TextValueAlert
 import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.TopBarAccountButton
 import com.music.bitchord.ui.components.TopBarDownloadButton
@@ -392,10 +393,12 @@ private fun BitChordApp(
     var showSources by remember { mutableStateOf(false) }
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
     
-    // Hosted here rather than inside SourcesScreen so its scrim covers the tab
-    // bar and mini player, like every other alert in the app.
-    var customModuleAlert by remember { mutableStateOf(false) }
-    var customModuleInput by remember { mutableStateOf("") }
+    // Hosted here rather than inside SourcesScreen so its frosted card has
+    // something to blur: that screen is drawn inside the `hazeSource` subtree,
+    // and a haze effect sampling the layer it is itself part of renders with no
+    // background at all. Hosting it here also puts the scrim over the tab bar
+    // and the mini player, like every other alert in the app.
+    var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
     var showHistory by remember { mutableStateOf(false) }
     // A Library shelf's "Show all" — the shelf it was opened from, so its own
     // cards can be laid out again as a full-screen grid. See [LibraryGridPage].
@@ -1624,7 +1627,7 @@ private fun BitChordApp(
         BackHandler(enabled = showListenBrainzLogin) { showListenBrainzLogin = false }
         BackHandler(enabled = showLastfmLogin) { showLastfmLogin = false }
         BackHandler(enabled = discordDialog != null) { discordDialog = null }
-        BackHandler(enabled = customModuleAlert) { customModuleAlert = false }
+        BackHandler(enabled = editingSource != null) { editingSource = null }
         BackHandler(enabled = showHistory) { showHistory = false }
         // Disabled while a detail page is open over the grid: that one's own
         // BackHandler below has to close first, or back would skip past it
@@ -1820,10 +1823,7 @@ private fun BitChordApp(
                     } else if (key == "sources") {
                         SourcesScreen(
                             contentPadding = listPadding,
-                            onEditCustomModule = {
-                                customModuleInput = SourceRegistry.customModule()?.baseUrl.orEmpty()
-                                customModuleAlert = true
-                            },
+                            onEditSource = { editingSource = it },
                         )
                     } else if (key == "settings") {
                         SettingsScreen(
@@ -3116,31 +3116,20 @@ private fun BitChordApp(
             )
         }
 
-        if (customModuleAlert) {
-            val existing = SourceRegistry.customModule()
-            TextValueAlert(
+        editingSource?.let { config ->
+            SourceEditorAlert(
                 hazeState = hazeState,
-                title = stringResource(R.string.custom_module),
-                message = stringResource(R.string.custom_module_description),
-                placeholder = stringResource(R.string.module_index_url),
-                value = customModuleInput,
-                onValueChange = { customModuleInput = it },
-                saveEnabled = customModuleInput.isNotBlank(),
-                onSave = {
-                    SourceRegistry.setCustomModule(customModuleInput)
-                    customModuleAlert = false
+                config = config,
+                onDismiss = { editingSource = null },
+                onSaved = { editingSource = null },
+                onDelete = {
+                    SourceRegistry.remove(config.id)
+                    editingSource = null
                 },
-                onRemove = if (existing != null) {
-                    {
-                        SourceRegistry.setCustomModule("")
-                        customModuleAlert = false
-                    }
-                } else {
-                    null
-                },
-                onDismiss = { customModuleAlert = false },
+                scope = scope,
             )
         }
+
     }
 }
 

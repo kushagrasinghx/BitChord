@@ -46,6 +46,7 @@ import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
@@ -122,7 +123,6 @@ import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.LocalMediaRepository
-import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.OutputPcmMode
@@ -130,8 +130,6 @@ import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.R
 import com.music.bitchord.data.sources.DeviceCodecs
-import com.music.bitchord.data.sources.SourceKind
-import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
@@ -191,6 +189,7 @@ fun SettingsScreen(
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val showLyricsLogs by AppSettings.showLyricsLogs.collectAsStateWithLifecycle()
@@ -203,7 +202,6 @@ fun SettingsScreen(
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
-    val sourceConfigs by SourceRegistry.configs.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
@@ -225,11 +223,6 @@ fun SettingsScreen(
             AppSettings.setPerformanceRefreshRate(selectedPerformanceRefreshRate)
         }
     }
-
-    // Whether the module index URL is baked into this build.
-    val losslessConfigured = BuildConfig.MODULE_INDEX_URL.trim().isNotEmpty()
-    // Whether the module source is currently enabled (toggle state).
-    val moduleEnabled = sourceConfigs.any { it.kind == SourceKind.MODULE && it.enabled && it.isComplete }
 
     // Scrobbling states
     val lastfmEnabled by AppSettings.lastfmEnabled.collectAsStateWithLifecycle()
@@ -649,6 +642,23 @@ fun SettingsScreen(
                 )
                 RowDivider()
             }
+            SettingsRow(
+                icon = Icons.Rounded.Gradient,
+                title = stringResource(R.string.legacy_mesh_gradient),
+                subtitle = stringResource(R.string.legacy_mesh_gradient_subtitle),
+                trailing = {
+                    Switch(
+                        checked = legacyMeshGradient,
+                        onCheckedChange = AppSettings::setLegacyMeshGradient,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+                onClick = { AppSettings.setLegacyMeshGradient(!legacyMeshGradient) },
+            )
+            RowDivider()
             SettingsRow(
                 icon = Icons.Rounded.Animation,
                 title = stringResource(R.string.animated_cover_art),

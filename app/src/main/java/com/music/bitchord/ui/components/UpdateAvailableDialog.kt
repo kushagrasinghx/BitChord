@@ -268,6 +268,11 @@ fun UpdateAvailableDialog(
  * Full-bleed action row. Tinted rather than filled, so the two read as equals
  * in weight and only the font differentiates the default action — the alert's
  * whole point is that neither choice is a trap.
+ *
+ * [destructive] is the one exception to that: an action that deletes something
+ * is red in this lineage, because the point there *is* to break the symmetry.
+ * It stays a plain row rather than a filled button, so it reads as a warning
+ * and not as the thing to press.
  */
 @Composable
 internal fun AlertAction(
@@ -275,6 +280,7 @@ internal fun AlertAction(
     emphasised: Boolean,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    destructive: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -300,7 +306,8 @@ internal fun AlertAction(
                 fontSize = 17.sp,
                 fontWeight = if (emphasised) FontWeight.W600 else FontWeight.W400,
             ),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else 0.4f),
+            color = (if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                .copy(alpha = if (enabled) 1f else 0.4f),
         )
     }
 }

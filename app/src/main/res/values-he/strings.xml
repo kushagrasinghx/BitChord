@@ -76,8 +76,6 @@
     <string name="lossless_source_subtitle">FLAC ו-ALAC ישירות מהמקור</string>
     <string name="overridden">נדרס</string>
     <string name="add_module_source">הוספת מקור מודול</string>
-    <string name="link">קישור</string>
-    <string name="name_optional">שם (אופציונלי)</string>
     <string name="remove_source">הסרת מקור זה</string>
     <string name="test">בדיקה</string>
     <string name="testing">בודק…</string>
@@ -248,8 +246,6 @@
     <string name="activity_name_message">מה שבא אחרי הפועל בפרופיל. השאר ריק כדי להשתמש ב-%1$s.</string>
     <string name="activity_playing">משחק</string>
     <string name="activity_watching">צופה</string>
-    <string name="add_custom_module">הוסף מודול מותאם אישית</string>
-    <string name="add_named_source">הוסף %1$s</string>
     <string name="add_to_queue">הוסף לתור</string>
     <string name="after_this_song">אחרי השיר הזה</string>
     <string name="always_on">מופעל תמיד</string>
@@ -266,7 +262,6 @@
     <string name="couldnt_find">לא מצאנו את %1$s</string>
     <string name="couldnt_open_link">לא ניתן לפתוח קישור זה</string>
     <string name="create_playlist">צור רשימת השמעה</string>
-    <string name="custom_module">מודול מותאם אישית</string>
     <string name="customize_card">התאם אישית כרטיס</string>
     <string name="customize_card_subtitle">סטטוס, ניסוח ושני הכפתורים</string>
     <string name="delete">מחק</string>
@@ -323,7 +318,6 @@
     <string name="couldnt_load_tracks">לא ניתן היה לטעון רצועות אלו</string>
     <string name="wifi_only_download_refusal">הורדות מוגבלות ל-Wi-Fi. כבה זאת בהגדרות כדי להשתמש בנתונים סלולריים.</string>
     <string name="pinned_playlist_limit">ניתן לנעוץ רק %1$d רשימות השמעה</string>
-    <string name="custom_module_description">אינדקס מודול תואם, ינוסה לפני המקור המובנה. שמירה תחליף את המודול המותאם אישית הנוכחי.</string>
     <string name="downloaded_playlist">רשימת השמעה שהורדה</string>
     <string name="library_sign_in_description">היכנס לחשבון הגוגל שלך כדי לראות את השירים שאהבת, רשימות ההשמעה והיסטוריית ה-YouTube Music.</string>
     <string name="downloads_progress">הורדות · %1$d%%</string>
@@ -370,8 +364,6 @@
     <string name="max_delay_subtitle">עיכוב scrobble מקסימלי בשניות</string>
     <string name="min_song_duration">משך שיר מינימלי</string>
     <string name="min_song_duration_subtitle">שירים קצרים יותר לא יתועדו</string>
-    <string name="module_index_description">הדבק את כתובת ה-URL של JSON לאינדקס מודול תואם. זה יכול לרשום תוספי JavaScript המחפשים ומזרימים משירותים כגון Tidal, Qobuz ו-Apple Music.</string>
-    <string name="module_index_url">כתובת אתר לאינדקס המודול</string>
     <string name="monthly_listeners">%1$s מאזינים חודשיים</string>
     <string name="name">שם</string>
     <string name="no_lyrics_for_track">אין מילים לרצועה זו</string>
@@ -400,7 +392,6 @@
     <string name="remove_from_playlist">הסר מרשימת השמעה זו</string>
     <string name="remove_from_queue">הסר מהתור</string>
     <string name="rename_playlist">שנה שם רשימת ההשמעה</string>
-    <string name="replace_custom_module">החלף מודול מותאם אישית</string>
     <string name="reset_to_default">אפס לברירת מחדל</string>
     <string name="rich_presence_footer">הראה במה אתה משחק בפרופיל דיסקורד שלך.</string>
     <string name="save_name">שמור שם</string>

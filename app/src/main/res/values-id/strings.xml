@@ -71,8 +71,6 @@
     <string name="lossless_source_subtitle">FLAC dan ALAC langsung dari sumber</string>
     <string name="overridden">Ditimpa</string>
     <string name="add_module_source">Tambahkan sumber modul</string>
-    <string name="link">Tautan</string>
-    <string name="name_optional">Nama (opsional)</string>
     <string name="remove_source">Hapus sumber ini</string>
     <string name="test">Uji</string>
     <string name="testing">Menguji…</string>
@@ -244,8 +242,6 @@
     <string name="activity_name_message">Apa yang mengikuti kata kerja di profil. Kosongkan untuk menggunakan %1$s.</string>
     <string name="activity_playing">Bermain</string>
     <string name="activity_watching">Menonton</string>
-    <string name="add_custom_module">Tambahkan modul kustom</string>
-    <string name="add_named_source">Tambahkan %1$s</string>
     <string name="add_to_queue">Tambahkan ke antrean</string>
     <string name="after_this_song">Setelah lagu ini</string>
     <string name="always_on">Selalu aktif</string>
@@ -262,7 +258,6 @@
     <string name="couldnt_find">Tidak dapat menemukan %1$s</string>
     <string name="couldnt_open_link">Tidak dapat membuka tautan itu</string>
     <string name="create_playlist">Buat playlist</string>
-    <string name="custom_module">Modul kustom</string>
     <string name="customize_card">Sesuaikan kartu</string>
     <string name="customize_card_subtitle">Status, teks, dan kedua tombol</string>
     <string name="delete">Hapus</string>
@@ -319,7 +314,6 @@
     <string name="couldnt_load_tracks">Tidak dapat memuat trek ini</string>
     <string name="wifi_only_download_refusal">Unduhan dibatasi hanya lewat Wi-Fi. Nonaktifkan itu di Pengaturan untuk menggunakan data seluler.</string>
     <string name="pinned_playlist_limit">Hanya %1$d playlist yang dapat disematkan</string>
-    <string name="custom_module_description">Indeks modul yang kompatibel, dicoba sebelum sumber bawaan. Menyimpan akan menggantikan modul kustom saat ini.</string>
     <string name="downloaded_playlist">Playlist yang diunduh</string>
     <string name="library_sign_in_description">Masuk ke akun Google Anda untuk melihat lagu yang disukai, playlist, dan riwayat YouTube Music Anda.</string>
     <string name="downloads_progress">Unduhan · %1$d%%</string>
@@ -393,8 +387,6 @@
     <string name="max_delay_subtitle">Penundaan scrobble maksimum dalam detik</string>
     <string name="min_song_duration">Durasi lagu minimum</string>
     <string name="min_song_duration_subtitle">Lagu yang lebih pendek tidak akan di-scrobble</string>
-    <string name="module_index_description">Tempel URL indeks modul JSON yang kompatibel. Indeks ini dapat mencantumkan plugin JavaScript yang mencari dan melakukan streaming dari layanan seperti Tidal, Qobuz, dan Apple Music.</string>
-    <string name="module_index_url">URL indeks modul</string>
     <string name="monthly_listeners">%1$s pendengar bulanan</string>
     <string name="name">Nama</string>
     <string name="no_lyrics_for_track">Tidak ada lirik untuk trek ini</string>
@@ -423,7 +415,6 @@
     <string name="remove_from_playlist">Hapus dari playlist ini</string>
     <string name="remove_from_queue">Hapus dari antrean</string>
     <string name="rename_playlist">Ganti nama playlist</string>
-    <string name="replace_custom_module">Ganti modul kustom</string>
     <string name="reset_to_default">Setel ulang ke default</string>
     <string name="rich_presence_footer">Tampilkan apa yang sedang Anda putar di profil Discord Anda.</string>
     <string name="save_name">Simpan nama</string>

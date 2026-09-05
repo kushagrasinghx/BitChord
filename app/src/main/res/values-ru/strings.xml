@@ -83,8 +83,6 @@
     <string name="lossless_source_subtitle">FLAC и ALAC прямо из источника</string>
     <string name="overridden">Переопределено</string>
     <string name="add_module_source">Добавить источник-модуль</string>
-    <string name="link">Ссылка</string>
-    <string name="name_optional">Название (необязательно)</string>
     <string name="remove_source">Удалить этот источник</string>
     <string name="test">Проверить</string>
     <string name="testing">Проверка…</string>
@@ -256,8 +254,6 @@
     <string name="activity_name_message">То, что стоит после глагола в профиле. Оставьте пустым, чтобы использовать %1$s.</string>
     <string name="activity_playing">Играет</string>
     <string name="activity_watching">Смотрит</string>
-    <string name="add_custom_module">Добавить пользовательский модуль</string>
-    <string name="add_named_source">Добавить %1$s</string>
     <string name="add_to_queue">Добавить в очередь</string>
     <string name="after_this_song">После этой песни</string>
     <string name="always_on">Всегда включено</string>
@@ -274,7 +270,6 @@
     <string name="couldnt_find">Не удалось найти %1$s</string>
     <string name="couldnt_open_link">Не удалось открыть эту ссылку</string>
     <string name="create_playlist">Создать плейлист</string>
-    <string name="custom_module">Пользовательский модуль</string>
     <string name="customize_card">Настроить карточку</string>
     <string name="customize_card_subtitle">Статус, текст и обе кнопки</string>
     <string name="delete">Удалить</string>
@@ -331,7 +326,6 @@
     <string name="couldnt_load_tracks">Не удалось загрузить эти треки</string>
     <string name="wifi_only_download_refusal">Загрузки ограничены сетью Wi-Fi. Отключите это в настройках, чтобы использовать мобильные данные.</string>
     <string name="pinned_playlist_limit">Можно закрепить не более %1$d плейлистов</string>
-    <string name="custom_module_description">Совместимый индекс модуля, который пробуется перед встроенным источником. Сохранение заменяет текущий пользовательский модуль.</string>
     <string name="downloaded_playlist">Загруженный плейлист</string>
     <string name="library_sign_in_description">Войдите в свой аккаунт Google, чтобы видеть понравившиеся песни, плейлисты и историю YouTube Music.</string>
     <string name="downloads_progress">Загрузки · %1$d%%</string>
@@ -423,8 +417,6 @@
     <string name="max_delay_subtitle">Максимальная задержка скробблинга в секундах</string>
     <string name="min_song_duration">Минимальная длительность песни</string>
     <string name="min_song_duration_subtitle">Более короткие песни не будут скробблиться</string>
-    <string name="module_index_description">Вставьте URL совместимого индекса модулей JSON. Он может содержать JavaScript-плагины для поиска и стриминга из таких сервисов, как Tidal, Qobuz и Apple Music.</string>
-    <string name="module_index_url">URL индекса модулей</string>
     <string name="monthly_listeners">%1$s слушателей в месяц</string>
     <string name="name">Название</string>
     <string name="no_lyrics_for_track">Для этого трека нет текста</string>
@@ -453,7 +445,6 @@
     <string name="remove_from_playlist">Удалить из этого плейлиста</string>
     <string name="remove_from_queue">Удалить из очереди</string>
     <string name="rename_playlist">Переименовать плейлист</string>
-    <string name="replace_custom_module">Заменить пользовательский модуль</string>
     <string name="reset_to_default">Сбросить по умолчанию</string>
     <string name="rich_presence_footer">Показывать, что вы слушаете, в вашем профиле Discord.</string>
     <string name="save_name">Сохранить название</string>

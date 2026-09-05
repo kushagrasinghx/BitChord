@@ -79,8 +79,6 @@
     <string name="lossless_source_subtitle">Doğrudan kaynaktan FLAC ve ALAC</string>
     <string name="overridden">Geçersiz kılındı</string>
     <string name="add_module_source">Modül kaynağı ekle</string>
-    <string name="link">Bağlantı</string>
-    <string name="name_optional">Ad (isteğe bağlı)</string>
     <string name="remove_source">Bu kaynağı kaldır</string>
     <string name="test">Test et</string>
     <string name="testing">Test ediliyor…</string>
@@ -272,8 +270,6 @@
     <string name="activity_name_message">Profildeki fiilin ardından ne geleceği. %1$s kullanmak için boş bırakın.</string>
     <string name="activity_playing">Çalıyor</string>
     <string name="activity_watching">İzliyor</string>
-    <string name="add_custom_module">Özel modül ekle</string>
-    <string name="add_named_source">%1$s ekle</string>
     <string name="add_to_queue">Sıraya ekle</string>
     <string name="after_this_song">Bu şarkıdan sonra</string>
     <string name="always_on">Her zaman açık</string>
@@ -290,7 +286,6 @@
     <string name="couldnt_find">%1$s bulunamadı</string>
     <string name="couldnt_open_link">Bu bağlantı açılamadı</string>
     <string name="create_playlist">Çalma listesi oluştur</string>
-    <string name="custom_module">Özel modül</string>
     <string name="customize_card">Kartı özelleştir</string>
     <string name="customize_card_subtitle">Durum, metin ve her iki düğme</string>
     <string name="delete">Sil</string>
@@ -347,7 +342,6 @@
     <string name="couldnt_load_tracks">Bu parçalar yüklenemedi</string>
     <string name="wifi_only_download_refusal">İndirmeler yalnızca Wi-Fi ile sınırlıdır. Mobil veri kullanmak için Ayarlar\'dan bunu kapatın.</string>
     <string name="pinned_playlist_limit">Yalnızca %1$d çalma listesi sabitlenebilir</string>
-    <string name="custom_module_description">Yerleşik kaynaktan önce denenen, uyumlu bir modül indeksi. Kaydetmek mevcut özel modülün yerini alır.</string>
     <string name="downloaded_playlist">İndirilen çalma listesi</string>
     <string name="library_sign_in_description">Beğendiğin şarkıları, çalma listelerini ve YouTube Music geçmişini görmek için Google hesabınla giriş yap.</string>
     <string name="downloads_progress">İndirmeler · %1$d%%</string>
@@ -435,8 +429,6 @@
     <string name="max_delay_subtitle">Saniye cinsinden maksimum scrobble gecikmesi</string>
     <string name="min_song_duration">Minimum şarkı süresi</string>
     <string name="min_song_duration_subtitle">Daha kısa şarkılar scrobble edilmez</string>
-    <string name="module_index_description">Uyumlu bir modül indeksi JSON\'ının URL\'sini yapıştırın. Tidal, Qobuz ve Apple Music gibi hizmetlerden arama yapan ve akış sağlayan JavaScript eklentilerini listeleyebilir.</string>
-    <string name="module_index_url">Modül indeksi URL\'si</string>
     <string name="monthly_listeners">%1$s aylık dinleyici</string>
     <string name="name">Ad</string>
     <string name="no_lyrics_for_track">Bu parça için söz yok</string>
@@ -465,7 +457,6 @@
     <string name="remove_from_playlist">Bu çalma listesinden kaldır</string>
     <string name="remove_from_queue">Sıradan kaldır</string>
     <string name="rename_playlist">Çalma listesini yeniden adlandır</string>
-    <string name="replace_custom_module">Özel modülü değiştir</string>
     <string name="reset_to_default">Varsayılana sıfırla</string>
     <string name="rich_presence_footer">Discord profilinde ne çaldığını göster.</string>
     <string name="save_name">Adı kaydet</string>

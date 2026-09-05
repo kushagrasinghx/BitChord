@@ -75,8 +75,6 @@
     <string name="lossless_source_subtitle">FLAC y ALAC directamente desde la fuente</string>
     <string name="overridden">Anulado</string>
     <string name="add_module_source">Añadir una fuente de módulos</string>
-    <string name="link">Enlace</string>
-    <string name="name_optional">Nombre (opcional)</string>
     <string name="remove_source">Eliminar esta fuente</string>
     <string name="test">Probar</string>
     <string name="testing">Probando…</string>
@@ -260,8 +258,6 @@
     <string name="activity_name_message">El texto que sigue al verbo en el perfil. Déjalo vacío para usar %1$s.</string>
     <string name="activity_playing">Jugando</string>
     <string name="activity_watching">Viendo</string>
-    <string name="add_custom_module">Agregar módulo personalizado</string>
-    <string name="add_named_source">Agregar %1$s</string>
     <string name="add_to_queue">Agregar a la cola</string>
     <string name="after_this_song">Después de esta canción</string>
     <string name="always_on">Siempre activo</string>
@@ -278,7 +274,6 @@
     <string name="couldnt_find">No se encontró %1$s</string>
     <string name="couldnt_open_link">No se pudo abrir ese enlace</string>
     <string name="create_playlist">Crear playlist</string>
-    <string name="custom_module">Módulo personalizado</string>
     <string name="customize_card">Personalizar la tarjeta</string>
     <string name="customize_card_subtitle">Estado, textos y ambos botones</string>
     <string name="delete">Eliminar</string>
@@ -335,7 +330,6 @@
     <string name="couldnt_load_tracks">No se pudieron cargar estas canciones</string>
     <string name="wifi_only_download_refusal">Las descargas están limitadas a Wi-Fi. Desactiva esa opción en Ajustes para usar datos móviles.</string>
     <string name="pinned_playlist_limit">Solo se pueden fijar %1$d playlists</string>
-    <string name="custom_module_description">Índice de un módulo compatible que se prueba antes de la fuente integrada. Al guardar, se reemplaza el módulo personalizado actual.</string>
     <string name="downloaded_playlist">Playlist descargada</string>
     <string name="library_sign_in_description">Inicia sesión en tu cuenta de Google para ver tus canciones favoritas, playlists e historial de YouTube Music.</string>
     <string name="downloads_progress">Descargas · %1$d%%</string>
@@ -418,8 +412,6 @@
     <string name="max_delay_subtitle">Retraso máximo del scrobbling en segundos</string>
     <string name="min_song_duration">Duración mínima de canción</string>
     <string name="min_song_duration_subtitle">Las canciones más cortas no se registrarán</string>
-    <string name="module_index_description">Pega la URL de un índice JSON compatible. Puede contener plugins JavaScript que buscan y reproducen desde servicios como Tidal, Qobuz y Apple Music.</string>
-    <string name="module_index_url">URL del índice de módulos</string>
     <string name="monthly_listeners">%1$s oyentes mensuales</string>
     <string name="name">Nombre</string>
     <string name="no_lyrics_for_track">No hay letra para esta canción</string>
@@ -448,7 +440,6 @@
     <string name="remove_from_playlist">Quitar de esta playlist</string>
     <string name="remove_from_queue">Quitar de la cola</string>
     <string name="rename_playlist">Cambiar nombre de la playlist</string>
-    <string name="replace_custom_module">Reemplazar módulo personalizado</string>
     <string name="reset_to_default">Restablecer valores predeterminados</string>
     <string name="rich_presence_footer">Muestra lo que estás escuchando en tu perfil de Discord.</string>
     <string name="save_name">Guardar nombre</string>

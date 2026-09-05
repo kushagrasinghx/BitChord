@@ -35,12 +35,12 @@ object LyricsPlus {
 
     private val lastGood = AtomicReference<String?>(null)
 
-    suspend fun lyrics(
+    suspend fun artifact(
         title: String,
         artist: String,
         durationMs: Long,
         album: String? = null,
-    ): List<LyricLine>? = coroutineScope {
+    ): LyricsArtifact? = coroutineScope {
         val hosts = lastGood.get()
             ?.let { listOf(it) + MIRRORS.filterNot { mirror -> mirror == it } }
             ?: MIRRORS
@@ -54,13 +54,13 @@ object LyricsPlus {
         // beat one that has it.
         try {
             while (pending.isNotEmpty()) {
-                val (host, lines) = select {
+                val (host, artifact) = select {
                     pending.forEach { (host, job) -> job.onAwait { host to it } }
                 }
                 pending.removeAll { it.first == host }
-                if (!lines.isNullOrEmpty()) {
+                if (artifact != null) {
                     lastGood.set(host)
-                    return@coroutineScope lines
+                    return@coroutineScope artifact
                 }
             }
             null
@@ -75,7 +75,7 @@ object LyricsPlus {
         artist: String,
         durationMs: Long,
         album: String?,
-    ): List<LyricLine>? = withContext(Dispatchers.IO) {
+    ): LyricsArtifact? = withContext(Dispatchers.IO) {
         val url = "$host/v2/lyrics/get".toHttpUrl().newBuilder()
             .addQueryParameter("title", title)
             .addQueryParameter("artist", artist)
@@ -89,8 +89,16 @@ object LyricsPlus {
         val body = lyricsGet(url.toString()) ?: return@withContext null
         val response = runCatching { lyricsJson.decodeFromString<Response>(body) }.getOrNull()
             ?: return@withContext null
-        parse(response).takeIf { it.isNotEmpty() }
+        val lines = parse(response).takeIf { it.isNotEmpty() } ?: return@withContext null
+        LyricsSerializer.fromLines(LyricsSource.LYRICS_PLUS, lines)
     }
+
+    suspend fun lyrics(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+    ): List<LyricLine>? = artifact(title, artist, durationMs, album)?.lines
 
     internal fun parse(response: Response): List<LyricLine> =
         response.lyrics.orEmpty().mapNotNull { line ->

@@ -23,12 +23,12 @@ object BetterLyrics {
 
     private const val BASE = "https://lyrics-api.boidu.dev/getLyrics"
 
-    suspend fun lyrics(
+    suspend fun artifact(
         title: String,
         artist: String,
         durationMs: Long,
         album: String? = null,
-    ): List<LyricLine>? = withContext(Dispatchers.IO) {
+    ): LyricsArtifact? = withContext(Dispatchers.IO) {
         val url = BASE.toHttpUrl().newBuilder()
             .addQueryParameter("s", title)
             .addQueryParameter("a", artist)
@@ -45,6 +45,19 @@ object BetterLyrics {
                 ?.get("ttml")?.jsonPrimitive?.contentOrNull
         }.getOrNull() ?: return@withContext null
 
-        TtmlLyrics.parse(ttml).takeIf { it.isNotEmpty() }
+        val lines = TtmlLyrics.parse(ttml).takeIf { it.isNotEmpty() } ?: return@withContext null
+        LyricsArtifact(
+            source = LyricsSource.BETTER_LYRICS,
+            format = LyricsArtifactFormat.TTML,
+            content = ttml,
+            lines = lines,
+        )
     }
+
+    suspend fun lyrics(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+    ): List<LyricLine>? = artifact(title, artist, durationMs, album)?.lines
 }

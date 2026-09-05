@@ -4,10 +4,18 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
-import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
+import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.innertube.StreamResolver
+import com.music.bitchord.data.lyrics.LyricsArtifact
+import com.music.bitchord.data.lyrics.LyricsRepository
+import com.music.bitchord.data.lyrics.LyricsSerializer
+import com.music.bitchord.data.lyrics.toEnhancedLrc
+import com.music.bitchord.data.lyrics.toLrc
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceResolver
@@ -46,30 +54,38 @@ sealed interface DownloadState {
     data class Failed(val reason: String) : DownloadState
 }
 
+/** The lifecycle state of a track's lyrics file. */
+enum class LyricsDownloadState {
+    NOT_REQUESTED,
+    DOWNLOADING,
+    SAVED,
+    FAILED,
+    UNAVAILABLE,
+}
+
+/** A queued download item: either a full audio track or lyrics enrichment only. */
+data class PendingDownload(
+    val song: Song,
+    val lyricsOnly: Boolean = false,
+    val from: String? = null,
+)
+
 /**
  * The download queue, and the record of what came out of it.
  *
- * Split deliberately into two pieces of state that look similar and behave
- * nothing alike:
- *
- *  - [active] is what is happening now — queued, running, just failed. It lives
- *    in memory, is driven by [DownloadService], and is empty on a cold start
- *    because a download interrupted by the process dying did not happen.
- *  - [saved] is what exists on disk, keyed by videoId and remembered across
- *    launches. It is the only way the app can answer "do I already have this?"
- *    without a media-store query per row, and the only way it knows *which*
- *    file a track corresponds to when asked to delete it.
- *
- * [saved] is a claim about a folder this app does not own. The user is expected
- * to manage Downloads with a file manager, so an entry here can outlive the
- * file it names — which is why every read of it goes through [savedUri], and
- * why that verifies before it answers.
+ * Downloads both the audio stream and the synchronized lyrics. The lyric lookup
+ * is initiated concurrently with the audio transfer, eliminating idle latency
+ * while ensuring both the audio file and its matching sidecar are ready together.
  */
 object Downloads {
 
     private const val TAG = "BitChord"
+    private const val KEY_SAVED = "downloaded_tracks"
     private const val KEY_SAVED_METADATA = "downloaded_tracks_metadata"
     private const val KEY_SAVED_COLLECTIONS = "downloaded_collections"
+
+    private const val LOSSLESS_LOOKUP_MS = 20_000L
+    private const val LYRICS_LOOKUP_MS = 15_000L
 
     private lateinit var prefs: SharedPreferences
     private val json = Json { ignoreUnknownKeys = true }
@@ -104,27 +120,19 @@ object Downloads {
     }
 
     private val _saved = MutableStateFlow<Map<String, String>>(emptyMap())
-
-    /** videoId to the uri of the file saved for it. */
     val saved: StateFlow<Map<String, String>> = _saved.asStateFlow()
 
     private val _savedMetadata = MutableStateFlow<Map<String, SavedSongMetadata>>(emptyMap())
+    val savedMetadata: StateFlow<Map<String, SavedSongMetadata>> = _savedMetadata.asStateFlow()
+
+    private val _lyricsActive = MutableStateFlow<Set<String>>(emptySet())
+    val lyricsActive: StateFlow<Set<String>> = _lyricsActive.asStateFlow()
 
     private val _collections = MutableStateFlow<Map<String, SavedCollection>>(emptyMap())
-
-    /**
-     * The releases that were downloaded *as* releases, by the id they were asked
-     * for under.
-     *
-     * Read by the Downloads page so a batch download reads back as the thing
-     * that was tapped. Exposed rather than kept private because the page is a
-     * snapshot and has to be retaken when this changes — see
-     * [collectionsAmong], which is what turns it into something drawable.
-     */
     val collections: StateFlow<Map<String, SavedCollection>> = _collections.asStateFlow()
 
     /** Waiting, in the order asked for. Guarded by [lock]. */
-    private val pending = LinkedHashMap<String, Song>()
+    private val pending = LinkedHashMap<String, PendingDownload>()
 
     private val lock = Any()
 
@@ -156,31 +164,9 @@ object Downloads {
 
     // ---- Asking -------------------------------------------------------------
 
-    /**
-     * Queue [song], and make sure something is draining the queue.
-     *
-     * A track already saved, queued or running is left alone rather than
-     * doubled — the menu row shows which of those it is, but a second tap
-     * before the sheet updates should still be a no-op.
-     *
-     * The Wi-Fi-only check is here rather than only at the tap because this is
-     * the one door into the queue, and a setting that can be bypassed by a
-     * caller that forgot about it is not a setting. Callers that can say
-     * something better than a failed row — a single toast for a whole album, say
-     * — check [AppSettings.downloadsAllowedNow] themselves first; this is what
-     * catches the rest.
-     *
-     * @param from what release this track was asked for as part of, when it was
-     *   one of many. Carried no further than [DownloadSession], which is the
-     *   only thing that has to say *why* forty tracks are in the queue.
-     */
     fun enqueue(context: Context, song: Song, from: String? = null) {
         val id = song.videoId
         if (!AppSettings.downloadsAllowedNow) {
-            // Distinct from the duplicate-tap no-op below: nothing is in flight
-            // here to leave alone, and a refusal nobody is told about reads as a
-            // dead button. A download already queued or running started on a
-            // connection that allowed it and is none of this check's business.
             val inFlight = _active.value[id]
             if (inFlight !is DownloadState.Queued && inFlight !is DownloadState.Running) {
                 DownloadSession.queued(song, from)
@@ -190,20 +176,35 @@ object Downloads {
         }
         synchronized(lock) {
             if (id in pending || id in running) return
-            pending[id] = song
+            pending[id] = PendingDownload(song, lyricsOnly = false, from = from)
         }
         _active.update { it + (id to DownloadState.Queued) }
         DownloadSession.queued(song, from)
+        startService(context, id)
+    }
 
+    fun enqueueLyrics(context: Context, song: Song) {
+        val id = song.videoId
+        if (!AppSettings.downloadsAllowedNow) {
+            fail(id, WIFI_ONLY_REFUSAL)
+            return
+        }
+        synchronized(lock) {
+            if (id in pending || id in running) return
+            pending[id] = PendingDownload(song, lyricsOnly = true)
+        }
+        _lyricsActive.update { it + id }
+        startService(context, id)
+    }
+
+    private fun startService(context: Context, id: String) {
         val app = context.applicationContext
         runCatching {
             ContextCompat.startForegroundService(app, Intent(app, DownloadService::class.java))
         }.onFailure {
-            // Refused only when the app has no window and no exemption, which
-            // means the queue has nothing to drain it and would sit there
-            // looking accepted forever.
             Log.w(TAG, "could not start the download service: ${it.message}")
             synchronized(lock) { pending.remove(id) }
+            _lyricsActive.value = _lyricsActive.value - id
             fail(id, "Downloads can't start right now")
         }
     }
@@ -225,20 +226,12 @@ object Downloads {
         }
         job?.cancel()
         clear(videoId)
-        // A download the user called off is not something they need reminding to
-        // check on, so it leaves the manager rather than sitting in it as a
-        // permanent "cancelled" row.
+        _lyricsActive.update { it - videoId }
         DownloadSession.forget(videoId)
     }
 
     // ---- The record ---------------------------------------------------------
 
-    /**
-     * The file saved for [videoId], or null — pruning the record if the file
-     * has been deleted from under it.
-     *
-     * Touches the filesystem, so call it off the main thread.
-     */
     suspend fun savedUri(context: Context, videoId: String): Uri? = withContext(Dispatchers.IO) {
         val recorded = _saved.value[videoId] ?: return@withContext null
         val uri = recorded.toUri()
@@ -300,6 +293,9 @@ object Downloads {
     suspend fun delete(context: Context, videoId: String): Boolean = withContext(Dispatchers.IO) {
         val uri = _saved.value[videoId]?.toUri() ?: return@withContext false
         val deleted = DownloadStore.delete(context, uri)
+        _savedMetadata.value[videoId]?.lyricsUri?.toUri()?.let { sidecarUri ->
+            LyricsSidecarStore.delete(context, sidecarUri)
+        }
         forget(videoId)
         deleted
     }
@@ -330,30 +326,6 @@ object Downloads {
 
     // ---- Releases -----------------------------------------------------------
 
-    /**
-     * Remember that [songs] were asked for as one release rather than one at a
-     * time.
-     *
-     * The reason this exists at all: a batch download used to be indistinguishable
-     * from forty separate ones the moment it finished. What reached the Downloads
-     * page was forty rows, and the only thing that could group them back up was
-     * whatever album tag each row happened to carry — which an album page's rows
-     * don't carry at all (the release is billed once, in the header) and a
-     * playlist's rows *never* can, because a playlist is not an album and its
-     * tracks are off forty different ones. So the thing the user tapped was the
-     * one thing not written down anywhere.
-     *
-     * Recorded at the tap rather than on completion, and keyed by the id that
-     * was tapped, so re-downloading the same release updates one entry instead
-     * of accumulating near-duplicates. The order is the running order the page
-     * had, which is what makes the entry read back as the release rather than as
-     * a bag of tracks.
-     *
-     * Nothing here asserts the files exist. That is deliberate and matches
-     * [saved]: this is a record of what was *asked* for, and which of those
-     * tracks is actually on disk is answered where it is read — see
-     * [collectionsAmong].
-     */
     fun rememberCollection(target: DownloadTarget, songs: List<Song>) {
         if (songs.isEmpty()) return
         val existing = _collections.value[target.id]
@@ -364,16 +336,11 @@ object Downloads {
             subtitle = target.subtitle,
             thumbnailUrl = target.thumbnailUrl ?: existing?.thumbnailUrl,
             playlist = target.playlist,
-            // A release fetched in pages can be downloaded twice from two
-            // different depths of the same page, so the two asks are merged
-            // rather than the second replacing the first — but the new order
-            // leads, since it is the one just seen on screen.
             videoIds = (ids + (existing?.videoIds ?: emptyList())).distinct(),
         )
         recordCollections(_collections.value + (target.id to record))
     }
 
-    /** Drop a release from the record without touching the files under it. */
     fun forgetCollection(id: String) {
         if (id !in _collections.value) return
         recordCollections(_collections.value - id)
@@ -395,49 +362,13 @@ object Downloads {
         return any
     }
 
-    /**
-     * How one downloaded playlist is addressed as a page of its own.
-     *
-     * Under `local:` deliberately: that prefix is how the rest of the app asks
-     * "is this already on the device?", and it is what keeps the download button
-     * off such a page's header and out of its menu. What it must not be taken
-     * for is one of the two device *folders* — `local:downloads` and `local:all`
-     * open the tabbed Songs / Artists / Albums view, and this opens a plain
-     * track listing — so it gets a segment of its own rather than an id in the
-     * same namespace.
-     *
-     * Playlists only, which is why the word is in the prefix. A downloaded album
-     * stamps its name onto each of its tracks, so the Albums tab groups it back
-     * up without being told; a playlist's tracks are off forty different releases
-     * and no tag on any of them names it, so it is the one that needs a page.
-     */
     const val PLAYLIST_PREFIX = "local:playlist:"
 
-    /** The page id for the release recorded under [id]. */
     fun pageIdFor(id: String): String = PLAYLIST_PREFIX + id
 
-    /** The release [pageIdFor] built [browseId] from, or null if it didn't. */
     fun recordIdOf(browseId: String): String? =
         browseId.removePrefix(PLAYLIST_PREFIX).takeIf { it != browseId && it.isNotEmpty() }
 
-    /**
-     * The playlists downloaded whole, in name order, without their tracks.
-     *
-     * What the Library page's On Device shelf draws a card from. Unlike
-     * [collectionsAmong] there is no track list here to prune against — that
-     * page never reads the folder — so this prunes against [onDisk] instead,
-     * which drops a playlist once the last file recorded for it has been deleted
-     * *through this app* and keeps the rest. That is the same claim [saved] makes
-     * everywhere else, and opening the card is what settles it either way.
-     *
-     * It is also what keeps a playlist off the shelf between the tap that queues
-     * it and the first track landing: [rememberCollection] writes the record at
-     * the tap, and a playlist with nothing downloaded yet is not on the device.
-     *
-     * [onDisk] is a parameter for the same reason [collectionsAmong] takes its
-     * songs: the rule is worth stating on a known folder rather than only on
-     * whatever this process happens to have recorded.
-     */
     fun savedPlaylists(onDisk: Map<String, String> = _saved.value): List<SavedCollection> {
         if (_collections.value.isEmpty()) return emptyList()
         return _collections.value.values
@@ -445,22 +376,6 @@ object Downloads {
             .sortedBy { it.title.lowercase(Locale.ROOT) }
     }
 
-    /**
-     * The releases at least one of [songs] belongs to, each with its own tracks
-     * picked out of that list.
-     *
-     * Given the page's own songs rather than reading the disk itself, because
-     * the page has already done that work — every row in it is a file that was
-     * there when it was taken — and a release is only worth drawing for the
-     * tracks that survived. A release whose files have all been deleted from a
-     * file manager therefore disappears from the page without anything having to
-     * notice it went.
-     *
-     * The lookup goes through [saved] as well as by id because one file answers
-     * to two of them: a music video is swapped for its catalogue track on the
-     * way down (see [remember]) and the page keeps whichever of the pair it
-     * listed first, which is not necessarily the id the release named.
-     */
     fun collectionsAmong(songs: List<Song>): List<DownloadedCollection> {
         if (songs.isEmpty() || _collections.value.isEmpty()) return emptyList()
         val byId = songs.associateBy { it.videoId }
@@ -505,7 +420,13 @@ object Downloads {
      * still know it is already on the device. A stale id costs nothing: the
      * verification in [savedUri] prunes whichever one stops resolving.
      */
-    private fun remember(asked: Song, fetched: Song, uri: Uri, downloadFormat: String? = null) {
+    private fun remember(
+        asked: Song,
+        fetched: Song,
+        uri: Uri,
+        downloadFormat: String? = null,
+        lyrics: LyricsResult? = null,
+    ) {
         val ids = setOf(asked.videoId, fetched.videoId)
         // HLS packages cannot carry MP4 tags. Point the app's own metadata at
         // the cover saved beside their playlist so Downloads remains fully
@@ -520,6 +441,9 @@ object Downloads {
         // is both, and an album page's rows are neither.
         val album = fetched.albumName?.takeIf { it.isNotBlank() }
             ?: asked.albumName?.takeIf { it.isNotBlank() }
+        val prevAsked = _savedMetadata.value[asked.videoId]
+        val prevFetched = _savedMetadata.value[fetched.videoId]
+
         val metaAsked = SavedSongMetadata(
             videoId = asked.videoId,
             title = asked.title,
@@ -528,7 +452,11 @@ object Downloads {
             durationText = asked.durationText,
             albumName = album,
             uri = uri.toString(),
-            downloadFormat = downloadFormat,
+            downloadFormat = downloadFormat ?: prevAsked?.downloadFormat,
+            lyricsUri = lyrics?.uri ?: prevAsked?.lyricsUri,
+            lyricsSource = lyrics?.source ?: prevAsked?.lyricsSource,
+            lyricsFormat = lyrics?.format ?: prevAsked?.lyricsFormat,
+            lyricsState = lyrics?.state ?: prevAsked?.lyricsState ?: LyricsDownloadState.NOT_REQUESTED,
         )
         val metaFetched = SavedSongMetadata(
             videoId = fetched.videoId,
@@ -538,12 +466,43 @@ object Downloads {
             durationText = fetched.durationText,
             albumName = album,
             uri = uri.toString(),
-            downloadFormat = downloadFormat,
+            downloadFormat = downloadFormat ?: prevFetched?.downloadFormat,
+            lyricsUri = lyrics?.uri ?: prevFetched?.lyricsUri,
+            lyricsSource = lyrics?.source ?: prevFetched?.lyricsSource,
+            lyricsFormat = lyrics?.format ?: prevFetched?.lyricsFormat,
+            lyricsState = lyrics?.state ?: prevFetched?.lyricsState ?: LyricsDownloadState.NOT_REQUESTED,
         )
         record(
             saved = { it + ids.associateWith { id -> uri.toString() } },
             meta = {
                 it + mapOf(asked.videoId to metaAsked, fetched.videoId to metaFetched)
+            },
+        )
+    }
+
+    private fun updateLyricsMetadata(videoId: String, lyrics: LyricsResult) {
+        record(
+            saved = { it },
+            meta = { map ->
+                val existing = map[videoId] ?: return@record map
+                map + (
+                    videoId to existing.copy(
+                        lyricsUri = lyrics.uri,
+                        lyricsSource = lyrics.source,
+                        lyricsFormat = lyrics.format,
+                        lyricsState = lyrics.state,
+                    )
+                )
+            },
+        )
+    }
+
+    private fun updateLyricsState(videoId: String, state: LyricsDownloadState) {
+        record(
+            saved = { it },
+            meta = { map ->
+                val existing = map[videoId] ?: return@record map
+                map + (videoId to existing.copy(lyricsState = state))
             },
         )
     }
@@ -595,6 +554,9 @@ object Downloads {
                             albumName = meta.albumName,
                             localUri = meta.uri,
                             downloadFormat = meta.downloadFormat,
+                            localLyricsUri = meta.lyricsUri,
+                            localLyricsSource = meta.lyricsSource,
+                            localLyricsFormat = meta.lyricsFormat,
                         )
                     )
                 }
@@ -605,25 +567,26 @@ object Downloads {
         result
     }
 
-    private fun String.toUri(): Uri = Uri.parse(this)
+    fun savedLyricsUri(videoId: String): String? = _savedMetadata.value[videoId]?.lyricsUri
+
+    fun savedLyricsSource(videoId: String): String? = _savedMetadata.value[videoId]?.lyricsSource
+
+    fun savedLyricsFormat(videoId: String): String? = _savedMetadata.value[videoId]?.lyricsFormat
+
+    fun savedLyricsState(videoId: String): LyricsDownloadState =
+        _savedMetadata.value[videoId]?.lyricsState ?: LyricsDownloadState.NOT_REQUESTED
+
+    fun hasLyrics(videoId: String): Boolean = savedLyricsUri(videoId) != null
 
     // ---- Driven by DownloadService -----------------------------------------
 
-    /**
-     * The next track to fetch, or null when the queue is empty.
-     *
-     * Claims it as running under the same lock that removed it, so there is no
-     * instant where a track is in neither the queue nor the running slot and a
-     * [cancel] for it would quietly do nothing.
-     */
-    internal fun takeNext(): Song? = synchronized(lock) {
+    internal fun takeNext(): PendingDownload? = synchronized(lock) {
         val entry = pending.entries.firstOrNull() ?: return null
         pending.remove(entry.key)
         running[entry.key] = null
         entry.value
     }
 
-    /** Attach the job fetching [videoId], unless it has been cancelled meanwhile. */
     internal fun onRunning(videoId: String, job: Job) {
         val cancelled = synchronized(lock) {
             if (videoId !in running) return@synchronized true
@@ -654,30 +617,14 @@ object Downloads {
     }
 
     /**
-     * Fetch one track, start to finish.
-     *
-     * Two halves, and the split is what lets a queue go at any speed: [prepare]
-     * decides where the bytes come from and [transfer] moves them. Everything
-     * that can go wrong past the point of reserving a destination has to
-     * unreserve it — a cancelled or failed download must not leave a partial
-     * file behind pretending to be a whole one, which is what
-     * [DownloadStore.Pending] exists to make hard to get wrong.
-     *
-     * Pinned to [Dispatchers.IO] here rather than trusted to arrive on it.
-     * Resolving a stream blocks on HTTP and runs YouTube's player JavaScript
-     * through Rhino, and [DownloadService] drives this from a main-thread scope
-     * so its notification work stays where it belongs — inheriting that would
-     * put every network call in the resolve on the main thread, where they
-     * don't fail loudly so much as fail *uniformly*: `NetworkOnMainThreadException`
-     * is caught by the same per-client `runCatching` that exists to tolerate a
-     * client being turned away, so every client appears to be refused and the
-     * whole thing reads as a network outage.
-     *
-     * Several of these run at once — see [DownloadService]. Nothing in here is
-     * shared between them but the two state flows, and both are written through
-     * atomic updates for exactly that reason.
+     * Fetch one track or its lyrics, start to finish.
      */
-    internal suspend fun run(context: Context, song: Song) = withContext(Dispatchers.IO) {
+    internal suspend fun run(context: Context, task: PendingDownload) = withContext(Dispatchers.IO) {
+        val (song, lyricsOnly) = task
+        if (lyricsOnly) {
+            runLyricsOnly(context, song)
+            return@withContext
+        }
         val id = song.videoId
         // Set before the lookup, not after it. Resolving where a lossless track
         // comes from is the long part of a download, and leaving the row on
@@ -702,6 +649,8 @@ object Downloads {
             fail(id, e.friendly())
         }
     }
+
+    internal suspend fun run(context: Context, song: Song) = run(context, PendingDownload(song))
 
     /**
      * Everything that has to be known before a byte can be asked for, and
@@ -799,6 +748,7 @@ object Downloads {
 
         var pending: DownloadStore.Pending? = null
         var lyrics: Deferred<LyricsTag.Embeddable?>? = null
+        var lyricsArtifact: Deferred<LyricsArtifact?>? = null
         var artwork: Deferred<MediaTagger.Artwork?>? = null
         try {
             coroutineScope {
@@ -819,6 +769,7 @@ object Downloads {
                 // sidecars for exactly the same lyrics and full-resolution cover.
                 if (route.taggable && (route.offlineHls != null || MediaTagger.carriesTags(route.extension))) {
                     lyrics = async { LyricsTag.forTrack(track) }
+                    lyricsArtifact = async { fetchLyrics(song, track) }
                     artwork = async { MediaTagger.artworkFor(track) }
                 }
 
@@ -826,12 +777,31 @@ object Downloads {
                 val alreadyThere = DownloadStore.existing(context, name)
                 if (alreadyThere != null) {
                     Log.d(TAG, "$name is already in Music; adopting it")
-                    remember(song, track, alreadyThere)
+                    val artifact = lyricsArtifact?.await()
+                    val lyricsResult = saveLyricsSidecar(context, name, artifact)
+                    remember(song, track, alreadyThere, route.downloadFormat, lyricsResult)
                     DownloadSession.done(id)
                     clear(id)
                     return@coroutineScope
                 }
 
+                if (route.offlineHls != null) {
+                    val savedUri = OfflineHls.save(
+                        context = context,
+                        id = id,
+                        url = route.offlineHls.url,
+                        headers = route.offlineHls.headers,
+                        onProgress = { written, total ->
+                            val fraction = written.toFloat() / total
+                            _active.update { it + (id to DownloadState.Running(fraction)) }
+                            DownloadSession.running(id, fraction)
+                        },
+                        lyrics = lyrics?.await(),
+                        artwork = artwork?.await(),
+                    )
+                    val artifact = lyricsArtifact?.await()
+                    val lyricsResult = saveLyricsSidecar(context, name, artifact)
+                    remember(song, track, savedUri, route.downloadFormat, lyricsResult)
                 val manifest = route.offlineHls
                 if (manifest != null) {
                     val onSegment: (Long, Long) -> Unit = { written, total ->
@@ -878,12 +848,15 @@ object Downloads {
                 }
                 val words = lyrics?.await()
                 val cover = artwork?.await()
+                val artifact = lyricsArtifact?.await()
+                val lyricsResult = saveLyricsSidecar(context, name, artifact)
+
                 // Publish only after metadata is part of the file. This keeps
                 // concurrent album workers from exposing untagged tracks.
                 MediaTagger.embed(context, destination.tagUri, track, route.extension, words, cover)
                 val savedUri = destination.commit()
                 pending = null
-                remember(song, track, savedUri, route.downloadFormat)
+                remember(song, track, savedUri, route.downloadFormat, lyricsResult)
                 DownloadSession.done(id)
                 clear(id)
                 Log.d(TAG, "saved $name")
@@ -892,15 +865,131 @@ object Downloads {
             pending?.abort()
             throw e
         } finally {
-            // Every exit needs this, not just the failing ones: the adopt-it
-            // path above returns with the lookup still in flight, and
-            // [coroutineScope] does not return while a child of it is running —
-            // so an unwaited job would hold the whole queue up for the length of
-            // a lyrics search per already-downloaded track.
             lyrics?.cancel()
+            lyricsArtifact?.cancel()
             artwork?.cancel()
         }
     }
+
+    private suspend fun runLyricsOnly(context: Context, song: Song) = withContext(Dispatchers.IO) {
+        val id = song.videoId
+        _lyricsActive.update { it + id }
+        try {
+            val audioUri = savedUri(context, id)
+            if (audioUri == null) {
+                updateLyricsState(id, LyricsDownloadState.FAILED)
+                return@withContext
+            }
+
+            val track = runCatching { YtMusicRepository.resolveAudio(song) }.getOrDefault(song)
+            val artifact = fetchLyrics(song, track)
+
+            if (artifact == null) {
+                updateLyricsState(id, LyricsDownloadState.UNAVAILABLE)
+                return@withContext
+            }
+
+            val displayName = DownloadStore.displayName(context, audioUri)
+                ?: DownloadStore.fileNameFor(song, "m4a")
+            val extension = displayName.substringAfterLast('.', "m4a")
+
+            val lyricsResult = saveLyricsSidecar(context, displayName, artifact)
+            runCatching {
+                val embeddable = LyricsTag.Embeddable(
+                    plain = artifact.lines.toLrc(),
+                    enhanced = artifact.lines.toEnhancedLrc().takeIf { it.isNotBlank() },
+                )
+                MediaTagger.embed(context, audioUri, track, extension, embeddable)
+            }.onFailure {
+                Log.w(TAG, "could not embed lyrics tag in $displayName: ${it.message}")
+            }
+            if (lyricsResult?.state == LyricsDownloadState.SAVED) {
+                updateLyricsMetadata(id, lyricsResult)
+            } else {
+                updateLyricsState(id, lyricsResult?.state ?: LyricsDownloadState.FAILED)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "lyrics-only download failed for $id: ${e.message}", e)
+            updateLyricsState(id, LyricsDownloadState.FAILED)
+        } finally {
+            _lyricsActive.update { it - id }
+        }
+    }
+
+    private suspend fun fetchLyrics(asked: Song, track: Song): LyricsArtifact? {
+        val sources = if (AppSettings.syncedLyrics.value) {
+            AppSettings.lyricsSources.value
+        } else {
+            emptySet()
+        }
+        if (sources.isEmpty()) return null
+
+        val durationMs = track.durationMillis().takeIf { it > 0L }
+            ?: TrackMatcher.secondsOf(track.durationText ?: asked.durationText)?.times(1000L)
+            ?: 0L
+        if (durationMs <= 0L) {
+            Log.d(TAG, "no duration for ${track.videoId}; skipping lyrics")
+            return null
+        }
+
+        val result = withTimeoutOrNull(LYRICS_LOOKUP_MS) {
+            try {
+                LyricsRepository.lyrics(
+                    videoId = asked.videoId,
+                    title = track.title,
+                    artist = track.artist,
+                    durationMs = durationMs,
+                    album = track.albumName,
+                    sources = sources,
+                )
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "lyrics lookup failed for ${track.videoId}: ${e.message}")
+                null
+            }
+        } ?: return null
+
+        val artifact = result.artifact ?: return null
+        if (artifact.lines.none { it.text.isNotBlank() }) return null
+        if (artifact.content.length > LyricsSerializer.MAX_LYRICS_CHARS) {
+            Log.w(TAG, "lyrics for ${track.videoId} exceed ${LyricsSerializer.MAX_LYRICS_CHARS} chars; skipping")
+            return null
+        }
+        return artifact
+    }
+
+    private fun saveLyricsSidecar(
+        context: Context,
+        audioName: String,
+        artifact: LyricsArtifact?,
+    ): LyricsResult? {
+        if (artifact == null) return null
+        val sidecarName = LyricsSidecarStore.fileNameFor(audioName, artifact)
+        val sidecarUri = runCatching {
+            LyricsSidecarStore.write(context, sidecarName, artifact)
+        }.onFailure {
+            Log.w(TAG, "could not write lyrics sidecar $sidecarName: ${it.message}")
+        }.getOrNull() ?: return LyricsResult(LyricsDownloadState.FAILED)
+
+        return LyricsResult(
+            state = LyricsDownloadState.SAVED,
+            uri = sidecarUri.toString(),
+            source = artifact.source.name,
+            format = artifact.format.name,
+        )
+    }
+
+    private class LyricsResult(
+        val state: LyricsDownloadState,
+        val uri: String? = null,
+        val source: String? = null,
+        val format: String? = null,
+    )
+
+    // ---- Routing ------------------------------------------------------------
 
     /**
      * One resolved download: what to call the file, what to tell the store it
@@ -915,7 +1004,6 @@ object Downloads {
     internal class Route(
         val extension: String,
         val mimeType: String,
-        /** For the log line, so a download's provenance is on the record. */
         val describe: String,
         /** Short premium-rendition badge shown only in BitChord's Downloads list. */
         val downloadFormat: String? = null,
@@ -1057,7 +1145,6 @@ object Downloads {
         return stream to storable
     }
 
-    /** Back to "not downloaded" — used for success, where [saved] takes over, and for cancellation. */
     private fun clear(videoId: String) {
         _active.update { it - videoId }
     }
@@ -1067,18 +1154,6 @@ object Downloads {
         DownloadSession.failed(videoId, reason)
     }
 
-    /**
-     * A failure a user can read. The message on an [error] raised in this
-     * package is already written for them; anything else is a network fault
-     * with a class name for a message.
-     *
-     * [IllegalArgumentException] is in here because of one that wasn't: the
-     * media store throws it for a MIME type it won't accept, and for a while
-     * every download on this device failed that way and reported itself as a
-     * connection problem. The message it carries is not written for a user, but
-     * `Unsupported MIME type audio/webm` at least sends someone looking in the
-     * right direction.
-     */
     private fun Exception.friendly(): String = when {
         (this is IllegalStateException || this is IllegalArgumentException) &&
             !message.isNullOrBlank() -> message!!
@@ -1149,27 +1224,22 @@ object Downloads {
     fun dismissFailure(videoId: String) {
         if (_active.value[videoId] is DownloadState.Failed) clear(videoId)
     }
-
-    private const val KEY_SAVED = "downloaded_tracks"
 }
 
 @kotlinx.serialization.Serializable
-internal data class SavedSongMetadata(
+data class SavedSongMetadata(
     val videoId: String,
     val title: String,
     val artist: String,
     val thumbnailUrl: String? = null,
     val durationText: String? = null,
-    /**
-     * What release this track is off, when the row it was downloaded from knew.
-     *
-     * Added after the fact and defaulted, so a record written before it existed
-     * still decodes — those entries come back with a null album and are filled
-     * in from the file's own tags instead, see LocalMediaRepository.
-     */
     val albumName: String? = null,
     val uri: String,
     val downloadFormat: String? = null,
+    val lyricsUri: String? = null,
+    val lyricsSource: String? = null,
+    val lyricsFormat: String? = null,
+    val lyricsState: LyricsDownloadState = LyricsDownloadState.NOT_REQUESTED,
 )
 
 /** Labels intentionally only distinguish premium formats, not ordinary AAC/Opus downloads. */
@@ -1189,27 +1259,13 @@ private fun StreamFormat.downloadBadge(): String? = when {
  * which is the honest answer there: one song off an album is not the album.
  */
 data class DownloadTarget(
-    /**
-     * What this release is filed under: its browse id where it has one, so the
-     * same album downloaded twice is one entry rather than two.
-     */
     val id: String,
     val title: String,
     val subtitle: String = "",
     val thumbnailUrl: String? = null,
-    /** Playlists and albums are grouped alike but not billed alike. */
     val playlist: Boolean = false,
 )
 
-/**
- * A release the record says was downloaded whole, as it is written down.
- *
- * Only the tracks' ids, not the tracks: a [Song] is a wide row full of things
- * that go stale — like state, autoplay provenance, a resolved local path — and
- * a second copy of one per release is a second copy to keep in step. The songs
- * are looked up out of what the Downloads page already read off disk instead;
- * see [Downloads.collectionsAmong].
- */
 @kotlinx.serialization.Serializable
 data class SavedCollection(
     val id: String,
@@ -1217,11 +1273,9 @@ data class SavedCollection(
     val subtitle: String = "",
     val thumbnailUrl: String? = null,
     val playlist: Boolean = false,
-    /** In the order the page listed them, which is the order to play them in. */
     val videoIds: List<String> = emptyList(),
 )
 
-/** A [SavedCollection] with its surviving tracks attached, ready to draw. */
 data class DownloadedCollection(
     val id: String,
     val title: String,

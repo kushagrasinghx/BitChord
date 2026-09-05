@@ -257,6 +257,9 @@ fun MediaItem.toSong() = Song(
     radioName = mediaMetadata.extras?.getString(EXTRA_RADIO_NAME),
     localUri = mediaMetadata.extras?.getString(EXTRA_LOCAL_URI),
     localPath = mediaMetadata.extras?.getString(EXTRA_LOCAL_PATH),
+    localLyricsUri = mediaMetadata.extras?.getString(EXTRA_LOCAL_LYRICS_URI),
+    localLyricsSource = mediaMetadata.extras?.getString(EXTRA_LOCAL_LYRICS_SOURCE),
+    localLyricsFormat = mediaMetadata.extras?.getString(EXTRA_LOCAL_LYRICS_FORMAT),
 )
 
 /** @see Song.fromAutoplay */
@@ -289,9 +292,10 @@ private const val EXTRA_SET_VIDEO_ID = "bitchord.setVideoId"
 
 /** @see Song.localUri */
 private const val EXTRA_LOCAL_URI = "bitchord.localUri"
-
-/** @see Song.localPath */
 private const val EXTRA_LOCAL_PATH = "bitchord.localPath"
+private const val EXTRA_LOCAL_LYRICS_URI = "bitchord.localLyricsUri"
+private const val EXTRA_LOCAL_LYRICS_SOURCE = "bitchord.localLyricsSource"
+private const val EXTRA_LOCAL_LYRICS_FORMAT = "bitchord.localLyricsFormat"
 
 /**
  * How long the track runs, as the row that queued it said.
@@ -481,9 +485,12 @@ fun Song.toMediaItem(): MediaItem {
             // back a null duration and later matching loses the `&d=` it
             // depends on.
             .apply {
+                val lyricsUri = localLyricsUri ?: Downloads.savedLyricsUri(videoId)
+                val lyricsSource = localLyricsSource ?: Downloads.savedLyricsSource(videoId)
+                val lyricsFormat = localLyricsFormat ?: Downloads.savedLyricsFormat(videoId)
                 if (fromAutoplay || offlineUri != null || durationText != null ||
-                    artistId != null || albumId != null || setVideoId != null ||
-                    isExplicit != null || isVideo || isVideoOrigin || radioName != null
+                    artistId != null || albumId != null || lyricsUri != null ||
+                    setVideoId != null || isExplicit != null || isVideo || isVideoOrigin || radioName != null
                 ) {
                     setExtras(
                         bundleOf(
@@ -491,6 +498,9 @@ fun Song.toMediaItem(): MediaItem {
                             EXTRA_RADIO_NAME to radioName,
                             EXTRA_LOCAL_URI to offlineUri,
                             EXTRA_LOCAL_PATH to localPath,
+                            EXTRA_LOCAL_LYRICS_URI to lyricsUri,
+                            EXTRA_LOCAL_LYRICS_SOURCE to lyricsSource,
+                            EXTRA_LOCAL_LYRICS_FORMAT to lyricsFormat,
                             EXTRA_DURATION to durationText,
                             EXTRA_ARTIST_ID to artistId,
                             EXTRA_ALBUM_ID to albumId,

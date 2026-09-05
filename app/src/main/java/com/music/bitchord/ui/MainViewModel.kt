@@ -16,6 +16,7 @@ import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricsArtifactFormat
 import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.AppSettings
@@ -45,11 +46,15 @@ import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.LyricsSidecarStore
+import android.net.Uri
 import android.util.LruCache
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -237,7 +242,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * than leaving the last answer sitting on a player that would now find a
      * different one.
      */
-    private var lyricsFor: Pair<String, Set<LyricsSource>>? = null
+    private var lyricsFor: Triple<String, Set<LyricsSource>, String?>? = null
 
     /**
      * Called as the playing track changes; cheap no-op when already loaded.
@@ -256,19 +261,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         durationMs: Long,
         album: String? = null,
         localUri: String? = null,
+        localLyricsUri: String? = null,
+        localLyricsSource: String? = null,
+        localLyricsFormat: String? = null,
     ) {
         val sources = if (AppSettings.syncedLyrics.value) {
             AppSettings.lyricsSources.value
         } else {
             emptySet()
         }
-        val key = videoId to sources
+        val key = Triple(videoId, sources, localLyricsUri ?: localUri)
         if (lyricsFor == key) return
         lyricsFor = key
         _lyrics.value = null
         _lyricsSource.value = null
         lyricsJob?.cancel()
-        if (sources.isEmpty()) {
+        if (sources.isEmpty() && localLyricsUri.isNullOrBlank() && localUri.isNullOrBlank()) {
             // Switched off, or every source unticked. Nothing to look up, and
             // nothing to say about it — the player drops the lyric strip
             // rather than reporting a track with no lyrics.
@@ -277,7 +285,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         _lyricsChecked.value = false
         lyricsJob = viewModelScope.launch {
-            // The file first, and without the duration gate below: a length is
+            // 1. Check for local sidecar lyrics (.lrc / .ttml)
+            if (!localLyricsUri.isNullOrBlank() && !localLyricsFormat.isNullOrBlank()) {
+                val localSidecar = withContext(Dispatchers.IO) {
+                    val content = LyricsSidecarStore.read(
+                        getApplication(),
+                        Uri.parse(localLyricsUri),
+                    )
+                    val format = runCatching {
+                        LyricsArtifactFormat.valueOf(localLyricsFormat)
+                    }.getOrNull()
+                    val source = runCatching {
+                        localLyricsSource?.let(LyricsSource::valueOf)
+                    }.getOrNull()
+                    if (content != null && format != null) {
+                        LyricsRepository.offline(content, format, source ?: LyricsSource.LRCLIB)
+                    } else {
+                        null
+                    }
+                }
+                if (localSidecar != null) {
+                    _lyrics.value = localSidecar.lines
+                    _lyricsSource.value = localSidecar.source
+                    _lyricsChecked.value = true
+                    return@launch
+                }
+            }
+
+            // 2. The file first, and without the duration gate below: a length is
             // only needed to *match* a track against a stranger's database, and
             // nothing is being matched here — these lyrics were written into
             // this exact file, for this exact recording.
@@ -291,14 +326,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     return@launch
                 }
             }
+
             if (durationMs <= 0L) {
                 // Duration arrives a beat after the track does; wait for it.
                 lyricsFor = null
                 return@launch
             }
             val found = LyricsRepository.lyrics(
-                videoId, title, artist, durationMs, album, sources,
-                AppSettings.lyricsSourceOrder.value, AppSettings.prioritizeSyllableSync.value,
+                videoId = videoId,
+                title = title,
+                artist = artist,
+                durationMs = durationMs,
+                album = album,
+                sources = sources,
+                order = AppSettings.lyricsSourceOrder.value,
+                prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
             )
             _lyrics.value = found?.lines
             _lyricsSource.value = found?.source

@@ -52,6 +52,10 @@ data class Song(
      * that need it — see [com.music.bitchord.playback.toMediaItem].
      */
     val localPath: String? = null,
+    /** Sidecar URI for locally stored synchronized lyrics (.lrc / .ttml). */
+    val localLyricsUri: String? = null,
+    val localLyricsSource: String? = null,
+    val localLyricsFormat: String? = null,
     /** MediaStore timestamps used only to sort device and downloaded libraries. */
     val localDateAddedSeconds: Long? = null,
     val localDateModifiedSeconds: Long? = null,

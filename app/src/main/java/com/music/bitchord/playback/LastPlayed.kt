@@ -138,6 +138,9 @@ object LastPlayed {
         val auto: Boolean = false,
         val local: String? = null,
         val path: String? = null,
+        val lyricsUri: String? = null,
+        val lyricsSource: String? = null,
+        val lyricsFormat: String? = null,
         val duration: String? = null,
         val album: String? = null,
         val explicit: Boolean? = null,
@@ -155,6 +158,9 @@ object LastPlayed {
             fromAutoplay = auto,
             localUri = local,
             localPath = path,
+            localLyricsUri = lyricsUri,
+            localLyricsSource = lyricsSource,
+            localLyricsFormat = lyricsFormat,
         )
 
         companion object {
@@ -166,6 +172,9 @@ object LastPlayed {
                 auto = song.fromAutoplay,
                 local = song.localUri,
                 path = song.localPath,
+                lyricsUri = song.localLyricsUri,
+                lyricsSource = song.localLyricsSource,
+                lyricsFormat = song.localLyricsFormat,
                 duration = song.durationText,
                 album = song.albumName,
                 explicit = song.isExplicit,

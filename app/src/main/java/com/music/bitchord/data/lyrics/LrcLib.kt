@@ -29,8 +29,8 @@ object LrcLib {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** Synced lyrics for a track, or null when nothing usable is published. */
-    suspend fun lyrics(title: String, artist: String, durationMs: Long): List<LyricLine>? =
+    /** Synced lyrics artifact for a track, or null when nothing usable is published. */
+    suspend fun artifact(title: String, artist: String, durationMs: Long): LyricsArtifact? =
         withContext(Dispatchers.IO) {
             val cleanTitle = title.clean()
             val cleanArtist = artist.clean()
@@ -39,8 +39,19 @@ object LrcLib {
             val exact = runCatching { exactMatch(cleanTitle, cleanArtist, seconds) }.getOrNull()
             val synced = exact ?: runCatching { bestSearchHit(cleanTitle, cleanArtist, seconds) }
                 .getOrNull()
-            synced?.let(::parseLrc)?.takeIf { it.isNotEmpty() }
+            val content = synced ?: return@withContext null
+            val lines = parseLrc(content).takeIf { it.isNotEmpty() } ?: return@withContext null
+            LyricsArtifact(
+                source = LyricsSource.LRCLIB,
+                format = LyricsArtifactFormat.LRC,
+                content = content,
+                lines = lines,
+            )
         }
+
+    /** Synced lyrics for a track, or null when nothing usable is published. */
+    suspend fun lyrics(title: String, artist: String, durationMs: Long): List<LyricLine>? =
+        artifact(title, artist, durationMs)?.lines
 
     private fun exactMatch(title: String, artist: String, seconds: Int): String? {
         val url = "$BASE/get".toHttpUrl().newBuilder()

@@ -79,6 +79,7 @@ import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.SleepTimer
 import com.music.bitchord.ui.components.thumbnailBorder
+import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlinx.coroutines.delay
@@ -459,6 +460,20 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
                 tint = palette.accent,
                 accent = palette.accent,
             ) { scope.launch { Downloads.delete(context, song.videoId) } }
+            if (!isOffline && !Downloads.hasLyrics(song.videoId)) {
+                val lyricsActive by Downloads.lyricsActive.collectAsStateWithLifecycle()
+                val isDownloadingLyrics = song.videoId in lyricsActive
+                ActionRow(
+                    icon = BitChordIcons.Lyrics,
+                    label = if (isDownloadingLyrics) "Downloading lyrics..." else "Download lyrics",
+                    accent = palette.accent,
+                    onClick = {
+                        if (!isDownloadingLyrics) {
+                            Downloads.enqueueLyrics(context, song)
+                        }
+                    },
+                )
+            }
         } else if (!isOffline) {
             ActionRow(
                 icon = Icons.Rounded.Download,

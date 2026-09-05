@@ -1158,7 +1158,7 @@ fun NowPlayingScreen(
                                     haptics.play(Haptic.SkipNext)
                                     onNext()
                                 }
-                                total >= swipeThreshold && hasPrevious -> {
+                                total >= swipeThreshold -> {
                                     haptics.play(Haptic.SkipPrevious)
                                     onPrevious()
                                 }

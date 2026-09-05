@@ -81,8 +81,7 @@
 <string name="test">בדיקה</string>
 <string name="testing">בודק…</string>
 <string name="connected">מחובר</string>
-<string name="account_integrations">חשבון & אינטגרציות</string>
-<string name="account_scrobbling">חשבון & סקרובלינג</string>
+<string name="account_integrations">חשבון  אינטגרציות</string>
 <string name="rich_presence">נוכחות עשירה</string>
 <string name="scrobbling">סקרובלינג</string>
 <string name="now_playing">מתנגן כעת</string>
@@ -158,7 +157,7 @@
 <string name="spanish">ספרדית</string>
 <string name="french">צרפתית</string>
 <string name="german">גרמנית</string>
-<string name="german">פולנית</string>
+<string name="polish">פולנית</string>
 <string name="portuguese">פורטוגזית</string>
 <string name="indonesian">אינדונזית</string>
 <string name="hindi">הינדי</string>

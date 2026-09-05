@@ -1154,11 +1154,11 @@ fun NowPlayingScreen(
                             // swiping the sleeve and tapping skip feel like one
                             // gesture with two spellings.
                             when {
-                                total <= -swipeThreshold && hasNext -> {
+                                total >= swipeThreshold && hasNext -> {
                                     haptics.play(Haptic.SkipNext)
                                     onNext()
                                 }
-                                total >= swipeThreshold && hasPrevious -> {
+                                total <= -swipeThreshold && hasPrevious -> {
                                     haptics.play(Haptic.SkipPrevious)
                                     onPrevious()
                                 }
@@ -1630,7 +1630,7 @@ fun NowPlayingScreen(
                 val swipeHintProgress = (abs(swipeSettle) / swipeThreshold)
                     .coerceIn(0f, 1f) * (1f - p)
                 if (swipeHintProgress > 0.01f) {
-                    val showNext = swipeSettle < 0f
+                    val showNext = swipeSettle > 0f
                     val enabled = if (showNext) hasNext else hasPrevious
                     Icon(
                         imageVector = if (showNext) Icons.Rounded.FastForward else Icons.Rounded.FastRewind,

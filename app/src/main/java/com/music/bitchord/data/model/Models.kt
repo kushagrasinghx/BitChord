@@ -291,6 +291,13 @@ data class LibraryPage(
     val likedSongs: List<Song>,
     val librarySongs: List<Song>,
     val shelves: List<HomeShelf>,
+    /**
+     * The continuation token behind [likedSongs]' first page, when Liked Music
+     * has more tracks than that one page held. Consumed by whoever owns the
+     * library's lifecycle to finish syncing the liked collection into
+     * [com.music.bitchord.data.LikeState]; never stored as page state.
+     */
+    val likedContinuation: String? = null,
 ) {
     val isEmpty: Boolean
         get() = likedSongs.isEmpty() && librarySongs.isEmpty() && shelves.isEmpty()

@@ -582,6 +582,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private var songMenuJob: Job? = null
 
+    /** In-flight liked-library continuation sync — see [syncLikedMusic]. */
+    private var likedSyncJob: Job? = null
+
     /**
      * Loads the account state behind an opening track menu — the library
      * tokens, and any rating the response happens to state.
@@ -604,12 +607,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         songMenuJob = viewModelScope.launch {
             val menu = YtMusicRepository.songMenu(videoId).getOrNull() ?: return@launch
             _songMenu.value = menu
-            val stated = menu.likeStatus
-            if (stated != null && stated != LikeStatus.INDIFFERENT &&
-                videoId !in LikeState.overrides.value
-            ) {
-                LikeState.set(videoId, stated)
-            }
+            LikeState.rememberStated(videoId, menu.likeStatus)
         }
     }
 
@@ -1345,12 +1343,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun fetchLibrary(identity: String?) {
         val next = YtMusicRepository.library().fold(
             onSuccess = { page ->
+                // Liked Music is published with just its first page on the tab;
+                // the rest of the collection is synced into LikeState here, in
+                // this ViewModel's scope, so it is cancelled with the screen and
+                // a liked track past the first page still reads as liked.
+                page.likedContinuation?.let { token -> syncLikedMusic(token) }
                 if (page.isEmpty) UiState.Error(text(R.string.library_empty))
-                else UiState.Success(page)
+                else UiState.Success(page.copy(likedContinuation = null))
             },
             onFailure = { UiState.Error(it.friendly()) },
         )
         if (identity == listenerKey()) _library.value = next
+    }
+
+    /**
+     * Follows Liked Music's continuation chain to exhaustion, seeding each
+     * page's ids into [LikeState] so every liked track reads as liked.
+     *
+     * Scoped to [viewModelScope] — a re-fetch of the library cancels and
+     * replaces it, and it dies with the screen. It only ever seeds ids, never
+     * retaining the full songs for pages already behind the tab.
+     */
+    private fun syncLikedMusic(token: String) {
+        likedSyncJob?.cancel()
+        likedSyncJob = viewModelScope.launch {
+            YtMusicRepository.syncLikedMusic(token)
+        }
     }
 
     /**

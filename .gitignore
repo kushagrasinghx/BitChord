@@ -38,3 +38,6 @@ keystore.properties
 .shots/
 .tmp_verify/
 .debug/
+
+# AI agent configuration
+AGENTS.md

@@ -3862,17 +3862,27 @@ private fun InlineQueue(
         onMove = onMove,
     )
 
-    // Open on what's playing, not at the top of a long queue. The heading sits
-    // between the two sections, so it counts as a row once it's above this one.
-    //
-    // Never mid-drag, though. A track ending while a row is held would jump the
-    // list out from under the finger, and the jump takes the list's scroll off
-    // the edge auto-scroll below — which would leave the rest of that drag
-    // unable to scroll at all. Reordering is also the one time the user is
-    // certainly looking somewhere other than at the current track.
+    var userInteracted by remember { mutableStateOf(false) }
+
+    LaunchedEffect(listState) {
+        listState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start) {
+                userInteracted = true
+            }
+        }
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            userInteracted = true
+        }
+    }
+
+    // Open on what's playing when entering the queue, not at the top of a long queue.
+    // Once the user interacts or scrolls, never jump the list back up to the current track.
     LaunchedEffect(currentIndex) {
         val holding = manualDrag.draggedKey != null || autoplayDrag.draggedKey != null
-        if (!holding && currentIndex in queue.indices) {
+        if (!userInteracted && !holding && currentIndex in queue.indices) {
             listState.scrollToItem(currentIndex + if (currentIndex >= autoplayStart) 1 else 0)
         }
     }

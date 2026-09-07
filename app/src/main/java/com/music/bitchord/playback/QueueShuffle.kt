@@ -34,8 +34,17 @@ object QueueShuffle {
     fun setEnabled(enabled: Boolean) {
         _enabled.value = enabled
     }
-    /** Media ids in their pre-shuffle order. Empty while shuffle is off. */
+    /** Media ids in their pre-shuffle order. */
     private var original: List<String> = emptyList()
+
+    /** Optional fallback provider to retrieve original playlist/folder IDs if original is empty. */
+    var playlistFallback: (() -> List<String>)? = null
+
+    fun setOriginalOrder(ids: List<String>) {
+        if (ids.isNotEmpty()) {
+            original = ids
+        }
+    }
 
     fun toggle(player: Player) {
         if (_enabled.value) restore(player) else shuffle(player)
@@ -48,8 +57,10 @@ object QueueShuffle {
      * button on an album or playlist page, where the queue it applies to is the
      * one about to replace this one. [playSongs] builds that one shuffled.
      */
-    fun enableForNextQueue() {
-        original = emptyList()
+    fun enableForNextQueue(originalOrder: List<String>? = null) {
+        if (originalOrder != null && originalOrder.isNotEmpty()) {
+            original = originalOrder
+        }
         _enabled.value = true
         AppSettings.setShuffleEnabled(true)
     }
@@ -60,6 +71,7 @@ object QueueShuffle {
      * arrived in is remembered, so turning shuffle off restores it.
      */
     fun startingOrder(songs: List<Song>, startIndex: Int): List<Song> {
+        _enabled.value = true
         original = songs.map { it.videoId }
         val rest = songs.filterIndexed { i, _ -> i != startIndex }.shuffled()
         return listOf(songs[startIndex]) + rest
@@ -70,24 +82,64 @@ object QueueShuffle {
      * and whatever sits above it stays there — those have had their turn.
      */
     private fun shuffle(player: Player) {
-        original = player.queueIds()
-        val from = player.currentMediaItemIndex + 1
+        if (player.mediaItemCount <= 1) {
+            _enabled.value = true
+            return
+        }
+        if (original.isEmpty()) {
+            original = playlistFallback?.invoke()?.takeIf { it.isNotEmpty() } ?: player.queueIds()
+        }
+        val from = (player.currentMediaItemIndex + 1).coerceAtLeast(0)
+        if (from >= player.mediaItemCount) {
+            _enabled.value = true
+            return
+        }
         val autoplay = player.autoplayIds()
-        val (mix, own) = original.drop(from).partition { it in autoplay }
+        val (mix, own) = player.queueIds().drop(from).partition { it in autoplay }
         applyOrder(player, from, own.shuffled() + mix.shuffled())
         _enabled.value = true
     }
 
     /** Puts the tracks still to come back into the order they were queued in. */
     private fun restore(player: Player) {
-        val from = player.currentMediaItemIndex + 1
-        val upcoming = player.queueIds().drop(from).toMutableList()
-        // Each track still queued goes back to where it stood in the old order.
-        // Whatever is left over was queued after the shuffle and was never part
-        // of that order, so it keeps its place at the end.
-        val restored = original.filter { upcoming.remove(it) } + upcoming
+        if (player.mediaItemCount <= 1) {
+            _enabled.value = false
+            return
+        }
+        val from = (player.currentMediaItemIndex + 1).coerceAtLeast(0)
+        if (from >= player.mediaItemCount) {
+            _enabled.value = false
+            return
+        }
+        val currentId = if (player.currentMediaItemIndex in 0 until player.mediaItemCount) {
+            player.getMediaItemAt(player.currentMediaItemIndex).mediaId
+        } else null
+
+        val effectiveOriginal = if (original.isNotEmpty()) {
+            original
+        } else {
+            playlistFallback?.invoke()?.takeIf { it.isNotEmpty() } ?: emptyList()
+        }
+
+        val upcomingList = player.queueIds().drop(from).toMutableList()
+        val restored = if (effectiveOriginal.isNotEmpty()) {
+            val currentIndexInOriginal = if (currentId != null) effectiveOriginal.indexOf(currentId) else -1
+            val naturalOrder = if (currentIndexInOriginal != -1) {
+                effectiveOriginal.drop(currentIndexInOriginal + 1) + effectiveOriginal.take(currentIndexInOriginal)
+            } else {
+                effectiveOriginal
+            }
+            val reordered = mutableListOf<String>()
+            for (id in naturalOrder) {
+                if (upcomingList.remove(id)) {
+                    reordered.add(id)
+                }
+            }
+            reordered + upcomingList
+        } else {
+            upcomingList
+        }
         applyOrder(player, from, sections(restored, player.autoplayIds()))
-        original = emptyList()
         _enabled.value = false
     }
 

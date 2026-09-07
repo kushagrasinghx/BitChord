@@ -583,6 +583,7 @@ fun mediaIdIn(uri: Uri): String? = if (uri.authority == "source") {
 
 fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
     if (songs.isEmpty()) return
+    QueueShuffle.setOriginalOrder(songs.map { it.videoId })
     // A queue started while shuffle is on goes in shuffled rather than being
     // played out of order — see [QueueShuffle]. The track the user picked still
     // leads, so it ends up at the top instead of at [startIndex].

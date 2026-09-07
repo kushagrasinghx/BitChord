@@ -561,16 +561,24 @@ object YtMusicRepository {
      */
     private suspend fun songsPaged(browseId: String): List<Song> {
         val out = LinkedHashMap<String, Song>()
-        var response = Innertube.browse(browseId)
+        val resolvedId = if (!browseId.startsWith("VL") && (browseId.startsWith("PL") || browseId.startsWith("RD") || browseId.startsWith("OLAK"))) {
+            "VL$browseId"
+        } else {
+            browseId
+        }
+        var response = runCatching { Innertube.browse(resolvedId) }.getOrNull()
+            ?: runCatching { Innertube.browse(browseId) }.getOrNull()
+            ?: return emptyList()
+
+        val isRadio = browseId.contains("RDTMAK") || browseId.contains("RDMM") || browseId.removePrefix("VL").startsWith("RD")
+        val maxPages = if (isRadio) 2 else MAX_PAGES
+
         var page = 1
         while (true) {
-            // Same shelf-scoping as pageOf: a playlist (Liked Music and the
-            // Library Songs auto-playlist included) is read from its own
-            // shelf so a trailing "Suggested tracks" shelf never joins in.
             val shelf = InnertubeParser.parsePlaylistShelf(response)
             (shelf?.songs ?: InnertubeParser.collectSongsDeep(response)).forEach { out[it.videoId] = it }
             val token = shelf?.continuation ?: InnertubeParser.continuationToken(response)
-            if (token == null || page++ >= MAX_PAGES) break
+            if (token == null || page++ >= maxPages) break
             response = runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
         }
         return out.values.toList()
@@ -602,7 +610,7 @@ object YtMusicRepository {
         return out.values.toList()
     }
 
-    const val MAX_PAGES = 10
+    const val MAX_PAGES = 50
 
     /**
      * Liked Music: the `LM` auto-playlist, addressed as a playlist browse id.

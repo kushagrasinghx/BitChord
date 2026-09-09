@@ -31,12 +31,6 @@ android {
             isUniversalApk = true
         }
     }
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
     flavorDimensions += "env"
     productFlavors {
         create("dev") { dimension = "env"; applicationId = "com.dev.bitchord"; resValue("string", "app_name", "BitChord Offline Dev") }

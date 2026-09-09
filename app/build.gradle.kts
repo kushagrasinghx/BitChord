@@ -62,7 +62,6 @@ android {
     }
 
     sourceSets["main"].java {
-        // Original online app.
         exclude("**/MainActivity.kt")
         exclude("**/ui/MainViewModel.kt")
         exclude("**/ui/screens/**")
@@ -74,6 +73,7 @@ android {
         exclude("**/ui/performance/**")
         exclude("**/ui/ForegroundState.kt")
         exclude("**/ui/LiquidGlassSurface.kt")
+        exclude("**/ui/OfflineSettingsScreen.kt")
         exclude("**/ui/utils/**")
         exclude("**/auth/**")
         exclude("**/data/canvas/**")
@@ -84,7 +84,6 @@ android {
         exclude("**/data/jiosaavn/**")
         exclude("**/data/stats/**")
         exclude("**/data/discord/**")
-        exclude("**/data/download/**")
         exclude("**/data/AppUpdateChecker.kt")
         exclude("**/data/Http.kt")
         exclude("**/data/LikeState.kt")

@@ -1,7 +1,6 @@
 package com.music.bitchord.playback
 
 import android.content.ComponentName
-import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +18,6 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.music.bitchord.data.model.Song
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.guava.await
 
 class OfflinePlaybackPosition {
     var value by mutableLongStateOf(0L)
@@ -31,6 +29,7 @@ data class OfflinePlayerState(
     val isLoading: Boolean = false,
     val position: OfflinePlaybackPosition = OfflinePlaybackPosition(),
     val durationMs: Long = 0L,
+    val queueVersion: Long = 0L,
 )
 
 @Composable
@@ -65,6 +64,7 @@ fun rememberOfflinePlayerState(controller: MediaController?): OfflinePlayerState
                 isPlaying = player.isPlaying,
                 isLoading = player.playbackState == Player.STATE_BUFFERING,
                 durationMs = player.duration.coerceAtLeast(0L),
+                queueVersion = state.queueVersion + 1L,
             )
             position.value = player.currentPosition.coerceAtLeast(0L)
         }
@@ -79,7 +79,7 @@ fun rememberOfflinePlayerState(controller: MediaController?): OfflinePlayerState
     LaunchedEffect(controller, state.isPlaying) {
         while (controller != null && state.isPlaying) {
             position.value = controller.currentPosition.coerceAtLeast(0L)
-            delay(500)
+            delay(250)
         }
     }
     return state
@@ -88,18 +88,22 @@ fun rememberOfflinePlayerState(controller: MediaController?): OfflinePlayerState
 fun Song.toOfflineMediaItem(): MediaItem? {
     val uri = localUri ?: return null
     return runCatching {
-        OfflineDataSource.requireLocal(
-            androidx.media3.datasource.DataSpec(android.net.Uri.parse(uri)),
-        )
+        val parsed = android.net.Uri.parse(uri)
+        OfflineDataSource.requireLocal(androidx.media3.datasource.DataSpec(parsed))
+        val artwork = thumbnailUrl?.let(android.net.Uri::parse)?.takeIf { artworkUri ->
+            artworkUri.scheme.equals("content", true) ||
+                artworkUri.scheme.equals("file", true) ||
+                artworkUri.scheme.equals("android.resource", true)
+        }
         MediaItem.Builder()
-            .setMediaId(videoId)
-            .setUri(uri)
+            .setMediaId(uri)
+            .setUri(parsed)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(title)
                     .setArtist(artist)
                     .setAlbumTitle(albumName)
-                    .setArtworkUri(thumbnailUrl?.let(android.net.Uri::parse))
+                    .setArtworkUri(artwork)
                     .build(),
             )
             .build()
@@ -107,15 +111,32 @@ fun Song.toOfflineMediaItem(): MediaItem? {
 }
 
 fun MediaController.playOfflineSongs(songs: List<Song>, startIndex: Int) {
-    if (songs.isEmpty()) return
     val valid = songs.mapNotNull { it.toOfflineMediaItem() }
     if (valid.isEmpty()) return
-    val selected = songs.getOrNull(startIndex)
-    val selectedIndex = selected?.let { song -> valid.indexOfFirst { it.mediaId == song.videoId } }?.takeIf { it >= 0 } ?: 0
+    val selectedUri = songs.getOrNull(startIndex)?.localUri
+    val selectedIndex = valid.indexOfFirst { it.localConfiguration?.uri?.toString() == selectedUri }
+        .takeIf { it >= 0 } ?: 0
     setMediaItems(valid, selectedIndex, 0L)
     prepare()
     play()
 }
+
+fun MediaController.seekOfflineTo(positionMs: Long) {
+    seekTo(positionMs.coerceAtLeast(0L))
+}
+
+fun MediaController.skipOfflineNext() {
+    if (hasNextMediaItem()) seekToNextMediaItem() else stop()
+}
+
+fun MediaController.skipOfflinePrevious() {
+    if (currentPosition > 3_000L) seekTo(0L)
+    else if (hasPreviousMediaItem()) seekToPreviousMediaItem()
+    else seekTo(0L)
+}
+
+fun MediaController.queueSongs(): List<Song> =
+    (0 until mediaItemCount).mapNotNull { getMediaItemAt(it).toSongOrNull() }
 
 private fun MediaItem.toSong(): Song = Song(
     videoId = mediaId,
@@ -125,3 +146,6 @@ private fun MediaItem.toSong(): Song = Song(
     albumName = mediaMetadata.albumTitle?.toString(),
     localUri = localConfiguration?.uri?.toString(),
 )
+
+private fun MediaItem.toSongOrNull(): Song? =
+    localConfiguration?.uri?.toString()?.let { toSong() }

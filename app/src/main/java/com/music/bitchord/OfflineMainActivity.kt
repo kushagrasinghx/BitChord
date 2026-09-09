@@ -5,13 +5,12 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
+import androidx.activity.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,10 +45,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.offline.DeviceMusicLibrary
 import com.music.bitchord.playback.playOfflineSongs
 import com.music.bitchord.playback.rememberOfflineMediaController
 import com.music.bitchord.playback.rememberOfflinePlayerState
@@ -77,28 +76,24 @@ private fun OfflineMusicRoot() {
     var permissionRequested by remember { mutableStateOf(false) }
     var nowPlaying by remember { mutableStateOf(false) }
 
-    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_AUDIO
-    } else Manifest.permission.READ_EXTERNAL_STORAGE
-
+    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         permissionRequested = true
         if (!granted) Toast.makeText(context, "Music access is required to show your library", Toast.LENGTH_LONG).show()
     }
 
     LaunchedEffect(permissionRequested) {
-        if (!LocalMediaRepository.hasStoragePermission(context)) {
+        if (!DeviceMusicLibrary.hasPermission(context)) {
             if (!permissionRequested) launcher.launch(permission)
             scanning = false
             return@LaunchedEffect
         }
         scanning = true
-        songs = withContext(Dispatchers.IO) { LocalMediaRepository.getLocalMusic(context) }
+        songs = withContext(Dispatchers.IO) { DeviceMusicLibrary.scan(context) }
         scanning = false
     }
 
     BackHandler(enabled = nowPlaying) { nowPlaying = false }
-
     if (nowPlaying && controller != null) {
         OfflineNowPlayingScreen(controller = controller, state = playerState, onBack = { nowPlaying = false })
         return
@@ -106,14 +101,10 @@ private fun OfflineMusicRoot() {
 
     val currentSong = playerState.song
     val bottomPadding = if (currentSong == null) 24.dp else 92.dp
-
     Box(Modifier.fillMaxSize()) {
         when {
             scanning -> Text("Scanning your music...", modifier = Modifier.align(Alignment.Center), style = MaterialTheme.typography.titleMedium)
-            !LocalMediaRepository.hasStoragePermission(context) -> Column(
-                Modifier.align(Alignment.Center).padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
+            !DeviceMusicLibrary.hasPermission(context) -> Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Rounded.LibraryMusic, contentDescription = null)
                 Text("Allow music access to use BitChord Offline", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp))
                 Text("Your files stay on this device. No account or internet connection is required.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
@@ -127,7 +118,6 @@ private fun OfflineMusicRoot() {
                 contentPadding = PaddingValues(bottom = bottomPadding),
             )
         }
-
         currentSong?.let { song ->
             OfflineMiniPlayer(
                 song = song,
@@ -142,39 +132,18 @@ private fun OfflineMusicRoot() {
 }
 
 @Composable
-private fun OfflineMiniPlayer(
-    song: Song,
-    isPlaying: Boolean,
-    onPlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onExpand: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun OfflineMiniPlayer(song: Song, isPlaying: Boolean, onPlayPause: () -> Unit, onNext: () -> Unit, onExpand: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(onClick = onExpand)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(onClick = onExpand).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = song.artworkAt(ROW_ART_PX),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.size(40.dp).clip(MaterialTheme.shapes.small),
-        )
+        AsyncImage(model = song.artworkAt(ROW_ART_PX), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(40.dp).clip(MaterialTheme.shapes.small))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(song.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(song.artist, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        IconButton(onClick = onPlayPause) {
-            Icon(if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, contentDescription = if (isPlaying) "Pause" else "Play")
-        }
-        IconButton(onClick = onNext) {
-            Icon(Icons.Rounded.SkipNext, contentDescription = "Next")
-        }
+        IconButton(onClick = onPlayPause) { Icon(if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, contentDescription = if (isPlaying) "Pause" else "Play") }
+        IconButton(onClick = onNext) { Icon(Icons.Rounded.SkipNext, contentDescription = "Next") }
     }
 }

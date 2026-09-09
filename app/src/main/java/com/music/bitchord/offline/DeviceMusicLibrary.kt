@@ -14,7 +14,6 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 object DeviceMusicLibrary {
-    private const val MIN_DURATION_MS = 30_000L
     private val extensions = setOf("mp3", "m4a", "flac", "wav", "ogg", "opus", "aac", "webm", "3gp")
     private val excludedPaths = listOf("/alarms/", "/notifications/", "/ringtones/", "/podcasts/", "/audiobooks/", "/recordings/", "/voice recorder/", "/sound_recorder/", "/call_rec/", "/whatsapp voice notes/")
 
@@ -26,6 +25,8 @@ object DeviceMusicLibrary {
 
     suspend fun scan(context: Context): List<Song> = withContext(Dispatchers.IO) {
         if (!hasPermission(context)) return@withContext emptyList()
+        val settings = OfflineLocalStore.get(context)
+        val minDurationMs = settings.minimumTrackSeconds() * 1000L
         val result = mutableListOf<Song>()
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
@@ -62,11 +63,12 @@ object DeviceMusicLibrary {
                     val durationMs = cursor.getLong(duration)
                     val displayName = cursor.getString(name).orEmpty()
                     val path = cursor.getString(data)
-                    if (!isMusic(durationMs, displayName, path)) continue
+                    if (!isMusic(durationMs, displayName, path, minDurationMs)) continue
                     val mediaId = cursor.getLong(id)
                     val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, mediaId)
                     val titleText = cursor.getString(title).cleanTag()?.removeExtension() ?: displayName.substringBeforeLast('.').ifBlank { "Track $mediaId" }
                     val artistText = cursor.getString(artist).cleanTag() ?: "Unknown Artist"
+                    if (!settings.showUnknownArtists() && artistText == "Unknown Artist") continue
                     val albumText = cursor.getString(album).cleanTag()
                     val albumArtId = cursor.getLong(albumId)
                     result += Song(
@@ -87,8 +89,8 @@ object DeviceMusicLibrary {
         result.distinctBy { it.localUri }
     }
 
-    private fun isMusic(durationMs: Long, displayName: String, path: String?): Boolean {
-        if (durationMs < MIN_DURATION_MS) return false
+    private fun isMusic(durationMs: Long, displayName: String, path: String?, minDurationMs: Long): Boolean {
+        if (durationMs < minDurationMs) return false
         val filename = path?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: displayName
         if (filename.substringAfterLast('.', "").lowercase(Locale.ROOT) !in extensions) return false
         val normalized = path?.replace('\\', '/')?.lowercase(Locale.ROOT) ?: return true

@@ -5,7 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.BackHandler
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,42 +35,24 @@ import kotlinx.coroutines.withContext
 
 class OfflineMainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        LastPlayed.init(this)
-        setContent { OfflineMusicApp() }
+        super.onCreate(savedInstanceState); LastPlayed.init(this); setContent { OfflineMusicApp() }
     }
 }
 
 @Composable
 private fun OfflineMusicApp() {
-    val context = LocalContext.current
-    val store = remember { OfflineLocalStore.get(context) }
-    var themeVersion by remember { mutableStateOf(0) }
+    val context = LocalContext.current; val store = remember { OfflineLocalStore.get(context) }; var themeVersion by remember { mutableStateOf(0) }
     val theme = remember(themeVersion) { store.theme() }
-    val dark = when (theme) {
-        OfflineLocalStore.Theme.DARK -> true
-        OfflineLocalStore.Theme.LIGHT -> false
-        OfflineLocalStore.Theme.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
-    }
+    val dark = when (theme) { OfflineLocalStore.Theme.DARK -> true; OfflineLocalStore.Theme.LIGHT -> false; OfflineLocalStore.Theme.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme() }
     BitChordTheme(darkTheme = dark) { OfflineMusicRoot(store) { themeVersion++ } }
 }
 
 @Composable
 private fun OfflineMusicRoot(store: OfflineLocalStore, onSettingsChanged: () -> Unit) {
-    val context = LocalContext.current
-    val controller = rememberOfflineMediaController()
-    val state = rememberOfflinePlayerState(controller)
-    var songs by remember { mutableStateOf<List<Song>>(emptyList()) }
-    var scanning by remember { mutableStateOf(true) }
-    var permissionRequested by remember { mutableStateOf(false) }
-    var nowPlaying by remember { mutableStateOf(false) }
-    var settings by remember { mutableStateOf(false) }
-    var refresh by remember { mutableStateOf(0) }
+    val context = LocalContext.current; val controller = rememberOfflineMediaController(); val state = rememberOfflinePlayerState(controller)
+    var songs by remember { mutableStateOf<List<Song>>(emptyList()) }; var scanning by remember { mutableStateOf(true) }; var permissionRequested by remember { mutableStateOf(false) }; var nowPlaying by remember { mutableStateOf(false) }; var settings by remember { mutableStateOf(false) }; var refresh by remember { mutableStateOf(0) }
     val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        permissionRequested = true
-        if (!granted) Toast.makeText(context, "Music access is required to show your library", Toast.LENGTH_LONG).show()
-    }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> permissionRequested = true; if (!granted) Toast.makeText(context, "Music access is required to show your library", Toast.LENGTH_LONG).show() }
     LaunchedEffect(permissionRequested, refresh) {
         if (!DeviceMusicLibrary.hasPermission(context)) { if (!permissionRequested) launcher.launch(permission); scanning = false; return@LaunchedEffect }
         scanning = true; songs = withContext(Dispatchers.IO) { DeviceMusicLibrary.scan(context) }; scanning = false

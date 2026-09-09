@@ -44,6 +44,8 @@ class PlaybackService : MediaSessionService() {
         restoreQueue()
     }
 
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
     override fun onDestroy() {
         persistQueue()
         session?.release()
@@ -88,6 +90,9 @@ private fun Song.toLocalMediaItem(): MediaItem? {
         OfflineDataSource.requireLocal(
             androidx.media3.datasource.DataSpec(android.net.Uri.parse(uri)),
         )
+        val artwork = thumbnailUrl?.let(android.net.Uri::parse)?.takeIf {
+            it.scheme == "content" || it.scheme == "file" || it.scheme == "android.resource"
+        }
         MediaItem.Builder()
             .setMediaId(videoId)
             .setUri(uri)
@@ -96,7 +101,7 @@ private fun Song.toLocalMediaItem(): MediaItem? {
                     .setTitle(title)
                     .setArtist(artist)
                     .setAlbumTitle(albumName)
-                    .setArtworkUri(thumbnailUrl?.let(android.net.Uri::parse))
+                    .setArtworkUri(artwork)
                     .build(),
             )
             .build()

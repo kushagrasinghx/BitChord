@@ -10,11 +10,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // NewPipeExtractor is published via JitPack.
         maven("https://jitpack.io")
     }
 }
 
 rootProject.name = "BitChord"
 include(":app")
- 
+include(":liquidglass")

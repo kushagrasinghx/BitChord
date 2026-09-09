@@ -18,11 +18,6 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Setup local.properties
-      run: |
-        echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
-        echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
-
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
@@ -50,11 +45,8 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Setup Secrets (Keystore & local.properties)
+    - name: Setup Secrets (Keystore)
       run: |
-        echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
-        echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
-
         echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks
         echo "storeFile=bitchord-release.jks" > keystore.properties
         echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> keystore.properties

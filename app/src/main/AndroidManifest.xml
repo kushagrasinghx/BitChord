@@ -22,9 +22,7 @@
         </activity>
         <service android:name=".playback.PlaybackService" android:exported="true" android:foregroundServiceType="mediaPlayback">
             <intent-filter>
-                <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
-                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
         <receiver android:name=".widget.MediaWidgetSquare" android:exported="false" android:label="@string/widget_square_label"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_media_square" /></receiver>

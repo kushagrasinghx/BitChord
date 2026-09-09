@@ -6,6 +6,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
@@ -17,6 +18,12 @@ import com.music.bitchord.data.model.Song
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private lateinit var player: ExoPlayer
+    private val listener = object : Player.Listener {
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = persistQueue()
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_READY) persistQueue()
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -37,6 +44,7 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+        player.addListener(listener)
         session = MediaSession.Builder(this, player)
             .setId(SESSION_ID)
             .setSessionActivity(sessionActivity())
@@ -48,9 +56,12 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         persistQueue()
+        if (::player.isInitialized) {
+            player.removeListener(listener)
+            player.release()
+        }
         session?.release()
         session = null
-        player.release()
         super.onDestroy()
     }
 
@@ -87,15 +98,16 @@ class PlaybackService : MediaSessionService() {
 private fun Song.toLocalMediaItem(): MediaItem? {
     val uri = localUri ?: return null
     return runCatching {
-        OfflineDataSource.requireLocal(
-            androidx.media3.datasource.DataSpec(android.net.Uri.parse(uri)),
-        )
+        val parsed = android.net.Uri.parse(uri)
+        OfflineDataSource.requireLocal(androidx.media3.datasource.DataSpec(parsed))
         val artwork = thumbnailUrl?.let(android.net.Uri::parse)?.takeIf {
-            it.scheme == "content" || it.scheme == "file" || it.scheme == "android.resource"
+            it.scheme.equals("content", true) ||
+                it.scheme.equals("file", true) ||
+                it.scheme.equals("android.resource", true)
         }
         MediaItem.Builder()
-            .setMediaId(videoId)
-            .setUri(uri)
+            .setMediaId(uri)
+            .setUri(parsed)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(title)

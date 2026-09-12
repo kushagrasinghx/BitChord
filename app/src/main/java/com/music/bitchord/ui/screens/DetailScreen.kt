@@ -411,6 +411,8 @@ fun DetailScreen(
                 }
             }
 
+            val description = page.description
+
             if (songs.isNotEmpty() && isArtist) {
                 item(key = "actions") {
                     ActionRow(
@@ -422,7 +424,7 @@ fun DetailScreen(
                         // Halved when an About section follows directly — see
                         // [AboutSection]'s own top inset, which makes up the
                         // rest of that shorter gap.
-                        bottomSpace = if (page.description.isNullOrBlank()) 22.dp else 11.dp,
+                        bottomSpace = if (description.isNullOrBlank()) 22.dp else 11.dp,
                     )
                 }
             }
@@ -430,7 +432,7 @@ fun DetailScreen(
             // YouTube's own editorial blurb — an album or an artist only, per
             // [DetailPage.description]. A playlist never carries one, and the
             // section is skipped for it even on the rare response that does.
-            if (!page.description.isNullOrBlank() &&
+            if (!description.isNullOrBlank() &&
                 (page.type == BrowseType.ALBUM || isArtist)
             ) {
                 item(key = "about") {
@@ -438,7 +440,7 @@ fun DetailScreen(
                         title = stringResource(
                             if (isArtist) R.string.about_artist else R.string.about_album,
                         ),
-                        text = page.description,
+                        text = description,
                         palette = palette,
                     )
                 }

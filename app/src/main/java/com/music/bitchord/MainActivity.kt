@@ -2026,10 +2026,14 @@ private fun BitChordApp(
                             onSignIn = { webSession = WebSessionMode.SIGN_IN },
                             onItemClick = { item ->
                                 val song = shelfSong(item)
+                                // Hoisted because ShelfItem lives in :shared, and
+                                // Kotlin will not smart-cast a public nullable
+                                // property declared in another module.
+                                val browseId = item.browseId
                                 when {
                                     song != null -> playRadio(song)
-                                    item.browseId != null -> viewModel.openDetail(
-                                        browseId = item.browseId,
+                                    browseId != null -> viewModel.openDetail(
+                                        browseId = browseId,
                                         title = item.title,
                                         subtitle = item.subtitle,
                                         thumbnailUrl = item.thumbnailUrl,
@@ -2052,17 +2056,18 @@ private fun BitChordApp(
                                 state = moodGenreShelves,
                                 listState = moodGenreListState,
                                 onItemClick = { item ->
-                                    when {
-                                        item.videoId != null -> playRadio(
+                                    item.videoId?.let { videoId ->
+                                        playRadio(
                                             Song(
-                                                videoId = item.videoId,
+                                                videoId = videoId,
                                                 title = item.title,
                                                 artist = InnertubeParser.artistFromSubtitle(item.subtitle),
                                                 thumbnailUrl = item.thumbnailUrl,
                                             ),
                                         )
-                                        item.browseId != null -> viewModel.openDetail(
-                                            browseId = item.browseId,
+                                    } ?: item.browseId?.let { browseId ->
+                                        viewModel.openDetail(
+                                            browseId = browseId,
                                             title = item.title,
                                             subtitle = item.subtitle,
                                             thumbnailUrl = item.thumbnailUrl,

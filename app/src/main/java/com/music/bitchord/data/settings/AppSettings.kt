@@ -138,13 +138,6 @@ enum class EqualizerMode {
     MANUAL,
 }
 
-/** CPU budget for Automix's background analysis, not its audible mix algorithm. */
-enum class AutomixPerformanceMode(val inferenceThreads: Int) {
-    EFFICIENT(1),
-    BALANCED(2),
-    PERFORMANCE(4),
-}
-
 /** Stable persisted ordering for each on-device music library. */
 enum class LocalMusicSort {
     TITLE_ASC,
@@ -1658,57 +1651,5 @@ object AppSettings {
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
 
-/**
- * Where one track stands in Automix's analysis.
- *
- * The three no-result states are kept apart because they call for different
- * reactions: [WAITING] resolves itself once bytes arrive, [ANALYSING] resolves
- * itself in a few seconds, and [FAILED] never resolves at all. From outside
- * they look identical, which is precisely why the line has to say which.
- */
-enum class TrackAnalysisState {
-    /** Nothing in flight and no result — usually waiting on bytes to arrive. */
-    WAITING,
 
-    /** Decode and inference running now; a result is a few seconds away. */
-    ANALYSING,
 
-    /** Measured, with a tempo the planner can actually use. */
-    ANALYSED,
-
-    /**
-     * Measured off the track's opening, with the whole-track pass running now to
-     * replace those numbers with better ones.
-     *
-     * Its own state rather than either neighbour, because it is genuinely both:
-     * reporting [ANALYSING] made a track that was already usable look like it
-     * had gone backwards, and reporting [ANALYSED] would hide that the cue and
-     * the tempo are about to move.
-     */
-    REFINING,
-
-    /**
-     * Tried and came back with nothing usable — a decode error, or audio that
-     * yielded no tempo. Distinct from [WAITING] because nothing further will
-     * happen on its own: waiting is a matter of time, this is not.
-     */
-    FAILED,
-}
-
-/**
- * Both sides of the next transition, for stats for nerds.
- *
- * A transition needs *both* tracks measured before it can beat-match or cue the
- * incoming one into its arrangement, so reporting them separately is what makes
- * a plain crossfade explicable rather than mysterious.
- */
-data class SmartAnalysis(
-    val current: TrackAnalysisState = TrackAnalysisState.WAITING,
-    val next: TrackAnalysisState = TrackAnalysisState.WAITING,
-)
-
-/**
- * A span of the playing track, in fractions of its duration, that the next
- * transition is planned to occupy.
- */
-data class TransitionWindow(val start: Float, val end: Float)

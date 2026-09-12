@@ -253,8 +253,9 @@ class PlaybackService : MediaLibraryService() {
                         val likedCard = libPlaylists?.firstOrNull {
                             it.browseId == "VLLM" || it.title.contains("liked", ignoreCase = true)
                         }
-                        if (likedCard?.browseId != null) {
-                            YtMusicRepository.browseSongs(likedCard.browseId).getOrNull()?.songs
+                        val likedBrowseId = likedCard?.browseId
+                        if (likedBrowseId != null) {
+                            YtMusicRepository.browseSongs(likedBrowseId).getOrNull()?.songs
                         } else null
                     }
                     ?: YtMusicRepository.browseSongs("FEmusic_liked_videos").getOrNull()?.songs

@@ -117,30 +117,11 @@ fun BitChordTheme(
 fun SystemBarIcons(dark: Boolean) {
     val view = LocalView.current
     if (view.isInEditMode) return
-    val window = findWindow(view) ?: return
+    val window = (view.context as? Activity)?.window ?: return
     SideEffect {
         WindowCompat.getInsetsController(window, view).apply {
             isAppearanceLightStatusBars = dark
             isAppearanceLightNavigationBars = dark
         }
     }
-}
-
-// Walks up the Compose view hierarchy to find a DialogWindowProvider (e.g. modal player) before falling back to Activity context.
-private fun findWindow(view: android.view.View): android.view.Window? {
-    var parent = view.parent
-    while (parent != null) {
-        if (parent is androidx.compose.ui.window.DialogWindowProvider) {
-            return parent.window
-        }
-        parent = parent.parent
-    }
-    var context = view.context
-    while (context is android.content.ContextWrapper) {
-        if (context is Activity) {
-            return context.window
-        }
-        context = context.baseContext
-    }
-    return null
 }

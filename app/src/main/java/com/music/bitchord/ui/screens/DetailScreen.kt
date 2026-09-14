@@ -333,7 +333,19 @@ fun DetailScreen(
         // same number everywhere: on a tablet the page is the column left over
         // once the player has its pane, and a height derived from the whole
         // window there is a sleeve half again as tall as it is wide.
-        val artHeight = maxWidth / if (isArtist) ARTIST_PHOTO_RATIO else SLEEVE_RATIO
+        //
+        // That assumption — a tablet's page is always the narrow docked
+        // column — no longer always holds: the player can now run full-screen
+        // on any window size (see [dockedPlayerAvailable]'s call site), so
+        // this page's own width in landscape on a tablet is the *whole*
+        // window, not a leftover column beside a pane. Straight off that
+        // width, the ratio below hands back a hero taller than the window
+        // itself — the actual artwork and track list end up scrolled out of
+        // sight beneath what reads as a blank page. Capping against the
+        // window's own height is what keeps the ratio's math honest once the
+        // width it's fed is no longer guaranteed to be the narrow one it was
+        // written for.
+        val artHeight = (maxWidth / if (isArtist) ARTIST_PHOTO_RATIO else SLEEVE_RATIO).coerceAtMost(maxHeight * 0.6f)
 
         PageBackground(
             page = page,

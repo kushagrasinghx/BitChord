@@ -77,15 +77,28 @@
             android:resource="@xml/automotive_app_desc" />
 
         <!--
-          Portrait only. Every screen is laid out for a tall single column —
-          the player's artwork square, the frosted bars, the floating tab bar —
-          and none of it has a landscape design to fall back on.
+          Not portrait-locked any more — the docked-pane and wide-lyrics
+          landscape layouts (see NowPlayingScreen.kt) are built for exactly
+          the rotation this used to refuse.
+
+          [android:configChanges] is the other half of that: without it, a
+          rotation the system now allows is still a full Activity restart,
+          which throws away every bit of in-memory Compose state along with
+          it — the sheet showing Now Playing, whether the lyrics or queue
+          panel was open, mid-scrub position, all of it — before any of this
+          screen's own responsive layout logic ever gets a chance to run.
+          Declaring these configurations here is what turns a rotation back
+          into an ordinary recomposition: the same Activity keeps running,
+          the same state survives, and the width- and height-aware branches
+          in NowPlayingScreen.kt (see [wideLyricsLayoutAvailable]) are what
+          actually decide the new layout — which is the whole point of
+          having them.
         -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:theme="@style/Theme.BitChord">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

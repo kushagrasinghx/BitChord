@@ -73,6 +73,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -87,6 +88,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -1667,6 +1669,8 @@ private fun BitChordApp(
         }
     }
 
+    var playerPanelOpen by remember { mutableStateOf(false) }
+
     // The player's whole parameter list, in one place because there are two
     // places it can be mounted: the sheet a phone raises over the page, and
     // the pane a tablet keeps beside it. [docked] is the only difference
@@ -1698,6 +1702,7 @@ private fun BitChordApp(
             song = displayedSong,
             playedBy = playedBy,
             accountName = account?.name,
+            onPanelOpenChange = { playerPanelOpen = it },
             windowWidth = windowWidth,
             windowHeight = windowHeight,
             isPlaying = player.isPlaying,
@@ -2878,9 +2883,19 @@ private fun BitChordApp(
         // ---- Now Playing ----
         // Only raised where it isn't already open beside the page.
         if (!playerDocked && showNowPlaying && playerSong != null) {
+            val currentPanelOpen = rememberUpdatedState(playerPanelOpen)
+            val nowPlayingSheetState = rememberModalBottomSheetState(
+                skipPartiallyExpanded = true,
+                confirmValueChange = { targetValue ->
+                    if (currentPanelOpen.value && targetValue == SheetValue.Hidden) false else true
+                },
+            )
             ModalBottomSheet(
-                onDismissRequest = { showNowPlaying = false },
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                onDismissRequest = {
+                    showNowPlaying = false
+                    playerPanelOpen = false
+                },
+                sheetState = nowPlayingSheetState,
                 // The player fills the screen and paints its own background to
                 // the very top, so the sheet's default 28.dp top corners would
                 // only cut two notches out of the artwork behind the status bar.

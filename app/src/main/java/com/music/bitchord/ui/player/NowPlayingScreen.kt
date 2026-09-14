@@ -173,7 +173,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -1018,6 +1017,7 @@ fun NowPlayingScreen(
      * cover edge to edge exactly as a phone does — see [fullBleedArtworkAvailable].
      */
     docked: Boolean = false,
+    onPanelOpenChange: ((Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -1124,6 +1124,12 @@ fun NowPlayingScreen(
     // The queue lives inside the player, Apple-style, rather than in a sheet.
     var queueOpen by remember { mutableStateOf(false) }
     var lyricsOpen by remember { mutableStateOf(false) }
+    val setLyricsOpen: (Boolean) -> Unit = { open ->
+        lyricsOpen = open
+    }
+    LaunchedEffect(lyricsOpen, queueOpen) {
+        onPanelOpenChange?.invoke(lyricsOpen || queueOpen)
+    }
     var lyricsControlsOpen by remember { mutableStateOf(false) }
     // The panel opens with the player still under it. It used to open with the
     // controls hidden and a tap as the only way back to them, which left the
@@ -1285,7 +1291,7 @@ fun NowPlayingScreen(
         if (lyricsControlsOpen) {
             lyricsControlsOpen = false
         } else {
-            lyricsOpen = false
+            setLyricsOpen(false)
         }
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -1296,7 +1302,7 @@ fun NowPlayingScreen(
                     if (lyricsControlsOpen) {
                         lyricsControlsOpen = false
                     } else {
-                        lyricsOpen = false
+                        setLyricsOpen(false)
                     }
                 }
             } else {
@@ -1921,7 +1927,7 @@ fun NowPlayingScreen(
                             durationMs = durationMs,
                             onClick = {
                                 queueOpen = false
-                                lyricsOpen = true
+                                setLyricsOpen(true)
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -1998,12 +2004,13 @@ fun NowPlayingScreen(
             lyricsOpen = lyricsOpen,
             queueOpen = queueOpen,
             onToggleLyrics = {
-                lyricsOpen = !lyricsOpen
-                if (lyricsOpen) queueOpen = false
+                val next = !lyricsOpen
+                setLyricsOpen(next)
+                if (next) queueOpen = false
             },
             onToggleQueue = {
                 queueOpen = !queueOpen
-                if (queueOpen) lyricsOpen = false
+                if (queueOpen) setLyricsOpen(false)
             },
             showQueue = widePanelIsQueue,
             statusContent = wideStatusContent,
@@ -2202,13 +2209,29 @@ fun NowPlayingScreen(
             }
         }
 
+        val panelOpen = lyricsOpen || queueOpen
+        val panelNestedScroll = remember(panelOpen) {
+            object : NestedScrollConnection {
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset = Offset.Zero
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset = if (panelOpen) available else Offset.Zero
+                override suspend fun onPreFling(available: Velocity): Velocity = Velocity.Zero
+                override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+                    if (panelOpen) available else Velocity.Zero
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .pointerInput(showAudioPipeline) {
-                    if (showAudioPipeline) return@pointerInput
+                .nestedScroll(panelNestedScroll)
+                .pointerInput(showAudioPipeline, panelOpen) {
+                    if (showAudioPipeline || panelOpen) return@pointerInput
                     var total = 0f
                     detectHorizontalDragGestures(
                         onDragStart = { total = 0f },
@@ -2246,7 +2269,18 @@ fun NowPlayingScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(topStrip),
+                    .height(topStrip)
+                    .pointerInput(panelOpen) {
+                        if (panelOpen) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
+                                    change.consume()
+                                }
+                                if (drag != null) verticalDrag(drag.id) { it.consume() }
+                            }
+                        }
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 if (!docked) {
@@ -2281,7 +2315,7 @@ fun NowPlayingScreen(
                                 onListenTogether()
                             } else if (song.playbackSourceType == PlaybackSourceType.QUEUE) {
                                 queueOpen = true
-                                lyricsOpen = false
+                                setLyricsOpen(false)
                             } else {
                                 onOpenPlaybackSource()
                             }
@@ -2319,7 +2353,7 @@ fun NowPlayingScreen(
                     // half second lying across a list the finger was already
                     // scrolling.
                     .onGloballyPositioned { dismissBandSpace = it }
-                    .pointerInput(showAudioPipeline) {
+                    .pointerInput(showAudioPipeline, panelOpen) {
                         if (showAudioPipeline) return@pointerInput
                         awaitEachGesture {
                             // Unconsumed on purpose, as the blanket version was:
@@ -2363,20 +2397,23 @@ fun NowPlayingScreen(
                                             queueReleased++
                                         },
                                     )
-                                }
-                                return@awaitEachGesture
-                            }
-                            // Swallow all vertical drag movements for touches outside the dismiss band
-                            // so that scrolling or dragging on lyrics/queue/controls does not dismiss the sheet.
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Main)
-                                for (change in event.changes) {
-                                    if (change.positionChange().y != 0f) {
+                                    return@awaitEachGesture
+                                } else {
+                                    val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
                                         change.consume()
                                     }
+                                    if (drag != null) verticalDrag(drag.id) { it.consume() }
+                                    return@awaitEachGesture
                                 }
-                                if (event.changes.none { it.pressed }) break
                             }
+                            // What detectVerticalDragGestures does, minus the
+                            // callbacks: cross the slop, then hold the gesture
+                            // to the end so nothing downstream of the first
+                            // event reaches the sheet either.
+                            val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
+                                change.consume()
+                            }
+                            if (drag != null) verticalDrag(drag.id) { it.consume() }
                         }
                     }
                     .padding(horizontal = PLAYER_GUTTER),
@@ -2595,7 +2632,7 @@ fun NowPlayingScreen(
                             if (queueOpen || lyricsOpen) {
                                 Modifier.clickable {
                                     queueOpen = false
-                                    lyricsOpen = false
+                                    setLyricsOpen(false)
                                 }
                             } else {
                                 Modifier
@@ -3078,7 +3115,7 @@ fun NowPlayingScreen(
                             // next" glyph closes lyrics behind the queue.
                             onClick = {
                                 queueOpen = false
-                                lyricsOpen = true
+                                setLyricsOpen(true)
                             },
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -3335,8 +3372,9 @@ fun NowPlayingScreen(
                     // not have to until it stopped being hidden while the queue
                     // was up, at which point both could be lit at once.
                     onClick = {
-                        lyricsOpen = !lyricsOpen
-                        if (lyricsOpen) queueOpen = false
+                        val next = !lyricsOpen
+                        setLyricsOpen(next)
+                        if (next) queueOpen = false
                     },
                     highlighted = lyricsOpen,
                 )
@@ -3407,7 +3445,7 @@ fun NowPlayingScreen(
                     icon = BitChordIcons.Queue,
                     contentDescription = stringResource(R.string.up_next),
                     onClick = {
-                        lyricsOpen = false
+                        setLyricsOpen(false)
                         queueOpen = !queueOpen
                     },
                     highlighted = queueOpen,
@@ -5167,7 +5205,17 @@ private fun LyricsPanel(
     }
 
     if (lines.isEmpty()) {
-        val empty = modifier.revealLyricsControlsOnTap(!controlsOpen, onBottomHalfTap)
+        val empty = modifier
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
+                        change.consume()
+                    }
+                    if (drag != null) verticalDrag(drag.id) { it.consume() }
+                }
+            }
+            .revealLyricsControlsOnTap(!controlsOpen, onBottomHalfTap)
         // "None" is a finding, and it is only worth reporting once the lookup
         // has actually come back with it.
         if (looking) {
@@ -6337,6 +6385,9 @@ private fun BottomGlyph(
  * it, but only at the top of the list — otherwise the queue could never fling.
  */
 private fun keepScrollInList(listState: LazyListState) = object : NestedScrollConnection {
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
+        if (available.y > 0f && !listState.canScrollBackward) available else Offset.Zero
+
     override fun onPostScroll(
         consumed: Offset,
         available: Offset,
@@ -6629,7 +6680,19 @@ private fun InlineQueue(
         }
     }
 
-    Column(modifier.fillMaxWidth()) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
+                        change.consume()
+                    }
+                    if (drag != null) verticalDrag(drag.id) { it.consume() }
+                }
+            },
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,

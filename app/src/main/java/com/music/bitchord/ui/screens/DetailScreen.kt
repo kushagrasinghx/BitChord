@@ -3,6 +3,8 @@ package com.music.bitchord.ui.screens
 import com.music.bitchord.R
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,7 +36,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MoreVert
@@ -46,6 +51,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -55,6 +62,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.lazy.LazyListItemInfo
+import androidx.compose.ui.withFrameNanos
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -129,6 +138,12 @@ enum class SongSort {
 
 private const val MAX_ARTIST_SONGS = 20
 private const val SONGS_PER_COLUMN = 4
+
+/** Edge zone for playlist reordering auto-scroll, in dp. */
+private val PLAYLIST_EDGE_SCROLL_ZONE = 40.dp
+
+/** Auto-scroll speed for playlist reordering, in dp per second. */
+private val PLAYLIST_EDGE_SCROLL_SPEED = 340.dp
 
 /** The artist photo, very slightly taller than it is wide. */
 private const val ARTIST_PHOTO_RATIO = 0.95f
@@ -241,14 +256,36 @@ fun DetailScreen(
 ) {
     val rawSongs = (page.songs as? UiState.Success)?.data.orEmpty()
     val songs = remember(rawSongs, songSort) { rawSongs.sortedForDetail(songSort) }
+    val isArtist = page.type == BrowseType.ARTIST
+    val isPlaylist = page.type == BrowseType.PLAYLIST
+
+    // Edit mode for playlist reordering — a Spotify-style explicit toggle.
+    var isEditing by rememberSaveable(isPlaylist) { mutableStateOf(false) }
+
+    // For playlists in edit mode, derive the display order from the persisted custom order.
+    val playlistCustomOrder by AppSettings.playlistTrackOrder.collectAsStateWithLifecycle()
+    val orderedSongs = if (isPlaylist && isEditing) {
+        val customIds = playlistCustomOrder[page.browseId].orEmpty()
+        if (customIds.isEmpty()) songs else {
+            // Put tracks in the custom order first, then append any that are missing.
+            val byId = songs.associateBy { it.videoId }
+            val ordered = customIds.mapNotNull { byId[it] }
+            val missing = songs.filterNot { it.videoId in customIds.toSet() }
+            ordered + missing
+        }
+    } else {
+        songs
+    }
     // What a numbered row shows regardless of [songSort] — an album's track
     // numbers are the sleeve's own and must not relabel themselves to match
     // wherever a sort put the row.
     val originalTrackNumbers = remember(rawSongs) {
         rawSongs.withIndex().associate { (i, s) -> s.videoId to i + 1 }
     }
-    val isArtist = page.type == BrowseType.ARTIST
     val palette = rememberArtworkPalette(page.thumbnailUrl)
+
+    // Tracks being dragged: which index in the visible list is being moved.
+    var draggingIndex by remember { mutableIntStateOf(-1) }
 
     // Narrowing the running order in place — the release equivalent of the
     // filter box on the Local Music tab, and the one thing a long track list
@@ -270,16 +307,30 @@ fun DetailScreen(
     // that pops the page, so it is the one that answers while it's enabled.
     BackHandler(enabled = searching) { closeSearch() }
 
+    // Back also exits edit mode on playlists — persists the order first.
+    BackHandler(enabled = isEditing && isPlaylist) {
+        isEditing = false
+    }
+
+    // When edit mode ends, persist the current songs list as the custom order.
+    LaunchedEffect(isEditing, isPlaylist) {
+        if (!isEditing && isPlaylist) {
+            AppSettings.setPlaylistTrackOrder(page.browseId, orderedSongs.map { it.videoId })
+        }
+    }
+
     // Each surviving row still knows where it sat in the full running order, so
     // an album's track numbers stay the album's rather than becoming positions
     // in the filtered list.
     val matches = remember(songs, query) { songs.matching(query) }
-    // What a tap plays: for playlists the full list (preserving context), so
-    // searching and tapping still stays inside the playlist. For albums / other
-    // browse types the filtered set is used — playing an entire album from a
-    // single search hit would queue tracks the user never asked for.
-    val queue = remember(songs, matches, page.type) {
-        if (page.type == BrowseType.PLAYLIST) songs else matches.map { it.value }
+    // For playlists in edit mode the queue uses orderedSongs so play-from-anywhere
+    // respects the user's custom order; otherwise keep the existing logic.
+    val queue = if (isPlaylist && isEditing) {
+        orderedSongs
+    } else {
+        remember(songs, matches, page.type) {
+            if (page.type == BrowseType.PLAYLIST) songs else matches.map { it.value }
+        }
     }
     val suggested = remember(page.suggestedSongs, query) {
         page.suggestedSongs.matching(query).map { it.value }
@@ -395,6 +446,9 @@ fun DetailScreen(
                         onMore = onMore,
                         onArtistClick = onArtistClick,
                         onToggleLibrary = onToggleLibrary,
+                        isPlaylist = isPlaylist,
+                        isEditing = isEditing,
+                        onToggleEdit = { if (isPlaylist) isEditing = !isEditing },
                     )
                 }
             }
@@ -494,37 +548,164 @@ fun DetailScreen(
                             MessageState(stringResource(R.string.nothing_matches, query))
                         }
                     }
-                    itemsIndexed(matches) { position, entry ->
-                        val song = entry.value
-                        val isCurrent = song.isSameTrackAs(currentSong)
-                        SongRow(
-                            song = if (numbered) {
+
+                    // For playlists in edit mode, render with drag handles and
+                    // disable click/long-press so drag gestures are not intercepted.
+                    if (isPlaylist && isEditing) {
+                        itemsIndexed(orderedSongs, key = { _, song -> "track-${song.videoId}" }) { index, song ->
+                            val isCurrent = song.isSameTrackAs(currentSong)
+                            val displaySong = song.copy(thumbnailUrl = song.thumbnailUrl ?: page.thumbnailUrl)
+
+                            // Track drag state for this row.
+                            var offsetY by remember { mutableFloatStateOf(0f) }
+                            var isDragging by remember { mutableStateOf(false) }
+
+                            // Pull density out of the non-composable drag callbacks.
+                            val density = LocalDensity.current
+                            val rowHeightPx = with(density) { 64.dp.toPx() }
+                            val edgeZonePx = with(density) { PLAYLIST_EDGE_SCROLL_ZONE.toPx() }
+                            val edgeSpeedPx = with(density) { PLAYLIST_EDGE_SCROLL_SPEED.toPx() }
+
+                            // Edge-scroll speed: computed each recomposition from the
+                            // dragged row's current position. 0f means no scrolling.
+                            val scrollSpeed = if (isDragging) {
+                                // Find where this row currently sits in the viewport.
+                                val info = listState.layoutInfo.visibleItemsInfo.find { it.key == "track-${song.videoId}" }
+                                if (info == null) 0f else {
+                                    val topEdge = info.offset + offsetY - 32f
+                                    val bottomEdge = info.offset + offsetY + 32f
+                                    val viewportTop = listState.layoutInfo.viewportStartOffset.toFloat()
+                                    val viewportBottom = listState.layoutInfo.viewportEndOffset.toFloat()
+                                    val intoTop = (viewportTop + edgeZonePx) - topEdge
+                                    val intoBottom = bottomEdge - (viewportBottom - edgeZonePx)
+                                    val reach = when {
+                                        intoTop > 0f && intoBottom <= 0f -> -intoTop
+                                        intoBottom > 0f && intoTop <= 0f -> intoBottom
+                                        else -> 0f
+                                    }
+                                    if (reach == 0f) 0f else {
+                                        val ramp = abs(reach) / edgeZonePx
+                                        val speed = edgeSpeedPx * (0.2f + 0.8f * ramp.coerceAtMost(1f))
+                                        if (reach < 0f) -speed else speed
+                                    }
+                                }
+                            } else {
+                                0f
+                            }
+                            // Guard: don't scroll past the list boundaries.
+                            val clampedSpeed = when {
+                                scrollSpeed < 0f && (index == 0 || !listState.canScrollBackward) -> 0f
+                                scrollSpeed > 0f && (index >= orderedSongs.lastIndex || !listState.canScrollForward) -> 0f
+                                else -> scrollSpeed
+                            }
+
+                            // Single auto-scroll loop for this row. When clampedSpeed is
+                            // non-zero it drives listState.scrollBy() each frame until the
+                            // list runs out of room or the drag ends.
+                            LaunchedEffect(index, clampedSpeed, isDragging) {
+                                if (clampedSpeed == 0f) return@LaunchedEffect
+                                var previous = withFrameNanos { it }
+                                while (true) {
+                                    val now = withFrameNanos { it }
+                                    val seconds = ((now - previous) / 1_000_000_000f).coerceAtMost(1f / 30f)
+                                    previous = now
+                                    val scrolled = listState.scroll {
+                                        scrollBy(clampedSpeed * seconds)
+                                    }
+                                    if (scrolled == 0f) break
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .offset { IntOffset(0, offsetY.roundToInt()) }
+                                    .draggable(
+                                        orientation = androidx.compose.foundation.gestures.Orientation.Vertical,
+                                        state = rememberDraggableState { delta ->
+                                            offsetY += delta
+                                            isDragging = true
+                                        },
+                                        onDragStopped = {
+                                            // Resolve the final position to an index.
+                                            val movedBy = (offsetY / rowHeightPx).toInt()
+                                            if (movedBy != 0) {
+                                                val targetIndex = (index + movedBy).coerceIn(0, orderedSongs.lastIndex)
+                                                // Build the new list with the item moved.
+                                                val newItem = orderedSongs[index]
+                                                val newList = orderedSongs.toMutableList().apply {
+                                                    removeAt(index)
+                                                    add(targetIndex, newItem)
+                                                }
+                                                // Persist the full reordered list.
+                                                AppSettings.setPlaylistTrackOrder(
+                                                    page.browseId,
+                                                    newList.map { it.videoId },
+                                                )
+                                            }
+                                            offsetY = 0f
+                                            isDragging = false
+                                        },
+                                    ),
+                            ) {
+                                DragHandleIcon(isDragging)
+                                SongRow(
+                                    song = displaySong,
+                                    onClick = {}, // disabled in edit mode
+                                    onLongPress = null, // disabled in edit mode
+                                    onSwipeToQueue = null, // disabled in edit mode
+                                    rowBackground = Color.Transparent,
+                                    subtitleColor = palette.onBackgroundVariant,
+                                    downloadedTint = downloadedTint,
+                                    isCurrent = isCurrent,
+                                    isPlaying = isCurrent && isPlaying,
+                                    activeTint = palette.accent,
+                                )
+                            }
+                            if (index < orderedSongs.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
+                                    thickness = 0.5.dp,
+                                    color = palette.divider,
+                                )
+                            }
+                        }
+                    } else {
+                        itemsIndexed(matches) { position, entry ->
+                            val song = entry.value
+                            val isCurrent = song.isSameTrackAs(currentSong)
+                            val displaySong = if (numbered) {
                                 song
                             } else {
                                 song.copy(thumbnailUrl = song.thumbnailUrl ?: page.thumbnailUrl)
-                            },
-                            onClick = {
-                                val startIdx = if (page.type == BrowseType.PLAYLIST) entry.index else position
-                                onSongClick(queue, startIdx)
-                            },
-                            onLongPress = { onSongLongPress(song) },
-                            onSwipeToQueue = { onSongSwipe(song) },
-                            rowBackground = Color.Transparent,
-                            // The track's place on the release, not its place in
-                            // what the filter — or a sort — left standing.
-                            trackNumber = originalTrackNumbers[song.videoId].takeIf { numbered },
-                            subtitleColor = palette.onBackgroundVariant,
-                            downloadedTint = downloadedTint,
-                            isCurrent = isCurrent,
-                            isPlaying = isCurrent && isPlaying,
-                            activeTint = palette.accent,
-                        )
-                        if (position < matches.lastIndex) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
-                                thickness = 0.5.dp,
-                                color = palette.divider,
-                            )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                SongRow(
+                                    song = displaySong,
+                                    onClick = {
+                                        val startIdx = if (page.type == BrowseType.PLAYLIST) entry.index else position
+                                        onSongClick(queue, startIdx)
+                                    },
+                                    onLongPress = { onSongLongPress(song) },
+                                    onSwipeToQueue = { onSongSwipe(song) },
+                                    rowBackground = Color.Transparent,
+                                    trackNumber = originalTrackNumbers[song.videoId].takeIf { numbered },
+                                    subtitleColor = palette.onBackgroundVariant,
+                                    downloadedTint = downloadedTint,
+                                    isCurrent = isCurrent,
+                                    isPlaying = isCurrent && isPlaying,
+                                    activeTint = palette.accent,
+                                )
+                            }
+                            if (position < matches.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = ROW_DIVIDER_INSET),
+                                    thickness = 0.5.dp,
+                                    color = palette.divider,
+                                )
+                            }
                         }
                     }
                 }
@@ -604,6 +785,9 @@ private fun ReleaseHeader(
     onMore: ((List<Song>) -> Unit)?,
     onArtistClick: (String, String) -> Unit,
     onToggleLibrary: (() -> Unit)?,
+    isPlaylist: Boolean,
+    isEditing: Boolean,
+    onToggleEdit: () -> Unit,
 ) {
     val (credit, meta) = page.headerLines(trackCount)
     // Every row on a release carries the same credit — see [pageCredit] — so
@@ -677,12 +861,8 @@ private fun ReleaseHeader(
                 // Only where YouTube said the release can be saved and the
                 // caller is willing to take the write — see [onToggleLibrary].
                 val library = page.library?.takeIf { onToggleLibrary != null }
-                // Four circles and the pill is as much as this row can carry,
-                // and on a 360dp screen it only carries it by giving something
-                // up: the pill sheds padding first, being the widest thing here,
-                // and the circles come down 4dp after that. The alternative is a
-                // row that runs off the edge of the screen.
-                val circles = listOfNotNull(library, onMore).size + 2 // + Shuffle, Search
+                // The edit circle (drag handle) appears only on playlists.
+                val circles = listOfNotNull(library, onMore).size + 2 + if (isPlaylist) 1 else 0 // + Shuffle, Search, Edit
                 val full = circles >= 4
                 val circleSize = if (full) 46.dp else 50.dp
                 Spacer(Modifier.height(14.dp))
@@ -709,6 +889,21 @@ private fun ReleaseHeader(
                             palette = palette,
                             onClick = { onToggleLibrary?.invoke() },
                             haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
+                            size = circleSize,
+                        )
+                    }
+                    // Edit / reorder toggle — left of Shuffle on playlists only.
+                    // Shows a pencil while idle, switches to a checkmark when
+                    // edit mode is active (user taps it again to finish).
+                    if (isPlaylist) {
+                        CircleIconButton(
+                            icon = if (isEditing) Icons.Rounded.Check else Icons.Rounded.Edit,
+                            contentDescription = stringResource(
+                                if (isEditing) R.string.done else R.string.drag_to_reorder,
+                            ),
+                            palette = palette,
+                            onClick = onToggleEdit,
+                            haptic = if (isEditing) Haptic.ToggleOff else Haptic.ToggleOn,
                             size = circleSize,
                         )
                     }
@@ -1605,4 +1800,22 @@ private fun String?.toSeconds(): Int {
         3 -> parts[0] * 3600 + parts[1] * 60 + parts[2]
         else -> 0
     }
+}
+
+/** Drag handle icon shown on playlist song rows during edit mode. */
+@Composable
+private fun DragHandleIcon(isDragging: Boolean) {
+    val tint = if (isDragging) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+    }
+    Icon(
+        imageVector = Icons.Rounded.DragHandle,
+        contentDescription = null,
+        tint = tint,
+        modifier = Modifier
+            .size(24.dp)
+            .padding(horizontal = 6.dp),
+    )
 }

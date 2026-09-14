@@ -129,6 +129,8 @@ fun LibraryScreen(
     downloadedPlaylists: List<SavedCollection> = emptyList(),
 ) {
     val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+    val librarySort by AppSettings.librarySort.collectAsStateWithLifecycle()
+    val sectionOrder by AppSettings.librarySectionOrder.collectAsStateWithLifecycle()
     val onDevice = stringResource(R.string.on_device)
     PullToRefresh(
         refreshing = refreshing,
@@ -219,7 +221,15 @@ fun LibraryScreen(
                     // makes one — so the row is drawn either way, empty but
                     // for the tile that creates the first playlist.
                     val shelves = state.data.shelves
-                    if (shelves.none { it.title == PLAYLISTS }) {
+                    // When CUSTOM, order shelves by the user's drag-and-drop list;
+                    // unknown titles are appended at the end in their original order.
+                    val orderedShelves = if (librarySort == LibrarySort.CUSTOM && sectionOrder.isNotEmpty()) {
+                        val orderMap = sectionOrder.mapIndexed { i, title -> title to i }.toMap()
+                        shelves.sortedWith(compareBy { s -> orderMap[s.title] ?: Int.MAX_VALUE })
+                    } else {
+                        shelves
+                    }
+                    if (orderedShelves.none { it.title == PLAYLISTS }) {
                         item(key = "shelf:$PLAYLISTS") {
                             val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
                             PlaylistShelf(
@@ -231,7 +241,7 @@ fun LibraryScreen(
                             )
                         }
                     }
-                    shelves.forEach { shelf ->
+                    orderedShelves.forEach { shelf ->
                         item(key = "shelf:${shelf.title}") {
                             if (shelf.title == PLAYLISTS) {
                                 val pinnedFirst = shelf.pinnedFirst(pinnedPlaylists)
@@ -520,6 +530,7 @@ private fun HomeShelf.sortedForLibrary(sort: LibrarySort): HomeShelf = when (sor
     LibrarySort.TITLE_DESC -> copy(
         items = items.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title }),
     )
+    LibrarySort.CUSTOM -> this  // order is controlled by librarySectionOrder in the caller
 }
 
 /** The library feed whose cards are the account's own — see [PlaylistShelf]. */

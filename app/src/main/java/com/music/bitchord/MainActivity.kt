@@ -3513,6 +3513,7 @@ private fun LibrarySort.localizedLabel(): String = when (this) {
     LibrarySort.DEFAULT -> stringResource(R.string.sort_default)
     LibrarySort.TITLE_ASC -> stringResource(R.string.sort_title_ascending)
     LibrarySort.TITLE_DESC -> stringResource(R.string.sort_title_descending)
+    LibrarySort.CUSTOM -> "Custom"
 }
 
 @Composable

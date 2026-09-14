@@ -163,6 +163,8 @@ enum class LibrarySort {
     DEFAULT,
     TITLE_ASC,
     TITLE_DESC,
+    /** User-defined drag-and-drop order; persisted separately from [LibrarySort] as a list of browse ids. */
+    CUSTOM,
 }
 
 /** Display mode for music lists: compact rows or grid cards. */
@@ -530,6 +532,20 @@ object AppSettings {
      */
     val pinnedPlaylists = MutableStateFlow<List<String>>(emptyList())
 
+    /**
+     * User-defined ordering of Library shelves (sections). When non-empty, these
+     * titles appear in this order first; unknown titles are appended at the end.
+     * Only relevant when [librarySort] is [LibrarySort.CUSTOM].
+     */
+    val librarySectionOrder = MutableStateFlow<List<String>>(emptyList())
+
+    /**
+     * Per-playlist custom track order, keyed by browse id → ordered list of video ids.
+     * When a playlist's songs are loaded and [songSort] is [SongSort.CUSTOM], the
+     * stored order is used if present; otherwise the server order falls through.
+     */
+    val playlistTrackOrder = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+
     /** How many playlists [pinnedPlaylists] can hold at once. */
     const val MAX_PINNED_PLAYLISTS = 5
 
@@ -771,6 +787,8 @@ object AppSettings {
             ?: LibrarySort.DEFAULT
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
         pinnedPlaylists.value = readPinnedPlaylists()
+        librarySectionOrder.value = readLibrarySectionOrder()
+        playlistTrackOrder.value = readPlaylistTrackOrder()
         discordToken.value = authStore.discordToken.orEmpty()
         discordUsername.value = prefs.getString(KEY_DISCORD_USERNAME, "").orEmpty()
         discordName.value = prefs.getString(KEY_DISCORD_NAME, "").orEmpty()
@@ -1419,6 +1437,74 @@ object AppSettings {
         prefs.edit().putString(KEY_LIBRARY_SORT, value.name).apply()
     }
 
+    /** Persist the user's drag-and-drop shelf order. */
+    fun setLibrarySectionOrder(order: List<String>) {
+        librarySectionOrder.value = order
+        prefs.edit().putString(KEY_LIBRARY_SECTION_ORDER, order.joinToString(",")).apply()
+    }
+
+    private fun readLibrarySectionOrder(): List<String> {
+        val stored = prefs.getString(KEY_LIBRARY_SECTION_ORDER, null) ?: return emptyList()
+        return stored.split(",").filter { it.isNotBlank() }
+    }
+
+    /**
+     * Append or move [videoId] in the custom order for playlist [browseId].
+     *
+     * When [videoId] is already present it is moved to the end (user placed it there);
+     * when absent it is appended. Returns the updated list.
+     */
+    fun reorderPlaylistTrack(browseId: String, videoId: String): List<String> {
+        val current = playlistTrackOrder.value[browseId].orEmpty()
+        val updated = (current.toMutableList().apply { remove(videoId) }.apply { add(videoId) })
+        playlistTrackOrder.value = playlistTrackOrder.value + (browseId to updated)
+        prefs.edit().putString(
+            KEY_PLAYLIST_TRACK_ORDER,
+            playlistTrackOrder.value.mapValues { (_, ids) -> ids.joinToString(",") }.toMap()
+                .filterValues { it.isNotBlank() }
+                .entries.joinToString(";;") { (k, v) -> "$k=$v" },
+        ).apply()
+        return updated
+    }
+
+    /**
+     * Replace the entire custom track order for a playlist. Used after a drag-and-drop completes.
+     */
+    fun setPlaylistTrackOrder(browseId: String, videoIds: List<String>) {
+        if (videoIds.isEmpty()) {
+            val next = playlistTrackOrder.value - browseId
+            playlistTrackOrder.value = next
+            prefs.edit().putString(
+                KEY_PLAYLIST_TRACK_ORDER,
+                next.mapValues { (_, ids) -> ids.joinToString(",") }.toMap()
+                    .entries.joinToString(";;") { (k, v) -> "$k=$v" },
+            ).apply()
+        } else {
+            playlistTrackOrder.value = playlistTrackOrder.value + (browseId to videoIds)
+            prefs.edit().putString(
+                KEY_PLAYLIST_TRACK_ORDER,
+                playlistTrackOrder.value.mapValues { (_, ids) -> ids.joinToString(",") }.toMap()
+                    .filterValues { it.isNotBlank() }
+                    .entries.joinToString(";;") { (k, v) -> "$k=$v" },
+            ).apply()
+        }
+    }
+
+    /**
+     * Read the stored custom track orders. Format: `browseId1=vid1,vid2,vid3;;browseId2=...`
+     */
+    private fun readPlaylistTrackOrder(): Map<String, List<String>> {
+        val stored = prefs.getString(KEY_PLAYLIST_TRACK_ORDER, null) ?: return emptyMap()
+        if (stored.isBlank()) return emptyMap()
+        return stored.split(";;").filter { it.isNotBlank() }.associate { entry ->
+            val parts = entry.split("=", limit = 2)
+            if (parts.size < 2) return@associate Pair(parts[0], emptyList())
+            val browseId = parts[0]
+            val videoIds = parts[1].split(",").filter { it.isNotBlank() }
+            Pair(browseId, videoIds)
+        }
+    }
+
     fun setLocalMusicViewType(value: LibraryViewType) {
         localMusicViewType.value = value
         prefs.edit().putString(KEY_LOCAL_MUSIC_VIEW_TYPE, value.name).apply()
@@ -1632,6 +1718,10 @@ object AppSettings {
     private const val KEY_HOME_RECENTS_VIEW_TYPE = "home_recents_view_type"
     private const val KEY_LOCAL_MUSIC_FOLDER_URI = "local_music_folder_uri"
     private const val KEY_PINNED_PLAYLISTS = "pinned_playlists"
+    /** User-defined shelf order on the Library tab — a comma-separated list of shelf titles. */
+    private const val KEY_LIBRARY_SECTION_ORDER = "library_section_order"
+    /** Per-playlist custom track order, keyed by browse id → comma-separated video ids. */
+    private const val KEY_PLAYLIST_TRACK_ORDER = "playlist_track_order"
 
     private const val KEY_LASTFM_ENABLED = "lastfm_enabled"
     private const val KEY_LASTFM_USERNAME = "lastfm_username"

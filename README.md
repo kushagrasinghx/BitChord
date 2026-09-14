@@ -26,6 +26,13 @@
 
 </div>
 
+## Windows companion
+
+BitChord also includes a native WinUI 3 desktop companion with a liquid-glass
+interface, persistent mini-player, library, queue, downloads, and settings
+surfaces. Open [`windows/README.md`](windows/README.md) for Visual Studio setup
+and MSIX installer packaging instructions.
+
 > [!WARNING]
 > BitChord is not affiliated with, endorsed by, or connected to YouTube or Google in any way. Use it at your own discretion.
 

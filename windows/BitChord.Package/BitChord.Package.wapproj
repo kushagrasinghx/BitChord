@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build"
+         xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <WapPkgInstallDir Condition="'$(WapPkgInstallDir)' == ''">$(MSBuildExtensionsPath)\Microsoft\DesktopBridge\</WapPkgInstallDir>
+    <AppxTargetsLocation Condition="'$(AppxTargetsLocation)' == ''">$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\AppxPackage\</AppxTargetsLocation>
+    <EntryPointProjectUniqueName>..\BitChord.WinUI\BitChord.WinUI.csproj</EntryPointProjectUniqueName>
+  </PropertyGroup>
+  <Import Project="$(WapPkgInstallDir)Microsoft.DesktopBridge.props" />
+  <PropertyGroup>
+    <ProjectGuid>{E43B7E29-5C87-4684-A1F2-42BB86F37BE9}</ProjectGuid>
+    <TargetPlatformVersion>10.0.26100.0</TargetPlatformVersion>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <Platforms>x64</Platforms>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <BaseOutputPath>bin\</BaseOutputPath>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <GenerateAppInstallerFile>false</GenerateAppInstallerFile>
+    <AppxPackageDir>$(SolutionDir)artifacts\</AppxPackageDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectCapability Include="Appx" />
+    <ProjectReference Include="..\BitChord.WinUI\BitChord.WinUI.csproj">
+      <Project>{B17C8F48-88A2-4F2A-9A8C-2B5E61C1B9A1}</Project>
+      <Name>BitChord.WinUI</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="..\BitChord.WinUI\Package.appxmanifest" />
+    <Content Include="..\BitChord.WinUI\Assets\Logo44.png">
+      <Link>Assets\Logo44.png</Link>
+    </Content>
+    <Content Include="..\BitChord.WinUI\Assets\Logo50.png">
+      <Link>Assets\Logo50.png</Link>
+    </Content>
+    <Content Include="..\BitChord.WinUI\Assets\Logo150.png">
+      <Link>Assets\Logo150.png</Link>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(WapPkgInstallDir)Microsoft.DesktopBridge.targets" />
+  <Import Project="$(AppxTargetsLocation)Microsoft.AppxPackage.Targets" />
+</Project>

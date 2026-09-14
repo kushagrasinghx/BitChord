@@ -1,0 +1,21 @@
+<Page x:Class="BitChord.WinUI.Pages.LibraryPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer Padding="44,38,44,120">
+        <StackPanel MaxWidth="1100">
+            <TextBlock Text="Your library" FontSize="34" FontWeight="SemiBold"/>
+            <TextBlock Text="Everything you saved, ready offline." FontSize="16" Foreground="{ThemeResource TextSecondaryBrush}" Margin="0,6,0,28"/>
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                <Border Style="{StaticResource GlassCard}"><StackPanel><TextBlock Text="♫" FontSize="36" Foreground="{ThemeResource AccentBrush}"/><TextBlock Text="Liked songs" FontSize="19" FontWeight="SemiBold" Margin="0,14,0,3"/><TextBlock Text="248 songs" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel></Border>
+                <Border Grid.Column="1" Style="{StaticResource GlassCard}"><StackPanel><TextBlock Text="◈" FontSize="36" Foreground="{ThemeResource AccentBrush}"/><TextBlock Text="Playlists" FontSize="19" FontWeight="SemiBold" Margin="0,14,0,3"/><TextBlock Text="12 playlists" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel></Border>
+                <Border Grid.Column="2" Style="{StaticResource GlassCard}"><StackPanel><TextBlock Text="⬇" FontSize="36" Foreground="{ThemeResource AccentBrush}"/><TextBlock Text="Offline" FontSize="19" FontWeight="SemiBold" Margin="0,14,0,3"/><TextBlock Text="36 downloads" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel></Border>
+            </Grid>
+            <TextBlock Text="Recently added" Style="{StaticResource SectionTitle}" Margin="0,34,0,14"/>
+            <ListView Background="Transparent">
+                <ListViewItem><Grid Padding="8"><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Border Width="48" Height="48" CornerRadius="10" Background="#498D6BFF"><TextBlock Text="♫" FontSize="25" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" Margin="14,0"><TextBlock Text="Wait" FontWeight="SemiBold"/><TextBlock Text="M83" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel><TextBlock Grid.Column="2" Text="3:58" Foreground="{ThemeResource TextSecondaryBrush}" VerticalAlignment="Center"/></Grid></ListViewItem>
+                <ListViewItem><Grid Padding="8"><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Border Width="48" Height="48" CornerRadius="10" Background="#493C8DD6"><TextBlock Text="♫" FontSize="25" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" Margin="14,0"><TextBlock Text="The Mother We Share" FontWeight="SemiBold"/><TextBlock Text="CHVRCHES" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel><TextBlock Grid.Column="2" Text="3:13" Foreground="{ThemeResource TextSecondaryBrush}" VerticalAlignment="Center"/></Grid></ListViewItem>
+            </ListView>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

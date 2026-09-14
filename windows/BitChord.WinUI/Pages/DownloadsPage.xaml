@@ -1,0 +1,21 @@
+<Page x:Class="BitChord.WinUI.Pages.DownloadsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer Padding="44,38,44,120">
+        <StackPanel MaxWidth="1000">
+            <TextBlock Text="Downloads" FontSize="34" FontWeight="SemiBold"/>
+            <TextBlock Text="Your music, even when the signal disappears." FontSize="16" Foreground="{ThemeResource TextSecondaryBrush}" Margin="0,6,0,28"/>
+            <Border Style="{StaticResource GlassCard}" Padding="22">
+                <StackPanel>
+                    <Grid><TextBlock Text="Storage" FontSize="18" FontWeight="SemiBold"/><TextBlock Text="2.4 GB of 32 GB" HorizontalAlignment="Right" Foreground="{ThemeResource TextSecondaryBrush}"/></Grid>
+                    <ProgressBar Value="8" Margin="0,14,0,0"/>
+                </StackPanel>
+            </Border>
+            <TextBlock Text="Downloaded" Style="{StaticResource SectionTitle}" Margin="0,34,0,14"/>
+            <ListView Background="Transparent">
+                <ListViewItem><Grid Padding="8"><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Border Width="48" Height="48" CornerRadius="10" Background="#4A8D6BFF"><TextBlock Text="♫" FontSize="25" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" Margin="14,0"><TextBlock Text="Midnight City" FontWeight="SemiBold"/><TextBlock Text="FLAC • 42 MB" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel><TextBlock Grid.Column="2" Text="✓" Foreground="{ThemeResource AccentBrush}" VerticalAlignment="Center"/></Grid></ListViewItem>
+                <ListViewItem><Grid Padding="8"><Grid.ColumnDefinitions><ColumnDefinition Width="60"/><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><Border Width="48" Height="48" CornerRadius="10" Background="#4A3C8DD6"><TextBlock Text="♫" FontSize="25" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Grid.Column="1" Margin="14,0"><TextBlock Text="Clearest Blue" FontWeight="SemiBold"/><TextBlock Text="AAC • 8 MB" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel><TextBlock Grid.Column="2" Text="✓" Foreground="{ThemeResource AccentBrush}" VerticalAlignment="Center"/></Grid></ListViewItem>
+            </ListView>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

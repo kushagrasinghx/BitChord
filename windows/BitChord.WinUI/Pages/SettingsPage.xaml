@@ -1,0 +1,20 @@
+<Page x:Class="BitChord.WinUI.Pages.SettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer Padding="44,38,44,120">
+        <StackPanel MaxWidth="900">
+            <TextBlock Text="Settings" FontSize="34" FontWeight="SemiBold"/>
+            <TextBlock Text="Tune BitChord to your setup." FontSize="16" Foreground="{ThemeResource TextSecondaryBrush}" Margin="0,6,0,30"/>
+            <TextBlock Text="Appearance" Style="{StaticResource SectionTitle}"/>
+            <Border Style="{StaticResource GlassCard}">
+                <StackPanel>
+                    <Grid Margin="0,0,0,22"><StackPanel><TextBlock Text="Liquid glass" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Blurred translucent surfaces throughout the app" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel><ToggleSwitch IsOn="True" HorizontalAlignment="Right"/></Grid>
+                    <Grid Margin="0,0,0,22"><StackPanel><TextBlock Text="Dynamic artwork colors" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Tint the interface from the current album" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel><ToggleSwitch IsOn="True" HorizontalAlignment="Right"/></Grid>
+                    <Grid><StackPanel><TextBlock Text="Reduce motion" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Use simpler animations and transitions" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel><ToggleSwitch HorizontalAlignment="Right"/></Grid>
+                </StackPanel>
+            </Border>
+            <TextBlock Text="Playback" Style="{StaticResource SectionTitle}" Margin="0,32,0,14"/>
+            <Border Style="{StaticResource GlassCard}"><Grid><StackPanel><TextBlock Text="Audio quality" FontSize="16" FontWeight="SemiBold"/><TextBlock Text="Prefer the highest available quality" Foreground="{ThemeResource TextSecondaryBrush}"/></StackPanel><ComboBox SelectedIndex="0" HorizontalAlignment="Right" Width="130"><ComboBoxItem Content="High-res"/><ComboBoxItem Content="Balanced"/><ComboBoxItem Content="Data saver"/></ComboBox></Grid></Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

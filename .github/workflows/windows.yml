@@ -1,0 +1,198 @@
+name: Windows companion
+
+on:
+  push:
+    branches:
+      - main
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-winui:
+    name: Build WinUI 3, MSIX, and EXE setup
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Visual Studio MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Prepare MSIX signing certificate
+        shell: pwsh
+        env:
+          BITCHORD_PFX_BASE64: ${{ secrets.BITCHORD_PFX_BASE64 }}
+          BITCHORD_PFX_PASSWORD: ${{ secrets.BITCHORD_PFX_PASSWORD }}
+        run: |
+          $signingDirectory = Join-Path $env:GITHUB_WORKSPACE "windows\signing"
+          New-Item -ItemType Directory -Path $signingDirectory -Force | Out-Null
+          $pfxPath = Join-Path $signingDirectory "BitChord-signing.pfx"
+          $cerPath = Join-Path $signingDirectory "BitChord-signing.cer"
+
+          if ($env:BITCHORD_PFX_BASE64) {
+            if (-not $env:BITCHORD_PFX_PASSWORD) {
+              throw "BITCHORD_PFX_PASSWORD must be configured with BITCHORD_PFX_BASE64."
+            }
+            try {
+              [IO.File]::WriteAllBytes($pfxPath, [Convert]::FromBase64String($env:BITCHORD_PFX_BASE64))
+            } catch {
+              throw "BITCHORD_PFX_BASE64 is not valid Base64: $($_.Exception.Message)"
+            }
+            $passwordText = $env:BITCHORD_PFX_PASSWORD
+          } else {
+            $certificate = New-SelfSignedCertificate `
+              -Type CodeSigning `
+              -Subject "CN=BitChord" `
+              -FriendlyName "BitChord development signing certificate" `
+              -CertStoreLocation "Cert:\CurrentUser\My" `
+              -NotAfter (Get-Date).AddYears(1)
+            if (-not $certificate) {
+              throw "The development signing certificate could not be created."
+            }
+            $passwordText = [Guid]::NewGuid().ToString("N")
+            $password = ConvertTo-SecureString $passwordText -AsPlainText -Force
+            Export-PfxCertificate `
+              -Cert $certificate `
+              -FilePath $pfxPath `
+              -Password $password | Out-Null
+            Export-Certificate -Cert $certificate -FilePath $cerPath | Out-Null
+          }
+
+          if (-not (Test-Path $cerPath)) {
+            $certificate = Get-PfxCertificate -FilePath $pfxPath
+            Export-Certificate -Cert $certificate -FilePath $cerPath | Out-Null
+          }
+          "BITCHORD_PFX_PATH=$pfxPath" >> $env:GITHUB_ENV
+          "BITCHORD_CER_PATH=$cerPath" >> $env:GITHUB_ENV
+          "BITCHORD_CERT_PASSWORD=$passwordText" >> $env:GITHUB_ENV
+
+      - name: Build solution and signed MSIX package
+        shell: pwsh
+        run: |
+          $msbuild = Get-ChildItem "${env:ProgramFiles}\Microsoft Visual Studio\2022" -Filter MSBuild.exe -Recurse |
+            Where-Object { $_.FullName -match "MSBuild\\Current\\Bin\\MSBuild.exe$" } |
+            Select-Object -First 1
+          if (-not $msbuild) {
+            throw "MSBuild was not found on the hosted Windows runner."
+          }
+          $solution = Join-Path $env:GITHUB_WORKSPACE "windows\BitChord.sln"
+          if (-not (Test-Path $solution)) {
+            throw "BitChord.sln was not found at $solution."
+          }
+          & $msbuild.FullName $solution /t:Restore /p:Configuration=Release /p:Platform=x64 /v:minimal
+          if ($LASTEXITCODE -ne 0) {
+            throw "BitChord solution restore failed with exit code $LASTEXITCODE."
+          }
+          & $msbuild.FullName $solution `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:AppxPackageSigningEnabled=true `
+            /p:PackageCertificateKeyFile="$env:BITCHORD_PFX_PATH" `
+            /p:PackageCertificatePassword="$env:BITCHORD_CERT_PASSWORD" `
+            /v:minimal
+          if ($LASTEXITCODE -ne 0) {
+            throw "BitChord solution build failed with exit code $LASTEXITCODE."
+          }
+          $artifactDirectory = Join-Path $env:GITHUB_WORKSPACE "windows\artifacts"
+          New-Item -ItemType Directory -Path $artifactDirectory -Force | Out-Null
+          Copy-Item $env:BITCHORD_CER_PATH (Join-Path $artifactDirectory "BitChord-signing.cer") -Force
+
+      - name: Create compressed MSIX archive
+        shell: pwsh
+        run: |
+          $sourceDirectory = Join-Path $env:GITHUB_WORKSPACE "windows\artifacts"
+          $packageDirectory = Join-Path $env:GITHUB_WORKSPACE "windows\BitChord.Package\AppPackages"
+          $stagingDirectory = Join-Path $env:GITHUB_WORKSPACE "windows\msix-archive"
+          $archivePath = Join-Path $env:GITHUB_WORKSPACE "windows\artifacts\BitChord-MSIX.zip"
+          New-Item -ItemType Directory -Path $stagingDirectory -Force | Out-Null
+
+          $packageFiles = @(
+            Get-ChildItem $sourceDirectory -Recurse -File -Include *.msix, *.msixbundle, *.cer -ErrorAction SilentlyContinue
+            Get-ChildItem $packageDirectory -Recurse -File -Include *.msix, *.msixbundle, *.cer -ErrorAction SilentlyContinue
+          ) | Sort-Object FullName -Unique
+          if (-not $packageFiles) {
+            throw "No MSIX, MSIX bundle, or certificate files were found."
+          }
+
+          foreach ($file in $packageFiles) {
+            Copy-Item $file.FullName (Join-Path $stagingDirectory $file.Name) -Force
+          }
+          if (Test-Path $archivePath) {
+            Remove-Item $archivePath -Force
+          }
+          Compress-Archive -Path (Join-Path $stagingDirectory "*") -DestinationPath $archivePath -CompressionLevel Optimal
+
+      - name: Upload compressed MSIX archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-windows-msix-${{ github.run_number }}
+          path: windows/artifacts/BitChord-MSIX.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish unpackaged EXE payload
+        shell: pwsh
+        run: |
+          $publishDirectory = Join-Path $env:GITHUB_WORKSPACE "windows\publish"
+          if (Test-Path $publishDirectory) {
+            Remove-Item $publishDirectory -Recurse -Force
+          }
+          dotnet publish .\windows\BitChord.WinUI\BitChord.WinUI.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --output $publishDirectory `
+            -p:WindowsPackageType=None `
+            -p:WindowsAppSDKSelfContained=true `
+            -p:EnableMsixTooling=false `
+            -p:EnableCoreMrtTooling=false `
+            -p:GenerateAppxPackageOnBuild=false `
+            -p:PublishAppxPackage=false `
+            --no-restore
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unpackaged EXE publish failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Build EXE installer
+        shell: pwsh
+        run: |
+          $innoCompiler = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $innoCompiler) {
+            throw "Inno Setup 6 (ISCC.exe) was not found on the hosted runner."
+          }
+          $artifactDirectory = Join-Path $env:GITHUB_WORKSPACE "windows\artifacts"
+          New-Item -ItemType Directory -Path $artifactDirectory -Force | Out-Null
+          & $innoCompiler `
+            "/DMyAppVersion=1.0.${env:GITHUB_RUN_NUMBER}" `
+            "/DSourceDir=$env:GITHUB_WORKSPACE\windows\publish" `
+            "$env:GITHUB_WORKSPACE\windows\installer\BitChord.iss"
+          if ($LASTEXITCODE -ne 0) {
+            throw "EXE installer build failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Create compressed EXE archive
+        shell: pwsh
+        run: |
+          $setupPath = Join-Path $env:GITHUB_WORKSPACE "windows\artifacts\BitChord-Setup.exe"
+          $archivePath = Join-Path $env:GITHUB_WORKSPACE "windows\artifacts\BitChord-EXE.zip"
+          if (-not (Test-Path $setupPath)) {
+            throw "BitChord-Setup.exe was not found."
+          }
+          if (Test-Path $archivePath) {
+            Remove-Item $archivePath -Force
+          }
+          Compress-Archive -Path $setupPath -DestinationPath $archivePath -CompressionLevel Optimal
+
+      - name: Upload compressed EXE archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-windows-exe-${{ github.run_number }}
+          path: windows/artifacts/BitChord-EXE.zip
+          if-no-files-found: error
+          retention-days: 14

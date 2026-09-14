@@ -1,0 +1,10 @@
+<Window
+    x:Class="BitChord.WinUI.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="BitChord">
+    <!-- The desktop shell is assembled in MainWindow.xaml.cs with stable
+         primitives. Keeping this XAML intentionally minimal avoids loading
+         NavigationView resources during startup. -->
+    <Grid />
+</Window>

@@ -5,9 +5,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.pointerInput
 
 /**
@@ -56,11 +54,6 @@ internal fun Modifier.revealLyricsControlsOnTap(
                     event.changes.size > 1
                 ) {
                     dragged = true
-                } else if (change.positionChange() != Offset.Zero) {
-                    // Still a tap as far as this is concerned, so hold the list
-                    // still rather than let it read the wobble as the start of a
-                    // scroll it would then own.
-                    change.consume()
                 }
                 if (!change.pressed) {
                     if (!dragged) {

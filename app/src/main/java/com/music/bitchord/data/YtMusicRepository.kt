@@ -659,9 +659,9 @@ object YtMusicRepository {
      * so collecting the full bounded set before publishing is preferable to a
      * shelf that looks complete and silently is not.
      */
-    private suspend fun libraryItemsPaged(browseId: String): List<ShelfItem> {
+    private suspend fun itemsPaged(browseId: String, params: String? = null): List<ShelfItem> {
         val out = LinkedHashMap<String, ShelfItem>()
-        var response = Innertube.browse(browseId)
+        var response = Innertube.browse(browseId, params)
         var page = 1
         while (true) {
             val parsed = InnertubeParser.parseLibraryItemPage(response)
@@ -675,6 +675,8 @@ object YtMusicRepository {
         }
         return out.values.toList()
     }
+
+    private suspend fun libraryItemsPaged(browseId: String): List<ShelfItem> = itemsPaged(browseId, null)
 
     const val MAX_PAGES = 10
 
@@ -802,14 +804,39 @@ object YtMusicRepository {
 
     /**
      * Artist page. The landing page only lists ~5 songs, so the linked
-     * "Top songs" playlist is fetched to fill the list out.
+     * "Top songs" playlist is fetched to fill the list out, and any linked
+     * full release shelves (Albums, Singles & EPs) are fetched to populate
+     * their complete discography.
      */
     suspend fun artistPage(browseId: String): Result<ArtistPage> = call("artist:$browseId") {
         val page = InnertubeParser.parseArtistPage(Innertube.browse(browseId))
-        val fullSongs = page.moreSongsBrowseId?.let { playlistId ->
-            runCatching { songsPaged(playlistId) }.getOrNull()
+        coroutineScope {
+            val fullSongsDeferred = async {
+                page.moreSongsBrowseId?.let { playlistId ->
+                    runCatching { songsPaged(playlistId) }.getOrNull()
+                }
+            }
+            val shelvesDeferred = page.sections.map { shelf ->
+                async {
+                    if (shelf.moreBrowseId != null) {
+                        val fullItems = runCatching {
+                            itemsPaged(shelf.moreBrowseId, shelf.moreParams)
+                        }.getOrNull()
+                        if (!fullItems.isNullOrEmpty()) {
+                            shelf.copy(items = fullItems)
+                        } else {
+                            shelf
+                        }
+                    } else {
+                        shelf
+                    }
+                }
+            }
+            val fullSongs = fullSongsDeferred.await()
+            val fullShelves = shelvesDeferred.awaitAll()
+            val resolvedSongs = if (!fullSongs.isNullOrEmpty()) fullSongs else page.songs
+            page.copy(songs = resolvedSongs, sections = fullShelves)
         }
-        if (!fullSongs.isNullOrEmpty()) page.copy(songs = fullSongs) else page
     }
 
     private suspend fun <T> call(label: String, block: suspend () -> T): Result<T> =

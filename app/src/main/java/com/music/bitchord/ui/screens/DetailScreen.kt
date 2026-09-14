@@ -2,7 +2,12 @@ package com.music.bitchord.ui.screens
 
 import com.music.bitchord.R
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,6 +31,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -33,6 +43,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -41,6 +52,7 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,6 +99,7 @@ import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
+import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.data.model.Song
@@ -98,11 +111,13 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.ArtworkWash
 import com.music.bitchord.ui.components.DownloadedBadge
 import com.music.bitchord.ui.components.ExplicitSongTitle
+import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.libraryGrid
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.detailSkeleton
 import com.music.bitchord.ui.components.topBarContentPadding
@@ -119,6 +134,7 @@ import java.util.Locale
 
 private const val MAX_ARTIST_SONGS = 20
 private const val SONGS_PER_COLUMN = 4
+private const val ARTIST_ROW_MAX_ITEMS = 5
 
 /** The artist photo, very slightly taller than it is wide. */
 private const val ARTIST_PHOTO_RATIO = 0.95f
@@ -193,6 +209,8 @@ fun DetailScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
+    activeShelf: HomeShelf? = null,
+    onActiveShelfChange: (HomeShelf?) -> Unit = {},
     /**
      * Holding one of the album cards on an artist page — the same menu the
      * shelves on every other tab open, so a release can be queued from
@@ -313,54 +331,63 @@ fun DetailScreen(
         if (searching) listState.animateScrollToItem(SEARCH_ITEM_INDEX, -searchStop)
     }
 
-    BoxWithConstraints(modifier.fillMaxSize()) {
-        // The artwork is drawn behind the list rather than in it, so both need
-        // to agree on its height without being able to ask each other. The
-        // width is the page's, so the ratio decides it and both can work it out
-        // alone.
-        //
-        // Measured rather than read off the window, because the two are not the
-        // same number everywhere: on a tablet the page is the column left over
-        // once the player has its pane, and a height derived from the whole
-        // window there is a sleeve half again as tall as it is wide.
-        //
-        // That assumption — a tablet's page is always the narrow docked
-        // column — no longer holds: the player runs full-screen at every
-        // window size now (see [dockedPlayerAvailable]'s call site), so this
-        // page's own width in landscape is the *whole* window, not a leftover
-        // column beside a pane. Straight off that width, the ratio hands back
-        // a hero taller than the window itself — the artwork and track list
-        // end up scrolled out of sight beneath what reads as a blank page.
-        // Capping against the window's own height is what keeps the ratio's
-        // math honest once the width it's fed is no longer guaranteed to be
-        // the narrow one it was written for.
-        val artHeight = (maxWidth / if (isArtist) ARTIST_PHOTO_RATIO else SLEEVE_RATIO)
-            .coerceAtMost(maxHeight * 0.6f)
+    AnimatedContent(
+        targetState = activeShelf,
+        transitionSpec = {
+            fadeIn(animationSpec = tween(220)) togetherWith fadeOut(animationSpec = tween(180))
+        },
+        label = "artist_shelf_transition",
+        modifier = modifier.fillMaxSize(),
+    ) { targetShelf ->
+        if (targetShelf == null) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                // The artwork is drawn behind the list rather than in it, so both need
+                // to agree on its height without being able to ask each other. The
+                // width is the page's, so the ratio decides it and both can work it out
+                // alone.
+                //
+                // Measured rather than read off the window, because the two are not the
+                // same number everywhere: on a tablet the page is the column left over
+                // once the player has its pane, and a height derived from the whole
+                // window there is a sleeve half again as tall as it is wide.
+                //
+                // That assumption — a tablet's page is always the narrow docked
+                // column — no longer holds: the player runs full-screen at every
+                // window size now (see [dockedPlayerAvailable]'s call site), so this
+                // page's own width in landscape is the *whole* window, not a leftover
+                // column beside a pane. Straight off that width, the ratio hands back
+                // a hero taller than the window itself — the artwork and track list
+                // end up scrolled out of sight beneath what reads as a blank page.
+                // Capping against the window's own height is what keeps the ratio's
+                // math honest once the width it's fed is no longer guaranteed to be
+                // the narrow one it was written for.
+                val artHeight = (maxWidth / if (isArtist) ARTIST_PHOTO_RATIO else SLEEVE_RATIO)
+                    .coerceAtMost(maxHeight * 0.6f)
 
-        PageBackground(
-            page = page,
-            palette = palette,
-            canvas = canvas,
-            artHeight = artHeight,
-            listState = listState,
-            hazeState = pageHaze,
-            modifier = Modifier.matchParentSize(),
-        )
+                PageBackground(
+                    page = page,
+                    palette = palette,
+                    canvas = canvas,
+                    artHeight = artHeight,
+                    listState = listState,
+                    hazeState = pageHaze,
+                    modifier = Modifier.matchParentSize(),
+                )
 
-        MergeBand(
-            palette = palette,
-            artHeight = artHeight,
-            listState = listState,
-            hazeState = pageHaze,
-        )
+                MergeBand(
+                    palette = palette,
+                    artHeight = artHeight,
+                    listState = listState,
+                    hazeState = pageHaze,
+                )
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            // Both artist photos and release artwork run edge-to-edge up under
-            // the glass bar — the image is the top of the page, not a card on it.
-            contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
-        ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    // Both artist photos and release artwork run edge-to-edge up under
+                    // the glass bar — the image is the top of the page, not a card on it.
+                    contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                ) {
             item(key = "header") {
                 if (isArtist) {
                     ArtistHeader(page = page, palette = palette, artHeight = artHeight)
@@ -553,13 +580,21 @@ fun DetailScreen(
 
             // Albums / Singles & EPs carousels (artist pages).
             items(page.sections) { shelf ->
+                val canShowAll = shelf.items.size > ARTIST_ROW_MAX_ITEMS
+                val displayItems = remember(shelf.items) {
+                    if (canShowAll) shelf.items.take(ARTIST_ROW_MAX_ITEMS) else shelf.items
+                }
                 Column(Modifier.padding(top = 22.dp)) {
-                    SectionHeading(shelf.title, palette)
+                    SectionHeading(
+                        title = shelf.title,
+                        palette = palette,
+                        onShowAll = if (canShowAll) { { onActiveShelfChange(shelf) } } else null,
+                    )
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
-                        items(shelf.items) { item ->
+                        items(displayItems) { item ->
                             SectionCard(
                                 item = item,
                                 palette = palette,
@@ -572,6 +607,16 @@ fun DetailScreen(
             }
         }
     }
+} else {
+    ArtistShelfGridPage(
+        shelf = targetShelf,
+        palette = palette,
+        onItemClick = onSectionItemClick,
+        onItemLongPress = onSectionItemLongPress,
+        contentPadding = contentPadding,
+    )
+}
+}
 }
 
 /**
@@ -1135,7 +1180,7 @@ private fun ActionRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Subscribing sits where saving does on a release — first circle, left
-        // of Shuffle — and says the same thing with the same pair of icons.
+        // of Play — and says the same thing with the same pair of icons.
         if (subscription != null) {
             CircleIconButton(
                 icon = if (subscription.subscribed) BitChordIcons.Check else BitChordIcons.Plus,
@@ -1148,6 +1193,11 @@ private fun ActionRow(
             )
         }
 
+        PlayPill(
+            palette = palette,
+            onClick = onPlay,
+        )
+
         // Circular Shuffle button
         CircleIconButton(
             icon = BitChordIcons.Shuffle,
@@ -1155,11 +1205,6 @@ private fun ActionRow(
             palette = palette,
             onClick = onShuffle,
             haptic = Haptic.Resume,
-        )
-
-        PlayPill(
-            palette = palette,
-            onClick = onPlay,
         )
     }
     Spacer(Modifier.height(bottomSpace))
@@ -1366,15 +1411,35 @@ private fun AboutSection(title: String, text: String, palette: ArtworkPalette) {
 }
 
 @Composable
-private fun SectionHeading(title: String, palette: ArtworkPalette) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.headlineMedium,
-        color = palette.onBackground,
-        modifier = Modifier.padding(
-            start = PAGE_GUTTER, end = PAGE_GUTTER, top = 10.dp, bottom = 8.dp,
-        ),
-    )
+private fun SectionHeading(
+    title: String,
+    palette: ArtworkPalette,
+    onShowAll: (() -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = PAGE_GUTTER, end = PAGE_GUTTER, top = 10.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineMedium,
+            color = palette.onBackground,
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (onShowAll != null) {
+            Text(
+                text = stringResource(R.string.show_all),
+                style = MaterialTheme.typography.titleSmall,
+                color = palette.accent,
+                modifier = Modifier
+                    .clickable(onClick = onShowAll)
+                    .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+            )
+        }
+    }
 }
 
 /** Compact row used inside the artist song grid; no swipe, to keep the
@@ -1515,18 +1580,18 @@ private fun SectionCard(
     item: ShelfItem,
     palette: ArtworkPalette,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier.width(SHELF_CARD_WIDTH),
     onLongPress: (() -> Unit)? = null,
 ) {
     Column(
-        modifier = Modifier
-            .width(SHELF_CARD_WIDTH)
+        modifier = modifier
             .combinedClickable(onClick = onClick, onLongClick = onLongPress),
     ) {
         AsyncImage(
             model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
             contentDescription = null,
             modifier = Modifier
-                .width(SHELF_CARD_WIDTH)
+                .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(10.dp))
                 .thumbnailBorder(RoundedCornerShape(10.dp))
@@ -1547,6 +1612,44 @@ private fun SectionCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+}
+
+@Composable
+private fun ArtistShelfGridPage(
+    shelf: HomeShelf,
+    palette: ArtworkPalette,
+    onItemClick: (ShelfItem) -> Unit,
+    onItemLongPress: ((ShelfItem) -> Unit)?,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+) {
+    val gridState = rememberLazyGridState()
+    BoxWithConstraints(modifier.fillMaxSize().background(palette.background)) {
+        val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(grid.columns),
+            state = gridState,
+            contentPadding = PaddingValues(
+                top = topBarContentPadding(),
+                bottom = contentPadding.calculateBottomPadding() + 16.dp,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = PAGE_GUTTER),
+        ) {
+            items(shelf.items, key = { it.browseId ?: it.title }) { item ->
+                SectionCard(
+                    item = item,
+                    palette = palette,
+                    onClick = { onItemClick(item) },
+                    onLongPress = onItemLongPress?.let { { it(item) } },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
     }
 }
 

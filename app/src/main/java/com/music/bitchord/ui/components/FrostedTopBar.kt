@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -8,12 +9,17 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -47,6 +54,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -117,6 +125,7 @@ fun FrostedTopBar(
     title: String,
     scrolled: Boolean,
     modifier: Modifier = Modifier,
+    trailingTitle: String? = null,
     onBack: (() -> Unit)? = null,
     refreshing: Boolean = false,
     // A lambda, not a value: the drag changes every frame, and reading it in
@@ -126,7 +135,7 @@ fun FrostedTopBar(
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val titleAlpha by animateFloatAsState(
-        targetValue = if (scrolled) 1f else 0f,
+        targetValue = if (scrolled || trailingTitle != null) 1f else 0f,
         animationSpec = tween(220),
         label = "topBarTitleAlpha",
     )
@@ -135,7 +144,7 @@ fun FrostedTopBar(
     // the fade exists to remove.
     val dividerColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.outline.copy(
-            alpha = if (scrolled && reduceDynamicBlur) 0.6f else 0f,
+            alpha = if ((scrolled || trailingTitle != null) && reduceDynamicBlur) 0.6f else 0f,
         ),
         animationSpec = tween(220),
         label = "topBarDivider",
@@ -155,21 +164,58 @@ fun FrostedTopBar(
                 .statusBarsPadding()
                 .height(TopBarContentHeight),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
+            AnimatedContent(
+                targetState = trailingTitle,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(260)) + slideInHorizontally(animationSpec = tween(260)) { it / 3 }) togetherWith
+                        (fadeOut(animationSpec = tween(200)) + slideOutHorizontally(animationSpec = tween(200)) { -it / 3 })
+                },
+                label = "topBarTitleAnimation",
                 modifier = Modifier
                     .align(Alignment.Center)
-                    // Reserve room for the back button and the actions so a
-                    // long title truncates instead of running under them.
-                    .padding(horizontal = 96.dp)
+                    .padding(start = if (onBack != null) 54.dp else 96.dp, end = 56.dp)
                     .fillMaxWidth()
                     .graphicsLayer { alpha = titleAlpha },
-            )
+            ) { trailing ->
+                if (trailing != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = trailing,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    }
+                } else {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
             // On a pushed page the back affordance is always visible, since
             // there is no large in-list header to fall back on.
             if (onBack != null) {

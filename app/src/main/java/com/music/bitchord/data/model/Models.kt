@@ -284,6 +284,8 @@ data class HomeShelf(
     val items: List<ShelfItem>,
     /** YouTube's "strapline" — the grey line Apple Music runs under a heading. */
     val subtitle: String = "",
+    val moreBrowseId: String? = null,
+    val moreParams: String? = null,
 )
 
 /** A page of the Home feed, plus the token for the next one — null once exhausted. */

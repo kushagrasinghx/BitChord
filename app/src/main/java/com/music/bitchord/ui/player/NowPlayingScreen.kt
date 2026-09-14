@@ -173,6 +173,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -2365,14 +2366,17 @@ fun NowPlayingScreen(
                                 }
                                 return@awaitEachGesture
                             }
-                            // What detectVerticalDragGestures does, minus the
-                            // callbacks: cross the slop, then hold the gesture
-                            // to the end so nothing downstream of the first
-                            // event reaches the sheet either.
-                            val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, _ ->
-                                change.consume()
+                            // Swallow all vertical drag movements for touches outside the dismiss band
+                            // so that scrolling or dragging on lyrics/queue/controls does not dismiss the sheet.
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Main)
+                                for (change in event.changes) {
+                                    if (change.positionChange().y != 0f) {
+                                        change.consume()
+                                    }
+                                }
+                                if (event.changes.none { it.pressed }) break
                             }
-                            if (drag != null) verticalDrag(drag.id) { it.consume() }
                         }
                     }
                     .padding(horizontal = PLAYER_GUTTER),

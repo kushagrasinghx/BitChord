@@ -1197,6 +1197,8 @@ object InnertubeParser {
         // A plain track card is exempt: a song can legitimately be titled
         // "Video Games" without being a music-video upload.
         if (resolvedBrowseId != null &&
+            !resolvedBrowseId.startsWith("VL") &&
+            !resolvedBrowseId.startsWith("PL") &&
             (VIDEO_WORD.containsMatchIn(title) || VIDEO_WORD.containsMatchIn(subtitle))
         ) {
             return null

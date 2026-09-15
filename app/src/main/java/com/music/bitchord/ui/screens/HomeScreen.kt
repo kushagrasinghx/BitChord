@@ -195,6 +195,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
 @Composable
 internal fun SectionHeader(title: String, subtitle: String = "", onShowAll: (() -> Unit)? = null) {
     val displayTitle = localizeShelfTitle(title)
+    val displaySubtitle = localizeShelfSubtitle(subtitle)
     Row(
         modifier = Modifier
             .padding(horizontal = PAGE_GUTTER, vertical = 10.dp)
@@ -209,9 +210,9 @@ internal fun SectionHeader(title: String, subtitle: String = "", onShowAll: (() 
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (subtitle.isNotBlank()) {
+            if (displaySubtitle.isNotBlank()) {
                 Text(
-                    text = subtitle,
+                    text = displaySubtitle,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -290,11 +291,21 @@ internal fun localizeShelfTitle(title: String): String {
             stringResource(R.string.shelf_100_on_repeat)
         trimmed.equals("New albums & singles", ignoreCase = true) || trimmed.equals("New albums and singles", ignoreCase = true) ->
             stringResource(R.string.shelf_new_albums_singles)
-        trimmed.equals("Hits today", ignoreCase = true) ->
+        trimmed.equals("Hits today", ignoreCase = true) || trimmed.equals("Today's Hits", ignoreCase = true) ->
             stringResource(R.string.shelf_hits_today)
         trimmed.equals("Artists on the rise", ignoreCase = true) ->
             stringResource(R.string.shelf_artists_on_the_rise)
         else -> title
+    }
+}
+@Composable
+internal fun localizeShelfSubtitle(subtitle: String): String {
+    val trimmed = subtitle.trim()
+    return when {
+        trimmed.equals("TOP TUNES RIGHT NOW", ignoreCase = true) ||
+            trimmed.equals("Top tunes right now", ignoreCase = true) ->
+            stringResource(R.string.shelf_top_tunes_right_now)
+        else -> subtitle
     }
 }
 

@@ -1200,7 +1200,7 @@ object Innertube {
                                 put("clientName", "WEB_REMIX")
                                 put("clientVersion", clientVersion)
                                 put("hl", currentLanguage)
-                                put("gl", currentCountry)
+                                put("gl", "US")
                                 visitorData?.let { put("visitorData", it) }
                             }
                             putJsonObject("user") {
@@ -1295,7 +1295,7 @@ object Innertube {
                             playerClient.deviceModel?.let { put("deviceModel", it) }
                             playerClient.androidSdkVersion?.let { put("androidSdkVersion", it.toInt()) }
                             put("hl", currentLanguage)
-                            put("gl", currentCountry)
+                            put("gl", "US")
                             visitorData?.let { put("visitorData", it) }
                         }
                     }

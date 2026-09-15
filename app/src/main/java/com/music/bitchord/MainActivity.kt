@@ -1084,6 +1084,13 @@ private fun BitChordApp(
             // The end of what the user queued, not the end of the queue: a song
             // asked for by name outranks whatever AutoPlay lined up behind it.
             controller?.let {
+                if (ListenTogether.state.value.inParty) {
+                    val upcoming = (it.mediaItemCount - (it.currentMediaItemIndex + 1)).coerceAtLeast(0)
+                    if (upcoming >= 25) {
+                        showQueueNotice(context.getString(R.string.party_queue_full, 25))
+                        return@launch
+                    }
+                }
                 val current = it.currentMediaItem?.toSong()
                 val queued = song.copy(
                     radioName = current?.radioName,
@@ -1099,6 +1106,13 @@ private fun BitChordApp(
     val playNext: (Song) -> Unit = { song ->
         scope.launch {
             controller?.let {
+                if (ListenTogether.state.value.inParty) {
+                    val upcoming = (it.mediaItemCount - (it.currentMediaItemIndex + 1)).coerceAtLeast(0)
+                    if (upcoming >= 25) {
+                        showQueueNotice(context.getString(R.string.party_queue_full, 25))
+                        return@launch
+                    }
+                }
                 val current = it.currentMediaItem?.toSong()
                 val queued = song.copy(
                     radioName = current?.radioName,
@@ -1202,6 +1216,17 @@ private fun BitChordApp(
                     // never gets round to it.
                     play(songs, 0)
                 } else {
+                    val toAdd = if (ListenTogether.state.value.inParty) {
+                        val upcoming = (c.mediaItemCount - (c.currentMediaItemIndex + 1)).coerceAtLeast(0)
+                        val slotsLeft = (25 - upcoming).coerceAtLeast(0)
+                        if (slotsLeft <= 0) {
+                            showQueueNotice(context.getString(R.string.party_queue_full, 25))
+                            return@launch
+                        }
+                        songs.take(slotsLeft)
+                    } else {
+                        songs
+                    }
                     val at = if (next) {
                         (c.currentMediaItemIndex + 1).coerceAtMost(c.mediaItemCount)
                     } else {
@@ -1210,7 +1235,7 @@ private fun BitChordApp(
                     val current = c.currentMediaItem?.toSong()
                     c.addMediaItems(
                         at,
-                        songs.map {
+                        toAdd.map {
                             it.copy(
                                 radioName = current?.radioName,
                                 playbackSource = current?.playbackSource ?: queueLabel,
@@ -1222,8 +1247,8 @@ private fun BitChordApp(
                     )
                     val message = context.resources.getQuantityString(
                         if (next) R.plurals.songs_will_play_next else R.plurals.songs_added_to_queue,
-                        songs.size,
-                        songs.size,
+                        toAdd.size,
+                        toAdd.size,
                     )
                     showQueueNotice(message)
                 }

@@ -1,30 +1,31 @@
-# Render blueprint for the Listen Together server.
+# Render blueprint for BitChord Listen Together (Go backend)
 #
-# Blueprints are read from the *repository root*, so deploying this file as-is
-# means either copying it up a level or — simpler, and what the README
-# describes — creating the service by hand in the dashboard with Root Directory
-# set to `backend`. The values below are the same either way.
-#
-# One instance, no autoscaling, on purpose: a party lives in the memory of the
-# instance holding its WebSockets, so a second instance would be a second,
-# disjoint set of parties. See app/party.py, PartyStore.
+# Deploy this service manually on Render Dashboard (Recommended):
+# - New -> Web Service, connect repo
+# - Root Directory: backend
+# - Runtime: Go
+# - Build Command: go build -o server .
+# - Start Command: ./server
+# - Health Check Path: /healthz
+# - Plan: Free
+# - Region: Singapore (or closest to you)
+# - Instances: 1 (Parties live in memory, so keep to 1 instance)
+
 services:
   - type: web
     name: bitchord-listen-together
-    runtime: python
+    runtime: go
     plan: free
+    region: singapore
     rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --ws websockets
+    buildCommand: go build -o server .
+    startCommand: ./server
     healthCheckPath: /healthz
     numInstances: 1
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.6
-      # Everything below is optional — app/config.py has the same defaults.
       - key: JAM_MAX_MEMBERS
         value: "5"
       - key: JAM_STATE_HEARTBEAT_MS
         value: "5000"
-      - key: JAM_PLAY_LEAD_MS
-        value: "350"
+      - key: JAM_MAX_UPCOMING_QUEUE
+        value: "25"

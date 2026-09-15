@@ -529,6 +529,7 @@
         <item quantity="other">Added %1$d songs to the queue</item>
     </plurals>
     <string name="song_added_to_queue">Song added to queue</string>
+    <string name="party_queue_full">Queue is full (maximum %d songs in party)</string>
     <plurals name="log_copied_line_count">
         <item quantity="one">Log copied · %1$d line</item>
         <item quantity="other">Log copied · %1$d lines</item>

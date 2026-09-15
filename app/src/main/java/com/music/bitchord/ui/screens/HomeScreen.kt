@@ -56,6 +56,7 @@ import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.UiState
+import java.util.Locale
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.components.HERO_CARD_RATIO
 import com.music.bitchord.ui.components.MessageState
@@ -363,54 +364,38 @@ internal fun localizeShelfSubtitle(subtitle: String): String {
 @Composable
 internal fun localizeCardSubtitle(subtitle: String): String {
     if (subtitle.isBlank()) return subtitle
-    val delimiter = if (subtitle.contains(" • ")) " • " else if (subtitle.contains(" • ")) " • " else " • "
-    val parts = subtitle.split(" • ", " • ")
+    val delimiter = " • "
+    val parts = subtitle.split(delimiter)
     val songLabel = stringResource(R.string.shelf_song_item)
     val singleLabel = stringResource(R.string.shelf_single)
     val chartLabel = stringResource(R.string.shelf_chart)
     val playlistLabel = stringResource(R.string.playlist)
     val localizedParts = parts.map { part ->
         val trimmed = part.trim()
+        val lower = trimmed.lowercase(Locale.ROOT)
         when {
-            trimmed.equals("Song", ignoreCase = true) || trimmed.equals("Titre", ignoreCase = true) || trimmed.equals("Bài hát", ignoreCase = true) || trimmed.equals("曲", ignoreCase = true) -> songLabel
-            trimmed.equals("Single", ignoreCase = true) || trimmed.equals("Đĩa đơn", ignoreCase = true) || trimmed.equals("シングル", ignoreCase = true) -> singleLabel
-            trimmed.equals("Chart", ignoreCase = true) || trimmed.equals("Bảng xếp hạng", ignoreCase = true) || trimmed.equals("チャート", ignoreCase = true) -> chartLabel
-            trimmed.equals("Playlist", ignoreCase = true) || trimmed.equals("Danh sách phát", ignoreCase = true) || trimmed.equals("再生リスト", ignoreCase = true) -> playlistLabel
-            trimmed.endsWith(" views", ignoreCase = true) || trimmed.endsWith(" view", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" views").removeSuffix(" view").trim()
-                stringResource(R.string.card_views_format, count)
+            trimmed.equals("Song", ignoreCase = true) || trimmed.equals("Titre", ignoreCase = true) ||
+                trimmed.equals("Bài hát", ignoreCase = true) || trimmed.equals("曲", ignoreCase = true) -> songLabel
+            trimmed.equals("Single", ignoreCase = true) || trimmed.equals("Đĩa đơn", ignoreCase = true) ||
+                trimmed.equals("シングル", ignoreCase = true) -> singleLabel
+            trimmed.equals("Chart", ignoreCase = true) || trimmed.equals("Bảng xếp hạng", ignoreCase = true) ||
+                trimmed.equals("チャート", ignoreCase = true) -> chartLabel
+            trimmed.equals("Playlist", ignoreCase = true) || trimmed.equals("Danh sách phát", ignoreCase = true) ||
+                trimmed.equals("再生リスト", ignoreCase = true) -> playlistLabel
+            lower.endsWith(" views") || lower.endsWith(" view") || lower.endsWith(" lượt xem") ||
+                lower.endsWith(" 回視聴") || lower.endsWith("回視聴") -> {
+                val count = trimmed.substringBeforeLast(' ', "").trim()
+                if (count.any { it.isDigit() }) stringResource(R.string.card_views_format, count) else part
             }
-            trimmed.endsWith(" lượt xem", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" lượt xem").trim()
-                stringResource(R.string.card_views_format, count)
+            lower.endsWith(" plays") || lower.endsWith(" play") || lower.endsWith(" lượt phát") ||
+                lower.endsWith(" 回再生") || lower.endsWith("回再生") -> {
+                val count = trimmed.substringBeforeLast(' ', "").trim()
+                if (count.any { it.isDigit() }) stringResource(R.string.card_plays_format, count) else part
             }
-            trimmed.endsWith(" 回視聴", ignoreCase = true) || trimmed.endsWith("回視聴", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" 回視聴").removeSuffix("回視聴").trim()
-                stringResource(R.string.card_views_format, count)
-            }
-            trimmed.endsWith(" plays", ignoreCase = true) || trimmed.endsWith(" play", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" plays").removeSuffix(" play").trim()
-                stringResource(R.string.card_plays_format, count)
-            }
-            trimmed.endsWith(" lượt phát", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" lượt phát").trim()
-                stringResource(R.string.card_plays_format, count)
-            }
-            trimmed.endsWith(" 回再生", ignoreCase = true) || trimmed.endsWith("回再生", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" 回再生").removeSuffix("回再生").trim()
-                stringResource(R.string.card_plays_format, count)
-            }
-            trimmed.endsWith(" songs", ignoreCase = true) || trimmed.endsWith(" song", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" songs").removeSuffix(" song").trim()
-                stringResource(R.string.card_songs_format, count)
-            }
-            trimmed.endsWith(" bài hát", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" bài hát").trim()
-                stringResource(R.string.card_songs_format, count)
-            }
-            trimmed.endsWith(" 曲", ignoreCase = true) || trimmed.endsWith("曲", ignoreCase = true) -> {
-                val count = trimmed.removeSuffix(" 曲").removeSuffix("曲").trim()
-                stringResource(R.string.card_songs_format, count)
+            lower.endsWith(" songs") || lower.endsWith(" song") || lower.endsWith(" bài hát") ||
+                lower.endsWith(" 曲") || lower.endsWith("曲") -> {
+                val count = trimmed.substringBeforeLast(' ', "").trim()
+                if (count.any { it.isDigit() }) stringResource(R.string.card_songs_format, count) else part
             }
             else -> part
         }

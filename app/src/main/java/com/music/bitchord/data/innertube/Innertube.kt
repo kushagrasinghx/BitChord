@@ -62,22 +62,24 @@ import androidx.appcompat.app.AppCompatDelegate
  */
 object Innertube {
     private val currentLanguage: String
-        get() = AppCompatDelegate.getApplicationLocales().get(0)?.language?.ifEmpty { null }
-            ?: Locale.getDefault().language.ifEmpty { "en" }
-
-    private val currentCountry: String
-        get() = AppCompatDelegate.getApplicationLocales().get(0)?.country?.takeIf { it.length == 2 }
-            ?: Locale.getDefault().country.takeIf { it.length == 2 }
-            ?: "US"
+        get() {
+            val raw = AppCompatDelegate.getApplicationLocales().get(0)?.language?.ifEmpty { null }
+                ?: Locale.getDefault().language.ifEmpty { "en" }
+            return when (raw.lowercase(Locale.ROOT)) {
+                "iw" -> "he"
+                "in" -> "id"
+                "ji" -> "yi"
+                else -> raw
+            }
+        }
 
     private val acceptLanguageHeader: String
         get() {
             val lang = currentLanguage
-            val country = currentCountry
             return if (lang == "en") {
                 "en-US,en;q=0.9"
             } else {
-                "$lang-$country,$lang;q=0.9,en-US;q=0.8,en;q=0.7"
+                "$lang,en-US;q=0.8,en;q=0.7"
             }
         }
 

@@ -160,6 +160,7 @@
     <string name="hebrew">ヘブライ語</string>
     <string name="italian">イタリア語</string>
     <string name="turkish">トルコ語</string>
+    <string name="vietnamese">ベトナム語</string>
     <string name="show_all">すべて表示</string>
     <string name="grid_view">グリッド表示</string>
     <string name="list_view">リスト表示</string>

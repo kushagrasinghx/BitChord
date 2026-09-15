@@ -194,6 +194,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
  */
 @Composable
 internal fun SectionHeader(title: String, subtitle: String = "", onShowAll: (() -> Unit)? = null) {
+    val displayTitle = localizeShelfTitle(title)
     Row(
         modifier = Modifier
             .padding(horizontal = PAGE_GUTTER, vertical = 10.dp)
@@ -202,10 +203,10 @@ internal fun SectionHeader(title: String, subtitle: String = "", onShowAll: (() 
     ) {
         Column(Modifier.weight(1f)) {
             Text(
-                text = title,
+                text = displayTitle,
                 style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle.isNotBlank()) {
@@ -228,6 +229,72 @@ internal fun SectionHeader(title: String, subtitle: String = "", onShowAll: (() 
                     .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
             )
         }
+    }
+}
+@Composable
+internal fun localizeShelfTitle(title: String): String {
+    val trimmed = title.trim()
+    return when {
+        trimmed.equals("Trending community playlists", ignoreCase = true) ||
+            (trimmed.contains("cộng đồng", ignoreCase = true) && trimmed.contains("thịnh hành", ignoreCase = true)) ->
+            stringResource(R.string.shelf_trending_community_playlists)
+        trimmed.equals("Featured playlists for you", ignoreCase = true) ||
+            (trimmed.contains("dành cho bạn", ignoreCase = true) && trimmed.contains("danh sách", ignoreCase = true)) ->
+            stringResource(R.string.shelf_featured_playlists_for_you)
+        trimmed.equals("Quick picks", ignoreCase = true) ||
+            trimmed.contains("chọn nhanh", ignoreCase = true) ->
+            stringResource(R.string.shelf_quick_picks)
+        trimmed.equals("Listen again", ignoreCase = true) ->
+            stringResource(R.string.shelf_listen_again)
+        trimmed.equals("Mixed for you", ignoreCase = true) ->
+            stringResource(R.string.shelf_mixed_for_you)
+        trimmed.startsWith("Similar to", ignoreCase = true) -> {
+            val rest = trimmed.substring(10).trim()
+            stringResource(R.string.shelf_similar_to, rest)
+        }
+        trimmed.equals("Forgotten favorites", ignoreCase = true) ->
+            stringResource(R.string.shelf_forgotten_favorites)
+        trimmed.equals("Recommended music videos", ignoreCase = true) ->
+            stringResource(R.string.shelf_recommended_music_videos)
+        trimmed.equals("From your library", ignoreCase = true) ->
+            stringResource(R.string.shelf_from_your_library)
+        trimmed.equals("Charts", ignoreCase = true) ->
+            stringResource(R.string.shelf_charts)
+        trimmed.equals("New releases", ignoreCase = true) ->
+            stringResource(R.string.shelf_new_releases)
+        trimmed.equals("Top music videos", ignoreCase = true) ->
+            stringResource(R.string.shelf_top_music_videos)
+        trimmed.equals("For you", ignoreCase = true) ->
+            stringResource(R.string.shelf_for_you)
+        trimmed.equals("Energy boosters", ignoreCase = true) ->
+            stringResource(R.string.shelf_energy_boosters)
+        trimmed.equals("Feel good", ignoreCase = true) ->
+            stringResource(R.string.shelf_feel_good)
+        trimmed.equals("Commute", ignoreCase = true) ->
+            stringResource(R.string.shelf_commute)
+        trimmed.equals("Workout", ignoreCase = true) ->
+            stringResource(R.string.shelf_workout)
+        trimmed.equals("Focus", ignoreCase = true) ->
+            stringResource(R.string.shelf_focus)
+        trimmed.equals("Relax", ignoreCase = true) ->
+            stringResource(R.string.shelf_relax)
+        trimmed.equals("Sleep", ignoreCase = true) ->
+            stringResource(R.string.shelf_sleep)
+        trimmed.equals("Party", ignoreCase = true) ->
+            stringResource(R.string.shelf_party)
+        trimmed.equals("Romance", ignoreCase = true) ->
+            stringResource(R.string.shelf_romance)
+        trimmed.equals("Sad", ignoreCase = true) ->
+            stringResource(R.string.shelf_sad)
+        trimmed.equals("100% on repeat", ignoreCase = true) ->
+            stringResource(R.string.shelf_100_on_repeat)
+        trimmed.equals("New albums & singles", ignoreCase = true) || trimmed.equals("New albums and singles", ignoreCase = true) ->
+            stringResource(R.string.shelf_new_albums_singles)
+        trimmed.equals("Hits today", ignoreCase = true) ->
+            stringResource(R.string.shelf_hits_today)
+        trimmed.equals("Artists on the rise", ignoreCase = true) ->
+            stringResource(R.string.shelf_artists_on_the_rise)
+        else -> title
     }
 }
 

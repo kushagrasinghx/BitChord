@@ -164,6 +164,7 @@
     <string name="hebrew">Hébreu</string>
     <string name="italian">Italien</string>
     <string name="turkish">Turc</string>
+    <string name="vietnamese">Vietnamien</string>
     <string name="show_all">Tout afficher</string>
     <string name="grid_view">Grille</string>
     <string name="list_view">Liste</string>

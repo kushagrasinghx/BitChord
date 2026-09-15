@@ -429,7 +429,7 @@ fun SettingsScreen(
                 badge = stringResource(R.string.blocking).takeIf { wifiOnlyDownloads && metered == true },
             )
             SettingsSubRow(
-                title = "Export compatible downloads",
+                title = stringResource(R.string.export_compatible_downloads),
                 checked = exportDownloads,
                 onCheckedChange = AppSettings::setExportDownloads,
                 badge = "Music/BitChord".takeIf { exportDownloads },
@@ -439,7 +439,7 @@ fun SettingsScreen(
         SettingsGroup(header = stringResource(R.string.playback)) {
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
-                title = "Output precision",
+                title = stringResource(R.string.output_precision),
                 subtitle = buildString {
                     append(outputStatus.sink)
                     append(" · ")
@@ -458,10 +458,10 @@ fun SettingsScreen(
             )
             RowDivider()
             SettingsSubRow(
-                title = "Prefer USB DAC",
+                title = stringResource(R.string.prefer_usb_dac),
                 checked = preferUsbDac,
                 onCheckedChange = AppSettings::setPreferUsbDac,
-                badge = "Connected".takeIf { outputStatus.isUsb },
+                badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
             )
             RowDivider()
             // Automix decides its own length from each pair of tracks —
@@ -728,8 +728,8 @@ fun SettingsScreen(
                 RowDivider()
             SettingsRow(
                 icon = Icons.Rounded.BlurOn,
-                title = "Blur unfocused lyrics",
-                subtitle = "Keeps the spotlight on the current line",
+                title = stringResource(R.string.blur_unfocused_lyrics),
+                subtitle = stringResource(R.string.blur_unfocused_lyrics_subtitle),
                     trailing = {
                         Switch(
                             checked = lyricsBlur,
@@ -1023,7 +1023,7 @@ fun SettingsScreen(
             )
         }
 
-        SettingsGroup(header = "Advanced Options") {
+        SettingsGroup(header = stringResource(R.string.advanced_options)) {
             SettingsRow(
                 icon = Icons.Rounded.GraphicEq,
                 title = stringResource(R.string.show_nerd_stats),
@@ -1043,8 +1043,8 @@ fun SettingsScreen(
             RowDivider()
             SettingsRow(
                 icon = Icons.Rounded.History,
-                title = "Lyrics Debug Logs",
-                subtitle = "Show live API queries and scraper activity in the lyrics panel",
+                title = stringResource(R.string.lyrics_debug_logs),
+                subtitle = stringResource(R.string.lyrics_debug_logs_subtitle),
                 trailing = {
                     Switch(
                         checked = showLyricsLogs,
@@ -1847,6 +1847,7 @@ internal fun SettingsRow(
                     color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 if (badge != null) {
                     Spacer(Modifier.width(8.dp))
@@ -1874,6 +1875,7 @@ internal fun SettingsRow(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.width(4.dp))
             }
@@ -1932,6 +1934,8 @@ internal fun Badge(text: String) {
         text = text.uppercase(Locale.ROOT),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.primary,
+        maxLines = 1,
+        softWrap = false,
         modifier = Modifier
             .clip(RoundedCornerShape(5.dp))
             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))

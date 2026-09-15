@@ -735,4 +735,7 @@
     <string name="shelf_trending">Thịnh hành</string>
     <string name="shelf_recents">Gần đây</string>
     <string name="subscriptions">Đã đăng ký</string>
+    <string name="card_views_format">%1$s lượt xem</string>
+    <string name="card_plays_format">%1$s lượt phát</string>
+    <string name="card_songs_format">%1$s bài hát</string>
 </resources>

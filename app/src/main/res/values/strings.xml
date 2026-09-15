@@ -753,4 +753,7 @@
     <string name="shelf_trending">Trending</string>
     <string name="shelf_recents">Recents</string>
     <string name="subscriptions">Subscriptions</string>
+    <string name="card_views_format">%1$s views</string>
+    <string name="card_plays_format">%1$s plays</string>
+    <string name="card_songs_format">%1$s songs</string>
 </resources>

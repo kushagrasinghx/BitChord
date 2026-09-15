@@ -345,23 +345,23 @@ internal fun localizeCardSubtitle(subtitle: String): String {
             trimmed.equals("Single", ignoreCase = true) -> singleLabel
             trimmed.equals("Chart", ignoreCase = true) -> chartLabel
             trimmed.equals("Playlist", ignoreCase = true) -> playlistLabel
-            trimmed.endsWith(" views", ignoreCase = true) -> {
+            trimmed.endsWith(" views", ignoreCase = true) || trimmed.endsWith(" view", ignoreCase = true) -> {
                 val count = trimmed.removeSuffix(" views").removeSuffix(" view").trim()
-                "$count lượt xem"
+                stringResource(R.string.card_views_format, count)
             }
-            trimmed.endsWith(" plays", ignoreCase = true) -> {
+            trimmed.endsWith(" plays", ignoreCase = true) || trimmed.endsWith(" play", ignoreCase = true) -> {
                 val count = trimmed.removeSuffix(" plays").removeSuffix(" play").trim()
-                "$count lượt phát"
+                stringResource(R.string.card_plays_format, count)
             }
-            trimmed.endsWith(" songs", ignoreCase = true) -> {
+            trimmed.endsWith(" songs", ignoreCase = true) || trimmed.endsWith(" song", ignoreCase = true) -> {
                 val count = trimmed.removeSuffix(" songs").removeSuffix(" song").trim()
-                "$count bài hát"
+                stringResource(R.string.card_songs_format, count)
             }
             else -> part
         }
     }
     return localizedParts.joinToString(" • ")
-    }
+}
 
 @Composable
 private fun HeroShelf(

@@ -743,4 +743,14 @@
     <string name="shelf_hits_today">Hits today</string>
     <string name="shelf_artists_on_the_rise">Artists on the rise</string>
     <string name="shelf_top_tunes_right_now">Top tunes right now</string>
+    <string name="shelf_concerts">Concerts</string>
+    <string name="shelf_shorts">Shorts</string>
+    <string name="shelf_single">Single</string>
+    <string name="shelf_chart">Chart</string>
+    <string name="shelf_song_item">Song</string>
+    <string name="shelf_from_the_community">From the community</string>
+    <string name="shelf_youtube_charts">YouTube Charts</string>
+    <string name="shelf_trending">Trending</string>
+    <string name="shelf_recents">Recents</string>
+    <string name="subscriptions">Subscriptions</string>
 </resources>

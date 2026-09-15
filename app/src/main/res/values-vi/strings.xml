@@ -725,4 +725,14 @@
     <string name="shelf_hits_today">Bản hit hôm nay</string>
     <string name="shelf_artists_on_the_rise">Nghệ sĩ đang lên</string>
     <string name="shelf_top_tunes_right_now">Giai điệu hàng đầu hiện nay</string>
+    <string name="shelf_concerts">Buổi hòa nhạc</string>
+    <string name="shelf_shorts">Shorts nổi bật</string>
+    <string name="shelf_single">Đĩa đơn</string>
+    <string name="shelf_chart">Bảng xếp hạng</string>
+    <string name="shelf_song_item">Bài hát</string>
+    <string name="shelf_from_the_community">Từ cộng đồng</string>
+    <string name="shelf_youtube_charts">Bảng xếp hạng YouTube</string>
+    <string name="shelf_trending">Thịnh hành</string>
+    <string name="shelf_recents">Gần đây</string>
+    <string name="subscriptions">Đã đăng ký</string>
 </resources>

@@ -236,6 +236,17 @@ internal fun SectionHeader(title: String, subtitle: String = "", onShowAll: (() 
 internal fun localizeShelfTitle(title: String): String {
     val trimmed = title.trim()
     return when {
+        trimmed.equals("Recents", ignoreCase = true) ||
+            trimmed.equals("Recently played", ignoreCase = true) ->
+            stringResource(R.string.shelf_recents)
+        trimmed.equals("Playlists", ignoreCase = true) ->
+            stringResource(R.string.playlists)
+        trimmed.equals("Albums", ignoreCase = true) ->
+            stringResource(R.string.albums)
+        trimmed.equals("Artists", ignoreCase = true) ->
+            stringResource(R.string.artists)
+        trimmed.equals("Subscriptions", ignoreCase = true) ->
+            stringResource(R.string.subscriptions)
         trimmed.equals("Trending community playlists", ignoreCase = true) ||
             (trimmed.contains("cộng đồng", ignoreCase = true) && trimmed.contains("thịnh hành", ignoreCase = true)) ->
             stringResource(R.string.shelf_trending_community_playlists)
@@ -295,6 +306,12 @@ internal fun localizeShelfTitle(title: String): String {
             stringResource(R.string.shelf_hits_today)
         trimmed.equals("Artists on the rise", ignoreCase = true) ->
             stringResource(R.string.shelf_artists_on_the_rise)
+        trimmed.equals("Concerts", ignoreCase = true) ->
+            stringResource(R.string.shelf_concerts)
+        trimmed.startsWith("Shorts", ignoreCase = true) ->
+            stringResource(R.string.shelf_shorts)
+        trimmed.equals("Trending", ignoreCase = true) ->
+            stringResource(R.string.shelf_trending)
         else -> title
     }
 }
@@ -305,9 +322,46 @@ internal fun localizeShelfSubtitle(subtitle: String): String {
         trimmed.equals("TOP TUNES RIGHT NOW", ignoreCase = true) ||
             trimmed.equals("Top tunes right now", ignoreCase = true) ->
             stringResource(R.string.shelf_top_tunes_right_now)
+        trimmed.equals("From the community", ignoreCase = true) ->
+            stringResource(R.string.shelf_from_the_community)
+        trimmed.equals("YouTube Charts", ignoreCase = true) ->
+            stringResource(R.string.shelf_youtube_charts)
         else -> subtitle
     }
 }
+
+@Composable
+internal fun localizeCardSubtitle(subtitle: String): String {
+    if (subtitle.isBlank()) return subtitle
+    val parts = subtitle.split(" • ")
+    val songLabel = stringResource(R.string.shelf_song_item)
+    val singleLabel = stringResource(R.string.shelf_single)
+    val chartLabel = stringResource(R.string.shelf_chart)
+    val playlistLabel = stringResource(R.string.playlist)
+    val localizedParts = parts.map { part ->
+        val trimmed = part.trim()
+        when {
+            trimmed.equals("Song", ignoreCase = true) || trimmed.equals("Titre", ignoreCase = true) -> songLabel
+            trimmed.equals("Single", ignoreCase = true) -> singleLabel
+            trimmed.equals("Chart", ignoreCase = true) -> chartLabel
+            trimmed.equals("Playlist", ignoreCase = true) -> playlistLabel
+            trimmed.endsWith(" views", ignoreCase = true) -> {
+                val count = trimmed.removeSuffix(" views").removeSuffix(" view").trim()
+                "$count lượt xem"
+            }
+            trimmed.endsWith(" plays", ignoreCase = true) -> {
+                val count = trimmed.removeSuffix(" plays").removeSuffix(" play").trim()
+                "$count lượt phát"
+            }
+            trimmed.endsWith(" songs", ignoreCase = true) -> {
+                val count = trimmed.removeSuffix(" songs").removeSuffix(" song").trim()
+                "$count bài hát"
+            }
+            else -> part
+        }
+    }
+    return localizedParts.joinToString(" • ")
+    }
 
 @Composable
 private fun HeroShelf(
@@ -383,8 +437,9 @@ private fun HeroCard(
                 overflow = TextOverflow.Ellipsis,
             )
             if (item.subtitle.isNotBlank()) {
+                val displaySubtitle = localizeCardSubtitle(item.subtitle)
                 Text(
-                    text = item.subtitle,
+                    text = displaySubtitle,
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White.copy(alpha = 0.72f),
                     maxLines = 2,
@@ -574,8 +629,9 @@ internal fun ShelfCard(
                 modifier = Modifier.weight(1f, fill = false),
             )
         }
+        val displaySubtitle = localizeCardSubtitle(item.subtitle)
         Text(
-            text = item.subtitle,
+            text = displaySubtitle,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,

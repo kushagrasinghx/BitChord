@@ -1,4 +1,4 @@
-﻿package com.music.bitchord.playback
+package com.music.bitchord.playback
 
 import android.app.PendingIntent
 import android.content.Context
@@ -505,9 +505,14 @@ class PlaybackService : MediaLibraryService() {
     private var activeSplice: SpliceGuardProcessor = spliceGuardA
     private var spareSplice: SpliceGuardProcessor = spliceGuardB
 
+    // Full-plan loudness: one gain stage per player, LAST in the custom
     // chain (after the splice guard) so fades, EQ, echo and reverb all
     // voice before the correction. Same role-swap contract as the rest.
+    private val loudnessA = LoudnessGainProcessor()
+    private val loudnessB = LoudnessGainProcessor()
 
+    private var activeLoudness: LoudnessGainProcessor = loudnessA
+    private var spareLoudness: LoudnessGainProcessor = loudnessB
 
     // DJ-EQ spec: one 3-band EQ per player at the head of the chain, so every
     // downstream stage (widening, sweep, echo, reverb, guard) works on the
@@ -1391,6 +1396,7 @@ class PlaybackService : MediaLibraryService() {
             echoSendA,
             reverbSendA,
             spliceGuardA,
+            loudnessA,
             brakeDiveA,
             ownsSession = true,
         )
@@ -1403,6 +1409,7 @@ class PlaybackService : MediaLibraryService() {
             echoSendB,
             reverbSendB,
             spliceGuardB,
+            loudnessB,
             brakeDiveB,
             ownsSession = false,
         )
@@ -1546,10 +1553,14 @@ class PlaybackService : MediaLibraryService() {
                 override fun outgoing(low: Float, mid: Float, high: Float) =
                     spareEq.setGains(low, mid, high)
             },
+            // Full-plan loudness: same role wiring — after the handoff the
             // incoming track sits on the session player, outgoing on spare.
+            loudnessGains = object : LoudnessGains {
                 override fun incoming(gainDb: Float) =
+                    activeLoudness.setGainDb(gainDb)
 
                 override fun outgoing(gainDb: Float) =
+                    spareLoudness.setGainDb(gainDb)
 
                 override fun open() = Unit
             },
@@ -1913,9 +1924,11 @@ class PlaybackService : MediaLibraryService() {
         echo: EchoSendProcessor,
         reverb: ReverbProcessor,
         splice: SpliceGuardProcessor,
+        loudness: LoudnessGainProcessor,
         brake: BrakeDiveProcessor,
         ownsSession: Boolean,
     ): ExoPlayer = ExoPlayer.Builder(this)
+        .setRenderersFactory(silenceSkippingRenderers(eq, spatial, equalizer, filter, loop, echo, reverb, splice, loudness, brake))
         .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
         .setLoadControl(farBufferingLoadControl())
         .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
@@ -1962,6 +1975,9 @@ class PlaybackService : MediaLibraryService() {
         val heldEq = activeEq
         activeEq = spareEq
         spareEq = heldEq
+        val heldLoudness = activeLoudness
+        activeLoudness = spareLoudness
+        spareLoudness = heldLoudness
         val heldBrake = activeBrakeDive
         activeBrakeDive = spareBrakeDive
         spareBrakeDive = heldBrake
@@ -4320,6 +4336,7 @@ class PlaybackService : MediaLibraryService() {
         echo: EchoSendProcessor,
         reverb: ReverbProcessor,
         splice: SpliceGuardProcessor,
+        loudness: LoudnessGainProcessor,
         brake: BrakeDiveProcessor,
     ) = object : DefaultRenderersFactory(this) {
         init {
@@ -4363,11 +4380,15 @@ class PlaybackService : MediaLibraryService() {
                 DefaultAudioSink.DefaultAudioProcessorChain(
                     // DJ-gated chain order (stock parks at unity/bypass so
                     // audible Automix is unchanged — see P0 audit — but DJ EQ,
+                    // sweep, vamp, echo, reverb, splice, loudness and brake
                     // must actually see samples; wiring only 3 of 10 muted all
                     // DJ voicing):
                     // DJBandEQ (low/mid/high, head) -> Spatial -> Listener EQ
                     // -> TransitionFilter (LP/HP sweep, last word) -> LoopVamp
+                    // -> EchoSend -> Reverb -> SpliceGuard -> LoudnessGain
+                    // -> BrakeDive (tape-stop after loudness so correction
                     // doesn't fight the dive) -> SilenceSkip -> Sonic.
+                    arrayOf(eq, spatial, equalizer, transition, loop, echo, reverb, splice, loudness, brake),
                     SilenceSkippingAudioProcessor(
                         MIN_SILENCE_US,
                         SilenceSkippingAudioProcessor.DEFAULT_SILENCE_RETENTION_RATIO,
@@ -4475,6 +4496,7 @@ class PlaybackService : MediaLibraryService() {
             echoSendA,
             reverbSendA,
             spliceGuardA,
+            loudnessA,
             brakeDiveA,
             ownsSession = true,
         )
@@ -4487,6 +4509,7 @@ class PlaybackService : MediaLibraryService() {
             echoSendB,
             reverbSendB,
             spliceGuardB,
+            loudnessB,
             brakeDiveB,
             ownsSession = false,
         )

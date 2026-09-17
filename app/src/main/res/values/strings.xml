@@ -237,7 +237,7 @@
     <string name="automix_performance_subtitle">Sets how much CPU background analysis may use</string>
     <string name="automix_performance_warning">Higher performance analyses tracks faster, but can use more battery and make the phone warmer.</string>
     <string name="loudness_normalization">Loudness normalization</string>
-    <string name="loudness_normalization_subtitle">Evens out volume between tracks to −14 LUFS</string>
+    <string name="loudness_normalization_subtitle">Balance the volume levels across tracks to ensure consistent loudness.</string>
     <string name="automix_mode_efficient">Efficient</string>
     <string name="automix_not_supported_video">Automix is not supported on video tracks</string>
     <string name="automix_mode_efficient_subtitle">1 thread · lowest heat and battery use · analysis may take longer</string>

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Modeled on Orchard's own TrackAnalyzer (https://github.com/SFG5453/Orchard).
  * Phase 1 was the DSP-only pass (native/analyzer/audio_analysis.cpp); Phase 2
  * adds the Beat This! ONNX model (see [BeatTracker]) and Phase 3 the
@@ -1334,6 +1334,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                     ?: features.vocalActivityMask,
                 vocalProbability = features.vocalProbability,
                 // Full-plan P4: master descriptors ride the whole-track pass.
+                loudnessLufs = features.loudnessLufs,
                 peakDbfs = features.peakDbfs,
                 dynamicRangeDb = features.dynamicRangeDb,
                 vocalPitchMedianHz = head?.pitch?.voicedMedianHz() ?: 0.0,

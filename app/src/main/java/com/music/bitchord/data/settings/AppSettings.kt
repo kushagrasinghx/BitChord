@@ -1,4 +1,4 @@
-﻿package com.music.bitchord.data.settings
+package com.music.bitchord.data.settings
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -298,8 +298,11 @@ object AppSettings {
     val automixHalfTempoLock = MutableStateFlow(false)
 
     /**
+     * Full-plan loudness: normalize track gains toward [loudnessTargetLufs]
      * (±6 dB). On by default — gig-level consistency is the point of DJ mode.
      */
+    val loudnessNormalizationEnabled = MutableStateFlow(true)
+    val loudnessTargetLufs = MutableStateFlow(-14.0f)
 
     /** The CPU budget used by Beat This! and vocal analysis for Automix. */
     val automixPerformanceMode = MutableStateFlow(AutomixPerformanceMode.BALANCED)
@@ -758,6 +761,9 @@ object AppSettings {
         mixsetOverlapCeilingSeconds.value =
             prefs.getFloat(KEY_MIXSET_OVERLAP_CEILING_SECONDS, 60.0f).coerceIn(12.0f, 90.0f)
         automixHalfTempoLock.value = prefs.getBoolean(KEY_AUTOMIX_HALF_TEMPO_LOCK, false)
+        loudnessNormalizationEnabled.value = prefs.getBoolean(KEY_LOUDNESS_NORMALIZATION_ENABLED, true)
+        loudnessTargetLufs.value =
+            prefs.getFloat(KEY_LOUDNESS_TARGET_LUFS, -14.0f).coerceIn(-23.0f, -7.0f)
         automixPerformanceMode.value = runCatching {
             AutomixPerformanceMode.valueOf(
                 prefs.getString(KEY_AUTOMIX_PERFORMANCE_MODE, null) ?: AutomixPerformanceMode.BALANCED.name,
@@ -1060,8 +1066,14 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_AUTOMIX_HALF_TEMPO_LOCK, value).apply()
     }
 
+    fun setLoudnessNormalizationEnabled(value: Boolean) {
+        loudnessNormalizationEnabled.value = value
+        prefs.edit().putBoolean(KEY_LOUDNESS_NORMALIZATION_ENABLED, value).apply()
     }
 
+    fun setLoudnessTargetLufs(value: Float) {
+        loudnessTargetLufs.value = value.coerceIn(-23.0f, -7.0f)
+        prefs.edit().putFloat(KEY_LOUDNESS_TARGET_LUFS, loudnessTargetLufs.value).apply()
     }
 
     fun setSkipSilence(value: Boolean) {
@@ -1764,6 +1776,8 @@ object AppSettings {
     private const val KEY_MIXSET_MODE = "mixset_mode_enabled"
     private const val KEY_MIXSET_OVERLAP_CEILING_SECONDS = "mixset_overlap_ceiling_seconds"
     private const val KEY_AUTOMIX_HALF_TEMPO_LOCK = "automix_half_tempo_lock"
+    private const val KEY_LOUDNESS_NORMALIZATION_ENABLED = "loudness_normalization_enabled"
+    private const val KEY_LOUDNESS_TARGET_LUFS = "loudness_target_lufs"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"

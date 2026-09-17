@@ -1,4 +1,4 @@
-﻿package com.music.bitchord.ui.screens
+package com.music.bitchord.ui.screens
 
 import android.content.Context
 import android.content.Intent
@@ -185,6 +185,7 @@ fun SettingsScreen(
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val mixset by AppSettings.mixsetModeEnabled.collectAsStateWithLifecycle()
+    val loudnessNormalization by AppSettings.loudnessNormalizationEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
@@ -635,16 +636,23 @@ fun SettingsScreen(
                     onClick = { AppSettings.setMixsetModeEnabled(!mixset) },
                 )
             }
+            val loudnessTitle = stringResource(R.string.loudness_normalization)
+            row(loudnessTitle, "normalize", "volume", "loudness", "lufs") {
                 SettingsRow(
                     icon = Icons.Rounded.VolumeUp,
+                    title = loudnessTitle,
+                    subtitle = stringResource(R.string.loudness_normalization_subtitle),
                     trailing = {
                         Switch(
+                            checked = loudnessNormalization,
+                            onCheckedChange = AppSettings::setLoudnessNormalizationEnabled,
                             colors = SwitchDefaults.colors(
                                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                                 checkedBorderColor = MaterialTheme.colorScheme.primary,
                             ),
                         )
                     },
+                    onClick = { AppSettings.setLoudnessNormalizationEnabled(!loudnessNormalization) },
                 )
             }
             val skipSilenceTitle = stringResource(R.string.skip_silence)

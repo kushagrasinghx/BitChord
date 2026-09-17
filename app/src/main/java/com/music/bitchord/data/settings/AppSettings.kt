@@ -1028,18 +1028,12 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
         if (!value) {
             smartMixInProgress.value = false
-            mixsetModeEnabled.value = false
-            prefs.edit().putBoolean(KEY_MIXSET_MODE, false).apply()
         }
     }
 
     fun setMixsetModeEnabled(value: Boolean) {
         mixsetModeEnabled.value = value
         prefs.edit().putBoolean(KEY_MIXSET_MODE, value).apply()
-        if (value) {
-            smartFadeEnabled.value = true
-            prefs.edit().putBoolean(KEY_SMART_FADE, true).apply()
-        }
         if (value && outputPcmMode.value == OutputPcmMode.FLOAT_32) {
             preDjOutputPcmMode = OutputPcmMode.FLOAT_32
             setOutputPcmMode(OutputPcmMode.PCM_16)

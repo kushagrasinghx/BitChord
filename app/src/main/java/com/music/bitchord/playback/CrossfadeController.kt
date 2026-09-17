@@ -939,9 +939,9 @@ class CrossfadeController(
     private fun considerAutoTransition() {
         val player = active()
         if (!player.isPlaying) return
-        // Restore origin ee8a348 verbatim for stock Automix: party veto is
-        // DJ-only; stock must not suppress a blend that origin would arm.
-        val mixsetGateForAuto = AppSettings.mixsetModeEnabled.value && AppSettings.smartFadeEnabled.value
+        // DJ independent: party veto is DJ-only; stock must not suppress
+        // a blend that origin would arm.
+        val mixsetGateForAuto = AppSettings.mixsetModeEnabled.value
         // Not while listening together. A blend starts the next track early, by
         // a length this device decides for itself from its own copy of the
         // audio — so in a party every member would begin the next song at a
@@ -983,9 +983,9 @@ class CrossfadeController(
         // an unlooped queue would have had it measured minutes earlier. The
         // measurement is the same either way, so it may as well be made during
         // the loop rather than after it.
-        if (player.repeatMode == Player.REPEAT_MODE_ONE) {
+            if (player.repeatMode == Player.REPEAT_MODE_ONE) {
             logGuardOnce("auto", "no transition: repeat-one loop")
-            if (AppSettings.smartFadeEnabled.value) requestAnalysisAround(player, duration)
+            if (AppSettings.smartFadeEnabled.value || AppSettings.mixsetModeEnabled.value) requestAnalysisAround(player, duration)
             // Stale otherwise: the marker would keep describing the transition
             // planned for this pair before the loop went on, at a point the
             // playhead now runs past on every lap without anything happening.
@@ -998,12 +998,15 @@ class CrossfadeController(
         // length: it decides its own duration from each pair of tracks (beats,
         // tempo, structure), so requiring a nonzero [AppSettings.crossfadeSeconds]
         // first would tie an automatic feature to a manual one it doesn't use.
-        if (AppSettings.smartFadeEnabled.value) {
+        // DJ independent: Automix and DJ Mode each own their scheduling;
+        // either can arm a transition without the other.
+        val djOnForTick = AppSettings.mixsetModeEnabled.value
+        if (AppSettings.smartFadeEnabled.value || djOnForTick) {
             considerSmartTransition(duration)
             // Full-audit F2R: hot-path refine — DJ-only so stock matches
             // origin ee8a348 verbatim (origin never re-issued a request on
             // provisional heads).
-            if (mixsetGateForAuto) {
+            if (djOnForTick) {
                 val curItem = player.currentMediaItem
                 if (curItem != null) {
                     val curAnalysis = analysisFor(curItem)
@@ -1030,7 +1033,8 @@ class CrossfadeController(
         // its cue point, and that work has to be finished by the time the fade
         // is due rather than started then. Stock Automix keeps origin 4000ms;
         // DJ Mode keeps adaptive 6000ms when incoming not yet resolved.
-        val leadMs = if (AppSettings.mixsetModeEnabled.value && AppSettings.smartFadeEnabled.value) ARM_LEAD_MS else ARM_LEAD_RESOLVED_MS
+        // DJ independent: lead is DJ-only.
+        val leadMs = if (AppSettings.mixsetModeEnabled.value) ARM_LEAD_MS else ARM_LEAD_RESOLVED_MS
         if (remaining > fade + leadMs) return
 
         begin(fade, endMs = duration, smart = false)
@@ -1057,9 +1061,9 @@ class CrossfadeController(
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val nextItem = player.getMediaItemAt(nextIndex)
-        // Restore origin ee8a348 verbatim for stock Automix: video veto is
-        // DJ-only; stock must plan the transition exactly as origin did.
-        val mixsetEarly = AppSettings.mixsetModeEnabled.value && AppSettings.smartFadeEnabled.value
+        // DJ independent: video veto is DJ-only; stock must plan the
+        // transition exactly as origin did.
+        val mixsetEarly = AppSettings.mixsetModeEnabled.value
         if (mixsetEarly && (currentItem.isVideoOrigin || nextItem.isVideoOrigin)) {
             AppSettings.smartTransitionWindow.value = null
             AppSettings.smartMixInProgress.value = false
@@ -1085,7 +1089,7 @@ class CrossfadeController(
         val nextAnalysis = analysisFor(nextItem)
         val analysisState = AppSettings.smartAnalysis.value
 
-        val mixset = AppSettings.mixsetModeEnabled.value && AppSettings.smartFadeEnabled.value
+        val mixset = AppSettings.mixsetModeEnabled.value
         var plan = planTransition(
             analysis = currentAnalysis,
             nextAnalysis = nextAnalysis,
@@ -1392,7 +1396,7 @@ class CrossfadeController(
         // the next downbeat after it. Pre-snapped here (grids are ARM-time
         // data); the fade only compares progress against it.
         val swapProgress = EqSchedule.BASS_SWAP_PROGRESS[plan.type]
-        // Stock upstream on normal Automix: no schedule snap (+Inf), so the
+        // DJ independent: no schedule snap when DJ off (+Inf), so the
         // legacy SVF bass swap below runs. DJ Mode keeps the downbeat snap.
         val eqSwapFireProgress = if (mixset && swapProgress != null && plan.fadeSeconds > 0) {
             // Real-DJ long blend: the bass swap fires on the phrase "1"

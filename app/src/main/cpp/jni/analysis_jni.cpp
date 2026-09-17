@@ -27,10 +27,12 @@
 // beside the decode around it, and a string is far easier to log and to test
 // against than a hand-packed buffer.
 //
-// Only the subset the transition policy actually reads is emitted. Chroma,
-// the mid and high energy curves, loudness, peak and dynamic range are
-// computed by the analyzer but nothing downstream consumes them, and emitting
-// them would mean three more float arrays per track for no reader.
+// Only the subset the transition policy actually reads is emitted. Chroma
+// and the mid and high energy curves are computed by the analyzer but
+// nothing downstream consumes them. Loudness, peak and dynamic range used
+// to be dropped too; the full-plan P4 re-emits them so the DJ wash can be
+// gain-staged per master (hot crushed masters need less wash) and the
+// loudness normalizer can read real integrated LUFS.
 
 #include <jni.h>
 
@@ -136,7 +138,7 @@ Java_com_music_bitchord_playback_smart_TrackFeatures_nativeAnalyze(
   std::string json;
   // A whole-track energy curve dominates the output; reserving up front keeps
   // this from repeatedly reallocating a string that reaches tens of kilobytes.
-  json.reserve(8192 + result.energy_curve.size() * 24);
+  json.reserve(8192 + (result.energy_curve.size() + result.energy_curve_fine.size()) * 24);
 
   json += '{';
   AppendField(json, "duration", result.duration, true);
@@ -153,6 +155,10 @@ Java_com_music_bitchord_playback_smart_TrackFeatures_nativeAnalyze(
   AppendField(json, "mixInTime", result.mix_in_time);
   AppendField(json, "mixOutTime", result.mix_out_time);
   AppendField(json, "vocalProbability", result.vocal_probability);
+  // Full-plan P4: master descriptors for wash gain-staging + loudness norm.
+  AppendField(json, "loudnessLufs", result.loudness_lufs);
+  AppendField(json, "peakDbfs", result.peak_dbfs);
+  AppendField(json, "dynamicRangeDb", result.dynamic_range_db);
 
   json += ",\"key\":";
   AppendString(json, result.key);
@@ -162,6 +168,15 @@ Java_com_music_bitchord_playback_smart_TrackFeatures_nativeAnalyze(
   AppendDoubles(json, result.phrase_boundaries);
   json += ",\"vocalActivityMask\":";
   AppendDoubles(json, result.vocal_activity_mask);
+  // v2 §2b: detector inputs. Onset times are transient event ticks;
+  // centroid rides the compact energy grid; the fine curve keeps its native
+  // 250 ms grid for the buildup gradient.
+  json += ",\"onsetTimes\":";
+  AppendDoubles(json, result.onset_times);
+  json += ",\"spectralCentroidCurve\":";
+  AppendEnergyCurve(json, result.spectral_centroid_frames);
+  json += ",\"energyCurveFine\":";
+  AppendEnergyCurve(json, result.energy_curve_fine);
   json += ",\"energyCurve\":";
   AppendEnergyCurve(json, result.energy_curve);
   json += ",\"lowEnergyCurve\":";

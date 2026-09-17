@@ -312,12 +312,6 @@ dependencies {
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
 
     testImplementation("junit:junit:4.13.2")
-    // A real HTTP server for the addon tests. The addon protocol is entirely
-    // "what does this app send, and what does it do with what comes back", and
-    // a hand-rolled fake of the client would be a test of the fake. Pinned to
-    // the OkHttp version already on the runtime classpath.
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
 }

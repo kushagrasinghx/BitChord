@@ -21,7 +21,7 @@
 
 package com.music.bitchord.playback.smart
 
-import android.util.Log
+import com.music.bitchord.data.TrackLog
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -58,10 +58,10 @@ object TrackFeatures {
     fun analyze(samples: FloatArray, durationSeconds: Double): Features? {
         if (!available || samples.isEmpty()) return null
         val json = runCatching { nativeAnalyze(samples, sampleRate, durationSeconds) }
-            .onFailure { Log.w(TAG, "Native analysis failed", it) }
+            .onFailure { TrackLog.w(TAG, "Native analysis failed", it) }
             .getOrNull() ?: return null
         return runCatching { parse(JSONObject(json)) }
-            .onFailure { Log.w(TAG, "Could not parse analysis output", it) }
+            .onFailure { TrackLog.w(TAG, "Could not parse analysis output", it) }
             .getOrNull()
     }
 
@@ -95,6 +95,10 @@ object TrackFeatures {
         val mixInTime: Double,
         val mixOutTime: Double,
         val vocalProbability: Double,
+        // Full-plan P4: master descriptors, re-emitted by the JNI bridge.
+        val loudnessLufs: Double = -70.0,
+        val peakDbfs: Double = -70.0,
+        val dynamicRangeDb: Double = 0.0,
         val downbeats: List<Double>,
         val phraseBoundaries: List<Double>,
         val vocalActivityMask: List<Double>,
@@ -102,6 +106,11 @@ object TrackFeatures {
         val lowEnergyCurve: List<EnergySample>,
         val mixInCandidates: List<MixCandidate>,
         val mixOutCandidates: List<MixCandidate>,
+        // v2 §2b: structural detector inputs. Transient — parsed for the
+        // detector, never written to the store (see StructureDetector).
+        val onsetTimes: List<Double> = emptyList(),
+        val spectralCentroidCurve: List<EnergySample> = emptyList(),
+        val energyCurveFine: List<EnergySample> = emptyList(),
     )
 
     fun parse(root: JSONObject): Features = Features(
@@ -120,6 +129,9 @@ object TrackFeatures {
         mixInTime = root.optDouble("mixInTime", 0.0).orZero(),
         mixOutTime = root.optDouble("mixOutTime", 0.0).orZero(),
         vocalProbability = root.optDouble("vocalProbability", 0.0).orZero(),
+        loudnessLufs = root.optDouble("loudnessLufs", -70.0),
+        peakDbfs = root.optDouble("peakDbfs", -70.0),
+        dynamicRangeDb = root.optDouble("dynamicRangeDb", 0.0),
         downbeats = root.doubles("downbeats"),
         phraseBoundaries = root.doubles("phraseBoundaries"),
         vocalActivityMask = root.doubles("vocalActivityMask"),
@@ -127,6 +139,9 @@ object TrackFeatures {
         lowEnergyCurve = root.energyCurve("lowEnergyCurve"),
         mixInCandidates = root.cuePoints("mixInCandidates"),
         mixOutCandidates = root.cuePoints("mixOutCandidates"),
+        onsetTimes = root.doubles("onsetTimes"),
+        spectralCentroidCurve = root.energyCurve("spectralCentroidCurve"),
+        energyCurveFine = root.energyCurve("energyCurveFine"),
     )
 
     private fun JSONObject.doubles(name: String): List<Double> {

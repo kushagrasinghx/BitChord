@@ -281,6 +281,28 @@ object AppSettings {
      * See [com.music.bitchord.playback.smart.TransitionPlanner].
      */
     val smartFadeEnabled = MutableStateFlow(false)
+    val mixsetModeEnabled = MutableStateFlow(false)
+
+    /**
+     * Real-DJ long blend: DJ overlap ceiling in seconds (default 60.0 =
+     * 32 bars @128BPM). Bounds the phrase-switch bed; range 12–90s.
+     * Existing installs keep their saved value.
+     */
+    val mixsetOverlapCeilingSeconds = MutableStateFlow(60.0f)
+
+    /**
+     * Full-plan P2: HALF_TEMPO lock. On, harmonic-ratio pairs route to
+     * DJ_ASSISTED wash/cut instead of the ±41% shared-grid effect.
+     * Off preserves current behavior.
+     */
+    val automixHalfTempoLock = MutableStateFlow(false)
+
+    /**
+     * Full-plan loudness: normalize track gains toward [loudnessTargetLufs]
+     * (±6 dB). On by default — gig-level consistency is the point of DJ mode.
+     */
+    val loudnessNormalizationEnabled = MutableStateFlow(true)
+    val loudnessTargetLufs = MutableStateFlow(-14.0f)
 
     /** The CPU budget used by Beat This! and vocal analysis for Automix. */
     val automixPerformanceMode = MutableStateFlow(AutomixPerformanceMode.BALANCED)
@@ -655,6 +677,14 @@ object AppSettings {
     val smartMixInProgress = MutableStateFlow(false)
 
     /**
+     * v2 §7d: the shared BPM a HALF_TIME transition is actually playing at,
+     * for stats for nerds. Set at the handoff, cleared when the blend ends —
+     * null the rest of the time, so the line below stays dark outside a
+     * half-time blend.
+     */
+    val sharedHalfTimeBpm = MutableStateFlow<Double?>(null)
+
+    /**
      * How much of the *upcoming* transition has been analysed, for stats for
      * nerds. Published by the crossfade controller, which is the only thing
      * that knows which two tracks the next transition is between.
@@ -727,6 +757,13 @@ object AppSettings {
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
+        mixsetModeEnabled.value = prefs.getBoolean(KEY_MIXSET_MODE, false)
+        mixsetOverlapCeilingSeconds.value =
+            prefs.getFloat(KEY_MIXSET_OVERLAP_CEILING_SECONDS, 60.0f).coerceIn(12.0f, 90.0f)
+        automixHalfTempoLock.value = prefs.getBoolean(KEY_AUTOMIX_HALF_TEMPO_LOCK, false)
+        loudnessNormalizationEnabled.value = prefs.getBoolean(KEY_LOUDNESS_NORMALIZATION_ENABLED, true)
+        loudnessTargetLufs.value =
+            prefs.getFloat(KEY_LOUDNESS_TARGET_LUFS, -14.0f).coerceIn(-23.0f, -7.0f)
         automixPerformanceMode.value = runCatching {
             AutomixPerformanceMode.valueOf(
                 prefs.getString(KEY_AUTOMIX_PERFORMANCE_MODE, null) ?: AutomixPerformanceMode.BALANCED.name,
@@ -983,14 +1020,69 @@ object AppSettings {
         prefs.edit().putInt(KEY_CROSSFADE, value).apply()
     }
 
+    /** Saved PCM mode before DJ forced PCM_16, so it can be restored on disable. */
+    private var preDjOutputPcmMode: OutputPcmMode = OutputPcmMode.PCM_16
+
     fun setSmartFadeEnabled(value: Boolean) {
         smartFadeEnabled.value = value
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
+        if (!value) {
+            smartMixInProgress.value = false
+            // Guard: DJ requires Automix — turning Automix off kills DJ.
+            if (mixsetModeEnabled.value) {
+                mixsetModeEnabled.value = false
+                prefs.edit().putBoolean(KEY_MIXSET_MODE, false).apply()
+                if (preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
+                    setOutputPcmMode(OutputPcmMode.FLOAT_32)
+                    preDjOutputPcmMode = OutputPcmMode.PCM_16
+                }
+                sharedHalfTimeBpm.value = null
+            }
+        }
+    }
+
+    fun setMixsetModeEnabled(value: Boolean) {
+        mixsetModeEnabled.value = value
+        prefs.edit().putBoolean(KEY_MIXSET_MODE, value).apply()
+        // Guard: DJ requires Automix — enabling DJ forces Automix on.
+        if (value && !smartFadeEnabled.value) {
+            smartFadeEnabled.value = true
+            prefs.edit().putBoolean(KEY_SMART_FADE, true).apply()
+        }
+        if (value && outputPcmMode.value == OutputPcmMode.FLOAT_32) {
+            preDjOutputPcmMode = OutputPcmMode.FLOAT_32
+            setOutputPcmMode(OutputPcmMode.PCM_16)
+        } else if (!value && preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
+            setOutputPcmMode(OutputPcmMode.FLOAT_32)
+            preDjOutputPcmMode = OutputPcmMode.PCM_16
+        }
+        smartMixInProgress.value = false
+        sharedHalfTimeBpm.value = null
     }
 
     fun setAutomixPerformanceMode(value: AutomixPerformanceMode) {
         automixPerformanceMode.value = value
         prefs.edit().putString(KEY_AUTOMIX_PERFORMANCE_MODE, value.name).apply()
+    }
+
+    fun setMixsetOverlapCeilingSeconds(value: Float) {
+        mixsetOverlapCeilingSeconds.value = value.coerceIn(12.0f, 90.0f)
+        prefs.edit().putFloat(KEY_MIXSET_OVERLAP_CEILING_SECONDS, mixsetOverlapCeilingSeconds.value).apply()
+    }
+
+    fun setAutomixHalfTempoLock(value: Boolean) {
+        automixHalfTempoLock.value = value
+        prefs.edit().putBoolean(KEY_AUTOMIX_HALF_TEMPO_LOCK, value).apply()
+    }
+
+    fun setLoudnessNormalizationEnabled(value: Boolean) {
+        loudnessNormalizationEnabled.value = value
+        prefs.edit().putBoolean(KEY_LOUDNESS_NORMALIZATION_ENABLED, value).apply()
+    }
+
+    fun setLoudnessTargetLufs(value: Float) {
+        loudnessTargetLufs.value = value.coerceIn(-23.0f, -7.0f)
+        prefs.edit().putFloat(KEY_LOUDNESS_TARGET_LUFS, loudnessTargetLufs.value).apply()
     }
 
     fun setSkipSilence(value: Boolean) {
@@ -1351,6 +1443,8 @@ object AppSettings {
     }
 
     fun setOutputPcmMode(value: OutputPcmMode) {
+        // DJ Mode DSP runs on 16-bit PCM only — refuse float while DJ is on.
+        if (value == OutputPcmMode.FLOAT_32 && mixsetModeEnabled.value) return
         outputPcmMode.value = value
         prefs.edit().putString(KEY_OUTPUT_PCM_MODE, value.name).apply()
     }
@@ -1688,6 +1782,11 @@ object AppSettings {
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
+    private const val KEY_MIXSET_MODE = "mixset_mode_enabled"
+    private const val KEY_MIXSET_OVERLAP_CEILING_SECONDS = "mixset_overlap_ceiling_seconds"
+    private const val KEY_AUTOMIX_HALF_TEMPO_LOCK = "automix_half_tempo_lock"
+    private const val KEY_LOUDNESS_NORMALIZATION_ENABLED = "loudness_normalization_enabled"
+    private const val KEY_LOUDNESS_TARGET_LUFS = "loudness_target_lufs"
     private const val KEY_AUTOMIX_PERFORMANCE_MODE = "automix_performance_mode"
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"

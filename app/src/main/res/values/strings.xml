@@ -229,10 +229,17 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Blends one track into the next</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="mixset">DJ Mode [BETA]</string>
+    <string name="mixset_subtitle">This mode enables freeform music mixing with multiple DJ style track transition effects. Tracks can be played for shorter or longer durations depending on the energy level. High BPM music is recommended.</string>
+    <string name="dj_mode_pcm_locked">DJ Mode doesn\'t work with 32-bit float — it runs on 16-bit PCM only</string>
+    <string name="dj_mode_pcm_locked_note">DJ Mode runs on 16-bit PCM</string>
     <string name="automix_performance">Automix performance</string>
     <string name="automix_performance_subtitle">Sets how much CPU background analysis may use</string>
     <string name="automix_performance_warning">Higher performance analyses tracks faster, but can use more battery and make the phone warmer.</string>
+    <string name="loudness_normalization">Loudness normalization</string>
+    <string name="loudness_normalization_subtitle">Balance the volume levels across tracks to ensure consistent loudness.</string>
     <string name="automix_mode_efficient">Efficient</string>
+    <string name="automix_not_supported_video">Automix is not supported on video tracks</string>
     <string name="automix_mode_efficient_subtitle">1 thread · lowest heat and battery use · analysis may take longer</string>
     <string name="automix_mode_balanced">Balanced</string>
     <string name="automix_mode_balanced_subtitle">2 threads · recommended balance of speed, heat and battery</string>
@@ -745,7 +752,7 @@
     <string name="delete_download_confirmation">Remove “%1$s” from this device? Tap again to confirm.</string>
     <string name="running">Running</string>
     <string name="automix_analysis_status">Automix · this song: %1$s · next: %2$s</string>
-    <string name="automix_not_supported_video">Automix not supported on video songs</string>
+    <string name="dj_mode_analysis_status">DJ Mode · this song: %1$s · next: %2$s</string>
     <string name="analysis_complete">analysed</string>
     <string name="analysis_refining">analysed, refining…</string>
     <string name="analysis_in_progress">analysing…</string>

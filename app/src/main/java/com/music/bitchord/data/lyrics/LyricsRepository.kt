@@ -33,7 +33,7 @@ import java.util.Collections
  * to still be waited on took.
  *
  * A word-timed answer wins outright. Failing that, a line-timed one is taken
- * from the highest-priority source that had it — better a whole line lighting
+ * from the highest-priority source that had it â€” better a whole line lighting
  * up in sync than the right animation on lyrics that don't exist.
  *
  * ### Matching on the recording
@@ -72,7 +72,7 @@ object LyricsRepository {
      *
      * [prioritizeSyllableSync] decides what happens once *something* has come
      * back: off, the highest-priority source's own answer is taken as-is,
-     * word-synced or not — priority is priority, and second-guessing it with
+     * word-synced or not â€” priority is priority, and second-guessing it with
      * more network calls after it has already answered is not what "first"
      * was supposed to mean. On, a merely line-synced answer is kept only as a
      * fallback, and the search keeps going through the rest of [order] for a
@@ -179,7 +179,7 @@ object LyricsRepository {
      * Whichever source won, its lines get the same last pass: the answering
      * vocal split off the lead so it can be drawn under it. Done here rather
      * than in each parser because most of them write it as a bracket and only
-     * [TtmlLyrics] knows it structurally — [withBackgroundVocals] leaves that
+     * [TtmlLyrics] knows it structurally â€” [withBackgroundVocals] leaves that
      * one's own split alone.
      */
     private fun result(source: LyricsSource, lines: List<LyricLine>) =

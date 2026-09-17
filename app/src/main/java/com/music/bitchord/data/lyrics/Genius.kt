@@ -177,7 +177,7 @@ object Genius {
             // Penalize translations / instrumentals / reviews unless specifically requested
             val path = item["path"]?.jsonPrimitive?.contentOrNull ?: ""
             if (path.contains("translation", ignoreCase = true) && !normTitle.contains("translation")) score -= 30
-            if (path.contains("türkçe", ignoreCase = true) || path.contains("polskie-tlumaczenie", ignoreCase = true)) score -= 40
+            if (path.contains("tÃ¼rkÃ§e", ignoreCase = true) || path.contains("polskie-tlumaczenie", ignoreCase = true)) score -= 40
             if (path.contains("tracklist", ignoreCase = true) || path.contains("album-art", ignoreCase = true)) score -= 50
 
             if (score <= 0) return@mapNotNull null

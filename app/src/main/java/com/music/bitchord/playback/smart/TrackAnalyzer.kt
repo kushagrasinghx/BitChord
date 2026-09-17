@@ -26,6 +26,7 @@ package com.music.bitchord.playback.smart
 import android.content.Context
 import android.media.MediaDataSource
 import android.net.Uri
+import com.music.bitchord.data.TrackLog
 import android.os.Process
 import android.util.Log
 import androidx.media3.common.util.UnstableApi
@@ -43,7 +44,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
+import java.util.concurrent.PriorityBlockingQueue
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.abs
 import kotlin.math.max
 import java.util.Locale
@@ -60,8 +66,39 @@ import java.util.Locale
 @UnstableApi
 class TrackAnalyzer(private val context: Context, private val cache: AudioCache) {
 
-    private val tracker = BeatTracker(context)
-    private val vocals = VocalTracker(context)
+    /**
+     * Dual pinned lanes. The high lane serves the track queued to play next,
+     * the low lane everything else — and refine head passes ride whichever
+     * lane their track's priority selects, so track1 and track2 (heads
+     * included) genuinely overlap.
+     *
+     * Each lane owns its own model sessions. The ORT sessions assume
+     * single-thread confinement, so two workers sharing one session would
+     * race inference against release; per-lane triples remove that by
+     * construction, with no lock ordering and no close-while-inferring
+     * window. The global [running] set stays the cross-lane same-track
+     * mutex: a track never runs on both lanes at once, so a head pass can
+     * never overwrite a whole-track result.
+     */
+    private inner class Lane(
+        val laneName: String,
+        val tracker: BeatTracker,
+        val vocals: VocalTracker,
+        val pitch: PitchTracker,
+    ) {
+        val inFlight = AtomicInteger(0)
+        fun releaseModels() {
+            tracker.release()
+            vocals.release()
+            pitch.release()
+        }
+    }
+
+    private val highLane = Lane("high", BeatTracker(context), VocalTracker(context), PitchTracker(context))
+    private val lowLane = Lane("low", BeatTracker(context), VocalTracker(context), PitchTracker(context))
+
+    /** Lane executing the current job; set by [AnalysisJob.run]. */
+    private val currentLane = ThreadLocal<Lane>()
 
     /**
      * Resolved on first use, not at construction, for the reason [AnalysisStore]
@@ -110,6 +147,26 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      */
     private val shortDecodes = ConcurrentHashMap<String, Int>()
 
+    /**
+     * P0 terminal-analysis guarantee: bounded transient-failure counters so a
+     * track that trips on a still-filling stream, a revoked content URI, or a
+     * codec hiccup is retried a few times instead of written off on the first
+     * stumble — while a track that genuinely cannot be read still terminates
+     * instead of opening a data source on every tick forever.
+     */
+    private val throwStrikes = ConcurrentHashMap<String, Int>()
+    private val openFailStrikes = ConcurrentHashMap<String, Int>()
+    private val noDurationStrikes = ConcurrentHashMap<String, Int>()
+
+    /** Local URIs already granted their one fresh-open retry (see [analyze]). */
+    private val localReopenTried = ConcurrentHashMap.newKeySet<String>()
+
+    /** When the in-flight job for each track was queued; see the stuck watchdog in [request]. */
+    private val jobStartMs = ConcurrentHashMap<String, Long>()
+
+    /** Tracks already reported stuck, so the watchdog logs once not every tick. */
+    private val stuckLogged = ConcurrentHashMap.newKeySet<String>()
+
     /** Tracks already looked for on disk this session; see [restoreOnce]. */
     private val restoreAttempted = ConcurrentHashMap.newKeySet<String>()
 
@@ -122,6 +179,17 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      * send the next attempt at the *same* track to a different copy of it.
      */
     private val badRenditions = ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * How many times each rendition has been refused for a duration skew, so a
+     * legitimately skewed copy is accepted provisionally instead of starving
+     * the track forever. Keyed by rendition like [badRenditions], because the
+     * point is per-copy patience, not per-track. Cleared on a clean duration
+     * pass and on discard-refetch (different bytes start level); kept while
+     * its copy stays suspect, so re-analysis of the same skewed bytes stays
+     * flagged instead of flapping.
+     */
+    private val renditionRejects = ConcurrentHashMap<String, Int>()
 
     /**
      * Cache keys already put through the whole-track pass, whatever came of it.
@@ -151,11 +219,86 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
 
     private fun discardsOf(key: String): Int = discarded[key] ?: 0
 
-    private val executor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "bitchord-smart-analysis").apply {
+    /**
+     * Two lanes, two priorities. Each lane is still a single worker thread —
+     * jobs on the same lane never run concurrently — but the next track's
+     * job no longer waits behind the current track's. Priority selects the
+     * lane (see [submit]), and FIFO is per lane.
+     *
+     * The queue holds [AnalysisJob]s only; anything else submitted here is a
+     * bug, and failing fast on it is better than a stuck comparator.
+     */
+    private val jobSeq = AtomicLong(0)
+
+    private inner class AnalysisJob(
+        val lane: Lane,
+        val priority: Int,
+        val track: String?,
+        val block: () -> Unit,
+    ) : Runnable, Comparable<AnalysisJob> {
+        val seq = jobSeq.getAndIncrement()
+        override fun run() {
+            currentLane.set(lane)
+            lane.inFlight.incrementAndGet()
+            try {
+                block()
+            } finally {
+                currentLane.remove()
+                // Lane-local idle release: the old global `running.isEmpty()`
+                // close could land while the other lane was mid-inference.
+                // Zero here means nothing submitted or running on this lane,
+                // so its sessions are safe to drop; a queued backlog on the
+                // lane keeps them warm instead of churning reloads. (A session
+                // holds its arena and parsed graph in native heap while open,
+                // which a backgrounded player cannot justify between
+                // transitions; reloading costs under a second against an
+                // analysis that already takes several.)
+                if (lane.inFlight.decrementAndGet() == 0) lane.releaseModels()
+            }
+        }
+        override fun compareTo(other: AnalysisJob): Int =
+            compareValuesBy(this, other, { -it.priority }, { it.seq })
+    }
+
+    private fun laneThreadFactory(name: String): ThreadFactory = ThreadFactory { runnable ->
+        Thread(runnable, name).apply {
             isDaemon = true
             priority = Thread.NORM_PRIORITY
         }
+    }
+
+    private val highExecutor = ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS,
+        PriorityBlockingQueue<Runnable>(),
+        laneThreadFactory("bitchord-smart-high"),
+    )
+
+    private val lowExecutor = ThreadPoolExecutor(
+        1, 1, 0L, TimeUnit.MILLISECONDS,
+        PriorityBlockingQueue<Runnable>(),
+        laneThreadFactory("bitchord-smart-low"),
+    )
+
+    private fun submit(trackId: String? = null, block: () -> Unit) {
+        // Priority is the lane selector now, not just queue order: the next
+        // track's analysis must never queue behind a backlog of normals.
+        // RejectedExecutionException can only come from shutdown (see
+        // [release]), and at that point the process is going away anyway.
+        // The track id files the job's log lines against their track.
+        // Dual lanes run only under PERFORMANCE mode: EFFICIENT and BALANCED
+        // collapse onto the high lane so analysis stays single-threaded and
+        // the priority queue alone keeps the next track ahead of the backlog.
+        // The mode is read per submit, so toggling it mid-flight needs no
+        // drain: the in-flight job finishes on its lane (per-lane tracker
+        // instances plus the global [running] guard keep the brief overlap
+        // safe) while every new job takes the newly selected lane.
+        // Priority threading was removed for stock parity (every job is
+        // normal): under PERFORMANCE every job takes the low lane, otherwise
+        // the high lane — single-lane FIFO either way, like upstream.
+        val dualLane = AppSettings.automixPerformanceMode.value == AutomixPerformanceMode.PERFORMANCE
+        val low = dualLane
+        val lane = if (low) lowLane else highLane
+        (if (low) lowExecutor else highExecutor).execute(AnalysisJob(lane, PRIORITY_NORMAL, trackId, block))
     }
 
     /**
@@ -180,9 +323,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // caller, so a track with nothing stored is looked for once per session
         // rather than on every tick.
         if (!restoreAttempted.add(trackId)) return
-        executor.execute {
-            val stored = store.load(trackId) ?: return@execute
-            Log.d(TAG, "Restored analysis for $trackId: bpm=${stored.bpm} conf=${stored.beatConfidence}")
+        submit(trackId) {
+            val stored = store.load(trackId) ?: return@submit
+            TrackLog.d(TAG, "Restored analysis for $trackId: bpm=${stored.bpm} conf=${stored.beatConfidence}")
             results.putIfAbsent(trackId, stored)
         }
     }
@@ -225,6 +368,17 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     fun request(trackId: String, uri: Uri, durationSeconds: Double) {
         if (trackId.isBlank()) return
         if (trackId in running) return
+        // Long-track skip is DJ-only: a 10+ minute track is recorded
+        // ready-but-empty so the DJ planner renders it plainly. Stock upstream
+        // analyses long tracks normally, so normal Automix falls through.
+        if (AppSettings.mixsetModeEnabled.value &&
+            durationSeconds.isFinite() && durationSeconds > MAX_ANALYSIS_DURATION_SECONDS) {
+            if (results[trackId] == null) {
+                TrackLog.d(TAG, "Skipping analysis of $trackId: ${durationSeconds}s exceeds ${MAX_ANALYSIS_DURATION_SECONDS}s")
+                results[trackId] = empty(trackId, durationSeconds)
+            }
+            return
+        }
         val analysisUri = analysisUriFor(trackId, uri) ?: return
 
         // Only the canonical YouTube rendition of this recording will do, not
@@ -271,8 +425,10 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // again for the same answer.
         //
         // A local file is its own single copy, keyed by URI — see [copyToRead] —
-        // so a failure there is read once and stays read, which is correct: no
-        // second copy of it is ever going to arrive.
+        // so a failure there used to be read once and stay read. That froze
+        // tracks on transient opens (a file still being written, a content
+        // provider hiccup), so a local copy now gets one fresh-open retry
+        // before the write-off below applies (see [analyze]).
         val untried = if (local) {
             uri.toString() !in triedRenditions
         } else {
@@ -314,12 +470,27 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             cache.requestAnalysisHead(analysisUri)
             return
         }
+        // Stuck watchdog (P0/F5): a job that has occupied its lane past
+        // STUCK_JOB_TIMEOUT_MS blocks that lane's queue, so the watchdog is
+        // per track but the blockage is per lane — the other lane keeps
+        // serving its own priority. Reported once, never preempted — see
+        // the constant for why killing it is worse.
+        val started = jobStartMs[trackId]
+        if (started != null && trackId in running &&
+            System.currentTimeMillis() - started > STUCK_JOB_TIMEOUT_MS &&
+            stuckLogged.add(trackId)
+        ) {
+            TrackLog.e(TAG, "Analysis job for $trackId stuck over ${STUCK_JOB_TIMEOUT_MS}ms on its lane")
+        }
         if (!running.add(trackId)) return
+        jobStartMs[trackId] = System.currentTimeMillis()
 
-        executor.execute {
+        submit(trackId) {
             try {
                 // Efficient mode yields to decoding and playback rather than
                 // competing for a core. Thread count remains the speed knob.
+                // Applies on both lanes: each analysis job runs on a lane
+                // thread and reads the mode dynamically.
                 Process.setThreadPriority(
                     if (AppSettings.automixPerformanceMode.value == AutomixPerformanceMode.EFFICIENT) {
                         Process.THREAD_PRIORITY_BACKGROUND
@@ -327,15 +498,14 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                         Process.THREAD_PRIORITY_DEFAULT
                     },
                 )
-                // [restoreOnce] queues onto this same single-threaded executor,
-                // so a stored result for this track has landed by now if there
+                // [restoreOnce] queues onto the lane executors, so a stored result for this track has landed by now if there
                 // was one — but the decision to get here was taken a tick
                 // earlier, when it had not. Without this check a track measured
                 // in an earlier session is restored and then immediately spends
                 // seven seconds recomputing the identical numbers. A provisional
                 // result is exempt: superseding one is the whole point of it.
                 val landed = results[trackId]
-                if (landed != null && landed.isUsable && trackId !in provisional) return@execute
+                if (landed != null && landed.isUsable && trackId !in provisional) return@submit
                 if (usableComplete) {
                     val outcome = analyze(trackId, analysisUri, durationSeconds)
                     val whole = outcome.analysis
@@ -343,6 +513,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                         results[trackId] = whole
                         provisional.remove(trackId)
                         shortDecodes.remove(trackId)
+                        throwStrikes.remove(trackId)
+                        openFailStrikes.remove(trackId)
+                        noDurationStrikes.remove(trackId)
                         // Only the whole-track pass is persisted. A head result
                         // is missing everything past its window — the outro, the
                         // mix-out anchor, the energy curve — and storing one
@@ -357,7 +530,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                         // isn't re-decoded on every tick for the rest of the
                         // session. Any provisional head result already published
                         // stays: a partial analysis beats an empty one.
-                        Log.w(TAG, "Giving up on $trackId after $MAX_SHORT_DECODE_ATTEMPTS short decodes")
+                        TrackLog.w(TAG, "Giving up on $trackId after $MAX_SHORT_DECODE_ATTEMPTS short decodes")
                         if (trackId !in provisional) {
                             results[trackId] = TrackAnalysis(
                                 status = TrackAnalysis.STATUS_READY,
@@ -381,32 +554,40 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 // nobody's parent takes the whole app down for work whose
                 // entire failure mode is meant to be "this track goes
                 // unanalysed".
-                Log.w(TAG, "Analysis of $trackId failed", error)
+                TrackLog.w(TAG, "Analysis of $trackId failed", error)
                 // A failed head pass records nothing: the whole-track pass reads
                 // a different, complete file and deserves its own attempt.
                 // [headWorthTrying] has already made sure the head is not tried
                 // twice, so this cannot spin.
                 if (usableComplete) {
-                    // Recorded as ready-but-empty so a track that cannot be
-                    // analysed is not retried on every tick for the rest of the
-                    // session.
-                    results[trackId] = TrackAnalysis(
-                        status = TrackAnalysis.STATUS_READY,
-                        trackId = trackId,
-                        duration = durationSeconds,
-                    )
-                    provisional.remove(trackId)
+                    // Recorded as ready-but-empty only after bounded strikes, so
+                    // a track that trips on a transient (codec hiccup, half-
+                    // flushed span, OOM under load) is retried instead of
+                    // written off on the first stumble. The finally below
+                    // releases the model sessions, so the next attempt starts
+                    // from a released state rather than a dying one.
+                    val strikes = throwStrikes.merge(trackId, 1, Int::plus)!!
+                    if (strikes >= MAX_THROW_ATTEMPTS) {
+                        TrackLog.w(TAG, "Giving up on $trackId after $strikes thrown attempts", error)
+                        throwStrikes.remove(trackId)
+                        results[trackId] = TrackAnalysis(
+                            status = TrackAnalysis.STATUS_READY,
+                            trackId = trackId,
+                            duration = durationSeconds,
+                        )
+                        provisional.remove(trackId)
+                    } else {
+                        TrackLog.d(TAG, "Deferring $trackId after throw (attempt $strikes)", error)
+                    }
                 }
             } finally {
                 running.remove(trackId)
-                // The session holds the model's arena and a parsed ONNX graph in native heap for
-                // as long as it is open, which a backgrounded music player cannot justify between
-                // transitions. Released the moment nothing is in flight; reloading costs under a
-                // second against an analysis that already takes several.
-                if (running.isEmpty()) {
-                    tracker.release()
-                    vocals.release()
-                }
+                jobStartMs.remove(trackId)
+                stuckLogged.remove(trackId)
+                // Model sessions are released lane-locally in
+                // [AnalysisJob.run] once nothing is submitted or running on
+                // that lane — the old global `running.isEmpty()` close could
+                // land while the other lane was mid-inference.
             }
         }
     }
@@ -487,7 +668,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             // invisible otherwise, which is exactly how the first version of
             // this shipped doing nothing at all.
             if (headSkipLogged.add("$trackId@${candidate.key}")) {
-                Log.d(
+                TrackLog.d(
                     TAG,
                     "Head pass for $trackId waiting: ${prefix / 1024}kB cached of " +
                         "${needed / 1024}kB needed (rendition ${candidate.key})",
@@ -561,6 +742,11 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // will not parse yet is not held against the rendition — more bytes may
         // well fix it — but a length that genuinely disagrees is.
         val expected = durationSeconds.takeIf { it.isFinite() && it > 0 }
+        // Set when the duration gate below gives up rejecting and lets the
+        // copy through marked: ORed into [TrackAnalysis.provisionalHead] at
+        // construction so the planner treats the result as suspect, never
+        // as a confident full read.
+        var provisionalRendition = false
         if (expected != null && rendition.key != cache.cacheKeyOf(uri)) {
             val length = openSource()?.use(AudioDecoder::containerDurationSeconds)
             if (length == null || length <= 0) {
@@ -568,24 +754,52 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 // for a head pass to do nothing — a partial container the
                 // extractor will not read a duration out of — and while it was
                 // silent the whole path looked like it had never run.
-                Log.d(TAG, "Head rendition ${rendition.key} for $trackId has no readable duration yet")
+                TrackLog.d(TAG, "Head rendition ${rendition.key} for $trackId has no readable duration yet")
                 return null
             }
             if (abs(length - expected) > RENDITION_DURATION_TOLERANCE) {
-                Log.d(
+                // Stock upstream writes a genuinely disagreeing length off:
+                // a sibling rendition that long apart is a different cut.
+                // Counting rejects toward a provisional accept is DJ-only.
+                if (!AppSettings.mixsetModeEnabled.value) {
+                    TrackLog.d(
+                        TAG,
+                        "Head rendition ${rendition.key} rejected for $trackId: " +
+                            "${"%.1f".format(Locale.ROOT, length)}s against ${"%.1f".format(Locale.ROOT, expected)}s expected",
+                    )
+                    badRenditions.add(rendition.key)
+                    return null
+                }
+                val rejects = (renditionRejects[rendition.key] ?: 0) + 1
+                renditionRejects[rendition.key] = rejects
+                if (rejects < PROVISIONAL_ACCEPT_ROUNDS) {
+                    TrackLog.d(
+                        TAG,
+                        "Head rendition ${rendition.key} rejected for $trackId: " +
+                            "${"%.1f".format(Locale.ROOT, length)}s against ${"%.1f".format(Locale.ROOT, expected)}s expected",
+                    )
+                    return null
+                }
+                // Same copy refused on every tick and nothing else to try: the
+                // skew is the container's, not a wrong cut. Let it through
+                // flagged — notably WITHOUT [badRenditions], which would hide
+                // it from every later tick and re-create the starvation.
+                TrackLog.d(
                     TAG,
-                    "Head rendition ${rendition.key} rejected for $trackId: " +
-                        "${"%.1f".format(Locale.ROOT, length)}s against ${"%.1f".format(Locale.ROOT, expected)}s expected",
+                    "Head rendition ${rendition.key} for $trackId accepted provisionally " +
+                        "after $rejects rejects " +
+                        "(${"%.1f".format(Locale.ROOT, length)}s against ${"%.1f".format(Locale.ROOT, expected)}s expected)",
                 )
-                badRenditions.add(rendition.key)
-                return null
+                provisionalRendition = true
+            } else {
+                renditionRejects.remove(rendition.key)
             }
         }
 
         val window = BeatTracker.WINDOW_SECONDS
         val head = region(::openSource, 0.0, window, features = null, deriveFeatures = true)
             ?: run {
-                Log.d(TAG, "Head pass for $trackId could not decode rendition ${rendition.key}")
+                TrackLog.d(TAG, "Head pass for $trackId could not decode rendition ${rendition.key}")
                 return null
             }
         // What was decoded, not what was asked for: the source stops where the
@@ -594,17 +808,17 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // one, and the planner cannot see the difference — so it is refused here
         // and the next attempt gets more of the file.
         if (head.seconds < MIN_HEAD_SECONDS) {
-            Log.d(TAG, "Head pass for $trackId decoded only ${"%.1f".format(Locale.ROOT, head.seconds)}s; too short")
+            TrackLog.d(TAG, "Head pass for $trackId decoded only ${"%.1f".format(Locale.ROOT, head.seconds)}s; too short")
             return null
         }
         val grid = head.grid
         val entry = head.features
         if (grid == null && entry == null) {
-            Log.d(TAG, "Head pass for $trackId produced nothing usable")
+            TrackLog.d(TAG, "Head pass for $trackId produced nothing usable")
             return null
         }
 
-        Log.d(
+        TrackLog.d(
             TAG,
             "Analysed head of $trackId: bpm=${grid?.bpm ?: entry?.bpm} " +
                 "conf=${grid?.beatConfidence ?: entry?.beatConfidence} " +
@@ -613,6 +827,24 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 "over ${"%.1f".format(Locale.ROOT, head.seconds)}s",
         )
 
+        // Full-audit P0.2: the head window's vocal mask IS shipped now, indexed
+        // against the head window's own energy curve and flagged provisional.
+        // The incoming side of a transition only ever reads its entry window —
+        // exactly what this pass measured — so a provisional mask is the
+        // evidence it needs. The outgoing side needs tail evidence, which this
+        // pass cannot have; the planner's both-sides gate (P0.1) therefore only
+        // honours a provisional mask for the incoming side. Curve and mask are
+        // attached together or not at all: the policy requires equal lengths,
+        // and a bare curve would mislead every energy consumer with no vocal
+        // benefit in return.
+        val headMask = head.vocalMask?.toList().orEmpty()
+        val headCurve = entry?.energyCurve.orEmpty()
+        // Shipping head evidence (curve + mask) is DJ-only: stock upstream's
+        // head pass returns no energy curve and no vocal mask, so normal
+        // Automix plans off the beat grid and entry cues alone.
+        val shipHeadEvidence = AppSettings.mixsetModeEnabled.value &&
+            headMask.isNotEmpty() && headMask.size == headCurve.size
+        if (shipHeadEvidence) renditionRejects.remove(rendition.key)
         return TrackAnalysis(
             status = TrackAnalysis.STATUS_READY,
             trackId = trackId,
@@ -629,6 +861,10 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             introEndTime = entry?.introEndTime ?: 0.0,
             mixInTime = entry?.mixInTime ?: 0.0,
             mixInCandidates = entry?.mixInCandidates.orEmpty(),
+            energyCurve = if (shipHeadEvidence) headCurve else emptyList(),
+            vocalActivityMask = if (shipHeadEvidence) headMask else emptyList(),
+            provisionalHead = AppSettings.mixsetModeEnabled.value &&
+                (shipHeadEvidence || provisionalRendition),
         )
     }
 
@@ -681,7 +917,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             // made, and the worst case degrades from "never analysed" to "a grid
             // measured off the only audio we have".
             return complete.singleOrNull()?.also {
-                Log.d(
+                TrackLog.d(
                     TAG,
                     "Analysing $trackId from its only cached rendition ${it.key}; " +
                         "no duration to check it against",
@@ -694,15 +930,30 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 .use(AudioDecoder::containerDurationSeconds) ?: continue
             if (length <= 0) continue
             if (abs(length - expected) > RENDITION_DURATION_TOLERANCE) {
-                Log.d(
+                val rejects = (renditionRejects[candidate.key] ?: 0) + 1
+                renditionRejects[candidate.key] = rejects
+                if (rejects < PROVISIONAL_ACCEPT_ROUNDS) {
+                    TrackLog.d(
+                        TAG,
+                        "Rendition ${candidate.key} rejected for $trackId: " +
+                            "${"%.1f".format(Locale.ROOT, length)}s against ${"%.1f".format(Locale.ROOT, expected)}s expected",
+                    )
+                    continue
+                }
+                // Refused on every tick and still the only copy in play: same
+                // escape hatch as the head gate — let it through flagged, so
+                // the whole-track result it produces carries low trust.
+                TrackLog.d(
                     TAG,
-                    "Rendition ${candidate.key} rejected for $trackId: " +
-                        "${"%.1f".format(Locale.ROOT, length)}s against ${"%.1f".format(Locale.ROOT, expected)}s expected",
+                    "Rendition ${candidate.key} for $trackId accepted provisionally " +
+                        "after $rejects rejects " +
+                        "(${"%.1f".format(Locale.ROOT, length)}s against ${"%.1f".format(Locale.ROOT, expected)}s expected)",
                 )
-                continue
+                return candidate
             }
+            renditionRejects.remove(candidate.key)
             if (candidate.key != cache.cacheKeyOf(uri)) {
-                Log.d(
+                TrackLog.d(
                     TAG,
                     "Analysing $trackId from lighter rendition ${candidate.key} " +
                         "(${candidate.contentLength / 1024}kB)",
@@ -850,7 +1101,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // while a confidently wrong one does not degrade at all.
         val decodedSeconds = if (pcm.sampleRate > 0) pcm.samples.size / pcm.sampleRate else 0.0
         if (decodedSeconds < effectiveDuration * MIN_DECODED_FRACTION) {
-            Log.w(
+            TrackLog.w(
                 TAG,
                 "Analysis of $trackId refused: ${copy.key} decoded " +
                     "${"%.1f".format(Locale.ROOT, decodedSeconds)}s of a " +
@@ -896,6 +1147,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                     discarded.merge(rendition.key, 1, Int::plus)
                     badRenditions.remove(rendition.key)
                     triedRenditions.remove(rendition.key)
+                    renditionRejects.remove(rendition.key)
                     shortDecodes.remove(trackId)
                 }
             }
@@ -919,12 +1171,15 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      */
     private fun analyze(trackId: String, uri: Uri, durationSeconds: Double): WholeTrack {
         val copy = copyToRead(trackId, uri, durationSeconds) ?: return WholeTrack(null)
-        // Recorded before the outcome is known, because what this gates is
-        // whether a *written-off* track is worth reopening, and the answer is
-        // only ever "yes" for a copy that has not been read yet. Recording it on
-        // success alone would leave a failure looking permanently reopenable and
-        // re-decode the same file on every tick.
-        triedRenditions.add(copy.key)
+        // Stock upstream records the copy up front, before the outcome is
+        // known. The outcome-decided recording below is DJ-only patience.
+        if (!AppSettings.mixsetModeEnabled.value) triedRenditions.add(copy.key)
+        // Recorded only once the outcome is decided (see the three return
+        // sites below), never on the way in: a throw between here and there —
+        // pitch resample NPE, model OOM — used to burn the copy before any
+        // result existed, freezing the track as session-sticky FAILED with no
+        // copy left to reopen it. A failure that decided nothing deserves
+        // another attempt, not a write-off.
         val openSource = copy.open
 
         var effectiveDuration = durationSeconds
@@ -932,8 +1187,25 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             effectiveDuration = openSource()?.use(AudioDecoder::containerDurationSeconds) ?: 0.0
         }
         if (effectiveDuration <= 0) {
-            Log.d(TAG, "Skipping $trackId: ${copy.key} has no readable duration")
-            return WholeTrack(empty(trackId, 0.0))
+            // Stock upstream writes the track off on the first unreadable
+            // duration. The strike-bound deferral below is DJ-only patience.
+            if (!AppSettings.mixsetModeEnabled.value) {
+                TrackLog.d(TAG, "Skipping $trackId: ${copy.key} has no readable duration")
+                return WholeTrack(empty(trackId, 0.0))
+            }
+            // No readable duration yet is "not now", not a verdict: stream
+            // metadata routinely arrives seconds after playback starts.
+            // Bounded so a track that genuinely has no duration doesn't open a
+            // data source on every tick for the rest of the session; each
+            // attempt costs one container-duration query, not a decode.
+            val strikes = noDurationStrikes.merge(trackId, 1, Int::plus)!!
+            if (strikes >= MAX_NO_DURATION_ATTEMPTS) {
+                TrackLog.w(TAG, "Giving up on $trackId: no readable duration after $strikes attempts")
+                noDurationStrikes.remove(trackId)
+                return WholeTrack(empty(trackId, 0.0))
+            }
+            TrackLog.d(TAG, "Deferring $trackId: ${copy.key} has no readable duration yet (attempt $strikes)")
+            return WholeTrack(null)
         }
 
         // Pass 1 (Phase 1, DSP-only): the analyzer needs the whole track — the energy curve,
@@ -950,8 +1222,37 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // died on it. Returning is what releases them — a `val` cannot be nulled, and a narrower
         // scope alone does not make ART treat one as dead.
         val structural = structure(trackId, uri, copy, effectiveDuration)
-        if (structural.decodedShort) return WholeTrack(null, decodedShort = true)
-        val features = structural.features ?: return WholeTrack(empty(trackId, effectiveDuration))
+        if (structural.decodedShort) {
+            triedRenditions.add(copy.key)
+            return WholeTrack(null, decodedShort = true)
+        }
+        val features = structural.features
+        if (features == null) {
+            // Stock upstream writes the copy off on the first null
+            // open/decode. The local-reopen retry and the strike-bound
+            // deferral below are DJ-only patience.
+            if (!AppSettings.mixsetModeEnabled.value) {
+                return WholeTrack(empty(trackId, effectiveDuration))
+            }
+            // A null open or decode on a copy the cache called complete is
+            // usually transient — an eviction race, a half-flushed span, a
+            // content provider hiccup on a local file — so strike it instead
+            // of burning it. Local copies additionally get one fresh-open
+            // retry first: there is no second copy of a file, and a single
+            // reopen is what separates "still being written" from "unreadable".
+            if (copy.rendition == null && localReopenTried.add(copy.key)) {
+                TrackLog.d(TAG, "Retrying local $trackId once with a fresh open")
+                return WholeTrack(null)
+            }
+            val strikes = openFailStrikes.merge(trackId, 1, Int::plus)!!
+            if (strikes < MAX_OPEN_FAIL_ATTEMPTS) {
+                TrackLog.d(TAG, "Deferring $trackId: null open/decode on ${copy.key} (attempt $strikes)")
+                return WholeTrack(null)
+            }
+            openFailStrikes.remove(trackId)
+            triedRenditions.add(copy.key)
+            return WholeTrack(empty(trackId, effectiveDuration))
+        }
 
         // Pass 2 (Phases 2 and 3, models): the Beat This! grid and the open-unmix vocal mask, over
         // the head and tail only. A transition only ever reads the tail of the outgoing track and
@@ -960,7 +1261,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // stereo buffer is paid for once.
         val window = BeatTracker.WINDOW_SECONDS
         val tailStart = max(0.0, effectiveDuration - window)
-        val head = region(openSource, 0.0, minOf(window, effectiveDuration), features)
+        val head = region(openSource, 0.0, minOf(window, effectiveDuration), features, trackPitch = true)
         val tail = if (tailStart > window / 2) region(openSource, tailStart, effectiveDuration, features) else null
 
         val headGrid = head?.grid
@@ -970,7 +1271,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // head is what a track uses when it is the *incoming* side of a different transition.
         val leading = tailGrid ?: headGrid
 
-        Log.d(
+        TrackLog.d(
             TAG,
             "Analysed $trackId: bpm=${leading?.bpm ?: features.bpm} " +
                 "conf=${leading?.beatConfidence ?: features.beatConfidence} " +
@@ -979,6 +1280,25 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 "vocalMask=${if (head?.vocalMask != null || tail?.vocalMask != null) "model" else "dsp"}",
         )
 
+        val mergedDownbeats = (headGrid?.downbeats.orEmpty() + tailGrid?.downbeats.orEmpty())
+            .ifEmpty { features.downbeats }
+            .sorted()
+        // v2 §2b: fold the transient fine curves into labels + scalars once,
+        // here, while they are still in memory. The store keeps only the
+        // outputs; the curves are released with `features` below.
+        val structure = detectStructure(features, mergedDownbeats, effectiveDuration)
+
+        triedRenditions.add(copy.key)
+        // Null-safe: local files have no rendition copy. The count is kept
+        // (not reset) while its copy stays suspect, so re-analysis of the
+        // same skewed bytes stays flagged instead of flapping.
+        val suspectKey = copy.rendition?.key
+        // Accepting a duration-skewed copy provisionally is DJ-only: stock
+        // upstream never flags (it has no provisional flag at all), so normal
+        // Automix reads the analysis straight.
+        val provisionalCopy = AppSettings.mixsetModeEnabled.value && suspectKey != null &&
+            (renditionRejects[suspectKey] ?: 0) >= PROVISIONAL_ACCEPT_ROUNDS
+        if (!provisionalCopy && suspectKey != null) renditionRejects.remove(suspectKey)
         return WholeTrack(
                 TrackAnalysis(
                     status = TrackAnalysis.STATUS_READY,
@@ -988,9 +1308,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                     bpm = leading?.bpm ?: features.bpm,
                 beatInterval = leading?.beatInterval ?: features.beatInterval,
                 beatConfidence = leading?.beatConfidence ?: features.beatConfidence,
-                downbeats = (headGrid?.downbeats.orEmpty() + tailGrid?.downbeats.orEmpty())
-                    .ifEmpty { features.downbeats }
-                    .sorted(),
+                downbeats = mergedDownbeats,
                 firstBeat = headGrid?.firstBeat ?: features.firstBeat,
                 phraseBoundaries = features.phraseBoundaries,
                 key = features.key,
@@ -1005,6 +1323,9 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 mixOutCandidates = features.mixOutCandidates,
                 energyCurve = features.energyCurve,
                 lowEnergyCurve = features.lowEnergyCurve,
+                // Finetune §6.1: hand the transient fine curve to the in-memory
+                // analysis (dropped on persist — see AnalysisStore).
+                energyCurveFine = features.energyCurveFine,
                 // The model's mask where it ran, the DSP heuristic's where it didn't. Falling back to
                 // the heuristic rather than to nothing matters because the policy reads an
                 // absent mask and a neutral one identically — as "no evidence" — so a failed model
@@ -1012,8 +1333,194 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 vocalActivityMask = mergeMasks(features.energyCurve.size, head?.vocalMask, tail?.vocalMask)
                     ?: features.vocalActivityMask,
                 vocalProbability = features.vocalProbability,
+                // Full-plan P4: master descriptors ride the whole-track pass.
+                loudnessLufs = features.loudnessLufs,
+                peakDbfs = features.peakDbfs,
+                dynamicRangeDb = features.dynamicRangeDb,
+                vocalPitchMedianHz = head?.pitch?.voicedMedianHz() ?: 0.0,
+                pitchConfidence = head?.pitch?.voicedMeanConfidence() ?: 0.0,
+                structureMap = structure.map,
+                structuredDropSec = structure.dropSec,
+                structuredBreakSec = structure.breakSec,
+                structuredOutroSec = structure.outroSec,
+                structuredBuildupSec = structure.buildupSec,
+                plainCutBreathSec = structure.breathSec,
+                dropConfidence = structure.dropConfidence,
+                buildupMethod = structure.buildupMethod,
+                buildupFootSec = structure.buildupFootSec,
+                buildupSpanSec = structure.buildupSpanSec,
+                buildupRise = structure.buildupRise,
+                // Duration-skewed copy accepted on patience: the evidence is
+                // real but the cut is unverified — downstream gates (vocal
+                // mask, both-sides) already treat provisional as suspect.
+                provisionalHead = provisionalCopy,
             ),
         )
+    }
+
+    /** v2 §2b/§4 detector output: labels plus the scalars the planner reads. */
+    private data class DetectedStructure(
+        val map: List<StructureLabel> = emptyList(),
+        val dropSec: Double? = null,
+        val breakSec: Double? = null,
+        val outroSec: Double? = null,
+        val buildupSec: Double? = null,
+        /** Spec finetune §7: breathing room before the cut (see TrackAnalysis). */
+        val breathSec: Double? = null,
+        val dropConfidence: Double? = null,
+        val buildupMethod: String? = null,
+        val buildupFootSec: Double? = null,
+        val buildupSpanSec: Double? = null,
+        val buildupRise: Double? = null,
+    )
+
+    /**
+     * Runs [StructureDetector] on the whole-track pass. Empty in, empty out:
+     * any missing input degrades to no labels and the planner keeps the v1
+     * heuristics (spec §2b fallback). Single O(n) pass over the fine curve.
+     */
+    private fun detectStructure(
+        features: TrackFeatures.Features,
+        downbeats: List<Double>,
+        duration: Double,
+    ): DetectedStructure {
+        val fine = features.energyCurveFine
+        if (fine.size < 8 || duration <= 0) return DetectedStructure()
+        val energies = fine.mapNotNull { it.energy.takeIf { e -> e.isFinite() && e >= 0 } }
+        if (energies.isEmpty()) return DetectedStructure()
+        val meanRms = energies.average()
+        if (meanRms <= 0) return DetectedStructure()
+        val onsets = features.onsetTimes.filter { it.isFinite() }
+        val meanOnset = if (duration > 0) onsets.size / duration else 0.0
+        // v2 §2b AMBIENT: no trusted grid and almost no attacks — the whole
+        // track is one ambient bed. Short-circuits the window classifier.
+        // Finetune v1 §1.6: tighter gates (chill-beat 0.28–0.32 is NOT ambient)
+        // plus flat-dynamics check — a quiet-but-varied track is not ambient.
+        val variance = if (energies.size >= 2) {
+            val mean = energies.average()
+            energies.sumOf { (it - mean) * (it - mean) } / energies.size
+        } else {
+            Double.MAX_VALUE
+        }
+        if (features.beatConfidence < AMBIENT_BEAT_CONF && meanOnset < AMBIENT_ONSET_DENSITY &&
+            variance < AMBIENT_RMS_VARIANCE && duration > 0
+        ) {
+            return DetectedStructure(
+                map = listOf(StructureLabel(0.0, duration, StructureSectionType.AMBIENT)),
+            )
+        }
+        val interval = features.beatInterval.takeIf { it.isFinite() && it > 0 }
+            ?: if (features.bpm > 0) 60.0 / features.bpm else 0.0
+        // Defense in depth (field crash 2026-09-05: an off-by-one in the
+        // classifier FAILED every whole-track analysis): section labels must
+        // never take down beat/vocal/pitch evidence already computed. Any
+        // detector throw degrades to an empty map (v1 energy heuristics).
+        val map = runCatching {
+            StructureDetector.detect(
+                fine = fine,
+                centroid = features.spectralCentroidCurve,
+                onsets = onsets,
+                downbeats = downbeats,
+                duration = duration,
+                meanRms = meanRms,
+                meanOnset = meanOnset,
+                beatInterval = interval,
+            )
+        }.onFailure {
+            TrackLog.w(TAG, "StructureDetector failed; degrading to v1 heuristics", it)
+        }.getOrDefault(emptyList())
+        // Exit-entry spec Fix 1: scored best-candidate drop selection replaces
+        // first-match. Wrapped: any scorer throw degrades to the old first
+        // DROP label (which firstDropSec's stored-wins contract still honors).
+        val dropPick = runCatching {
+            StructureDetector.selectFirstDrop(
+                fine = fine,
+                centroid = features.spectralCentroidCurve,
+                onsets = onsets,
+                downbeats = downbeats,
+                duration = duration,
+                meanRms = meanRms,
+                meanOnset = meanOnset,
+                beatInterval = interval,
+                structureMap = map,
+                bpm = features.bpm,
+                beatConfidence = features.beatConfidence,
+            )
+        }.onFailure {
+            TrackLog.w(TAG, "selectFirstDrop failed; falling back to first DROP label", it)
+        }.getOrNull()
+            ?: map.firstOrNull { it.type == StructureSectionType.DROP }?.start
+                ?.let { StructureDetector.DropCandidate(it, null) }
+        val dropSec = dropPick?.startSec
+        // §4 gradient anchors on the detector's DROP; without one there is no
+        // peak to walk back from, and buildupStart falls back downstream.
+        val buildupSec = if (dropSec != null && dropSec.isFinite()) {
+            val peak = fine.filter { it.time.isFinite() && abs(it.time - dropSec) <= 2.0 }
+                .mapNotNull { it.energy.takeIf { e -> e.isFinite() && e > 0 } }
+                .maxOrNull()
+            if (peak != null) StructureDetector.gradientBuildup(fine, dropSec, peak) else null
+        } else {
+            null
+        }
+        // Phase A1: persist how the foot was found so drop trust survives a
+        // restart without the transient fine curve. Only the analyzer-side
+        // gradient path is measurable here; plan-time fallbacks (monotonic /
+        // build-label / stored) re-derive live in trustedBuildupStart.
+        val buildupFoot = buildupSec?.takeIf { it.isFinite() && dropSec != null }
+        val buildupRise = if (buildupFoot != null && dropSec != null) {
+            val peak = fine.filter { it.time.isFinite() && abs(it.time - dropSec) <= 2.0 }
+                .mapNotNull { it.energy.takeIf { e -> e.isFinite() && e > 0 } }
+                .maxOrNull()
+            val climb = fine.filter { it.time.isFinite() && it.time >= buildupFoot && it.time <= dropSec }
+                .mapNotNull { it.energy.takeIf { e -> e.isFinite() } }
+            if (peak != null && peak > 0 && climb.isNotEmpty()) {
+                (climb.average() - (climb.firstOrNull() ?: 0.0)) / peak
+            } else null
+        } else null
+        return DetectedStructure(
+            map = map,
+            dropSec = dropSec?.takeIf { it.isFinite() },
+            breakSec = map.firstOrNull { it.type == StructureSectionType.BREAK }?.start
+                ?.takeIf { it.isFinite() },
+            outroSec = map.firstOrNull { it.type == StructureSectionType.OUTRO }?.start
+                ?.takeIf { it.isFinite() },
+            buildupSec = buildupSec?.takeIf { it.isFinite() },
+            breathSec = longestTailBreath(onsets, duration, interval),
+            dropConfidence = dropPick?.score?.takeIf { it.isFinite() },
+            buildupMethod = if (buildupFoot != null) "gradient" else null,
+            buildupFootSec = buildupFoot,
+            buildupSpanSec = if (buildupFoot != null && dropSec != null) dropSec - buildupFoot else null,
+            buildupRise = buildupRise?.takeIf { it.isFinite() },
+        )
+    }
+
+    /**
+     * Spec finetune §7: the longest onset gap (>0.25 s) inside the last 35% of
+     * the track, plus one beat of lookahead so the cut lands breathing room
+     * rather than on the silence edge itself. Null when the tail never
+     * breathes. Pure — shared with tests.
+     */
+    private fun longestTailBreath(
+        onsets: List<Double>,
+        duration: Double,
+        beatInterval: Double,
+    ): Double? {
+        if (duration <= 0) return null
+        val tailFrom = duration * 0.65
+        val tail = (onsets.filter { it.isFinite() && it >= tailFrom } + duration).sorted()
+        if (tail.size < 2) return null
+        var bestStart = -1.0
+        var bestGap = 0.25
+        for (i in 0 until tail.size - 1) {
+            val gap = tail[i + 1] - tail[i]
+            if (gap > bestGap) {
+                bestGap = gap
+                bestStart = tail[i]
+            }
+        }
+        if (bestStart < 0) return null
+        val lookahead = if (beatInterval.isFinite() && beatInterval > 0) beatInterval else 0.5
+        return (bestStart + lookahead).takeIf { it.isFinite() && it < duration }
     }
 
     /**
@@ -1027,6 +1534,8 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val seconds: Double,
         /** Only populated when the caller asked for it; see [region]'s `deriveFeatures`. */
         val features: TrackFeatures.Features? = null,
+        /** Only populated when the caller asked for it; see [region]'s `trackPitch`. */
+        val pitch: PitchTracker.PitchCurve? = null,
     )
 
     /**
@@ -1049,14 +1558,19 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         endSeconds: Double,
         features: TrackFeatures.Features?,
         deriveFeatures: Boolean = false,
+        trackPitch: Boolean = false,
     ): Region? {
+        // Lane-local sessions: region() always runs inside an [AnalysisJob],
+        // so the executing lane is set; the low-lane fallback is paranoia for
+        // direct unit-test calls, never production.
+        val lane = currentLane.get() ?: lowLane
         val decoded = openSource()?.use { AudioDecoder.decodeRegionStereo(it, startSeconds, endSeconds) }
             ?: run {
                 // The two ways this comes back empty mean opposite things and
                 // were reported identically, which cost a round of guessing:
                 // this one is the extractor refusing the container outright, so
                 // the bytes are wrong or not enough of them are there to parse.
-                Log.d(TAG, "Region [$startSeconds, $endSeconds) would not open")
+                TrackLog.d(TAG, "Region [$startSeconds, $endSeconds) would not open")
                 return null
             }
         val (stereo, actualStart) = decoded
@@ -1064,7 +1578,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             // And this one is a container that parsed fine and yielded under a
             // second of audio — a decode that started and ran out, not one that
             // never started.
-            Log.d(TAG, "Region [$startSeconds, $endSeconds) decoded ${stereo.left.size} frames; too few")
+            TrackLog.d(TAG, "Region [$startSeconds, $endSeconds) decoded ${stereo.left.size} frames; too few")
             return null
         }
 
@@ -1077,11 +1591,32 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // process was dying. Same reasoning [derived] already had, one level further out.
         val inputs = regionInputs(stereo, seconds, deriveFeatures)
 
+        // Pitch reads the head only, resampled off the beat model's own input
+        // rather than a second downmix: the planner verifies the *incoming*
+        // track's key against it, and nothing downstream of the head ever asks.
+        // Garnish-grade: wrapped so a resample NPE or a model OOM degrades to
+        // no pitch (the key gate closes itself below its confidence floor)
+        // instead of failing the whole analysis — the way beat and vocal
+        // already behave. A pitch pass must never decide a track's fate.
+        val pitchCurve = if (trackPitch) {
+            runCatching {
+                inputs.forModel
+                    ?.let { MelSpectrogram.resample(it, MelSpectrogram.sampleRate, PitchTracker.SAMPLE_RATE.toDouble()) }
+                    ?.let { lane.pitch.track(it, offsetSeconds = actualStart) }
+            }.getOrElse { error ->
+                TrackLog.w(TAG, "Pitch pass degraded to none", error)
+                null
+            }
+        } else {
+            null
+        }
+
         return Region(
-            grid = inputs.forModel?.let { tracker.track(it, offsetSeconds = actualStart) },
+            grid = inputs.forModel?.let { lane.tracker.track(it, offsetSeconds = actualStart) },
             vocalMask = features?.let { vocalMask(stereo, it, actualStart) },
             seconds = seconds,
             features = inputs.derived,
+            pitch = pitchCurve,
         )
     }
 
@@ -1142,6 +1677,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         features: TrackFeatures.Features,
         actualStart: Double,
     ): DoubleArray? {
+        val lane = currentLane.get() ?: lowLane
         val curve = features.energyCurve
         if (curve.isEmpty() || !VocalSpectrogram.available) return null
 
@@ -1155,7 +1691,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val left = if (maxSamples < stereo.left.size) stereo.left.copyOf(maxSamples) else stereo.left
         val right = if (maxSamples < stereo.right.size) stereo.right.copyOf(maxSamples) else stereo.right
 
-        val values = vocals.track(left, right, stereo.sampleRate) ?: return null
+        val values = lane.vocals.track(left, right, stereo.sampleRate) ?: return null
 
         val mask = DoubleArray(curve.size) { NEUTRAL_VOCAL }
         for (index in curve.indices) {
@@ -1189,7 +1725,8 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     )
 
     fun release() {
-        executor.shutdownNow()
+        highExecutor.shutdownNow()
+        lowExecutor.shutdownNow()
         sourceResolutionScope.cancel()
         sourceAnalysisUris.clear()
         sourceResolutions.clear()
@@ -1202,12 +1739,16 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         badRenditions.clear()
         triedRenditions.clear()
         discarded.clear()
-        tracker.release()
-        vocals.release()
+        highLane.releaseModels()
+        lowLane.releaseModels()
     }
 
-    private companion object {
+    companion object {
         const val TAG = "BitChordTrackAnalyzer"
+
+        /** Lane for the track queued to play next. Everything else is 0. */
+        const val PRIORITY_NEXT = 1
+        const val PRIORITY_NORMAL = 0
 
         /**
          * What an unmeasured instant reads as. Below the policy's VOCAL_ACTIVE_THRESHOLD by
@@ -1243,6 +1784,37 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         /** Refusals before a track is written off as truncated rather than still filling in. */
         const val MAX_SHORT_DECODE_ATTEMPTS = 3
 
+        /** Uncaught throws before a track is written off rather than retried. */
+        const val MAX_THROW_ATTEMPTS = 3
+
+        /**
+         * Tracks longer than this are never analyzed: a full decode plus
+         * inference pass over 10+ minutes costs heat and battery for
+         * transitions the track will rarely need, and the planner already
+         * knows how to render an unmeasured track (plain dissolve). Recorded
+         * as ready-but-empty at the [request] gate, so it is not retried.
+         */
+        const val MAX_ANALYSIS_DURATION_SECONDS = 600.0
+
+        /** Null open/decode passes before the copy is burnt rather than deferred. */
+        const val MAX_OPEN_FAIL_ATTEMPTS = 3
+
+        /**
+         * Ticks with no readable duration before a track is recorded empty.
+         * Generous: stream metadata routinely arrives seconds after playback
+         * starts, and each attempt costs one container-duration query, not a
+         * decode.
+         */
+        const val MAX_NO_DURATION_ATTEMPTS = 10
+
+        /**
+         * How long a job may occupy its lane before it is reported
+         * stuck. Detection only, never preemption: MediaCodec calls are not
+         * reliably interruptible, and killing the thread would trade a slow
+         * analysis for a leaked codec and a corrupted session.
+         */
+        const val STUCK_JOB_TIMEOUT_MS = 90_000L
+
         /**
          * Clean-slate retries per rendition. One: a discard is worth doing when
          * the bytes on disk are unrecoverable and nothing would otherwise
@@ -1259,6 +1831,18 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
          * borrowed beat grid would be useless — is rejected.
          */
         const val RENDITION_DURATION_TOLERANCE = 1.0
+
+        /**
+         * Duration-skew rejects before a rendition is accepted provisionally.
+         * Three counter hits: the head gate and the chooser share the count,
+         * so the first tick still prefers a different copy everywhere and the
+         * trip lands a tick or two later — concluding the skew is the
+         * container's, not a wrong cut. An extraction-fallback stream
+         * reporting ~1s off, rejected forever, is the starvation this bounds.
+         * Provisional results carry the low-trust flag, so downstream gates
+         * stay cautious with them.
+         */
+        const val PROVISIONAL_ACCEPT_ROUNDS = 3
 
         /**
          * Stand-in bitrate for a rendition whose real length isn't recorded yet,

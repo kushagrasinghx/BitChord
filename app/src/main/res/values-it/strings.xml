@@ -632,7 +632,6 @@
     <string name="delete_download_confirmation">Rimuovere “%1$s” da questo dispositivo? Tocca di nuovo per confermare.</string>
     <string name="running">In esecuzione</string>
     <string name="automix_analysis_status">Automix · questo brano: %1$s · successivo: %2$s</string>
-    <string name="automix_not_supported_video">Automix non supportato sui video musicali</string>
     <string name="analysis_complete">analizzato</string>
     <string name="analysis_refining">analizzato, rifinitura…</string>
     <string name="analysis_in_progress">analisi in corso…</string>

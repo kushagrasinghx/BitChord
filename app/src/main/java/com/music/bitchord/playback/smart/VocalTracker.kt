@@ -25,7 +25,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
-import android.util.Log
+import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AppSettings
 import java.io.File
 import java.nio.ByteBuffer
@@ -125,7 +125,7 @@ class VocalTracker(private val context: Context) {
                         session = it
                         sessionThreads = threads
                     }
-            }.onFailure { Log.w(TAG, "Vocal model unavailable; no mask will be produced", it) }
+            }.onFailure { TrackLog.w(TAG, "Vocal model unavailable; no mask will be produced", it) }
                 .getOrNull()
         }
     }
@@ -145,7 +145,7 @@ class VocalTracker(private val context: Context) {
         val started = System.currentTimeMillis()
         val spectrogram = VocalSpectrogram.compute(resampledLeft, resampledRight) ?: return null
         if (spectrogram.frames > FIXED_FRAMES) {
-            Log.d(TAG, "Window of ${spectrogram.frames} frames exceeds the model's $FIXED_FRAMES")
+            TrackLog.d(TAG, "Window of ${spectrogram.frames} frames exceeds the model's $FIXED_FRAMES")
             return null
         }
         val active = session() ?: return null
@@ -179,7 +179,7 @@ class VocalTracker(private val context: Context) {
                     // average.
                     val target = (outputs.get(0) as OnnxTensor).floatBuffer
                     val curve = reduceToBandCurve(backing.asFloatBuffer(), target, bins, spectrogram.frames)
-                    Log.d(
+                    TrackLog.d(
                         TAG,
                         "vocal mask ${spectrogram.frames} frames in " +
                             "${System.currentTimeMillis() - started}ms",
@@ -187,7 +187,7 @@ class VocalTracker(private val context: Context) {
                     curve
                 }
             }
-        }.onFailure { Log.w(TAG, "Vocal inference failed", it) }.getOrNull()
+        }.onFailure { TrackLog.w(TAG, "Vocal inference failed", it) }.getOrNull()
     }
 
     /**

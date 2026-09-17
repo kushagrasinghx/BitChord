@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.music.bitchord.BitChordApplication
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.settings.AppSettings
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
@@ -322,7 +323,10 @@ object ListenTogether {
     // ------------------------------------------------------------ joining --
 
     suspend fun createParty(nickname: String = nickname(), maxMembers: Int = 5): Result<String> = enter(nickname) { who ->
-        post("${httpBase()}/api/parties", JoinRequest(who.userId, who.deviceId, who.name, who.avatar, maxMembers))
+        post("${httpBase()}/api/parties", JoinRequest(
+            who.userId, who.deviceId, who.name, who.avatar, maxMembers,
+            autoplayEnabled = AppSettings.autoplay.value,
+        ))
     }
 
     suspend fun joinParty(code: String, nickname: String = nickname()): Result<String> {

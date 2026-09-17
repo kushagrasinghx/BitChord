@@ -6,7 +6,6 @@ import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyTrack
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -192,13 +191,6 @@ class PartySync(
                         lastPartyCode = code
                         if (!wasInParty && nowInParty) {
                             onEnteredParty()
-                            // A just-created party has no shared AutoPlay
-                            // choice yet. Seed it once from its host's local
-                            // preference; after this, the server owns it.
-                            val party = ListenTogether.state.value
-                            if (party.you?.isHost == true && party.playback.seq == 0L) {
-                                ListenTogether.setAutoplay(AppSettings.autoplay.value)
-                            }
                         } else if (wasInParty && !nowInParty) {
                             onLeftParty()
                         }

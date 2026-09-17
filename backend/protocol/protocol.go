@@ -51,6 +51,7 @@ type JoinRequest struct {
 	DisplayName string  `json:"displayName"`
 	AvatarUrl   *string `json:"avatarUrl,omitempty"`
 	MaxMembers  *int    `json:"maxMembers,omitempty"`
+	AutoplayEnabled *bool `json:"autoplayEnabled,omitempty"`
 }
 
 // Validate ensures all required identity fields are present and safe.

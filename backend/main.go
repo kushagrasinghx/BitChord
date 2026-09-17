@@ -237,6 +237,11 @@ func handleCreateParty(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusInternalServerError, "server_error", "Failed to create party.")
 		return
 	}
+	// This must be present in the creation response. Waiting for the first
+	// WebSocket control can lose the setting before that socket is established.
+	if req.AutoplayEnabled != nil {
+		p.Playback.AutoplayEnabled = *req.AutoplayEnabled
+	}
 
 	p.Lock()
 	m, err := p.Join(req.UserId, req.DeviceId, req.DisplayName, req.AvatarUrl)

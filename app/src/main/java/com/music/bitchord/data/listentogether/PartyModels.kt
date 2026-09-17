@@ -147,6 +147,7 @@ internal data class JoinRequest(
     val displayName: String,
     val avatarUrl: String? = null,
     val maxMembers: Int? = null,
+    val autoplayEnabled: Boolean? = null,
 )
 
 @Serializable

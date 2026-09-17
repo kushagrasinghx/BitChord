@@ -1,6 +1,6 @@
 package com.music.bitchord.playback
 
-import android.util.Log
+import com.music.bitchord.data.TrackLog
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
@@ -67,6 +67,23 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     @Volatile
     private var targetHighPassHz: Float = OFF_HZ
 
+    /**
+     * Review v2.1 C1 resonance multiplier for the outgoing low-pass during
+     * filter sweeps. 1.0 = flat Butterworth (all other styles); 1.8 = mild
+     * DJ-style resonant peak at the cutoff. Applied to the low-pass only —
+     * resonance on a high-pass sounds bad. Volatile like the cutoff targets
+     * because the controller re-aims it once per fade tick.
+     *
+     * Click audit P1: this field is the TARGET. An instant Q jump on running
+     * audio is a coefficient discontinuity (a click), so the per-block loop
+     * chases [currentResonanceQ] toward it exactly like the cutoff glide.
+     */
+    @Volatile
+    private var resonanceQ: Float = 1.0f
+
+    /** Live Q the coefficients are computed from; chases [resonanceQ]. */
+    private var currentResonanceQ = 1.0f
+
     private var channelCount = 0
     private var sampleRate = 0
 
@@ -99,6 +116,17 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     fun open() = setCutoffs(OPEN_HZ, OFF_HZ)
 
     /**
+     * Review v2.1 C1: aims the sweep resonance. Clamped to 1.0–2.5
+     * (DJ standard 1.5–2.5); the controller parks it at 1.0 outside
+     * DJ_FILTER so resonance never leaks into other styles. Target only —
+     * the per-block loop glides the live value, so re-aiming mid-sweep
+     * never steps the coefficients.
+     */
+    fun setResonance(q: Float) {
+        resonanceQ = q.coerceIn(1.0f, 2.5f)
+    }
+
+    /**
      * 16-bit PCM only, matching [SpatialAudioProcessor] — and bowing out with
      * [AudioProcessor.AudioFormat.NOT_SET] rather than throwing for the same
      * reason it does: `DefaultAudioSink` configures every processor in its chain
@@ -112,7 +140,7 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
      */
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount < 1) {
-            Log.w(
+            TrackLog.w(
                 TAG,
                 "Transition filtering inactive: encoding=${inputAudioFormat.encoding} " +
                     "channels=${inputAudioFormat.channelCount} is not 16-bit PCM",
@@ -174,6 +202,10 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
             val block = min(remaining, GLIDE_FRAMES)
             currentLowPassHz = glide(currentLowPassHz, targetLow)
             currentHighPassHz = glide(currentHighPassHz, targetHigh)
+            // Q chases linearly: its range (1.0–2.5) is narrow enough that a
+            // log-domain glide buys nothing, and the same ~30 ms time constant
+            // keeps the resonant peak from ever stepping.
+            currentResonanceQ += (resonanceQ - currentResonanceQ) * GLIDE_RATE
             val lowOn = currentLowPassHz < OPEN_HZ - SETTLED_HZ
             val highOn = currentHighPassHz > OFF_HZ + SETTLED_HZ
             if (lowOn) updateLowCoefficients()
@@ -207,7 +239,9 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     private fun updateLowCoefficients() {
         val g = tan(Math.PI * usableCutoff(currentLowPassHz) / sampleRate).toFloat()
         for (stage in 0 until STAGES) {
-            val k = 1f / BUTTERWORTH_Q[stage]
+            // C1: stage Q raised by the resonance multiplier — a peak grows
+            // at the cutoff as the sweep closes, the DJ "whoosh".
+            val k = 1f / (BUTTERWORTH_Q[stage] * currentResonanceQ)
             val a1 = 1f / (1f + g * (g + k))
             lowA1[stage] = a1
             lowA2[stage] = g * a1
@@ -274,6 +308,15 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         /** Nothing musical wants the low end lifted above this, and a typo shouldn't be able to. */
         const val MAX_HIGH_PASS_HZ = 2_000f
 
+        /**
+         * Review v2.1 C1 resonance for the sweep low-pass. 1.0 = flat (all
+         * other styles); 1.8 = mild resonant peak at the cutoff, DJ standard
+         * 1.5–2.5. Outgoing LP only — resonance on a high-pass sounds bad.
+         */
+        const val FILTER_SWEEP_Q_FACTOR = 1.8f
+        /** Resonance park value: unity multiplier, the state outside DJ_FILTER. */
+        const val NEUTRAL_Q = 1.0f
+
         private const val MIN_HZ = 10f
         private const val BYTES_PER_SAMPLE = 2
 
@@ -315,9 +358,17 @@ interface TransitionFilters {
 
     /** Parks both. Called whenever a transition ends, however it ended. */
     fun open() {
+        // Resonance parks too: a DJ_FILTER arm's Q=1.8 left aimed would meet
+        // the next transition's first sweep target mid-glide — the click the
+        // resonant-sweep audit chased. Neutral Q is unity-adjacent, so the
+        // chase home is inaudible.
+        setResonance(TransitionFilterProcessor.NEUTRAL_Q)
         incoming(TransitionFilterProcessor.OPEN_HZ, TransitionFilterProcessor.OFF_HZ)
         outgoing(TransitionFilterProcessor.OPEN_HZ, TransitionFilterProcessor.OFF_HZ)
     }
+
+    /** Review v2.1 C1 sweep resonance; default no-op so fakes stay trivial. */
+    fun setResonance(q: Float) = Unit
 
     /** For callers with no audio sink to filter — tests, and the default wiring. */
     object None : TransitionFilters {

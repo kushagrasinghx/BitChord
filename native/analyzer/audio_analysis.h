@@ -67,6 +67,10 @@ struct TempoResult {
   double beat_interval = 0;
   double first_beat = 0;
   double confidence = 0;
+  // v2 §2b: peak-picked onset times (seconds) from the normalized full-band
+  // spectral-flux envelope. Density per 4-bar window is computed Kotlin-side;
+  // the native side only thresholds local maxima.
+  std::vector<double> onset_times;
   std::vector<double> beats;
   std::vector<double> downbeats;
 };
@@ -108,6 +112,14 @@ struct AnalysisResult {
   std::vector<EnergyPoint> low_energy_curve;
   std::vector<EnergyPoint> mid_energy_curve;
   std::vector<EnergyPoint> high_energy_curve;
+  // v2 §2b: per-frame spectral centroid in Hz (~0.65 s spacing, same frames as
+  // the vocal/low curves). Raw Hz — the Kotlin detector compares against its
+  // own thresholds, so no reference normalization is applied here.
+  std::vector<EnergyPoint> spectral_centroid_frames;
+  // v2 §2b/§4: full-resolution (250 ms) normalized energy for the structural
+  // detector and the buildup gradient. Transient only — never persisted; the
+  // detector's labels and scalars are what the store keeps.
+  std::vector<EnergyPoint> energy_curve_fine;
   // A DSP heuristic (spectral band ratios + flatness, see AnalyzeKeyAndTimbre
   // in audio_analysis.cpp), not a trained classifier's output. Good enough to
   // gate vocal-clash avoidance in the transition planner; a future ML pass
@@ -115,6 +127,9 @@ struct AnalysisResult {
   std::vector<double> vocal_activity_mask;
   std::vector<MixCuePoint> mix_in_candidates;
   std::vector<MixCuePoint> mix_out_candidates;
+  // v2 §2b: onset times in seconds (transient — emitted for the detector,
+  // never persisted). Copied from the tempo pass, which owns the envelope.
+  std::vector<double> onset_times;
   double vocal_probability = 0;
 };
 

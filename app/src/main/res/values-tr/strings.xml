@@ -615,7 +615,6 @@
     <string name="delete_download_confirmation">“%1$s” bu cihazdan kaldırılsın mı? Onaylamak için tekrar dokun.</string>
     <string name="running">Çalışıyor</string>
     <string name="automix_analysis_status">Automix · bu şarkı: %1$s · sonraki: %2$s</string>
-    <string name="automix_not_supported_video">Automix video şarkılarında desteklenmiyor</string>
     <string name="analysis_complete">analiz edildi</string>
     <string name="analysis_refining">analiz edildi, iyileştiriliyor…</string>
     <string name="analysis_in_progress">analiz ediliyor…</string>

@@ -255,6 +255,21 @@ TempoResult AnalyzeTempo(
   if (envelope.size() < 64) return result;
 
   const double frames_per_second = sample_rate / hop_size;
+
+  // v2 §2b: threshold the normalized envelope into onset times for the
+  // structural detector. Local maxima over ±3 frames above 0.35 (the envelope
+  // is peak-normalized with sqrt expansion, so this keeps genuine attacks
+  // while rejecting wash). Capped so pathological input cannot blow up the
+  // JSON; density is computed Kotlin-side per 4-bar window.
+  for (size_t frame = 3; frame + 3 < envelope.size() && result.onset_times.size() < 4096; ++frame) {
+    const double value = envelope[frame];
+    if (value < 0.35) continue;
+    bool peak = true;
+    for (size_t delta = 1; delta <= 3; ++delta) {
+      if (envelope[frame - delta] > value || envelope[frame + delta] > value) { peak = false; break; }
+    }
+    if (peak) result.onset_times.push_back(frame / frames_per_second);
+  }
   // The tempo search reads a bounded prefix; the tracking below reads all of it.
   const size_t search_limit = std::min(
     envelope.size(),
@@ -266,7 +281,7 @@ TempoResult AnalyzeTempo(
   int best_lag = minimum_lag;
   for (int lag = minimum_lag; lag <= maximum_lag; ++lag) {
     const double bpm = frames_per_second * 60.0 / lag;
-    const double tempo_prior = std::exp(-std::pow((bpm - 118.0) / 75.0, 2.0));
+    const double tempo_prior = std::exp(-std::pow((bpm - 120.0) / 80.0, 2.0));
     scores[lag] = Correlation(envelope, lag, search_limit) +
       0.42 * Correlation(envelope, lag * 2, search_limit) +
       0.08 * tempo_prior;
@@ -531,7 +546,13 @@ TempoResult AnalyzeTempo(
   // It cancels between two tracks aligned to each other, so it was never what
   // made blends drift, but everything that maps a beat onto real audio -- where
   // to cue the incoming deck, where the drop lands -- is straighter without it.
-  const double frame_centre_seconds = frame_size / (2.0 * sample_rate);
+  // Spec finetune §7.6: the centre offset keeps grid phase error below 4%
+  // of a beat at any tempo — a flat 23 ms is 6.5% of a DnB beat and flams.
+  const double beat_interval_hint = result.beat_interval > 0 ? result.beat_interval : 0.5;
+  const double frame_centre_seconds = std::min(
+    frame_size / (2.0 * sample_rate),
+    beat_interval_hint * 0.04
+  );
   result.first_beat += frame_centre_seconds;
   for (double& beat : result.beats) beat += frame_centre_seconds;
   for (double& beat : result.downbeats) beat += frame_centre_seconds;

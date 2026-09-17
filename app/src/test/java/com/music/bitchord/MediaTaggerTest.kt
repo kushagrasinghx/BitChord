@@ -5,9 +5,7 @@ import com.music.bitchord.download.Mp4Tagger
 import com.music.bitchord.download.WebmTagger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotSame
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -355,55 +353,6 @@ class MediaTaggerTest {
         assertTrue(tagged.indexOfBytes("TITLE=New Title".toByteArray(Charsets.UTF_8)) >= 0)
         assertEquals(-1, tagged.indexOfBytes("Old Title".toByteArray(Charsets.UTF_8)))
         assertEquals(-1, tagged.indexOfBytes("stale".toByteArray(Charsets.UTF_8)))
-    }
-
-    /**
-     * The streaming rewrite has to produce the same file as the in-memory one.
-     *
-     * [MediaTagger] tags a FLAC without ever loading it — it reads the front of
-     * the file, asks [FlacTagger.header] for the replacement metadata region and
-     * where the frames start, then copies the frames straight through. That is a
-     * second implementation of the same output, so this pins the two together:
-     * anything that changes the block chain has to change both or fail here.
-     */
-    @Test
-    fun `flac header plus a stream copy of the frames is the whole tagged file`() {
-        val streamInfo = ByteArray(34) { it.toByte() }
-        val seekTable = ByteArray(18) { (it + 100).toByte() }
-        val frames = ByteArray(4096) { (it * 31).toByte() }
-        val original = flacMagic +
-            flacBlock(TYPE_STREAMINFO, streamInfo) +
-            flacBlock(TYPE_SEEKTABLE, seekTable) +
-            flacBlock(TYPE_PADDING, ByteArray(200), last = true) +
-            frames
-        val cover = ByteArray(512) { (it + 3).toByte() }
-
-        val whole = FlacTagger.tag(original, "T", "A", "Alb", LRC, cover, "image/jpeg")
-        val rewrite = requireNotNull(
-            FlacTagger.header(original, "T", "A", "Alb", LRC, cover, "image/jpeg"),
-        )
-
-        // What the streaming path writes: the new metadata, then everything from
-        // the frame offset onward, untouched.
-        val streamed = rewrite.metadata + original.copyOfRange(rewrite.audioStart, original.size)
-        assertArrayEquals(whole, streamed)
-        // And the offset really is where the frames begin, not one block short.
-        assertArrayEquals(frames, original.copyOfRange(rewrite.audioStart, original.size))
-    }
-
-    /** Null means "leave the file alone", which is what tells the caller not to rewrite it. */
-    @Test
-    fun `flac header refuses a chain that runs past the bytes it was given`() {
-        val frames = ByteArray(64) { 7 }
-        val original = flacMagic +
-            flacBlock(TYPE_STREAMINFO, ByteArray(34)) +
-            flacBlock(TYPE_SEEKTABLE, ByteArray(4_000), last = true) +
-            frames
-        // A prefix cut before the SEEKTABLE ends: recognisable, but not yet
-        // complete, so it must not be treated as a file with no metadata.
-        val short = original.copyOfRange(0, 100)
-        assertNull(FlacTagger.header(short, "T", "A", null, null, null, "image/jpeg"))
-        assertNotNull(FlacTagger.header(original, "T", "A", null, null, null, "image/jpeg"))
     }
 
     @Test

@@ -25,7 +25,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
-import android.util.Log
+import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AppSettings
 import java.io.File
 import java.nio.FloatBuffer
@@ -96,7 +96,7 @@ class BeatTracker(private val context: Context) {
                         session = it
                         sessionThreads = threads
                     }
-            }.onFailure { Log.w(TAG, "Beat model unavailable; falling back to no grid", it) }
+            }.onFailure { TrackLog.w(TAG, "Beat model unavailable; falling back to no grid", it) }
                 .getOrNull()
         }
     }
@@ -117,7 +117,7 @@ class BeatTracker(private val context: Context) {
         val downbeatLogits = FloatArray(spectrogram.frames)
         val inferStarted = System.currentTimeMillis()
         if (!infer(active, spectrogram, beatLogits, downbeatLogits)) return null
-        Log.d(
+        TrackLog.d(
             TAG,
             "mel ${melMs}ms (${spectrogram.frames} frames) " +
                 "infer ${System.currentTimeMillis() - inferStarted}ms",
@@ -202,7 +202,7 @@ class BeatTracker(private val context: Context) {
             start += stride
         }
         true
-    }.onFailure { Log.w(TAG, "Beat inference failed", it) }.getOrDefault(false)
+    }.onFailure { TrackLog.w(TAG, "Beat inference failed", it) }.getOrDefault(false)
 
     fun release() {
         synchronized(lock) {
@@ -229,7 +229,15 @@ class BeatTracker(private val context: Context) {
         private const val PEAK_WINDOW = 7
         private const val MIN_BEATS = 8
 
-        /** Plausible musical tempo, used only to reject a grid the model clearly did not find. */
+        /**
+         * Plausible musical tempo, used only to reject a grid the model clearly did not find.
+         *
+         * Full-audit Phase 2: deliberately wider than the native DSP (reject
+         * <60, search 70–200) — the model is the fallback for slow/fast
+         * material the native search cannot see, not a second opinion on the
+         * same range. Grid confidence stays capped at 0.95 (native: 1.0) so a
+         * model grid never outranks a native one on certainty alone.
+         */
         private const val MIN_TEMPO = 40.0
         private const val MAX_TEMPO = 220.0
 

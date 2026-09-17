@@ -72,6 +72,11 @@ object TrackLog {
         record('D', message, about)
     }
 
+    fun d(tag: String, message: String, error: Throwable, about: String? = working.get()) {
+        if (BuildConfig.DEBUG) Log.d(tag, message, error)
+        record('D', "$message\n${error.stackTraceToString()}", about)
+    }
+
     fun i(tag: String, message: String, about: String? = working.get()) {
         if (BuildConfig.DEBUG) Log.i(tag, message)
         record('I', message, about)

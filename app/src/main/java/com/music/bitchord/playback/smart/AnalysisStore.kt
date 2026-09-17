@@ -1,7 +1,7 @@
 package com.music.bitchord.playback.smart
 
 import android.content.Context
-import android.util.Log
+import com.music.bitchord.data.TrackLog
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -84,7 +84,7 @@ class AnalysisStore(private val context: Context) {
                 // A half-written or outdated file is worth exactly nothing and
                 // costs a re-analysis to replace, so it goes rather than being
                 // returned as a partly-filled result.
-                Log.w(TAG, "Discarding unreadable analysis for $trackId", it)
+                TrackLog.w(TAG, "Discarding unreadable analysis for $trackId", it)
                 file.delete()
                 known[trackId] = false
             }
@@ -107,7 +107,7 @@ class AnalysisStore(private val context: Context) {
             temporary.writeText(json.encodeToString(Stored.serializer(), Stored.of(analysis)))
             if (!temporary.renameTo(file)) temporary.delete()
             known[trackId] = true
-        }.onFailure { Log.w(TAG, "Could not store analysis for $trackId", it) }
+        }.onFailure { TrackLog.w(TAG, "Could not store analysis for $trackId", it) }
         prune()
     }
 
@@ -162,7 +162,25 @@ class AnalysisStore(private val context: Context) {
         val lowEnergyCurve: List<StoredEnergy> = emptyList(),
         val vocalActivityMask: List<Double> = emptyList(),
         val vocalProbability: Double = 0.0,
-    ) {
+        // Full-plan P4: master descriptors for wash staging + loudness.
+        val loudnessLufs: Double = -70.0,
+        val peakDbfs: Double = -70.0,
+        val dynamicRangeDb: Double = 0.0,
+        val vocalPitchMedianHz: Double = 0.0,
+        val pitchConfidence: Double = 0.0,
+        // v2 §2b: persisted detector output. Fine curves stay transient.
+        val structureMap: List<StoredStructure> = emptyList(),
+        val structuredDropSec: Double? = null,
+        val structuredBreakSec: Double? = null,
+        val structuredOutroSec: Double? = null,
+    val structuredBuildupSec: Double? = null,
+    val plainCutBreathSec: Double? = null,
+    val dropConfidence: Double? = null,
+    val buildupMethod: String? = null,
+    val buildupFootSec: Double? = null,
+    val buildupSpanSec: Double? = null,
+    val buildupRise: Double? = null,
+) {
         fun toAnalysis(trackId: String) = TrackAnalysis(
             status = TrackAnalysis.STATUS_READY,
             trackId = trackId,
@@ -188,7 +206,23 @@ class AnalysisStore(private val context: Context) {
             lowEnergyCurve = lowEnergyCurve.map { it.toSample() },
             vocalActivityMask = vocalActivityMask,
             vocalProbability = vocalProbability,
-        )
+            loudnessLufs = loudnessLufs,
+            peakDbfs = peakDbfs,
+            dynamicRangeDb = dynamicRangeDb,
+            vocalPitchMedianHz = vocalPitchMedianHz,
+            pitchConfidence = pitchConfidence,
+            structureMap = structureMap.map { it.toLabel() },
+            structuredDropSec = structuredDropSec,
+            structuredBreakSec = structuredBreakSec,
+            structuredOutroSec = structuredOutroSec,
+    structuredBuildupSec = structuredBuildupSec,
+    plainCutBreathSec = plainCutBreathSec,
+    dropConfidence = dropConfidence,
+    buildupMethod = buildupMethod,
+    buildupFootSec = buildupFootSec,
+    buildupSpanSec = buildupSpanSec,
+    buildupRise = buildupRise,
+)
 
         companion object {
             fun of(analysis: TrackAnalysis) = Stored(
@@ -214,7 +248,37 @@ class AnalysisStore(private val context: Context) {
                 lowEnergyCurve = analysis.lowEnergyCurve.map(StoredEnergy::of),
                 vocalActivityMask = analysis.vocalActivityMask.map(::round),
                 vocalProbability = analysis.vocalProbability,
-            )
+                loudnessLufs = analysis.loudnessLufs,
+                peakDbfs = analysis.peakDbfs,
+                dynamicRangeDb = analysis.dynamicRangeDb,
+                vocalPitchMedianHz = round(analysis.vocalPitchMedianHz),
+                pitchConfidence = analysis.pitchConfidence,
+                structureMap = analysis.structureMap.map(StoredStructure::of),
+                structuredDropSec = analysis.structuredDropSec,
+                structuredBreakSec = analysis.structuredBreakSec,
+                structuredOutroSec = analysis.structuredOutroSec,
+        structuredBuildupSec = analysis.structuredBuildupSec,
+        plainCutBreathSec = analysis.plainCutBreathSec?.let(::round),
+        dropConfidence = analysis.dropConfidence,
+        buildupMethod = analysis.buildupMethod,
+        buildupFootSec = analysis.buildupFootSec?.let(::round),
+        buildupSpanSec = analysis.buildupSpanSec?.let(::round),
+        buildupRise = analysis.buildupRise,
+    )
+}
+    }
+
+    @Serializable
+    private data class StoredStructure(val start: Double, val end: Double, val type: String) {
+        fun toLabel() = StructureLabel(
+            start = start,
+            end = end,
+            type = runCatching { StructureSectionType.valueOf(type) }.getOrDefault(StructureSectionType.VERSE),
+        )
+
+        companion object {
+            fun of(label: StructureLabel) =
+                StoredStructure(round(label.start), round(label.end), label.type.name)
         }
     }
 
@@ -246,7 +310,7 @@ class AnalysisStore(private val context: Context) {
          * re-analysis costs seconds, and a beat grid interpreted under the wrong
          * assumptions is silently wrong for the life of the file.
          */
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 5
 
         /** A few thousand tracks' worth, at tens of kilobytes each. */
         const val MAX_ENTRIES = 2_000

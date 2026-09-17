@@ -2432,11 +2432,13 @@ fun NowPlayingScreen(
             // collapses, and re-subscribing to a flow on every frame of that
             // collapse is a waste of a subscription.
             val smartFadeOn by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
+            val djModeOn by AppSettings.mixsetModeEnabled.collectAsStateWithLifecycle()
             // The scrubber retains its existing transition sheen while a real
             // Smart Mix is active. This state is independent from the removed
             // header icon.
             val mixing by AppSettings.smartMixInProgress.collectAsStateWithLifecycle()
             val smartAnalysis by AppSettings.smartAnalysis.collectAsStateWithLifecycle()
+            val sharedHalfTimeBpm by AppSettings.sharedHalfTimeBpm.collectAsStateWithLifecycle()
             // Height the artwork block below turns out not to need, spent by the
             // controls at the foot of the screen. Filled in from inside the box,
             // where the sleeve's real size is known; see [lastControlSpread].
@@ -2785,15 +2787,18 @@ fun NowPlayingScreen(
                                     // agree, so the line reads the same way every
                                     // time and the eye can find the half it wants
                                     // without re-parsing the sentence.
-                                    text = if (song.isVideoOrigin) {
-                                        stringResource(R.string.automix_not_supported_video)
-                                    } else {
-                                        stringResource(
-                                            R.string.automix_analysis_status,
+                                    // Video-origin rows mix like any other: the players
+                                    // are audio-only, so provenance doesn't matter.
+                                    text = (stringResource(
+                                            if (djModeOn) R.string.dj_mode_analysis_status else R.string.automix_analysis_status,
                                             smartAnalysis.current.localizedLabel(),
                                             smartAnalysis.next.localizedLabel(),
-                                        )
-                                    },
+                                            // v2 §7d: half-time blends play neither
+                                            // track's own tempo — say which grid won.
+                                        ) + (sharedHalfTimeBpm
+                                            ?.takeIf { it > 0 }
+                                            ?.let { " · shared ${"%.0f".format(it)} BPM" } ?: "")
+                                    ),
                                     style = nerdStyle,
                                     // Dimmer than the measured line above it: that
                                     // one describes the audio, this one describes
@@ -3162,6 +3167,15 @@ fun NowPlayingScreen(
                 )
             }
             val transitionWindow by AppSettings.smartTransitionWindow.collectAsStateWithLifecycle()
+            // Frozen under the finger: the controller may re-plan (and move
+            // the window) when the released seek lands, but mid-drag the
+            // marker must stay where the listener last saw it — a highlight
+            // that slides along with the playhead reads as a glitch.
+            var pinnedWindow by remember { mutableStateOf<ClosedFloatingPointRange<Float>?>(null) }
+            val liveWindow = transitionWindow
+                ?.takeIf { it.end > it.start }
+                ?.let { it.start..it.end }
+            if (!scrubbing) pinnedWindow = liveWindow
             ThinSlider(
                 value = shown,
                 onValueChange = {
@@ -3181,13 +3195,11 @@ fun NowPlayingScreen(
                 // tracking a drag, and a sheen sweeping through that reads as a
                 // rendering glitch rather than as a signal.
                 mixing = mixing && !scrubbing,
-                // Hidden while scrubbing for the same reason as the sheen: the
-                // planner is still describing where the transition *would* be,
-                // and a marker sitting under a finger that is moving the
-                // playhead invites reading it as a drag target.
-                transitionWindow = transitionWindow
-                    ?.takeIf { !scrubbing && it.end > it.start }
-                    ?.let { it.start..it.end },
+                // Pinned while scrubbing: the marker is a non-interactive overlay
+                // describing where the transition *will* be, and holding it up
+                // while the playhead moves is exactly what lets a listener seek
+                // by the mix region instead of by blind time.
+                transitionWindow = if (scrubbing) pinnedWindow else liveWindow,
             )
             val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
             val cellularQuality by AppSettings.audioQualityCellular.collectAsStateWithLifecycle()

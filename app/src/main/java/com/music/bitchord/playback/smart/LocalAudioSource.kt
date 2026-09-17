@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.system.ErrnoException
 import android.system.Os
-import android.util.Log
+import com.music.bitchord.data.TrackLog
 import java.io.IOException
 import java.util.Locale
 
@@ -72,14 +72,14 @@ internal object LocalAudioSource {
      */
     fun open(resolver: ContentResolver, uri: Uri): MediaDataSource? {
         val descriptor = runCatching { resolver.openFileDescriptor(uri, "r") }
-            .onFailure { Log.w(TAG, "Cannot open $uri for analysis", it) }
+            .onFailure { TrackLog.w(TAG, "Cannot open $uri for analysis", it) }
             .getOrNull() ?: return null
         val size = descriptor.statSize
         if (size <= 0L) {
             // A pipe or a socket, which a provider is free to hand back and an
             // extractor cannot work with: parsing a container means seeking
             // around it, not reading it once forwards.
-            Log.w(TAG, "Skipping $uri for analysis: not a seekable file")
+            TrackLog.w(TAG, "Skipping $uri for analysis: not a seekable file")
             runCatching { descriptor.close() }
             return null
         }

@@ -27,7 +27,7 @@ import android.media.MediaCodec
 import android.media.MediaDataSource
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import android.util.Log
+import com.music.bitchord.data.TrackLog
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.max
@@ -85,7 +85,7 @@ object AudioDecoder {
                 .maxOrNull()
                 ?.takeIf { it.isFinite() && it > 0 }
         } catch (error: Exception) {
-            Log.w(TAG, "Could not read duration from cached media", error)
+            TrackLog.w(TAG, "Could not read duration from cached media", error)
             null
         } finally {
             runCatching { extractor.release() }
@@ -172,7 +172,7 @@ object AudioDecoder {
             extractor.seekTo(startUs, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
 
             codec = runCatching { MediaCodec.createDecoderByType(mime) }
-                .onFailure { Log.w(TAG, "No decoder for $mime", it) }
+                .onFailure { TrackLog.w(TAG, "No decoder for $mime", it) }
                 .getOrNull() ?: return null
             codec.configure(format, null, null, 0)
             codec.start()
@@ -235,7 +235,7 @@ object AudioDecoder {
             if (!sawFirstSample || outputRate <= 0) return null
             return outputRate.toDouble() to actualStartSeconds
         } catch (error: Exception) {
-            Log.w(TAG, "Region decode failed", error)
+            TrackLog.w(TAG, "Region decode failed", error)
             return null
         } finally {
             runCatching { codec?.stop() }

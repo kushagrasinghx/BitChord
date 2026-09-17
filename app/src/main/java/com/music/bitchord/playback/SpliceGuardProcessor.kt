@@ -67,7 +67,7 @@ class SpliceGuardProcessor : BaseAudioProcessor() {
         // mid-waveform, so arm the fade-in before it arrives.
         // DJ-only: stock upstream opens every source dry, so normal Automix
         // never arms the fade-in (every track start/seek would soften).
-        if (!AppSettings.mixsetModeEnabled.value || !AppSettings.smartFadeEnabled.value) {
+        if (!AppSettings.mixsetModeEnabled.value) {
             fadeInRemaining = 0
             cutOutRemaining = 0
             cutInRemaining = 0

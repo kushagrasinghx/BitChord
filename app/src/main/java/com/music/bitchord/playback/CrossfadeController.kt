@@ -1596,7 +1596,8 @@ class CrossfadeController(
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val nextItem = player.getMediaItemAt(nextIndex)
-        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) return
+        // DJ-only: stock Automix origin ee8a348 planned video pairs without this guard.
+        if (AppSettings.mixsetModeEnabled.value && (currentItem.isVideoOrigin || nextItem.isVideoOrigin)) return
         requestAnalysis(currentItem, duration)
         requestAnalysis(nextItem, nextItemDurationMs(nextIndex, nextItem))
     }

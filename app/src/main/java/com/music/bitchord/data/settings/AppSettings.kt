@@ -1026,18 +1026,7 @@ object AppSettings {
     fun setSmartFadeEnabled(value: Boolean) {
         smartFadeEnabled.value = value
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
-        if (value) {
-            if (mixsetModeEnabled.value) {
-                mixsetModeEnabled.value = false
-                prefs.edit().putBoolean(KEY_MIXSET_MODE, false).apply()
-                if (preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
-                    setOutputPcmMode(OutputPcmMode.FLOAT_32)
-                    preDjOutputPcmMode = OutputPcmMode.PCM_16
-                }
-                smartMixInProgress.value = false
-                sharedHalfTimeBpm.value = null
-            }
-        } else {
+        if (!value) {
             smartMixInProgress.value = false
         }
     }
@@ -1045,21 +1034,12 @@ object AppSettings {
     fun setMixsetModeEnabled(value: Boolean) {
         mixsetModeEnabled.value = value
         prefs.edit().putBoolean(KEY_MIXSET_MODE, value).apply()
-        if (value) {
-            if (smartFadeEnabled.value) {
-                smartFadeEnabled.value = false
-                prefs.edit().putBoolean(KEY_SMART_FADE, false).apply()
-                smartMixInProgress.value = false
-            }
-            if (outputPcmMode.value == OutputPcmMode.FLOAT_32) {
-                preDjOutputPcmMode = OutputPcmMode.FLOAT_32
-                setOutputPcmMode(OutputPcmMode.PCM_16)
-            }
-        } else {
-            if (preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
-                setOutputPcmMode(OutputPcmMode.FLOAT_32)
-                preDjOutputPcmMode = OutputPcmMode.PCM_16
-            }
+        if (value && outputPcmMode.value == OutputPcmMode.FLOAT_32) {
+            preDjOutputPcmMode = OutputPcmMode.FLOAT_32
+            setOutputPcmMode(OutputPcmMode.PCM_16)
+        } else if (!value && preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
+            setOutputPcmMode(OutputPcmMode.FLOAT_32)
+            preDjOutputPcmMode = OutputPcmMode.PCM_16
         }
         smartMixInProgress.value = false
         sharedHalfTimeBpm.value = null

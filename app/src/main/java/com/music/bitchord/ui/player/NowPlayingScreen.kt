@@ -2778,10 +2778,11 @@ fun NowPlayingScreen(
                                     textAlign = TextAlign.Center,
                                 )
                             }
-                            // Only when Automix is actually switched on:
+                            // Only when Automix or DJ is actually switched on:
                             // otherwise this would report on analysis nothing is
                             // going to use, which is noise rather than a stat.
-                            if (smartFadeOn) {
+                            // DJ independent: stats show for either mode alone.
+                            if (smartFadeOn || djModeOn) {
                                 Text(
                                     // Both sides always named, even when they
                                     // agree, so the line reads the same way every

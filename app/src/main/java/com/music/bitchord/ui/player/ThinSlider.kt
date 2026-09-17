@@ -116,13 +116,23 @@ fun ThinSlider(
         ) {
             val radius = CornerRadius(size.height / 2f)
             drawRoundRect(color = inactiveColor, cornerRadius = radius)
-            // Between the two track colours, and drawn *under* the played fill:
-            // once the playhead reaches the window the transition is no longer
-            // upcoming, and the ordinary progress colour taking it over is what
-            // says so.
+            val filled = size.width * value.coerceIn(0f, 1f)
+            if (filled > 0f && !mixing) {
+                drawRoundRect(
+                    color = activeColor,
+                    size = Size(filled.coerceAtLeast(size.height), size.height),
+                    cornerRadius = radius,
+                )
+            }
+            // Between the two track colours, drawn *over* the played fill: the
+            // marker has to survive the playhead travelling through it, or the
+            // window vanishes exactly while the listener watches it. A hard cut
+            // is an instant, so it gets a minimum 3px tick rather than a
+            // sub-pixel sliver the `to > from` check would swallow.
             transitionWindow?.let { window ->
                 val from = size.width * window.start.coerceIn(0f, 1f)
-                val to = size.width * window.endInclusive.coerceIn(0f, 1f)
+                val end = size.width * window.endInclusive.coerceIn(0f, 1f)
+                val to = maxOf(end, from + 3.dp.toPx())
                 if (to > from) {
                     drawRoundRect(
                         color = markerColor,
@@ -131,14 +141,6 @@ fun ThinSlider(
                         cornerRadius = radius,
                     )
                 }
-            }
-            val filled = size.width * value.coerceIn(0f, 1f)
-            if (filled > 0f && !mixing) {
-                drawRoundRect(
-                    color = activeColor,
-                    size = Size(filled.coerceAtLeast(size.height), size.height),
-                    cornerRadius = radius,
-                )
             }
         }
         // Composed only while mixing, rather than drawn conditionally inside the

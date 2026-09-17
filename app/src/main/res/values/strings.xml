@@ -231,7 +231,7 @@
     <string name="automix">Automix [BETA]</string>
     <string name="mixset">DJ Mode [BETA]</string>
     <string name="mixset_subtitle">This mode enables freeform music mixing with multiple DJ style track transition effects. Tracks can be played for shorter or longer durations depending on the energy level. High BPM music is recommended.</string>
-    <string name="dj_mode_pcm_locked">DJ mode not working with PCM-32</string>
+    <string name="dj_mode_pcm_locked">DJ Mode doesn\'t work with 32-bit float — it runs on 16-bit PCM only</string>
     <string name="dj_mode_pcm_locked_note">DJ Mode runs on 16-bit PCM</string>
     <string name="automix_performance">Automix performance</string>
     <string name="automix_performance_subtitle">Sets how much CPU background analysis may use</string>

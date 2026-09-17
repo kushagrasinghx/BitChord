@@ -553,7 +553,14 @@ fun SettingsScreen(
                 SegmentedControl(
                     options = OutputPcmMode.entries.map(OutputPcmMode::label),
                     selectedIndex = OutputPcmMode.entries.indexOf(outputPcmMode),
-                    onSelect = { AppSettings.setOutputPcmMode(OutputPcmMode.entries[it]) },
+                    onSelect = {
+                        val picked = OutputPcmMode.entries[it]
+                        if (picked == OutputPcmMode.FLOAT_32 && mixset) {
+                            Toast.makeText(context, context.getString(R.string.dj_mode_pcm_locked), Toast.LENGTH_SHORT).show()
+                            return@SegmentedControl
+                        }
+                        AppSettings.setOutputPcmMode(picked)
+                    },
                     modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
@@ -626,14 +633,24 @@ fun SettingsScreen(
                     trailing = {
                         Switch(
                             checked = mixset,
-                            onCheckedChange = AppSettings::setMixsetModeEnabled,
+                            onCheckedChange = { checked ->
+                                if (checked && outputPcmMode == OutputPcmMode.FLOAT_32) {
+                                    Toast.makeText(context, context.getString(R.string.dj_mode_pcm_locked), Toast.LENGTH_SHORT).show()
+                                }
+                                AppSettings.setMixsetModeEnabled(checked)
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                                 checkedBorderColor = MaterialTheme.colorScheme.primary,
                             ),
                         )
                     },
-                    onClick = { AppSettings.setMixsetModeEnabled(!mixset) },
+                    onClick = {
+                        if (!mixset && outputPcmMode == OutputPcmMode.FLOAT_32) {
+                            Toast.makeText(context, context.getString(R.string.dj_mode_pcm_locked), Toast.LENGTH_SHORT).show()
+                        }
+                        AppSettings.setMixsetModeEnabled(!mixset)
+                    },
                 )
             }
             val loudnessTitle = stringResource(R.string.loudness_normalization)

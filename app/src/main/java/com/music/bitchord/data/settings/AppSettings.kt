@@ -1026,20 +1026,54 @@ object AppSettings {
     fun setSmartFadeEnabled(value: Boolean) {
         smartFadeEnabled.value = value
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
-        if (!value) {
+        if (value) {
+            if (mixsetModeEnabled.value) {
+                mixsetModeEnabled.value = false
+                prefs.edit().putBoolean(KEY_MIXSET_MODE, false).apply()
+                if (preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
+                    setOutputPcmMode(OutputPcmMode.FLOAT_32)
+                    preDjOutputPcmMode = OutputPcmMode.PCM_16
+                }
+                smartMixInProgress.value = false
+                sharedHalfTimeBpm.value = null
+            }
+        } else {
             smartMixInProgress.value = false
+            if (mixsetModeEnabled.value) {
+                mixsetModeEnabled.value = false
+                prefs.edit().putBoolean(KEY_MIXSET_MODE, false).apply()
+                if (preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
+                    setOutputPcmMode(OutputPcmMode.FLOAT_32)
+                    preDjOutputPcmMode = OutputPcmMode.PCM_16
+                }
+                sharedHalfTimeBpm.value = null
+            }
         }
     }
 
     fun setMixsetModeEnabled(value: Boolean) {
         mixsetModeEnabled.value = value
         prefs.edit().putBoolean(KEY_MIXSET_MODE, value).apply()
-        if (value && outputPcmMode.value == OutputPcmMode.FLOAT_32) {
-            preDjOutputPcmMode = OutputPcmMode.FLOAT_32
-            setOutputPcmMode(OutputPcmMode.PCM_16)
-        } else if (!value && preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
-            setOutputPcmMode(OutputPcmMode.FLOAT_32)
-            preDjOutputPcmMode = OutputPcmMode.PCM_16
+        if (value) {
+            if (smartFadeEnabled.value) {
+                smartFadeEnabled.value = false
+                prefs.edit().putBoolean(KEY_SMART_FADE, false).apply()
+                smartMixInProgress.value = false
+            }
+            if (outputPcmMode.value == OutputPcmMode.FLOAT_32) {
+                preDjOutputPcmMode = OutputPcmMode.FLOAT_32
+                setOutputPcmMode(OutputPcmMode.PCM_16)
+            }
+        } else {
+            if (preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
+                setOutputPcmMode(OutputPcmMode.FLOAT_32)
+                preDjOutputPcmMode = OutputPcmMode.PCM_16
+            }
+            if (smartFadeEnabled.value) {
+                smartFadeEnabled.value = false
+                prefs.edit().putBoolean(KEY_SMART_FADE, false).apply()
+            }
+            smartMixInProgress.value = false
         }
         smartMixInProgress.value = false
         sharedHalfTimeBpm.value = null

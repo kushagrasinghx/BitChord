@@ -242,6 +242,10 @@
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
     <string name="prefer_music_only">Prefer music-only version</string>
     <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
+    <string name="smooth_version_transition">Smooth version transition</string>
+    <string name="smooth_version_transition_subtitle">Seamlessly crossfade audio when switching between video and release versions</string>
+    <string name="smart_version_alignment">Smart audio alignment</string>
+    <string name="smart_version_alignment_subtitle">Analyze audio waveforms to match the exact corresponding playback moment</string>
     <string name="equalizer">Equalizer</string>
     <string name="equalizer_subtitle">Tone, seven bands and balance</string>
     <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
@@ -907,7 +911,7 @@
 
     <string name="blur_unfocused_lyrics_subtitle">Keeps the spotlight on the current line</string>
 
-    <string name="advanced_options">Advanced options</string>
+    <string name="advanced_options">Advanced &amp; experimental options</string>
 
     <string name="lyrics_debug_logs">Lyrics debug logs</string>
 

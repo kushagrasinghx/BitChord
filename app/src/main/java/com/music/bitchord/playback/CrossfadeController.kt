@@ -1175,12 +1175,14 @@ class CrossfadeController(
             // Stock: no freeze — drop any DJ latch left from a mode switch.
             frozenAnchorPair = null
         }
-        // G2 honest marker: stock Automix marks like origin (no realMix gate);
-        // DJ Mode gates on realMix so fallback plain fades don't advertise a mix.
+        // G2 honest marker: both Automix and DJ advertise the planned
+        // region so the mix actually fires at the window. DJ fallback
+        // plain is markable too — otherwise weak analysis left DJ with
+        // no region and no transition, looking identical to Automix but
+        // never mixing.
         val realMix = planIsRealMix(plan)
         val markable = !plan.blocked &&
             plan.markerVisible &&
-            (realMix || !mixset) &&
             duration > 0L &&
             analysisState.current == TrackAnalysisState.ANALYSED &&
             analysisState.next in MEASURED_ENOUGH_TO_ENTER_ON

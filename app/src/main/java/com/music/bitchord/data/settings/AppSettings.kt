@@ -1039,15 +1039,6 @@ object AppSettings {
             }
         } else {
             smartMixInProgress.value = false
-            if (mixsetModeEnabled.value) {
-                mixsetModeEnabled.value = false
-                prefs.edit().putBoolean(KEY_MIXSET_MODE, false).apply()
-                if (preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
-                    setOutputPcmMode(OutputPcmMode.FLOAT_32)
-                    preDjOutputPcmMode = OutputPcmMode.PCM_16
-                }
-                sharedHalfTimeBpm.value = null
-            }
         }
     }
 
@@ -1069,11 +1060,6 @@ object AppSettings {
                 setOutputPcmMode(OutputPcmMode.FLOAT_32)
                 preDjOutputPcmMode = OutputPcmMode.PCM_16
             }
-            if (smartFadeEnabled.value) {
-                smartFadeEnabled.value = false
-                prefs.edit().putBoolean(KEY_SMART_FADE, false).apply()
-            }
-            smartMixInProgress.value = false
         }
         smartMixInProgress.value = false
         sharedHalfTimeBpm.value = null

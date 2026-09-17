@@ -1028,12 +1028,27 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SMART_FADE, value).apply()
         if (!value) {
             smartMixInProgress.value = false
+            // Guard: DJ requires Automix — turning Automix off kills DJ.
+            if (mixsetModeEnabled.value) {
+                mixsetModeEnabled.value = false
+                prefs.edit().putBoolean(KEY_MIXSET_MODE, false).apply()
+                if (preDjOutputPcmMode == OutputPcmMode.FLOAT_32) {
+                    setOutputPcmMode(OutputPcmMode.FLOAT_32)
+                    preDjOutputPcmMode = OutputPcmMode.PCM_16
+                }
+                sharedHalfTimeBpm.value = null
+            }
         }
     }
 
     fun setMixsetModeEnabled(value: Boolean) {
         mixsetModeEnabled.value = value
         prefs.edit().putBoolean(KEY_MIXSET_MODE, value).apply()
+        // Guard: DJ requires Automix — enabling DJ forces Automix on.
+        if (value && !smartFadeEnabled.value) {
+            smartFadeEnabled.value = true
+            prefs.edit().putBoolean(KEY_SMART_FADE, true).apply()
+        }
         if (value && outputPcmMode.value == OutputPcmMode.FLOAT_32) {
             preDjOutputPcmMode = OutputPcmMode.FLOAT_32
             setOutputPcmMode(OutputPcmMode.PCM_16)

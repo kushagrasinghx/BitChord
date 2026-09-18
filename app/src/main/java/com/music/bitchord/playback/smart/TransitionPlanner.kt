@@ -1977,7 +1977,7 @@ private fun brakeForSlowdown(
 }
 
 /** Heavy-lift floor for a backspin: the raw speedup ratio past keylock comfort. */
-private const val BACKSPIN_MIN_LIFT_RATIO = 1.08
+private const val BACKSPIN_MIN_LIFT_RATIO = 1.04
 /** Backspin pre-roll: the outgoing deck spins back over its last second. */
 private const val BACKSPIN_SPIN_SECONDS = 1.0
 /** Backspin dub tail on the outgoing channel while it spins (½ beat). */

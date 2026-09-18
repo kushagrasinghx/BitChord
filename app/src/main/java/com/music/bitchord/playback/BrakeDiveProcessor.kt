@@ -30,9 +30,15 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
 
     @Volatile
     private var targetBrakeAmount: Float = 0f
+    @Volatile
+    private var isBackspin = false
 
     private var channelCount = 0
     private var bytesPerFrame = 0
+    // DJ-only backspin ring — 1.5s @48k stereo = 144k shorts, holds last second for reverse chirp.
+    private var ring = ShortArray(0)
+    private var ringPos = 0
+    private var ringFilled = 0
     // Full-audit F6: start settled; the dive window is armed by setBrake, and
     // isActive() only looks at the aimed target, so the init value never
     // keeps the processor in the chain by itself.
@@ -46,8 +52,10 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
         if (targetBrakeAmount > 0f) glideCounter = 0f
     }
 
+    fun setBackspin(enabled: Boolean) { isBackspin = enabled }
+
     /** Rides the brake back to zero so the track resumes normal speed. */
-    fun ride() = setBrake(0f)
+    fun ride() { setBrake(0f); isBackspin = false }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount < 1) {
@@ -55,6 +63,10 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
         }
         channelCount = inputAudioFormat.channelCount
         bytesPerFrame = 2 * channelCount
+        val ringFrames = (inputAudioFormat.sampleRate * 1.5).toInt().coerceAtLeast(48000)
+        ring = ShortArray(ringFrames * channelCount)
+        ringPos = 0
+        ringFilled = 0
         return inputAudioFormat
     }
 
@@ -64,7 +76,10 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
 
     override fun onReset() {
         targetBrakeAmount = 0f
+        isBackspin = false
         glideCounter = 0f
+        ringPos = 0
+        ringFilled = 0
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -72,6 +87,16 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
         val frameCount = inputBuffer.remaining() / bytesPerFrame
         if (frameCount == 0) return
         val outputBuffer = replaceOutputBuffer(frameCount * bytesPerFrame)
+
+        // Always tap input into ring for reverse read later (DJ-only, cheap copy).
+        if (ring.isNotEmpty()) {
+            val pos = inputBuffer.position()
+            for (i in 0 until frameCount * channelCount) {
+                ring[ringPos] = inputBuffer.getShort(pos + i * 2)
+                ringPos = (ringPos + 1) % ring.size
+            }
+            ringFilled = min(ringFilled + frameCount * channelCount, ring.size)
+        }
 
         val active = glideCounter < 1f && targetBrakeAmount > 0f
         if (!active) {
@@ -82,6 +107,35 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
 
         inputBuffer.order(ByteOrder.nativeOrder())
         outputBuffer.order(ByteOrder.nativeOrder())
+
+        // DJ-only backspin: after halfway through glide (t>0.5) read ring backwards
+        // with accelerating reverse speed (0.5x -> 3.5x) so the ear hears a vinyl spinback chirp
+        // instead of a forward slowdown. Before halfway, keep the forward duck so the hand hits the record.
+        val backspinNow = isBackspin && glideCounter > 0.45f && ringFilled > channelCount * 256
+        if (backspinNow) {
+            var reverseIdx = (ringPos - channelCount + ring.size) % ring.size
+            var stepAcc = 0f
+            for (i in 0 until frameCount) {
+                val t = glideCounter.coerceIn(0f, 1f)
+                // reverse speed ramps 0.8 -> 3.5 over the spin
+                val revSpeed = 0.8f + t * 2.7f
+                val gain = (1f - targetBrakeAmount * t * BRAKE_DIVE_FACTOR * 0.55f).coerceIn(0f, 1f)
+                stepAcc += revSpeed
+                val steps = stepAcc.toInt()
+                stepAcc -= steps
+                repeat(steps) { reverseIdx = (reverseIdx - channelCount + ring.size) % ring.size }
+                for (ch in 0 until channelCount) {
+                    val idx = (reverseIdx + ch + ring.size) % ring.size
+                    val s = ring[idx].toFloat() * gain
+                    outputBuffer.putShort(clampToShort(s))
+                }
+                // still consume input forward (keep pipeline clock), just output reversed ring
+                for (ch in 0 until channelCount) inputBuffer.short
+                glideCounter = (glideCounter + GLIDE_RATE * 0.7f).coerceAtMost(1f)
+            }
+            outputBuffer.flip()
+            return
+        }
 
         var remaining = frameCount
         while (remaining > 0) {

@@ -2438,21 +2438,36 @@ class CrossfadeController(
             } else {
                 0.75f
             }
+            // DJ-only: drive the PCM brake processor for audible reverse chirp
+            // (ExoPlayer rate dive alone is forward-only and too subtle).
+            brakeDiveFilters.setBackspin(render.backspin)
+            if (render.backspin && outProgress >= windowStart) {
+                val t = ((outProgress - windowStart) / (1f - windowStart).coerceAtLeast(1e-6f)).coerceIn(0f, 1f)
+                brakeDiveFilters.outgoing(t.coerceIn(0f, 1f))
+            } else if (render.brake && outProgress >= windowStart) {
+                val t = ((outProgress - windowStart) / (1f - windowStart).coerceAtLeast(1e-6f)).coerceIn(0f, 1f)
+                brakeDiveFilters.outgoing(t * 0.85f)
+            } else {
+                brakeDiveFilters.ride()
+            }
             if (outProgress < windowStart) {
                 lastBrakeRate = AppSettings.playbackSpeed.value
             } else {
                 val brakeT = ((outProgress - windowStart) / (1f - windowStart).coerceAtLeast(1e-6f))
                     .coerceIn(0f, 1f)
                 val speed = AppSettings.playbackSpeed.value
-                val dive = if (render.backspin) brakeT * brakeT * brakeT else brakeT * brakeT
-                val brakeRate = (speed * (1f - dive * 0.97f)).coerceAtLeast(0.1f * speed)
-                val brakePitch = (brakeRate / speed.coerceAtLeast(1e-6f)).coerceIn(0.1f, 1f)
+                val dive = if (render.backspin) brakeT * brakeT * 1.05f else brakeT * brakeT
+                val floor = if (render.backspin) 0.02f else 0.10f
+                val brakeRate = (speed * (1f - dive * 0.97f)).coerceAtLeast(floor * speed)
+                val brakePitch = (brakeRate / speed.coerceAtLeast(1e-6f)).coerceIn(0.02f, 1f)
                 val last = lastBrakeRate
                 if (abs(brakeRate - last) / last.coerceAtLeast(1e-6f) >= 0.005f) {
                     out.setPlaybackParameters(PlaybackParameters(brakeRate, brakePitch))
                     lastBrakeRate = brakeRate
                 }
             }
+        } else {
+            brakeDiveFilters.ride()
         }
 
         // Whichever comes first: the fade running its course, the old track
@@ -3116,7 +3131,7 @@ class CrossfadeController(
                     (1f - progress) * 24f
                 }
                 val loopBeats = when {
-                    remainingBeats > 8.5f -> 0f
+                    remainingBeats > 12f -> 0f
                     remainingBeats > 4.5f -> 4f
                     remainingBeats > 2.5f -> 2f
                     remainingBeats > 1.5f -> 1f
@@ -3191,7 +3206,7 @@ class CrossfadeController(
                     (1f - progress) * 24f
                 }
                 val loopBeats = when {
-                    remainingBeats > 8.5f -> 0f
+                    remainingBeats > 12f -> 0f
                     remainingBeats > 4.5f -> 4f
                     remainingBeats > 2.5f -> 2f
                     remainingBeats > 1.5f -> 1f

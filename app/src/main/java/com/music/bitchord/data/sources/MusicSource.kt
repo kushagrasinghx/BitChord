@@ -1,5 +1,6 @@
 package com.music.bitchord.data.sources
 
+import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.Song
 import java.util.Locale
 
@@ -190,4 +191,23 @@ interface MusicSource {
      *   [SourceResolver] move to the next source without logging a failure.
      */
     suspend fun stream(trackId: String, request: StreamRequest): SourceStream?
+    
+    /**
+     * Fetch the home feed for this specific source.
+     * 
+     * Returns an empty list if the source does not support browsing its catalog.
+     */
+    suspend fun homeFeed(): List<HomeShelf> = emptyList()
+
+    /**
+     * Optional implementation for sources that provide albums on their home feed.
+     * Returns the list of songs in the album.
+     */
+    suspend fun albumDetails(browseId: String): List<Song> = emptyList()
+
+    /**
+     * Optional implementation for sources that provide playlists on their home feed.
+     * Returns the list of songs in the playlist.
+     */
+    suspend fun playlistDetails(browseId: String): List<Song> = emptyList()
 }

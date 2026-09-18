@@ -107,10 +107,12 @@ object SourceResolver {
     suspend fun resolve(uri: Uri): SourceStream? {
         val configId = uri.getQueryParameter("s") ?: return null
         val trackId = uri.getQueryParameter("t") ?: return null
+        val strict = uri.getQueryParameter("strict") == "1"
         return resolve(
             configId = configId,
             trackId = trackId,
             target = targetIn(uri),
+            strict = strict
         )
     }
 
@@ -135,14 +137,25 @@ object SourceResolver {
      * @param target is what a cross-source match is made on. Without it the
      *   only possible behaviour is "the pinned source or nothing", which is
      *   still a correct outcome — just a worse one.
+     * @param strict if true, ignores all fallback and upgrade paths and uses ONLY the pinned source.
      */
     suspend fun resolve(
         configId: String,
         trackId: String,
         target: TrackMatcher.Target,
+        strict: Boolean = false,
     ): SourceStream? {
         val request = requestForNow()
         val pinned = SourceRegistry.instance(configId)
+
+        if (strict) {
+            if (pinned != null) {
+                return attempt(pinned) { pinned.stream(trackId, request) }
+                    ?.copy(sourceConfigId = pinned.configId)
+            }
+            return null
+        }
+
         val active = SourceRegistry.activeForPlayback()
 
         // The upgrade path: with lossless asked for and the pinned source
@@ -211,9 +224,10 @@ object SourceResolver {
         // is another recording and can be a wrong song altogether.
         if (target.title.isBlank() || target.isVideo) return null
         val active = SourceRegistry.activeForPlayback()
-        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
+        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE }
+        val sourcesToTry = if (youtube != null) rankedAbove(youtube.configId, active) else active
         val request = requestForNow()
-        val (source, stream) = bestAcross(rankedAbove(youtube.configId, active), target, request)
+        val (source, stream) = bestAcross(sourcesToTry, target, request)
             ?: return null
         // Says what was found, not what the caller will do with it. This
         // line used to read "substituted" unconditionally, including for
@@ -255,8 +269,9 @@ object SourceResolver {
     suspend fun prefetchSubstitute(target: TrackMatcher.Target): SourceStream? {
         if (target.title.isBlank() || target.isVideo) return null
         val active = SourceRegistry.activeForPlayback()
-        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
-        val quick = rankedAbove(youtube.configId, active).filter { it.kind.worthPrefetching }
+        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE }
+        val sourcesToTry = if (youtube != null) rankedAbove(youtube.configId, active) else active
+        val quick = sourcesToTry.filter { it.kind.worthPrefetching }
         if (quick.isEmpty()) return null
         val (source, stream) = bestAcross(quick, target, requestForNow()) ?: return null
         TrackLog.d(
@@ -325,7 +340,8 @@ object SourceResolver {
         if (target.title.isBlank() || target.durationSec == null || target.isVideo) return null
         val request = requestForNow()
         val active = SourceRegistry.activeForPlayback()
-        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
+        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE }
+        val sourcesToTry = if (youtube != null) rankedAbove(youtube.configId, active) else active
         // Every source gets asked, whether or not it can serve lossless, and
         // they are asked at once.
         //
@@ -355,7 +371,7 @@ object SourceResolver {
         // and the seam then landed mid-song rather than near its start. Raced,
         // the same swap happens inside a second.
         val (source, chosen) = bestAcross(
-            rankedAbove(youtube.configId, active).filterNot { it.configId == servedBy },
+            sourcesToTry.filterNot { it.configId == servedBy },
             target,
             request,
             waitForAll = true,

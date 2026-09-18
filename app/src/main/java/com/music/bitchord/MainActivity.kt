@@ -554,6 +554,7 @@ private fun BitChordApp(
     SystemBarIcons(dark = !darkTheme && !showNowPlaying && !showReplay && replayStory == null)
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
+    val activeHomeTab by viewModel.activeHomeTab.collectAsStateWithLifecycle()
     val homeLoadingMore by viewModel.homeLoadingMore.collectAsStateWithLifecycle()
     val homeRecentlyPlayedLoading by viewModel.homeRecentlyPlayedLoading.collectAsStateWithLifecycle()
 
@@ -1871,7 +1872,7 @@ private fun BitChordApp(
                         viewModel.closeMoodGenre()
                         viewModel.openDetail(id, sourceTitle)
                     }
-                    PlaybackSourceType.HOME -> {
+                    PlaybackSourceType.HOME, PlaybackSourceType.HOME_STRICT -> {
                         viewModel.closeMoodGenre()
                         selectedTab = TAB_HOME
                     }
@@ -2399,18 +2400,28 @@ private fun BitChordApp(
                             contentPadding = listPadding,
                         )
                     } else when (key.removePrefix(TAB_KEY).toIntOrNull() ?: selectedTab) {
-                        TAB_HOME -> HomeScreen(
-                            state = homeState,
-                            listState = homeListState,
-                            title = stringResource(R.string.listen_now),
-                            signedIn = signedIn,
-                            onSignIn = { webSession = WebSessionMode.SIGN_IN },
+                        TAB_HOME -> {
+                            val activeSources = com.music.bitchord.data.sources.SourceRegistry.configs.collectAsStateWithLifecycle().value.filter { it.enabled }
+                            val tabs = listOf(com.music.bitchord.ui.MainViewModel.HOME_TAB_UNIFIED to "Unified") + activeSources.map { it.id to it.label.ifBlank { it.kind.label } }
+                            HomeScreen(
+                                state = homeState,
+                                listState = homeListState,
+                                hazeState = hazeState,
+                                title = stringResource(R.string.listen_now),
+                                tabs = tabs,
+                                activeTab = activeHomeTab,
+                                onTabSelect = { viewModel.setHomeTab(it) },
+                                signedIn = signedIn,
+                                onSignIn = if (activeHomeTab == com.music.bitchord.ui.MainViewModel.HOME_TAB_UNIFIED || activeSources.find { it.id == activeHomeTab }?.kind == com.music.bitchord.data.sources.SourceKind.YOUTUBE) { { webSession = WebSessionMode.SIGN_IN } } else null,
                             onItemClick = { item, shelfTitle ->
                                 val song = shelfSong(item)
                                 when {
                                     song != null -> playRadio(
                                         song,
-                                        QueueSource(shelfTitle, PlaybackSourceType.HOME),
+                                        QueueSource(
+                                            shelfTitle,
+                                            if (activeHomeTab == com.music.bitchord.ui.MainViewModel.HOME_TAB_UNIFIED) PlaybackSourceType.HOME else PlaybackSourceType.HOME_STRICT
+                                        ),
                                     )
                                     item.browseId != null -> viewModel.openDetail(
                                         browseId = item.browseId,
@@ -2430,6 +2441,7 @@ private fun BitChordApp(
                             loadingMore = homeLoadingMore,
                             recentlyPlayedLoading = homeRecentlyPlayedLoading,
                         )
+                        }
                         TAB_EXPLORE -> selectedMoodGenre?.let { category ->
                             MoodGenrePlaylistsScreen(
                                 title = category.title,
@@ -2582,6 +2594,10 @@ private fun BitChordApp(
                 val isSearchVisible = selectedTab == TAB_SEARCH && detail == null &&
                     !showSettings && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer &&
                     !showReplay && !showDiscord && !showHistory && libraryShowAll == null
+                
+                val activeSourcesCount = com.music.bitchord.data.sources.SourceRegistry.configs.collectAsStateWithLifecycle().value.count { it.enabled }
+                val hasTabs = selectedTab == TAB_HOME && detail == null && libraryShowAll == null && !showSettings && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer && !showReplay && !showDiscord && !showHistory && (1 + activeSourcesCount) > 1
+
                 if (!isSearchVisible) TopFadeBlur(
                     hazeState = hazeState,
                     // Replay paints its own full-bleed black backdrop up under the
@@ -2597,6 +2613,7 @@ private fun BitChordApp(
                         else -> MaterialTheme.colorScheme.background
                     },
                     modifier = Modifier.align(Alignment.TopCenter),
+                    hasTabs = hasTabs,
                 )
 
                 FrostedTopBar(
@@ -2761,6 +2778,17 @@ private fun BitChordApp(
                         }
                     },
                 )
+
+                // Render tabs on top of the TopFadeBlur layer so they aren't hidden/blurred
+                if (hasTabs) {
+                    com.music.bitchord.ui.screens.HomeTabsRow(
+                        tabs = listOf(com.music.bitchord.ui.MainViewModel.HOME_TAB_UNIFIED to "Unified") + com.music.bitchord.data.sources.SourceRegistry.configs.collectAsStateWithLifecycle().value.filter { it.enabled }.map { it.id to it.label.ifBlank { it.kind.label } },
+                        activeTab = activeHomeTab,
+                        onTabSelect = { viewModel.setHomeTab(it) },
+                        topPadding = com.music.bitchord.ui.components.topBarHeight(),
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                }
 
                 // Drawn before the bars so their own glass reads on top of it.
                 BottomFadeScrim(

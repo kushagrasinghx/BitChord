@@ -4,6 +4,7 @@ import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.jiosaavn.JioSaavnService
 import com.music.bitchord.data.jiosaavn.prioritizeExplicit
 import com.music.bitchord.data.model.Song
+import kotlinx.coroutines.async
 
 private const val TAG = "BitChord"
 
@@ -57,6 +58,47 @@ class JioSaavnSource(
                 isExplicit = raw.isExplicit,
             )
         }
+    }
+
+    override suspend fun homeFeed(): List<com.music.bitchord.data.model.HomeShelf> = kotlinx.coroutines.coroutineScope {
+        val trendingJob = async { JioSaavnService.searchSongs("top hits") }
+        val newReleasesJob = async { JioSaavnService.searchSongs("latest hits") }
+        val bollywoodJob = async { JioSaavnService.searchSongs("bollywood hits") }
+        val popJob = async { JioSaavnService.searchSongs("pop hits") }
+
+        val trending = trendingJob.await()
+        val newReleases = newReleasesJob.await()
+        val bollywood = bollywoodJob.await()
+        val pop = popJob.await()
+
+        val shelves = mutableListOf<com.music.bitchord.data.model.HomeShelf>()
+        
+        fun addShelf(title: String, subtitle: String, rawItems: List<com.music.bitchord.data.jiosaavn.RawSongItem>) {
+            if (rawItems.isEmpty()) return
+            val items = rawItems.map { raw ->
+                val primaryArtists = raw.moreInfo.artistMap.primaryArtists.joinToString(", ") { it.name }
+                val artistName = primaryArtists.ifBlank { "Unknown Artist" }
+                val thumbnail = raw.image
+                    .replace(Regex("150x150|50x50"), "500x500")
+                    .replace(Regex("^http://"), "https://")
+
+                com.music.bitchord.data.model.ShelfItem(
+                    title = raw.title,
+                    subtitle = artistName,
+                    thumbnailUrl = thumbnail,
+                    videoId = SourceRegistry.trackKey(config.id, raw.id),
+                    browseId = null
+                )
+            }
+            shelves.add(com.music.bitchord.data.model.HomeShelf(title = title, subtitle = subtitle, items = items))
+        }
+
+        addShelf("Trending", "Top Hits", trending)
+        addShelf("New Releases", "Latest hits right now", newReleases)
+        addShelf("Bollywood Hits", "Top trending Hindi songs", bollywood)
+        addShelf("Global Pop", "International hits", pop)
+
+        return@coroutineScope shelves
     }
 
     override suspend fun stream(trackId: String, request: StreamRequest): SourceStream? {

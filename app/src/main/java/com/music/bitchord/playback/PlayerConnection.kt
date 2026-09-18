@@ -468,15 +468,17 @@ fun Song.toMediaItem(): MediaItem {
         // [SourceResolver.resolve]. Read-ahead resolves tracks that aren't the
         // current item, so reaching back for the session's metadata isn't an
         // option either.
-        sourceTrack != null -> SourceRegistry.trackUri(sourceTrack.first, sourceTrack.second)
-            .let { "$it${matchQuery()}" }
+        sourceTrack != null -> {
+            val base = SourceRegistry.trackUri(sourceTrack.first, sourceTrack.second).let { "$it${matchQuery()}" }
+            if (playbackSourceType == PlaybackSourceType.HOME_STRICT) "$base&strict=1" else base
+        }
         // A track the listener reverted by hand stays reverted — see
         // [OriginalVersion]. Applied here rather than at the one menu that
         // reverts, because "stays" has to mean the next queue entry built for
         // this song too: another play from a list, a restored queue, Android
         // Auto. Everything downstream reads the item's URI and nothing reads
         // the preference, so this is the only place it has to be said.
-        OriginalVersion.isPinned(videoId) -> directYouTubeUri()
+        OriginalVersion.isPinned(videoId) || playbackSourceType == PlaybackSourceType.HOME_STRICT -> directYouTubeUri()
         // The same three fields, for the same reason, on the YouTube path: a
         // source ranked above YouTube gets offered this track before YouTube
         // resolves it — see [SourceResolver.substituteForYouTube] — and that

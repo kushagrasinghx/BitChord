@@ -5,6 +5,7 @@ import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
+import kotlinx.coroutines.async
 
 /**
  * YouTube Music, wrapped so it can be ordered alongside everything else.
@@ -61,5 +62,23 @@ class YouTubeSource(
     override suspend fun stream(trackId: String, request: StreamRequest): SourceStream? {
         val url = StreamResolver.resolve(trackId)
         return SourceStream(url = url, format = StreamFormat(codec = "opus"))
+    }
+
+    override suspend fun homeFeed(): List<com.music.bitchord.data.model.HomeShelf> = kotlinx.coroutines.coroutineScope {
+        val mainJob = async { YtMusicRepository.home().getOrNull()?.shelves.orEmpty() }
+        val recentJob = async { YtMusicRepository.homeRecentlyPlayed().getOrNull() }
+        val supplementsJobs = YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.map { browseId ->
+            async { YtMusicRepository.homeSupplement(browseId).getOrNull().orEmpty() }
+        }
+
+        val main = mainJob.await()
+        val recent = recentJob.await()
+        val supplements = supplementsJobs.map { it.await() }.flatten()
+
+        val shelves = mutableListOf<com.music.bitchord.data.model.HomeShelf>()
+        recent?.let { shelves.add(it) }
+        shelves.addAll(main)
+        shelves.addAll(supplements)
+        return@coroutineScope shelves
     }
 }

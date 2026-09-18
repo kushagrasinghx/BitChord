@@ -1216,7 +1216,14 @@ private fun loopCutPlan(
     mixset: Boolean = false,
 ): TransitionPlan {
     val bpmOut = analysis.bpm.orZero()
-    val beatOut = if (bpmOut > 0) 60 / bpmOut else 0.5
+    // DJ-only: no fallback vamp when grid missing — bass loop must be quantized.
+    val beatOut = if (bpmOut > 0) 60 / bpmOut else if (mixset) 0.0 else 0.5
+    if (mixset && beatOut == 0.0) {
+        return hardCutPlan(
+            analysis, nextAnalysis, length, nextLength,
+            playbackTime, mixAnchor, score, policyReasons, mixset,
+        )
+    }
     // Real booth loop: the vamp repeats a quantized phrase, so without a
     // downbeat grid there is nothing honest to loop — fall back to the hard
     // cut rather than vamping unquantized audio.
@@ -1230,9 +1237,11 @@ private fun loopCutPlan(
     // (11.25 s @128) against an 8 s ceiling.
     val loopCeiling = if (mixset) djModeCeilingFor(TransitionType.LOOP_CUT_DROP)
         else ceilingFor(TransitionType.LOOP_CUT_DROP)
-    val windowSec = min(6 * 4 * beatOut, min(mixAnchor * 0.6, ABSOLUTE_MAX_TRANSITION_SECONDS))
+    // DJ-only: round to 4*beat phrase multiple so bass loop is bar-aligned.
+    val rawWindow = min(6 * 4 * beatOut, min(mixAnchor * 0.6, ABSOLUTE_MAX_TRANSITION_SECONDS))
         .coerceAtMost(loopCeiling)
         .coerceAtLeast(1.0)
+    val windowSec = if (mixset && beatOut > 0) (kotlin.math.round(rawWindow / (4 * beatOut)) * 4 * beatOut).coerceAtLeast(4 * beatOut) else rawWindow
     val playFloorSeconds = if (mixset) 0.0 else 0.8 * length
     val rawStart = max(0.0, mixAnchor - windowSec)
     val transitionStart = if (!mixset && playFloorSeconds < mixAnchor - 1.0) {
@@ -1255,14 +1264,16 @@ private fun loopCutPlan(
     // Tempo-transparency fix: refuse sustained stretch beyond ±2 % — rate 1.0
     // (bevelled by the cut) instead of an audible speedup under the loop.
     val rate = if (ratio in 0.98..1.02) 1.0 / ratio else 1.0
-    val dropSnap = nearestTimedValue(nextAnalysis.downbeats, dropTime, tolerance = beatOut * 4)
+    // DJ-only: beatIn tolerance and downbeat-only snap so bass loop lands on beat.
+    val beatIn = if (nextAnalysis.bpm.orZero() > 0) 60 / nextAnalysis.bpm.orZero() else beatOut
+    val dropSnap = nearestTimedValue(nextAnalysis.downbeats, dropTime, tolerance = beatIn * 4)
         ?: dropTime
     val buildInSec = (mixAnchor - transitionStart) * rate
-    // Capping only ever moves the start earlier (a longer quiet build into the
-    // same drop), never later, so the drop arrival this plan promises holds.
-    // Full-plan P0: snap the arithmetic cue back to grid before capping.
     val rawCue = max(0.0, dropSnap - buildInSec)
-    val cue = capIncomingEntry(
+    val cue = if (mixset) {
+        val downCue = nearestTimedValue(nextAnalysis.downbeats, rawCue, tolerance = beatIn * 2) ?: rawCue
+        capIncomingEntry(downCue, nextAnalysis, nextLength, mixset)
+    } else capIncomingEntry(
         snapToPhrase16(nextAnalysis, rawCue), nextAnalysis, nextLength, mixset,
     )
     val started = playbackTime >= transitionStart
@@ -1320,7 +1331,13 @@ private fun loopRollPlan(
     mixset: Boolean = false,
 ): TransitionPlan {
     val bpmOut = analysis.bpm.orZero()
-    val beatOut = if (bpmOut > 0) 60 / bpmOut else 0.5
+    val beatOut = if (bpmOut > 0) 60 / bpmOut else if (mixset) 0.0 else 0.5
+    if (mixset && beatOut == 0.0) {
+        return hardCutPlan(
+            analysis, nextAnalysis, length, nextLength,
+            playbackTime, mixAnchor, score, policyReasons, mixset,
+        )
+    }
     if (analysis.downbeats.isEmpty()) {
         return hardCutPlan(
             analysis, nextAnalysis, length, nextLength,

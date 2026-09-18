@@ -3170,10 +3170,13 @@ class CrossfadeController(
                         TransitionFilterProcessor.OFF_HZ,
                     )
                 }
-                echoFilters.open()
-                // Full-audit F3: sever reverb here too — a prior blend's wash
-                // must not ghost over the cut (begin() deliberately skips
-                // echo/reverb parking).
+                // DJ-only: backspin voices ½-beat dub while spinning, not only post-cut.
+                if (render.mixset && render.backspin && render.echoThrow && render.echoAmount > 0.0 && render.echoBeatSeconds > 0.0) {
+                    val dub = (render.echoAmount * 0.30 * progress).coerceIn(0.0, 0.5).toFloat()
+                    echoFilters.outgoing(dub, render.echoBeatSeconds.toFloat())
+                } else {
+                    echoFilters.open()
+                }
                 reverbFilters.open()
             }
             // Loop-roll extend (Issue 1): same booth vamp as the cut — the

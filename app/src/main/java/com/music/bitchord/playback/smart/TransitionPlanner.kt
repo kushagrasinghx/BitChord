@@ -1894,11 +1894,11 @@ private fun djSendEffectFor(
     // tails rings ~2 s under the incoming track.
     val early = vocalActivityBetween(analysis, tailStart, tailMid)
     val late = vocalActivityBetween(analysis, tailMid, transitionEnd)
-    if (early != null && late != null && early >= 0.55 && late <= 0.35) {
+    if (early != null && late != null && early >= 0.42 && late <= 0.35) {
         val inRate = incomingPlaybackRate.takeIf { it.isFinite() && it > 0.0 } ?: 1.0
         val inBeat = nextAnalysis.beatInterval.takeIf { it.isFinite() && it > 0.0 } ?: 0.5
         val entry = vocalActivityBetween(nextAnalysis, incomingCueTime, incomingCueTime + 4.0 * inBeat / inRate)
-        if (entry != null && entry <= 0.40) return true to 0.0
+        if (entry != null && entry <= 0.45) return true to 0.0
     }
     // Wash: the outgoing tail expiring into a breakdown (tail energy under
     // half the track mean) — a bed of reverb under the handoff instead of

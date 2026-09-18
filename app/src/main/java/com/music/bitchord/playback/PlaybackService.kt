@@ -2803,6 +2803,8 @@ class PlaybackService : MediaLibraryService() {
      * instead — see [adoptCachedTrack] and [QualityUpgrade.adoptUnresolved].
      */
     private fun lookForBetterCopy(player: ExoPlayer) {
+        // DJ-only: lock original quality — upgrade invalidates analysis head.
+        if (AppSettings.mixsetModeEnabled.value) return
         val item = player.currentMediaItem ?: return
         val mediaId = item.mediaId
         val uri = item.localConfiguration?.uri
@@ -2916,6 +2918,7 @@ class PlaybackService : MediaLibraryService() {
      * listener hears one cut, for the change they asked for.
      */
     private fun upgradeQualityNow() {
+        if (AppSettings.mixsetModeEnabled.value) return
         val player = player ?: return
         val mediaId = player.currentMediaItem?.mediaId ?: return
         OriginalVersion.unpin(mediaId)
@@ -3046,6 +3049,7 @@ class PlaybackService : MediaLibraryService() {
      * and quietly keep playing the old stream.
      */
     private suspend fun swapIn(mediaId: String, stream: SourceStream) {
+        if (AppSettings.mixsetModeEnabled.value) return
         val at = withContext(Dispatchers.Main) { swapPointFor(mediaId) } ?: return
         if (at.duration > 0 && at.duration - at.position < UPGRADE_MIN_REMAINING_MS) {
             TrackLog.d("BitChord", "upgrade abandoned: only ${at.duration - at.position}ms of the track left")

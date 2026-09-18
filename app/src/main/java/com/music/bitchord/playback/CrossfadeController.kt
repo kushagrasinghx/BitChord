@@ -1507,17 +1507,14 @@ class CrossfadeController(
                 // 0 beat = no grid at all, no vamp.
                 loopBeatSeconds = currentAnalysis?.beatInterval?.takeIf { it > 0 }
                     ?: currentAnalysis?.bpm?.orZero()?.takeIf { it > 0 }?.let { 60.0 / it }
-                    // Full-audit F7: never silently disarm a promised vamp —
-                    // the planner itself falls back to a 0.5 s beat (120 BPM)
-                    // when the grid is missing (loopRollPlan), so the render
-                    // honors the same convention; 0 stays "no grid, no vamp"
-                    // only when the plan promised nothing.
-                    ?: if (plan.loopBars > 0) 0.5 else 0.0,
+                    // DJ-only: no fallback vamp when grid missing — loop
+                    // must be downbeat quantized, not wall-time.
+                    ?: 0.0,
                 loopWindowBeats =
                     if (plan.fadeSeconds > 0) {
                         val beat = currentAnalysis?.beatInterval?.takeIf { it > 0 }
                             ?: currentAnalysis?.bpm?.orZero()?.takeIf { it > 0 }?.let { 60.0 / it }
-                            ?: if (plan.loopBars > 0) 0.5 else 0.0
+                            ?: 0.0
                         if (beat > 0) plan.fadeSeconds / beat else 0.0
                     } else {
                         0.0
@@ -2308,7 +2305,7 @@ class CrossfadeController(
         // so the sum stays clean without a coexistence pad.
         val levelRide = render.eqEnabled &&
             (render.style == TransitionStyle.DJ_BLEND || render.style == TransitionStyle.DJ_FILTER) &&
-            (render.mixRecipe == MixRecipe.VOCAL_DUEL || render.mixRecipe == MixRecipe.INSTRUMENTAL_BED)
+            (render.mixRecipe == MixRecipe.VOCAL_DUEL || render.mixRecipe == MixRecipe.INSTRUMENTAL_BED || (render.mixRecipe == MixRecipe.WASH_OUT && render.overlapSeconds >= 16f))
         if (levelRide) {
             player.volume = riseGain(inProgress)
             // Full-audit F5: duck under the brake dive — a slowed deck stays
@@ -2913,11 +2910,11 @@ class CrossfadeController(
         // instead of arriving full (DJ brings the new track in by layers).
         // delay already folds forceDuckKeys + liveDelayB; don't double-count.
         val incomingSings = delay
-        // Real-DJ long blend: B layers in over half a 32-bar bed, not the
-        // first third — highs → mids → lows order holds at any bed length.
-        val entrySpan = if (longBed) 0.50f else 0.30f
+        // Real-DJ long blend: keep warmth — B layers in over 0.35 bed
+        // per minimal 10% steps, not 0.50, so body arrives before mid hole.
+        val entrySpan = if (longBed) 0.35f else 0.30f
         val entryT = (progress / entrySpan).coerceIn(0f, 1f)
-        val entryRamp = entryT * entryT * (3f - 2f * entryT)
+        val entryRamp = (0.40f + 0.60f * (entryT * entryT * (3f - 2f * entryT))).coerceIn(0.40f, 1f)
         if (dryKilled) {
             eqFilters.outgoing(0f, 0f, 0f)
         } else {
@@ -2929,14 +2926,13 @@ class CrossfadeController(
             // trace 0.12-0.20 collisions were holding old mids at 1.0 through
             // mid-blend because recipe was INSTRUMENTAL_BED but gate false.
             val ownership = if (
-                (render.mixRecipe == MixRecipe.VOCAL_DUEL || render.mixRecipe == MixRecipe.WASH_OUT ||
-                    vocalGate) &&
+                (render.mixRecipe == MixRecipe.VOCAL_DUEL || render.mixRecipe == MixRecipe.WASH_OUT) &&
                 incomingSings
             ) {
                 val lin = ((0.80f - outProgress) / 0.80f).coerceIn(0f, 1f)
-                // Long blend keeps warmth: linear yield (not quadratic) so
-                // mid-blend old mids stay ~0.37 instead of ~0.14.
-                if (longBed) lin else lin * lin
+                // Warmth + vocal: quadratic yield for both beds so duck
+                // only when recipe truly duels, not on transient vocalGate.
+                lin * lin
             } else {
                 1f
             }

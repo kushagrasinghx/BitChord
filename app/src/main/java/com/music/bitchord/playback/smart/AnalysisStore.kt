@@ -1,4 +1,4 @@
-package com.music.bitchord.playback.smart
+﻿package com.music.bitchord.playback.smart
 
 import android.content.Context
 import com.music.bitchord.data.TrackLog
@@ -13,14 +13,14 @@ import java.util.concurrent.ConcurrentHashMap
  * ## Why this exists
  *
  * Analysis was in memory only, which meant every app start threw away
- * everything and every track had to earn its result again — from audio that may
+ * everything and every track had to earn its result again â€” from audio that may
  * no longer be on disk to earn it from. Two things conspire against re-earning
  * it:
  *
  *  - The analyzer needs a track's opening, contiguously, and the cache evicts
  *    openings first because they are read once and never touched again. See
  *    [com.music.bitchord.playback.DynamicLruCacheEvictor], which now holds them
- *    back — but only within a budget, and only for tracks played recently.
+ *    back â€” but only within a budget, and only for tracks played recently.
  *  - Even with the bytes present, analysis costs a decode plus two model
  *    inferences, several seconds, and it has to finish *before* the transition
  *    that wants it. Losing that work to a restart means the next few
@@ -34,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap
  * One file per track, named by cache key rather than written into a single
  * index, so a write cannot corrupt anything but its own entry and a prune is a
  * file delete. Coordinates are seconds on the track's own timeline, which are
- * identical across renditions of the same recording — the whole reason an
+ * identical across renditions of the same recording â€” the whole reason an
  * analysis is worth keeping in the first place.
  *
  * Only fields the planner reads are stored, and the curves are rounded to
@@ -46,7 +46,7 @@ class AnalysisStore(private val context: Context) {
     /**
      * Resolved on first use, not at construction. [TrackAnalyzer] is a field
      * initializer on the playback service, which runs before the service has a
-     * base context attached — asking for [Context.getFilesDir] there returns
+     * base context attached â€” asking for [Context.getFilesDir] there returns
      * null and takes the whole process down before it can start.
      */
     private val directory by lazy { File(context.filesDir, DIRECTORY) }
@@ -75,7 +75,6 @@ class AnalysisStore(private val context: Context) {
         return runCatching {
             val stored = json.decodeFromString(Stored.serializer(), file.readText())
             // An entry from an older build may hold numbers computed a different
-            // way, and a wrong beat grid is worse than none — so it is dropped
             // and re-earned rather than migrated.
             require(stored.version == SCHEMA_VERSION) { "schema ${stored.version}" }
             stored.toAnalysis(trackId)
@@ -114,7 +113,7 @@ class AnalysisStore(private val context: Context) {
     /**
      * Keeps the directory under [MAX_ENTRIES], oldest first.
      *
-     * Cheap because it only lists when the count is plausibly over — a
+     * Cheap because it only lists when the count is plausibly over â€” a
      * directory listing per save would otherwise be a filesystem walk on every
      * analysis.
      */
@@ -162,13 +161,11 @@ class AnalysisStore(private val context: Context) {
         val lowEnergyCurve: List<StoredEnergy> = emptyList(),
         val vocalActivityMask: List<Double> = emptyList(),
         val vocalProbability: Double = 0.0,
-        // Full-plan P4: master descriptors for wash staging + loudness.
         val loudnessLufs: Double = -70.0,
         val peakDbfs: Double = -70.0,
         val dynamicRangeDb: Double = 0.0,
         val vocalPitchMedianHz: Double = 0.0,
         val pitchConfidence: Double = 0.0,
-        // v2 §2b: persisted detector output. Fine curves stay transient.
         val structureMap: List<StoredStructure> = emptyList(),
         val structuredDropSec: Double? = null,
         val structuredBreakSec: Double? = null,

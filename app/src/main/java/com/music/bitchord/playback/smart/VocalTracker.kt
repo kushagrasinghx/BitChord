@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Ported from Orchard (https://github.com/SFG5453/Orchard).
  *
  * Copyright (C) 2026 SFG545 (original Orchard implementation)
@@ -79,7 +79,7 @@ object VocalSpectrogram {
 }
 
 /**
- * Vocal-presence tracking with open-unmix's "vocals" target (Stöter & Liutkus, Inria/SigSep).
+ * Vocal-presence tracking with open-unmix's "vocals" target (StÃ¶ter & Liutkus, Inria/SigSep).
  *
  * The transition policy uses this to avoid mixing two vocals over each other: a blend where both
  * tracks are singing is the one case that reliably sounds wrong however well the beats line up.
@@ -174,8 +174,6 @@ class VocalTracker(private val context: Context) {
                 active.run(mapOf(active.inputNames.first() to tensor)).use { outputs ->
                     // The output tensor's buffer, not `outputs.get(0).value`: that
                     // property boxes this [1, 2, bins, FIXED_FRAMES] result into
-                    // one FloatArray per bin per channel — 4098 objects and ~16MB
-                    // per call — when the only thing read from it is a band
                     // average.
                     val target = (outputs.get(0) as OnnxTensor).floatBuffer
                     val curve = reduceToBandCurve(backing.asFloatBuffer(), target, bins, spectrogram.frames)

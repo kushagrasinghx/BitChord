@@ -1,4 +1,4 @@
-package com.music.bitchord.playback
+﻿package com.music.bitchord.playback
 
 import com.music.bitchord.data.TrackLog
 import androidx.media3.common.C
@@ -9,21 +9,21 @@ import java.nio.ByteOrder
 import kotlin.math.min
 
 /**
- * Pipeline spec v2 §9: a Schroeder reverb send (4 parallel combs + 2 series
- * allpasses), not a convolver — no impulse asset, a few KB of delay memory,
+ * Pipeline spec v2 Â§9: a Schroeder reverb send (4 parallel combs + 2 series
+ * allpasses), not a convolver â€” no impulse asset, a few KB of delay memory,
  * a fraction of a percent of CPU.
  *
  * Clones [EchoSendProcessor]'s contract on purpose: volatile targets chased
  * per sub-block (the controller re-aims every fade tick; stepping wet in
  * 30 ms jumps would zipper), opening to zero never wipes the tail, and
- * [clear]/[onFlush] are the only wipe, for seeks and fresh sources — never
+ * [clear]/[onFlush] are the only wipe, for seeks and fresh sources â€” never
  * call mid-transition.
  *
  * ## Freeze
  *
  * [freeze] mutes the input into the network and pins comb feedback at unity,
- * so the current tail sustains instead of decaying — the heavy-clash ending
- * (§9b). Unfreezing restores the musical feedback and the tail drains.
+ * so the current tail sustains instead of decaying â€” the heavy-clash ending
+ * (Â§9b). Unfreezing restores the musical feedback and the tail drains.
  */
 @UnstableApi
 class ReverbProcessor : BaseAudioProcessor() {
@@ -42,16 +42,12 @@ class ReverbProcessor : BaseAudioProcessor() {
     private var combPos = IntArray(0)
     private var allpasses = Array(0) { FloatArray(0) }
     private var allpassPos = IntArray(0)
-    // Input darkening: one-pole low-pass state per channel. Schroeder combs
-    // ring hardest where sustained highs pile up; feeding them a darkened
-    // input keeps the tail airy without the metallic edge. Coefficient is
-    // derived from the sample rate at configure time.
     private var darkState = FloatArray(0)
     private var darkAlpha = 0.3f
 
     /**
      * Aims the send. [wet] 0..1 is the reverberated level against dry;
-     * [freeze] sustains the current tail (§9b). Idempotent and glide-safe to
+     * [freeze] sustains the current tail (Â§9b). Idempotent and glide-safe to
      * call every fade tick.
      */
     fun setReverb(wet: Float, freeze: Boolean) {
@@ -62,7 +58,7 @@ class ReverbProcessor : BaseAudioProcessor() {
     /** Rides the wet down and unfreezes; the tail drains rather than cutting. */
     fun open() = setReverb(0f, false)
 
-    /** Wipes every line. Seeks only — never call mid-transition. */
+    /** Wipes every line. Seeks only â€” never call mid-transition. */
     fun clear() {
         combs.forEach { it.fill(0f) }
         allpasses.forEach { it.fill(0f) }
@@ -92,7 +88,6 @@ class ReverbProcessor : BaseAudioProcessor() {
         }
         allpassPos = IntArray(ALLPASS_DELAYS_MS.size)
         currentWet = targetWet
-        // ~5.5 kHz one-pole: alpha = dt/(RC+dt), RC = 1/(2π·f).
         val rc = 1f / (6.2831853f * INPUT_DARKEN_HZ)
         val dt = 1f / sampleRate.coerceAtLeast(8000)
         darkAlpha = (dt / (rc + dt)).coerceIn(0.05f, 1f)
@@ -141,9 +136,6 @@ class ReverbProcessor : BaseAudioProcessor() {
             repeat(block) {
                 for (channel in 0 until channelCount) {
                     val dry = inputBuffer.short.toFloat()
-                    // Darkened feed: highs excite the combs' metallic modes
-                    // far more than they contribute body; the dry path keeps
-                    // the full spectrum, only the tail input is rolled off.
                     val darkened = darkState[channel] + darkAlpha * (dry - darkState[channel])
                     darkState[channel] = darkened
                     val input = if (freeze) 0f else darkened
@@ -153,9 +145,6 @@ class ReverbProcessor : BaseAudioProcessor() {
                         val frames = line.size / channelCount
                         val pos = combPos[i]
                         val delayed = line[pos * channelCount + channel]
-                        // Full-audit F3: decaying freeze (0.92), never unity — a
-                        // pinned 1.0 sustains indefinitely until the stepped
-                        // close and has clipped terrifyingly loud before.
                         val feedback = if (freeze) 0.92f else COMB_FEEDBACK
                         line[pos * channelCount + channel] = input + delayed * feedback
                         acc += delayed
@@ -166,14 +155,10 @@ class ReverbProcessor : BaseAudioProcessor() {
                         val frames = line.size / channelCount
                         val pos = allpassPos[a]
                         val delayed = line[pos * channelCount + channel]
-                        // Allpass: y = -g·x + delayed; line = x + g·delayed.
                         val out = -ALLPASS_FEEDBACK * acc + delayed
                         line[pos * channelCount + channel] = acc + ALLPASS_FEEDBACK * delayed
                         acc = out
                     }
-                    // Gain-staged send, mirroring the echo: dry ducks as the tail
-                    // rises so dense sustained input can't push the sum into
-                    // the hard clip. Unity when parked, ~0.92 dry at max wet.
                     outputBuffer.putShort(clampToShort(dry * (1f - wet * DRY_COMP) + acc * wet))
                 }
                 for (i in combs.indices) {
@@ -197,7 +182,7 @@ class ReverbProcessor : BaseAudioProcessor() {
     companion object {
         private const val TAG = "BitChordReverb"
 
-        /** Matches the echo send: a send, not an instrument. −9 dB at max. */
+        /** Matches the echo send: a send, not an instrument. âˆ’9 dB at max. */
         private const val MAX_WET = 0.34f
 
         /**
@@ -206,7 +191,7 @@ class ReverbProcessor : BaseAudioProcessor() {
          */
         private const val DRY_COMP = 0.25f
 
-        /** Musical decay: ~2.5 s to −60 dB across the four combs. */
+        /** Musical decay: ~2.5 s to âˆ’60 dB across the four combs. */
         private const val COMB_FEEDBACK = 0.84f
         private const val ALLPASS_FEEDBACK = 0.5f
 
@@ -226,8 +211,8 @@ class ReverbProcessor : BaseAudioProcessor() {
 
 /**
  * The two reverb sends a transition rides: one over the track arriving, one
- * over the track leaving. Mirrors [EchoFilters] — same role-swap reasoning,
- * same test seam — because the sends sit after the echo sends in the same
+ * over the track leaving. Mirrors [EchoFilters] â€” same role-swap reasoning,
+ * same test seam â€” because the sends sit after the echo sends in the same
  * per-player sinks and their roles trade places at the handoff.
  */
 interface ReverbFilters {
@@ -243,7 +228,7 @@ interface ReverbFilters {
         outgoing(0f, false)
     }
 
-    /** For callers with no audio sink — tests, and the default wiring. */
+    /** For callers with no audio sink â€” tests, and the default wiring. */
     object None : ReverbFilters {
         override fun incoming(wet: Float, freeze: Boolean) = Unit
         override fun outgoing(wet: Float, freeze: Boolean) = Unit

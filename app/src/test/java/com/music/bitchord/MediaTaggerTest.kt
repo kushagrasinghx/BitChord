@@ -1,4 +1,4 @@
-package com.music.bitchord
+﻿package com.music.bitchord
 
 import com.music.bitchord.download.FlacTagger
 import com.music.bitchord.download.Mp4Tagger
@@ -121,8 +121,8 @@ class MediaTaggerTest {
     /**
      * Lyrics on their own have to be enough to trigger a rewrite. [MediaTagger]
      * decides whether to touch the file by comparing references, so a tagger
-     * that treated lyrics as an afterthought — added to the atom list but not
-     * counted when deciding whether there is anything to write — would return
+     * that treated lyrics as an afterthought â€” added to the atom list but not
+     * counted when deciding whether there is anything to write â€” would return
      * the input for a track that has lyrics and nothing else, and the field
      * would silently never appear.
      */
@@ -134,8 +134,7 @@ class MediaTaggerTest {
 
         assertNotSame(original, tagged)
         // ISO-8859-1, because the atom name leads with the 0xA9 byte that plain
-        // ASCII can't encode — the same reason [Mp4Tagger.box] uses it.
-        assertTrue(tagged.indexOfBytes("©lyr".toByteArray(Charsets.ISO_8859_1)) >= 0)
+        assertTrue(tagged.indexOfBytes("Â©lyr".toByteArray(Charsets.ISO_8859_1)) >= 0)
         assertTrue(tagged.indexOfBytes(LRC.toByteArray(Charsets.UTF_8)) >= 0)
     }
 
@@ -180,8 +179,6 @@ class MediaTaggerTest {
 
         assertNotSame(original, tagged)
         val sizeFieldOffset = ebmlHeaderId.size + 1 + 4 + segmentId.size
-        // Everything except the 2-byte size field itself — which is expected
-        // to change, that's the point of this test — is untouched.
         assertArrayEquals(original.copyOfRange(0, sizeFieldOffset), tagged.copyOfRange(0, sizeFieldOffset))
         assertArrayEquals(
             original.copyOfRange(sizeFieldOffset + 2, original.size),
@@ -289,7 +286,6 @@ class MediaTaggerTest {
         assertNotSame(original, tagged)
         val (blocks, framesAt) = flacChain(tagged)
         // STREAMINFO first, SEEKTABLE carried across, PADDING gone, the two new
-        // blocks appended — and the last-block flag on the last of them, which
         // is what let the walk get this far.
         assertEquals(
             listOf(TYPE_STREAMINFO, TYPE_SEEKTABLE, TYPE_VORBIS_COMMENT, TYPE_PICTURE),
@@ -379,7 +375,7 @@ class MediaTaggerTest {
      * As for the other two: lyrics alone have to produce a `VORBIS_COMMENT`.
      *
      * Also checks the field survives its own newlines, which is the one thing
-     * about a multi-line value worth asserting — a Vorbis field is length-
+     * about a multi-line value worth asserting â€” a Vorbis field is length-
      * prefixed, so nothing needs escaping, and the failure mode of getting that
      * wrong is a comment block truncated at the first line break.
      */
@@ -405,7 +401,7 @@ class MediaTaggerTest {
         const val TYPE_PICTURE = 6
 
         /**
-         * Stand-in LRC, in the shape `LrcWriter` emits — two stamped lines and
+         * Stand-in LRC, in the shape `LrcWriter` emits â€” two stamped lines and
          * the newline between them, which is all these tests need to look for.
          */
         const val LRC = "[00:01.20]first line here\n[00:04.50]second line here"

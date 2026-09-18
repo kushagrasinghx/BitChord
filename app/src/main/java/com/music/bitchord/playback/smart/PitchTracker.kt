@@ -1,4 +1,4 @@
-package com.music.bitchord.playback.smart
+﻿package com.music.bitchord.playback.smart
 
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
@@ -17,12 +17,12 @@ import kotlin.math.roundToInt
 
 /**
  * Vocal/instrument fundamental tracking for the blueprint's key-shift verify
- * step: the planner shifts the incoming track toward the outgoing key (§5.2),
+ * step: the planner shifts the incoming track toward the outgoing key (Â§5.2),
  * and a measured median F0 is the only thing that can contradict the detected
  * key before the shift is committed.
  *
  * Two engines, one contract. CREPE-tiny (MIT, 1.9 MB ONNX, runs on the
- * already-present ORT 1.28 — no new dependency) is tried first; a pure-Kotlin
+ * already-present ORT 1.28 â€” no new dependency) is tried first; a pure-Kotlin
  * YIN fallback answers when the asset is missing or inference throws. A wrong
  * F0 vetoes a shift, but a missing F0 never blocks a transition: every
  * call-site treats 0 Hz / 0 confidence as "no evidence".
@@ -81,8 +81,6 @@ class PitchTracker(private val context: Context) {
                 val options = OrtSession.SessionOptions().apply {
                     setIntraOpNumThreads(threads)
                     setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                    // Same reasoning as BeatTracker: analysis runs a handful of
-                    // times per track, so per-run allocation beats a retained arena.
                     setCPUArenaAllocator(false)
                     setMemoryPatternOptimization(false)
                 }
@@ -169,7 +167,7 @@ class PitchTracker(private val context: Context) {
         /** Sigmoid peak below this is unvoiced. Matches CREPE's own 0.5 periodicity gate. */
         const val CONFIDENCE_THRESHOLD = 0.5
 
-        /** YIN fallback: 1024-sample window every 32 ms, fundamentals 50–1000 Hz. */
+        /** YIN fallback: 1024-sample window every 32 ms, fundamentals 50â€“1000 Hz. */
         private const val YIN_WINDOW = 1024
         private const val YIN_HOP = 512
         private const val YIN_MIN_TAU = 16
@@ -184,7 +182,7 @@ class PitchTracker(private val context: Context) {
 
         /**
          * torchcrepe's weighted-argmax decode: sigmoid the logits, then the
-         * probability-weighted mean of bin centres in a ±4 window around the
+         * probability-weighted mean of bin centres in a Â±4 window around the
          * peak. Returns (0.0, peak) when nothing clears the gate.
          */
         fun decodeActivation(activation: FloatArray): Pair<Double, Double> {
@@ -230,7 +228,7 @@ class PitchTracker(private val context: Context) {
         }
 
         /**
-         * YIN (de Cheveigné & Kawahara 2002) in ~60 lines: cumulative-mean-
+         * YIN (de CheveignÃ© & Kawahara 2002) in ~60 lines: cumulative-mean-
          * normalized difference, first dip under threshold, parabolic
          * refinement. Slow next to the model (~1 s per 30 s head) but
          * dependency-free, which is exactly what a fallback is for.
@@ -285,7 +283,6 @@ class PitchTracker(private val context: Context) {
                 }
                 running[tau] = diff
                 cumulative += diff
-                // Cumulative-mean-normalized difference; tau 0 is 1 by definition.
                 val cmnd = if (cumulative > 0) diff * tau / cumulative else 1.0
                 if (tauEstimate == -1 && tau > YIN_MIN_TAU && cmnd < YIN_THRESHOLD) {
                     tauEstimate = tau
@@ -296,15 +293,12 @@ class PitchTracker(private val context: Context) {
                 }
             }
             val tau = if (tauEstimate != -1) {
-                // Past the first dip, take the local minimum — the dip's floor,
-                // not its edge.
                 var best = tauEstimate
                 while (best + 1 <= YIN_MAX_TAU && running[best + 1] < running[best]) best += 1
                 best
             } else {
                 minTau
             }
-            // Parabolic interpolation around the estimate, on the raw difference.
             val refined = if (tau > YIN_MIN_TAU && tau < YIN_MAX_TAU) {
                 val left = running[tau - 1]
                 val centre = running[tau]

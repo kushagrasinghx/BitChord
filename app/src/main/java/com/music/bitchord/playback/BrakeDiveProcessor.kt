@@ -1,4 +1,4 @@
-package com.music.bitchord.playback
+﻿package com.music.bitchord.playback
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
@@ -35,20 +35,14 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
 
     private var channelCount = 0
     private var bytesPerFrame = 0
-    // DJ-only backspin ring — 1.5s @48k stereo = 144k shorts, holds last second for reverse chirp.
     private var ring = ShortArray(0)
     private var ringPos = 0
     private var ringFilled = 0
-    // Full-audit F6: start settled; the dive window is armed by setBrake, and
-    // isActive() only looks at the aimed target, so the init value never
-    // keeps the processor in the chain by itself.
     private var glideCounter = 1f
 
     /** Aims the brake. [amount] 0..1 where 1 = full stop. */
     fun setBrake(amount: Float) {
         targetBrakeAmount = amount.coerceIn(0f, MAX_BRAKE_AMOUNT)
-        // (Re)arming here — not in onFlush — so a fresh/seeked processor
-        // stays out of the chain until a real dive is aimed.
         if (targetBrakeAmount > 0f) glideCounter = 0f
     }
 
@@ -88,7 +82,6 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
         if (frameCount == 0) return
         val outputBuffer = replaceOutputBuffer(frameCount * bytesPerFrame)
 
-        // Always tap input into ring for reverse read later (DJ-only, cheap copy).
         if (ring.isNotEmpty()) {
             val pos = inputBuffer.position()
             for (i in 0 until frameCount * channelCount) {
@@ -108,16 +101,12 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
         inputBuffer.order(ByteOrder.nativeOrder())
         outputBuffer.order(ByteOrder.nativeOrder())
 
-        // DJ-only backspin: after halfway through glide (t>0.5) read ring backwards
-        // with accelerating reverse speed (0.5x -> 3.5x) so the ear hears a vinyl spinback chirp
-        // instead of a forward slowdown. Before halfway, keep the forward duck so the hand hits the record.
         val backspinNow = isBackspin && glideCounter > 0.45f && ringFilled > channelCount * 256
         if (backspinNow) {
             var reverseIdx = (ringPos - channelCount + ring.size) % ring.size
             var stepAcc = 0f
             for (i in 0 until frameCount) {
                 val t = glideCounter.coerceIn(0f, 1f)
-                // reverse speed ramps 0.8 -> 3.5 over the spin
                 val revSpeed = 0.8f + t * 2.7f
                 val gain = (1f - targetBrakeAmount * t * BRAKE_DIVE_FACTOR * 0.55f).coerceIn(0f, 1f)
                 stepAcc += revSpeed
@@ -129,7 +118,6 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
                     val s = ring[idx].toFloat() * gain
                     outputBuffer.putShort(clampToShort(s))
                 }
-                // still consume input forward (keep pipeline clock), just output reversed ring
                 for (ch in 0 until channelCount) inputBuffer.short
                 glideCounter = (glideCounter + GLIDE_RATE * 0.7f).coerceAtMost(1f)
             }
@@ -161,10 +149,6 @@ class BrakeDiveProcessor : BaseAudioProcessor() {
         return ByteBuffer.allocateDirect(0)
     }
 
-    // Full-audit F6: active purely on aimed target. The old glide clause kept
-    // a fresh/seeked processor in the chain running a pointless x1.0 copy on
-    // every PCM-16 playback (stock included); the dive window is armed by
-    // setBrake and still gates inside queueInput.
     override fun isActive(): Boolean = targetBrakeAmount > 0f
 
     }

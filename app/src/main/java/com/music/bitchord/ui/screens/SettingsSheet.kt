@@ -1,4 +1,4 @@
-package com.music.bitchord.ui.screens
+﻿package com.music.bitchord.ui.screens
 
 import android.content.Context
 import android.content.Intent
@@ -190,7 +190,6 @@ fun SettingsScreen(
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
     // A property of the hardware, so it is read once rather than remembered
-    // against a key that can never change — see [DeviceCodecs.playsDolbyAtmos],
     // which caches the codec-list walk for the life of the process.
     val dolbyAtmosSupported = DeviceCodecs.playsDolbyAtmos
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
@@ -253,11 +252,9 @@ fun SettingsScreen(
 
     val replayGenres by AppSettings.replayGenres.collectAsStateWithLifecycle()
 
-    // Read here so the row can say "In a party · ABC123" rather than making
     // somebody open the screen to find out whether they are still in one.
     val party by ListenTogether.state.collectAsStateWithLifecycle()
 
-    // Filters the rows below — see [SettingsSearch]. Blank shows everything,
     // exactly as if the field weren't there.
     var searchQuery by remember { mutableStateOf("") }
     var picking by remember { mutableStateOf<QualityTarget?>(null) }
@@ -295,7 +292,7 @@ fun SettingsScreen(
     /**
      * Both halves go through the system document picker rather than a path of
      * this app's own choosing. That is what puts the file somewhere the user can
-     * actually find it — Drive, Files, a folder they already back up — and it
+     * actually find it â€” Drive, Files, a folder they already back up â€” and it
      * means neither direction needs a storage permission, since the grant
      * arrives with the document they picked.
      */
@@ -401,10 +398,8 @@ fun SettingsScreen(
         }
 
         // The row that used to sit at the top of this group was called
-        // "Lossless / HQ Audio" and toggled `SourceRegistry.setModuleEnabled` —
         // it switched the *module source* on and off, not lossless. Sources
         // above lists that as the module's own row now. Lossless itself is no
-        // longer a setting at all — see
         // [SourceResolver.requestForNow][com.music.bitchord.data.sources.SourceResolver.requestForNow].
         SearchableSettingsGroup(search, header = stringResource(R.string.audio_quality)) {
             val sourceTitle = stringResource(R.string.source)
@@ -446,7 +441,6 @@ fun SettingsScreen(
             // one with a reason under it is the difference between "BitChord
             // has no Atmos" and "this phone has no Dolby decoder", and only the
             // second is true. The stored preference is left untouched either
-            // way — see [AppSettings.dolbyAtmos].
             val dolbyAtmosTitle = stringResource(R.string.dolby_atmos)
             row(dolbyAtmosTitle, "surround", "e-ac-3") {
                 SettingsRow(
@@ -479,7 +473,6 @@ fun SettingsScreen(
         // Its own group rather than rows bolted onto the two above, because a
         // download is not a third kind of connection. The ceilings answer "what
         // does this minute cost"; these answer "what am I keeping, and when may
-        // it be fetched" — and those two questions only make sense read
         // together, which is what puts them side by side here.
         SearchableSettingsGroup(search, header = stringResource(R.string.downloads)) {
             val downloadQualityTitle = stringResource(R.string.download_quality)
@@ -493,7 +486,6 @@ fun SettingsScreen(
                 )
             }
             // Reads as part of Download quality above it, not as a setting
-            // of its own — same treatment as Play animated cover over
             // cellular gets under Animated cover art.
             val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
             row(downloadWifiOnlyTitle, "wi-fi", "cellular", divided = false) {
@@ -542,11 +534,11 @@ fun SettingsScreen(
                     title = outputPrecisionTitle,
                     subtitle = buildString {
                         append(outputStatus.sink)
-                        append(" · ")
+                        append(" Â· ")
                         append(outputStatus.deviceName)
                         (outputStatus.actualSampleRateHz ?: outputStatus.sampleRatesHz.firstOrNull())
-                            ?.let { append(" · ${it / 1000.0} kHz") }
-                        append(" · ")
+                            ?.let { append(" Â· ${it / 1000.0} kHz") }
+                        append(" Â· ")
                         append(AudioOutputStatus.encodingLabel(outputStatus))
                     },
                 )
@@ -573,8 +565,6 @@ fun SettingsScreen(
                     badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
                 )
             }
-            // Automix decides its own length from each pair of tracks —
-            // tempo, key, structure — so it replaces the manual slider rather
             // than needing it set to anything first.
             if (!smartFade) {
                 val crossfadeTitle = stringResource(R.string.crossfade)
@@ -712,7 +702,6 @@ fun SettingsScreen(
             }
             // The system panel is not listed here as well. A device with a
             // Dolby or Dirac panel has something BitChord cannot reproduce and
-            // keeps its row — but one level in, at the foot of the equaliser
             // screen, rather than as a second equaliser entry alongside ours.
             val equalizerTitle = stringResource(R.string.equalizer)
             row(equalizerTitle, "eq", "bass", "treble") {
@@ -804,7 +793,6 @@ fun SettingsScreen(
             // Left out where the player won't honour it: a window too wide for
             // the player to fill and too narrow to stand a page beside it keeps
             // the sleeve either way. A docked pane is a phone's width, so it does
-            // honour it — see [fullBleedArtworkAvailable].
             if (fullBleedArtworkAvailable(windowWidth)) {
                 val fullScreenCoverArtTitle = stringResource(R.string.full_screen_cover_art)
                 row(fullScreenCoverArtTitle, "artwork", "player") {
@@ -871,7 +859,6 @@ fun SettingsScreen(
             // as a separate setting. Nothing to narrow while the clip itself
             // is off. Defaults to off: a clip loops for as long as its track
             // plays, so on cellular this is not a one-time video cost but
-            // that cost repeated on every loop — see AppSettings.canvasOverCellular.
             if (animatedCanvas) {
                 val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
                 row(coverCellularTitle, "canvas", "cellular", divided = false) {
@@ -925,7 +912,6 @@ fun SettingsScreen(
             }
             // Nothing to choose between while the feature is off, and the
             // sources are third-party services being reached on the user's
-            // connection — which is the part worth being able to narrow.
             if (syncedLyrics) {
                 val lyricsBlurTitle = stringResource(R.string.blur_unfocused_lyrics)
                 row(lyricsBlurTitle, "lyrics", "blur") {
@@ -1365,7 +1351,6 @@ fun SettingsScreen(
                 // Writes the one ceiling that was being edited and nothing
                 // else. There used to be a `SourceRegistry.applyQualityPreset`
                 // call here that flipped the module and JioSaavn switches to
-                // match — which meant budgeting *mobile data* switched those
                 // sources off while sitting on Wi-Fi, and coming back to Wi-Fi
                 // never switched them on again. Which sources a rung consults
                 // is now read per stream off the connection in force; see
@@ -1598,7 +1583,7 @@ fun SettingsScreen(
 
 }
 
-/** "3 months of listening" — the unit a backup is actually measured in. */
+/** "3 months of listening" â€” the unit a backup is actually measured in. */
 private fun Context.countOfMonths(months: Int): String = if (months == 0) {
     getString(R.string.no_listening_history)
 } else {
@@ -1673,7 +1658,7 @@ internal fun openEqualizer(context: Context, sessionId: Int) {
 /** Above this, the cache limit slider's subtitle warns rather than reassures. */
 private const val CACHE_WARNING_MB = 2048
 
-/** "512 MB", "2 GB", "2.5 GB" — whichever reads more naturally at that size. */
+/** "512 MB", "2 GB", "2.5 GB" â€” whichever reads more naturally at that size. */
 private fun formatCacheSize(mb: Int): String {
     if (mb < 1024) return "$mb MB"
     val gb = mb / 1024f
@@ -1793,7 +1778,6 @@ private fun QualitySheet(
         }
         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
 
-        // Best first — the option most people want shouldn't be last.
         AudioQuality.entries.reversed().forEach { quality ->
             val chosen = quality == selected
             Row(
@@ -1951,7 +1935,6 @@ private fun DownloadQualitySheet(
         }
         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
 
-        // Best first, matching [QualitySheet] — and here the best rung is also
         // the default, so the checkmark starts where the eye does.
         DownloadQuality.entries.reversed().forEach { quality ->
             val chosen = quality == selected
@@ -1999,7 +1982,7 @@ internal val ROW_INSET = 16.dp
 internal val ICON_SIZE = 22.dp
 internal val ICON_GAP = 14.dp
 
-/** Where a row's text starts — dividers are inset to match, as on iOS. */
+/** Where a row's text starts â€” dividers are inset to match, as on iOS. */
 internal val TEXT_INSET = ROW_INSET + ICON_SIZE + ICON_GAP
 
 /**
@@ -2014,7 +1997,6 @@ internal val TEXT_INSET = ROW_INSET + ICON_SIZE + ICON_GAP
  */
 private class SettingsSearch(query: String) {
     // Trimmed, because a trailing space is a typo rather than a search for
-    // something ending in one — and on a phone keyboard it is one keystroke
     // away from every word typed.
     private val needle = query.trim()
 
@@ -2041,7 +2023,7 @@ private class SettingsGroupScope(
     /**
      * One searchable setting. [keywords] is everything somebody might type
      * looking for it: its title at least, plus whatever its subtitle or the
-     * controls under it say that the title doesn't — "Spotify", say, for the
+     * controls under it say that the title doesn't â€” "Spotify", say, for the
      * canvas link that lives under Animated cover art.
      *
      * [divided] is false for the rows drawn as part of the row above them
@@ -2154,7 +2136,7 @@ internal fun RowDivider() {
  * [trailing] (a switch, say) or the current [value] followed by a chevron.
  *
  * [iconPainter] is for the handful of rows whose glyph is a drawable rather
- * than a Material icon — the Dolby double-D, which is a mark and not something
+ * than a Material icon â€” the Dolby double-D, which is a mark and not something
  * to approximate with the nearest speaker outline. Exactly one of it and [icon]
  * is expected; the painter wins where both are given.
  */
@@ -2386,7 +2368,7 @@ internal fun SliderRow(
     }
 }
 
-/** Sign out: centered, accent-coloured, no glyph — the shape of a real one. */
+/** Sign out: centered, accent-coloured, no glyph â€” the shape of a real one. */
 @Composable
 internal fun DestructiveRow(
     label: String,

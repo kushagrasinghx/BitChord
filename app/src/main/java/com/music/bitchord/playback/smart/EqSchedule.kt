@@ -1,14 +1,14 @@
-package com.music.bitchord.playback.smart
+﻿package com.music.bitchord.playback.smart
 
 import kotlin.math.max
 
 /**
  * The per-transition-type 3-band EQ schedules from the DJ-EQ spec, as pure
- * functions of blend progress. No audio, no threads, no ExoPlayer — the
+ * functions of blend progress. No audio, no threads, no ExoPlayer â€” the
  * numbers below are the spec's schedule tables with linear interpolation
  * between rows, so a unit test can pin every row without rendering a sample.
  *
- * Conventions (spec §EQ schedules):
+ * Conventions (spec Â§EQ schedules):
  * - progress 0.0 = start of overlap, 1.0 = end. Gain 1.0 = unity, 0.0 = kill.
  * - Each deck's gains are keyframes; [at] interpolates linearly between them.
  * - LOW on a swap type (SMOOTH, HARMONIC, FILTER_SWEEP, HALF_TIME_BLEND) is a
@@ -31,7 +31,7 @@ object EqSchedule {
     private data class Key(val progress: Float, val gains: EqGains)
 
     /**
-     * Bass-swap arm progress per transition type (spec §Bass swap timing).
+     * Bass-swap arm progress per transition type (spec Â§Bass swap timing).
      * Null = no downbeat swap; the LOW band comes from the tables instead.
      * Satisfaction round: swap fires early so bass arrives BEFORE B is dominant.
      */
@@ -40,8 +40,6 @@ object EqSchedule {
         TransitionType.HARMONIC_BLEND    to 0.40f,
         TransitionType.FILTER_SWEEP      to 0.30f,
         TransitionType.HALF_TIME_BLEND   to 0.20f,
-        // Booth octave blend: the swap lands mid-window on the phrase "1",
-        // like any beat-locked blend.
         TransitionType.OCTAVE_BLEND      to 0.50f,
     )
 
@@ -63,9 +61,6 @@ object EqSchedule {
         progress: Float,
         duckAMids: Boolean,
         shortBed: Boolean = false,
-        // Real-DJ long blend: beds over LONG_BED_SECONDS voice the spread
-        // long tables so voiceless pairs move mids/highs across the whole
-        // 32-bar bed instead of holding unity for its first half.
         longBed: Boolean = false,
     ): EqGains = at(outgoingKeys(type, duckAMids, shortBed, longBed), progress)
 
@@ -93,21 +88,20 @@ object EqSchedule {
 
     private fun lerp(a: Float, b: Float, t: Float): Float = a + (b - a) * t
 
-    // ---- Outgoing (Track A) -------------------------------------------------
 
     /**
      * Full-audit P1 M1: beds under this length render the phrase-switch
-     * short tables (HARMONIC only — the other types' keyframes already move
+     * short tables (HARMONIC only â€” the other types' keyframes already move
      * early). The long-bed HARMONIC taper's first mid move sits at 0.18 with
-     * the last high move at 0.88; on a 2–7 s phrase-switch bed the mids never
+     * the last high move at 0.88; on a 2â€“7 s phrase-switch bed the mids never
      * leave unity before SILENT and the per-tick steps blow the glide budget
-     * — the filter won and the EQ schedule was effectively bypassed.
+     * â€” the filter won and the EQ schedule was effectively bypassed.
      */
     const val SHORT_BED_SECONDS = 12.0
 
     /**
      * Real-DJ long blend: beds at/over this length voice the spread long-bed
-     * tables (mids/highs trade across the full 16–32 bars). Shorter beds
+     * tables (mids/highs trade across the full 16â€“32 bars). Shorter beds
      * keep the existing tables untouched.
      */
     const val LONG_BED_SECONDS = 20.0
@@ -119,9 +113,6 @@ object EqSchedule {
         longBed: Boolean = false,
     ): List<Key> = when (type) {
         TransitionType.SMOOTH_CROSSFADE -> {
-            // Finetune-overlap: mids start receding at 0.15 (~3.4 s into a
-            // 22.5 s bed), highs follow at 0.75 — the listener tracks each
-            // band separately instead of hearing one fade.
             if (duck) {
                 listOf(
                     Key(0f, EqGains.UNITY),
@@ -134,9 +125,6 @@ object EqSchedule {
                     Key(1f, EqGains.SILENT),
                 )
             } else if (longBed) {
-                // Real-DJ long blend: keep warmth per Vibes slow blend
-                // Minimal 10% steps — first mid move at 0.38 (not 0.22),
-                // highs staged so bed evolves without early energy dip.
                 listOf(
                     Key(0f, EqGains.UNITY),
                     Key(0.38f, EqGains.UNITY),
@@ -158,13 +146,7 @@ object EqSchedule {
             }
         }
         TransitionType.HARMONIC_BLEND -> {
-            // Finetune-overlap: perfect key match coexists long (unity to
-            // 0.52 voiceless); ducked mids taper from 0.18 over a ~26 s bed.
             if (shortBed) {
-                // P1 M1 short bed (phrase-switch 2–7 s, clash-shrunk beds):
-                // same gestures, compressed — first mid move ≤0.08, mids
-                // resolved by 0.60 so the voicing completes inside the bed
-                // instead of arriving at SILENT still at unity.
                 if (duck) {
                     listOf(
                         Key(0f, EqGains.UNITY),
@@ -197,9 +179,6 @@ object EqSchedule {
                     Key(1f, EqGains.SILENT),
                 )
             } else if (longBed) {
-                // Real-DJ long blend: coexist to 0.30 (not 0.52), then trade
-                // across the back two-thirds — the key match earns time, not
-                // a 30-second freeze at unity.
                 listOf(
                     Key(0f, EqGains.UNITY),
                     Key(0.30f, EqGains.UNITY),
@@ -221,8 +200,6 @@ object EqSchedule {
         }
         TransitionType.FILTER_SWEEP -> {
             if (longBed) {
-                // Parity long bed (Issue 3): same highs-first gesture, spread
-                // across a 20 s+ bed instead of spent by 0.42.
                 listOf(
                     Key(0f, EqGains.UNITY),
                     Key(0.22f, EqGains(1f, 1f, 0.90f)),
@@ -235,9 +212,6 @@ object EqSchedule {
                 )
             } else {
                 listOf(
-                    // Finetune-overlap: A exits highs-first (0.18) then mids, so the
-                    // clash is masked before B's mids emerge — never full spectrum
-                    // on both decks at once.
                     Key(0f, EqGains.UNITY),
                     Key(0.18f, EqGains(1f, 1f, 0.82f)),
                     Key(0.30f, EqGains(1f, 1f, 0.58f)),
@@ -250,11 +224,6 @@ object EqSchedule {
             }
         }
         TransitionType.ECHO_REVERB_OUT -> listOf(
-            // Finetune-overlap: bass out at 0.30 (echo bass is muddy), then a
-            // long mid taper so A dissolves into pure reverb tail by 0.88.
-            // The mid dive starts at 0.70 on the schedule: B's entry band
-            // clears before the echo tail crosses it, and the tail retains
-            // the air while the mud leaves first.
             Key(0f, EqGains.UNITY),
             Key(0.22f, EqGains(1f, 1f, 1f)),
             Key(0.30f, EqGains(0f, 1f, 1f)),
@@ -267,9 +236,6 @@ object EqSchedule {
         TransitionType.LOOP_CUT_DROP,
         TransitionType.LOOP_ROLL,
         -> listOf(
-            // Full energy to hold tension; all bands cut together before the drop.
-            // The roll extend shares the shape: the release glide is voiced by
-            // the renderer's 2-beat settle, not the table.
             Key(0f, EqGains.UNITY),
             Key(0.70f, EqGains(1f, 1f, 1f)),
             Key(0.85f, EqGains(1f, 0.70f, 1f)),
@@ -277,8 +243,6 @@ object EqSchedule {
             Key(1f, EqGains.SILENT),
         )
         TransitionType.HALF_TIME_BLEND -> {
-            // Finetune-overlap: mids touch at 0.14 (swap lands at 0.20) and
-            // taper across the bed; voiceless pairs coexist to 0.42.
             if (duck) {
                 listOf(
                     Key(0f, EqGains.UNITY),
@@ -301,8 +265,6 @@ object EqSchedule {
             }
         }
         TransitionType.PLAIN_DISSOLVE -> listOf(
-            // Hollow-fix: A holds its bass to 0.35 (was 0.24) so it overlaps
-            // B's low return — complementary handover, never both at 0.
             Key(0f, EqGains.UNITY),
             Key(0.14f, EqGains.UNITY),
             Key(0.35f, EqGains(1f, 1f, 1f)),
@@ -311,19 +273,14 @@ object EqSchedule {
             Key(1f, EqGains.SILENT),
         )
         TransitionType.HARD_CUT -> listOf(Key(0f, EqGains.UNITY), Key(1f, EqGains.UNITY))
-        // Booth octave blend: locked-grid blend at rate 1.0 — voice the
-        // SMOOTH tables (same single-owner grammar, same swap machine).
         TransitionType.OCTAVE_BLEND ->
             outgoingKeys(TransitionType.SMOOTH_CROSSFADE, duck, shortBed, longBed)
     }
 
-    // ---- Incoming (Track B) -------------------------------------------------
 
     private fun incomingKeys(type: TransitionType, delay: Boolean, longBed: Boolean = false): List<Key> = when (type) {
         TransitionType.SMOOTH_CROSSFADE -> {
             if (longBed) {
-                // Long blend: B mids hand over across the back half so combined
-                // mids stay >= ~0.85 through the 0.40-0.60 ownership window.
                 val mid = if (delay) {
                     listOf(
                         Key(0f, EqGains(1f, 0f, 1f)),
@@ -356,8 +313,6 @@ object EqSchedule {
         }
         TransitionType.HARMONIC_BLEND ->
             if (longBed) {
-                // Long blend: spread the highs-first entry across the whole bed,
-                // never two full mids from second 0 on a 32-bar blend.
                 if (delay) {
                     listOf(
                         Key(0f, EqGains(1f, 0f, 0.40f)),
@@ -393,8 +348,6 @@ object EqSchedule {
                 )
             }
         TransitionType.FILTER_SWEEP -> if (longBed) {
-            // Long blend: same highs-first gesture spread across 20s+ so mids
-            // filling in from 0.45 (not 0.32) keeps the bed warm longer.
             listOf(
                 Key(0f, EqGains(1f, 0f, 0.40f)),
                 Key(0.22f, EqGains(1f, 0f, 0.80f)),
@@ -415,9 +368,6 @@ object EqSchedule {
             Key(1f, EqGains.UNITY),
         )
         TransitionType.ECHO_REVERB_OUT -> listOf(
-            // Hollow-fix: B low never hits 0 — it dips shallow (0.55) exactly
-            // when A kills its bass at 0.30, then carries the low end while A
-            // dissolves into tail. DJ rule: one deck always holds the bass.
             Key(0f, EqGains(1f, 0f, 0.80f)),
             Key(0.30f, EqGains(0.55f, 0f, 0.82f)),
             Key(0.45f, EqGains(0.75f, 0.45f, 1f)),
@@ -428,17 +378,13 @@ object EqSchedule {
         TransitionType.LOOP_CUT_DROP,
         TransitionType.LOOP_ROLL,
         ->
-            // B silent until the drop, then full mix — the payoff.
             listOf(Key(0f, EqGains.UNITY), Key(1f, EqGains.UNITY))
         TransitionType.HALF_TIME_BLEND -> listOf(
-            // Bass killed; mids a touch softer on the approach, open by 0.10.
             Key(0f, EqGains(1f, 0.88f, 1f)),
             Key(0.10f, EqGains.UNITY),
             Key(1f, EqGains.UNITY),
         )
         TransitionType.PLAIN_DISSOLVE -> listOf(
-            // Hollow-fix: B carries a reduced bass bed (0.45) from the start
-            // and rises to meet A as A lets go at 0.35-0.45 — no dead zone.
             Key(0f, EqGains(0.45f, 1f, 1f)),
             Key(0.30f, EqGains(0.45f, 1f, 1f)),
             Key(0.45f, EqGains(0.85f, 1f, 1f)),
@@ -446,7 +392,6 @@ object EqSchedule {
             Key(1f, EqGains.UNITY),
         )
         TransitionType.HARD_CUT -> listOf(Key(0f, EqGains.UNITY), Key(1f, EqGains.UNITY))
-        // Booth octave blend: locked-grid blend — voice the SMOOTH tables.
         TransitionType.OCTAVE_BLEND ->
             incomingKeys(TransitionType.SMOOTH_CROSSFADE, delay, longBed)
     }

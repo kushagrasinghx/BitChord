@@ -1,4 +1,4 @@
-package com.music.bitchord.playback
+﻿package com.music.bitchord.playback
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
@@ -11,9 +11,9 @@ import kotlin.math.cos
 
 /**
  * Micro-fade guard at every splice point. Beat-snapped cue starts and
- * INSTANT volume cuts land mid-waveform on non-zero samples — a full-scale
+ * INSTANT volume cuts land mid-waveform on non-zero samples â€” a full-scale
  * step the speaker renders as a click. This processor sits in each player's
- * chain and softens exactly those edges with 8–10 ms equal-power ramps:
+ * chain and softens exactly those edges with 8â€“10 ms equal-power ramps:
  *
  * - Every [onFlush] (cue load, seek, fresh source) arms a 10 ms fade-in, so
  *   a spare player opening mid-waveform never starts with a step.
@@ -22,7 +22,7 @@ import kotlin.math.cos
  *
  * Steady-state audio passes through untouched: once the counters drain the
  * per-sample path is a single int comparison. 16-bit only, like the echo and
- * reverb sends — other encodings bow out with [AudioProcessor.AudioFormat.NOT_SET].
+ * reverb sends â€” other encodings bow out with [AudioProcessor.AudioFormat.NOT_SET].
  */
 @UnstableApi
 class SpliceGuardProcessor : BaseAudioProcessor() {
@@ -34,9 +34,6 @@ class SpliceGuardProcessor : BaseAudioProcessor() {
     private var fadeInFrames = 0
     private var cutOutFrames = 0
     private var cutInFrames = 0
-    // Sample-denominated totals: queueInput advances one counter per sample,
-    // and a stereo frame is two samples. Counted separately so the ramp
-    // lengths stay exactly 10/8/8 ms regardless of channel count.
     private var fadeInSamples = 0
     private var cutOutSamples = 0
     private var cutInSamples = 0
@@ -63,10 +60,6 @@ class SpliceGuardProcessor : BaseAudioProcessor() {
     }
 
     override fun onFlush() {
-        // A flush means a seek or a fresh source: the next buffer opens
-        // mid-waveform, so arm the fade-in before it arrives.
-        // DJ-only: stock upstream opens every source dry, so normal Automix
-        // never arms the fade-in (every track start/seek would soften).
         if (!AppSettings.mixsetModeEnabled.value) {
             fadeInRemaining = 0
             cutOutRemaining = 0
@@ -105,9 +98,9 @@ class SpliceGuardProcessor : BaseAudioProcessor() {
     }
 
     /**
-     * Equal-power (sin²/cos²) gains with zero slope at both endpoints, so the
+     * Equal-power (sinÂ²/cosÂ²) gains with zero slope at both endpoints, so the
      * ramp itself introduces no kink. Cut-out runs first; the cut-in starts
-     * the exact sample the cut-out reaches zero — no silent gap in between.
+     * the exact sample the cut-out reaches zero â€” no silent gap in between.
      */
     private fun gainForNextSample(): Float {
         if (cutOutRemaining > 0) {

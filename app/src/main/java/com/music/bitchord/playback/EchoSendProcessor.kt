@@ -1,4 +1,4 @@
-package com.music.bitchord.playback
+﻿package com.music.bitchord.playback
 
 import com.music.bitchord.data.TrackLog
 import androidx.media3.common.C
@@ -9,7 +9,7 @@ import java.nio.ByteOrder
 import kotlin.math.min
 
 /**
- * Blueprint §5.7 ECHO_REVERB_OUT: a tempo-synced echo send for the outgoing
+ * Blueprint Â§5.7 ECHO_REVERB_OUT: a tempo-synced echo send for the outgoing
  * track's decay tail.
  *
  * A single delay line with feedback, not a reverb convolver: the reverb-ish
@@ -22,7 +22,7 @@ import kotlin.math.min
  *
  * Wet is a target chased per sub-block, exactly like the filter's cutoff
  * glide: [CrossfadeController] re-aims it every fade tick and stepping wet in
- * 30 ms jumps would zipper. Opening to zero does NOT wipe the line — the tail
+ * 30 ms jumps would zipper. Opening to zero does NOT wipe the line â€” the tail
  * rings out naturally, which is the whole point of an echo-out. [clear] (and
  * [onFlush]) is the only thing that wipes, for seeks and fresh sources.
  */
@@ -46,7 +46,7 @@ class EchoSendProcessor : BaseAudioProcessor() {
 
     /**
      * Aims the send. [wet] 0..1 is the repeat level against dry; [delaySeconds]
-     * is the repeat period — the caller passes one bar in seconds. A zero or
+     * is the repeat period â€” the caller passes one bar in seconds. A zero or
      * negative delay parks the line length at one frame (harmless: wet gates it).
      */
     fun setEcho(wet: Float, delaySeconds: Float) {
@@ -57,7 +57,7 @@ class EchoSendProcessor : BaseAudioProcessor() {
     /** Rides the wet down; the line keeps ringing until it decays. */
     fun open() = setEcho(0f, delaySeconds)
 
-    /** Wipes the line. Seeks only — never call mid-transition. */
+    /** Wipes the line. Seeks only â€” never call mid-transition. */
     fun clear() {
         line.fill(0f)
         writePos = 0
@@ -124,9 +124,6 @@ class EchoSendProcessor : BaseAudioProcessor() {
                     val dry = inputBuffer.short.toFloat()
                     val delayed = line[readPos * channelCount + channel]
                     line[writePos * channelCount + channel] = dry + delayed * FEEDBACK
-                    // Gain-staged send: dry ducks as the repeats rise, so a hot
-                    // tail can never stack past full scale into the hard clip.
-                    // Unity when parked (wet = 0), ~0.88 dry at max wet.
                     outputBuffer.putShort(clampToShort(dry * (1f - wet * DRY_COMP) + delayed * wet))
                 }
                 writePos = (writePos + 1) % lineFrames
@@ -142,16 +139,16 @@ class EchoSendProcessor : BaseAudioProcessor() {
     companion object {
         private const val TAG = "BitChordEchoSend"
 
-        /** Repeats sit under dry: this is a send, not an instrument. −6 dB at max. */
+        /** Repeats sit under dry: this is a send, not an instrument. âˆ’6 dB at max. */
         private const val MAX_WET = 0.50f
 
         /** Each repeat keeps this much of itself. ~4 audible tails per throw. */
         private const val FEEDBACK = 0.38f
 
         /**
-         * Dry-compensation slope: dry scales by (1 − wet·DRY_COMP) as the send
+         * Dry-compensation slope: dry scales by (1 âˆ’ wetÂ·DRY_COMP) as the send
          * rises. 0.25 keeps the summed bus under full scale without thinning
-         * the dry at musical wet levels — the old 0.5 ducked the vocal just
+         * the dry at musical wet levels â€” the old 0.5 ducked the vocal just
          * when it needed to sit above the repeats.
          */
         private const val DRY_COMP = 0.25f
@@ -168,8 +165,8 @@ class EchoSendProcessor : BaseAudioProcessor() {
 
 /**
  * The two echo sends a transition rides: one over the track arriving, one
- * over the track leaving. Mirrors [TransitionFilters] — same role-swap
- * reasoning, same test seam — because the sends sit in the same per-player
+ * over the track leaving. Mirrors [TransitionFilters] â€” same role-swap
+ * reasoning, same test seam â€” because the sends sit in the same per-player
  * sinks and their roles trade places at the handoff.
  */
 interface EchoFilters {
@@ -185,7 +182,7 @@ interface EchoFilters {
         outgoing(0f, 0f)
     }
 
-    /** For callers with no audio sink — tests, and the default wiring. */
+    /** For callers with no audio sink â€” tests, and the default wiring. */
     object None : EchoFilters {
         override fun incoming(wet: Float, delaySeconds: Float) = Unit
         override fun outgoing(wet: Float, delaySeconds: Float) = Unit

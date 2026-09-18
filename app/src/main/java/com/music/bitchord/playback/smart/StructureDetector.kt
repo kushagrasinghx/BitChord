@@ -1,9 +1,9 @@
-package com.music.bitchord.playback.smart
+﻿package com.music.bitchord.playback.smart
 
 import kotlin.math.abs
 
 /**
- * v2 §2b structural section detector. Pure Kotlin, no PCM, no Android — every
+ * v2 Â§2b structural section detector. Pure Kotlin, no PCM, no Android â€” every
  * function here is unit-testable on synthetic curves.
  *
  * The native side supplies three transient inputs (see TrackFeatures):
@@ -11,14 +11,14 @@ import kotlin.math.abs
  * full-resolution (250 ms) normalized energy curve. This object folds them
  * into section labels plus the scalars the planner reads; only those outputs
  * are persisted (see AnalysisStore schema 3). The fine curves themselves are
- * never stored — kilobytes per entry for data the planner never re-reads.
+ * never stored â€” kilobytes per entry for data the planner never re-reads.
  *
  * Rules below follow the spec verbatim; deviations forced by real data carry
  * a DEVIATION note explaining why.
  */
 object StructureDetector {
 
-    /** Least-squares slope of ys over xs. 0 when degenerate. Shared with §6/§8b. */
+    /** Least-squares slope of ys over xs. 0 when degenerate. Shared with Â§6/Â§8b. */
     fun linearSlope(xs: List<Double>, ys: List<Double>): Double {
         if (xs.size != ys.size || xs.size < 2) return 0.0
         val n = xs.size
@@ -45,7 +45,7 @@ object StructureDetector {
     /**
      * Classify 4-bar windows from downbeat stride 4. Windows with no fine
      * samples are skipped; an empty map means "no evidence" and callers keep
-     * the v1 energy heuristics (spec §2b fallback).
+     * the v1 energy heuristics (spec Â§2b fallback).
      *
      * First match wins per window, in spec order:
      * DROP, BUILD, BREAK, OUTRO, INTRO, CHORUS/VERSE.
@@ -65,18 +65,12 @@ object StructureDetector {
     ): List<StructureLabel> {
         if (fine.size < 8 || meanRms <= 0 || duration <= 0) return emptyList()
         val barSeconds = if (beatInterval.isFinite() && beatInterval > 0) beatInterval * 4 else 2.0
-        // Spec slopes are per bar; measured slopes are per second over window
-        // starts, so divide by the bar length. Exact — no approximation.
         val buildRmsSlope = BUILD_RMS_SLOPE_PER_BAR / barSeconds
         val buildCentroidSlope = BUILD_CENTROID_SLOPE_PER_BAR / barSeconds
-        // Finetune v1 §1.4: spectral gate needs the track centroid mean.
         val finiteCents = centroid.filter { it.time.isFinite() && it.energy.isFinite() }.map { it.energy }
         val trackCentroidMean = if (finiteCents.isEmpty()) 0.0 else finiteCents.average()
         val bars = downbeats.filter { it.isFinite() }.sorted()
         if (bars.size < 8) return emptyList()
-        // 4-bar windows, stepping one bar for boundary resolution.
-        // Bound is strict: bar+4 == size would read bars[size] past the end
-        // (crashed every track with >=8 downbeats on-device, 2026-09-05 log).
         val windows = buildWindowStats(fine, centroid, onsets, bars)
         if (windows.isEmpty()) return emptyList()
         val trackMean = windows.map { it.rmsMean }.average()
@@ -89,21 +83,14 @@ object StructureDetector {
             return linearSlope(xs, ys)
         }
 
-        // Preceding-8-bar rising check for DROP: mean slope of rms over the
-        // two windows before, positive.
         return windows.mapIndexed { index, window ->
             val pos = window.start / duration
-            // Finetune v1 §1.1: 4-bar look-back, any 2 of 4 positive — gradual
-            // build-ups need a wider scan than 2 bars (~3.7 s @128 BPM).
             val slopeWindow = positiveSlopeBars(windows, index)
             val type = when {
                 (window.rmsMean > DROP_RMS_MULTIPLIER * meanRms &&
                     window.onsetPerSec > DROP_ONSET_MULTIPLIER * meanOnset &&
                     window.centroidMean > DROP_CENTROID_HZ &&
                     slopeWindow >= DROP_SLOPE_MIN_POSITIVE_BARS) ||
-                    // Cold-open drop: starts at full energy, no build to slope
-                    // back on. A drop in the first 12% with hot rms+onset IS
-                    // the drop.
                     (pos < DROP_COLD_OPEN_POSITION_FRACTION &&
                         window.rmsMean > DROP_RMS_MULTIPLIER * meanRms &&
                         window.onsetPerSec > DROP_ONSET_MULTIPLIER * meanOnset) ->
@@ -175,7 +162,7 @@ object StructureDetector {
      * plus a position bonus for the expected drop zone [0.20L, 0.65L].
      * Winners need >= DROP_SCORE_BEST; fallback is max-RMS in-zone but only
      * when it genuinely peaks (guards the flat-bed phantom-drop test).
-     * AMBIENT (untrusted grid) returns null — max-energy fallback downstream.
+     * AMBIENT (untrusted grid) returns null â€” max-energy fallback downstream.
      */
     fun selectFirstDrop(
         fine: List<EnergySample>,
@@ -225,9 +212,6 @@ object StructureDetector {
                     label.end > w.start - phraseSec * 2 &&
                     label.end <= w.start + barSec
             }
-            // Compressed-EDM fallback: centroid rising over the 2 phrases
-            // before the candidate counts as partial build (rms ceiling hides
-            // the slope). Fraction of rising adjacent pairs in range.
             var risingPairs = 0
             var totalPairs = 0
             for (j in 1..windows.lastIndex) {
@@ -262,9 +246,6 @@ object StructureDetector {
         }
         val winner = best?.takeIf { (it.score ?: 0.0) >= DROP_SCORE_BEST }
         if (winner != null) return winner
-        // Fallback: max-RMS in-zone, guarded — a flat bed must not report a
-        // phantom drop (MixsetTest strict-neighbor contract). No score: the
-        // fallback carries no measured confidence.
         return windows
             .filter { it.start / duration in 0.20..0.65 && it.rmsMean > 1.05 * meanRms }
             .maxByOrNull { it.rmsMean }
@@ -274,11 +255,11 @@ object StructureDetector {
     data class DropCandidate(val startSec: Double, val score: Double?)
 
     /**
-     * Spec slopes are per bar but windows step one bar while spanning four —
+     * Spec slopes are per bar but windows step one bar while spanning four â€”
      * a per-second slope over window starts equals per-bar slope / barSeconds.
      * Rather than threading tempo through, compare against the spec constant
-     * scaled by a nominal 3 s bar (≈128 BPM 4/4: bar = 1.875 s; using 3 s is
-     * the conservative direction — fewer false BUILDs on slow tracks).
+     * scaled by a nominal 3 s bar (â‰ˆ128 BPM 4/4: bar = 1.875 s; using 3 s is
+     * the conservative direction â€” fewer false BUILDs on slow tracks).
      * DEVIATION: documented approximation, errs toward fewer labels.
      */
     private fun risingBars(windows: List<WindowStats>, index: Int): Int {
@@ -305,7 +286,7 @@ object StructureDetector {
     /**
      * Single-pass proxy for "preceded by DROP/CHORUS within N bars": labels
      * are assigned in this same pass, so a loud predecessor reads as
-     * above-mean rms in the windows back. Finetune v1 §1.3: 4→8 bars — at
+     * above-mean rms in the windows back. Finetune v1 Â§1.3: 4â†’8 bars â€” at
      * 70 BPM 4 bars = 13.7 s, too narrow to link breaks after a long drop.
      */
     private fun precededByHighEnergy(
@@ -321,7 +302,7 @@ object StructureDetector {
     }
 
     /**
-     * Finetune v1 §1.1: bars with positive rms slope in the look-back —
+     * Finetune v1 Â§1.1: bars with positive rms slope in the look-back â€”
      * gradual build-ups need "any 2 of 4 positive", not a single 2-bar slope.
      */
     private fun positiveSlopeBars(windows: List<WindowStats>, index: Int): Int {
@@ -334,8 +315,8 @@ object StructureDetector {
     }
 
     /**
-     * Finetune v1 §1.4: the AND of slope<0 and last<first fails on real data
-     * (noted as bug) — OR instead: a measurable downward slope, or the last
+     * Finetune v1 Â§1.4: the AND of slope<0 and last<first fails on real data
+     * (noted as bug) â€” OR instead: a measurable downward slope, or the last
      * segment clearly quieter (12% drop) than the first.
      */
     private fun outroFalling(windows: List<WindowStats>, index: Int): Boolean {
@@ -363,12 +344,12 @@ object StructureDetector {
     }
 
     /**
-     * v2 §4 energy-gradient buildup foot, on the 250 ms fine curve.
+     * v2 Â§4 energy-gradient buildup foot, on the 250 ms fine curve.
      * Steps: (1) peak energy at [dropSec]; (2) per-sample gradient;
-     * (3) scan backward from drop−8 s for the nearest ≤0→>0 flip;
-     * (4) validate 8 s ≤ drop−foot ≤ 96 s and rise ≥ 0.25×peak;
-     * (5) caller snaps to phrase16. Null when anything fails — the caller
-     * falls back to drop−phrase (spec §4 fallback).
+     * (3) scan backward from dropâˆ’8 s for the nearest â‰¤0â†’>0 flip;
+     * (4) validate 8 s â‰¤ dropâˆ’foot â‰¤ 96 s and rise â‰¥ 0.25Ã—peak;
+     * (5) caller snaps to phrase16. Null when anything fails â€” the caller
+     * falls back to dropâˆ’phrase (spec Â§4 fallback).
      */
     fun gradientBuildup(
         fine: List<EnergySample>,
@@ -383,8 +364,8 @@ object StructureDetector {
     }
 
     /**
-     * Spec finetune §6.1 step 2: the raw inflection — nearest ≤0→>0 gradient
-     * flip scanning back from drop−8 s — with NO span/rise validation. The
+     * Spec finetune Â§6.1 step 2: the raw inflection â€” nearest â‰¤0â†’>0 gradient
+     * flip scanning back from dropâˆ’8 s â€” with NO span/rise validation. The
      * caller decides whether the climb earns it (validated) or merely leans
      * up (monotonic). Null when the curve never turns upward before the drop.
      */
@@ -411,7 +392,7 @@ object StructureDetector {
     }
 
     /**
-     * Spec finetune §6.1 step 2 gate: more than half the fine windows from
+     * Spec finetune Â§6.1 step 2 gate: more than half the fine windows from
      * foot to drop slope upward. A monotonic lean earns the inflection even
      * when the climb is too shallow to pass the rise threshold.
      */
@@ -446,7 +427,6 @@ object StructureDetector {
         }
         val span = dropSec - footSec
         if (span < MIXSET_BUILDUP_MIN_SECONDS || span > MIXSET_BUILDUP_MAX_SECONDS) return false
-        // Rise over the climb: mean energy from foot to drop vs foot.
         var sum = 0.0
         var n = 0
         var tt = footSec

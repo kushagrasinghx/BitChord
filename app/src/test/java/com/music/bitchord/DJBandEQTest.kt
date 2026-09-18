@@ -1,4 +1,4 @@
-package com.music.bitchord
+﻿package com.music.bitchord
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
@@ -14,14 +14,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The DJ 3-band EQ splits LOW (< 200 Hz), MID (200–4000 Hz) and HIGH (> 4 kHz)
+ * The DJ 3-band EQ splits LOW (< 200 Hz), MID (200â€“4000 Hz) and HIGH (> 4 kHz)
  * with two Butterworth crossovers, and each band has an independent gain.
  *
  * Worth its own tests because every way of getting a crossover wrong is
  * silent: swapped coefficients or a leaking band don't fail the build, they
  * just make every bass swap and vocal duck subtly wrong in a way nobody can
  * localize by listening. Sine probes pin each band to its frequency range,
- * and the unity test pins the spec's flatness requirement (sum ≈ flat).
+ * and the unity test pins the spec's flatness requirement (sum â‰ˆ flat).
  */
 @UnstableApi
 class DJBandEQTest {
@@ -80,11 +80,8 @@ class DJBandEQTest {
         eq.open()
         val out = runThrough(eq, sineBuffer(1_000.0))
         val frames = out.size / channels
-        // Skip the first 0.2 s: zeroed filter state needs a few ms to settle.
-        // Compare against the analytic RMS of a 0.5-peak sine (0.5/sqrt(2)).
         val expected = 16_000.0 / 32768.0 / sqrt(2.0)
         val actual = rms(out, (sampleRate * 0.2).toInt(), frames)
-        // Spec checklist: 3-band sum flat within ±0.5 dB (ratio 0.944–1.059).
         assertEquals(expected, actual, expected * 0.06)
     }
 
@@ -126,11 +123,8 @@ class DJBandEQTest {
     fun `a gain change glides instead of snapping`() {
         val eq = eq()
         eq.open()
-        // Prime the smoother at unity.
         runThrough(eq, sineBuffer(1_000.0, seconds = 0.5))
         eq.setGains(0f, 1f, 1f)
-        // One 64-sample block right after the kill: the glide (~30 ms) must
-        // still be near unity, proving the target stepped nothing audible.
         val first = runThrough(eq, sineBuffer(1_000.0, seconds = 64.0 / sampleRate))
         val r = rms(first, 0, first.size / channels)
         assertTrue("first block after LOW kill should still be loud (glide), was $r", r > 0.15)

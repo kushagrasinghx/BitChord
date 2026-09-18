@@ -1,4 +1,4 @@
-package com.music.bitchord.playback
+﻿package com.music.bitchord.playback
 
 import com.music.bitchord.data.TrackLog
 import androidx.media3.common.C
@@ -13,15 +13,15 @@ import kotlin.math.sin
 
 /**
  * The 3-band DJ EQ a track rides through a Automix transition: LOW (< 200 Hz),
- * MID (200–4000 Hz), HIGH (> 4000 Hz), each with an independent gain per deck.
+ * MID (200â€“4000 Hz), HIGH (> 4000 Hz), each with an independent gain per deck.
  *
  * ## Why this exists
  *
  * [CrossfadeController] renders every transition as an equal-power gain blend
  * plus a single LP/HP sweep per player, and neither can fix what actually makes
  * a mix sound amateur: two basslines and two vocals occupying the same spectrum
- * at once. A real DJ mixer controls per-band gain on both decks simultaneously —
- * one deck holds the bass while the other holds the mids — and this is that
+ * at once. A real DJ mixer controls per-band gain on both decks simultaneously â€”
+ * one deck holds the bass while the other holds the mids â€” and this is that
  * control, driven per-tick by the EQ schedule for the active transition type.
  *
  * ## The filter
@@ -30,7 +30,7 @@ import kotlin.math.sin
  * Butterworth biquads per crossover (per-stage Q = 1/sqrt(2)), giving
  * 24 dB/octave with in-phase outputs, so LP + complementary HP sums back
  * to the input flat. The old single-biquad 12 dB/octave slope leaked bass
- * an octave above the crossover — both kicks fully present 200–400 Hz —
+ * an octave above the crossover â€” both kicks fully present 200â€“400 Hz â€”
  * which is the "two basslines at once" mud the satisfaction round chased.
  * The high band is derived as input minus the two low-pass outputs, so
  * unity gains reproduce the input bit-exactly apart from float rounding.
@@ -40,7 +40,7 @@ import kotlin.math.sin
  * 16-bit PCM in and out, matching every other processor in the chain. Biquad
  * math runs in float internally with a clamp on the way out. A float-only stage
  * would bow out in normal (S16) playback and only come alive in USB-float mode
- * — inverted from intent — so this follows the [TransitionFilterProcessor]
+ * â€” inverted from intent â€” so this follows the [TransitionFilterProcessor]
  * contract instead: non-S16 input returns NOT_SET and the chain routes around.
  *
  * ## Gliding
@@ -91,8 +91,8 @@ class DJBandEQ : BaseAudioProcessor() {
     private var highA2 = 0f
 
     /**
-     * Aims one band. Gains outside [0, 1] are meaningless here — the EQ only
-     * ever removes content — and a typo shouldn't be able to boost.
+     * Aims one band. Gains outside [0, 1] are meaningless here â€” the EQ only
+     * ever removes content â€” and a typo shouldn't be able to boost.
      */
     fun setGains(low: Float, mid: Float, high: Float) {
         targetLow = low.coerceIn(0f, 1f)
@@ -100,7 +100,7 @@ class DJBandEQ : BaseAudioProcessor() {
         targetHigh = high.coerceIn(0f, 1f)
     }
 
-    /** Parks all bands at unity. Glided, not snapped — see the class doc. */
+    /** Parks all bands at unity. Glided, not snapped â€” see the class doc. */
     fun open() = setGains(1f, 1f, 1f)
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -131,8 +131,6 @@ class DJBandEQ : BaseAudioProcessor() {
         lowStateB.fill(0f)
         highState.fill(0f)
         highStateB.fill(0f)
-        // Snapped, not glided: a flush means a seek or a fresh source, so there
-        // is no continuous signal for a glide to be continuous with.
         smoothLow = targetLow
         smoothMid = targetMid
         smoothHigh = targetHigh
@@ -158,19 +156,10 @@ class DJBandEQ : BaseAudioProcessor() {
         val wantLow = targetLow
         val wantMid = targetMid
         val wantHigh = targetHigh
-        // Parked at unity *and* already settled there: nothing to do but hand
-        // the buffer straight through. Same contract as the sweep filter — a
-        // transition that has just finished is still gliding back to unity,
-        // and cutting the EQ out from under that glide is the click it exists
-        // to avoid.
         val parked = wantLow >= 1f && wantMid >= 1f && wantHigh >= 1f &&
             smoothLow > 1f - SETTLED_GAIN && smoothMid > 1f - SETTLED_GAIN &&
             smoothHigh > 1f - SETTLED_GAIN
         if (parked) {
-            // Keep the biquad states warm while parked: disengaging from
-            // seconds-old x1/y1 against fresh input starts the filters from
-            // stale memory (audible transient). Compute-and-discard costs two
-            // biquads and keeps re-engage continuous.
             inputBuffer.mark()
             inputBuffer.order(ByteOrder.nativeOrder())
             repeat(frameCount) {
@@ -240,9 +229,6 @@ class DJBandEQ : BaseAudioProcessor() {
     }
 
     private fun computeCoefficients(cutoffHz: Float, sampleRate: Int, isLow: Boolean) {
-        // Clamped below Nyquist like the sweep filter's usableCutoff: the
-        // bilinear transform warps to infinity at Nyquist, and a 4 kHz
-        // crossover on an 8 kHz voice note must not explode.
         val fc = cutoffHz.coerceIn(MIN_HZ, sampleRate * MAX_CUTOFF_FRACTION)
         val w0 = 2f * PI.toFloat() * fc / sampleRate
         val alpha = sin(w0) / (2f * BUTTERWORTH_Q)
@@ -266,10 +252,10 @@ class DJBandEQ : BaseAudioProcessor() {
     companion object {
         private const val TAG = "BitChordDJBandEQ"
 
-        /** Kick lives 40–120 Hz with harmonics to ~250; the low crossover sits just above the harmonics. */
+        /** Kick lives 40â€“120 Hz with harmonics to ~250; the low crossover sits just above the harmonics. */
         const val LOW_CROSSOVER_HZ = 250f
 
-        /** Vocal formants peak at 1–4 kHz, so intelligibility stays in MID below this. */
+        /** Vocal formants peak at 1â€“4 kHz, so intelligibility stays in MID below this. */
         const val HIGH_CROSSOVER_HZ = 4000f
 
         private const val BUTTERWORTH_Q = 0.7071f
@@ -305,10 +291,10 @@ class DJBandEQ : BaseAudioProcessor() {
  * the lap.
  */
 interface EqFilters {
-    /** The track fading up — the session player, once the lap has handed the queue over. */
+    /** The track fading up â€” the session player, once the lap has handed the queue over. */
     fun incoming(low: Float, mid: Float, high: Float)
 
-    /** The track fading out — the ghost player. */
+    /** The track fading out â€” the ghost player. */
     fun outgoing(low: Float, mid: Float, high: Float)
 
     /** Parks both decks at unity. Called whenever a transition ends, however it ended. */
@@ -317,7 +303,7 @@ interface EqFilters {
         outgoing(1f, 1f, 1f)
     }
 
-    /** For callers with no audio sink to EQ — tests, and the default wiring. */
+    /** For callers with no audio sink to EQ â€” tests, and the default wiring. */
     object None : EqFilters {
         override fun incoming(low: Float, mid: Float, high: Float) = Unit
         override fun outgoing(low: Float, mid: Float, high: Float) = Unit

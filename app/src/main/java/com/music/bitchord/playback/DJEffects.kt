@@ -1,4 +1,4 @@
-package com.music.bitchord.playback
+﻿package com.music.bitchord.playback
 
 /**
  * Orchestrates all DJ-gated audio processors. Groups the per-deck
@@ -48,7 +48,7 @@ class DJEffects {
     /** Returns the active brake/dive processor for the outgoing deck. */
     fun activeBrakeDive(): BrakeDiveProcessor = activeBrakeDive
 
-    /** Open all processors — tails ring out naturally. */
+    /** Open all processors â€” tails ring out naturally. */
     fun open() {
         activeEcho.open()
         activeReverb.open()
@@ -58,10 +58,7 @@ class DJEffects {
         activeBrakeDive.ride()
     }
 
-    // Full-audit F7: close/bail wipe tails immediately (they used to mirror
-    // open(), ringing ~2.5 s on a skip-interrupt). Ring buffers are cleared,
-    // gains parked, brake ridden to zero.
-    /** Close all processors — wipe tails immediately. */
+    /** Close all processors â€” wipe tails immediately. */
     fun close() {
         activeEcho.clear()
         activeReverb.clear()
@@ -71,7 +68,7 @@ class DJEffects {
         activeBrakeDive.ride()
     }
 
-    /** Emergency bail — cut all tails immediately. */
+    /** Emergency bail â€” cut all tails immediately. */
     fun bail() {
         activeEcho.clear()
         activeReverb.clear()

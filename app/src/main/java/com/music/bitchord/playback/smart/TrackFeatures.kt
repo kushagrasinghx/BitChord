@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Ported from Orchard (https://github.com/SFG5453/Orchard).
  *
  * Copyright (C) 2026 SFG545 (original Orchard implementation)
@@ -30,7 +30,7 @@ import org.json.JSONObject
  * analyzer (`native/analyzer/audio_analysis.cpp`).
  *
  * This answers "where does the music actually end, where can a transition
- * enter and leave, how loud is it there, and is anyone singing" — the
+ * enter and leave, how loud is it there, and is anyone singing" â€” the
  * transition policy needs a beat grid (also produced here, from
  * autocorrelation) to know how to mix, and these features to know *where*,
  * and through the energy curve, whether an interior mix-out anchor would
@@ -67,7 +67,7 @@ object TrackFeatures {
 
     /**
      * Converts mono float PCM from [inputRate] to [sampleRate] (or any other
-     * target), with an anti-aliasing windowed-sinc filter — see
+     * target), with an anti-aliasing windowed-sinc filter â€” see
      * `native/analyzer/resampler.cpp`.
      *
      * Returns the input unchanged when the rates already match, and null when
@@ -95,7 +95,6 @@ object TrackFeatures {
         val mixInTime: Double,
         val mixOutTime: Double,
         val vocalProbability: Double,
-        // Full-plan P4: master descriptors, re-emitted by the JNI bridge.
         val loudnessLufs: Double = -70.0,
         val peakDbfs: Double = -70.0,
         val dynamicRangeDb: Double = 0.0,
@@ -106,8 +105,6 @@ object TrackFeatures {
         val lowEnergyCurve: List<EnergySample>,
         val mixInCandidates: List<MixCandidate>,
         val mixOutCandidates: List<MixCandidate>,
-        // v2 §2b: structural detector inputs. Transient — parsed for the
-        // detector, never written to the store (see StructureDetector).
         val onsetTimes: List<Double> = emptyList(),
         val spectralCentroidCurve: List<EnergySample> = emptyList(),
         val energyCurveFine: List<EnergySample> = emptyList(),

@@ -1,4 +1,4 @@
-package com.music.bitchord.playback
+﻿package com.music.bitchord.playback
 
 import com.music.bitchord.data.TrackLog
 import androidx.media3.common.C
@@ -12,19 +12,19 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Blueprint §5.7 LOOP_CUT_DROP: a real quantized loop vamp for the outgoing
+ * Blueprint Â§5.7 LOOP_CUT_DROP: a real quantized loop vamp for the outgoing
  * track's buildup, DJ-booth style.
  *
  * What a DJ does with a loop-and-build: engage a beat-quantized loop on the
  * outgoing deck (4 beats is the workhorse for transition cover), halve it
- * repeatedly (4 → 2 → 1 → 1/2) while a high-pass filter and echo rise over
+ * repeatedly (4 â†’ 2 â†’ 1 â†’ 1/2) while a high-pass filter and echo rise over
  * it, then release the loop and kill the deck on the downbeat as the
  * incoming track's drop lands. The playhead never stops advancing (slip
  * semantics), so phrasing stays intact.
  *
  * Why PCM-level instead of player seeks: re-issuing media items or seeking
  * the outgoing player mid-transition re-prepares its decoder and flams every
- * repeat by the seek latency (50–200 ms). A ring buffer repeats with an
+ * repeat by the seek latency (50â€“200 ms). A ring buffer repeats with an
  * internal equal-power micro-crossfade at the wrap point, so repeats are
  * sample-continuous and `player.currentPosition` (source media time, which
  * the controller schedules off) is never disturbed.
@@ -33,7 +33,7 @@ import kotlin.math.sin
  *
  * The ring always records the last [RING_SECONDS] of input. Engaging
  * ([setVampLoop] with beats > 0) snapshots the loop region as the *next*
- * frames to arrive — the first pass plays live while being captured (exactly
+ * frames to arrive â€” the first pass plays live while being captured (exactly
  * like pressing auto-loop on a CDJ: the loop plays through once, then
  * repeats). Halving keeps the loop start and shortens the length, applied at
  * the next wrap so a length change can never click mid-pass.
@@ -41,12 +41,12 @@ import kotlin.math.sin
  * ## Wrap clicks
  *
  * The wrap blends the loop tail into the loop head over [XFADE_MS]
- * equal-power (sin²/cos²), so no level dip and no step. Never fire
- * [SpliceGuardProcessor.triggerCut] per iteration for this — a 16 ms notch at
+ * equal-power (sinÂ²/cosÂ²), so no level dip and no step. Never fire
+ * [SpliceGuardProcessor.triggerCut] per iteration for this â€” a 16 ms notch at
  * the wrap rate would pump. The guard stays downstream as the safety net for
  * the final hard cut.
  *
- * 16-bit PCM only, like the echo/reverb sends — other encodings bow out with
+ * 16-bit PCM only, like the echo/reverb sends â€” other encodings bow out with
  * [AudioProcessor.AudioFormat.NOT_SET].
  */
 @UnstableApi
@@ -92,7 +92,7 @@ class LoopVampProcessor : BaseAudioProcessor() {
     fun open() = setVampLoop(0f, targetBeatSeconds)
 
     /**
-     * Wipes the ring and drops the live loop. Seeks only — never call
+     * Wipes the ring and drops the live loop. Seeks only â€” never call
      * mid-transition. Targets are kept: a reconfigure mid-vamp re-engages
      * from the fresh stream (first pass live, seamless), while a parked
      * processor stays parked because its targets are already zero.
@@ -156,10 +156,6 @@ class LoopVampProcessor : BaseAudioProcessor() {
         if (parked) {
             if (vampOn) vampOn = false
         } else if (!vampOn) {
-            // Engage: the loop region is the next frames to arrive — first
-            // pass plays live (seamless by construction), then repeats. This
-            // is the CDJ auto-loop gesture: press on the beat, play through
-            // once, repeat.
             loopStartAbs = writeAbs
             loopLenFrames = (targetLoopBeats * targetBeatSeconds * sampleRate).toInt()
                 .coerceIn(1, ringFrames - 1024)
@@ -170,8 +166,6 @@ class LoopVampProcessor : BaseAudioProcessor() {
 
         var remaining = frameCount
         while (remaining > 0) {
-            // The ring always records: engage snapshots the upcoming frames,
-            // and history stays valid for the whole vamp.
             val wIdx = ((writeAbs % ringFrames).toInt() * channelCount)
             for (channel in 0 until channelCount) {
                 ring[wIdx + channel] = inputBuffer.short.toFloat()
@@ -179,13 +173,10 @@ class LoopVampProcessor : BaseAudioProcessor() {
             writeAbs++
 
             if (!vampOn) {
-                // Parked: output the frame just recorded (= the input).
                 for (channel in 0 until channelCount) {
                     outputBuffer.putShort(clampToShort(ring[wIdx + channel]))
                 }
             } else if (xfadeLeft > 0) {
-                // Wrap crossfade: tail of the loop pass yields to its head,
-                // equal-power so the repeat has no dip and no step.
                 val k = xfadePos
                 val t = (k + 1).toFloat() / (xfadeFrames + 1).toFloat()
                 val c = cos(t * PI / 2.0).toFloat()
@@ -200,8 +191,6 @@ class LoopVampProcessor : BaseAudioProcessor() {
                 xfadePos++
                 xfadeLeft--
                 if (xfadeLeft == 0) {
-                    // Halving keeps the loop start; the new length voices
-                    // from the next pass.
                     loopLenFrames = wantLenOf(targetLoopBeats, targetBeatSeconds)
                     readAbs = loopStartAbs + xfadeFrames
                 }
@@ -216,7 +205,6 @@ class LoopVampProcessor : BaseAudioProcessor() {
                     xfadeLeft = xfadeFrames
                     xfadePos = 0
                 } else if (readAbs >= loopEndAbs) {
-                    // Degenerate tiny loop: wrap without a crossfade window.
                     loopLenFrames = wantLenOf(targetLoopBeats, targetBeatSeconds)
                     readAbs = loopStartAbs
                 }
@@ -251,7 +239,7 @@ class LoopVampProcessor : BaseAudioProcessor() {
 /**
  * The two loop vamps a transition rides: the vamp only ever runs on the
  * outgoing deck (pre- and post-handoff it sits on the spare player), so the
- * surface is outgoing-only plus a both-decks [open]. Mirrors [EchoFilters] —
+ * surface is outgoing-only plus a both-decks [open]. Mirrors [EchoFilters] â€”
  * same role reasoning, same test seam.
  */
 interface LoopVamps {
@@ -263,7 +251,7 @@ interface LoopVamps {
         outgoing(0f, 0f)
     }
 
-    /** For callers with no audio sink — tests, and the default wiring. */
+    /** For callers with no audio sink â€” tests, and the default wiring. */
     object None : LoopVamps {
         override fun outgoing(loopBeats: Float, beatSeconds: Float) = Unit
     }

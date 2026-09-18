@@ -1,17 +1,17 @@
-package com.music.bitchord.playback.smart
+﻿package com.music.bitchord.playback.smart
 
 /**
  * P2-smart: the mix conductor. One decision, made once at plan time, that
  * the renderer then performs without improvisation.
  *
  * Before this, five mechanisms (duck keys, proactive cut, separation,
- * mid-kill, volume mute) each read their own gate every tick — sometimes two
+ * mid-kill, volume mute) each read their own gate every tick â€” sometimes two
  * of them fought over the same band (proactive opening what separation was
- * shaping), sometimes none of them fired (vocalOverlap == 0 → whole cast
+ * shaping), sometimes none of them fired (vocalOverlap == 0 â†’ whole cast
  * stands down) and the EQ did nothing. The conductor replaces the cast's
  * independent judgment with a single per-pair recipe: it reads the model's
- * evidence once — vocal masks on both sides, drop trust, buildup shape,
- * intro/outro quality, trajectory — and states which of the four DJ moves
+ * evidence once â€” vocal masks on both sides, drop trust, buildup shape,
+ * intro/outro quality, trajectory â€” and states which of the four DJ moves
  * this pair gets. Render actors keep their hands (they still voice their
  * band) but lose their vote (they never re-decide).
  */
@@ -30,7 +30,7 @@ enum class MixRecipe {
     INSTRUMENTAL_BED,
     /**
      * Unblendable pair (weak tempo/key, weak ends, heavy clash): the wash.
-     * Echo/reverb carry the exit while the outgoing mids still cut early —
+     * Echo/reverb carry the exit while the outgoing mids still cut early â€”
      * a wash with no mud underneath. Exempt from the volume mute, as before.
      */
     WASH_OUT,
@@ -39,10 +39,10 @@ enum class MixRecipe {
 }
 
 /**
- * Picks the recipe. Pure — all inputs are plan-time evidence, so the same
+ * Picks the recipe. Pure â€” all inputs are plan-time evidence, so the same
  * pair always gets the same show.
  *
- * @param type the matrix verdict (routes wash/cut families first — a pair
+ * @param type the matrix verdict (routes wash/cut families first â€” a pair
  *   the matrix refused to blend never auditions for a blend recipe).
  * @param duckA delayB forceDuck the vocal evidence the renderer will ride on
  *   (ARM flags + choke keys): any of them true means a voice is in play.
@@ -66,7 +66,6 @@ fun selectMixRecipe(
         TransitionType.LOOP_CUT_DROP,
         TransitionType.LOOP_ROLL,
         -> {
-            // A cut on an unmeasured drop is a guess with a knife: wash it.
             if ((type == TransitionType.LOOP_CUT_DROP || type == TransitionType.LOOP_ROLL) &&
                 dropConfidence == null
             ) {

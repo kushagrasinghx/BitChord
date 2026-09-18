@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Ported from Orchard (https://github.com/SFG5453/Orchard).
  *
  * Copyright (C) 2026 SFG545 (original Orchard implementation)
@@ -48,7 +48,7 @@ private const val POLICY_TAG = "BitChordPolicy"
 /**
  * Last mixset anchor verdict logged; the planner calls
  * [mixsetMixOutAnchor] every tick, so only distinct decisions are logged.
- * The per-tick fields (t=, pos=) are stripped from the dedupe key — otherwise
+ * The per-tick fields (t=, pos=) are stripped from the dedupe key â€” otherwise
  * every 250 ms tick formats a novel string and the "once" never fires
  * (field log 2026-09-05: 60+ rescue lines in 3 minutes).
  */
@@ -83,11 +83,9 @@ const val MIN_BPM = 40.0
 const val MAX_BPM = 220.0
 
 /** How far a tempo pairing may drift from unity and still be considered transparent to stretch.
- * Tempo-transparency fix: ±2 % (≈1/3 semitone) stays under the audibility band;
+ * Tempo-transparency fix: Â±2 % (â‰ˆ1/3 semitone) stays under the audibility band;
  * anything wider falls back to a wash at rate 1.0 instead of a stretched beatmatch. */
 const val MAX_STRETCH_DEVIATION = 0.02
-// Stock upstream (7039430) stretch bound, used on the normal Automix path.
-// DJ Mode keeps the tighter ±2 % bound above.
 const val STOCK_MAX_STRETCH_DEVIATION = 0.04
 
 /**
@@ -116,16 +114,11 @@ private const val AUDIBLE_ENERGY_FRACTION = 0.1
  * "the file starts making sound" and a phrase boundary is only a grid line.
  */
 private val MIX_IN_TYPE_WEIGHT = mapOf(
-    // Finetune v1 §3.2: normal automix should land BEFORE the drop (context
-    // first); the intro drop is the ideal entry. Mixset bypasses this ranking
-    // via buildupStart.
     "main_drop" to 0.40,
     "intro_drop" to 0.50,
     "pickup" to 0.22,
     "phrase" to 0.12,
 )
-// Stock upstream (7039430) entry weights, used on the normal Automix path.
-// DJ Mode keeps the retuned map above.
 private val STOCK_MIX_IN_TYPE_WEIGHT = mapOf(
     "main_drop" to 0.5,
     "intro_drop" to 0.4,
@@ -146,8 +139,6 @@ private val MIX_OUT_TYPE_SCORE = mapOf(
     "low_energy" to 0.55,
     "blueprint_fallback" to 0.35,
 )
-// Stock upstream (7039430) exit scores, used on the normal Automix path.
-// DJ Mode keeps the retuned map above.
 private val STOCK_MIX_OUT_TYPE_SCORE = mapOf(
     "energy_cliff" to 0.95,
     "interior_mix_out" to 0.95,
@@ -155,46 +146,42 @@ private val STOCK_MIX_OUT_TYPE_SCORE = mapOf(
     "content_end" to 0.75,
 )
 
-/** Finetune v1 §2.3: low-energy candidate inside a BREAK scores near the top. */
+/** Finetune v1 Â§2.3: low-energy candidate inside a BREAK scores near the top. */
 const val LOW_ENERGY_BREAK_BOOST_SCORE = 0.80
 
 /**
- * When blueprint §7 candidates are active, the mix-out may end far earlier
- * than the old 12 s tail budget allows — the length-60 s fallback alone can
+ * When blueprint Â§7 candidates are active, the mix-out may end far earlier
+ * than the old 12 s tail budget allows â€” the length-60 s fallback alone can
  * skip a minute of music. The windowed budget covers exactly that.
  */
 const val BLUEPRINT_WINDOW_DISCARD_BUDGET = 75.0
 
-// ---------------------------------------------------------------------------
-// Pipeline spec v2 §10: tuned constants. Replacements for v1 counterparts;
-// rationale in comments. All values below come from the spec, verbatim.
-// ---------------------------------------------------------------------------
 
-/** v2 §10: 0.65 was too aggressive on vocal-heavy genres. */
+/** v2 Â§10: 0.65 was too aggressive on vocal-heavy genres. */
 const val VOCAL_DISCARD_THRESHOLD = 0.72
-/** v2 §10: soft vocal penalty starts slightly earlier than the old implied 0.60. */
+/** v2 Â§10: soft vocal penalty starts slightly earlier than the old implied 0.60. */
 const val VOCAL_SOFT_PENALTY = 0.55
-/** Finetune v1 §2.1 P1: strong zone above 0.65 gets ×3.0; soft zone ×1.8. */
+/** Finetune v1 Â§2.1 P1: strong zone above 0.65 gets Ã—3.0; soft zone Ã—1.8. */
 const val VOCAL_STRONG_ZONE = 0.65
 const val VOCAL_STRONG_MULTIPLIER = 3.0
 const val VOCAL_SOFT_MULTIPLIER = 1.8
-/** Finetune v1 §2.1: timing buffer around each exit candidate. */
+/** Finetune v1 Â§2.1: timing buffer around each exit candidate. */
 const val VOCAL_EXIT_TIMING_WINDOW = 1.5
-/** v2 §10: key confidence floor for scoring; below it the key reads neutral. */
+/** v2 Â§10: key confidence floor for scoring; below it the key reads neutral. */
 const val MIN_KEY_CONFIDENCE_FOR_SCORING = 0.30
-/** v2 §10: an unconfident key must not veto the whole plan. */
+/** v2 Â§10: an unconfident key must not veto the whole plan. */
 const val NEUTRAL_KEY_SCORE_BELOW_CONF = 0.50
 
-/** v2 §6: overlap stretch when A falls while B rises (ideal blend). */
+/** v2 Â§6: overlap stretch when A falls while B rises (ideal blend). */
 const val OVERLAP_ENERGY_STRETCH_FACTOR = 1.50
-/** v2 §6: overlap tighten when both tracks rise (avoid mud). */
+/** v2 Â§6: overlap tighten when both tracks rise (avoid mud). */
 const val OVERLAP_ENERGY_TIGHTEN_FACTOR = 0.75
 
-/** v2 §10: wider bass-swap ramp, smoother handover. */
+/** v2 Â§10: wider bass-swap ramp, smoother handover. */
 const val BASS_SWAP_WIDTH_V2 = 0.20
-/** v2 §7a: virtual mid-kill upper LP (FILTER_SWEEP only, keyScore < 0.50). */
+/** v2 Â§7a: virtual mid-kill upper LP (FILTER_SWEEP only, keyScore < 0.50). */
 const val MID_KILL_LP_HZ = 700.0
-/** v2 §7a: virtual mid-kill lower HP entry. */
+/** v2 Â§7a: virtual mid-kill lower HP entry. */
 const val MID_KILL_HP_HZ = 350.0
 /** Review v2.1 B1: outgoing LP ramp start for the staggered mid-kill. */
 const val MID_KILL_START_HZ = 1200.0
@@ -203,7 +190,7 @@ const val MID_KILL_STAGGERED_HP_HZ = 500.0
 /** Review v2.1 B1: outgoing LP bed after the handoff completes. */
 const val MID_KILL_BED_HZ = 300.0
 
-/** Finetune v1 §1: structural detector thresholds. */
+/** Finetune v1 Â§1: structural detector thresholds. */
 const val DROP_RMS_MULTIPLIER = 1.25
 const val DROP_ONSET_MULTIPLIER = 1.25
 const val DROP_CENTROID_HZ = 2500.0
@@ -229,7 +216,7 @@ const val COLD_OPEN_RMS_FRACTION = 0.85
 const val AMBIENT_BEAT_CONF = 0.28
 const val AMBIENT_ONSET_DENSITY = 1.8
 const val AMBIENT_RMS_VARIANCE = 0.04
-/** Exit-entry spec Fix 1: scored drop selection — acceptance and winner gates. */
+/** Exit-entry spec Fix 1: scored drop selection â€” acceptance and winner gates. */
 const val DROP_SCORE_ACCEPT = 0.45
 const val DROP_SCORE_BEST = 0.55
 /** Exit-entry spec Fix 1: drop-zone position bonus/penalty. */
@@ -247,7 +234,7 @@ const val DROP_SUSTAIN_STEPS = 2
 const val DROP_CENTROID_BUILD_FRACTION = 0.60
 /** Exit-entry spec Fix 2: drop play-through before a post-drop exit. */
 const val MIN_DROP_PLAY_THROUGH_PHRASES = 2.0
-/** Exit-entry spec Fix 3: buildup↔drop distance validation. */
+/** Exit-entry spec Fix 3: buildupâ†”drop distance validation. */
 const val MIN_BUILDUP_TO_DROP_SECONDS = 8.0
 const val MAX_BUILDUP_TO_DROP_SECONDS = 90.0
 /** Exit-entry spec Fix 4: vocal check on the mixset entry. */
@@ -259,23 +246,20 @@ const val MIXSET_ENTRY_VOCAL_ACCEPT = 0.40
 const val LATE_DROP_WINDOW_LOW = 0.72
 const val LATE_DROP_WINDOW_HIGH = 0.82
 
-/** v2 §8: replaces the unbounded buildup walk; 90 s = ~4 phrases. */
+/** v2 Â§8: replaces the unbounded buildup walk; 90 s = ~4 phrases. */
 const val MIXSET_BUILDUP_MAX_SECONDS = 90.0
-/** v2 §8b: cooldown window must be falling, not flat or rising. */
+/** v2 Â§8b: cooldown window must be falling, not flat or rising. */
 const val MIXSET_COOLDOWN_SLOPE_THRESHOLD = -0.002
 
-/** v2 §9a: silence-gap cutter thresholds. */
+/** v2 Â§9a: silence-gap cutter thresholds. */
 const val SILENCE_RMS_THRESHOLD = 0.08
 const val SILENCE_MIN_DURATION_SECONDS = 0.6
-/** v2 §9a: PLAIN_DISSOLVE reverb wet on the outgoing track. Voiced under the DSP cap. */
-// Full-plan P5: authored 0.40 exceeded DSP MAX_WET=0.34 and clipped ~1 dB
-// silently every dissolve — plan at or under the clamp from now on.
+/** v2 Â§9a: PLAIN_DISSOLVE reverb wet on the outgoing track. Voiced under the DSP cap. */
 const val PLAIN_DISSOLVE_REVERB_WET = 0.30
-/** v2 §9b: heavy-clash forced echo/reverb amounts (voiced under the DSP caps). */
-// Full-plan P5: authored 0.45 clipped against MAX_WET=0.34 — cap it here.
+/** v2 Â§9b: heavy-clash forced echo/reverb amounts (voiced under the DSP caps). */
 const val HEAVY_CLASH_REVERB_WET = 0.34
 const val HEAVY_CLASH_ECHO_AMOUNT = 0.50
-/** v2 §9b: reverb freeze point after transition start. */
+/** v2 Â§9b: reverb freeze point after transition start. */
 const val HEAVY_CLASH_FREEZE_OFFSET_SEC = 3.5
 /** Automix reverb: echo-out wash voices the DSP max (ReverbProcessor MAX_WET = 0.34). */
 const val ECHO_OUT_REVERB_WET = 0.34
@@ -326,9 +310,9 @@ fun vocalActivityBetween(analysis: TrackAnalysis, start: Double, end: Double): D
 
 /**
  * First instant at/after [fromSec] where the vocal mask stays active for
- * [minActiveSec] (0.5s default — one hot frame never trips it), or null when
+ * [minActiveSec] (0.5s default â€” one hot frame never trips it), or null when
  * no vocal starts before [untilSec] or the mask is unusable. Pure scan of the
- * analyzer mask — lets ARM time B's mid-delay to B's actual vocal phrase
+ * analyzer mask â€” lets ARM time B's mid-delay to B's actual vocal phrase
  * instead of a fixed 16-beat window.
  */
 fun firstVocalStartSec(
@@ -359,8 +343,8 @@ fun firstVocalStartSec(
 
 /**
  * First instant at/after [fromSec] where the vocal mask stays quiet for
- * [quietSec] (2s default — a breath between phrases), or null when the track
- * sings wall-to-wall before [untilSec] or the mask is unusable. Pure scan —
+ * [quietSec] (2s default â€” a breath between phrases), or null when the track
+ * sings wall-to-wall before [untilSec] or the mask is unusable. Pure scan â€”
  * lets ARM end A's duck zone at A's actual vocal phrase end.
  */
 fun firstQuietGapSec(
@@ -405,7 +389,7 @@ fun isVocalClash(outgoingActivity: Double?, incomingActivity: Double?): Boolean 
  * 1 for two fully vocal passages landing on one another.
  *
  * [isVocalClash]'s graded counterpart, and the reason for having both. A boolean
- * is the right shape for a routing decision — shorten the overlap or don't — but
+ * is the right shape for a routing decision â€” shorten the overlap or don't â€” but
  * it is the wrong shape for the renderer, which has to decide *how hard* to pull
  * the two voices apart. A pair scraping over the threshold and two choruses
  * colliding are the same `true` and want visibly different treatment.
@@ -415,7 +399,7 @@ fun isVocalClash(outgoingActivity: Double?, incomingActivity: Double?): Boolean 
  * and taking a mean would let one strong side manufacture one.
  *
  * Null on either side is no evidence and answers zero, which leaves whatever the
- * caller would have done anyway. Absence of a mask is not absence of a vocal —
+ * caller would have done anyway. Absence of a mask is not absence of a vocal â€”
  * but acting on it would filter every track a fallback analyzer handled.
  */
 fun vocalOverlapAmount(outgoingActivity: Double?, incomingActivity: Double?): Double {
@@ -432,7 +416,7 @@ fun vocalOverlapAmount(outgoingActivity: Double?, incomingActivity: Double?): Do
  * Why this exists alongside [vocalActivityBetween]: that one answers with a
  * *mean* over the window, and a mean is the wrong statistic for a clash. Twelve
  * seconds holding three seconds of vocal and nine of instrumental averages well
- * under [VOCAL_ACTIVE_THRESHOLD] and reads as clear — while the listener plainly
+ * under [VOCAL_ACTIVE_THRESHOLD] and reads as clear â€” while the listener plainly
  * hears two voices for those three seconds. Every clash short of about half the
  * overlap was being averaged into silence, which is why a transition could be
  * planned as clean and still land two vocals on top of each other.
@@ -535,11 +519,11 @@ internal fun audibleStartOf(analysis: TrackAnalysis): Double {
 
 /**
  * Phase A2: first-sound search. The native sustain gate (4/6 active windows +
- * 1.45× peak) misses a quiet cold breath before the beat, so `audible_start`
+ * 1.45Ã— peak) misses a quiet cold breath before the beat, so `audible_start`
  * can land seconds late and the overlap renders a silent bed. Scan the coarse
  * persisted curve forward from 0 while under `claimed`: the first point at or
  * above the audible threshold, sustained for 2 consecutive samples and at or
- * above half the track mean, wins. Clamped to [0, claimed] — only ever moves
+ * above half the track mean, wins. Clamped to [0, claimed] â€” only ever moves
  * earlier-or-equal, never past the claimed onset into music.
  */
 internal fun refinedStartPoint(analysis: TrackAnalysis, claimed: Double): Double {
@@ -559,8 +543,6 @@ internal fun refinedStartPoint(analysis: TrackAnalysis, claimed: Double): Double
         if (point.energy.isFinite() && point.energy >= gate) {
             run++
             if (run >= 2) {
-                // Back up to the run's first sample so the cue sits at the
-                // breath onset, not one sample into it.
                 val idx = curve.indexOf(point)
                 val first = (curve.getOrNull(idx - 1)?.time ?: point.time)
                 return first.coerceIn(0.0, claimed)
@@ -593,8 +575,6 @@ fun rankMixInCandidates(analysis: TrackAnalysis, mixset: Boolean = false): List<
         .takeIf { it > 0 }
         ?: if (analysis.bpm.orZero() > 0) 60 / analysis.bpm else 0.5
     val audibleStart = audibleStartOf(analysis)
-    // Stock upstream scoring on normal Automix. DJ Mode keeps the retuned
-    // scoring below (cold-open bonus, tighter downbeat, vocal discard).
     if (!mixset) {
         return candidates.map { candidate ->
             var rankScore = candidate.score.orZero() + (STOCK_MIX_IN_TYPE_WEIGHT[candidate.type] ?: 0.0)
@@ -618,13 +598,9 @@ fun rankMixInCandidates(analysis: TrackAnalysis, mixset: Boolean = false): List<
             )
         }.sortedByDescending { it.rankScore }
     }
-    // Finetune v1 §1.5/§3.3: a cold-open track is designed to start at full
-    // energy — penalising that pushes the entry into the middle of the track.
     val coldOpen = isColdOpen(analysis, audibleStart)
     return candidates.map { candidate ->
         var rankScore = candidate.score.orZero() + (MIX_IN_TYPE_WEIGHT[candidate.type] ?: 0.0)
-        // Finetune v1 §3.1 P1: beat-1 landings are non-negotiable — +0.25 with
-        // a tighter beat/3 tolerance so off-beat alternatives lose.
         if (nearestValue(analysis.downbeats, candidate.time, beatSeconds / 3) != null) rankScore += 0.25
         if (coldOpen) {
             if (candidate.time - audibleStart < beatSeconds * 2) rankScore += 0.1
@@ -640,9 +616,6 @@ fun rankMixInCandidates(analysis: TrackAnalysis, mixset: Boolean = false): List<
             max(audibleStart, candidate.time - beatSeconds * 16),
             candidate.time,
         )
-        // v2 §10: soft vocal penalty from 0.55 (was an implied 0.60 via the
-        // centered term); above the discard threshold the candidate is
-        // buried, not filtered, so the list can never come back empty.
         if (vocal != null) {
             rankScore += (VOCAL_SOFT_PENALTY - vocal) * 0.4
             if (vocal > VOCAL_DISCARD_THRESHOLD) rankScore -= 1.0
@@ -709,8 +682,6 @@ fun rankMixOutCandidates(
 ): List<RankedMixCandidate> {
     val end = resolveContentEnd(analysis, contentEnd, duration)
     if (end <= 0) return emptyList()
-    // Stock upstream path (normal Automix): any-type rank, flat 12 s budget,
-    // no vocal/drop shaping. DJ paths always pass outroOnly or a window.
     if (!outroOnly && allowedWindow == null) {
         return mixOutCandidatesOf(analysis, end)
             .map { candidate ->
@@ -731,9 +702,6 @@ fun rankMixOutCandidates(
         .takeIf { it > 0 }
         ?: if (analysis.bpm.orZero() > 0) 60 / analysis.bpm else 0.5
     val base = mixOutCandidatesOf(analysis, end)
-    // Automix-outro mode: the exit is the outro (or the content end), never a
-    // mid-track dip. Energy cliffs inside the outro still count — the outro
-    // starting loud then falling off is exactly an outro exit.
     val outroStart = analysis.outroStartTime.orZero()
     val scoped = if (outroOnly) {
         base.filter {
@@ -743,8 +711,6 @@ fun rankMixOutCandidates(
     } else {
         base
     }
-    // Blueprint §7 steps 3–4: low-energy points and vocal-phrase exits inside
-    // the window join the analyzer's structural candidates; step 6 dedupes.
     val augmented = if (allowedWindow != null && !outroOnly) {
         scoped + augmentMixOutCandidates(analysis, scoped, allowedWindow, beatSeconds)
     } else {
@@ -753,19 +719,11 @@ fun rankMixOutCandidates(
     val budget = if (outroOnly) MAX_DISCARDED_MUSIC_SECONDS
     else if (allowedWindow != null) BLUEPRINT_WINDOW_DISCARD_BUDGET else MAX_DISCARDED_MUSIC_SECONDS
     return augmented
-        // A window is a hard constraint, not a suggestion: analyzer
-        // candidates outside it (mid-track cliffs) must not hijack an
-        // anchor the play floor was supposed to protect. Empty results
-        // fall through to the fallback chain in resolveMixOutAnchor.
         .filter { allowedWindow == null || it.time in allowedWindow }
         .map { candidate ->
             val measured = audibleSecondsBetween(analysis, candidate.time, end)
             // With no energy curve there is no way to tell skipped music from skipped silence, so
             // the raw gap is charged in full and the budget errs toward playing the track.
-            // Finetune v1 §2.1 P1: piecewise multiplier — the old single-slope
-            // penalty (-0.10 at vocal 0.65) was functionally ignored by ranking.
-            // DJs never cut mid-lyric. The ±1.5 s window catches handoffs that
-            // start just after a phrase ends but are still inside the vocal.
             val exitVocal = vocalActivityBetween(analysis, candidate.time - 1.0, candidate.time + 1.0)
             val windowVocal = vocalActivityBetween(
                 analysis,
@@ -783,14 +741,6 @@ fun rankMixOutCandidates(
                     -(effectiveVocal - VOCAL_SOFT_PENALTY) * VOCAL_SOFT_MULTIPLIER
                 else -> 0.0
             }
-            // Finetune v1 §2.3: low-energy inside a BREAK scores near the top.
-            // Exit-entry spec Fix 2: the boost applies ONLY to post-drop
-            // breaks. A pre-drop breakdown (BREAK → BUILD → DROP, common in
-            // House) gets base score only — otherwise the system exits at
-            // the pre-drop calm and the listener never hears the drop.
-            // Hard veto: never exit inside a DROP section or within 2 bars
-            // after one starts (rankScore -1 sinks it below every real
-            // candidate; it can only win when no other exit exists at all).
             val dropSec = firstDropSec(analysis)
             val phrase16 = phrase16Seconds(analysis)
             val playThrough =
@@ -833,7 +783,7 @@ fun rankMixOutCandidates(
 }
 
 /**
- * Blueprint §7 steps 3–4 and 6: the five lowest-energy points in [window]
+ * Blueprint Â§7 steps 3â€“4 and 6: the five lowest-energy points in [window]
  * plus one point just after every vocal phrase ends, each dropped when it
  * sits within 8 bars of an analyzer candidate or an earlier extra.
  */
@@ -893,8 +843,6 @@ fun resolveMixOutAnchor(
             discardedMusicSeconds = best.discardedMusicSeconds,
         )
     }
-    // Blueprint §7 step 9: when no candidate clears the bar, the transition
-    // opens at the fallback instead of clinging to the content end.
     val fallback = fallbackTime?.takeIf { it.isFinite() && it > 0 && it < end }
     if (fallback != null) {
         val discarded = audibleSecondsBetween(analysis, fallback, end) ?: max(0.0, end - fallback)
@@ -904,7 +852,7 @@ fun resolveMixOutAnchor(
 }
 
 /**
- * Blueprint §5.6 energy gate. The blueprint assumes a 0..1 profile with a
+ * Blueprint Â§5.6 energy gate. The blueprint assumes a 0..1 profile with a
  * 0.70 high-energy line; this curve is raw RMS, so above-average reads as
  * high instead. Same question, honest scale.
  */
@@ -917,8 +865,8 @@ fun isHighEnergyAt(analysis: TrackAnalysis, time: Double): Boolean {
 
 /**
  * Booth backspin gate: peak energy, not merely high energy. Both decks must
- * be at their summit (≥1.4× mean AND ≥80% of the track max) for a backspin
- * to fire — a spin out of (or into) a merely above-average passage reads as
+ * be at their summit (â‰¥1.4Ã— mean AND â‰¥80% of the track max) for a backspin
+ * to fire â€” a spin out of (or into) a merely above-average passage reads as
  * a gimmick and breaks the emotional arc. Null/empty curves are no evidence
  * and answer false, never true.
  */
@@ -963,8 +911,6 @@ fun assessTransitionTier(
         )
     }
 
-    // Stock upstream (normal Automix): single stretch ratio, no HALF_TIME
-    // tier. DJ Mode keeps the multi-candidate search below.
     if (!mixset) {
         val stretchRatio = outgoingBpm / alignTempoOctave(outgoingBpm, incomingBpm)
         if (abs(stretchRatio - 1) > STOCK_MAX_STRETCH_DEVIATION) reasons += "tempo-distance"
@@ -986,14 +932,6 @@ fun assessTransitionTier(
     }
     if (matchedRatio != null && matchedRatio != 1.0) reasons += "harmonic-ratio"
 
-    // v2 §1: HALF_TIME sits between BEATMATCHED and DJ_ASSISTED — a clean
-    // harmonic-ratio lock with trusted grids on both sides. beatConfidence
-    // answers for the pair (floor), matchedRatio travels on the verdict for
-    // the planner and executor.
-    // Full-plan P2 HALF_TEMPO lock: a user-facing boolean gate. On, the
-    // ±41% shared-grid effect routes to DJ_ASSISTED wash/cut instead —
-    // matchedRatio stays on the verdict for tests. Off = current behavior.
-    // (Never "clamp HALF to ±2%": that destroys the shared-grid invariant.)
     val halfLocked = mixset && AppSettings.automixHalfTempoLock.value
     val tier = when {
         reasons.isEmpty() -> TransitionTier.BEATMATCHED
@@ -1009,23 +947,15 @@ fun assessTransitionTier(
     )
 }
 
-// ---------------------------------------------------------------------------
-// Blueprint §4–§6: compatibility scoring.
-//
-// Five sub-scores in 0..1 plus their weighted overall. Every function here
-// reads stored analysis only — no PCM — mirroring the file's existing rule.
-// A missing measurement answers neutrally (never blocks), the same way a
-// null vocal mask does everywhere above.
-// ---------------------------------------------------------------------------
 
-/** Blueprint §6 weights: tempo matters most, vocals least. */
+/** Blueprint Â§6 weights: tempo matters most, vocals least. */
 const val WEIGHT_BPM_SCORE = 0.30
 const val WEIGHT_KEY_SCORE = 0.25
 const val WEIGHT_ENERGY_SCORE = 0.20
 const val WEIGHT_STRUCTURE_SCORE = 0.15
 const val WEIGHT_VOCAL_SCORE = 0.10
 
-/** Blueprint §6 decision thresholds on [CompatibilityScore.overall]. */
+/** Blueprint Â§6 decision thresholds on [CompatibilityScore.overall]. */
 const val SCORE_EXCELLENT = 0.80
 const val SCORE_GOOD = 0.60
 const val SCORE_ACCEPTABLE = 0.40
@@ -1038,7 +968,7 @@ const val SCORE_ACCEPTABLE = 0.40
 const val TRUSTED_PITCH_CONFIDENCE = 0.5
 /**
  * Full-audit Phase 2: key-shift bar. Same 0.5 value as
- * [TRUSTED_PITCH_CONFIDENCE] but key-named — the old reuse read as "pitch
+ * [TRUSTED_PITCH_CONFIDENCE] but key-named â€” the old reuse read as "pitch
  * gates key" and hid the three-rung ladder: trustedKey 0.25 (proven-clash
  * gate) < scoring 0.30 (neutral floor) < shift 0.5 (retune). Values
  * unchanged, names honest.
@@ -1046,16 +976,16 @@ const val TRUSTED_PITCH_CONFIDENCE = 0.5
 const val MIN_KEY_CONFIDENCE_FOR_SHIFT = 0.5
 
 /**
- * Blueprint §5.5: a transition may not start inside a vocal phrase, nor
+ * Blueprint Â§5.5: a transition may not start inside a vocal phrase, nor
  * within this long after one ends.
  */
 const val VOCAL_EXIT_BUFFER_SECONDS = 0.5
 
-/** v2 §5a: accepted harmonic tempo ratios. 1:1, 2:1, 1:2,
- * 3:2, 2:3, 4:3, 3:4 — v1 handled only the octave pair, so a 90 BPM hip-hop
+/** v2 Â§5a: accepted harmonic tempo ratios. 1:1, 2:1, 1:2,
+ * 3:2, 2:3, 4:3, 3:4 â€” v1 handled only the octave pair, so a 90 BPM hip-hop
  * track against 128 BPM house fell to PLAIN despite a clean 3:2 match.
- * Multi-candidate §Q1: 5:4 / 4:5 rescue genre-edge pairs (80↔100, 96↔120...).
- * Named consts declared ONCE and shared by the array and the cap map below —
+ * Multi-candidate Â§Q1: 5:4 / 4:5 rescue genre-edge pairs (80â†”100, 96â†”120...).
+ * Named consts declared ONCE and shared by the array and the cap map below â€”
  * Double map lookup is bit-equality, so re-expressed literals would miss. */
 private const val RATIO_1_1 = 1.0
 private const val RATIO_2_1 = 2.0
@@ -1074,8 +1004,8 @@ val SUPPORTED_BPM_RATIOS = doubleArrayOf(
     RATIO_5_4, RATIO_4_5,
 )
 
-/** Multi-candidate §Q1: per-ratio deviation caps. Tempo-transparency fix: all
- * ratios share the ±2 % inaudibility band — wider pairings fall back to a
+/** Multi-candidate Â§Q1: per-ratio deviation caps. Tempo-transparency fix: all
+ * ratios share the Â±2 % inaudibility band â€” wider pairings fall back to a
  * wash at rate 1.0 instead of a stretched beatmatch. Ratios absent from
  * this map fall back to [MAX_STRETCH_DEVIATION]. */
 val RATIO_DEVIATION_CAP: Map<Double, Double> = mapOf(
@@ -1091,7 +1021,7 @@ val RATIO_DEVIATION_CAP: Map<Double, Double> = mapOf(
 )
 
 /**
- * v2 §5a: first supported ratio bringing bpmA onto bpmB within
+ * v2 Â§5a: first supported ratio bringing bpmA onto bpmB within
  * [MAX_STRETCH_DEVIATION], or null when no clean ratio match exists.
  */
 fun matchHarmonicRatio(outgoingBpm: Double, incomingBpm: Double): Double? {
@@ -1103,10 +1033,10 @@ fun matchHarmonicRatio(outgoingBpm: Double, incomingBpm: Double): Double? {
     return null
 }
 
-/** Blueprint §5.1 Rule 1. Scores only ratios inside their per-ratio cap; the best wins.
+/** Blueprint Â§5.1 Rule 1. Scores only ratios inside their per-ratio cap; the best wins.
  * Formula shape kept ((1-diff*10)) so all downstream thresholds (matrix 0.50/0.60/0.70,
  * echoAmount, overall weight) behave exactly as before inside 0.03; only the 0.03-0.05
- * dead band changes (0 → 0.5-0.7), rescuing pairs the tier path already accepts. */
+ * dead band changes (0 â†’ 0.5-0.7), rescuing pairs the tier path already accepts. */
 fun bpmScore(outgoingBpm: Double, incomingBpm: Double): Double {
     if (outgoingBpm <= 0 || incomingBpm <= 0) return 0.0
     var best = 0.0
@@ -1121,14 +1051,14 @@ fun bpmScore(outgoingBpm: Double, incomingBpm: Double): Double {
 }
 
 private val PITCH_CLASS_INDEX = mapOf(
-    "C" to 0, "C♯" to 1, "D♭" to 1, "D" to 2, "D♯" to 3, "E♭" to 3,
-    "E" to 4, "F" to 5, "F♯" to 6, "G♭" to 6, "G" to 7, "G♯" to 8,
-    "A♭" to 8, "A" to 9, "A♯" to 10, "B♭" to 10, "B" to 11,
+    "C" to 0, "Câ™¯" to 1, "Dâ™­" to 1, "D" to 2, "Dâ™¯" to 3, "Eâ™­" to 3,
+    "E" to 4, "F" to 5, "Fâ™¯" to 6, "Gâ™­" to 6, "G" to 7, "Gâ™¯" to 8,
+    "Aâ™­" to 8, "A" to 9, "Aâ™¯" to 10, "Bâ™­" to 10, "B" to 11,
 )
 
 /**
  * The native detector emits ASCII accidentals ("C# minor", "Bb major") while
- * every Kotlin table reads Unicode ("C♯", "B♭") — and JNI documents its
+ * every Kotlin table reads Unicode ("Câ™¯", "Bâ™­") â€” and JNI documents its
  * strings as ASCII-only literals, so Unicode can never arrive. Canonicalize
  * at the single lookup point all tables share: without it every sharp/flat
  * key in production parses to null and silently disables key scoring,
@@ -1136,13 +1066,13 @@ private val PITCH_CLASS_INDEX = mapOf(
  */
 fun canonicalKeyRoot(raw: String?): String? {
     if (raw.isNullOrEmpty()) return null
-    if (raw.endsWith("#")) return raw.dropLast(1) + "♯"
-    if (raw.length == 2 && raw[0] in 'A'..'G' && raw[1] == 'b') return "${raw[0]}♭"
+    if (raw.endsWith("#")) return raw.dropLast(1) + "â™¯"
+    if (raw.length == 2 && raw[0] in 'A'..'G' && raw[1] == 'b') return "${raw[0]}â™­"
     return raw
 }
 
 /**
- * Blueprint §5.2 mapping, derived arithmetically rather than tabulated: walk
+ * Blueprint Â§5.2 mapping, derived arithmetically rather than tabulated: walk
  * the circle of fifths from C (= 8B) in semitone steps of a fifth. Minor takes
  * its relative major's number (A minor -> 8A via C major).
  *
@@ -1177,7 +1107,7 @@ private fun keyScoreOf(
 }
 
 /**
- * Blueprint §5.2 compatibility table. An unparseable key is no key at all
+ * Blueprint Â§5.2 compatibility table. An unparseable key is no key at all
  * (0.0); a key without a parseable mode keeps its number but forfeits the
  * relative-major credit.
  */
@@ -1189,10 +1119,10 @@ fun keyScore(leftKey: String, rightKey: String): Double {
 }
 
 /**
- * Blueprint §5.2 pitch-shift rule: the signed semitone shift of the incoming
+ * Blueprint Â§5.2 pitch-shift rule: the signed semitone shift of the incoming
  * track's key (positive = up) that first reaches Adjacent (0.75) or better,
- * capped at ±[MAX_KEY_SHIFT_SEMITONES]. Zero when already there, or when no
- * shift inside the cap gets there — the caller must mask with a filter sweep
+ * capped at Â±[MAX_KEY_SHIFT_SEMITONES]. Zero when already there, or when no
+ * shift inside the cap gets there â€” the caller must mask with a filter sweep
  * instead of shifting further.
  */
 const val MAX_KEY_SHIFT_SEMITONES = 2
@@ -1201,8 +1131,6 @@ fun semitonesToShift(fromKey: String, toKey: String): Int {
     val from = camelotOf(fromKey) ?: return 0
     val to = camelotOf(toKey) ?: return 0
     if (keyScoreOf(from.first, from.second, to.first, to.second) >= 0.75) return 0
-    // Shifting pitch preserves mode, so only the pitch-class index moves and
-    // the Camelot number is re-derived per candidate shift, smallest first.
     val toIndex = PITCH_CLASS_INDEX[canonicalKeyRoot(toKey.trim().split(' ').firstOrNull())] ?: return 0
     for (magnitude in 1..MAX_KEY_SHIFT_SEMITONES) {
         for (shift in listOf(magnitude, -magnitude)) {
@@ -1230,8 +1158,8 @@ fun keyRootIndex(key: String): Int? =
  * semitones from the key root means the key detector, not the singer, is
  * probably wrong, and shifting on a wrong key lands in a worse one.
  *
- * Returns false whenever there is nothing to contradict with — unmeasured
- * median, unparseable key — so a missing pitch track changes nothing.
+ * Returns false whenever there is nothing to contradict with â€” unmeasured
+ * median, unparseable key â€” so a missing pitch track changes nothing.
  */
 fun pitchVetoesShift(medianHz: Double, detectedKey: String): Boolean {
     if (medianHz <= 0 || !medianHz.isFinite()) return false
@@ -1242,13 +1170,6 @@ fun pitchVetoesShift(medianHz: Double, detectedKey: String): Boolean {
     return distance > 3
 }
 
-// ---------------------------------------------------------------------------
-// Multi-candidate pairing §Q2: best-fit search over (ratio × key-shift).
-// Replaces first-fit matchHarmonicRatio at the tier gate: every ratio within
-// its per-ratio cap is scored with every ±2 shift of the incoming key and the
-// best composite wins. Called once per pair at planning time (45 iterations
-// max), never per tick.
-// ---------------------------------------------------------------------------
 
 /** Candidate weights: tempo dominates, key is secondary, stretch is a mild tie-break. */
 const val CANDIDATE_WEIGHT_BPM = 0.60
@@ -1256,7 +1177,7 @@ const val CANDIDATE_WEIGHT_KEY = 0.30
 const val CANDIDATE_WEIGHT_STRETCH = 0.10
 const val CANDIDATE_STRETCH_PENALTY_RATE = 0.12
 
-/** One tempo×shift hypothesis for a pair. Plan-time only; never stored. */
+/** One tempoÃ—shift hypothesis for a pair. Plan-time only; never stored. */
 data class PairCandidate(
     val ratio: Double,
     val diff: Double,
@@ -1269,12 +1190,12 @@ data class PairCandidate(
 /** Canonical sharp-spelled root per pitch-class, parallel to PITCH_CLASS_INDEX
  * (spelling only feeds re-parse by camelotOf, which accepts both). */
 private val CANONICAL_ROOTS = arrayOf(
-    "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B",
+    "C", "Câ™¯", "D", "Dâ™¯", "E", "F", "Fâ™¯", "G", "Gâ™¯", "A", "Aâ™¯", "B",
 )
 
 /**
  * Key string resulting from pitch-shifting [key] by [semitones] half-steps.
- * Mode is preserved, only the root moves. Null when blank/unparseable — the
+ * Mode is preserved, only the root moves. Null when blank/unparseable â€” the
  * caller then falls back to neutral key fit. Canonicalizes ASCII accidentals
  * ("C#") through [canonicalKeyRoot] first: raw-lowercase lookup would miss.
  */
@@ -1306,10 +1227,10 @@ fun scorePairCandidate(
 }
 
 /**
- * Best (ratio × shift) hypothesis for a pair, or null when no ratio fits any
+ * Best (ratio Ã— shift) hypothesis for a pair, or null when no ratio fits any
  * per-ratio cap. The incoming key is shifted (never the outgoing); each shift
  * is veto-checked against the incoming vocal median. Shift 0 is always
- * eligible with the raw key score. Raw key scoring is untouched — the
+ * eligible with the raw key score. Raw key scoring is untouched â€” the
  * candidate score only picks the ratio and the applied shift.
  */
 fun findBestCandidate(
@@ -1327,9 +1248,6 @@ fun findBestCandidate(
         for (shift in -MAX_KEY_SHIFT_SEMITONES..MAX_KEY_SHIFT_SEMITONES) {
             val shiftedKeyB = if (shift == 0) analysisB.key.ifBlank { null }
                 else keyAtSemitones(analysisB.key, shift)
-            // Full-audit Phase 2: pair search honors the same 0.30 scoring
-            // floor as scoreCompatibility — an unconfident key reads neutral
-            // here too instead of steering the ratio/shift pick.
             val keysConfident = analysisA.keyConfidence.orZero() >= MIN_KEY_CONFIDENCE_FOR_SCORING &&
                 analysisB.keyConfidence.orZero() >= MIN_KEY_CONFIDENCE_FOR_SCORING
             val rawKeyFit: Double = when {
@@ -1378,7 +1296,7 @@ private fun maxEnergy(analysis: TrackAnalysis): Double? =
         .filter { it.isFinite() && it >= 0 }
         .maxOrNull()
 
-/** Blueprint §5.3 Rule 1. Null on either side is no evidence and answers neutrally. */
+/** Blueprint Â§5.3 Rule 1. Null on either side is no evidence and answers neutrally. */
 fun energyScore(outgoingEnergy: Double?, incomingEnergy: Double?): Double {
     if (outgoingEnergy == null || incomingEnergy == null) return 0.5
     val peak = max(outgoingEnergy, incomingEnergy)
@@ -1389,7 +1307,7 @@ fun energyScore(outgoingEnergy: Double?, incomingEnergy: Double?): Double {
 private enum class StructureRole { INTRO, OUTRO, BREAK, OTHER }
 
 /**
- * Blueprint §5.4 section roles, derived from measured anchors: OUTRO past the
+ * Blueprint Â§5.4 section roles, derived from measured anchors: OUTRO past the
  * outro/content markers, INTRO inside the opening, BREAK on a low-energy
  * passage (below half the track mean), everything else OTHER (verse/chorus).
  */
@@ -1420,7 +1338,7 @@ fun introEndSeconds(analysis: TrackAnalysis): Double {
     return if (introEnd > 0) introEnd else 32.0
 }
 
-/** Blueprint §5.4 section-pair table. */
+/** Blueprint Â§5.4 section-pair table. */
 fun structureScore(analysis: TrackAnalysis, next: TrackAnalysis, transitionTime: Double, entryTime: Double): Double {
     val out = structureRoleOf(analysis, transitionTime, isOutgoing = true)
     val incoming = structureRoleOf(next, entryTime, isOutgoing = false)
@@ -1435,9 +1353,9 @@ fun structureScore(analysis: TrackAnalysis, next: TrackAnalysis, transitionTime:
 }
 
 /**
- * Blueprint §5.5: 0.2 when [time] sits inside a vocal phrase or within
+ * Blueprint Â§5.5: 0.2 when [time] sits inside a vocal phrase or within
  * [VOCAL_EXIT_BUFFER_SECONDS] after one ends, 1.0 otherwise. No mask is no
- * evidence and answers 1.0 — nothing may punish a fallback analysis.
+ * evidence and answers 1.0 â€” nothing may punish a fallback analysis.
  */
 fun vocalScoreAt(analysis: TrackAnalysis, time: Double): Double {
     val mask = analysis.vocalActivityMask
@@ -1451,7 +1369,7 @@ fun vocalScoreAt(analysis: TrackAnalysis, time: Double): Double {
     return 1.0
 }
 
-/** Blueprint §4 compatibility model. */
+/** Blueprint Â§4 compatibility model. */
 data class CompatibilityScore(
     val bpm: Double = 0.0,
     val key: Double = 0.0,
@@ -1461,7 +1379,7 @@ data class CompatibilityScore(
     val overall: Double = 0.0,
 )
 
-/** Blueprint §6 weighted overall for one pair at one candidate point. */
+/** Blueprint Â§6 weighted overall for one pair at one candidate point. */
 fun scoreCompatibility(
     analysis: TrackAnalysis,
     nextAnalysis: TrackAnalysis,
@@ -1469,8 +1387,6 @@ fun scoreCompatibility(
     entryTime: Double,
 ): CompatibilityScore {
     val bpm = bpmScore(analysis.bpm.orZero(), nextAnalysis.bpm.orZero())
-    // v2 §5b: an unconfident key read answers neutral (0.50) instead of
-    // vetoing the whole plan — no measurement is not a clash.
     val key = if (analysis.key.isBlank() || nextAnalysis.key.isBlank()) {
         NEUTRAL_KEY_SCORE_BELOW_CONF
     } else if (analysis.keyConfidence.orZero() < MIN_KEY_CONFIDENCE_FOR_SCORING ||
@@ -1493,8 +1409,8 @@ fun scoreCompatibility(
 
 /**
  * Mixset Mode play window past the track's best part, in seconds: never cut
- * before the minimum, aim for the target, and wait past it — up to the
- * maximum — for a phrase boundary with a calm vocal. A peak gets room to
+ * before the minimum, aim for the target, and wait past it â€” up to the
+ * maximum â€” for a phrase boundary with a calm vocal. A peak gets room to
  * finish instead of being cut mid-chorus at a fixed offset.
  */
 const val MIXSET_MIN_PLAY_SECONDS = 60.0
@@ -1502,15 +1418,15 @@ const val MIXSET_MIN_PLAY_SECONDS = 60.0
  * No-evidence rescue floor: when [mixsetMixOutAnchor] has no best-part cue
  * at all it used to anchor `playbackTime + 15`, so a freshly tapped track
  * mixed ~20 s in. A mixset slot promises ~a minute of music, so the rescue
- * never lands before this — real evidence, once it arrives, re-plans to the
+ * never lands before this â€” real evidence, once it arrives, re-plans to the
  * true anchor (the marker latch tracks anchor moves over 2 s).
  */
 const val MIXSET_RESCUE_FLOOR_SECONDS = 60.0
 /**
  * No mixset blend may *start* before this. The rescue floor above holds the
- * anchor, but every branch subtracts its own overlap/fade — sameBeat
- * 0.6·anchor, dissolve scanFrom cuts, the ≤20 s drop-align pull — so the
- * fire point could still land at ~16–28 s. The planner shifts the whole
+ * anchor, but every branch subtracts its own overlap/fade â€” sameBeat
+ * 0.6Â·anchor, dissolve scanFrom cuts, the â‰¤20 s drop-align pull â€” so the
+ * fire point could still land at ~16â€“28 s. The planner shifts the whole
  * window instead (see applyMixsetFireFloor).
  */
 const val MIXSET_MIN_FIRE_SECONDS = 30.0
@@ -1524,24 +1440,24 @@ const val MIXSET_WAIT_TOLERANCE_SECONDS = 8.0
 /**
  * Landing on a singing voice costs more than any distance inside the window
  * (at most 30 s each way): when any calm grid point exists, the anchor never
- * lands on a vocal. Unknown stays cheap — absence of a mask is not evidence.
+ * lands on a vocal. Unknown stays cheap â€” absence of a mask is not evidence.
  */
 const val MIXSET_SINGING_PENALTY = 20.0
 /**
  * Energy-arc constants. A cooldown is an 8 s stretch running below 70% of the
- * track mean with its max-min spread under half the mean — low AND settled,
+ * track mean with its max-min spread under half the mean â€” low AND settled,
  * so a cliff edge or a single quiet bar does not qualify. A buildup foot is
  * the nearest point at least 4 s before the peak sitting at or under 40% of
  * the peak's own energy with the stretch after it rising at least 0.5 above
- * the foot — a genuine rise, not a flat line that happens to sit low.
+ * the foot â€” a genuine rise, not a flat line that happens to sit low.
  */
 const val MIXSET_COOLDOWN_WINDOW_SECONDS = 8.0
 const val MIXSET_LOW_MEAN_FRACTION = 0.7
 const val MIXSET_STABLE_SPREAD_FRACTION = 0.5
 const val MIXSET_BUILDUP_FOOT_FRACTION = 0.4
-/** v2 §10: scan starts 8 s before the drop (was 4.0). */
+/** v2 Â§10: scan starts 8 s before the drop (was 4.0). */
 const val MIXSET_BUILDUP_MIN_SECONDS = 8.0
-/** v2 §10: relaxed for compressed tracks (was 0.5). */
+/** v2 Â§10: relaxed for compressed tracks (was 0.5). */
 const val MIXSET_BUILDUP_RISE_MARGIN = 0.25
 /**
  * Spec active-playtime ceiling: from one phrase before Drop 1 to the exit
@@ -1552,7 +1468,7 @@ const val MIXSET_MAX_ACTIVE_PLAY_SECONDS = 180.0
 /**
  * DJ Mode anti-flap floor: the only duration rule left. The exit may land
  * anywhere the analysis justifies, but never before one 16-bar phrase past
- * the entry — without it a noisy curve could hop tracks seconds apart.
+ * the entry â€” without it a noisy curve could hop tracks seconds apart.
  * [mixsetAntiFlapSeconds] computes it from the grid; this is the fallback
  * when the track carries no tempo.
  */
@@ -1568,7 +1484,7 @@ const val MIXSET_PHRASE_BARS = 16
 /**
  * The spec's 16-bar grid for [analysis], ascending. Empty only when the
  * analysis carries no timing at all (no downbeats, no phrases, no beat
- * interval) — callers then fall back to the raw time.
+ * interval) â€” callers then fall back to the raw time.
  */
 fun phrase16Grid(analysis: TrackAnalysis): List<Double> {
     val downs = analysis.downbeats.filter { it.isFinite() }.sorted()
@@ -1658,7 +1574,7 @@ fun snapToPhrase32(
 
 /**
  * Phase A3: how many CHORUS sections end at or before [anchor]. mergeAdjacent
- * joins same-type neighbours, so one entry ≈ one sustained loud passage and
+ * joins same-type neighbours, so one entry â‰ˆ one sustained loud passage and
  * counting ends (not starts) never double-counts the chorus being cut.
  * Empty map = no evidence = 0; the caller keeps 16-bar behaviour.
  */
@@ -1701,23 +1617,23 @@ private fun maxEnergyTimeAfterIntro(analysis: TrackAnalysis): Double? {
 }
 
 /**
- * Where the incoming track joins in Mixset Mode: the foot of its buildup —
- * the rise into the peak — so the track plays its own build and the peak
+ * Where the incoming track joins in Mixset Mode: the foot of its buildup â€”
+ * the rise into the peak â€” so the track plays its own build and the peak
  * lands on its own time after the handoff, instead of being cued in the
  * face. Null when the curve shows no genuine rise (flat lines sit low
  * everywhere); the caller then falls back to the peak itself.
  */
 /**
- * v2 §8: buildup foot = §4 gradient inflection computed once at analysis
+ * v2 Â§8: buildup foot = Â§4 gradient inflection computed once at analysis
  * time ([TrackAnalysis.structuredBuildupSec]), snapped to the 16-bar grid
- * here. Fallbacks, in order: drop−phrase when a drop exists but the gradient
- * failed (spec §4 fallback); the legacy foot walk when there is no drop at
+ * here. Fallbacks, in order: dropâˆ’phrase when a drop exists but the gradient
+ * failed (spec Â§4 fallback); the legacy foot walk when there is no drop at
  * all (peak-anchored tracks); null when nothing supports the claim.
  */
 /**
  * Exit-entry spec Fix 3: distance validation for every buildup result. A
  * buildup closer than 8 s to the drop gives no approach; farther than 90 s
- * plays too much non-peak content. Either way back off to drop − 1 phrase.
+ * plays too much non-peak content. Either way back off to drop âˆ’ 1 phrase.
  * Null when even that is non-positive, so callers fall back to the peak.
  */
 fun validateBuildupStart(rawBuildup: Double?, drop: Double, phrase16: Double?): Double? {
@@ -1733,18 +1649,17 @@ fun validateBuildupStart(rawBuildup: Double?, drop: Double, phrase16: Double?): 
 
 fun buildupStart(analysis: TrackAnalysis, peakTime: Double): Double? {
     val raw = buildupStartRaw(analysis, peakTime) ?: return null
-    // Dropless (legacy foot) has no drop to validate against — keep as is.
     val drop = firstDropSec(analysis) ?: return raw
     if (!drop.isFinite()) return raw
     return validateBuildupStart(raw, drop, phrase16Seconds(analysis))
 }
 
 /**
- * Full-audit P0.3: the measured-foot half of the buildup chain — stored map
+ * Full-audit P0.3: the measured-foot half of the buildup chain â€” stored map
  * buildup, validated gradient inflection, monotonic-lean inflection, or a
  * structural BUILD ending near the drop. Null when the drop has no findable
  * foot (cold open, step entry, flat bed, short intro): arithmetic fallbacks
- * (drop−phrase, drop−8 s) are numbers, not feet, and must never unlock
+ * (dropâˆ’phrase, dropâˆ’8 s) are numbers, not feet, and must never unlock
  * drop-gated routing. [buildupStartRaw] below falls back to them for
  * rendering continuity; trust decisions use this.
  */
@@ -1787,8 +1702,8 @@ fun trustedBuildupStart(analysis: TrackAnalysis): Double? {
 /**
  * Full-audit P0.3: a drop is trusted only when a measured foot stands before
  * it. A lone in-zone spike (cold-open hit, single loud chorus, flat-master
- * slope) becomes a "drop" through the max-RMS / 1.5×-mean fallbacks with no
- * BUILD before it — and every downstream consumer treats it as measured.
+ * slope) becomes a "drop" through the max-RMS / 1.5Ã—-mean fallbacks with no
+ * BUILD before it â€” and every downstream consumer treats it as measured.
  */
 fun isDropTrusted(analysis: TrackAnalysis): Boolean {
     val drop = firstDropSec(analysis) ?: return false
@@ -1798,14 +1713,14 @@ fun isDropTrusted(analysis: TrackAnalysis): Boolean {
 
 /**
  * Phase A4: skit/interlude proxy from persisted evidence only (centroid and
- * onset curves do not survive a restart — only RMS-adjacent energy and the
- * vocal mask do). A spoken bed is a long (>=30 s, ~4× the cooldown window)
+ * onset curves do not survive a restart â€” only RMS-adjacent energy and the
+ * vocal mask do). A spoken bed is a long (>=30 s, ~4Ã— the cooldown window)
  * low span (< BREAK_RMS_FRACTION of the mean) whose vocal activity stays
  * below 0.40 (speech scores low on the band-ratio gate, singing does not),
  * on a track with no trusted drop (guards a genuine quiet intro) or low
  * whole-track vocal probability. Returns the longest qualifying span, else
  * null. Callers veto mixset entry/exit inside the span and force the PLAIN
- * path — a talking head is never a mix point.
+ * path â€” a talking head is never a mix point.
  */
 fun spokenInterludeSpan(analysis: TrackAnalysis): ClosedRange<Double>? {
     val curve = analysis.energyCurve
@@ -1845,11 +1760,6 @@ fun spokenInterludeSpan(analysis: TrackAnalysis): ClosedRange<Double>? {
 }
 
 private fun buildupStartRaw(analysis: TrackAnalysis, peakTime: Double): Double? {
-    // Spec finetune §6.1 five-step chain: (1-3) measured foot via
-    // [trustedBuildupStart], (4) drop minus one phrase (or drop−8 s when
-    // there is no buildup), (5) drop−8 s hard floor; the legacy foot walk
-    // stays as last resort for dropless tracks. Steps 4-5 are arithmetic,
-    // not feet — see [isDropTrusted].
     trustedBuildupStart(analysis)?.let { return it }
     val drop = firstDropSec(analysis)
     if (drop != null && drop.isFinite()) {
@@ -1857,8 +1767,6 @@ private fun buildupStartRaw(analysis: TrackAnalysis, peakTime: Double): Double? 
         if (phrase16 != null) {
             val fallback = drop - phrase16
             if (fallback > 0) {
-                // No buildup at all when the phrase-back point is already as
-                // loud as the drop: enter 8 s before it, just enough approach.
                 val footEnergy = energyAt(analysis, fallback)
                 val dropEnergy = energyAt(analysis, drop)
                 if (footEnergy != null && dropEnergy != null && dropEnergy > 0 &&
@@ -1870,7 +1778,6 @@ private fun buildupStartRaw(analysis: TrackAnalysis, peakTime: Double): Double? 
                     return snapToPhrase16(analysis, fallback) ?: fallback
                 }
             }
-            // Hard floor: 8 s before the drop, always.
             val floor = drop - MIXSET_BUILDUP_MIN_SECONDS
             if (floor > 0) return snapToPhrase16(analysis, floor) ?: floor
             return null
@@ -1887,8 +1794,6 @@ private fun legacyBuildupFoot(analysis: TrackAnalysis, peakTime: Double): Double
     val peakEnergy = curve.minByOrNull { abs(it.time - peakTime) }
         ?.energy?.takeIf { it.isFinite() && it > 0 } ?: return null
     val footCeiling = MIXSET_BUILDUP_FOOT_FRACTION * peakEnergy
-    // Walk back from just before the peak: the foot is the nearest low point
-    // with a real climb after it.
     for (i in curve.indices.reversed()) {
         val point = curve[i]
         if (!point.time.isFinite() || !point.energy.isFinite()) continue
@@ -1897,8 +1802,6 @@ private fun legacyBuildupFoot(analysis: TrackAnalysis, peakTime: Double): Double
         if (point.energy > footCeiling) continue
         val after = curve.subList(i, curve.size)
             .filter { it.time.isFinite() && it.energy.isFinite() && it.time <= peakTime }
-        // A transient spike clears the mean check on its own width: the climb
-        // has to last a musical stretch to count as a buildup.
         if (after.size < 2 || after.last().time - point.time < MIXSET_COOLDOWN_WINDOW_SECONDS) continue
         if (after.sumOf { it.energy } / after.size >= point.energy + MIXSET_BUILDUP_RISE_MARGIN) {
             return nearestValue(analysis.downbeats, point.time, MIXSET_BUILDUP_MIN_SECONDS)
@@ -1913,14 +1816,10 @@ private fun legacyBuildupFoot(analysis: TrackAnalysis, peakTime: Double): Double
  * buildup under vocals would enter mid-voice. Check the first 4 bars at
  * 250 ms resolution; when vocal-heavy, advance beat by beat (after an
  * initial 1-bar jump) up to 8 bars forward, never past 2 bars before the
- * drop. No clean bar → keep the original (never overshoot into the drop).
+ * drop. No clean bar â†’ keep the original (never overshoot into the drop).
  */
 fun adjustedMixsetEntry(buildupStartSec: Double, analysis: TrackAnalysis, drop: Double): Double {
     val beat = analysis.beatInterval.takeIf { it.isFinite() && it > 0 } ?: return buildupStartSec
-    // Full-audit P0.3: never return an entry inside [drop−2s, drop+4s] — that
-    // is the peak itself. Retreat below the zone, don't advance through it.
-    // (The old freeform advance could run to and past the drop looking for
-    // clean air; clean air past the drop is the next track already playing.)
     if (buildupStartSec > drop - 2.0) return max(0.0, drop - 2.0)
     val mask = analysis.vocalActivityMask
     fun vocalAt(t: Double): Double {
@@ -1937,18 +1836,12 @@ fun adjustedMixsetEntry(buildupStartSec: Double, analysis: TrackAnalysis, drop: 
         n++
     }
     if (n == 0 || sum / n <= MIXSET_ENTRY_VOCAL_THRESHOLD) return buildupStartSec
-    // The advance looks for clean air before the drop only: capped at
-    // drop−2 s (see the zone retreat above), bounded by the 8-bar budget.
-    // No clean bar → keep the original (never overshoot into the drop).
     val maxAdvance = min(
         buildupStartSec + beat * MIXSET_ENTRY_VOCAL_ADVANCE_BARS,
         drop - 2.0,
     )
     var cursor = buildupStartSec + beat * 4
     while (cursor < maxAdvance) {
-        // Full-plan P0: search clean air bar by bar, then re-snap — a
-        // beat-stepped dodge that lands mid-phrase sings clean but mixes
-        // rhythmically wrong.
         if (vocalAt(cursor) < MIXSET_ENTRY_VOCAL_ACCEPT) return snapToPhrase16(analysis, cursor)
         cursor += beat * 4
     }
@@ -1957,7 +1850,7 @@ fun adjustedMixsetEntry(buildupStartSec: Double, analysis: TrackAnalysis, drop: 
 
 /**
  * DJ Mode entry, freeform: the buildup foot when the curve shows one, the
- * drop itself when it does not, else the peak — so the cue may land
+ * drop itself when it does not, else the peak â€” so the cue may land
  * mid-track rather than strictly at the head. One function so the hard/echo/
  * plain cues, the WSOLA drop and the adaptive handoff all agree on where
  * the incoming track begins.
@@ -1965,10 +1858,6 @@ fun adjustedMixsetEntry(buildupStartSec: Double, analysis: TrackAnalysis, drop: 
 fun mixsetEntryPoint(analysis: TrackAnalysis): Double? {
     val peak = bestPartCue(analysis) ?: return null
     val drop = firstDropSec(analysis)?.takeIf { it.isFinite() }
-    // Full-audit P0.3: the drop itself is never an entry — cueing at your own
-    // drop fires the transition onto the peak. A trusted measured foot, else
-    // an 8 s retreat before the drop; dropless tracks keep the legacy foot
-    // walk via buildupStart.
     val entry = if (drop == null || isDropTrusted(analysis)) {
         buildupStart(analysis, peak)
     } else {
@@ -1977,7 +1866,6 @@ fun mixsetEntryPoint(analysis: TrackAnalysis): Double? {
     val cue = entry
         ?: drop?.let { (it - MIXSET_BUILDUP_MIN_SECONDS).takeIf { r -> r > 0 } }
         ?: peak
-    // Spec: every entry decision happens at a phrase boundary.
     val snapped = snapToPhrase16(analysis, cue) ?: cue
     if (drop == null) return snapped
     return adjustedMixsetEntry(snapped, analysis, drop)
@@ -1986,7 +1874,7 @@ fun mixsetEntryPoint(analysis: TrackAnalysis): Double? {
 /**
  * Spec drop alignment (mixset only): the incoming track's drop must land
  * after the outgoing track is gone. When B's drop fires while A is still
- * up, pull A's exit back to the 16-bar start at/before the drop — but only
+ * up, pull A's exit back to the 16-bar start at/before the drop â€” but only
  * a nudge, never a jump: a gap beyond the wait tolerance means B's
  * structure doesn't fit the short overlap, and A's comedown wins over
  * forcing the alignment.
@@ -2000,10 +1888,7 @@ fun alignMixsetExitToIncomingDrop(
     if (!mixset || !anchor.isFinite()) return anchor
     val dropB = firstDropSec(incoming) ?: return anchor
     if (!dropB.isFinite() || dropB >= anchor) return anchor
-    // Phase A5: a phantom drop must not drag the exit — same guard as pushPastDrop.
     if (!isDropTrusted(incoming)) return anchor
-    // Spec finetune §6.5: nudge tolerance widens from a fixed 8 s to one
-    // phrase, capped at 20 s — a full phrase of drift is still a nudge.
     val tolerance = minOf(phrase16Seconds(outgoing) ?: MIXSET_WAIT_TOLERANCE_SECONDS, 20.0)
     val pulled = snapToPhrase16(outgoing, dropB)
     if (pulled >= anchor || anchor - pulled > tolerance) return anchor
@@ -2012,7 +1897,7 @@ fun alignMixsetExitToIncomingDrop(
 
 /**
  * Spec 16-bar phrase length in seconds, from the beat interval. Null when the
- * analysis carries no tempo — tier-2 exit then cannot be computed.
+ * analysis carries no tempo â€” tier-2 exit then cannot be computed.
  */
 fun phrase16Seconds(analysis: TrackAnalysis): Double? {
     val interval = analysis.beatInterval.orZero().takeIf { it > 0 }
@@ -2020,12 +1905,12 @@ fun phrase16Seconds(analysis: TrackAnalysis): Double? {
     return if (interval > 0) interval * 4 * MIXSET_PHRASE_BARS else null
 }
 
-/** v2 §9c: coarse genre bucket. Routing never keys off it — it only tunes the
+/** v2 Â§9c: coarse genre bucket. Routing never keys off it â€” it only tunes the
  *  mixset play target and rides along in low-score logs. First match wins. */
 enum class GenreClass { ELECTRONIC, HIP_HOP, AMBIENT, POP, OTHER }
 
 /**
- * v2 §9c classifier from stored analysis only. Matches the spec exactly:
+ * v2 Â§9c classifier from stored analysis only. Matches the spec exactly:
  * AMBIENT on beat confidence alone (onset rate would need transient curves
  * the store deliberately never keeps); the structural detector's AMBIENT
  * label is the richer signal and lives on the analysis for planners.
@@ -2044,8 +1929,8 @@ fun genreClass(analysis: TrackAnalysis): GenreClass {
 }
 
 /**
- * v2 §9c: mixset play target by genre — hip-hop verses breathe shorter,
- * ambient beds get room. ±seconds off the base target, clamped sane by callers.
+ * v2 Â§9c: mixset play target by genre â€” hip-hop verses breathe shorter,
+ * ambient beds get room. Â±seconds off the base target, clamped sane by callers.
  */
 fun mixsetTargetFor(genre: GenreClass): Double = when (genre) {
     GenreClass.HIP_HOP -> MIXSET_TARGET_PLAY_SECONDS - 15.0
@@ -2054,18 +1939,14 @@ fun mixsetTargetFor(genre: GenreClass): Double = when (genre) {
 }
 
 /**
- * v2 §2c/§3 outro exception: when the detector found an OUTRO section that
- * starts before the 80% floor and is followed by ≥30 s of low-energy tail,
- * the floor moves up to the outro start — the comedown has already begun, so
+ * v2 Â§2c/Â§3 outro exception: when the detector found an OUTRO section that
+ * starts before the 80% floor and is followed by â‰¥30 s of low-energy tail,
+ * the floor moves up to the outro start â€” the comedown has already begun, so
  * holding the track to 80% only burns low tail. Strict on the 30 s: a shorter
  * tail keeps the default floor.
  */
 fun effectivePlayFloor(analysis: TrackAnalysis, length: Double): Double {
     val default = 0.8 * length
-    // Exit-entry spec Fix 7: late drop (main drop at 72–82% of the track).
-    // The normal window opens right at the drop and an energy cliff at the
-    // drop onset would win the exit — push the floor past the drop so the
-    // listener hears it before any exit candidate competes.
     val drop = firstDropSec(analysis)
     if (drop != null && drop.isFinite() && length > 0 &&
         drop / length in LATE_DROP_WINDOW_LOW..LATE_DROP_WINDOW_HIGH
@@ -2078,7 +1959,6 @@ fun effectivePlayFloor(analysis: TrackAnalysis, length: Double): Double {
     }
     val outro = analysis.structuredOutroSec?.takeIf { it.isFinite() && it > 0 } ?: return default
     if (outro >= default) return default
-    // Finetune v1 §2.2: 22–28 s tails on 4-min pop/dance were missed by 30 s.
     val tailEnd = minOf(outro + 20.0, length)
     if (tailEnd - outro < 20.0) return default
     val mean = meanEnergy(analysis) ?: return default
@@ -2091,7 +1971,7 @@ fun effectivePlayFloor(analysis: TrackAnalysis, length: Double): Double {
 }
 
 /**
- * Finetune v1 §2.3: BREAK is the DJ-canonical exit — a low-energy candidate
+ * Finetune v1 Â§2.3: BREAK is the DJ-canonical exit â€” a low-energy candidate
  * inside a detected BREAK section earns the boost.
  */
 fun isInsideBreak(analysis: TrackAnalysis, time: Double): Boolean =
@@ -2100,7 +1980,7 @@ fun isInsideBreak(analysis: TrackAnalysis, time: Double): Boolean =
             time >= section.start && time <= section.end
     }
 
-/** Finetune v1 §1.5/§3.3: derived, not stored — computable from stored fields. */
+/** Finetune v1 Â§1.5/Â§3.3: derived, not stored â€” computable from stored fields. */
 fun isColdOpen(analysis: TrackAnalysis, audibleStart: Double = audibleStartOf(analysis)): Boolean {
     if (!audibleStart.isFinite() || audibleStart >= COLD_OPEN_AUDIBLE_SECONDS) return false
     val mean = meanEnergy(analysis) ?: return false
@@ -2115,21 +1995,21 @@ fun isColdOpen(analysis: TrackAnalysis, audibleStart: Double = audibleStartOf(an
 
 /**
  * One 16-bar phrase in seconds from the grid, else the fallback. The DJ Mode
- * anti-flap floor is entry + this — the sole duration rule in DJ Mode.
+ * anti-flap floor is entry + this â€” the sole duration rule in DJ Mode.
  */
 fun mixsetAntiFlapSeconds(analysis: TrackAnalysis): Double =
     phrase16Seconds(analysis)?.takeIf { it.isFinite() && it > 0 } ?: MIXSET_ANTI_FLAP_FALLBACK_SECONDS
 
 /**
  * DJ Mode outgoing anchor, freeform rules: the exit may land anywhere the
- * analysis justifies — no 60 s floor, no 130 s cap, no 180 s active cap, no
+ * analysis justifies â€” no 60 s floor, no 130 s cap, no 180 s active cap, no
  * drop play-through floor. Tiers: (1) first cooldown at/after Drop 1 snapped
  * to the 16-bar grid; (2) Drop 1 + 2 phrases; (3) calm-vocal fallback with
  * the 40%-of-length escape hatch. The search runs from entry + one phrase
  * (anti-flap) to the track end. A mid-DROP landing is still pushed to the
- * next 16-bar start — cutting inside the drop sounds like a power outage,
+ * next 16-bar start â€” cutting inside the drop sounds like a power outage,
  * and that is musicality, not a duration rule. A rescue anchor just ahead of
- * the playhead when it is already past the window — a manually started track
+ * the playhead when it is already past the window â€” a manually started track
  * plays from 0, not from its best cue, so the computed window can already be
  * behind.
  */
@@ -2157,18 +2037,10 @@ fun mixsetMixOutAnchor(analysis: TrackAnalysis, length: Double, playbackTime: Do
         return rescue
     }
     val drop = firstDropSec(analysis)
-    // Tier 1: BREAK start after Drop 1.
     val tier1From = if (drop != null && drop.isFinite()) max(from, drop) else from
     var exit = cooldownLanding(analysis, tier1From, to)?.let { snapToPhrase16(analysis, it) }
-    // Phase A4: a cooldown inside a spoken bed is a skit, not a comedown.
     val spoken = spokenInterludeSpan(analysis)
     if (exit != null && spoken != null && exit in spoken) exit = null
-    // Tier 2: Drop 1 + 2 spec phrases, snapped to the nearest 16-bar start
-    // (either side — an at-or-before snap would slide under the play floor
-    // whenever the raw target sits right on it).
-    // Phase A3: two choruses played earns the 32-bar — a DJ lets the second
-    // chorus finish, exiting on the "1" after it instead of cutting at
-    // drop 1 + 2 phrases.
     if (exit == null && drop != null && drop.isFinite()) {
         val phrase16 = phrase16Seconds(analysis)
         if (phrase16 != null) {
@@ -2182,15 +2054,9 @@ fun mixsetMixOutAnchor(analysis: TrackAnalysis, length: Double, playbackTime: Do
             if (tier2 in from..to) exit = tier2
         }
     }
-    // Energy first: a quiet-but-singing cooldown still beats a loud calm
-    // point, because the comedown is over and the blend has room. The vocal
-    // penalty below only breaks ties the energy leaves.
     var time = (exit ?: fallbackMixsetAnchor(analysis, from, to, base))
         .coerceIn(0.0, max(0.0, length - 2.0))
     if (exit == null) {
-        // Tier 3 (spec 40% fallback) as a vocal escape hatch: the calm-aware
-        // fallback stands whenever it lands off-voice, but a blind
-        // instrumental 40% beats cutting on top of a singing voice.
         val anchorVocal = vocalActivityBetween(analysis, time - 2.0, time + 2.0)
         if (anchorVocal != null && anchorVocal > VOCAL_DISCARD_THRESHOLD) {
             val tier3 = snapToPhrase16(analysis, 0.40 * length, preferEarlier = false)
@@ -2207,7 +2073,7 @@ fun mixsetMixOutAnchor(analysis: TrackAnalysis, length: Double, playbackTime: Do
 /**
  * Spec active playtime: what the listener hears runs from one phrase before
  * the drop to the exit, at most 3 minutes. Past the budget the exit comes
- * back to the nearest 16-bar start inside it — unless that would break the
+ * back to the nearest 16-bar start inside it â€” unless that would break the
  * 60 s play floor, in which case the floor wins.
  */
 private fun capActivePlaytime(analysis: TrackAnalysis, entry: Double, time: Double, length: Double): Double {
@@ -2224,15 +2090,11 @@ private fun capActivePlaytime(analysis: TrackAnalysis, entry: Double, time: Doub
 
 /**
  * Never cut mid-DROP: when the anchor sits inside drop-level energy at or
- * past the drop, move it to the next 16-bar start. A single push — a track
+ * past the drop, move it to the next 16-bar start. A single push â€” a track
  * that never comes down still has to end somewhere.
  */
 private fun pushPastDrop(analysis: TrackAnalysis, time: Double, drop: Double?, length: Double): Double {
     if (drop == null || !drop.isFinite() || !time.isFinite()) return time
-    // Full-audit P0.3: only a trusted drop may drag the exit. On a phantom
-    // drop this fires exactly when the anchor is correctly staged at a
-    // buildup climax — mistaking "buildup climax" for "already in the drop"
-    // and jumping the exit onto/through the real peak.
     if (!isDropTrusted(analysis)) return time
     if (time < drop - 1.0) return time
     val dropEnergy = energyAt(analysis, drop) ?: return time
@@ -2270,21 +2132,12 @@ fun cooldownLanding(analysis: TrackAnalysis, from: Double, to: Double): Double? 
         val energies = window.map { it.energy }
         if (energies.average() >= lowCeiling) continue
         if ((energies.max() - energies.min()) >= spreadCeiling) continue
-        // Spec finetune §6: the window must be flat-stable, not still falling —
-        // a comedown that has settled (slope at/above the threshold) is a
-        // floor the next track can land on; a steep fall is still moving.
         if (StructureDetector.linearSlope(window.map { it.time }, energies) < MIXSET_COOLDOWN_SLOPE_THRESHOLD) continue
         return point
     }
     return null
 }
 
-// Fallback when the track never cools down: no energy claim is possible, so
-// the calmest grid point near the target wins. A calm landing matters more
-// than exact seconds: singing over the cut is what makes a mixset transition
-// sound late. Measured-calm wins, unknown is second choice, singing is last
-// — and last by a margin no distance inside the window can overcome
-// (see MIXSET_SINGING_PENALTY).
 fun fallbackMixsetAnchor(analysis: TrackAnalysis, from: Double, to: Double, base: Double): Double {
     fun scored(time: Double): Double {
         val vocal = vocalActivityBetween(analysis, time - 2.0, time + 2.0)
@@ -2298,9 +2151,6 @@ fun fallbackMixsetAnchor(analysis: TrackAnalysis, from: Double, to: Double, base
     val grid = (analysis.phraseBoundaries + analysis.downbeats)
         .filter { it.isFinite() && it in from..to }
         .distinct()
-    // Prefer waiting past the target for the peak to end, within tolerance:
-    // a slightly worse landing after the target beats cutting the chorus
-    // short, but a calm point well before it beats riding far into vocals.
     val early = grid.filter { it <= base }.minByOrNull(::scored)
     val late = grid.filter { it > base }.minByOrNull(::scored)
     val picked = when {
@@ -2309,24 +2159,18 @@ fun fallbackMixsetAnchor(analysis: TrackAnalysis, from: Double, to: Double, base
         scored(late) <= scored(early) + MIXSET_WAIT_TOLERANCE_SECONDS -> late
         else -> early
     } ?: base.coerceIn(from, to)
-    // Full-plan P0: Tier3 exits sit on the 16-bar grid like Tier1/2 —
-    // a mid-16 exit breaks the phrase symmetry every entry keeps.
     return snapToPhrase16(analysis, picked).coerceIn(from, to)
 }
 
 /**
- * Blueprint §5.4 drop detection: the first local energy maximum past the
- * intro that clears 1.5x the track mean — where LOOP_CUT_DROP enters the
+ * Blueprint Â§5.4 drop detection: the first local energy maximum past the
+ * intro that clears 1.5x the track mean â€” where LOOP_CUT_DROP enters the
  * incoming track. Null when the curve cannot support the claim.
  *
- * v2 §2b: the detector's DROP label wins when present; the heuristic below
+ * v2 Â§2b: the detector's DROP label wins when present; the heuristic below
  * only runs for analyses that predate schema 3.
  */
 fun firstDropSec(analysis: TrackAnalysis): Double? {
-    // Full-audit Phase 2: the stored structured drop wins only when it was a
-    // scored detection. Scoreless fallbacks (max-RMS pick, first DROP label)
-    // persist with dropConfidence == null — honoring them here minted phantom
-    // drops; they fall through to the legacy heuristic below instead.
     val stored = analysis.structuredDropSec?.takeIf { it.isFinite() && it >= 0 }
     if (stored != null && analysis.dropConfidence != null) return stored
     val curve = analysis.energyCurve
@@ -2338,10 +2182,6 @@ fun firstDropSec(analysis: TrackAnalysis): Double? {
     for (i in 1 until curve.size - 1) {
         val point = curve[i]
         if (!point.time.isFinite() || point.time < introEnd) continue
-        // Strict neighbors: a flat bed is not a drop — plateau edges are not
-        // onsets. Only a genuine spike (strictly above both neighbors)
-        // qualifies, so quiet flat tracks do not report a phantom drop at
-        // the intro boundary.
         if (point.energy >= threshold &&
             point.energy > curve[i - 1].energy &&
             point.energy > curve[i + 1].energy

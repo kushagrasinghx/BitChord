@@ -1,4 +1,4 @@
-package com.music.bitchord
+﻿package com.music.bitchord
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
@@ -81,16 +81,12 @@ class LoopVampProcessorTest {
     @Test
     fun `engaged loop repeats the live pass`() {
         val v = vamp()
-        // 4 beats @120 BPM, 0.5 s/beat = 2 s = 96 000 frames.
         v.setVampLoop(4f, 0.5f)
         val loopLen = 96_000
-        // First pass plays live while captured (skipping the 8 ms
-        // wrap-blend that voices at its tail)…
         val first = channel0(runFrames(v, 0, loopLen))
         for (i in 0 until loopLen - 1_000) {
             assertEquals((i % 30_000), first[i])
         }
-        // …second pass repeats it (skipping the 8 ms wrap-blend tail).
         val second = channel0(runFrames(v, loopLen, loopLen))
         for (i in 1_000 until loopLen - 1_000) {
             assertEquals(first[i], second[i])
@@ -105,14 +101,9 @@ class LoopVampProcessorTest {
         var cursor = 0
         runFrames(v, cursor, loopLen).also { cursor += loopLen }
         runFrames(v, cursor, loopLen).also { cursor += loopLen }
-        // Halve to 2 beats (48 000 frames): let the current pass drain,
-        // then the new period voices.
         v.setVampLoop(2f, 0.5f)
         runFrames(v, cursor, loopLen).also { cursor += loopLen }
         val steady = channel0(runFrames(v, cursor, 96_000))
-        // The new period voices after the transitional pass: assert
-        // periodicity with a mismatch budget that absorbs the 8 ms
-        // wrap blends (a broken loop mismatches ~everything).
         val half = 48_000
         var mismatches = 0
         var total = 0

@@ -1,4 +1,4 @@
-import java.util.Properties
+﻿import java.util.Properties
 import java.io.FileInputStream
 
 plugins {
@@ -12,7 +12,7 @@ plugins {
  * Signing details, kept out of the repository in `keystore.properties`
  * (see keystore.properties.example). Absent on a fresh checkout, in which case
  * the release build still runs and simply comes out unsigned rather than
- * failing — only whoever holds the key can produce a shippable APK.
+ * failing â€” only whoever holds the key can produce a shippable APK.
  */
 val signing = Properties().apply {
     val file = rootProject.file("keystore.properties")
@@ -35,8 +35,8 @@ val lastfmSecret: String = (
     ).trim()
 
 /*
- * Where Listen Together's party server lives. Not a credential — it is a public
- * URL, and every device in a party has to be pointed at the same one — but it is
+ * Where Listen Together's party server lives. Not a credential â€” it is a public
+ * URL, and every device in a party has to be pointed at the same one â€” but it is
  * deployment-specific rather than a property of the source, which is what puts
  * it here beside the others instead of in a constant.
  *
@@ -105,7 +105,6 @@ android {
         }
         create("prod") {
             dimension = "env"
-            // Matches defaultConfig — this is the package already shipped/installed.
         }
     }
 
@@ -114,7 +113,6 @@ android {
         // the keystore rather than containing it, and both are gitignored
         // separately, so a checkout can easily end up with the one and not the
         // other. A signing config pointing at a keystore that is not on disk
-        // fails the release build outright at validateSigningRelease — which is
         // exactly the failure the unsigned fallback above exists to avoid, so
         // the keystore has to be looked for rather than assumed.
         val store = signing.getProperty("storeFile")?.let { rootProject.file(it) }
@@ -133,7 +131,7 @@ android {
             /*
              * Off deliberately. Stream resolution runs YouTube's own player
              * JavaScript through Rhino, and NewPipe, Ktor and
-             * kotlinx.serialization all reach for classes reflectively — none
+             * kotlinx.serialization all reach for classes reflectively â€” none
              * of which R8 can see. Shrinking that reliably is a set of keep
              * rules to be written and then proven on a device, because the
              * breakage it causes appears at runtime rather than at build time.
@@ -163,7 +161,6 @@ android {
             // Unit tests run against a stub android.jar whose methods throw
             // rather than return. That is the right default for anything whose
             // behaviour depends on the framework, and wrong for android.util.Log
-            // — which [TrackLog] calls on every decision the source layer makes,
             // so a test of that layer fails on the logging rather than on the
             // logic it was written to check.
             isReturnDefaultValues = true
@@ -217,8 +214,6 @@ dependencies {
     implementation(composeBom)
     // Pinned above the BOM's 1.7.6: [IosOverscroll] uses OverscrollFactory,
     // which that version doesn't have. Newer foundation alongside the BOM's
-    // older ui/material3 is a combination Compose supports deliberately —
-    // foundation depends on ui, not the reverse — and this exact pairing was
     // already in effect (foundation was reaching 1.10.0 transitively through
     // the liquid-glass library before that dependency was removed).
     implementation("androidx.compose.foundation:foundation:1.10.0")
@@ -240,13 +235,11 @@ dependencies {
     implementation("androidx.media3:media3-session:1.11.0")
     implementation("androidx.media3:media3-common:1.11.0")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.0")
-    // Audio is progressive, but Apple serves its motion artwork as HLS — this
     // is what lets the animated sleeve play it. See CanvasArtworkPlayer.
     implementation("androidx.media3:media3-exoplayer-hls:1.11.0")
     // Source modules hand back manifests rather than files, and which kind is
     // the backend's choice, not ours: the Tidal one served `.m3u8` until
     // September 2026 and `.mpd` after it, for the same track and the same
-    // request. Without this artifact a DASH manifest is not merely unplayed —
     // DefaultMediaSourceFactory cannot build a source for it, falls back to
     // progressive, and the extractors try to sniff XML as audio
     // (ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED). See withResolvedStreamType.
@@ -263,7 +256,6 @@ dependencies {
     implementation("dev.chrisbanes.haze:haze-materials:1.3.1")
 
     // ---- Markdown rendering (release notes in the update dialog) ----
-    // Pure Compose, not an AndroidView wrapper — needed so the text composes
     // correctly under the dialog's Haze blur.
     implementation("com.halilibo.compose-richtext:richtext-ui-material3:0.20.0")
     implementation("com.halilibo.compose-richtext:richtext-commonmark:0.20.0")
@@ -282,7 +274,6 @@ dependencies {
     // Pinned to v0.26.3, not the newer v0.26.4: v0.26.4's player-JS parser fails with
     // "Could not parse deobfuscation function" on the current player build, which blocks
     // WEB_REMIX's ciphered formats entirely. v0.26.3 solves the same signatures cleanly
-    // against the same player JS — confirmed side by side against PixelMusic-ref, which
     // pins v0.26.3 and doesn't hit the parse failure.
     //
     // Consumed as a stripped jar rather than as the module, so its own

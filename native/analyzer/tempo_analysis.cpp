@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Ported from Orchard (https://github.com/SFG5453/Orchard).
  *
  * Copyright (C) 2026 SFG545 (original Orchard implementation)
@@ -256,11 +256,6 @@ TempoResult AnalyzeTempo(
 
   const double frames_per_second = sample_rate / hop_size;
 
-  // v2 §2b: threshold the normalized envelope into onset times for the
-  // structural detector. Local maxima over ±3 frames above 0.35 (the envelope
-  // is peak-normalized with sqrt expansion, so this keeps genuine attacks
-  // while rejecting wash). Capped so pathological input cannot blow up the
-  // JSON; density is computed Kotlin-side per 4-bar window.
   for (size_t frame = 3; frame + 3 < envelope.size() && result.onset_times.size() < 4096; ++frame) {
     const double value = envelope[frame];
     if (value < 0.35) continue;
@@ -546,8 +541,6 @@ TempoResult AnalyzeTempo(
   // It cancels between two tracks aligned to each other, so it was never what
   // made blends drift, but everything that maps a beat onto real audio -- where
   // to cue the incoming deck, where the drop lands -- is straighter without it.
-  // Spec finetune §7.6: the centre offset keeps grid phase error below 4%
-  // of a beat at any tempo — a flat 23 ms is 6.5% of a DnB beat and flams.
   const double beat_interval_hint = result.beat_interval > 0 ? result.beat_interval : 0.5;
   const double frame_centre_seconds = std::min(
     frame_size / (2.0 * sample_rate),

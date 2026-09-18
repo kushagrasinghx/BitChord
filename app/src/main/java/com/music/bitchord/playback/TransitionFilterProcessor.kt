@@ -1,4 +1,4 @@
-package com.music.bitchord.playback
+﻿package com.music.bitchord.playback
 
 import com.music.bitchord.data.TrackLog
 import androidx.media3.common.C
@@ -41,7 +41,7 @@ import kotlin.math.tan
  * second-order sections cascaded to a 24 dB/octave Butterworth response. Chosen
  * over the more familiar Chamberlin SVF because the trapezoidal form is stable
  * at every cutoff up to Nyquist, while Chamberlin's is only well behaved below
- * about a sixth of the sample rate — a low-pass parked wide open at 20 kHz sits
+ * about a sixth of the sample rate â€” a low-pass parked wide open at 20 kHz sits
  * far outside that, so the naive form would have to be special-cased at exactly
  * the setting it spends most of its time at.
  *
@@ -70,7 +70,7 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     /**
      * Review v2.1 C1 resonance multiplier for the outgoing low-pass during
      * filter sweeps. 1.0 = flat Butterworth (all other styles); 1.8 = mild
-     * DJ-style resonant peak at the cutoff. Applied to the low-pass only —
+     * DJ-style resonant peak at the cutoff. Applied to the low-pass only â€”
      * resonance on a high-pass sounds bad. Volatile like the cutoff targets
      * because the controller re-aims it once per fade tick.
      *
@@ -112,13 +112,13 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         targetHighPassHz = highPassHz.coerceIn(OFF_HZ, MAX_HIGH_PASS_HZ)
     }
 
-    /** Parks both filters. Glided, not snapped — see the class doc. */
+    /** Parks both filters. Glided, not snapped â€” see the class doc. */
     fun open() = setCutoffs(OPEN_HZ, OFF_HZ)
 
     /**
-     * Review v2.1 C1: aims the sweep resonance. Clamped to 1.0–2.5
-     * (DJ standard 1.5–2.5); the controller parks it at 1.0 outside
-     * DJ_FILTER so resonance never leaks into other styles. Target only —
+     * Review v2.1 C1: aims the sweep resonance. Clamped to 1.0â€“2.5
+     * (DJ standard 1.5â€“2.5); the controller parks it at 1.0 outside
+     * DJ_FILTER so resonance never leaks into other styles. Target only â€”
      * the per-block loop glides the live value, so re-aiming mid-sweep
      * never steps the coefficients.
      */
@@ -127,7 +127,7 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     }
 
     /**
-     * 16-bit PCM only, matching [SpatialAudioProcessor] — and bowing out with
+     * 16-bit PCM only, matching [SpatialAudioProcessor] â€” and bowing out with
      * [AudioProcessor.AudioFormat.NOT_SET] rather than throwing for the same
      * reason it does: `DefaultAudioSink` configures every processor in its chain
      * whether or not the effect is switched on, and a throw from any of them
@@ -183,7 +183,6 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         val targetHigh = targetHighPassHz
         // Parked at both ends *and* already settled there: nothing to do but
         // hand the buffer straight through. The "already settled" half matters
-        // — a transition that has just finished is still gliding back open, and
         // cutting the filter out from under that glide is the click it exists
         // to avoid.
         val parked = targetLow >= OPEN_HZ && targetHigh <= OFF_HZ &&
@@ -202,9 +201,6 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
             val block = min(remaining, GLIDE_FRAMES)
             currentLowPassHz = glide(currentLowPassHz, targetLow)
             currentHighPassHz = glide(currentHighPassHz, targetHigh)
-            // Q chases linearly: its range (1.0–2.5) is narrow enough that a
-            // log-domain glide buys nothing, and the same ~30 ms time constant
-            // keeps the resonant peak from ever stepping.
             currentResonanceQ += (resonanceQ - currentResonanceQ) * GLIDE_RATE
             val lowOn = currentLowPassHz < OPEN_HZ - SETTLED_HZ
             val highOn = currentHighPassHz > OFF_HZ + SETTLED_HZ
@@ -239,8 +235,6 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     private fun updateLowCoefficients() {
         val g = tan(Math.PI * usableCutoff(currentLowPassHz) / sampleRate).toFloat()
         for (stage in 0 until STAGES) {
-            // C1: stage Q raised by the resonance multiplier — a peak grows
-            // at the cutoff as the sweep closes, the DJ "whoosh".
             val k = 1f / (BUTTERWORTH_Q[stage] * currentResonanceQ)
             val a1 = 1f / (1f + g * (g + k))
             lowA1[stage] = a1
@@ -311,7 +305,7 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         /**
          * Review v2.1 C1 resonance for the sweep low-pass. 1.0 = flat (all
          * other styles); 1.8 = mild resonant peak at the cutoff, DJ standard
-         * 1.5–2.5. Outgoing LP only — resonance on a high-pass sounds bad.
+         * 1.5â€“2.5. Outgoing LP only â€” resonance on a high-pass sounds bad.
          */
         const val FILTER_SWEEP_Q_FACTOR = 1.8f
         /** Resonance park value: unity multiplier, the state outside DJ_FILTER. */
@@ -350,18 +344,14 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
  * lap.
  */
 interface TransitionFilters {
-    /** The track fading up — the session player, once the lap has handed the queue over. */
+    /** The track fading up â€” the session player, once the lap has handed the queue over. */
     fun incoming(lowPassHz: Float, highPassHz: Float)
 
-    /** The track fading out — the ghost player. */
+    /** The track fading out â€” the ghost player. */
     fun outgoing(lowPassHz: Float, highPassHz: Float)
 
     /** Parks both. Called whenever a transition ends, however it ended. */
     fun open() {
-        // Resonance parks too: a DJ_FILTER arm's Q=1.8 left aimed would meet
-        // the next transition's first sweep target mid-glide — the click the
-        // resonant-sweep audit chased. Neutral Q is unity-adjacent, so the
-        // chase home is inaudible.
         setResonance(TransitionFilterProcessor.NEUTRAL_Q)
         incoming(TransitionFilterProcessor.OPEN_HZ, TransitionFilterProcessor.OFF_HZ)
         outgoing(TransitionFilterProcessor.OPEN_HZ, TransitionFilterProcessor.OFF_HZ)
@@ -370,7 +360,7 @@ interface TransitionFilters {
     /** Review v2.1 C1 sweep resonance; default no-op so fakes stay trivial. */
     fun setResonance(q: Float) = Unit
 
-    /** For callers with no audio sink to filter — tests, and the default wiring. */
+    /** For callers with no audio sink to filter â€” tests, and the default wiring. */
     object None : TransitionFilters {
         override fun incoming(lowPassHz: Float, highPassHz: Float) = Unit
         override fun outgoing(lowPassHz: Float, highPassHz: Float) = Unit

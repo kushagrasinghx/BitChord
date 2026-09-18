@@ -134,17 +134,16 @@ object EqSchedule {
                     Key(1f, EqGains.SILENT),
                 )
             } else if (longBed) {
-                // Real-DJ long blend: spread the trade across the 32-bar bed
-                // — first mid move at 0.22 (not 0.45), highs stepping down
-                // through the back half so the bed keeps evolving.
+                // Real-DJ long blend: keep warmth per Vibes slow blend
+                // Minimal 10% steps — first mid move at 0.38 (not 0.22),
+                // highs staged so bed evolves without early energy dip.
                 listOf(
                     Key(0f, EqGains.UNITY),
-                    Key(0.22f, EqGains.UNITY),
-                    Key(0.35f, EqGains(1f, 0.80f, 1f)),
-                    Key(0.50f, EqGains(1f, 0.60f, 0.92f)),
-                    Key(0.65f, EqGains(1f, 0.40f, 0.78f)),
-                    Key(0.80f, EqGains(1f, 0.22f, 0.58f)),
-                    Key(0.92f, EqGains(1f, 0.12f, 0.35f)),
+                    Key(0.38f, EqGains.UNITY),
+                    Key(0.50f, EqGains(1f, 0.80f, 1f)),
+                    Key(0.65f, EqGains(1f, 0.65f, 0.92f)),
+                    Key(0.80f, EqGains(1f, 0.40f, 0.72f)),
+                    Key(0.92f, EqGains(1f, 0.18f, 0.45f)),
                     Key(1f, EqGains.SILENT),
                 )
             } else {
@@ -328,15 +327,15 @@ object EqSchedule {
                 val mid = if (delay) {
                     listOf(
                         Key(0f, EqGains(1f, 0f, 1f)),
-                        Key(0.30f, EqGains(1f, 0f, 1f)),
-                        Key(0.45f, EqGains(1f, 0.45f, 1f)),
-                        Key(0.60f, EqGains.UNITY),
+                        Key(0.22f, EqGains(1f, 0f, 1f)),
+                        Key(0.35f, EqGains(1f, 0.50f, 1f)),
+                        Key(0.50f, EqGains.UNITY),
                     )
                 } else {
                     listOf(
-                        Key(0f, EqGains(1f, 0.70f, 1f)),
-                        Key(0.32f, EqGains(1f, 0.88f, 1f)),
-                        Key(0.60f, EqGains.UNITY),
+                        Key(0f, EqGains(1f, 0.80f, 1f)),
+                        Key(0.30f, EqGains(1f, 0.90f, 1f)),
+                        Key(0.50f, EqGains.UNITY),
                     )
                 }
                 mid + Key(1f, EqGains.UNITY)

@@ -41,6 +41,11 @@ object YtMusicRepository {
     // answer makes the eventual player switch use the exact rendition whose
     // bytes were warmed, without repeating a 10–30 second catalogue search.
     private val audioVersionCache = ConcurrentHashMap<String, Song>()
+    // Cache for video version lookups from audio tracks (null means no video found).
+    private val videoVersionCache = ConcurrentHashMap<String, Song?>()
+
+    fun cachedAudioVersion(videoId: String): Song? = audioVersionCache[videoId]
+    fun cachedVideoVersion(videoId: String): Song? = videoVersionCache[videoId]
 
     /**
      * The core personalised feed. It stays deliberately independent from the
@@ -383,6 +388,33 @@ object YtMusicRepository {
         Log.w(TAG, "audio switch: no official song match for '${song.title}' by '${song.artist}'")
         audioVersionCache[song.videoId] = song
         return song
+    }
+
+    /**
+     * Resolves an audio-only track to its video version.
+     *
+     * This is the inverse of [resolveAudio] - it finds the music video
+     * for a catalogue track. Returns null when no video version is found.
+     */
+    suspend fun resolveVideo(song: Song): Song? {
+        if (song.isVideo) return null
+        videoVersionCache[song.videoId]?.let { return it }
+        val target = TrackMatcher.targetOf(song)
+        for (query in TrackMatcher.queries(target)) {
+            val candidates = search(query, SearchFilter.VIDEOS)
+                .getOrNull()
+                ?.filterIsInstance<SearchResult.Track>()
+                ?.map { it.song }
+                .orEmpty()
+            TrackMatcher.best(candidates, target)?.let { match ->
+                Log.d(TAG, "video switch: '${song.title}' -> '${match.title}' ($query)")
+                videoVersionCache[song.videoId] = match
+                return match
+            }
+        }
+        Log.w(TAG, "video switch: no video match for '${song.title}' by '${song.artist}'")
+        videoVersionCache[song.videoId] = null
+        return null
     }
 
     /** Signed-in profile for the settings header. Null when signed out. */

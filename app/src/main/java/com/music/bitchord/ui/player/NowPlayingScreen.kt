@@ -21,9 +21,12 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -948,6 +951,10 @@ fun NowPlayingScreen(
     isAudioVersion: Boolean,
     /** A catalogue lookup is in progress for this video's manual conversion. */
     audioVersionSwitching: Boolean,
+    /** Whether an alternate (video vs audio) version exists for this track. */
+    hasAlternateVersion: Boolean = false,
+    /** Legacy alias for [hasAlternateVersion]. */
+    hasVideoVersion: Boolean = false,
     /** The player has just swapped this item to a higher-quality source. */
     qualityUpgraded: Boolean,
     queue: List<Song>,
@@ -1983,6 +1990,10 @@ fun NowPlayingScreen(
             song = song,
             isPlaying = isPlaying,
             isLoading = isLoading || audioVersionSwitching,
+            isAudioVersion = isAudioVersion,
+            audioVersionSwitching = audioVersionSwitching,
+            hasAlternateVersion = hasAlternateVersion || hasVideoVersion,
+            onToggleAudioVersion = onToggleAudioVersion,
             positionMs = positionMs,
             durationMs = durationMs,
             hasPrevious = hasPrevious,
@@ -2808,30 +2819,6 @@ fun NowPlayingScreen(
                     }
                 }
 
-                // Video uploads begin as their own audio, immediately. This
-                // frosted, pill-shaped control is the one explicit opt-in to a
-                // catalogue match; after a successful swap it becomes Revert
-                // so a bad match is one tap away from the original upload.
-                //
-                // Rides just inside the sleeve's top edge rather than straddling
-                // it. Everything above the sleeve is spoken for: only
-                // [ART_BOX_TOP_PAD] separates this box from the dismiss strip,
-                // and the origin caption is pinned to that strip's bottom. A
-                // pill hung above the artwork had nowhere to hang but across
-                // the caption — and on every screen where the sleeve is bound
-                // by height rather than width, [artTop] is 0 and it did exactly
-                // that on the sleeve's behalf as well.
-                if ((song.isVideo || isAudioVersion) && !lyricsOpen && p < 0.5f) {
-                    VideoAudioVersionButton(
-                        audioVersion = isAudioVersion,
-                        loading = audioVersionSwitching,
-                        onClick = onToggleAudioVersion,
-                        hazeState = playerHaze,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .offset(y = artTop + VERSION_PILL_ART_INSET),
-                    )
-                }
 
                 // Sits in the gap under the sleeve, clear of its rounded
                 // corners and shadow — no box, no clip, nothing for the art
@@ -3442,6 +3429,10 @@ fun NowPlayingScreen(
                         OutputPartyPill(
                             onOutput = openAudioOutput,
                             onParty = onListenTogether,
+                            onChangeTrack = onToggleAudioVersion,
+                            isAudioVersion = isAudioVersion,
+                            audioVersionSwitching = audioVersionSwitching,
+                            showChangeTrack = hasAlternateVersion || hasVideoVersion || audioVersionSwitching,
                         )
                     }
                 }
@@ -3603,6 +3594,11 @@ private fun WidePlayerControls(
     song: Song,
     isPlaying: Boolean,
     isLoading: Boolean,
+    isAudioVersion: Boolean = false,
+    audioVersionSwitching: Boolean = false,
+    hasAlternateVersion: Boolean = false,
+    hasVideoVersion: Boolean = false,
+    onToggleAudioVersion: () -> Unit = {},
     positionMs: Long,
     durationMs: Long,
     hasPrevious: Boolean,
@@ -3938,7 +3934,14 @@ private fun WidePlayerControls(
                                 )
                             }
                         } else {
-                            OutputPartyPill(onOutput = onOpenOutput, onParty = onListenTogether)
+                            OutputPartyPill(
+                                onOutput = onOpenOutput,
+                                onParty = onListenTogether,
+                                onChangeTrack = onToggleAudioVersion,
+                                isAudioVersion = isAudioVersion,
+                                audioVersionSwitching = audioVersionSwitching,
+                                showChangeTrack = hasAlternateVersion || hasVideoVersion || audioVersionSwitching,
+                            )
                         }
                     }
                     BottomGlyph(
@@ -5888,100 +5891,6 @@ private fun LyricsLoadingLine(text: String, modifier: Modifier = Modifier) {
         modifier = modifier.padding(vertical = 4.dp),
     )
 }
-
-@OptIn(ExperimentalHazeMaterialsApi::class)
-@Composable
-private fun VideoAudioVersionButton(
-    audioVersion: Boolean,
-    loading: Boolean,
-    onClick: () -> Unit,
-    hazeState: HazeState,
-    modifier: Modifier = Modifier,
-) {
-    val haptics = rememberHaptics()
-    val shape = RoundedCornerShape(percent = 50)
-    Box(
-        modifier = modifier
-            .height(44.dp)
-            .clip(shape)
-            .optimizedHazeEffect(
-                state = hazeState,
-                // The opaque surface used by the nav bar is too dark over a
-                // player cover. A faint material tint keeps the same glass
-                // blur while letting the artwork's colour show through.
-                style = HazeMaterials.regular(MaterialTheme.colorScheme.surface.copy(alpha = 0.16f)),
-            )
-            .background(Color.White.copy(alpha = 0.04f)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(
-            modifier = Modifier.padding(3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            VideoAudioTab(
-                icon = Icons.Rounded.Videocam,
-                contentDescription = stringResource(R.string.revert_to_original),
-                selected = !audioVersion,
-                enabled = audioVersion && !loading,
-                onClick = {
-                    haptics.play(Haptic.Tap)
-                    onClick()
-                },
-            )
-            VideoAudioTab(
-                icon = BitChordIcons.MusicNote,
-                contentDescription = stringResource(R.string.convert_to_audio),
-                selected = audioVersion,
-                enabled = !audioVersion && !loading,
-                onClick = {
-                    haptics.play(Haptic.Tap)
-                    onClick()
-                },
-                loading = loading,
-            )
-        }
-    }
-}
-
-@Composable
-private fun VideoAudioTab(
-    icon: ImageVector,
-    contentDescription: String,
-    selected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    loading: Boolean = false,
-) {
-    Box(
-        modifier = Modifier
-            .size(38.dp)
-            .clip(CircleShape)
-            .background(Color.White.copy(alpha = if (selected) 0.20f else 0f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                enabled = enabled,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(17.dp),
-                color = Color.White,
-                strokeWidth = 2.dp,
-            )
-        } else {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = Color.White.copy(alpha = if (selected) 1f else 0.58f),
-                modifier = Modifier.size(19.dp),
-            )
-        }
-    }
-}
-
 /**
  * Translucent circular button used for the track menu and the like control.
  *
@@ -6111,12 +6020,21 @@ private fun pillWidth(segments: Int): Dp =
  * going, and how the queue is played.
  */
 @Composable
-private fun Pill(content: @Composable RowScope.() -> Unit) {
+private fun Pill(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit,
+) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .height(BOTTOM_ACTION_SIZE)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = 0.12f)),
+            .background(Color.White.copy(alpha = 0.12f))
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = 0.82f,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            ),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
     )
@@ -6132,26 +6050,14 @@ private fun PillDivider() {
     )
 }
 
-/**
- * The two ends of "where is this playing": the output capsule.
- *
- * Both halves answer the same question and so belong to one control rather than
- * two glyphs that happen to sit side by side — headphones for which speaker the
- * sound leaves by, the party for which *people* it reaches.
- *
- * The halves reserve exactly the same width in every state. When a party is
- * active, the right half uses that reserve for its live member count; the left
- * half intentionally retains the same footprint so the pill stays balanced.
- *
- * Collects the party itself instead of taking it as a parameter: the state
- * carries a playhead and lands on every heartbeat, and read any higher up it
- * would recompose the whole player five seconds at a time over a field that has
- * not changed. [rememberPartyBadge] narrows it to what is drawn here first.
- */
 @Composable
 private fun OutputPartyPill(
     onOutput: () -> Unit,
     onParty: () -> Unit,
+    onChangeTrack: (() -> Unit)? = null,
+    isAudioVersion: Boolean = false,
+    audioVersionSwitching: Boolean = false,
+    showChangeTrack: Boolean = false,
 ) {
     val badge = rememberPartyBadge()
     Pill {
@@ -6161,6 +6067,41 @@ private fun OutputPartyPill(
             contentDescription = stringResource(R.string.audio_output),
             onClick = onOutput,
         )
+        AnimatedVisibility(
+            visible = showChangeTrack && onChangeTrack != null,
+            enter = fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+                expandHorizontally(
+                    animationSpec = spring(
+                        dampingRatio = 0.82f,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                    expandFrom = Alignment.CenterHorizontally,
+                    clip = true,
+                ),
+            exit = fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                shrinkHorizontally(
+                    animationSpec = spring(
+                        dampingRatio = 0.82f,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                    shrinkTowards = Alignment.CenterHorizontally,
+                    clip = true,
+                ),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PillDivider()
+                PillSegment(
+                    icon = if (isAudioVersion) BitChordIcons.MusicNote else Icons.Rounded.Videocam,
+                    iconSize = 21.dp,
+                    contentDescription = stringResource(
+                        if (isAudioVersion) R.string.revert_to_original else R.string.convert_to_audio
+                    ),
+                    onClick = onChangeTrack ?: {},
+                    highlighted = isAudioVersion,
+                    loading = false,
+                )
+            }
+        }
         PillDivider()
         PillSegment(
             // Person rather than Groups: the three-person glyph is drawn half
@@ -6201,6 +6142,7 @@ private fun PillSegment(
     trailingLabel: String? = null,
     highlighted: Boolean = false,
     haptic: Haptic = Haptic.Tap,
+    loading: Boolean = false,
     /** See [BottomGlyph], where the same window means the same thing. */
     tapWindowMs: Long = 0L,
 ) {
@@ -6210,10 +6152,11 @@ private fun PillSegment(
         modifier = Modifier
             .width(PILL_SEGMENT_WIDTH)
             .height(BOTTOM_ACTION_SIZE)
-            .background(if (highlighted) Color.White.copy(alpha = 0.14f) else Color.Transparent)
+           
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                enabled = !loading,
             ) {
                 val now = SystemClock.uptimeMillis()
                 if (now - lastTap.longValue >= tapWindowMs) {
@@ -6226,31 +6169,49 @@ private fun PillSegment(
         contentAlignment = Alignment.Center,
     ) {
         val tint = Color.White.copy(alpha = if (highlighted) 1f else 0.75f)
-        if (icon != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(iconSize),
+        Crossfade(
+            targetState = loading,
+            animationSpec = tween(durationMillis = 200),
+            label = "pillSegmentLoading",
+        ) { isLoading ->
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(17.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
                 )
-                if (trailingLabel != null) {
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = trailingLabel,
-                        color = tint,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+            } else if (icon != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Crossfade(
+                        targetState = icon,
+                        animationSpec = tween(durationMillis = 200),
+                        label = "pillSegmentIcon",
+                    ) { currentIcon ->
+                        Icon(
+                            imageVector = currentIcon,
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
+                    if (trailingLabel != null) {
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = trailingLabel,
+                            color = tint,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
+            } else if (label != null) {
+                Text(
+                    text = label,
+                    color = tint,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
-        } else if (label != null) {
-            Text(
-                text = label,
-                color = tint,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-            )
         }
     }
 }

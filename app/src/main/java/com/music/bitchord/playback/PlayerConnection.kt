@@ -156,6 +156,74 @@ fun MediaController.upgradeQuality() {
     )
 }
 
+/**
+ * Asks the service to revert the playing track to YouTube's original stream.
+ */
+fun MediaController.revertToOriginal() {
+    sendCustomCommand(
+        SessionCommand(ACTION_REVERT_TO_ORIGINAL, Bundle.EMPTY),
+        Bundle.EMPTY,
+    )
+}
+
+/**
+ * Asks the service to smoothly transition the playing track to another version/rendition.
+ */
+fun MediaController.swapToVersion(targetSong: Song) {
+    sendCustomCommand(
+        SessionCommand(ACTION_SWAP_VERSION, Bundle.EMPTY),
+        bundleOf(EXTRA_SWAP_MEDIA_ITEM to targetSong.toSongBundle()),
+    )
+}
+
+fun Song.toSongBundle(): Bundle = bundleOf(
+    "videoId" to videoId,
+    "title" to title,
+    "artist" to artist,
+    "thumbnailUrl" to thumbnailUrl,
+    "durationText" to durationText,
+    "artistId" to artistId,
+    "albumId" to albumId,
+    "albumName" to albumName,
+    "isVideo" to isVideo,
+    "isVideoOrigin" to isVideoOrigin,
+    "setVideoId" to setVideoId,
+    "fromAutoplay" to fromAutoplay,
+    "radioName" to radioName,
+    "localUri" to localUri,
+    "downloadFormat" to downloadFormat,
+    "localPath" to localPath,
+    "sourceQuality" to sourceQuality,
+    "playbackSource" to playbackSource,
+    "playbackSourceType" to playbackSourceType?.name,
+    "playbackSourceId" to playbackSourceId,
+    "isExplicit" to (isExplicit ?: false),
+)
+
+fun songFromBundle(b: Bundle): Song = Song(
+    videoId = b.getString("videoId").orEmpty(),
+    title = b.getString("title").orEmpty(),
+    artist = b.getString("artist").orEmpty(),
+    thumbnailUrl = b.getString("thumbnailUrl"),
+    durationText = b.getString("durationText"),
+    artistId = b.getString("artistId"),
+    albumId = b.getString("albumId"),
+    albumName = b.getString("albumName"),
+    isVideo = b.getBoolean("isVideo"),
+    isVideoOrigin = b.getBoolean("isVideoOrigin"),
+    setVideoId = b.getString("setVideoId"),
+    fromAutoplay = b.getBoolean("fromAutoplay"),
+    radioName = b.getString("radioName"),
+    localUri = b.getString("localUri"),
+    downloadFormat = b.getString("downloadFormat"),
+    localPath = b.getString("localPath"),
+    sourceQuality = b.getString("sourceQuality"),
+    playbackSource = b.getString("playbackSource"),
+    playbackSourceType = b.getString("playbackSourceType")?.let { runCatching { com.music.bitchord.data.model.PlaybackSourceType.valueOf(it) }.getOrNull() },
+    playbackSourceId = b.getString("playbackSourceId"),
+    isExplicit = if (b.containsKey("isExplicit")) b.getBoolean("isExplicit") else null,
+)
+
 /** Flushes the current radio queue to disk before reporting that it started. */
 suspend fun MediaController.commitRadioQueue() {
     sendCustomCommand(

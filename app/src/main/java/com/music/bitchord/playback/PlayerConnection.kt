@@ -649,13 +649,11 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
     val realIndex = startIndex.coerceIn(0, songs.size - 1)
     val items = withContext(Dispatchers.Default) {
         val queue = if (shuffled) {
-            // Put all other tracks into a single shuffle pool so they can appear
-            // on either side of the selected track — not just after it.
+            // Preserve exact sequential previous tracks, then shuffle all remaining.
             val selected = songs[realIndex]
-            val otherShuffled = (songs.subList(0, realIndex) + songs.subList(realIndex + 1, songs.size)).shuffled()
-            val before = otherShuffled.take(realIndex)
-            val after = otherShuffled.drop(realIndex)
-            before + listOf(selected) + after
+            val exactPrevious = songs.subList(0, realIndex)
+            val upcomingShuffled = songs.filterIndexed { index, _ -> index != realIndex }.shuffled()
+            exactPrevious + listOf(selected) + upcomingShuffled
         } else {
             songs
         }

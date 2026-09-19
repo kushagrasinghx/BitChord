@@ -86,6 +86,7 @@ fun LibraryScreen(
     onShelfItemClick: (ShelfItem) -> Unit,
     onShelfItemLongPress: (ShelfItem) -> Unit,
     onNewPlaylist: () -> Unit,
+    onImportSpotifyPlaylist: () -> Unit = {},
     /**
      * A shelf's "Show all" — every shelf's row here stops at five cards (see
      * [LibraryGridShelf]), so this is the only way to reach whatever didn't
@@ -129,6 +130,7 @@ fun LibraryScreen(
     downloadedPlaylists: List<SavedCollection> = emptyList(),
 ) {
     val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
+    val localPlaylists by com.music.bitchord.data.spotify.LocalPlaylistStore.playlists.collectAsStateWithLifecycle()
     val onDevice = stringResource(R.string.on_device)
     PullToRefresh(
         refreshing = refreshing,
@@ -189,6 +191,14 @@ fun LibraryScreen(
                             videoId = null,
                             browseId = Downloads.pageIdFor(playlist.id),
                         )
+                    } + localPlaylists.map { playlist ->
+                        ShelfItem(
+                            title = playlist.title,
+                            subtitle = "${playlist.songs.size} songs · Local Playlist",
+                            thumbnailUrl = playlist.songs.firstOrNull()?.thumbnailUrl,
+                            videoId = null,
+                            browseId = playlist.browseId,
+                        )
                     },
                 )
                 LibraryGridShelf(
@@ -199,6 +209,17 @@ fun LibraryScreen(
                 )
             }
             if (!signedIn) {
+                item(key = "shelf:$PLAYLISTS") {
+                    val emptyPlaylists = HomeShelf(PLAYLISTS, emptyList())
+                    PlaylistShelf(
+                        shelf = emptyPlaylists,
+                        onItemClick = onShelfItemClick,
+                        onItemLongPress = onShelfItemLongPress,
+                        onNewPlaylist = onNewPlaylist,
+                        onImportSpotifyPlaylist = onImportSpotifyPlaylist,
+                        onShowAll = { onShowAll(emptyPlaylists) },
+                    )
+                }
                 item {
                     MessageState(
                         message = stringResource(R.string.library_sign_in_description),
@@ -227,6 +248,7 @@ fun LibraryScreen(
                                 onItemClick = onShelfItemClick,
                                 onItemLongPress = onShelfItemLongPress,
                                 onNewPlaylist = onNewPlaylist,
+                                onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                                 onShowAll = { onShowAll(emptyPlaylists) },
                             )
                         }
@@ -240,6 +262,7 @@ fun LibraryScreen(
                                     onItemClick = onShelfItemClick,
                                     onItemLongPress = onShelfItemLongPress,
                                     onNewPlaylist = onNewPlaylist,
+                                    onImportSpotifyPlaylist = onImportSpotifyPlaylist,
                                     onShowAll = { onShowAll(pinnedFirst) },
                                     pinnedPlaylists = pinnedPlaylists,
                                 )
@@ -368,6 +391,7 @@ private fun PlaylistShelf(
     onItemClick: (ShelfItem) -> Unit,
     onItemLongPress: (ShelfItem) -> Unit,
     onNewPlaylist: () -> Unit,
+    onImportSpotifyPlaylist: () -> Unit = {},
     onShowAll: () -> Unit,
     pinnedPlaylists: List<String> = emptyList(),
 ) {
@@ -378,12 +402,20 @@ private fun PlaylistShelf(
         onShowAll = onShowAll,
         pinnedPlaylists = pinnedPlaylists,
         leadingCard = {
-            NewShelfCard(
-                icon = BitChordIcons.Plus,
-                label = stringResource(R.string.new_playlist),
-                subtitle = stringResource(R.string.saved_to_youtube_music),
-                onClick = onNewPlaylist,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(LIBRARY_GRID_SPACING)) {
+                NewShelfCard(
+                    icon = BitChordIcons.Plus,
+                    label = stringResource(R.string.new_playlist),
+                    subtitle = stringResource(R.string.saved_to_youtube_music),
+                    onClick = onNewPlaylist,
+                )
+                NewShelfCard(
+                    icon = BitChordIcons.Download,
+                    label = "Import Spotify",
+                    subtitle = "Import Spotify link",
+                    onClick = onImportSpotifyPlaylist,
+                )
+            }
         },
     )
 }

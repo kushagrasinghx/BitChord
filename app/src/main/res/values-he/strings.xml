@@ -662,7 +662,7 @@
     <string name="listen_together_server_unknown">הקישו לבדיקה</string>
     <string name="listen_together_custom_server">שימוש בשרת שלכם</string>
     <string name="listen_together_custom_server_footer">השאירו ריק כדי להשתמש בשרת המובנה. אם אתם מריצים עותק משלכם, כל מי שבמסיבה צריך להפנות לאותו שרת.</string>
-    <string name="listen_together_using_builtin">נעשה שימוש בשרת המובנה</string>
+    <string name="listen_together_using_default">נעשה שימוש בשרת המובנה</string>
     <string name="listen_together_create">יצירת מסיבה</string>
     <string name="listen_together_create_subtitle">קבלו קוד לשיתוף עם חברים</string>
     <string name="listen_together_create_footer">תקבלו קוד של שישה תווים. כל מי שיש לו אותו יכול להצטרף, עד חמישה מכשירים כולל שלכם.</string>

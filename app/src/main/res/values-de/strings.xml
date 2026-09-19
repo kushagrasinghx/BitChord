@@ -658,7 +658,7 @@
     <string name="listen_together_server_unknown">Zum Prüfen tippen</string>
     <string name="listen_together_custom_server">Eigenen Server nutzen</string>
     <string name="listen_together_custom_server_footer">Leer lassen, um den eingebauten Server zu nutzen. Wenn du eine eigene Kopie betreibst, müssen alle in der Party auf denselben Server zeigen.</string>
-    <string name="listen_together_using_builtin">Eingebauter Server wird genutzt</string>
+    <string name="listen_together_using_default">Eingebauter Server wird genutzt</string>
     <string name="listen_together_create">Party erstellen</string>
     <string name="listen_together_create_subtitle">Code holen und mit Freunden teilen</string>
     <string name="listen_together_create_footer">Du bekommst einen sechsstelligen Code. Jeder, der ihn hat, kann beitreten – bis zu fünf Geräte, dein eigenes eingeschlossen.</string>

@@ -136,6 +136,12 @@ func (p *PlaybackState) touch(memberId *string) {
 	p.UpdatedAtMs = clock.NowMs()
 }
 
+func (p *PlaybackState) touchQueue(memberId *string) {
+	p.QueueSeq++
+	p.UpdatedBy = memberId
+	p.UpdatedAtMs = clock.NowMs()
+}
+
 func (p *PlaybackState) Play(memberId *string, positionMs *int64) {
 	now := clock.NowMs()
 	startAt := p.PositionAt(now)
@@ -251,8 +257,7 @@ func (p *PlaybackState) SetQueue(memberId *string, queue []*Track, queueIndex in
 			p.QueueIndex = -1
 		}
 	}
-	p.QueueSeq++
-	p.touch(memberId)
+	p.touchQueue(memberId)
 }
 
 func (p *PlaybackState) AddUpcoming(memberId *string, tracks []*Track, playNext bool) (bool, string) {
@@ -290,8 +295,7 @@ func (p *PlaybackState) AddUpcoming(memberId *string, tracks []*Track, playNext 
 		p.Queue = append(p.Queue, toAdd...)
 	}
 
-	p.QueueSeq++
-	p.touch(memberId)
+	p.touchQueue(memberId)
 	return true, ""
 }
 
@@ -311,8 +315,7 @@ func (p *PlaybackState) RemoveUpcoming(memberId *string, videoId string) bool {
 	if p.QueueIndex > match {
 		p.QueueIndex--
 	}
-	p.QueueSeq++
-	p.touch(memberId)
+	p.touchQueue(memberId)
 	return true
 }
 
@@ -328,8 +331,7 @@ func (p *PlaybackState) ClearUpcoming(memberId *string) bool {
 		}
 		p.Queue = p.Queue[:0]
 	}
-	p.QueueSeq++
-	p.touch(memberId)
+	p.touchQueue(memberId)
 	return true
 }
 
@@ -367,8 +369,7 @@ func (p *PlaybackState) MoveUpcoming(memberId *string, fromIdx, toIdx int, video
 	newQ = append(newQ, p.Queue[toIdx:]...)
 	p.Queue = newQ
 
-	p.QueueSeq++
-	p.touch(memberId)
+	p.touchQueue(memberId)
 	return true
 }
 
@@ -412,7 +413,8 @@ func (p *PlaybackState) SetAutoplay(memberId *string, enabled bool) {
 		return
 	}
 	p.AutoplayEnabled = enabled
-	p.touch(memberId)
+	p.UpdatedBy = memberId
+	p.UpdatedAtMs = clock.NowMs()
 }
 
 func (p *PlaybackState) QueueToWire() map[string]interface{} {

@@ -111,7 +111,14 @@ class PartySync(
      * let [reconcile] run against exactly that state and haul the player back
      * off the song the user had just picked. Which is what it did.
      */
-    private var awaitSeq = Long.MAX_VALUE
+    private var awaitPlaybackSeq = Long.MAX_VALUE
+    private var awaitQueueSeq = Long.MAX_VALUE
+
+    /** Tracks last seen playback anchor properties to differentiate playback controls from queue updates. */
+    private var lastAnchorMs = 0L
+    private var lastPositionMs = 0L
+    private var lastTrackId: String? = null
+    private var lastIsPlaying = false
 
     /** Guards against re-issuing a load for a track already being loaded. */
     private var loadingVideoId: String? = null
@@ -184,7 +191,7 @@ class PartySync(
                 // changing is not one.
                 .map { Triple(it.playback.seq, it.queue.seq, it.code) }
                 .distinctUntilChanged()
-                .collect { (seq, _, code) ->
+                .collect { (seq, queueSeq, code) ->
                     if (code != lastPartyCode) {
                         val wasInParty = lastPartyCode != null
                         val nowInParty = code != null
@@ -199,7 +206,7 @@ class PartySync(
                     // the party now describes the world the user made — or
                     // somebody else has moved it on past ours, which is equally
                     // a reason to stop holding reconcile off.
-                    if (seq >= awaitSeq) reconcileQuietUntilMs = 0L
+                    if (seq >= awaitPlaybackSeq && queueSeq >= awaitQueueSeq) reconcileQuietUntilMs = 0L
                     reconcile()
                 }
         }
@@ -248,7 +255,8 @@ class PartySync(
         // Nothing has been published yet, so there is no seq to wait for and
         // the window must not clear on somebody else's control either — it is
         // protecting an action of ours that has not gone out.
-        awaitSeq = Long.MAX_VALUE
+        awaitPlaybackSeq = Long.MAX_VALUE
+        awaitQueueSeq = Long.MAX_VALUE
         publishJob?.cancel()
         publishJob = scope.launch {
             delay(PUBLISH_DEBOUNCE_MS)
@@ -335,6 +343,10 @@ class PartySync(
             loadingVideoId = null
             focusLost = false
             rejoining = false
+            lastAnchorMs = 0L
+            lastPositionMs = 0L
+            lastTrackId = null
+            lastIsPlaying = false
             return
         }
         if (SystemClock.elapsedRealtime() < reconcileQuietUntilMs) return
@@ -424,13 +436,27 @@ class PartySync(
         // land on it exactly, so it is matched without regard to the drift
         // limit — including on the device that issued it, which is otherwise
         // left holding the head start that issuing it gave it.
+        //
+        // However, if target.seq changed without any change to the playback anchor,
+        // position, track, or playing state (e.g. queue operations or metadata updates),
+        // we must not force an audible seek flush.
         if (target.seq != alignedSeq) {
+            val isPlaybackAnchorChanged = lastAnchorMs != target.anchorMs ||
+                lastPositionMs != target.positionMs ||
+                lastTrackId != track.videoId ||
+                lastIsPlaying != target.isPlaying
+
             alignedSeq = target.seq
-            if (abs(drift) > ALIGN_TOLERANCE_MS) {
+            lastAnchorMs = target.anchorMs
+            lastPositionMs = target.positionMs
+            lastTrackId = track.videoId
+            lastIsPlaying = target.isPlaying
+
+            if (isPlaybackAnchorChanged && abs(drift) > ALIGN_TOLERANCE_MS) {
                 Log.i(TAG, "aligning ${drift}ms onto party control ${target.seq}")
                 exo.seekTo(want)
+                return
             }
-            return
         }
         if (abs(drift) <= DRIFT_LIMIT_MS) {
             driftStrikes = 0
@@ -540,8 +566,10 @@ class PartySync(
         // What the user asked for, which during a deferred resume is not what
         // the player is doing yet — that is the whole point of the deferral.
         val wantsPlaying = deferredPlayPending || exo.playWhenReady
-        val base = party.playback.seq
-        var controls = 0
+        val basePlayback = party.playback.seq
+        val baseQueue = party.queue.seq
+        var playbackControls = 0
+        var queueControls = 0
 
         // Compared by id first, which is a plain field read per item. Building
         // the full list is not — it parses a metadata bundle per track — and
@@ -576,7 +604,7 @@ class PartySync(
 
             if (singleMove != null && singleMove.fromIndex > trackIndex && singleMove.toIndex > trackIndex) {
                 ListenTogether.queueMove(singleMove.fromIndex, singleMove.toIndex, singleMove.videoId)
-                controls++
+                queueControls++
             } else {
                 val countToTake = clampedIds.size
                 val queue = (0 until countToTake)
@@ -584,7 +612,7 @@ class PartySync(
                     .filterNot(Song::isDeviceFile)
                     .map { it.toPartyTrack(0L) }
                 ListenTogether.setQueue(queue, trackIndex)
-                controls++
+                queueControls++
             }
         }
 
@@ -594,11 +622,11 @@ class PartySync(
                 // pointing into a running order nobody has yet is the bug that
                 // played the wrong song.
                 ListenTogether.setTrack(track, position, wantsPlaying)
-                controls++
+                playbackControls++
             }
             party.playback.isPlaying != wantsPlaying -> {
                 if (wantsPlaying) ListenTogether.play(position) else ListenTogether.pause(position)
-                controls++
+                playbackControls++
             }
             // Same track, same playing state — so what the user did was move
             // the playhead. Unless it did not move far, in which case this is
@@ -613,7 +641,7 @@ class PartySync(
                 val partyPosition = ListenTogether.partyPositionMs()
                 if (partyPosition == null || abs(position - partyPosition) > SEEK_REPORT_FLOOR_MS) {
                     ListenTogether.seek(position)
-                    controls++
+                    playbackControls++
                 }
             }
         }
@@ -621,8 +649,9 @@ class PartySync(
         // The party has caught up with this device once every control sent has
         // come back around. Nothing sent means nothing to wait for, and the
         // quiet window should stop holding reconcile off immediately.
-        awaitSeq = base + controls
-        if (controls == 0) reconcileQuietUntilMs = 0L
+        awaitPlaybackSeq = basePlayback + playbackControls
+        awaitQueueSeq = baseQueue + queueControls
+        if (playbackControls == 0 && queueControls == 0) reconcileQuietUntilMs = 0L
     }
 
     private fun onEnteredParty() {
@@ -777,7 +806,7 @@ class PartySync(
          * How long a local action is protected from being reconciled away.
          *
          * Generous window (4500ms) to accommodate high latency (800ms-1000ms+)
-         * before server WebSocket echoes arrive. Cleared as soon as seq >= awaitSeq.
+         * before server WebSocket echoes arrive. Cleared as soon as seq >= awaitPlaybackSeq && queueSeq >= awaitQueueSeq.
          */
         const val INTENT_QUIET_MS = 4_500L
 

@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
+	"html/template"
 	"io"
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"github.com/KabirSinghBhatia/BitChord/backend/clock"
+	"github.com/KabirSinghBhatia/BitChord/backend/codes"
 	"github.com/KabirSinghBhatia/BitChord/backend/config"
 	"github.com/KabirSinghBhatia/BitChord/backend/hub"
 	"github.com/KabirSinghBhatia/BitChord/backend/party"
@@ -39,13 +43,16 @@ func main() {
 	mux := http.NewServeMux()
 
 	// REST endpoints
-	mux.HandleFunc("GET /", handleRoot)
+	mux.HandleFunc("GET /{$}", handleRoot)
 	mux.HandleFunc("GET /healthz", handleHealthz)
 	mux.HandleFunc("GET /api/time", handleTime)
 	mux.HandleFunc("POST /api/parties", handleCreateParty)
 	mux.HandleFunc("POST /api/parties/{code}/join", handleJoinParty)
 	mux.HandleFunc("GET /api/parties/{code}", handleGetParty)
 	mux.HandleFunc("POST /api/parties/{code}/leave", handleLeaveParty)
+
+	// Web invite endpoint
+	mux.HandleFunc("GET /invite/{code}", handleInviteLanding)
 
 	// WebSocket endpoint
 	mux.HandleFunc("GET /ws/parties/{code}", handleWebSocket)
@@ -191,6 +198,10 @@ func parseBearerToken(r *http.Request) string {
 // REST Handlers
 
 func handleRoot(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 	jsonResponse(w, http.StatusOK, map[string]interface{}{
 		"service":    "bitchord-listen-together",
 		"maxMembers": config.MaxMembers,
@@ -393,6 +404,272 @@ func handleLeaveParty(w http.ResponseWriter, r *http.Request) {
 	hubInst.Broadcast(p.Code, membersFrame, memberId)
 
 	jsonResponse(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// Web Invite Landing Handler
+
+type invitePageData struct {
+	Code              string
+	DeepLink          string
+	IntentURI         template.URL
+	SafeDeepLink      template.URL
+	ServerOrigin      string
+	CurrentSongTitle  string
+	CurrentSongArtist string
+	MemberCount       int
+	IsActive          bool
+}
+
+var inviteTemplate = template.Must(template.New("invite").Parse(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BitChord Listen Together - Party {{.Code}}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #0b0b0e;
+            color: #f3f3f7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .container {
+            background: rgba(22, 22, 30, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 28px;
+            max-width: 440px;
+            width: 100%;
+            padding: 36px 28px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(124, 77, 255, 0.1);
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(124, 77, 255, 0.15);
+            color: #b388ff;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            background: #00e676;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #00e676;
+        }
+        .badge-dot.offline {
+            background: #ff5252;
+            box-shadow: 0 0 8px #ff5252;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+        .subtitle {
+            color: #9e9ea7;
+            font-size: 15px;
+            line-height: 1.5;
+            margin-bottom: 28px;
+        }
+        .code-box {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 18px;
+            padding: 16px 20px;
+            margin-bottom: 28px;
+        }
+        .code-label {
+            font-size: 12px;
+            color: #71717a;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 6px;
+        }
+        .code-val {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: 6px;
+            color: #ffffff;
+        }
+        .now-playing {
+            font-size: 14px;
+            color: #d1d1d6;
+            margin-top: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #7c4dff 0%, #3d5afe 100%);
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 16px;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.15s ease, opacity 0.15s ease;
+            box-shadow: 0 8px 24px rgba(124, 77, 255, 0.35);
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .footer-note {
+            margin-top: 24px;
+            font-size: 13px;
+            color: #71717a;
+            line-height: 1.5;
+        }
+        .footer-note a {
+            color: #b388ff;
+            text-decoration: none;
+        }
+        .footer-note a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {{if .IsActive}}
+            <div class="badge">
+                <span class="badge-dot"></span>
+                <span>Listen Together • {{.MemberCount}} in party</span>
+            </div>
+            <h1>Join the Music Party</h1>
+            <p class="subtitle">Opening BitChord to sync playback in real time.</p>
+            <div class="code-box">
+                <div class="code-label">Party Code</div>
+                <div class="code-val">{{.Code}}</div>
+                {{if .CurrentSongTitle}}
+                    <div class="now-playing">🎵 {{.CurrentSongTitle}} - {{.CurrentSongArtist}}</div>
+                {{end}}
+            </div>
+            <a id="joinBtn" href="{{.IntentURI}}" class="btn">Join Party in BitChord</a>
+            <p class="footer-note">
+                Didn’t open automatically? Tap the button above.<br>
+                Don't have BitChord yet? <a href="https://github.com/kushagrasinghx/BitChord/releases" target="_blank" rel="noopener">Download it here</a>.
+            </p>
+            <script>
+                var intentUri = {{.IntentURI}};
+                var deepLink = {{.SafeDeepLink}};
+                function launch() {
+                    if (/Android/i.test(navigator.userAgent)) {
+                        window.location.href = intentUri;
+                    } else {
+                        window.location.href = deepLink;
+                    }
+                }
+                setTimeout(launch, 100);
+            </script>
+        {{else}}
+            <div class="badge">
+                <span class="badge-dot offline"></span>
+                <span>Party Inactive</span>
+            </div>
+            <h1>Party Not Found</h1>
+            <p class="subtitle">This party code has expired or does not exist on this server.</p>
+            <div class="code-box">
+                <div class="code-label">Party Code</div>
+                <div class="code-val" style="color: #a1a1aa;">{{.Code}}</div>
+            </div>
+            <p class="footer-note">
+                Please ask the host for a new invite link or check your server configuration.
+            </p>
+        {{end}}
+    </div>
+</body>
+</html>`))
+
+func requestOrigin(r *http.Request) string {
+	proto := "http"
+	if r.TLS != nil {
+		proto = "https"
+	}
+	if config.TrustProxy {
+		if forwardedProto := r.Header.Get("X-Forwarded-Proto"); forwardedProto != "" {
+			proto = strings.TrimSpace(strings.Split(forwardedProto, ",")[0])
+		}
+	}
+	host := r.Host
+	if host == "" {
+		host = "localhost"
+	}
+	return fmt.Sprintf("%s://%s", proto, host)
+}
+
+func handleInviteLanding(w http.ResponseWriter, r *http.Request) {
+	code := codes.Normalise(r.PathValue("code"))
+	origin := requestOrigin(r)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	if len(code) != codes.CodeLength {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = inviteTemplate.Execute(w, invitePageData{
+			Code:     html.EscapeString(r.PathValue("code")),
+			IsActive: false,
+		})
+		return
+	}
+
+	p := store.Find(code)
+	if p == nil {
+		w.WriteHeader(http.StatusNotFound)
+		_ = inviteTemplate.Execute(w, invitePageData{
+			Code:     code,
+			IsActive: false,
+		})
+		return
+	}
+
+	deepLink := fmt.Sprintf("bitchord://party/%s?server=%s", url.PathEscape(code), url.QueryEscape(origin))
+	intentURI := fmt.Sprintf("intent://party/%s?server=%s#Intent;scheme=bitchord;end", url.PathEscape(code), url.QueryEscape(origin))
+
+	currentSongTitle := ""
+	currentSongArtist := ""
+	p.Lock()
+	if p.Playback != nil && p.Playback.Track != nil {
+		currentSongTitle = p.Playback.Track.Title
+		currentSongArtist = p.Playback.Track.Artist
+	}
+	memberCount := len(p.Members)
+	p.Unlock()
+
+	w.WriteHeader(http.StatusOK)
+	_ = inviteTemplate.Execute(w, invitePageData{
+		Code:              code,
+		DeepLink:          deepLink,
+		IntentURI:         template.URL(intentURI),
+		SafeDeepLink:      template.URL(deepLink),
+		ServerOrigin:      origin,
+		CurrentSongTitle:  currentSongTitle,
+		CurrentSongArtist: currentSongArtist,
+		MemberCount:       memberCount,
+		IsActive:          true,
+	})
 }
 
 // WebSocket Handler

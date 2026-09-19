@@ -680,7 +680,7 @@
     <string name="listen_together_server_unknown">Нажмите, чтобы проверить</string>
     <string name="listen_together_custom_server">Использовать свой сервер</string>
     <string name="listen_together_custom_server_footer">Оставьте пустым, чтобы использовать встроенный сервер. Если у вас своя копия, все участники должны указать один и тот же адрес.</string>
-    <string name="listen_together_using_builtin">Используется встроенный сервер</string>
+    <string name="listen_together_using_default">Используется встроенный сервер</string>
     <string name="listen_together_create">Создать вечеринку</string>
     <string name="listen_together_create_subtitle">Получите код, чтобы поделиться с друзьями</string>
     <string name="listen_together_create_footer">Вы получите код из шести символов. Присоединиться может любой, у кого он есть, — до пяти устройств, включая ваше.</string>

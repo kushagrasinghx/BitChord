@@ -662,7 +662,7 @@
     <string name="listen_together_server_unknown">Toque para verificar</string>
     <string name="listen_together_custom_server">Usar seu próprio servidor</string>
     <string name="listen_together_custom_server_footer">Deixe vazio para usar o servidor integrado. Se você roda sua própria cópia, todos na festa precisam apontar para a mesma.</string>
-    <string name="listen_together_using_builtin">Usando o servidor integrado</string>
+    <string name="listen_together_using_default">Usando o servidor integrado</string>
     <string name="listen_together_create">Criar uma festa</string>
     <string name="listen_together_create_subtitle">Receba um código para compartilhar com amigos</string>
     <string name="listen_together_create_footer">Você recebe um código de seis caracteres. Qualquer pessoa com ele pode entrar, até cinco dispositivos incluindo o seu.</string>

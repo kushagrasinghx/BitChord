@@ -92,4 +92,45 @@ class PartyQueueMoveTest {
         }
         assertEquals(newList, reconstructed)
     }
+
+    @Test
+    fun testPartyPlaybackSerializationPreservesSeparateSequences() {
+        val playback = com.music.bitchord.data.listentogether.PartyPlayback(
+            seq = 10,
+            queueSeq = 25,
+            queueIndex = 2,
+            isPlaying = true,
+            positionMs = 5000L,
+            anchorMs = 100000L,
+        )
+        val encoded = Json.encodeToString(com.music.bitchord.data.listentogether.PartyPlayback.serializer(), playback)
+        val decoded = Json.decodeFromString(com.music.bitchord.data.listentogether.PartyPlayback.serializer(), encoded)
+
+        assertEquals(10L, decoded.seq)
+        assertEquals(25L, decoded.queueSeq)
+        assertEquals(true, decoded.isPlaying)
+        assertEquals(5000L, decoded.positionMs)
+        assertEquals(100000L, decoded.anchorMs)
+    }
+
+    @Test
+    fun testQueueOperationDoesNotAdvancePlaybackSeqContract() {
+        val initialPlayback = com.music.bitchord.data.listentogether.PartyPlayback(
+            seq = 5,
+            queueSeq = 1,
+            isPlaying = true,
+            positionMs = 12000L,
+            anchorMs = 50000L,
+        )
+        // A queue move arrives: queueSeq advances, playback seq must remain 5
+        val updatedPlayback = initialPlayback.copy(
+            queueSeq = initialPlayback.queueSeq + 1,
+        )
+
+        assertEquals(5L, updatedPlayback.seq)
+        assertEquals(2L, updatedPlayback.queueSeq)
+        // Playback anchor and position are untouched
+        assertEquals(initialPlayback.anchorMs, updatedPlayback.anchorMs)
+        assertEquals(initialPlayback.positionMs, updatedPlayback.positionMs)
+    }
 }

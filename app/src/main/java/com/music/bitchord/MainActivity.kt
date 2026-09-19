@@ -62,10 +62,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Upgrade
+import com.music.bitchord.data.listentogether.ServerConnectionState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -539,7 +541,7 @@ private fun BitChordApp(
     var browseActions by remember { mutableStateOf<BrowseTarget?>(null) }
     val autoplay by AppSettings.autoplay.collectAsStateWithLifecycle()
     val partyState by ListenTogether.state.collectAsStateWithLifecycle()
-    val partyServerStatus by ListenTogether.serverStatus.collectAsStateWithLifecycle()
+    val partyServerStatus by ListenTogether.serverConnectionState.collectAsStateWithLifecycle()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
     // Incremented each time the search tab is re-tapped while already selected,
     // which SearchScreen uses as a signal to focus the input field.
@@ -591,13 +593,15 @@ private fun BitChordApp(
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     val incomingJamInvite by JamInviteLink.pending.collectAsStateWithLifecycle()
     var activeJamInviteCode by rememberSaveable { mutableStateOf<String?>(null) }
+    var activeJamInviteServer by rememberSaveable { mutableStateOf<String?>(null) }
 
     // An invite is navigation and an action: reveal the Jam settings page now,
     // then let that page join once an account is available. Keeping the code
     // here lets a sign-in round trip return to the invite it started from.
     LaunchedEffect(incomingJamInvite) {
-        val code = incomingJamInvite ?: return@LaunchedEffect
-        activeJamInviteCode = code
+        val invite = incomingJamInvite ?: return@LaunchedEffect
+        activeJamInviteCode = invite.code
+        activeJamInviteServer = invite.serverUrl
         showNowPlaying = false
         showReplay = false
         replayStory = null
@@ -2218,7 +2222,11 @@ private fun BitChordApp(
                         ListenTogetherScreen(
                             signedIn = signedIn,
                             inviteCode = activeJamInviteCode,
-                            onInviteJoined = { activeJamInviteCode = null },
+                            inviteServer = activeJamInviteServer,
+                            onInviteHandled = {
+                                activeJamInviteCode = null
+                                activeJamInviteServer = null
+                            },
                             onSignIn = {
                                 showListenTogether = false
                                 showSettings = false
@@ -2736,18 +2744,60 @@ private fun BitChordApp(
                         // round-trip time is meaningful while coordinating a
                         // party, but would be noise in the rest of the app.
                         if (showListenTogether) {
-                            val ping = partyServerStatus.latencyMs.coerceAtLeast(0)
-                            Text(
-                                text = when (partyServerStatus.health) {
-                                    ListenTogether.Health.ONLINE -> if (ping > 9_999) "9999+ ms" else "$ping ms"
-                                    ListenTogether.Health.CHECKING -> "…"
-                                    else -> "—"
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.padding(horizontal = 8.dp),
-                            )
+                            ) {
+                                when (val state = partyServerStatus) {
+                                    is ServerConnectionState.CustomFallback -> {
+                                        Icon(
+                                            Icons.Rounded.CloudOff,
+                                            contentDescription = stringResource(R.string.listen_together_top_bar_fallback, stringResource(R.string.listen_together_ping, state.latencyMs)),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(
+                                            text = stringResource(R.string.listen_together_ping, state.latencyMs),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.error,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    is ServerConnectionState.CustomOnline -> {
+                                        Text(
+                                            text = stringResource(R.string.listen_together_ping, state.latencyMs),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    is ServerConnectionState.DefaultOnline -> {
+                                        Text(
+                                            text = stringResource(R.string.listen_together_ping, state.latencyMs),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    ServerConnectionState.Checking -> {
+                                        Text(
+                                            text = stringResource(R.string.listen_together_server_checking),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    ServerConnectionState.Offline -> {
+                                        Text(
+                                            text = stringResource(R.string.listen_together_server_offline_dash),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.error,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                }
+                            }
                         }
                         // Only worth surfacing where there's room for it and it won't
                         // be mistaken for a per-page action — Home, at rest.

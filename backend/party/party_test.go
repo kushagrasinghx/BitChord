@@ -251,3 +251,81 @@ func TestQueueMoveUpcoming(t *testing.T) {
 	}
 }
 
+func TestQueueOperationsDoNotIncrementPlaybackSeq(t *testing.T) {
+	ps := NewPlaybackState()
+	t0 := &Track{VideoId: "t0", Title: "T0"}
+	t1 := &Track{VideoId: "t1", Title: "T1"}
+	t2 := &Track{VideoId: "t2", Title: "T2"}
+	t3 := &Track{VideoId: "t3", Title: "T3"}
+
+	ps.SetTrack(nil, t0, 0, true, nil, nil)
+	playbackSeq := ps.Seq
+
+	memberId := "mem-1"
+
+	// 1. SetQueue
+	ps.SetQueue(&memberId, []*Track{t0, t1, t2, t3}, 0)
+	if ps.Seq != playbackSeq {
+		t.Fatalf("SetQueue should not increment playback Seq, got %d vs %d", ps.Seq, playbackSeq)
+	}
+	if ps.QueueSeq == 0 {
+		t.Fatalf("SetQueue must increment QueueSeq")
+	}
+
+	// 2. MoveUpcoming
+	qSeq := ps.QueueSeq
+	if !ps.MoveUpcoming(&memberId, 1, 2, "") {
+		t.Fatalf("MoveUpcoming failed")
+	}
+	if ps.Seq != playbackSeq {
+		t.Fatalf("MoveUpcoming should not increment playback Seq, got %d vs %d", ps.Seq, playbackSeq)
+	}
+	if ps.QueueSeq != qSeq+1 {
+		t.Fatalf("MoveUpcoming must increment QueueSeq")
+	}
+
+	// 3. AddUpcoming
+	t4 := &Track{VideoId: "t4", Title: "T4"}
+	qSeq = ps.QueueSeq
+	ok, _ := ps.AddUpcoming(&memberId, []*Track{t4}, false)
+	if !ok {
+		t.Fatalf("AddUpcoming failed")
+	}
+	if ps.Seq != playbackSeq {
+		t.Fatalf("AddUpcoming should not increment playback Seq, got %d vs %d", ps.Seq, playbackSeq)
+	}
+	if ps.QueueSeq != qSeq+1 {
+		t.Fatalf("AddUpcoming must increment QueueSeq")
+	}
+
+	// 4. RemoveUpcoming
+	qSeq = ps.QueueSeq
+	if !ps.RemoveUpcoming(&memberId, "t4") {
+		t.Fatalf("RemoveUpcoming failed")
+	}
+	if ps.Seq != playbackSeq {
+		t.Fatalf("RemoveUpcoming should not increment playback Seq, got %d vs %d", ps.Seq, playbackSeq)
+	}
+	if ps.QueueSeq != qSeq+1 {
+		t.Fatalf("RemoveUpcoming must increment QueueSeq")
+	}
+
+	// 5. ClearUpcoming
+	qSeq = ps.QueueSeq
+	if !ps.ClearUpcoming(&memberId) {
+		t.Fatalf("ClearUpcoming failed")
+	}
+	if ps.Seq != playbackSeq {
+		t.Fatalf("ClearUpcoming should not increment playback Seq, got %d vs %d", ps.Seq, playbackSeq)
+	}
+	if ps.QueueSeq != qSeq+1 {
+		t.Fatalf("ClearUpcoming must increment QueueSeq")
+	}
+
+	// 6. SetAutoplay
+	ps.SetAutoplay(&memberId, true)
+	if ps.Seq != playbackSeq {
+		t.Fatalf("SetAutoplay should not increment playback Seq, got %d vs %d", ps.Seq, playbackSeq)
+	}
+}
+

@@ -658,7 +658,7 @@
     <string name="listen_together_server_unknown">Appuie pour vérifier</string>
     <string name="listen_together_custom_server">Utiliser ton propre serveur</string>
     <string name="listen_together_custom_server_footer">Laisse ce champ vide pour utiliser le serveur intégré. Si tu héberges ta propre copie, tout le monde dans la session doit pointer vers le même.</string>
-    <string name="listen_together_using_builtin">Serveur intégré utilisé</string>
+    <string name="listen_together_using_default">Serveur intégré utilisé</string>
     <string name="listen_together_create">Créer une session</string>
     <string name="listen_together_create_subtitle">Obtiens un code à partager avec tes amis</string>
     <string name="listen_together_create_footer">Tu reçois un code de six caractères. Quiconque l’a peut rejoindre, jusqu’à cinq appareils, le tien compris.</string>

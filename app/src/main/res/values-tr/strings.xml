@@ -707,7 +707,7 @@
     <string name="listen_together_server_unknown">Kontrol etmek için dokun</string>
     <string name="listen_together_custom_server">Kendi sunucunu kullan</string>
     <string name="listen_together_custom_server_footer">Yerleşik sunucuyu kullanmak için boş bırak. Kendi kopyanı çalıştırıyorsan partideki herkesin aynı adresi göstermesi gerekir.</string>
-    <string name="listen_together_using_builtin">Yerleşik sunucu kullanılıyor</string>
+    <string name="listen_together_using_default">Yerleşik sunucu kullanılıyor</string>
     <string name="listen_together_create">Parti oluştur</string>
     <string name="listen_together_create_subtitle">Arkadaşlarınla paylaşacak bir kod al</string>
     <string name="listen_together_create_footer">Altı karakterlik bir kod alırsın. Koda sahip olan herkes katılabilir; seninle birlikte en fazla beş cihaz.</string>

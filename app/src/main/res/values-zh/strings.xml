@@ -640,7 +640,7 @@
     <string name="listen_together_server_unknown">点按以检查</string>
     <string name="listen_together_custom_server">使用自己的服务器</string>
     <string name="listen_together_custom_server_footer">留空则使用内置服务器。如果你运行自己的副本，派对中的所有人都必须指向同一个。</string>
-    <string name="listen_together_using_builtin">正在使用内置服务器</string>
+    <string name="listen_together_using_default">正在使用内置服务器</string>
     <string name="listen_together_create">创建派对</string>
     <string name="listen_together_create_subtitle">获取代码，分享给朋友</string>
     <string name="listen_together_create_footer">你会得到一个六位代码。拿到代码的人都能加入，包括你自己最多五台设备。</string>

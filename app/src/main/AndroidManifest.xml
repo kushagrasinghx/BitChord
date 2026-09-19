@@ -212,6 +212,16 @@
                     android:pathPattern="/invite/......" />
             </intent-filter>
 
+            <!-- Custom scheme for Listen Together invites on custom server deployments. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="bitchord"
+                    android:host="party" />
+            </intent-filter>
+
             <!--
               Share → BitChord, from YT Music's own share sheet or from
               anywhere a link can be sent. The text is whatever the sending app

@@ -640,7 +640,7 @@
     <string name="listen_together_server_unknown">タップして確認</string>
     <string name="listen_together_custom_server">自分のサーバーを使う</string>
     <string name="listen_together_custom_server_footer">空のままにすると内蔵サーバーを使います。自分でコピーを動かしている場合は、パーティーの全員が同じサーバーを指している必要があります。</string>
-    <string name="listen_together_using_builtin">内蔵サーバーを使用中</string>
+    <string name="listen_together_using_default">内蔵サーバーを使用中</string>
     <string name="listen_together_create">パーティーを作る</string>
     <string name="listen_together_create_subtitle">友だちに共有するコードを取得</string>
     <string name="listen_together_create_footer">6文字のコードが発行されます。コードを知っている人は誰でも参加でき、自分を含めて5台までです。</string>

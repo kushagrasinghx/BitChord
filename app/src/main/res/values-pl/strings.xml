@@ -690,7 +690,7 @@
     <string name="listen_together_server_unknown">Dotknij, aby sprawdzić</string>
     <string name="listen_together_custom_server">Użyj własnego serwera</string>
     <string name="listen_together_custom_server_footer">Zostaw puste, aby użyć wbudowanego serwera. Jeśli prowadzisz własną kopię, wszyscy w imprezie muszą wskazywać ten sam adres.</string>
-    <string name="listen_together_using_builtin">Używany jest wbudowany serwer</string>
+    <string name="listen_together_using_default">Używany jest wbudowany serwer</string>
     <string name="listen_together_create">Utwórz imprezę</string>
     <string name="listen_together_create_subtitle">Odbierz kod do udostępnienia znajomym</string>
     <string name="listen_together_create_footer">Otrzymasz sześcioznakowy kod. Każdy, kto go ma, może się dołączyć — do pięciu urządzeń, licząc twoje.</string>

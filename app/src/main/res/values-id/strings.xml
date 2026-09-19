@@ -640,7 +640,7 @@
     <string name="listen_together_server_unknown">Ketuk untuk memeriksa</string>
     <string name="listen_together_custom_server">Pakai server sendiri</string>
     <string name="listen_together_custom_server_footer">Biarkan kosong untuk memakai server bawaan. Kalau kamu menjalankan salinan sendiri, semua orang di pesta harus diarahkan ke server yang sama.</string>
-    <string name="listen_together_using_builtin">Memakai server bawaan</string>
+    <string name="listen_together_using_default">Memakai server bawaan</string>
     <string name="listen_together_create">Buat pesta</string>
     <string name="listen_together_create_subtitle">Dapatkan kode untuk dibagikan ke teman</string>
     <string name="listen_together_create_footer">Kamu dapat kode enam karakter. Siapa pun yang punya kodenya bisa ikut, sampai lima perangkat termasuk milikmu.</string>

@@ -2,6 +2,7 @@ package com.music.bitchord.ui.screens
 
 import android.content.Intent
 import android.text.format.DateFormat
+import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -41,13 +42,16 @@ import androidx.compose.material.icons.rounded.Login
 import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -84,8 +88,26 @@ import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyMember
 import com.music.bitchord.data.listentogether.PartyActivity
 import com.music.bitchord.ui.components.PillTextField
+import com.music.bitchord.data.listentogether.ServerConnectionState
+import com.music.bitchord.data.listentogether.ServerUrlError
+import com.music.bitchord.data.listentogether.ServerUrlValidationResult
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
+
+private fun ServerUrlError.toMessageRes(): Int = when (this) {
+    ServerUrlError.Whitespace -> R.string.listen_together_err_whitespace
+    ServerUrlError.InvalidScheme -> R.string.listen_together_invalid_server_url
+    ServerUrlError.InvalidHost -> R.string.listen_together_invalid_server_url
+    ServerUrlError.InvalidPort -> R.string.listen_together_err_invalid_port
+    ServerUrlError.InvalidPath -> R.string.listen_together_err_invalid_path
+    ServerUrlError.HasPath -> R.string.listen_together_err_no_path
+    ServerUrlError.HasQuery -> R.string.listen_together_err_no_query
+    ServerUrlError.HasFragment -> R.string.listen_together_err_no_fragment
+    ServerUrlError.Malformed -> R.string.listen_together_invalid_server_url
+}
 
 /**
  * Listen together: one party, one code, up to five signed-in devices.
@@ -107,7 +129,8 @@ import kotlinx.coroutines.launch
 fun ListenTogetherScreen(
     signedIn: Boolean,
     inviteCode: String? = null,
-    onInviteJoined: () -> Unit = {},
+    inviteServer: String? = null,
+    onInviteHandled: () -> Unit = {},
     onSignIn: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
@@ -118,49 +141,180 @@ fun ListenTogetherScreen(
 
     val state by ListenTogether.state.collectAsStateWithLifecycle()
     val customServer by ListenTogether.customServerUrl.collectAsStateWithLifecycle()
+    val connectionState by ListenTogether.serverConnectionState.collectAsStateWithLifecycle()
     val activity by ListenTogether.activity.collectAsStateWithLifecycle()
 
     var serverInput by remember(customServer) { mutableStateOf(customServer) }
+    var pendingSaveJob by remember { mutableStateOf<Job?>(null) }
     var codeInput by remember(inviteCode) { mutableStateOf(inviteCode.orEmpty()) }
     var busy by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
     var nickname by remember { mutableStateOf(ListenTogether.nickname()) }
     var maxMembers by remember { mutableIntStateOf(5) }
+    var pendingServerSwitchInvite by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // A membership outlives the process; the socket does not. Opening it when
     // the screen is looked at — rather than on every cold start — is what keeps
     // a feature nobody is currently using off the radio.
     LaunchedEffect(Unit) { ListenTogether.ensureConnected() }
-    // This page owns the health polling: the latency badge belongs to Listen
-    // together, so it refreshes while this page is visible and stops when the
-    // composable leaves the screen.
-    LaunchedEffect(customServer) {
-        while (true) {
-            ListenTogether.refreshServerHealth()
-            delay(10_000)
+    DisposableEffect(Unit) {
+        ListenTogether.setScreenActive(true)
+        onDispose {
+            ListenTogether.setScreenActive(false)
         }
     }
 
     // A link tap is already an explicit request to join. Signed-out users keep
-    // the populated code while the sign-in page is open. joinParty switches an
-    // existing membership without dropping it first if the invite is invalid.
-    LaunchedEffect(inviteCode, signedIn) {
+    // the populated code while the sign-in page is open.
+    LaunchedEffect(inviteCode, inviteServer, signedIn) {
         val code = inviteCode ?: return@LaunchedEffect
-        if (!signedIn) return@LaunchedEffect
+        if (!signedIn || busy) return@LaunchedEffect
+
+        val activeServer = (ListenTogether.activePartyServerBase() ?: ListenTogether.effectiveIdleServerBase()).trim().trimEnd('/')
+        val targetServer = inviteServer?.trim()?.trimEnd('/')
+
+        if (!targetServer.isNullOrBlank()) {
+            if (!targetServer.equals(activeServer, ignoreCase = true)) {
+                pendingServerSwitchInvite = code to targetServer
+                return@LaunchedEffect
+            }
+        } else if (customServer.isNotBlank()) {
+            pendingServerSwitchInvite = code to ""
+            return@LaunchedEffect
+        }
+
         if (state.code.equals(code, ignoreCase = true)) {
-            onInviteJoined()
+            onInviteHandled()
             return@LaunchedEffect
         }
 
         busy = true
         failure = null
-        val result = ListenTogether.joinParty(code)
-        failure = result.exceptionOrNull()?.message
-        if (result.isSuccess) {
-            codeInput = ""
-            onInviteJoined()
+        try {
+            // Live listeners use switchPartyWithRecovery to guarantee Party A and playback
+            // remain intact if the target invite fails. Idle listeners use joinParty directly.
+            if (state.inParty) {
+                val target = targetServer ?: customServer
+                when (val result = ListenTogether.switchPartyWithRecovery(target, code)) {
+                    is ListenTogether.SwitchPartyResult.Success -> {
+                        codeInput = ""
+                    }
+                    is ListenTogether.SwitchPartyResult.TargetFailedRecovered -> {
+                        failure = context.getString(
+                            R.string.listen_together_switch_failed_stayed_in_party,
+                            result.targetError.trimEnd('.'),
+                            result.partyCode,
+                        )
+                    }
+                    is ListenTogether.SwitchPartyResult.TargetFailedNoParty -> {
+                        failure = context.getString(
+                            R.string.listen_together_switch_failed,
+                            result.targetError.trimEnd('.'),
+                        )
+                    }
+                }
+            } else {
+                val result = ListenTogether.joinParty(code)
+                if (result.isSuccess) {
+                    codeInput = ""
+                } else {
+                    failure = result.exceptionOrNull()?.message
+                }
+            }
+        } finally {
+            busy = false
+            onInviteHandled()
         }
-        busy = false
+    }
+
+    pendingServerSwitchInvite?.let { (codeToJoin, serverToSet) ->
+        val isSwitchToOfficial = serverToSet.isBlank()
+        AlertDialog(
+            onDismissRequest = {
+                pendingServerSwitchInvite = null
+                onInviteHandled()
+            },
+            title = {
+                Text(
+                    stringResource(
+                        if (isSwitchToOfficial) {
+                            R.string.listen_together_official_server_dialog_title
+                        } else {
+                            R.string.listen_together_custom_server_dialog_title
+                        }
+                    ),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            },
+            text = {
+                Text(
+                    if (isSwitchToOfficial) {
+                        stringResource(R.string.listen_together_official_server_dialog_message, codeToJoin)
+                    } else {
+                        stringResource(
+                            R.string.listen_together_custom_server_dialog_message,
+                            serverToSet,
+                            codeToJoin,
+                        )
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val toJoin = codeToJoin
+                        val toSet = serverToSet
+                        pendingServerSwitchInvite = null
+                        busy = true
+                        failure = null
+                        scope.launch {
+                            try {
+                                when (val result = ListenTogether.switchPartyWithRecovery(toSet, toJoin)) {
+                                    is ListenTogether.SwitchPartyResult.Success -> {
+                                        serverInput = toSet
+                                        codeInput = ""
+                                    }
+                                    is ListenTogether.SwitchPartyResult.TargetFailedRecovered -> {
+                                        failure = context.getString(
+                                            R.string.listen_together_switch_failed_stayed_in_party,
+                                            result.targetError.trimEnd('.'),
+                                            result.partyCode,
+                                        )
+                                    }
+                                    is ListenTogether.SwitchPartyResult.TargetFailedNoParty -> {
+                                        failure = context.getString(
+                                            R.string.listen_together_switch_failed,
+                                            result.targetError.trimEnd('.'),
+                                        )
+                                    }
+                                }
+                            } finally {
+                                busy = false
+                                onInviteHandled()
+                            }
+                        }
+                    },
+                ) {
+                    Text(
+                        stringResource(R.string.listen_together_custom_server_switch_and_join),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        pendingServerSwitchInvite = null
+                        onInviteHandled()
+                    },
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+        )
     }
 
     Column(
@@ -226,7 +380,14 @@ fun ListenTogetherScreen(
                 onCopy = { clipboard.setText(AnnotatedString(state.code.orEmpty())) },
                 onShare = {
                     val code = state.code ?: return@InAParty
-                    val link = JamInviteLink.url(code)
+                    val host = requireNotNull(ListenTogether.activePartyServerBase()) {
+                        "activePartyServerBase must not be null while in a party"
+                    }
+                    val link = if (host == ListenTogether.defaultServer) {
+                        JamInviteLink.url(code, null)
+                    } else {
+                        JamInviteLink.url(code, host)
+                    }
                     val message = "$link\n\n${context.getString(R.string.listen_together_share_text, code)}"
                     context.startActivity(
                         Intent.createChooser(
@@ -264,6 +425,68 @@ fun ListenTogetherScreen(
             footer = stringResource(R.string.listen_together_custom_server_footer),
         ) {
             Column(Modifier.padding(horizontal = ROW_INSET, vertical = 14.dp)) {
+                val saveServerUrl: () -> Unit = {
+                    val raw = serverInput
+                    when (val validation = ListenTogether.parseAndNormalizeServerUrl(raw)) {
+                        is ServerUrlValidationResult.Invalid -> {
+                            val errorMsgRes = validation.error.toMessageRes()
+                            Toast.makeText(context, context.getString(errorMsgRes), Toast.LENGTH_SHORT).show()
+                        }
+                        is ServerUrlValidationResult.Valid -> {
+                            val submittedUrl = validation.normalizedUrl
+                            pendingSaveJob?.cancel()
+                            pendingSaveJob = scope.launch {
+                                busy = true
+                                try {
+                                    val newState = ListenTogether.setCustomServerUrl(submittedUrl)
+                                    if (ListenTogether.customServerUrl.value == submittedUrl) {
+                                        serverInput = submittedUrl
+                                    }
+                                    val messageRes = when (newState) {
+                                        is ServerConnectionState.CustomOnline -> R.string.listen_together_custom_server_connected
+                                        is ServerConnectionState.CustomFallback -> R.string.listen_together_custom_server_unreachable_fallback
+                                        is ServerConnectionState.DefaultOnline -> R.string.listen_together_switched_to_default
+                                        is ServerConnectionState.Offline -> if (ListenTogether.customServerUrl.value.isNotBlank()) {
+                                            R.string.listen_together_status_all_offline
+                                        } else {
+                                            R.string.listen_together_server_offline
+                                        }
+                                        ServerConnectionState.Checking -> null
+                                    }
+                                    if (messageRes != null) {
+                                        Toast.makeText(context, context.getString(messageRes), Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (_: CancellationException) {
+                                    // Superseded by newer save operation
+                                } finally {
+                                    if (pendingSaveJob === coroutineContext[Job]) {
+                                        busy = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                val disconnectServer: () -> Unit = {
+                    serverInput = ""
+                    pendingSaveJob?.cancel()
+                    pendingSaveJob = scope.launch {
+                        busy = true
+                        try {
+                            ListenTogether.setCustomServerUrl("")
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.listen_together_switched_to_default),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        } catch (_: CancellationException) {
+                        } finally {
+                            if (pendingSaveJob === coroutineContext[Job]) {
+                                busy = false
+                            }
+                        }
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Rounded.Dns,
@@ -275,10 +498,10 @@ fun ListenTogetherScreen(
                     PillTextField(
                         value = serverInput,
                         onValueChange = { serverInput = it },
-                        // Never the built-in address, even as a hint: this box
+                        // Never the default address, even as a hint: this box
                         // exists to take somebody else's server, and the one
                         // this build uses is not shown anywhere.
-                        placeholder = stringResource(R.string.listen_together_using_builtin),
+                        placeholder = stringResource(R.string.listen_together_using_default),
                         // Not the field's own default: the card it is sitting in
                         // is surfaceVariant too, so the default would paint the
                         // box in exactly the colour behind it.
@@ -293,18 +516,105 @@ fun ListenTogetherScreen(
                             imeAction = ImeAction.Done,
                         ),
                         keyboardActions = KeyboardActions(
-                            onDone = { ListenTogether.setCustomServerUrl(serverInput) },
+                            onDone = { saveServerUrl() },
                         ),
                         modifier = Modifier.weight(1f),
                     )
                 }
-                if (serverInput.trim().trimEnd('/') != customServer) {
+                if (customServer.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(start = ICON_SIZE + ICON_GAP),
+                    ) {
+                        when (val conn = connectionState) {
+                            ServerConnectionState.Checking -> {
+                                Spinner(modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.listen_together_server_checking),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            is ServerConnectionState.CustomOnline -> {
+                                Icon(
+                                    Icons.Rounded.CloudDone,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.listen_together_status_custom_online, conn.latencyMs),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+                            is ServerConnectionState.CustomFallback -> {
+                                Icon(
+                                    Icons.Rounded.CloudOff,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.listen_together_status_custom_fallback, conn.latencyMs),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                            ServerConnectionState.Offline -> {
+                                Icon(
+                                    Icons.Rounded.CloudOff,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.listen_together_status_all_offline),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                            is ServerConnectionState.DefaultOnline -> {}
+                        }
+                    }
+                }
+                val isDirty = when (val res = ListenTogether.parseAndNormalizeServerUrl(serverInput)) {
+                    is ServerUrlValidationResult.Valid -> res.normalizedUrl != customServer
+                    is ServerUrlValidationResult.Invalid -> true
+                }
+                val showActions = customServer.isNotBlank() || isDirty
+                if (showActions) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        TextButton(onClick = { ListenTogether.setCustomServerUrl(serverInput) }) {
-                            Text(stringResource(R.string.save))
+                        if (customServer.isNotBlank()) {
+                            TextButton(
+                                onClick = disconnectServer,
+                                enabled = !busy && !state.inParty,
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.disconnect),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                        if (isDirty) {
+                            if (customServer.isNotBlank()) {
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            TextButton(
+                                onClick = saveServerUrl,
+                                enabled = !busy && !state.inParty,
+                            ) {
+                                Text(stringResource(R.string.save))
+                            }
                         }
                     }
                 }
@@ -342,7 +652,11 @@ private fun ServerHealthRow(
             title = stringResource(R.string.listen_together_server),
             subtitle = when (status.health) {
                 ListenTogether.Health.ONLINE ->
-                    stringResource(R.string.listen_together_server_online, status.latencyMs)
+                    if (status.isFallback) {
+                        stringResource(R.string.listen_together_server_online_fallback, status.latencyMs)
+                    } else {
+                        stringResource(R.string.listen_together_server_online, status.latencyMs)
+                    }
                 ListenTogether.Health.OFFLINE ->
                     stringResource(R.string.listen_together_server_offline)
                 ListenTogether.Health.CHECKING ->
@@ -833,11 +1147,11 @@ private fun PartyActivityList(entries: List<PartyActivity>) {
 }
 
 @Composable
-private fun Spinner() {
+private fun Spinner(modifier: Modifier = Modifier.size(18.dp)) {
     CircularProgressIndicator(
         strokeWidth = 2.dp,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(18.dp),
+        modifier = modifier,
     )
 }
 

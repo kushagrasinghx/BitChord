@@ -724,7 +724,7 @@
     <string name="listen_together_server_unknown">Tocca per controllare</string>
     <string name="listen_together_custom_server">Usa il tuo server</string>
     <string name="listen_together_custom_server_footer">Lascia vuoto per usare il server integrato. Se ne gestisci una copia tua, tutti nel party devono puntare alla stessa.</string>
-    <string name="listen_together_using_builtin">Si usa il server integrato</string>
+    <string name="listen_together_using_default">Si usa il server integrato</string>
     <string name="listen_together_create">Crea un party</string>
     <string name="listen_together_create_subtitle">Ottieni un codice da condividere con gli amici</string>
     <string name="listen_together_create_footer">Ricevi un codice di sei caratteri. Chi lo ha può entrare, fino a cinque dispositivi compreso il tuo.</string>

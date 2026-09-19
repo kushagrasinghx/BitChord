@@ -1004,9 +1004,11 @@
 
     <string name="listen_together_custom_server">Use your own server</string>
 
-    <string name="listen_together_custom_server_footer">Leave this empty to use the built-in server. If you run your own copy, everyone in the party has to be pointed at the same one.</string>
+    <string name="listen_together_custom_server_footer">Để trống mục này để sử dụng máy chủ mặc định. Nếu bạn chạy bản sao riêng, mọi người trong nhóm phải trỏ đến cùng một máy chủ.</string>
 
-    <string name="listen_together_using_builtin">Using the built-in server</string>
+    <string name="listen_together_using_default">Đang sử dụng máy chủ mặc định</string>
+    <string name="listen_together_switched_to_default">Đã chuyển sang máy chủ mặc định</string>
+    <string name="listen_together_custom_server_saved">Đã lưu máy chủ tùy chỉnh</string>
 
     <string name="listen_together_create">Create a party</string>
 
@@ -1058,7 +1060,58 @@
 
     <string name="listen_together_open">Listen together</string>
 
+    <string name="party_queue_full">Queue is full (maximum %d songs in party)</string>
+    <string name="source_matching">Source matching</string>
+    <string name="upgrade_length_slack">Track length tolerance</string>
+    <string name="upgrade_length_slack_subtitle">Maximum duration difference allowed for a replacement stream</string>
+    <string name="upgrade_length_slack_footer">A larger tolerance accepts more source matches; a smaller tolerance is stricter. The default is 3 seconds.</string>
+    <string name="seconds_short">%1$d s</string>
+    <string name="listen_together_profile">Your party profile</string>
+    <string name="listen_together_nickname_hint">Nickname for this party</string>
+    <string name="listen_together_party_size">Party size</string>
+    <string name="listen_together_party_size_subtitle">Choose 2–10 listeners</string>
+    <string name="listen_together_host_controls">Only you can change capacity or remove listeners</string>
+    <string name="listen_together_remove">Remove</string>
+    <string name="listen_together_activity">Recent activity</string>
+    <string name="listen_together_activity_footer">This session only · latest first · up to 100 actions</string>
+    <string name="listen_together_activity_played">Started playback</string>
+    <string name="listen_together_activity_paused">Paused playback</string>
+    <string name="listen_together_activity_seeked">Sought in the track</string>
+    <string name="listen_together_activity_skipped">Skipped ahead</string>
+    <string name="listen_together_activity_went_back">Went back</string>
+    <string name="listen_together_activity_added">Added to the queue</string>
+    <string name="listen_together_activity_removed_track">Removed a queued track</string>
+    <string name="listen_together_activity_cleared">Cleared upcoming tracks</string>
+    <string name="listen_together_activity_reordered">Reordered the queue</string>
+    <string name="listen_together_activity_removed_member">Removed a listener</string>
+    <string name="listen_together_activity_changed_size">Changed party size</string>
+    <string name="listen_together_activity_updated">Updated the party</string>
+    <string name="listen_together_custom_server_dialog_title">Join party on custom server?</string>
+    <string name="listen_together_custom_server_dialog_message">This party is hosted on an external server:\n\n%1$s\n\nDo you want to switch your party server and join party %2$s?</string>
+    <string name="listen_together_custom_server_switch_and_join">Switch &amp; Join</string>
+    <string name="listen_together_official_server_dialog_title">Switch to official server?</string>
+    <string name="listen_together_official_server_dialog_message">This party is hosted on the official BitChord server.\n\nDo you want to switch back to the official server and join party %1$s?</string>
+    <string name="listen_together_switch_failed_stayed_in_party">Couldn’t join party: %1$s. Remaining in party %2$s.</string>
+    <string name="listen_together_switch_failed">Couldn’t join party: %1$s.</string>
     <string name="listen_together_open_count">Listening together · %1$d</string>
-
+    <string name="audio_pipeline_subtitle">Live signal path, decoder to output</string>
+    <string name="song_added_to_playlist">Added to playlist</string>
+    <string name="song_already_in_playlist">Already in playlist</string>
+    <string name="listen_together_server_online_fallback">Trực tuyến (dự phòng mặc định) · %1$d ms</string>
+    <string name="listen_together_ping">%1$d ms</string>
+    <string name="listen_together_server_offline_dash">—</string>
+    <string name="listen_together_invalid_server_url">URL máy chủ không hợp lệ. Vui lòng nhập địa chỉ hợp lệ (ví dụ: https://your-server.com)</string>
+    <string name="listen_together_err_whitespace">URL máy chủ không được chứa khoảng trắng</string>
+    <string name="listen_together_err_invalid_path">Đường dẫn URL máy chủ không hợp lệ</string>
+    <string name="listen_together_err_no_path">URL máy chủ không được bao gồm đường dẫn</string>
+    <string name="listen_together_err_no_query">URL máy chủ không được bao gồm tham số truy vấn</string>
+    <string name="listen_together_err_no_fragment">URL máy chủ không được bao gồm phân đoạn (fragment)</string>
+    <string name="listen_together_err_invalid_port">Cổng máy chủ phải nằm trong khoảng từ 1 đến 65535</string>
+    <string name="listen_together_custom_server_connected">Đã kết nối với máy chủ tùy chỉnh</string>
+    <string name="listen_together_custom_server_unreachable_fallback">Không thể kết nối máy chủ tùy chỉnh. Đang sử dụng máy chủ mặc định dự phòng.</string>
+    <string name="listen_together_status_custom_online">Đã kết nối với máy chủ tùy chỉnh · %1$d ms</string>
+    <string name="listen_together_status_custom_fallback">Máy chủ tùy chỉnh không thể kết nối · Đang dùng mặc định dự phòng (%1$d ms)</string>
+    <string name="listen_together_status_all_offline">Cả máy chủ tùy chỉnh và máy chủ mặc định đều ngoại tuyến</string>
+    <string name="listen_together_top_bar_fallback">Dự phòng · %1$s</string>
 
 </resources>

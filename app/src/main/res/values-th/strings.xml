@@ -688,7 +688,7 @@
     <string name="listen_together_server_unknown">แตะเพื่อตรวจสอบ</string>
     <string name="listen_together_custom_server">ใช้เซิร์ฟเวอร์ของคุณเอง</string>
     <string name="listen_together_custom_server_footer">เว้นว่างไว้เพื่อใช้เซิร์ฟเวอร์ที่มีมาให้ ถ้าคุณรันสำเนาของตัวเอง ทุกคนในปาร์ตี้ต้องชี้ไปที่เซิร์ฟเวอร์เดียวกัน</string>
-    <string name="listen_together_using_builtin">กำลังใช้เซิร์ฟเวอร์ที่มีมาให้</string>
+    <string name="listen_together_using_default">กำลังใช้เซิร์ฟเวอร์ที่มีมาให้</string>
     <string name="listen_together_create">สร้างปาร์ตี้</string>
     <string name="listen_together_create_subtitle">รับรหัสไปแชร์กับเพื่อน</string>
     <string name="listen_together_create_footer">คุณจะได้รหัสหกตัวอักษร ใครที่มีรหัสก็เข้าร่วมได้ สูงสุดห้าเครื่องรวมเครื่องของคุณ</string>

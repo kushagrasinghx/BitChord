@@ -704,6 +704,7 @@
     <string name="automix_mode_performance_subtitle">4 thread · analisis tercepat · penggunaan baterai lebih tinggi</string>
 
     <string name="automix_not_supported_video">Automix tidak didukung pada lagu video</string>
+    <string name="automix_stopped_in_party">Automix: dihentikan saat Dengar bersama</string>
 
     <string name="automix_performance">Performa Automix</string>
 

@@ -425,6 +425,7 @@
     <string name="data_saver">Data-Saver</string>
     <string name="medium_quality">Medium Quality</string>
     <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="audio_pipeline_subtitle">Live signal path, decoder to output</string>
     <string name="pipeline_track_info">Track Info</string>
     <string name="pipeline_decoder">Decoder</string>
     <string name="pipeline_resampler">Resampler</string>
@@ -529,6 +530,9 @@
         <item quantity="other">Added %1$d songs to the queue</item>
     </plurals>
     <string name="song_added_to_queue">Song added to queue</string>
+    <string name="song_added_to_playlist">Added to playlist</string>
+    <string name="song_already_in_playlist">Already in playlist</string>
+    <string name="party_queue_full">Queue is full (maximum %d songs in party)</string>
     <plurals name="log_copied_line_count">
         <item quantity="one">Log copied · %1$d line</item>
         <item quantity="other">Log copied · %1$d lines</item>
@@ -746,6 +750,7 @@
     <string name="running">Running</string>
     <string name="automix_analysis_status">Automix · this song: %1$s · next: %2$s</string>
     <string name="automix_not_supported_video">Automix not supported on video songs</string>
+    <string name="automix_stopped_in_party">Automix: stopped in listen together</string>
     <string name="analysis_complete">analysed</string>
     <string name="analysis_refining">analysed, refining…</string>
     <string name="analysis_in_progress">analysing…</string>
@@ -847,7 +852,27 @@
     <string name="listen_together_using_builtin">Using the built-in server</string>
     <string name="listen_together_create">Create a party</string>
     <string name="listen_together_create_subtitle">Get a code to share with friends</string>
-    <string name="listen_together_create_footer">You get a six-character code. Anyone who has it can join, up to five devices including yours.</string>
+    <string name="listen_together_create_footer">You get a six-character code. Anyone who has it can join, up to %1$d devices including yours.</string>
+    <string name="listen_together_profile">Your party profile</string>
+    <string name="listen_together_nickname_hint">Nickname for this party</string>
+    <string name="listen_together_party_size">Party size</string>
+    <string name="listen_together_party_size_subtitle">Choose 2–10 listeners</string>
+    <string name="listen_together_host_controls">Only you can change capacity or remove listeners</string>
+    <string name="listen_together_remove">Remove</string>
+    <string name="listen_together_activity">Recent activity</string>
+    <string name="listen_together_activity_footer">This session only · latest first · up to 100 actions</string>
+    <string name="listen_together_activity_played">Started playback</string>
+    <string name="listen_together_activity_paused">Paused playback</string>
+    <string name="listen_together_activity_seeked">Sought in the track</string>
+    <string name="listen_together_activity_skipped">Skipped ahead</string>
+    <string name="listen_together_activity_went_back">Went back</string>
+    <string name="listen_together_activity_added">Added to the queue</string>
+    <string name="listen_together_activity_removed_track">Removed a queued track</string>
+    <string name="listen_together_activity_cleared">Cleared upcoming tracks</string>
+    <string name="listen_together_activity_reordered">Reordered the queue</string>
+    <string name="listen_together_activity_removed_member">Removed a listener</string>
+    <string name="listen_together_activity_changed_size">Changed party size</string>
+    <string name="listen_together_activity_updated">Updated the party</string>
     <string name="listen_together_join">Join a party</string>
     <string name="listen_together_join_action">Join</string>
     <string name="listen_together_code_hint">Six letters or digits</string>

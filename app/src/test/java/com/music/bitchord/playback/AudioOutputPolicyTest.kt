@@ -51,6 +51,71 @@ class AudioOutputPolicyTest {
     }
 
     @Test
+    fun routeAwarePhoneIsAlwaysCappedAt16Bit() {
+        assertFalse(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.FLOAT_32,
+                routeKind = AudioRouting.Kind.PHONE,
+                advertisesPcmFloat = true,
+            ),
+        )
+    }
+
+    @Test
+    fun routeAwareUsbAllowsFloatWhenAdvertised() {
+        assertTrue(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.FLOAT_32,
+                routeKind = AudioRouting.Kind.USB,
+                advertisesPcmFloat = true,
+            ),
+        )
+        assertFalse(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.FLOAT_32,
+                routeKind = AudioRouting.Kind.USB,
+                advertisesPcmFloat = false,
+            ),
+        )
+    }
+
+    @Test
+    fun routeAwareBluetoothAllowsFloatOnlyWhenAdvertised() {
+        assertTrue(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.FLOAT_32,
+                routeKind = AudioRouting.Kind.BLUETOOTH,
+                advertisesPcmFloat = true,
+            ),
+        )
+        assertFalse(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.FLOAT_32,
+                routeKind = AudioRouting.Kind.BLUETOOTH,
+                advertisesPcmFloat = false,
+            ),
+        )
+    }
+
+    @Test
+    fun routeAwarePcm16AlwaysReturnsFalse() {
+        assertFalse(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.PCM_16,
+                routeKind = AudioRouting.Kind.BLUETOOTH,
+                advertisesPcmFloat = true,
+            ),
+        )
+        assertFalse(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.PCM_16,
+                routeKind = AudioRouting.Kind.USB,
+                advertisesPcmFloat = true,
+            ),
+        )
+    }
+
+    @Test
     fun samsungVendorFlacDecoderIsBlockedForFloatOutput() {
         assertTrue(AudioOutputPolicy.isUnsafeFloatFlacDecoder("c2.sec.flac.decoder"))
         assertTrue(AudioOutputPolicy.isUnsafeFloatFlacDecoder("OMX.SEC.FLAC.Decoder"))

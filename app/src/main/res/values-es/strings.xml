@@ -840,6 +840,7 @@
     <string name="subscriptions">Suscripciones</string>
 
     <string name="automix_not_supported_video">Automix no es compatible con canciones en formato de vídeo</string>
+    <string name="automix_stopped_in_party">Automix: detenido en Escuchar juntos</string>
 
     <string name="channel_session_unavailable">No hay sesión en esta página aún — abre YouTube Music primero</string>
 

@@ -12,6 +12,7 @@ import com.music.bitchord.data.settings.OutputPcmMode
  * explicitly selected external route that advertises PCM float is allowed.
  */
 internal object AudioOutputPolicy {
+    /** Backwards-compatible USB-specific check. */
     fun shouldUseFloatOutput(
         requestedMode: OutputPcmMode,
         isPreferredUsbRoute: Boolean,
@@ -19,6 +20,24 @@ internal object AudioOutputPolicy {
     ): Boolean = requestedMode == OutputPcmMode.FLOAT_32 &&
         isPreferredUsbRoute &&
         advertisesPcmFloat
+
+    /**
+     * Route-aware float output decision.
+     *
+     * - Built-in phone speaker (PHONE) must remain capped at 16-bit to prevent OEM mixer
+     *   issues and distortion on affected device paths.
+     * - External routes (USB, Bluetooth, Wired, HDMI) are allowed to use Float32 output
+     *   if requested and actively advertised by the route's AudioDeviceInfo encodings.
+     */
+    fun shouldUseFloatOutput(
+        requestedMode: OutputPcmMode,
+        routeKind: AudioRouting.Kind,
+        advertisesPcmFloat: Boolean,
+    ): Boolean {
+        if (requestedMode != OutputPcmMode.FLOAT_32) return false
+        if (routeKind == AudioRouting.Kind.PHONE) return false
+        return advertisesPcmFloat
+    }
 
     /** Samsung's vendor FLAC decoder emits invalid timestamps with PCM float. */
     fun isUnsafeFloatFlacDecoder(name: String): Boolean {

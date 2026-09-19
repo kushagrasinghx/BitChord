@@ -723,6 +723,7 @@
     <string name="automix_mode_performance_subtitle">4 Threads · schnellste Analyse · höherer Akkuverbrauch</string>
 
     <string name="automix_not_supported_video">Automix wird bei Video-Titeln nicht unterstützt</string>
+    <string name="automix_stopped_in_party">Automix: bei „Gemeinsam hören“ gestoppt</string>
 
     <string name="automix_performance">Automix-Leistung</string>
 

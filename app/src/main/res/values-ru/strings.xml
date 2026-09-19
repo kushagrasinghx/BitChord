@@ -747,6 +747,7 @@
     <string name="automix_mode_performance_subtitle">4 потока · самый быстрый анализ · выше нагрев и расход</string>
 
     <string name="automix_not_supported_video">Automix не поддерживается для видео-треков</string>
+    <string name="automix_stopped_in_party">Automix: остановлен в режиме «Слушать вместе»</string>
 
     <string name="automix_performance">Производительность Automix</string>
 

@@ -829,6 +829,7 @@
     <string name="automix_mode_performance_subtitle">4 スレッド · 最速分析 · 発熱とバッテリー消費が高くなります</string>
 
     <string name="automix_not_supported_video">動画の曲では Automix はサポートされていません</string>
+    <string name="automix_stopped_in_party">Automix: 一緒に聴く中は停止</string>
 
     <string name="automix_performance">Automix パフォーマンス</string>
 

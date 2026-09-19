@@ -43,6 +43,8 @@ import com.music.bitchord.data.model.SongMenu
 import com.music.bitchord.data.model.SubscriptionState
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.UserPlaylist
+import com.music.bitchord.data.model.SearchHistoryEntity
+import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.download.Downloads
 import android.util.LruCache
@@ -138,6 +140,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Increments once per first-page request so the UI can reset its list. */
     private val _searchScrollReset = MutableStateFlow(0)
     val searchScrollReset: StateFlow<Int> = _searchScrollReset.asStateFlow()
+
+    /** True while a committed search is in flight — gates suggestion/media callbacks. */
+    private var searchSubmitted = false
 
     /**
      * What the search page offers while a query is being typed, led by the
@@ -714,10 +719,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * behind the picker — a row's menu on a playlist offers "Add to playlist" —
      * and a page that doesn't show what was just added to it is the bug this is
      * part of fixing. Still after the answer, not ahead of it.
+     *
+     * [onResult] tells the caller whether the track was already in the
+     * playlist, so it can show the same kind of notice "Add to queue" and
+     * "Play next" do — see [MainActivity]'s `showQueueNotice`. YouTube itself
+     * has no objection to a duplicate row, so that check is made here, against
+     * the playlist's own page if it is open, or a fresh fetch of it otherwise —
+     * and a real duplicate is never sent, rather than added and only reported.
      */
-    fun addToPlaylist(playlist: UserPlaylist, song: Song) {
+    fun addToPlaylist(playlist: UserPlaylist, song: Song, onResult: (alreadyInPlaylist: Boolean) -> Unit = {}) {
         if (!requireSignIn()) return
         viewModelScope.launch {
+            val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
+                ?.songs as? UiState.Success)?.data
+            val known = openSongs
+                ?: YtMusicRepository.allSongs(playlist.browseId).getOrNull()
+            if (known?.any { it.videoId == song.videoId } == true) {
+                onResult(true)
+                return@launch
+            }
             YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId)).fold(
                 onSuccess = { added ->
                     libraryStale = true
@@ -725,6 +745,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     // reachable from a row's own menu on it — so the track goes
                     // into it for the same reason [addSuggestedSong] does.
                     appendToOpenPlaylist(playlist.browseId, song, added[song.videoId])
+                    onResult(false)
                 },
                 onFailure = {},
             )
@@ -783,6 +804,63 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 },
                 onFailure = {},
             )
+        }
+    }
+
+    fun createPlaylistWithVideoIds(
+        title: String,
+        privacy: PlaylistPrivacy,
+        videoIds: List<String>,
+        songs: List<Song> = emptyList(),
+        onResult: ((browseId: String?, title: String) -> Unit)? = null,
+    ) {
+        val name = title.trim().ifBlank { text(R.string.new_playlist) }
+        viewModelScope.launch {
+            if (authStore.isSignedIn) {
+                val initialBatch = videoIds.take(50)
+                YtMusicRepository.createPlaylist(
+                    title = name,
+                    privacy = privacy,
+                    videoIds = initialBatch,
+                ).fold(
+                    onSuccess = { playlistId ->
+                        if (videoIds.size > 50) {
+                            videoIds.drop(50).chunked(50).forEach { chunk ->
+                                YtMusicRepository.addToPlaylist(playlistId, chunk)
+                            }
+                        }
+                        setPlaylistOwned("VL$playlistId", true)
+                        libraryStale = true
+                        val created = UserPlaylist(
+                            playlistId = playlistId,
+                            title = name,
+                            subtitle = "${videoIds.size} songs",
+                            thumbnailUrl = null,
+                        )
+                        _playlists.value = listOf(created) +
+                            _playlists.value.filterNot { it.playlistId == created.playlistId }
+                        editPlaylistShelf { items ->
+                            listOf(
+                                ShelfItem(
+                                    title = created.title,
+                                    subtitle = created.subtitle,
+                                    thumbnailUrl = created.thumbnailUrl,
+                                    videoId = null,
+                                    browseId = created.browseId,
+                                ),
+                            ) + items.filterNot { it.browseId == created.browseId }
+                        }
+                        onResult?.invoke(created.browseId, created.title)
+                    },
+                    onFailure = {
+                        val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
+                        onResult?.invoke(local.browseId, local.title)
+                    },
+                )
+            } else {
+                val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
+                onResult?.invoke(local.browseId, local.title)
+            }
         }
     }
 
@@ -1425,61 +1503,79 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Recent searches, kept on device. */
-    val searchHistory: StateFlow<List<String>> = SearchHistory.recent
+    /** Recent searches, kept on device as rich entity records. */
+    val searchHistory: StateFlow<List<SearchHistoryEntity>> = SearchHistory.recent
 
-    fun onQueryChange(value: String) {
-        val previous = _query.value
-        _query.value = value
-        if (value.isBlank()) {
-            // Emptying the field is how the recent searches are got back to,
-            // so it takes down the suggestions and the results together.
-            // Nothing in flight can still be waiting to overwrite the latter:
-            // the id it would be checked against has already moved past it.
-            newestRequestId.incrementAndGet()
-            searchSession = null
-            _searchLoadingMore.value = false
-            _results.value = null
-            _suggestions.value = emptyList()
-            _typeaheadResults.value = emptyList()
+    /**
+     * Records a full entity payload in the history — used when the user taps
+     * a suggestion, result row, or typeahead card so the recents list shows
+     * real artwork and metadata instead of raw text.
+     */
+    fun recordEntity(entity: SearchHistoryEntity) = SearchHistory.record(entity)
+
+    /**
+     * Records a track entity from a search hit.
+     * Checks _typeaheadResults first (live media while typing), then _results
+     * (committed search). Falls back to recording the raw query if no song data
+     * is available.
+     */
+    fun recordSearch() {
+        val q = _query.value.trim()
+        if (q.isEmpty()) return
+        // Prefer typeahead results — they are live and always available while typing.
+        val fromTypeahead = _typeaheadResults.value.firstOrNull {
+            it is SearchResult.TopTrack || it is SearchResult.Track
+        }
+        if (fromTypeahead is SearchResult.Track) {
+            recordEntity(SearchHistoryEntity(
+                id = fromTypeahead.song.videoId,
+                title = fromTypeahead.song.title,
+                subtitle = listOfNotNull(fromTypeahead.song.artist).joinToString(" · "),
+                artworkUrl = fromTypeahead.song.thumbnailUrl,
+                entityType = EntityType.TRACK,
+            ))
             return
         }
-        // The previous keystroke's completions are left up beneath the new
-        // lead row while the fresh ones are fetched — the same reasoning as
-        // [prefixMatch]: they were right a letter ago, and a list that
-        // collapses to one row on every letter is what makes a typeahead feel
-        // broken. Text that isn't a continuation of what they were for (the
-        // whole field replaced at once, say) drops them instead of showing
-        // completions of a query that's gone.
-        val stale = if (value.startsWith(previous, true) || previous.startsWith(value, true)) {
-            _suggestions.value.drop(1)
-        } else {
-            emptyList()
+        if (fromTypeahead is SearchResult.TopTrack) {
+            recordEntity(SearchHistoryEntity(
+                id = fromTypeahead.song.videoId,
+                title = fromTypeahead.song.title,
+                subtitle = listOfNotNull(fromTypeahead.song.artist).joinToString(" · "),
+                artworkUrl = fromTypeahead.song.thumbnailUrl,
+                entityType = EntityType.TRACK,
+            ))
+            return
         }
-        _suggestions.value = listOf(value) + stale.filterNot { it.equals(value, true) }
-        suggestRequests.tryEmit(value)
-    }
-
-    /**
-     * Commits the current query to the history. Called when the user acts on
-     * what they found — submitting from the keyboard, or opening a result —
-     * rather than on every keystroke, which would fill the list with the
-     * prefixes typed on the way to the real query.
-     */
-    fun recordSearch() = SearchHistory.record(_query.value)
-
-    /**
-     * The search button — the keyboard's search action, or the magnifier in
-     * the field. The only thing that runs a search for text the user typed:
-     * keystrokes themselves ask for suggestions and nothing more, so a query
-     * is fetched once, when they say it's finished, instead of once per
-     * prefix on the way to it.
-     */
-    fun submitSearch() {
-        recordSearch()
-        _suggestions.value = emptyList()
-        _typeaheadResults.value = emptyList()
-        runSearch()
+        // Fall back to committed search results.
+        val topResult = (_results.value as? UiState.Success)?.data?.firstOrNull {
+            it is SearchResult.TopTrack || it is SearchResult.Track
+        }
+        if (topResult is SearchResult.Track) {
+            recordEntity(SearchHistoryEntity(
+                id = topResult.song.videoId,
+                title = topResult.song.title,
+                subtitle = listOfNotNull(topResult.song.artist).joinToString(" · "),
+                artworkUrl = topResult.song.thumbnailUrl,
+                entityType = EntityType.TRACK,
+            ))
+        } else if (topResult is SearchResult.TopTrack) {
+            recordEntity(SearchHistoryEntity(
+                id = topResult.song.videoId,
+                title = topResult.song.title,
+                subtitle = listOfNotNull(topResult.song.artist).joinToString(" · "),
+                artworkUrl = topResult.song.thumbnailUrl,
+                entityType = EntityType.TRACK,
+            ))
+        } else {
+            // Fallback: record as a raw-text entity for backwards compatibility
+            recordEntity(SearchHistoryEntity(
+                id = "q:$q",
+                title = q,
+                subtitle = "",
+                artworkUrl = null,
+                entityType = EntityType.TRACK,
+            ))
+        }
     }
 
     /**
@@ -1487,22 +1583,57 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * search, or one of [suggestions] — and floats it to the top of the
      * history. Picking is as deliberate as submitting, so it searches on the
      * spot.
+     *
+     * Recording happens downstream via [recordSearch] when the user actually
+     * interacts with a result (taps a song, album, or artist card), which
+     * ensures the saved entity carries real artwork and metadata instead of
+     * a blank placeholder.
      */
     fun searchFor(term: String) {
         _query.value = term
+        searchSubmitted = true
         _suggestions.value = emptyList()
         _typeaheadResults.value = emptyList()
-        SearchHistory.record(term)
         runSearch()
     }
 
-    fun removeSearch(term: String) = SearchHistory.remove(term)
+    fun removeSearch(id: String) = SearchHistory.remove(id)
 
     fun clearSearchHistory() = SearchHistory.clear()
+
+    fun onQueryChange(newValue: String) {
+        _query.value = newValue
+        if (newValue.isBlank()) {
+            searchSubmitted = false
+            _suggestions.value = emptyList()
+            _typeaheadResults.value = emptyList()
+            _results.value = null
+            return
+        }
+        // Reset the submission gate so typeahead pipelines fire again.
+        searchSubmitted = false
+        // While typing, surface text completions — the pipeline already feeds
+        // them through [suggestRequests] and publishes results via typeahead.
+        suggestRequests.tryEmit(newValue)
+    }
+
+    /**
+     * Commits the current query text: clears suggestions/typeahead, runs the
+     * full search, and records the term in history for future recall.
+     */
+    fun submitSearch() {
+        val q = _query.value.trim()
+        if (q.isEmpty()) return
+        searchSubmitted = true
+        _suggestions.value = emptyList()
+        _typeaheadResults.value = emptyList()
+        runSearch()
+    }
 
     fun onFilterChange(value: SearchFilter) {
         if (_filter.value == value) return
         _filter.value = value
+        searchSubmitted = true
         runSearch()
     }
 
@@ -1656,8 +1787,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // moved on: typed further, or searched — which empties [_suggestions],
         // and a late answer writing to it would reopen the suggestions over
         // the results the user is by then reading.
-        fun stillWanted(input: String) =
-            _query.value == input && _suggestions.value.isNotEmpty()
+        fun stillWanted(input: String) = _query.value == input && !searchSubmitted
 
         suggestRequests
             .debounce(SUGGEST_DEBOUNCE_MS)
@@ -1686,9 +1816,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     _typeaheadResults.value = emptyList()
                     return@collectLatest
                 }
-                // Only show media results while suggestions are still visible —
-                // i.e., the user is still typing, not reading search results.
-                if (_suggestions.value.isEmpty()) {
+                // Only show media results while the user is still typing — not
+                // reading committed search results. The query-text check on its
+                // own isn't enough: a late suggestion callback can repopulate
+                // _suggestions after submission, and we must not re-open the
+                // typeahead dropdown under an already-committed search.
+                if (searchSubmitted) {
                     _typeaheadResults.value = emptyList()
                     return@collectLatest
                 }
@@ -1930,7 +2063,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             var monthlyListenerCount: String? = null
             /** Whether this artist is subscribed to — see [DetailPage.subscription]. */
             var subscription: SubscriptionState? = null
+            val localPlaylist = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
             val state = when {
+                localPlaylist != null -> {
+                    name = localPlaylist.title
+                    credit = "${localPlaylist.songs.size} tracks • Local Playlist"
+                    artwork = localPlaylist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
+                    if (localPlaylist.songs.isEmpty()) UiState.Error("No tracks in playlist")
+                    else UiState.Success(localPlaylist.songs)
+                }
                 Downloads.recordIdOf(browseId) != null -> {
                     val songs = downloadedPlaylist(browseId)
                     if (songs.isEmpty()) UiState.Error(text(R.string.downloaded_playlist_empty))
@@ -2038,7 +2179,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun reloadLocalDetail(browseId: String) {
         viewModelScope.launch {
             val context = getApplication<Application>()
+            val localPlaylist = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
             val state: UiState<List<Song>> = when {
+                localPlaylist != null -> {
+                    if (localPlaylist.songs.isEmpty()) UiState.Error("No tracks in playlist")
+                    else UiState.Success(localPlaylist.songs)
+                }
                 Downloads.recordIdOf(browseId) != null -> {
                     val songs = downloadedPlaylist(browseId)
                     if (songs.isEmpty()) UiState.Error(text(R.string.downloaded_playlist_empty))

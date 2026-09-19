@@ -5,6 +5,9 @@ import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
+import com.music.bitchord.playback.audio.AudioBlock
+import com.music.bitchord.playback.audio.FloatAudioProcessor
+import com.music.bitchord.playback.audio.PcmBoundary
 import java.nio.ByteOrder
 import kotlin.math.exp
 import kotlin.math.ln
@@ -16,47 +19,10 @@ import kotlin.math.tan
  * close over the outgoing track, and a high-pass that can lift the low end out
  * of one side of a blend.
  *
- * ## Why this exists
- *
- * [CrossfadeController] renders every transition as an equal-power gain blend,
- * and a gain blend is the one move that cannot fix the two things that actually
- * make a mix sound amateur:
- *
- *  - **Two basslines at once.** Below roughly 200 Hz a mix has very little room;
- *    two kick drums and two bass parts occupying it simultaneously read as mud
- *    and eat headroom, however carefully the gains are matched. Every DJ mixer
- *    ever built has a bass kill for exactly this, and the fix is the same here:
- *    the low end belongs to exactly one track at a time, and it changes hands
- *    once, on a beat the planner picked
- *    ([com.music.bitchord.playback.smart.TransitionPlan.bassSwapFraction]).
- *  - **Two unrelated tempi at once.** When the tracks are too far apart to
- *    beat-match, their transients simply collide. Closing a low-pass over the
- *    outgoing track pulls it behind the incoming one instead of leaving them to
- *    fight, which is why a filtered handoff is the standard move for a tempo
- *    change.
- *
  * ## The filter
  *
  * A topology-preserving (trapezoidal-integrator) state-variable filter, two
- * second-order sections cascaded to a 24 dB/octave Butterworth response. Chosen
- * over the more familiar Chamberlin SVF because the trapezoidal form is stable
- * at every cutoff up to Nyquist, while Chamberlin's is only well behaved below
- * about a sixth of the sample rate — a low-pass parked wide open at 20 kHz sits
- * far outside that, so the naive form would have to be special-cased at exactly
- * the setting it spends most of its time at.
- *
- * `tan` is evaluated once per sub-block rather than per sample, and the whole
- * thing degenerates to a buffer copy when both cutoffs are parked, so a
- * transition that asks for no filtering costs nothing.
- *
- * ## Gliding
- *
- * Cutoffs are targets, not values. [CrossfadeController] re-aims them once per
- * fade tick (every 30 ms), and stepping a filter in 30 ms jumps is audible as
- * zipper noise, so the real cutoff chases its target geometrically across
- * [GLIDE_FRAMES]-sample sub-blocks. Geometric because cutoff is perceived
- * logarithmically: a linear glide down from 20 kHz would spend nearly all of
- * itself inaudible and then lurch through the last octave.
+ * second-order sections cascaded to a 24 dB/octave Butterworth response.
  */
 @UnstableApi
 class TransitionFilterProcessor : BaseAudioProcessor() {
@@ -95,20 +61,72 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         targetHighPassHz = highPassHz.coerceIn(OFF_HZ, MAX_HIGH_PASS_HZ)
     }
 
-    /** Parks both filters. Glided, not snapped — see the class doc. */
+    /** Parks both filters. Glided, not snapped. */
     fun open() = setCutoffs(OPEN_HZ, OFF_HZ)
 
+    val isFiltering: Boolean
+        get() = targetLowPassHz < OPEN_HZ || targetHighPassHz > OFF_HZ ||
+            currentLowPassHz < OPEN_HZ - SETTLED_HZ || currentHighPassHz > OFF_HZ + SETTLED_HZ
+
     /**
-     * 16-bit PCM only, matching [SpatialAudioProcessor] — and bowing out with
-     * [AudioProcessor.AudioFormat.NOT_SET] rather than throwing for the same
-     * reason it does: `DefaultAudioSink` configures every processor in its chain
-     * whether or not the effect is switched on, and a throw from any of them
-     * kills the renderer outright. NOT_SET means "inactive for this format" and
-     * the chain routes around this processor.
-     *
-     * Logged rather than silent, because the failure mode of a filter that
-     * quietly declines to run is a Phase 4 transition that sounds exactly like a
-     * Phase 3 one, with nothing anywhere saying why.
+     * Configures the Float32 DSP engine for [sampleRate] and [channelCount].
+     */
+    fun configure(sampleRate: Int, channelCount: Int) {
+        this.sampleRate = sampleRate
+        this.channelCount = channelCount
+        val requiredSize = channelCount * STAGES * 2
+        if (lowState.size != requiredSize) {
+            lowState = FloatArray(requiredSize)
+            highState = FloatArray(requiredSize)
+        }
+        currentLowPassHz = targetLowPassHz
+        currentHighPassHz = targetHighPassHz
+    }
+
+    /**
+     * Processes interleaved Float32 audio samples in [block] in-place.
+     * Preserves dynamic headroom without clamping to [-1.0f, +1.0f].
+     */
+    fun process(block: AudioBlock) {
+        val frameCount = block.frameCount
+        if (frameCount == 0 || channelCount < 1 || sampleRate <= 0) return
+
+        val targetLow = targetLowPassHz
+        val targetHigh = targetHighPassHz
+        val parked = targetLow >= OPEN_HZ && targetHigh <= OFF_HZ &&
+            currentLowPassHz >= OPEN_HZ - SETTLED_HZ && currentHighPassHz <= OFF_HZ + SETTLED_HZ
+        if (parked) {
+            return
+        }
+
+        var remaining = frameCount
+        var frameOffset = 0
+        while (remaining > 0) {
+            val subBlock = min(remaining, GLIDE_FRAMES)
+            currentLowPassHz = glide(currentLowPassHz, targetLow)
+            currentHighPassHz = glide(currentHighPassHz, targetHigh)
+            val lowOn = currentLowPassHz < OPEN_HZ - SETTLED_HZ
+            val highOn = currentHighPassHz > OFF_HZ + SETTLED_HZ
+            if (lowOn) updateLowCoefficients()
+            if (highOn) updateHighCoefficients()
+
+            for (f in 0 until subBlock) {
+                val baseIdx = (frameOffset + f) * channelCount
+                for (channel in 0 until channelCount) {
+                    var sample = block.samples[baseIdx + channel]
+                    if (lowOn) sample = lowPass(channel, sample)
+                    if (highOn) sample = highPass(channel, sample)
+                    // Headroom preserved: no clamping to [-1.0f, +1.0f]
+                    block.samples[baseIdx + channel] = sample
+                }
+            }
+            frameOffset += subBlock
+            remaining -= subBlock
+        }
+    }
+
+    /**
+     * 16-bit PCM only.
      */
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount < 1) {
@@ -119,20 +137,13 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
             )
             return AudioProcessor.AudioFormat.NOT_SET
         }
-        channelCount = inputAudioFormat.channelCount
-        sampleRate = inputAudioFormat.sampleRate
-        lowState = FloatArray(channelCount * STAGES * 2)
-        highState = FloatArray(channelCount * STAGES * 2)
-        currentLowPassHz = targetLowPassHz
-        currentHighPassHz = targetHighPassHz
+        configure(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
         return inputAudioFormat
     }
 
     override fun onFlush() {
         lowState.fill(0f)
         highState.fill(0f)
-        // Snapped, not glided: a flush means a seek or a fresh source, so there
-        // is no continuous signal for a glide to be continuous with.
         currentLowPassHz = targetLowPassHz
         currentHighPassHz = targetHighPassHz
     }
@@ -142,6 +153,8 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         targetHighPassHz = OFF_HZ
         lowState = FloatArray(0)
         highState = FloatArray(0)
+        channelCount = 0
+        sampleRate = 0
     }
 
     override fun queueInput(inputBuffer: java.nio.ByteBuffer) {
@@ -153,11 +166,6 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
 
         val targetLow = targetLowPassHz
         val targetHigh = targetHighPassHz
-        // Parked at both ends *and* already settled there: nothing to do but
-        // hand the buffer straight through. The "already settled" half matters
-        // — a transition that has just finished is still gliding back open, and
-        // cutting the filter out from under that glide is the click it exists
-        // to avoid.
         val parked = targetLow >= OPEN_HZ && targetHigh <= OFF_HZ &&
             currentLowPassHz >= OPEN_HZ - SETTLED_HZ && currentHighPassHz <= OFF_HZ + SETTLED_HZ
         if (parked) {
@@ -169,9 +177,10 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         inputBuffer.order(ByteOrder.nativeOrder())
         outputBuffer.order(ByteOrder.nativeOrder())
 
+        val invScale = 1.0f / 32768.0f
         var remaining = frameCount
         while (remaining > 0) {
-            val block = min(remaining, GLIDE_FRAMES)
+            val subBlock = min(remaining, GLIDE_FRAMES)
             currentLowPassHz = glide(currentLowPassHz, targetLow)
             currentHighPassHz = glide(currentHighPassHz, targetHigh)
             val lowOn = currentLowPassHz < OPEN_HZ - SETTLED_HZ
@@ -179,15 +188,15 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
             if (lowOn) updateLowCoefficients()
             if (highOn) updateHighCoefficients()
 
-            repeat(block) {
+            repeat(subBlock) {
                 for (channel in 0 until channelCount) {
-                    var sample = inputBuffer.short.toFloat()
+                    var sample = inputBuffer.short.toFloat() * invScale
                     if (lowOn) sample = lowPass(channel, sample)
                     if (highOn) sample = highPass(channel, sample)
-                    outputBuffer.putShort(clampToShort(sample))
+                    outputBuffer.putShort(PcmBoundary.clamp16FromFloat(sample))
                 }
             }
-            remaining -= block
+            remaining -= subBlock
         }
         outputBuffer.flip()
     }
@@ -200,11 +209,11 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         return exp(from + (to - from) * GLIDE_RATE)
     }
 
-    /** Highest cutoff the bilinear transform can still represent without warping to infinity. */
     private fun usableCutoff(hz: Float): Float =
         hz.coerceIn(MIN_HZ, sampleRate * MAX_CUTOFF_FRACTION)
 
     private fun updateLowCoefficients() {
+        if (sampleRate <= 0) return
         val g = tan(Math.PI * usableCutoff(currentLowPassHz) / sampleRate).toFloat()
         for (stage in 0 until STAGES) {
             val k = 1f / BUTTERWORTH_Q[stage]
@@ -216,6 +225,7 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     }
 
     private fun updateHighCoefficients() {
+        if (sampleRate <= 0) return
         val g = tan(Math.PI * usableCutoff(currentHighPassHz) / sampleRate).toFloat()
         for (stage in 0 until STAGES) {
             val k = 1f / BUTTERWORTH_Q[stage]
@@ -258,9 +268,6 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         }
         return value
     }
-
-    private fun clampToShort(value: Float): Short =
-        value.coerceIn(Short.MIN_VALUE.toFloat(), Short.MAX_VALUE.toFloat()).toInt().toShort()
 
     companion object {
         private const val TAG = "BitChordTransitionFilter"

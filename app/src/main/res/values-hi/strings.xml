@@ -723,6 +723,7 @@
     <string name="automix_mode_performance_subtitle">4 थ्रेड्स · सबसे तेज़ विश्लेषण · अधिक बैटरी उपयोग</string>
 
     <string name="automix_not_supported_video">वीडियो गानों पर Automix समर्थित नहीं है</string>
+    <string name="automix_stopped_in_party">Automix: साथ में सुनें के दौरान बंद</string>
 
     <string name="automix_performance">Automix प्रदर्शन</string>
 

@@ -77,6 +77,9 @@ internal fun List<LyricLine>.toEnhancedLrc(): String {
     return sortedBy { it.timeMs }.joinToString("\n") { line -> stamp(line.timeMs) + line.enhancedBody() }
 }
 
+/** Marker that survives round-trip through file tags and signals RTL (End) alignment. */
+private const val ALIGNMENT_MARKER = "<R>"
+
 /**
  * One line as stamped word runs, or its plain text when it has none.
  *
@@ -91,6 +94,8 @@ private fun LyricLine.enhancedBody(): String {
     val runs = timedRuns()
     if (runs.isEmpty()) return flattened()
     val out = StringBuilder()
+    // Emit an RTL marker so the offline reader can restore vocal alignment.
+    if (alignment == LyricAlignment.End) out.append(ALIGNMENT_MARKER)
     // Clamped to run forwards. A background vocal legitimately starts partway
     // through the lead it answers, so concatenating the two can hand us a stamp
     // earlier than the one before it — and a reader taking each run's end from

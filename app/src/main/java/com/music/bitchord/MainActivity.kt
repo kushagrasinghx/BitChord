@@ -127,12 +127,15 @@ import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
+import com.music.bitchord.data.model.EntityType
+import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
+import com.music.bitchord.ui.components.ImportSpotifyDialog
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
@@ -530,6 +533,7 @@ private fun BitChordApp(
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
+    var showSpotifyImportDialog by remember { mutableStateOf(false) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -537,6 +541,7 @@ private fun BitChordApp(
     var browseActions by remember { mutableStateOf<BrowseTarget?>(null) }
     val autoplay by AppSettings.autoplay.collectAsStateWithLifecycle()
     val partyState by ListenTogether.state.collectAsStateWithLifecycle()
+    val partyServerStatus by ListenTogether.serverStatus.collectAsStateWithLifecycle()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
     // Incremented each time the search tab is re-tapped while already selected,
     // which SearchScreen uses as a signal to focus the input field.
@@ -701,7 +706,7 @@ private fun BitChordApp(
         // stale for the same reasons — and it is the one page a delete can empty
         // out entirely, which is worth saying rather than leaving rows behind
         // that play nothing.
-        if (open == "local:downloads" || Downloads.recordIdOf(open) != null) {
+        if (open == "local:downloads" || Downloads.recordIdOf(open) != null || com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(open) != null) {
             viewModel.reloadLocalDetail(open)
         }
     }
@@ -1084,6 +1089,13 @@ private fun BitChordApp(
             // The end of what the user queued, not the end of the queue: a song
             // asked for by name outranks whatever AutoPlay lined up behind it.
             controller?.let {
+                if (ListenTogether.state.value.inParty) {
+                    val upcoming = (it.mediaItemCount - (it.currentMediaItemIndex + 1)).coerceAtLeast(0)
+                    if (upcoming >= 25) {
+                        showQueueNotice(context.getString(R.string.party_queue_full, 25))
+                        return@launch
+                    }
+                }
                 val current = it.currentMediaItem?.toSong()
                 val queued = song.copy(
                     radioName = current?.radioName,
@@ -1099,6 +1111,13 @@ private fun BitChordApp(
     val playNext: (Song) -> Unit = { song ->
         scope.launch {
             controller?.let {
+                if (ListenTogether.state.value.inParty) {
+                    val upcoming = (it.mediaItemCount - (it.currentMediaItemIndex + 1)).coerceAtLeast(0)
+                    if (upcoming >= 25) {
+                        showQueueNotice(context.getString(R.string.party_queue_full, 25))
+                        return@launch
+                    }
+                }
                 val current = it.currentMediaItem?.toSong()
                 val queued = song.copy(
                     radioName = current?.radioName,
@@ -1202,6 +1221,17 @@ private fun BitChordApp(
                     // never gets round to it.
                     play(songs, 0)
                 } else {
+                    val toAdd = if (ListenTogether.state.value.inParty) {
+                        val upcoming = (c.mediaItemCount - (c.currentMediaItemIndex + 1)).coerceAtLeast(0)
+                        val slotsLeft = (25 - upcoming).coerceAtLeast(0)
+                        if (slotsLeft <= 0) {
+                            showQueueNotice(context.getString(R.string.party_queue_full, 25))
+                            return@launch
+                        }
+                        songs.take(slotsLeft)
+                    } else {
+                        songs
+                    }
                     val at = if (next) {
                         (c.currentMediaItemIndex + 1).coerceAtMost(c.mediaItemCount)
                     } else {
@@ -1210,7 +1240,7 @@ private fun BitChordApp(
                     val current = c.currentMediaItem?.toSong()
                     c.addMediaItems(
                         at,
-                        songs.map {
+                        toAdd.map {
                             it.copy(
                                 radioName = current?.radioName,
                                 playbackSource = current?.playbackSource ?: queueLabel,
@@ -1222,8 +1252,8 @@ private fun BitChordApp(
                     )
                     val message = context.resources.getQuantityString(
                         if (next) R.plurals.songs_will_play_next else R.plurals.songs_added_to_queue,
-                        songs.size,
-                        songs.size,
+                        toAdd.size,
+                        toAdd.size,
                     )
                     showQueueNotice(message)
                 }
@@ -2485,26 +2515,53 @@ private fun BitChordApp(
                             // Search hits are alternatives to each other, not a running
                             // order — play the one tapped and build a station from it.
                             onSongClick = { songs, index ->
-                                songs.getOrNull(index)?.let {
-                                    // Acting on a hit is what makes the query worth
-                                    // keeping — see MainViewModel.recordSearch.
-                                    viewModel.recordSearch()
-                                    playRadio(it, QueueSource(searchLabel, PlaybackSourceType.SEARCH))
+                                songs.getOrNull(index)?.let { song ->
+                                    viewModel.recordEntity(SearchHistoryEntity(
+                                        id = song.videoId,
+                                        title = song.title,
+                                        subtitle = song.artist.ifEmpty { "" },
+                                        artworkUrl = song.thumbnailUrl,
+                                        entityType = EntityType.TRACK,
+                                    ))
+                                    playRadio(song, QueueSource(searchLabel, PlaybackSourceType.SEARCH))
                                 }
                             },
                             onSongLongPress = openSongMenu,
                             onSongSwipe = onSongSwipe,
                             onTopResultPlay = { song ->
-                                viewModel.recordSearch()
+                                viewModel.recordEntity(SearchHistoryEntity(
+                                    id = song.videoId,
+                                    title = song.title,
+                                    subtitle = song.artist.ifEmpty { "" },
+                                    artworkUrl = song.thumbnailUrl,
+                                    entityType = EntityType.TRACK,
+                                ))
                                 playRadio(song, QueueSource(searchLabel, PlaybackSourceType.SEARCH))
                             },
                             onTopResultPlaylist = { song ->
-                                viewModel.recordSearch()
+                                viewModel.recordEntity(SearchHistoryEntity(
+                                    id = song.videoId,
+                                    title = song.title,
+                                    subtitle = song.artist.ifEmpty { "" },
+                                    artworkUrl = song.thumbnailUrl,
+                                    entityType = EntityType.TRACK,
+                                ))
                                 viewModel.loadPlaylists()
                                 playlistTarget = song
                             },
                             onBrowseClick = { item ->
-                                viewModel.recordSearch()
+                                viewModel.recordEntity(SearchHistoryEntity(
+                                    id = item.browseId ?: "",
+                                    title = item.title,
+                                    subtitle = item.subtitle.ifBlank { "" },
+                                    artworkUrl = item.thumbnailUrl,
+                                    entityType = when (item.type) {
+                                        BrowseType.ALBUM -> EntityType.ALBUM
+                                        BrowseType.ARTIST -> EntityType.ARTIST
+                                        BrowseType.PLAYLIST -> EntityType.PLAYLIST
+                                        else -> EntityType.TRACK
+                                    },
+                                ))
                                 viewModel.openDetail(
                                     browseId = item.browseId,
                                     title = item.title,
@@ -2531,11 +2588,36 @@ private fun BitChordApp(
                             suggestions = searchSuggestions,
                             typeaheadResults = viewModel.typeaheadResults.collectAsStateWithLifecycle().value,
                             onSubmit = viewModel::submitSearch,
-                            // A suggestion and a recent search are the same act — a
-                            // term picked out of a list rather than typed — so they run
-                            // through the same path and both land in the history.
+                            // Suggestions land in search history via searchFor → recordSearch.
+                            // History items (onHistoryClick) navigate/play without re-logging.
                             onSuggestionClick = viewModel::searchFor,
-                            onHistoryClick = viewModel::searchFor,
+                            onHistoryClick = { entity ->
+                                // Tap a history entity: navigate to it or play it directly.
+                                // Do NOT recordEntity here — tapping an existing history item
+                                // must not update its timestamp and push it to the top.
+                                when (entity.entityType) {
+                                    EntityType.TRACK -> {
+                                        // Play the track by its video id
+                                        playRadio(
+                                            com.music.bitchord.data.model.Song(
+                                                videoId = entity.id,
+                                                title = entity.title,
+                                                artist = entity.subtitle,
+                                                thumbnailUrl = entity.artworkUrl,
+                                            ),
+                                            QueueSource(entity.title, PlaybackSourceType.SEARCH),
+                                        )
+                                    }
+                                    EntityType.ALBUM, EntityType.ARTIST, EntityType.PLAYLIST -> {
+                                        viewModel.openDetail(
+                                            browseId = entity.id,
+                                            title = entity.title,
+                                            subtitle = entity.subtitle,
+                                            thumbnailUrl = entity.artworkUrl,
+                                        )
+                                    }
+                                }
+                            },
                             onHistoryRemove = viewModel::removeSearch,
                             onHistoryClear = viewModel::clearSearchHistory,
                             onTypeaheadLongPress = openSongMenu,
@@ -2552,6 +2634,7 @@ private fun BitChordApp(
                             // does nothing; see [onBrowseLongPress].
                             onShelfItemLongPress = onBrowseLongPress,
                             onNewPlaylist = { creatingPlaylist = true },
+                            onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
                             onShowAll = { shelf -> libraryShowAll = shelf },
                             replayCard = replayCards.firstOrNull(),
                             onOpenReplay = { showReplay = true },
@@ -2652,6 +2735,23 @@ private fun BitChordApp(
                     },
                     modifier = Modifier.align(Alignment.TopCenter),
                     actions = {
+                        // This is intentionally scoped to Listen together: the
+                        // round-trip time is meaningful while coordinating a
+                        // party, but would be noise in the rest of the app.
+                        if (showListenTogether) {
+                            val ping = partyServerStatus.latencyMs.coerceAtLeast(0)
+                            Text(
+                                text = when (partyServerStatus.health) {
+                                    ListenTogether.Health.ONLINE -> if (ping > 9_999) "9999+ ms" else "$ping ms"
+                                    ListenTogether.Health.CHECKING -> "…"
+                                    else -> "—"
+                                },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            )
+                        }
                         // Only worth surfacing where there's room for it and it won't
                         // be mistaken for a per-page action — Home, at rest.
                         if (!showSettings && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer &&
@@ -3166,7 +3266,16 @@ private fun BitChordApp(
                     song = target,
                     startCreating = target == null,
                     onPick = { playlist ->
-                        target?.let { viewModel.addToPlaylist(playlist, it) }
+                        target?.let { song ->
+                            viewModel.addToPlaylist(playlist, song) { alreadyInPlaylist ->
+                                showQueueNotice(
+                                    context.getString(
+                                        if (alreadyInPlaylist) R.string.song_already_in_playlist
+                                        else R.string.song_added_to_playlist,
+                                    ),
+                                )
+                            }
+                        }
                         dismiss()
                     },
                     onCreate = { title, privacy ->
@@ -3175,6 +3284,21 @@ private fun BitChordApp(
                     },
                 )
             }
+        }
+
+        if (showSpotifyImportDialog) {
+            ImportSpotifyDialog(
+                onDismiss = { showSpotifyImportDialog = false },
+                onImportComplete = { title, privacy, videoIds, songs ->
+                    viewModel.createPlaylistWithVideoIds(title, privacy, videoIds, songs) { browseId, pTitle ->
+                        showQueueNotice("Imported Spotify playlist '$pTitle'")
+                        browseId?.let { id ->
+                            viewModel.openDetail(id, pTitle, "${songs.size} songs", songs.firstOrNull()?.thumbnailUrl)
+                        }
+                    }
+                    showSpotifyImportDialog = false
+                },
+            )
         }
 
         // ---- Album / playlist actions ----

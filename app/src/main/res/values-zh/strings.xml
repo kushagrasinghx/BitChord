@@ -704,6 +704,7 @@
     <string name="automix_mode_performance_subtitle">4 个线程 · 分析最快 · 发热和耗电较高</string>
 
     <string name="automix_not_supported_video">视频类歌曲不支持 Automix</string>
+    <string name="automix_stopped_in_party">Automix：一起听期间已停止</string>
 
     <string name="automix_performance">Automix 性能</string>
 

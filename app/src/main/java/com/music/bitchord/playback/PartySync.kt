@@ -174,6 +174,8 @@ class PartySync(
     /** When the player may next be seeked for drift, having just been. */
     private var driftCooldownUntilMs = 0L
 
+    private var lastPartyCode: String? = null
+
     fun start() {
         jobs += scope.launch {
             ListenTogether.state
@@ -182,7 +184,17 @@ class PartySync(
                 // changing is not one.
                 .map { Triple(it.playback.seq, it.queue.seq, it.code) }
                 .distinctUntilChanged()
-                .collect { (seq, _, _) ->
+                .collect { (seq, _, code) ->
+                    if (code != lastPartyCode) {
+                        val wasInParty = lastPartyCode != null
+                        val nowInParty = code != null
+                        lastPartyCode = code
+                        if (!wasInParty && nowInParty) {
+                            onEnteredParty()
+                        } else if (wasInParty && !nowInParty) {
+                            onLeftParty()
+                        }
+                    }
                     // Every control this device sent has come back around, so
                     // the party now describes the world the user made — or
                     // somebody else has moved it on past ours, which is equally
@@ -360,6 +372,7 @@ class PartySync(
             return
         }
         loadingVideoId = null
+        reconcileQueue(party, exo)
 
         if (!target.isPlaying) {
             deferredPlayPending = false
@@ -535,25 +548,44 @@ class PartySync(
         // this runs on every pause and every seek, on a queue that can be
         // hundreds long.
         val localIds = (0 until exo.mediaItemCount)
-            .take(MAX_PUBLISHED_QUEUE)
             .map { exo.getMediaItemAt(it).mediaId }
             // Device files are dropped rather than sent for everyone else to
             // fail on, so the index has to be found in what is left, not in the
             // local list — otherwise it points at the wrong row.
             .filterNot { it.startsWith("content://") || it.startsWith("file://") }
 
+        val trackIndex = localIds.indexOf(track.videoId)
+        val clampedIds = if (trackIndex >= 0) {
+            val upcomingEnd = (trackIndex + 1 + MAX_PARTY_UPCOMING_QUEUE).coerceAtMost(localIds.size)
+            localIds.subList(0, upcomingEnd)
+        } else {
+            localIds.take(1 + MAX_PARTY_UPCOMING_QUEUE)
+        }
+
         // Covers the ways a running order changes without the playhead moving —
         // Play next, Add to queue, removing a row, dragging one. Before this,
         // none of them reached the party and its copy of the queue silently went
         // stale until the next track change happened to rebuild it.
-        if (localIds != party.queue.items.map(PartyTrack::videoId)) {
-            val queue = (0 until exo.mediaItemCount)
-                .take(MAX_PUBLISHED_QUEUE)
-                .map { exo.getMediaItemAt(it).toSong() }
-                .filterNot(Song::isDeviceFile)
-                .map { it.toPartyTrack(0L) }
-            ListenTogether.setQueue(queue, localIds.indexOf(track.videoId))
-            controls++
+        val partyIds = party.queue.items.map(PartyTrack::videoId)
+        if (clampedIds != partyIds) {
+            val singleMove = if (partyIds.size == clampedIds.size && trackIndex >= 0 && trackIndex < partyIds.size && partyIds[trackIndex] == clampedIds[trackIndex]) {
+                detectSingleMove(partyIds, clampedIds)
+            } else {
+                null
+            }
+
+            if (singleMove != null && singleMove.fromIndex > trackIndex && singleMove.toIndex > trackIndex) {
+                ListenTogether.queueMove(singleMove.fromIndex, singleMove.toIndex, singleMove.videoId)
+                controls++
+            } else {
+                val countToTake = clampedIds.size
+                val queue = (0 until countToTake)
+                    .map { exo.getMediaItemAt(it).toSong() }
+                    .filterNot(Song::isDeviceFile)
+                    .map { it.toPartyTrack(0L) }
+                ListenTogether.setQueue(queue, trackIndex)
+                controls++
+            }
         }
 
         when {
@@ -592,6 +624,91 @@ class PartySync(
         awaitSeq = base + controls
         if (controls == 0) reconcileQuietUntilMs = 0L
     }
+
+    private fun onEnteredParty() {
+        val exo = player() ?: return
+        Log.i(TAG, "entered party, stashing personal queue")
+        PartyPersonalQueueStash.stashFromPlayer(exo)
+    }
+
+    private fun onLeftParty() {
+        Log.i(TAG, "left party, restoring personal queue if stashed")
+        loadingVideoId = null
+        focusLost = false
+        rejoining = false
+        val stashed = PartyPersonalQueueStash.load()
+        if (stashed != null) {
+            val exo = player() ?: return
+            val items = stashed.songs.map { it.toMediaItem() }
+            exo.setMediaItems(items, stashed.index, stashed.positionMs)
+            exo.prepare()
+            if (stashed.wasPlaying) {
+                exo.play()
+            } else {
+                exo.pause()
+            }
+            PartyPersonalQueueStash.clear()
+        }
+    }
+
+    private fun reconcileQueue(party: ListenTogether.State, exo: Player) {
+        val partyQueue = party.queue.items
+        if (partyQueue.isEmpty()) return
+
+        val currentIndex = exo.currentMediaItemIndex
+        val currentMediaId = exo.currentMediaItem?.mediaId ?: return
+        val partyIndex = partyQueue.indexOfFirst { it.videoId == currentMediaId }
+        if (partyIndex < 0) return
+
+        val desiredUpcoming = partyQueue.subList(partyIndex + 1, partyQueue.size).take(MAX_PARTY_UPCOMING_QUEUE)
+        val desiredUpcomingIds = desiredUpcoming.map { it.videoId }
+
+        val localUpcomingIds = (currentIndex + 1 until exo.mediaItemCount).map {
+            exo.getMediaItemAt(it).mediaId
+        }
+
+        if (localUpcomingIds != desiredUpcomingIds) {
+            // The normal case (a listener or AutoPlay appending a song) must
+            // never rewrite the timeline. Adding after the active item keeps
+            // its decoder and audio renderer untouched on every device.
+            if (desiredUpcomingIds.startsWith(localUpcomingIds)) {
+                exo.addMediaItems(desiredUpcoming.drop(localUpcomingIds.size).map { it.toSong().toMediaItem() })
+                return
+            }
+
+            // Likewise, trimming only the tail leaves the active source alone.
+            if (localUpcomingIds.startsWith(desiredUpcomingIds)) {
+                exo.removeMediaItems(currentIndex + 1 + desiredUpcomingIds.size, exo.mediaItemCount)
+                return
+            }
+
+            val singleMove = if (localUpcomingIds.size == desiredUpcomingIds.size) {
+                detectSingleMove(localUpcomingIds, desiredUpcomingIds)
+            } else {
+                null
+            }
+
+            if (singleMove != null) {
+                exo.moveMediaItem(
+                    currentIndex + 1 + singleMove.fromIndex,
+                    currentIndex + 1 + singleMove.toIndex,
+                )
+            } else {
+                // One atomic timeline edit. Removing and then adding the tail
+                // creates an empty intermediate timeline, which can briefly
+                // rebuffer or interrupt the current renderer on some devices.
+                // The active item is deliberately outside this replacement.
+                exo.replaceMediaItems(
+                    currentIndex + 1,
+                    exo.mediaItemCount,
+                    desiredUpcoming.map { it.toSong().toMediaItem() },
+                )
+            }
+        }
+    }
+
+    private fun <T> List<T>.startsWith(prefix: List<T>): Boolean =
+        size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
 
     private companion object {
         const val TAG = "PartySync"
@@ -659,15 +776,16 @@ class PartySync(
         /**
          * How long a local action is protected from being reconciled away.
          *
-         * Normally irrelevant — the server's echo arrives in well under this and
-         * clears it early. It matters when a control is lost or the socket is
-         * down, where it is the difference between the action being undone in
-         * front of the user and it simply not reaching the others.
+         * Generous window (4500ms) to accommodate high latency (800ms-1000ms+)
+         * before server WebSocket echoes arrive. Cleared as soon as seq >= awaitSeq.
          */
-        const val INTENT_QUIET_MS = 2_500L
+        const val INTENT_QUIET_MS = 4_500L
+
+        /** Maximum upcoming tracks in a party queue excluding the currently playing one. */
+        const val MAX_PARTY_UPCOMING_QUEUE = 25
 
         /** The server's own ceiling; publishing more would only be truncated. */
-        const val MAX_PUBLISHED_QUEUE = 500
+        const val MAX_PUBLISHED_QUEUE = 1 + MAX_PARTY_UPCOMING_QUEUE
     }
 }
 
@@ -691,7 +809,7 @@ class PartySync(
 private fun Song.isDeviceFile(): Boolean =
     videoId.startsWith("content://") || videoId.startsWith("file://")
 
-private fun Song.toPartyTrack(playerDurationMs: Long): PartyTrack = PartyTrack(
+internal fun Song.toPartyTrack(playerDurationMs: Long): PartyTrack = PartyTrack(
     videoId = videoId,
     title = title,
     artist = artist,
@@ -700,6 +818,7 @@ private fun Song.toPartyTrack(playerDurationMs: Long): PartyTrack = PartyTrack(
     // otherwise what the row that queued the track claimed.
     durationMs = playerDurationMs.takeIf { it > 0L }
         ?: TrackMatcher.secondsOf(durationText)?.let { it * 1000L },
+    fromAutoplay = fromAutoplay,
 )
 
 private fun PartyTrack.toSong(): Song = Song(
@@ -714,4 +833,42 @@ private fun PartyTrack.toSong(): Song = Song(
         val total = ms / 1000
         "%d:%02d".format(total / 60, total % 60)
     },
+    fromAutoplay = fromAutoplay,
 )
+
+internal data class QueueMoveDelta(
+    val fromIndex: Int,
+    val toIndex: Int,
+    val videoId: String,
+)
+
+/**
+ * Detects if [newList] is the result of moving exactly one item in [oldList].
+ * If so, returns the from and to indices (offset by [baseOffset]) and the item's id.
+ * Returns null if the lists cannot be explained by a single move.
+ */
+internal fun detectSingleMove(
+    oldList: List<String>,
+    newList: List<String>,
+    baseOffset: Int = 0,
+): QueueMoveDelta? {
+    if (oldList.size != newList.size || oldList == newList || oldList.isEmpty()) return null
+    if (oldList.groupingBy { it }.eachCount() != newList.groupingBy { it }.eachCount()) return null
+
+    for (from in oldList.indices) {
+        val item = oldList[from]
+        val withoutItem = oldList.toMutableList().apply { removeAt(from) }
+        for (to in oldList.indices) {
+            if (from == to) continue
+            val simulated = withoutItem.toMutableList().apply { add(to, item) }
+            if (simulated == newList) {
+                return QueueMoveDelta(
+                    fromIndex = baseOffset + from,
+                    toIndex = baseOffset + to,
+                    videoId = item,
+                )
+            }
+        }
+    }
+    return null
+}

@@ -30,6 +30,8 @@ data class PartyTrack(
     val artist: String = "",
     val thumbnailUrl: String? = null,
     val durationMs: Long? = null,
+    /** Preserves the queue's shared manual/AutoPlay section boundary. */
+    val fromAutoplay: Boolean = false,
 )
 
 /** One signed-in device in the party, as every other device sees it. */
@@ -87,6 +89,8 @@ data class PartyPlayback(
     val startedBy: String? = null,
     /** Snapshot of their name so attribution survives that member leaving. */
     val startedByName: String? = null,
+    /** Party-wide setting so a connected listener can refill AutoPlay on host loss. */
+    val autoplayEnabled: Boolean = false,
     val updatedAtMs: Long = 0,
 )
 
@@ -127,12 +131,23 @@ data class PartyMembership(
     val serverMs: Long = 0,
 )
 
+/** A compact local-only record of a live party action. */
+@Serializable
+data class PartyActivity(
+    val action: String,
+    val by: String,
+    val atMs: Long,
+    val detail: String = "",
+)
+
 @Serializable
 internal data class JoinRequest(
     val userId: String,
     val deviceId: String,
     val displayName: String,
     val avatarUrl: String? = null,
+    val maxMembers: Int? = null,
+    val autoplayEnabled: Boolean? = null,
 )
 
 @Serializable

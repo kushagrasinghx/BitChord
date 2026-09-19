@@ -40,10 +40,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Speaker
@@ -73,6 +75,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.haptics.Haptic
@@ -81,6 +84,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.delay
+import java.util.Locale
 import kotlin.math.roundToInt
 
 private val DRAWER_SHAPE = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
@@ -129,6 +133,7 @@ internal fun AudioOutputSheet(
     hazeState: HazeState,
     accountName: String?,
     onDismiss: () -> Unit,
+    onOpenPipeline: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -265,9 +270,88 @@ internal fun AudioOutputSheet(
 
             Spacer(Modifier.height(10.dp))
             VolumeRow(manager, routeKey = outputs)
+
+            Spacer(Modifier.height(6.dp))
+            AudioPipelineRow(onClick = onOpenPipeline)
         }
         }
     }
+}
+
+/**
+ * Drills into [com.music.bitchord.ui.components.AudioPipelineDialog] — the
+ * subtitle is the negotiated output itself, read live off
+ * [AudioOutputStatus], so the row states what's actually leaving the phone
+ * before anyone taps in for the rest of the chain.
+ */
+@Composable
+private fun AudioPipelineRow(onClick: () -> Unit) {
+    val haptics = rememberHaptics()
+    val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
+    val subtitle = remember(outputStatus) { outputSummary(outputStatus) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ROW_SHAPE)
+            .background(Color.White.copy(alpha = 0.05f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                haptics.play(Haptic.Select)
+                onClick()
+            }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.GraphicEq,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.audio_pipeline),
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.55f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.35f),
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+/** "24-bit PCM · 48 kHz" — whichever of encoding and rate are actually known yet. */
+private fun outputSummary(status: AudioOutputStatus.Snapshot): String {
+    val encoding = AudioOutputStatus.encodingLabel(status)
+    val rate = status.actualSampleRateHz?.takeIf { it > 0 } ?: return encoding
+    val khz = "%.1f".format(Locale.ROOT, rate / 1000f).removeSuffix(".0")
+    return "$encoding · $khz kHz"
 }
 
 /**

@@ -162,7 +162,7 @@ object AudioRouting {
      * telephony earpiece, a remote submix, the virtual sink a screen recorder
      * opens. Offering those as a choice is offering silence.
      */
-    private fun kindOf(type: Int): Kind? = when (type) {
+    internal fun kindOf(type: Int): Kind? = when (type) {
         AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> Kind.PHONE
         AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
         AudioDeviceInfo.TYPE_WIRED_HEADSET,

@@ -334,10 +334,10 @@ private const val EXTRA_ALBUM_ID = "bitchord.albumId"
 private const val EXTRA_SET_VIDEO_ID = "bitchord.setVideoId"
 
 /** @see Song.localUri */
-private const val EXTRA_LOCAL_URI = "bitchord.localUri"
+internal const val EXTRA_LOCAL_URI = "bitchord.localUri"
 
 /** @see Song.localPath */
-private const val EXTRA_LOCAL_PATH = "bitchord.localPath"
+internal const val EXTRA_LOCAL_PATH = "bitchord.localPath"
 
 /**
  * How long the track runs, as the row that queued it said.
@@ -653,11 +653,11 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
         val queue = if (shuffled) {
             QueueShuffle.startingOrder(songs, startIndex.coerceIn(songs.indices))
         } else {
-            queueStartingAt(songs, startIndex)
+            songs
         }
         queue.map { it.toMediaItem() }
     }
-    setMediaItems(items, 0, 0L)
+    setMediaItems(items, startIndex.coerceIn(0, items.size - 1), 0L)
     prepare()
     play()
 }

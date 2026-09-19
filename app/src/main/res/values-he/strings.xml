@@ -727,6 +727,7 @@
     <string name="automix_mode_performance_subtitle">4 תהליכונים · ניתוח מהיר ביותר · שימוש מוגבר בסוללה</string>
 
     <string name="automix_not_supported_video">Automix אינו נתמך בקטעי וידאו</string>
+    <string name="automix_stopped_in_party">Automix: הופסק בהאזנה ביחד</string>
 
     <string name="automix_performance">ביצועי Automix</string>
 

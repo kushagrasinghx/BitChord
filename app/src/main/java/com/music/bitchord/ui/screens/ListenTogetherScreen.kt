@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.screens
 
 import android.content.Intent
+import android.text.format.DateFormat
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -50,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -80,6 +82,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyMember
+import com.music.bitchord.data.listentogether.PartyActivity
 import com.music.bitchord.ui.components.PillTextField
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -115,20 +118,28 @@ fun ListenTogetherScreen(
 
     val state by ListenTogether.state.collectAsStateWithLifecycle()
     val customServer by ListenTogether.customServerUrl.collectAsStateWithLifecycle()
-    val serverStatus by ListenTogether.serverStatus.collectAsStateWithLifecycle()
+    val activity by ListenTogether.activity.collectAsStateWithLifecycle()
 
     var serverInput by remember(customServer) { mutableStateOf(customServer) }
     var codeInput by remember(inviteCode) { mutableStateOf(inviteCode.orEmpty()) }
     var busy by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
+    var nickname by remember { mutableStateOf(ListenTogether.nickname()) }
+    var maxMembers by remember { mutableIntStateOf(5) }
 
     // A membership outlives the process; the socket does not. Opening it when
     // the screen is looked at — rather than on every cold start — is what keeps
     // a feature nobody is currently using off the radio.
     LaunchedEffect(Unit) { ListenTogether.ensureConnected() }
-    // Re-checked whenever the address changes, so switching to your own server
-    // says whether it answers rather than waiting for a create to fail.
-    LaunchedEffect(customServer) { ListenTogether.refreshServerHealth() }
+    // This page owns the health polling: the latency badge belongs to Listen
+    // together, so it refreshes while this page is visible and stops when the
+    // composable leaves the screen.
+    LaunchedEffect(customServer) {
+        while (true) {
+            ListenTogether.refreshServerHealth()
+            delay(10_000)
+        }
+    }
 
     // A link tap is already an explicit request to join. Signed-out users keep
     // the populated code while the sign-in page is open. joinParty switches an
@@ -176,8 +187,6 @@ fun ListenTogetherScreen(
             }
         }
 
-        ServerHealthRow(status = serverStatus, onRecheck = ListenTogether::refreshServerHealth)
-
         if (!state.inParty) {
             NotInAParty(
                 signedIn = signedIn,
@@ -189,11 +198,15 @@ fun ListenTogetherScreen(
                         .take(ListenTogether.CODE_LENGTH)
                 },
                 busy = busy,
+                nickname = nickname,
+                onNicknameChange = { nickname = it.take(80); ListenTogether.setNickname(nickname) },
+                maxMembers = maxMembers,
+                onMaxMembersChange = { maxMembers = it.coerceIn(2, 10) },
                 onCreate = {
                     busy = true
                     failure = null
                     scope.launch {
-                        failure = ListenTogether.createParty().exceptionOrNull()?.message
+                        failure = ListenTogether.createParty(nickname, maxMembers).exceptionOrNull()?.message
                         busy = false
                     }
                 },
@@ -201,7 +214,7 @@ fun ListenTogetherScreen(
                     busy = true
                     failure = null
                     scope.launch {
-                        failure = ListenTogether.joinParty(codeInput).exceptionOrNull()?.message
+                        failure = ListenTogether.joinParty(codeInput, nickname).exceptionOrNull()?.message
                         if (failure == null) codeInput = ""
                         busy = false
                     }
@@ -226,6 +239,8 @@ fun ListenTogetherScreen(
                     )
                 },
                 onLeave = { scope.launch { ListenTogether.leaveParty() } },
+                onSetCapacity = ListenTogether::setMaxMembers,
+                onKick = ListenTogether::kick,
             )
         }
 
@@ -237,6 +252,8 @@ fun ListenTogetherScreen(
                 modifier = Modifier.padding(start = GROUP_INSET + 4.dp, end = GROUP_INSET + 4.dp, top = 12.dp),
             )
         }
+
+        PartyActivityList(activity)
 
         // Last, and empty by default. Nobody setting up a party needs to think
         // about an address — there is one built in — so this is where somebody
@@ -346,12 +363,46 @@ private fun NotInAParty(
     codeInput: String,
     onCodeInput: (String) -> Unit,
     busy: Boolean,
+    nickname: String,
+    onNicknameChange: (String) -> Unit,
+    maxMembers: Int,
+    onMaxMembersChange: (Int) -> Unit,
     onCreate: () -> Unit,
     onJoin: () -> Unit,
 ) {
     val ready = signedIn && hasServer && !busy
 
-    SettingsGroup(footer = stringResource(R.string.listen_together_create_footer)) {
+    SettingsGroup(header = stringResource(R.string.listen_together_profile)) {
+        Column(Modifier.padding(horizontal = ROW_INSET, vertical = 14.dp)) {
+            PillTextField(
+                value = nickname,
+                onValueChange = onNicknameChange,
+                placeholder = stringResource(R.string.listen_together_nickname_hint),
+                container = MaterialTheme.colorScheme.background,
+                enabled = ready,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            )
+        }
+    }
+
+    SettingsGroup(footer = stringResource(R.string.listen_together_create_footer, maxMembers)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = ROW_INSET, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.listen_together_party_size),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(stringResource(R.string.listen_together_party_size_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick = { onMaxMembersChange(maxMembers - 1) }, enabled = ready && maxMembers > 2) { Text("−", color = MaterialTheme.colorScheme.onSurface) }
+            Text("$maxMembers", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(28.dp), textAlign = TextAlign.Center)
+            TextButton(onClick = { onMaxMembersChange(maxMembers + 1) }, enabled = ready && maxMembers < 10) { Text("+", color = MaterialTheme.colorScheme.onSurface) }
+        }
+        RowDivider()
         SettingsRow(
             icon = Icons.Rounded.GroupAdd,
             title = stringResource(R.string.listen_together_create),
@@ -544,6 +595,8 @@ private fun InAParty(
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onLeave: () -> Unit,
+    onSetCapacity: (Int) -> Unit,
+    onKick: (String) -> Unit,
 ) {
     SettingsGroup(
         header = stringResource(R.string.listen_together_code),
@@ -585,9 +638,28 @@ private fun InAParty(
         ),
         footer = stringResource(R.string.listen_together_members_footer, state.maxMembers),
     ) {
+        if (state.you?.isHost == true) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = ROW_INSET, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.listen_together_party_size),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(stringResource(R.string.listen_together_host_controls), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton(onClick = { onSetCapacity(state.maxMembers - 1) }, enabled = state.maxMembers > maxOf(2, state.members.size)) { Text("−", color = MaterialTheme.colorScheme.onSurface) }
+                Text("${state.maxMembers}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.width(28.dp), textAlign = TextAlign.Center)
+                TextButton(onClick = { onSetCapacity(state.maxMembers + 1) }, enabled = state.maxMembers < 10) { Text("+", color = MaterialTheme.colorScheme.onSurface) }
+            }
+            RowDivider()
+        }
         state.members.forEachIndexed { index, member ->
             if (index > 0) RowDivider()
-            MemberRow(member = member, isYou = member.memberId == state.you?.memberId)
+            MemberRow(member = member, isYou = member.memberId == state.you?.memberId, canKick = state.you?.isHost == true && !member.isHost, onKick = { onKick(member.memberId) })
         }
     }
 
@@ -666,7 +738,7 @@ private fun connectionLine(state: ListenTogether.State): String = when {
 }
 
 @Composable
-private fun MemberRow(member: PartyMember, isYou: Boolean) {
+private fun MemberRow(member: PartyMember, isYou: Boolean, canKick: Boolean = false, onKick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -724,6 +796,38 @@ private fun MemberRow(member: PartyMember, isYou: Boolean) {
         if (member.isHost) {
             Spacer(Modifier.width(8.dp))
             Badge(stringResource(R.string.listen_together_host))
+        } else if (canKick) {
+            TextButton(onClick = onKick) { Text(stringResource(R.string.listen_together_remove)) }
+        }
+    }
+}
+
+@Composable
+private fun PartyActivityList(entries: List<PartyActivity>) {
+    if (entries.isEmpty()) return
+    SettingsGroup(
+        header = stringResource(R.string.listen_together_activity),
+        footer = stringResource(R.string.listen_together_activity_footer),
+    ) {
+        val logScroll = rememberScrollState()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(156.dp)
+                .background(MaterialTheme.colorScheme.surface)
+                .verticalScroll(logScroll)
+                .padding(horizontal = ROW_INSET, vertical = 8.dp),
+        ) {
+            entries.forEach { entry ->
+                val timestamp = DateFormat.format("HH:mm:ss", entry.atMs)
+                Text(
+                    text = "[$timestamp] ${entry.by}: ${entry.detail.ifBlank { entry.action }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

@@ -199,6 +199,60 @@ class AudioPipelineTest {
         assertNull(NerdStats.sourceFor("track-2"))
     }
 
+    // ── Dynamic Source Transition & Leak Prevention ────────────────────────
+
+    @Test
+    fun `stale provider must never leak across tracks sharing same inner identifier`() {
+        // Track 1 played from JioSaavn with inner track id "101"
+        NerdStats.recordSource("101", "JioSaavn")
+        assertEquals("JioSaavn", NerdStats.exactSourceFor("101"))
+
+        // Track 2 is an Addon track with the exact same inner id "101" under an addon prefix
+        val addonMediaId = "src:addon-uuid-xyz::101"
+        // Before Addon resolves or records itself, exactSourceFor must NOT leak JioSaavn
+        assertNull(NerdStats.exactSourceFor(addonMediaId))
+
+        // Once Addon stream is recorded for the exact mediaId, it strictly returns the Addon
+        NerdStats.recordSource(addonMediaId, "Unified Addon")
+        assertEquals("Unified Addon", NerdStats.exactSourceFor(addonMediaId))
+        // And track 1 remains JioSaavn without being mutated
+        assertEquals("JioSaavn", NerdStats.exactSourceFor("101"))
+    }
+
+    @Test
+    fun `playback source transitions maintain correct sequence without stale bleed`() {
+        val jiosaavnId = "src:jiosaavn-uuid::track-jio"
+        val addonId = "src:addon-uuid::track-addon"
+        val localId = "local-storage-track-uri"
+
+        // 1. JioSaavn playback
+        NerdStats.recordSource(jiosaavnId, "JioSaavn")
+        assertEquals("JioSaavn", NerdStats.exactSourceFor(jiosaavnId))
+
+        // 2. Transition JioSaavn -> Addon
+        NerdStats.recordSource(addonId, "Tidal Addon")
+        assertEquals("Tidal Addon", NerdStats.exactSourceFor(addonId))
+
+        // 3. Transition Addon -> Local Storage (Local Storage does not rely on streaming source)
+        assertNull(NerdStats.exactSourceFor(localId))
+
+        // 4. Transition Local -> JioSaavn
+        assertEquals("JioSaavn", NerdStats.exactSourceFor(jiosaavnId))
+
+        // 5. Transition Local -> Addon
+        assertEquals("Tidal Addon", NerdStats.exactSourceFor(addonId))
+
+        // 6. Transition Addon -> JioSaavn
+        assertEquals("JioSaavn", NerdStats.exactSourceFor(jiosaavnId))
+    }
+
+    @Test
+    fun `unknown provider and missing metadata remain null in exact lookup`() {
+        assertNull(NerdStats.exactSourceFor(null))
+        assertNull(NerdStats.exactSourceFor(""))
+        assertNull(NerdStats.exactSourceFor("src:unknown-provider-uuid::track-999"))
+    }
+
     // ── AudioOutputStatus Model ────────────────────────────────────────────
 
     @Test

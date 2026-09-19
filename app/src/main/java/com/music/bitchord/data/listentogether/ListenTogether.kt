@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.music.bitchord.BitChordApplication
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.settings.AppSettings
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
@@ -169,6 +170,10 @@ object ListenTogether {
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
 
+    private val _activity = MutableStateFlow<List<PartyActivity>>(emptyList())
+    /** Last 100 actions for this app session only. */
+    val activity: StateFlow<List<PartyActivity>> = _activity.asStateFlow()
+
     /**
      * A server the user has pointed this install at instead of the built-in one.
      *
@@ -295,6 +300,12 @@ object ListenTogether {
     /** Whether this device has an account it can jam as. */
     fun canJoin(): Boolean = identity() != null
 
+    fun nickname(): String = prefs.getString(KEY_NICKNAME, null).orEmpty()
+
+    fun setNickname(value: String) {
+        prefs.edit().putString(KEY_NICKNAME, value.trim().take(80)).apply()
+    }
+
     /**
      * Opens the socket for a membership that was restored from storage.
      *
@@ -311,14 +322,17 @@ object ListenTogether {
 
     // ------------------------------------------------------------ joining --
 
-    suspend fun createParty(): Result<String> = enter { who ->
-        post("${httpBase()}/api/parties", JoinRequest(who.userId, who.deviceId, who.name, who.avatar))
+    suspend fun createParty(nickname: String = nickname(), maxMembers: Int = 5): Result<String> = enter(nickname) { who ->
+        post("${httpBase()}/api/parties", JoinRequest(
+            who.userId, who.deviceId, who.name, who.avatar, maxMembers,
+            autoplayEnabled = AppSettings.autoplay.value,
+        ))
     }
 
-    suspend fun joinParty(code: String): Result<String> {
+    suspend fun joinParty(code: String, nickname: String = nickname()): Result<String> {
         val previousCode = _state.value.code
         val previousToken = token
-        val result = enter { who ->
+        val result = enter(nickname) { who ->
             val cleaned = code.filter { it.isLetterOrDigit() }.uppercase()
             if (cleaned.length != CODE_LENGTH) {
                 throw PartyException("bad_code", "A party code is six letters or digits.")
@@ -340,9 +354,9 @@ object ListenTogether {
         return result
     }
 
-    private suspend fun enter(request: suspend (Identity) -> PartyMembership): Result<String> =
+    private suspend fun enter(nickname: String, request: suspend (Identity) -> PartyMembership): Result<String> =
         withContext(Dispatchers.IO) {
-            val who = identity()
+            val who = identity(nickname)
                 ?: return@withContext Result.failure(
                     PartyException("not_signed_in", "Sign in to listen together."),
                 )
@@ -427,6 +441,29 @@ object ListenTogether {
         put("queueIndex", index)
     }
 
+    fun queueAdd(tracks: List<PartyTrack>, playNext: Boolean = false) = control("queueAdd") {
+        put("tracks", json.encodeToJsonElement(kotlinx.serialization.builtins.ListSerializer(PartyTrack.serializer()), tracks))
+        put("playNext", playNext)
+    }
+
+    fun queueRemove(videoId: String) = control("queueRemove") {
+        put("videoId", videoId)
+    }
+
+    fun queueClear() = control("queueClear") {}
+
+    fun queueMove(fromIndex: Int, toIndex: Int, videoId: String? = null) = control("queueMove") {
+        put("fromIndex", fromIndex)
+        put("toIndex", toIndex)
+        if (videoId != null) put("videoId", videoId)
+    }
+
+    fun setMaxMembers(value: Int) = control("setMaxMembers") { put("maxMembers", value) }
+
+    fun kick(memberId: String) = control("kick") { put("memberId", memberId) }
+
+    fun setAutoplay(enabled: Boolean) = control("setAutoplay") { put("enabled", enabled) }
+
     private fun control(action: String, body: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit) {
         val frame = buildJsonObject {
             put("type", "control")
@@ -505,7 +542,10 @@ object ListenTogether {
             val held = token ?: return
             try {
                 _state.update { it.copy(connection = Connection.CONNECTING) }
-                http.webSocket("${wsBase()}/ws/parties/$code?token=$held") {
+                http.webSocket(
+                    urlString = "${wsBase()}/ws/parties/$code",
+                    request = { header("Authorization", "Bearer $held") },
+                ) {
                     session = this
                     backoffMs = 1_000L
                     _state.update { it.copy(connection = Connection.LIVE, error = null) }
@@ -659,7 +699,16 @@ object ListenTogether {
                         )
                     }.getOrNull()
                 } ?: return
-                _state.update { it.copy(members = members) }
+                val maxMembers = frame["maxMembers"]?.jsonPrimitive?.content?.toIntOrNull() ?: _state.value.maxMembers
+                _state.update { it.copy(members = members, maxMembers = maxMembers) }
+            }
+
+            "activity" -> {
+                val action = frame["action"]?.jsonPrimitive?.content ?: return
+                val by = frame["by"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() } ?: return
+                val atMs = frame["atMs"]?.jsonPrimitive?.content?.toLongOrNull() ?: received
+                val detail = frame["detail"]?.jsonPrimitive?.content.orEmpty()
+                recordActivity(PartyActivity(action, by, atMs, detail))
             }
 
             "error" -> {
@@ -708,13 +757,14 @@ object ListenTogether {
      * which Google account it stands for, and a party server that accumulated
      * real account identifiers would be holding something it has no use for.
      */
-    private fun identity(): Identity? {
+    private fun identity(nickname: String = nickname()): Identity? {
         val store = BitChordApplication.authStore
         if (!store.isSignedIn) return null
         val account = store.activeSession ?: return null
         val profile = account.profiles.firstOrNull { it.profileId == account.activeProfileId }
             ?: account.profiles.firstOrNull()
-        val name = profile?.name?.takeIf { it.isNotBlank() }
+        val name = nickname.trim().takeIf { it.isNotBlank() }
+            ?: profile?.name?.takeIf { it.isNotBlank() }
             ?: account.name.takeIf { it.isNotBlank() }
             ?: account.email.substringBefore('@').takeIf { it.isNotBlank() }
             ?: return null
@@ -738,6 +788,11 @@ object ListenTogether {
         return UUID.randomUUID().toString().also {
             prefs.edit().putString(KEY_DEVICE, it).apply()
         }
+    }
+
+    private fun recordActivity(entry: PartyActivity) {
+        val next = (listOf(entry) + _activity.value).take(100)
+        _activity.value = next
     }
 
     private suspend fun post(url: String, body: JoinRequest): PartyMembership {
@@ -834,6 +889,7 @@ object ListenTogether {
     private const val KEY_CODE = "party_code"
     private const val KEY_TOKEN = "party_token"
     private const val KEY_DEVICE = "device_id"
+    private const val KEY_NICKNAME = "party_nickname"
 
     /**
      * The party server this build ships pointed at, from `LISTEN_TOGETHER_SERVER`

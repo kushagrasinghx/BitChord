@@ -807,6 +807,63 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun createPlaylistWithVideoIds(
+        title: String,
+        privacy: PlaylistPrivacy,
+        videoIds: List<String>,
+        songs: List<Song> = emptyList(),
+        onResult: ((browseId: String?, title: String) -> Unit)? = null,
+    ) {
+        val name = title.trim().ifBlank { text(R.string.new_playlist) }
+        viewModelScope.launch {
+            if (authStore.isSignedIn) {
+                val initialBatch = videoIds.take(50)
+                YtMusicRepository.createPlaylist(
+                    title = name,
+                    privacy = privacy,
+                    videoIds = initialBatch,
+                ).fold(
+                    onSuccess = { playlistId ->
+                        if (videoIds.size > 50) {
+                            videoIds.drop(50).chunked(50).forEach { chunk ->
+                                YtMusicRepository.addToPlaylist(playlistId, chunk)
+                            }
+                        }
+                        setPlaylistOwned("VL$playlistId", true)
+                        libraryStale = true
+                        val created = UserPlaylist(
+                            playlistId = playlistId,
+                            title = name,
+                            subtitle = "${videoIds.size} songs",
+                            thumbnailUrl = null,
+                        )
+                        _playlists.value = listOf(created) +
+                            _playlists.value.filterNot { it.playlistId == created.playlistId }
+                        editPlaylistShelf { items ->
+                            listOf(
+                                ShelfItem(
+                                    title = created.title,
+                                    subtitle = created.subtitle,
+                                    thumbnailUrl = created.thumbnailUrl,
+                                    videoId = null,
+                                    browseId = created.browseId,
+                                ),
+                            ) + items.filterNot { it.browseId == created.browseId }
+                        }
+                        onResult?.invoke(created.browseId, created.title)
+                    },
+                    onFailure = {
+                        val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
+                        onResult?.invoke(local.browseId, local.title)
+                    },
+                )
+            } else {
+                val local = com.music.bitchord.data.spotify.LocalPlaylistStore.savePlaylist(name, songs)
+                onResult?.invoke(local.browseId, local.title)
+            }
+        }
+    }
+
     /**
      * Drops [song] from the playlist page it is being read on, and takes the
      * row out from under the reader rather than waiting for a re-fetch.
@@ -2011,7 +2068,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             var monthlyListenerCount: String? = null
             /** Whether this artist is subscribed to — see [DetailPage.subscription]. */
             var subscription: SubscriptionState? = null
+            val localPlaylist = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
             val state = when {
+                localPlaylist != null -> {
+                    name = localPlaylist.title
+                    credit = "${localPlaylist.songs.size} tracks • Local Playlist"
+                    artwork = localPlaylist.songs.firstOrNull { !it.thumbnailUrl.isNullOrBlank() }?.thumbnailUrl
+                    if (localPlaylist.songs.isEmpty()) UiState.Error("No tracks in playlist")
+                    else UiState.Success(localPlaylist.songs)
+                }
                 Downloads.recordIdOf(browseId) != null -> {
                     val songs = downloadedPlaylist(browseId)
                     if (songs.isEmpty()) UiState.Error(text(R.string.downloaded_playlist_empty))
@@ -2119,7 +2184,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun reloadLocalDetail(browseId: String) {
         viewModelScope.launch {
             val context = getApplication<Application>()
+            val localPlaylist = com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(browseId)
             val state: UiState<List<Song>> = when {
+                localPlaylist != null -> {
+                    if (localPlaylist.songs.isEmpty()) UiState.Error("No tracks in playlist")
+                    else UiState.Success(localPlaylist.songs)
+                }
                 Downloads.recordIdOf(browseId) != null -> {
                     val songs = downloadedPlaylist(browseId)
                     if (songs.isEmpty()) UiState.Error(text(R.string.downloaded_playlist_empty))

@@ -139,6 +139,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
+import com.music.bitchord.ui.components.ImportSpotifyDialog
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
@@ -526,6 +527,7 @@ private fun BitChordApp(
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
+    var showSpotifyImportDialog by remember { mutableStateOf(false) }
     // Which album or playlist the collection menu is open on, or null when it
     // is shut. One slot for every surface that can open it — the shelves on
     // three tabs, the search rows, the artist page's carousels, the release
@@ -712,12 +714,8 @@ private fun BitChordApp(
         // stale for the same reasons — and it is the one page a delete can empty
         // out entirely, which is worth saying rather than leaving rows behind
         // that play nothing.
-        // openDetail is already taking the initial snapshot while the page is
-        // Loading. Starting reloadLocalDetail at the same time used to perform
-        // the same disk work twice on every open, which was especially visible
-        // for large download libraries and slow content providers.
         if (openPage.songs !is UiState.Loading &&
-            (open == "local:downloads" || Downloads.recordIdOf(open) != null)
+            (open == "local:downloads" || Downloads.recordIdOf(open) != null || com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(open) != null)
         ) {
             viewModel.reloadLocalDetail(open)
         }
@@ -2914,6 +2912,7 @@ private fun BitChordApp(
                             // does nothing; see [onBrowseLongPress].
                             onShelfItemLongPress = onBrowseLongPress,
                             onNewPlaylist = { creatingPlaylist = true },
+                            onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
                             onShowAll = { shelf -> libraryShowAll = shelf },
                             replayCards = replayCards,
                             replayHolder = account?.name.orEmpty(),
@@ -3738,6 +3737,21 @@ private fun BitChordApp(
                     },
                 )
             }
+        }
+
+        if (showSpotifyImportDialog) {
+            ImportSpotifyDialog(
+                onDismiss = { showSpotifyImportDialog = false },
+                onImportComplete = { title, privacy, videoIds, songs ->
+                    viewModel.createPlaylistWithVideoIds(title, privacy, videoIds, songs) { browseId, pTitle ->
+                        showQueueNotice("Imported Spotify playlist '$pTitle'")
+                        browseId?.let { id ->
+                            viewModel.openDetail(id, pTitle, "${songs.size} songs", songs.firstOrNull()?.thumbnailUrl)
+                        }
+                    }
+                    showSpotifyImportDialog = false
+                },
+            )
         }
 
         // ---- Album / playlist actions ----

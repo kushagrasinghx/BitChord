@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +53,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ReplayPeriod
 import com.music.bitchord.data.stats.ReplaySummary
@@ -122,6 +124,10 @@ fun ReplayScreen(
     val topArtists = stringResource(R.string.top_artists)
     val topAlbums = stringResource(R.string.top_albums)
     val topGenres = stringResource(R.string.top_genres)
+    // How far down the songs chart to go — see [AppSettings.topSongsLimit].
+    // The other three charts stay at the fixed [CHART_LENGTH]; this is the one
+    // a user might reasonably want to see out to a hundred or more.
+    val topSongsLimit by AppSettings.topSongsLimit.collectAsStateWithLifecycle()
 
     Box(modifier.fillMaxSize()) {
         MeshGradientBackground(palette = palette, trackKey = leadArtwork, animated = false)
@@ -182,7 +188,7 @@ fun ReplayScreen(
                     chart(
                         key = "songs",
                         title = topSongs,
-                        rows = summary.songRows(CHART_LENGTH),
+                        rows = summary.songRows(topSongsLimit),
                         dark = dark,
                         onClick = { index ->
                             summary.songs.getOrNull(index)?.let { onPlaySong(it.song) }
@@ -589,10 +595,15 @@ private fun EmptyReplay(period: ReplayPeriod, dark: Boolean) {
 }
 
 /**
- * How far down each chart the page goes.
+ * How far down the artist, album and genre charts the page goes.
  *
  * Five. Ten was the first guess and it made the page a scroll of forty rows
  * whose second half nobody has an opinion about — a top five is a result, and a
  * top ten is a list.
+ *
+ * The songs chart is the exception — see [AppSettings.topSongsLimit] — because
+ * it is the one list long enough, and specific enough, that "where did my
+ * two-hundredth most played song land" is a real question rather than a
+ * scroll nobody asked for.
  */
 private const val CHART_LENGTH = 5

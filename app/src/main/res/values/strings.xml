@@ -60,6 +60,8 @@
     <string name="subscribe">Subscribe</string>
     <string name="unsubscribe">Unsubscribe</string>
     <string name="download_all">Download all</string>
+    <string name="enable_auto_download_playlist">Auto-download this playlist</string>
+    <string name="disable_auto_download_playlist">Stop auto-downloading this playlist</string>
     <string name="top_songs">Top songs</string>
     <string name="suggested">Suggested</string>
     <string name="song_count">%1$d song</string>
@@ -762,6 +764,8 @@
     <string name="song_cache_limit_subtitle">Keeps downloaded audio on disk for instant seeking and replays</string>
     <string name="replay_genres_enabled_subtitle">Asks Last.fm for an artist’s genres. Only the artist name is sent.</string>
     <string name="replay_genres_disabled_subtitle">The Replay genre chart stays hidden while this is off</string>
+    <string name="top_songs_shown">Top songs shown</string>
+    <string name="top_songs_shown_subtitle">How far down the songs chart Replay goes</string>
     <string name="swipe_plays_next">Swiping a song plays it next</string>
     <string name="swipe_adds_to_queue">When disabled, swiping adds the song to the end of the queue</string>
     <string name="import_backup_warning">This replaces this device’s settings and listening history with the contents of the file. Export the current data first if you want to keep it.</string>

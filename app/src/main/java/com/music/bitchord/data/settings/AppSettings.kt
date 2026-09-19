@@ -258,6 +258,20 @@ object AppSettings {
      */
     val exportDownloads = MutableStateFlow(false)
 
+    /** Playlist ids whose complete contents should be kept downloaded. */
+    val autoDownloadPlaylists = MutableStateFlow<Set<String>>(emptySet())
+    /**
+     * Queue a download the moment a track is liked, with no separate tap
+     * needed on the Downloads screen or song menu.
+     *
+     * Off by default: liking a song is a low-stakes, high-frequency tap, and
+     * turning every one of them into a file on disk is a real commitment of
+     * storage and, on a metered plan, of data — [wifiOnlyDownloads] and
+     * [downloadQuality] still apply to what this queues, same as any other
+     * download.
+     */
+    val autoDownloadLikedSongs = MutableStateFlow(false)
+
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
 
@@ -536,6 +550,21 @@ object AppSettings {
      */
     val replayGenres = MutableStateFlow(true)
 
+    /**
+     * How far down the songs chart Replay goes.
+     *
+     * Five is a result and a hundred is a record of the year, and which one
+     * someone wants is a matter of taste this setting exists to answer rather
+     * than guess at. A hundred by default: [ListeningStats] already keeps every
+     * track it has seen, ranked, so a chart this long costs nothing beyond the
+     * scroll, and it is what turns Replay from a highlight reel into something
+     * worth checking a specific song's rank on. The artist, album and genre
+     * charts stay at their own fixed length — they're summaries of a much
+     * smaller list to begin with, and don't run into the same "where did my
+     * two-hundredth most played song go" question this setting is for.
+     */
+    val topSongsLimit = MutableStateFlow(DEFAULT_TOP_SONGS_LIMIT)
+
     // ── Library ─────────────────────────────────────────────────────────────
 
     /** Hides short clips, recorder output and non-music formats from Local Music. */
@@ -725,6 +754,8 @@ object AppSettings {
         downloadQuality.value = readDownloadQuality()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
+        autoDownloadPlaylists.value = prefs.getStringSet(KEY_AUTO_DOWNLOAD_PLAYLISTS, emptySet()).orEmpty()
+        autoDownloadLikedSongs.value = prefs.getBoolean(KEY_AUTO_DOWNLOAD_LIKED_SONGS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixPerformanceMode.value = runCatching {
@@ -809,6 +840,8 @@ object AppSettings {
         listenBrainzPrimaryArtistOnly.value = prefs.getBoolean(KEY_LISTENBRAINZ_PRIMARY_ARTIST_ONLY, false)
         spotifySpdcToken.value = prefs.getString(KEY_SPOTIFY_SPDC_TOKEN, "").orEmpty()
         replayGenres.value = prefs.getBoolean(KEY_REPLAY_GENRES, true)
+        topSongsLimit.value = prefs.getInt(KEY_TOP_SONGS_LIMIT, DEFAULT_TOP_SONGS_LIMIT)
+            .coerceIn(MIN_TOP_SONGS_LIMIT, MAX_TOP_SONGS_LIMIT)
         filterNonMusicAudio.value = prefs.getBoolean(KEY_FILTER_NON_MUSIC_AUDIO, true)
         localMusicSort.value = readLocalMusicSort(KEY_LOCAL_MUSIC_SORT)
         downloadedMusicSort.value = readLocalMusicSort(KEY_DOWNLOADED_MUSIC_SORT)
@@ -1365,6 +1398,19 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_EXPORT_DOWNLOADS, value).apply()
     }
 
+    fun setAutoDownloadPlaylist(playlistId: String, enabled: Boolean) {
+        val next = autoDownloadPlaylists.value.toMutableSet().apply {
+            if (enabled) add(playlistId) else remove(playlistId)
+        }.toSet()
+        autoDownloadPlaylists.value = next
+        prefs.edit().putStringSet(KEY_AUTO_DOWNLOAD_PLAYLISTS, next).apply()
+    }
+
+    fun setAutoDownloadLikedSongs(value: Boolean) {
+        autoDownloadLikedSongs.value = value
+        prefs.edit().putBoolean(KEY_AUTO_DOWNLOAD_LIKED_SONGS, value).apply()
+    }
+
     fun setLastfmPrimaryArtistOnly(value: Boolean) {
         lastfmPrimaryArtistOnly.value = value
         prefs.edit().putBoolean(KEY_LASTFM_PRIMARY_ARTIST_ONLY, value).apply()
@@ -1475,6 +1521,12 @@ object AppSettings {
     fun setReplayGenres(value: Boolean) {
         replayGenres.value = value
         prefs.edit().putBoolean(KEY_REPLAY_GENRES, value).apply()
+    }
+
+    fun setTopSongsLimit(value: Int) {
+        val clamped = value.coerceIn(MIN_TOP_SONGS_LIMIT, MAX_TOP_SONGS_LIMIT)
+        topSongsLimit.value = clamped
+        prefs.edit().putInt(KEY_TOP_SONGS_LIMIT, clamped).apply()
     }
 
     fun setFilterNonMusicAudio(value: Boolean) {
@@ -1673,6 +1725,11 @@ object AppSettings {
     const val MIN_UPGRADE_LENGTH_SLACK_SECONDS = 0
     const val MAX_UPGRADE_LENGTH_SLACK_SECONDS = 10
 
+    /** @see topSongsLimit */
+    const val DEFAULT_TOP_SONGS_LIMIT = 100
+    const val MIN_TOP_SONGS_LIMIT = 5
+    const val MAX_TOP_SONGS_LIMIT = 500
+
     private const val DEFAULT_PERFORMANCE_REFRESH_RATE = 120
 
     private fun normalizePerformanceRefreshRate(value: Int): Int =
@@ -1685,6 +1742,8 @@ object AppSettings {
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
+    private const val KEY_AUTO_DOWNLOAD_PLAYLISTS = "auto_download_playlists"
+    private const val KEY_AUTO_DOWNLOAD_LIKED_SONGS = "auto_download_liked_songs"
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
@@ -1732,6 +1791,7 @@ object AppSettings {
     private const val KEY_PRIORITIZE_SYLLABLE_SYNC = "prioritize_syllable_sync"
     private const val KEY_PAXSENIX_API_KEY = "paxsenix_api_key"
     private const val KEY_REPLAY_GENRES = "replay_genres"
+    private const val KEY_TOP_SONGS_LIMIT = "top_songs_limit"
     private const val KEY_FILTER_NON_MUSIC_AUDIO = "filter_non_music_audio"
     private const val KEY_LOCAL_MUSIC_SORT = "local_music_sort"
     private const val KEY_DOWNLOADED_MUSIC_SORT = "downloaded_music_sort"

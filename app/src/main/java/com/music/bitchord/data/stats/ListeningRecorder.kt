@@ -40,11 +40,26 @@ import kotlin.math.min
  * Minutes accumulate continuously. A *play* is counted once, when enough of the
  * track has gone by to call it listened to — the same half-or-four-minutes rule
  * the scrobbler uses, so the two never disagree about what a play is.
+ *
+ * ## A track that comes round again is a second play
+ *
+ * "New track" used to be the only thing that reset the play counter, which is
+ * right for a queue moving on and wrong for one track looping — repeat-one, or
+ * a manual seek back to the start — because [currentId] never changes there.
+ * A whole album repeated ten times over a weekend counted as one play of every
+ * track on it, which is the opposite of what "listened to ten times" is asking.
+ * [onSample] is now handed the play position alongside the duration, and a drop
+ * of more than [RESTART_DROP_MS] against the last one it saw — the position
+ * falling back toward the start rather than drifting forward with playback —
+ * is read as the same track starting over, which re-arms the threshold. A plain
+ * seek backward into the middle of a track one is already partway through does
+ * not trigger this: it only fires when the position lands back near zero.
  */
 object ListeningRecorder {
 
     private var currentId: String? = null
     private var lastSampleAt: Long = 0L
+    private var lastPositionMs: Long = -1L
     private var playedThisTrack: Long = 0L
     private var playCounted = false
     private var samplesSinceFlush = 0
@@ -54,20 +69,33 @@ object ListeningRecorder {
      *
      * [durationMs] is the decoder's figure when it has one; the row's stated
      * runtime stands in until it does, and a track with neither simply has to
-     * clear the thirty-second floor to count as a play.
+     * clear the thirty-second floor to count as a play. [positionMs] is only
+     * ever compared against itself, tick to tick, to notice a track looping
+     * back to its start — see the class note — never used to size a step.
      */
     @Synchronized
-    fun onSample(song: Song, durationMs: Long) {
+    fun onSample(song: Song, durationMs: Long, positionMs: Long) {
         val now = System.currentTimeMillis()
         if (song.videoId != currentId) {
             // A new track anchors the clock and contributes nothing yet — see
             // the class note on undercounting.
             currentId = song.videoId
             lastSampleAt = now
+            lastPositionMs = positionMs
             playedThisTrack = 0L
             playCounted = false
             return
         }
+        // Same track, but it has gone back to (near) its start since the last
+        // tick — repeat-one restarting it, or a seek back to replay it — so
+        // whatever counted toward the last listen doesn't count toward this
+        // one. A backward seek that lands anywhere past the start line is left
+        // alone: rehearing a verse is not a second play of the track.
+        if (lastPositionMs > RESTART_DROP_MS && positionMs <= RESTART_DROP_MS) {
+            playedThisTrack = 0L
+            playCounted = false
+        }
+        lastPositionMs = positionMs
         val step = (now - lastSampleAt).coerceIn(0L, MAX_STEP_MS)
         lastSampleAt = now
         if (step <= 0L) return
@@ -100,6 +128,7 @@ object ListeningRecorder {
     @Synchronized
     fun onStopped() {
         currentId = null
+        lastPositionMs = -1L
         playedThisTrack = 0L
         playCounted = false
         samplesSinceFlush = 0
@@ -176,6 +205,16 @@ object ListeningRecorder {
 
     /** Under half a minute is not a listen, however it ended. */
     private const val PLAY_FLOOR_MS = 30_000L
+
+    /**
+     * How close to zero a position has to land, coming from further in, to
+     * read as the track starting over rather than a backward seek.
+     *
+     * A few seconds rather than exactly zero: repeat-one's restart and a tap
+     * on "previous" both settle a beat after the position itself hits zero,
+     * and a threshold of zero would miss the tick that actually reports it.
+     */
+    private const val RESTART_DROP_MS = 3_000L
 
     /** Past four minutes, half a track is more listening than anyone disputes. */
     private const val PLAY_CEILING_MS = 4 * 60 * 1000L

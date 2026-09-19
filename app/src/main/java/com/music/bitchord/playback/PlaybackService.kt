@@ -1867,8 +1867,18 @@ class PlaybackService : MediaLibraryService() {
         // the optimistic state with YouTube in the background.
         LikeState.set(videoId, target)
         refreshCustomLayouts()
+        mediaSession?.setCustomLayout(notificationButtons())
+        // Taken from the player's own item rather than re-fetched: this is the
+        // track already on screen, and the only Song this action ever has to
+        // offer [Downloads.enqueue] if the like sticks.
+        val song = player?.currentMediaItem?.takeIf { it.mediaId == videoId }?.toSong()
         favoriteActionJob = scope.launch {
             YtMusicRepository.rate(videoId, target)
+                .onSuccess {
+                    if (target == LikeStatus.LIKE && song != null && AppSettings.autoDownloadLikedSongs.value) {
+                        Downloads.enqueue(applicationContext, song, from = "Liked Music")
+                    }
+                }
                 .onFailure {
                     LikeState.set(videoId, previous)
                     refreshCustomLayouts()
@@ -4212,7 +4222,7 @@ class PlaybackService : MediaLibraryService() {
                     // that ticks exactly while audio is coming out, which is what
                     // makes it the right place to count from.
                     player.currentMediaItem?.toSong()?.let {
-                        ListeningRecorder.onSample(it, player.duration)
+                        ListeningRecorder.onSample(it, player.duration, player.currentPosition)
                     }
                     // Only two primitive preference values. Queue JSON is
                     // written from onTimelineChanged, never from this loop.

@@ -645,9 +645,21 @@ fun mediaIdIn(uri: Uri): String? = if (uri.authority == "source") {
  */
 suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
     if (songs.isEmpty()) return
+    val shuffled = QueueShuffle.enabled.value
     val realIndex = startIndex.coerceIn(0, songs.size - 1)
     val items = withContext(Dispatchers.Default) {
-        songs.map { it.toMediaItem() }
+        val queue = if (shuffled) {
+            // Put all other tracks into a single shuffle pool so they can appear
+            // on either side of the selected track — not just after it.
+            val selected = songs[realIndex]
+            val otherShuffled = (songs.subList(0, realIndex) + songs.subList(realIndex + 1, songs.size)).shuffled()
+            val before = otherShuffled.take(realIndex)
+            val after = otherShuffled.drop(realIndex)
+            before + listOf(selected) + after
+        } else {
+            songs
+        }
+        queue.map { it.toMediaItem() }
     }
     setMediaItems(items, realIndex, 0L)
     prepare()

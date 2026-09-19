@@ -99,14 +99,17 @@ object LrcLib {
                 else -> 0L
             }
             val body = line.substring(match.range.last + 1)
+            // Detect the RTL marker that was written by [toEnhancedLrc].
+            val (text, alignment) = stripAlignmentMarker(body)
             LyricLine(
                 timeMs = minutes.toLong() * 60_000 + seconds.toLong() * 1_000 + fractionMs,
                 // Stripped rather than rebuilt from the runs below: the spacing
                 // and punctuation between two words belong to the line, and
                 // re-joining the words with single spaces would quietly rewrite
                 // a line that never had them.
-                text = body.replace(WORD_STAMP, "").trim(),
-                words = parseWordRuns(body),
+                text = text.replace(WORD_STAMP, "").trim(),
+                words = parseWordRuns(text),
+                alignment = alignment,
             )
         }.sortedBy { it.timeMs }.toList()
 
@@ -126,6 +129,23 @@ object LrcLib {
             kept
         }
     }
+
+    /**
+     * Strip the alignment marker written by [toEnhancedLrc] and return the
+     * clean body along with the recovered alignment.
+     *
+     * The marker is `<R>` — a word-stamp-looking token that never appears in
+     * genuine A2 output (word stamps use `<mm:ss.xx>`, not bare `<R>`). It sits
+     * at the very start of the body, before the first real stamp.
+     */
+    private fun stripAlignmentMarker(body: String): Pair<String, LyricAlignment> {
+        if (body.startsWith(ALIGNMENT_MARKER)) {
+            return body.substringAfter(ALIGNMENT_MARKER) to LyricAlignment.End
+        }
+        return body to LyricAlignment.Start
+    }
+
+    private const val ALIGNMENT_MARKER = "<R>"
 
     /**
      * YouTube Music titles are noisy — "(From "Raees")", "| Official Video",

@@ -67,6 +67,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         SourceRegistry.init(this)
         SearchHistory.init(this)
         LastPlayed.init(this)
+        com.music.bitchord.playback.PartyPersonalQueueStash.init(this)
         // Which tracks the listener has reverted to YouTube's own upload. Read
         // by [Song.toMediaItem], so it has to be open before the restart
         // snapshot below is turned back into queue items.

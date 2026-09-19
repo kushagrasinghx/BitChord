@@ -52,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
@@ -62,6 +63,7 @@ import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.R
+import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.topBarContentPadding
@@ -85,7 +87,8 @@ fun SearchScreen(
     onLoadMore: () -> Unit,
     listState: LazyListState,
     scrollResetTrigger: Int,
-    focusTrigger: Int = 0,
+    focusRequested: Boolean,
+    onFocusHandled: () -> Unit,
     onSongClick: (List<Song>, Int) -> Unit,
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
@@ -98,12 +101,12 @@ fun SearchScreen(
      * without a trip through its page.
      */
     onBrowseLongPress: ((BrowseItem) -> Unit)? = null,
-    history: List<String>,
+    history: List<SearchHistoryEntity>,
     suggestions: List<String>,
     typeaheadResults: List<SearchResult>,
     onSubmit: () -> Unit,
     onSuggestionClick: (String) -> Unit,
-    onHistoryClick: (String) -> Unit,
+    onHistoryClick: (SearchHistoryEntity) -> Unit,
     onHistoryRemove: (String) -> Unit,
     onHistoryClear: () -> Unit,
     /** Long-press handler for typeahead rows — opens the song actions sheet. */
@@ -113,10 +116,15 @@ fun SearchScreen(
 ) {
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    // Re-tapping the search tab from the nav bar increments focusTrigger;
+    val keyboardController = LocalSoftwareKeyboardController.current
+    // Tapping the search tab from the nav bar sets focusRequested;
     // respond by focusing the field and opening the keyboard.
-    LaunchedEffect(focusTrigger) {
-        if (focusTrigger > 0) focusRequester.requestFocus()
+    LaunchedEffect(focusRequested) {
+        if (focusRequested) {
+            focusRequester.requestFocus()
+            keyboardController?.show()
+            onFocusHandled()
+        }
     }
     // Search keeps one list state while its contents change. Reset it for each
     // new request so choosing a recent search cannot inherit the history's
@@ -560,8 +568,8 @@ private fun TypeaheadSongRow(
  * blank search page isn't just a sentence any more.
  */
 private fun LazyListScope.recentSearches(
-    history: List<String>,
-    onClick: (String) -> Unit,
+    history: List<SearchHistoryEntity>,
+    onClick: (SearchHistoryEntity) -> Unit,
     onRemove: (String) -> Unit,
     onClear: () -> Unit,
 ) {
@@ -589,17 +597,25 @@ private fun LazyListScope.recentSearches(
             )
         }
     }
-    items(history, key = { "recent:$it" }) { term ->
-        RecentSearchRow(
-            term = term,
-            onClick = { onClick(term) },
-            onRemove = { onRemove(term) },
+    items(history, key = { "recent:${it.id}" }) { entity ->
+        RecentSearchEntityRow(
+            entity = entity,
+            onClick = { onClick(entity) },
+            onRemove = { onRemove(entity.id) },
         )
     }
 }
 
+/**
+ * Spotify-style entity row: square thumbnail, bold title, subtitle with type,
+ * and a removal button. Tapping navigates to the entity or plays it directly.
+ */
 @Composable
-private fun RecentSearchRow(term: String, onClick: () -> Unit, onRemove: () -> Unit) {
+private fun RecentSearchEntityRow(
+    entity: SearchHistoryEntity,
+    onClick: () -> Unit,
+    onRemove: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -607,21 +623,33 @@ private fun RecentSearchRow(term: String, onClick: () -> Unit, onRemove: () -> U
             .padding(start = PAGE_GUTTER, end = 8.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Rounded.History,
+        AsyncImage(
+            model = entity.artworkUrl,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .thumbnailBorder(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
         )
-        Spacer(Modifier.width(16.dp))
-        Text(
-            text = term,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = entity.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = entity.subtitle.ifBlank { entity.entityType.name.lowercase(Locale.ROOT).replaceFirstChar { it.uppercase(Locale.ROOT) } },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -631,7 +659,7 @@ private fun RecentSearchRow(term: String, onClick: () -> Unit, onRemove: () -> U
         ) {
             Icon(
                 Icons.Rounded.Close,
-                contentDescription = stringResource(R.string.recent_search_remove, term),
+                contentDescription = stringResource(R.string.recent_search_remove, entity.title),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
             )

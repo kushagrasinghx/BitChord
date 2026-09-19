@@ -5,13 +5,13 @@ import com.music.bitchord.ui.components.ExplicitSongTitle
 
 import android.database.ContentObserver
 import android.graphics.Bitmap
+import android.media.AudioFormat
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
-import android.util.LruCache
 import android.view.View
 import android.widget.Toast
 import android.window.OnBackInvokedCallback
@@ -206,16 +206,12 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.media3.common.Player
-import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
-import coil3.request.SuccessResult
-import coil3.request.allowHardware
-import coil3.toBitmap
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import com.music.bitchord.ui.theme.SystemBarIcons
+import com.music.bitchord.ui.theme.StatusBarIcons
+import com.music.bitchord.ui.theme.rememberArtworkTopBandLuminance
+import com.music.bitchord.ui.theme.topBandScrimAlpha
 import com.music.bitchord.ui.rememberIsForeground
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.optimizedHazeEffect
@@ -245,6 +241,7 @@ import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.PLAYER_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.BACK_RESTARTS_AFTER_MS
 import com.music.bitchord.playback.autoplaySectionStart
 import kotlinx.coroutines.launch
@@ -364,6 +361,9 @@ private val VERSION_PILL_ART_INSET = 12.dp
  * that was cut off rather than one that ran out.
  */
 private const val HERO_FADE_FRACTION = 0.42f
+/** Kept transparent so the cover remains edge-to-edge, while aiding icon contrast. */
+/** A modest floor while a subview replaces the hero with its artwork-derived mesh. */
+private const val SUBVIEW_STATUS_SCRIM_MIN_ALPHA = 0.40f
 
 /**
  * How often the backdrop re-reads the colours of a playing Canvas clip.
@@ -855,63 +855,6 @@ private const val LYRICS_CONTROLS_IDLE_MS = 5_000L
 
 private const val LYRICS_UNAVAILABLE_HOLD_MS = 5_000L
 private const val LYRICS_UNAVAILABLE_FADE_MS = 900
-private const val LIGHT_ARTWORK_LUMINANCE_THRESHOLD = 0.45f
-
-private val artworkLuminanceCache = LruCache<String, Float>(20)
-
-@Composable
-private fun rememberArtworkLuminance(imageUrl: String?): Float? {
-    val context = LocalContext.current
-    var luminance by remember(imageUrl) { mutableStateOf<Float?>(null) }
-
-    LaunchedEffect(imageUrl) {
-        luminance = null
-        if (imageUrl == null) return@LaunchedEffect
-
-        artworkLuminanceCache.get(imageUrl)?.let { cached ->
-            luminance = cached
-            return@LaunchedEffect
-        }
-
-        val request = ImageRequest.Builder(context)
-            .data(imageUrl.artworkAt(ART_PX))
-            .size(128)
-            .allowHardware(false)
-            .build()
-        val result = SingletonImageLoader.get(context).execute(request)
-        val bitmap = (result as? SuccessResult)?.image?.toBitmap()
-        if (bitmap != null) {
-            val lum = withContext(Dispatchers.Default) {
-                bitmap.topAreaLuminance()
-            }
-            artworkLuminanceCache.put(imageUrl, lum)
-            luminance = lum
-        } else {
-            // Default to dark artwork (0f) so status bar icons stay light if image fails to load
-            luminance = 0f
-        }
-    }
-    return luminance
-}
-
-private fun Bitmap.topAreaLuminance(): Float {
-    val sampleHeight = (height * 0.35f).toInt().coerceIn(1, height)
-    val sampleWidth = width.coerceAtLeast(1)
-    val pixels = IntArray(sampleWidth * sampleHeight)
-    getPixels(pixels, 0, sampleWidth, 0, 0, sampleWidth, sampleHeight)
-
-    var totalLuminance = 0.0
-    val count = pixels.size.coerceAtLeast(1)
-    for (pixel in pixels) {
-        val r = ((pixel shr 16) and 0xFF) / 255.0f
-        val g = ((pixel shr 8) and 0xFF) / 255.0f
-        val b = (pixel and 0xFF) / 255.0f
-        val lum = 0.2126f * r + 0.7152f * g + 0.0722f * b
-        totalLuminance += lum
-    }
-    return (totalLuminance / count).toFloat()
-}
-
 private sealed interface LyricsTranslationUiState {
     data object Idle : LyricsTranslationUiState
     data object Loading : LyricsTranslationUiState
@@ -1029,18 +972,16 @@ fun NowPlayingScreen(
     val density = LocalDensity.current
     val haptics = rememberHaptics()
 
-    // Keep the header caption and the system glyphs on the same contrast
-    // decision. The caption sits over the same upper part of the cover as the
-    // status bar when this is a phone-sized player.
-    val artLuminance = rememberArtworkLuminance(song.thumbnailUrl)
-    val isLightArtwork = artLuminance?.let { it > LIGHT_ARTWORK_LUMINANCE_THRESHOLD } ?: false
+    // This is produced by the palette's existing 128 px decode and cache. It
+    // samples the upper band rather than the whole sleeve because that is what
+    // lies beneath the status bar when the player expands to full bleed.
+    val artTopLuminance = rememberArtworkTopBandLuminance(song.thumbnailUrl, ART_PX)
+    val artworkStatusScrimAlpha = topBandScrimAlpha(artTopLuminance)
 
-    // A docked pane sits beside the page rather than covering the screen, so
-    // the status bar it's under belongs to the page, not this artwork — only
-    // the full-screen sheet gets to repaint it.
-    if (!docked) {
-        SystemBarIcons(dark = isLightArtwork)
-    }
+    // Media-player convention: the player always owns light status icons. The
+    // top treatment below, rather than a window-flag flip per cover, provides
+    // their contrast and stays visually stable through artwork transitions.
+    if (!docked) StatusBarIcons(dark = false)
 
     // Kept local to the player: a modal player is not in the page's Haze
     // source tree, so it needs its own source for the same frosted material as
@@ -1346,12 +1287,17 @@ fun NowPlayingScreen(
         }
     }
 
-    BackHandler(enabled = showAudioPipeline) { showAudioPipeline = false }
+    // Registered ahead of the pipeline dialog's own handler below: the
+    // pipeline is now only ever opened from the row at the bottom of this
+    // drawer, so it is always the topmost of the two when both are up, and
+    // back has to close it first rather than taking the drawer out from
+    // under it.
+    BackHandler(enabled = showAudioOutput) { showAudioOutput = false }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         val view = LocalView.current
-        DisposableEffect(view, showAudioPipeline) {
-            val callback = if (showAudioPipeline) {
-                OverlayBack.register(view) { showAudioPipeline = false }
+        DisposableEffect(view, showAudioOutput) {
+            val callback = if (showAudioOutput) {
+                OverlayBack.register(view) { showAudioOutput = false }
             } else {
                 null
             }
@@ -1359,14 +1305,12 @@ fun NowPlayingScreen(
         }
     }
 
-    // Same again for the output drawer, so back puts it away rather than
-    // taking the whole player down from under it.
-    BackHandler(enabled = showAudioOutput) { showAudioOutput = false }
+    BackHandler(enabled = showAudioPipeline) { showAudioPipeline = false }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         val view = LocalView.current
-        DisposableEffect(view, showAudioOutput) {
-            val callback = if (showAudioOutput) {
-                OverlayBack.register(view) { showAudioOutput = false }
+        DisposableEffect(view, showAudioPipeline) {
+            val callback = if (showAudioPipeline) {
+                OverlayBack.register(view) { showAudioPipeline = false }
             } else {
                 null
             }
@@ -2037,17 +1981,18 @@ fun NowPlayingScreen(
         // readout set their flags on a tablet and nothing ever appears. They
         // are overlays over whatever player is on screen, and this is the
         // player that is on screen.
-        if (showAudioPipeline) {
-            AudioPipelineDialog(
-                hazeState = playerHaze,
-                onDismiss = { showAudioPipeline = false },
-            )
-        }
         if (showAudioOutput) {
             AudioOutputSheet(
                 hazeState = playerHaze,
                 accountName = accountName,
                 onDismiss = { showAudioOutput = false },
+                onOpenPipeline = { showAudioPipeline = true },
+            )
+        }
+        if (showAudioPipeline) {
+            AudioPipelineDialog(
+                hazeState = playerHaze,
+                onDismiss = { showAudioPipeline = false },
             )
         }
         if (lyricsOffsetOpen) {
@@ -2196,27 +2141,41 @@ fun NowPlayingScreen(
                 }
             }
 
-            // The clock, the signal bars and the drag handle are all white, and
-            // the banner puts whatever the artwork happens to have up there
-            // directly behind them — a bright frame or a pale sleeve leaves the
-            // top of the screen unreadable. Faded in with the banner and gone
-            // with it.
-            if (heroVisible > 0.01f) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .height(statusBarTop + topStrip)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.Black.copy(alpha = 0.38f * heroVisible),
-                                    Color.Transparent,
-                                ),
-                            ),
-                        ),
-                )
+        }
+
+        // This transparent top gradient is always present while the modal
+        // player owns the system bar. Its opacity follows the actual top-band
+        // artwork, rather than changing the status-bar glyph colour per cover.
+        // A subview replaces that hero with an artwork-derived mesh, so it gets
+        // only a modest floor rather than an opaque status-bar surface.
+        val playerSubviewOpen = lyricsOpen || queueOpen || lyricsOffsetOpen ||
+            showAudioPipeline || showAudioOutput
+        val topGradientAlpha = if (playerSubviewOpen) {
+            maxOf(artworkStatusScrimAlpha, SUBVIEW_STATUS_SCRIM_MIN_ALPHA)
+        } else {
+            artworkStatusScrimAlpha
+        }
+
+        val steps = 8
+        val gradientColors = remember(topGradientAlpha) {
+            List(steps) { index ->
+                val progress = index / (steps - 1).toFloat()
+                val factor = (1f - progress).toDouble().pow(1.5).toFloat()
+                Color.Black.copy(alpha = topGradientAlpha * factor)
             }
+        }
+        val topScrimBrush = remember(gradientColors) {
+            Brush.verticalGradient(gradientColors)
+        }
+
+        if (!docked) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .height(statusBarTop + topStrip)
+                    .background(topScrimBrush)
+            )
         }
 
         Column(
@@ -2283,8 +2242,9 @@ fun NowPlayingScreen(
                             )
                             .width(38.dp)
                             .height(5.dp)
+                            .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
                             .clip(RoundedCornerShape(3.dp))
-                            .background(Color.White.copy(alpha = 0.32f)),
+                            .background(Color.White.copy(alpha = 0.70f)),
                     )
                 }
                 // [p] is the shared album-to-panel transition. Keeping this in
@@ -2437,6 +2397,18 @@ fun NowPlayingScreen(
             // header icon.
             val mixing by AppSettings.smartMixInProgress.collectAsStateWithLifecycle()
             val smartAnalysis by AppSettings.smartAnalysis.collectAsStateWithLifecycle()
+            // A party doesn't mix, and doesn't analyse for one either — see
+            // [com.music.bitchord.playback.CrossfadeController]. So the two
+            // flows above simply stop moving there, and the stats line has to
+            // say why rather than leave their last values on screen as if they
+            // still described something.
+            //
+            // Read off the party rather than published as a third flow: it is
+            // the same fact the controller and the analyzer each read for
+            // themselves, and a mirror of it could only ever disagree.
+            val inParty by remember {
+                ListenTogether.state.map { it.inParty }.distinctUntilChanged()
+            }.collectAsStateWithLifecycle(initialValue = ListenTogether.state.value.inParty)
             // Height the artwork block below turns out not to need, spent by the
             // controls at the foot of the screen. Filled in from inside the box,
             // where the sleeve's real size is known; see [lastControlSpread].
@@ -2785,10 +2757,17 @@ fun NowPlayingScreen(
                                     // agree, so the line reads the same way every
                                     // time and the eye can find the half it wants
                                     // without re-parsing the sentence.
-                                    text = if (song.isVideoOrigin) {
-                                        stringResource(R.string.automix_not_supported_video)
-                                    } else {
-                                        stringResource(
+                                    text = when {
+                                        // Ahead of the video case because it is
+                                        // the broader one: in a party nothing is
+                                        // analysed for any song, video or not,
+                                        // so naming the video limitation there
+                                        // would describe a rule that is not the
+                                        // one in force.
+                                        inParty -> stringResource(R.string.automix_stopped_in_party)
+                                        song.isVideoOrigin ->
+                                            stringResource(R.string.automix_not_supported_video)
+                                        else -> stringResource(
                                             R.string.automix_analysis_status,
                                             smartAnalysis.current.localizedLabel(),
                                             smartAnalysis.next.localizedLabel(),
@@ -3240,7 +3219,6 @@ fun NowPlayingScreen(
                     losslessRequested = losslessRequested,
                     effectiveQuality = effectiveQuality,
                     nerdStats = nerdStats,
-                    onBadgeClick = { showAudioPipeline = true },
                     modifier = Modifier
                         .align(Alignment.Center)
                         .padding(horizontal = 8.dp),
@@ -3475,17 +3453,18 @@ fun NowPlayingScreen(
             }
             }
         }
-        if (showAudioPipeline) {
-            AudioPipelineDialog(
-                hazeState = playerHaze,
-                onDismiss = { showAudioPipeline = false },
-            )
-        }
         if (showAudioOutput) {
             AudioOutputSheet(
                 hazeState = playerHaze,
                 accountName = accountName,
                 onDismiss = { showAudioOutput = false },
+                onOpenPipeline = { showAudioPipeline = true },
+            )
+        }
+        if (showAudioPipeline) {
+            AudioPipelineDialog(
+                hazeState = playerHaze,
+                onDismiss = { showAudioPipeline = false },
             )
         }
         if (lyricsOffsetOpen) {
@@ -5141,15 +5120,17 @@ private fun LyricsPanel(
             listState.layoutInfo.visibleItemsInfo.any { it.index == currentLine }
         }
     }
-    LaunchedEffect(browsing, activeOnScreen, listState.isScrollInProgress) {
-        if (browsing && activeOnScreen && !listState.isScrollInProgress) {
+    // Paused, there is no song to follow back to, so a hand scroll should sit
+    // wherever it was left rather than snapping back on these timers.
+    LaunchedEffect(browsing, activeOnScreen, listState.isScrollInProgress, isPlaying) {
+        if (isPlaying && browsing && activeOnScreen && !listState.isScrollInProgress) {
             delay(600)
             browsing = false
         }
     }
 
-    LaunchedEffect(browsing, listState.isScrollInProgress) {
-        if (browsing && !listState.isScrollInProgress) {
+    LaunchedEffect(browsing, listState.isScrollInProgress, isPlaying) {
+        if (isPlaying && browsing && !listState.isScrollInProgress) {
             delay(5_000)
             browsing = false
         }
@@ -6081,7 +6062,9 @@ private val BOTTOM_ACTION_SIZE = 44.dp
  * One half of the output capsule — wider than it is tall, so the capsule reads
  * as a capsule rather than as two circles that have been pushed together.
  */
-private val PILL_SEGMENT_WIDTH = 54.dp
+// The count reserve is kept on both halves, so entering a party never makes
+// the capsule lopsided or shifts the queue control beside it.
+private val PILL_SEGMENT_WIDTH = 64.dp
 
 /**
  * Optical sizes, not equal ones.
@@ -6137,10 +6120,9 @@ private fun PillDivider() {
  * two glyphs that happen to sit side by side — headphones for which speaker the
  * sound leaves by, the party for which *people* it reaches.
  *
- * The halves are the same width in every state, party or no party, so the
- * capsule never resizes under the finger. How many people are in the party is a
- * fact for the page the right half opens, and for screen readers, rather than a
- * number living down here.
+ * The halves reserve exactly the same width in every state. When a party is
+ * active, the right half uses that reserve for its live member count; the left
+ * half intentionally retains the same footprint so the pill stays balanced.
  *
  * Collects the party itself instead of taking it as a parameter: the state
  * carries a playhead and lands on every heartbeat, and read any higher up it
@@ -6177,6 +6159,7 @@ private fun OutputPartyPill(
             },
             onClick = onParty,
             highlighted = badge.inParty,
+            trailingLabel = badge.members.takeIf { badge.inParty }?.toString(),
         )
     }
 }
@@ -6196,6 +6179,7 @@ private fun PillSegment(
     icon: ImageVector? = null,
     iconSize: Dp = PILL_ICON_SIZE,
     label: String? = null,
+    trailingLabel: String? = null,
     highlighted: Boolean = false,
     haptic: Haptic = Haptic.Tap,
     /** See [BottomGlyph], where the same window means the same thing. */
@@ -6224,12 +6208,23 @@ private fun PillSegment(
     ) {
         val tint = Color.White.copy(alpha = if (highlighted) 1f else 0.75f)
         if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(iconSize),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(iconSize),
+                )
+                if (trailingLabel != null) {
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = trailingLabel,
+                        color = tint,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
         } else if (label != null) {
             Text(
                 text = label,
@@ -6259,22 +6254,49 @@ private fun OutputCaption(
 ) {
     val badge = rememberPartyBadge()
     val outputName = rememberAudioOutputName(accountName)
+    val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
+    // Above what 16-bit/48kHz covers, on the device actually being played to
+    // — [AudioOutputStatus.actualEncoding] is read off the negotiated
+    // AudioTrack, the same figure the Audio Pipeline dialog states as fact,
+    // not off what the source merely claims. Same shine as the Lossless /
+    // Hi-Res Lossless badge below the seek bar, for the same reason: this is
+    // confirmed, not advertised, so it's worth it.
+    val isHiResOutput = when (outputStatus.actualEncoding) {
+        AudioFormat.ENCODING_PCM_24BIT_PACKED,
+        AudioFormat.ENCODING_PCM_32BIT,
+        AudioFormat.ENCODING_PCM_FLOAT,
+        -> true
+        else -> (outputStatus.actualSampleRateHz ?: 0) > 48_000
+    }
     // The host's first name, exactly as the output line already shortens the
     // account's — "Kushagra's Jam" alongside "Kushagra's Phone".
     val jamName = badge.hostFirstName
         ?.let { stringResource(R.string.listen_together_jam, it) }
         ?: stringResource(R.string.listen_together_jam_unnamed)
-    Text(
-        text = if (badge.inParty) jamName else outputName,
-        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-        color = Color.White.copy(alpha = 0.55f),
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        textAlign = TextAlign.Center,
-        modifier = Modifier
-            .fillMaxWidth(0.65f)
-            .clickable { if (badge.inParty) onOpenParty() else onOpenOutput() },
-    )
+    val captionModifier = Modifier
+        .fillMaxWidth(0.65f)
+        .clickable { if (badge.inParty) onOpenParty() else onOpenOutput() }
+    if (!badge.inParty && isHiResOutput) {
+        ShimmerText(
+            text = outputName,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+            ),
+            modifier = captionModifier,
+        )
+    } else {
+        Text(
+            text = if (badge.inParty) jamName else outputName,
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+            color = Color.White.copy(alpha = 0.55f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = captionModifier,
+        )
+    }
 }
 
 /** The three fields of a party the player draws — see [OutputPartyPill]. */
@@ -7331,7 +7353,6 @@ private fun LosslessOrStats(
     losslessRequested: Boolean,
     effectiveQuality: AudioQuality,
     nerdStats: NerdStats.Snapshot?,
-    onBadgeClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when {
@@ -7380,7 +7401,6 @@ private fun LosslessOrStats(
                 stringResource(R.string.upgrading_quality)
             },
             animated = false,
-            onClick = onBadgeClick,
             modifier = modifier,
         )
         nerdStats?.isLossless == true -> LosslessLabel(
@@ -7391,14 +7411,12 @@ private fun LosslessOrStats(
             // confirmed. It is what makes the badge read as an achievement
             // rather than a label, which only one of these two is.
             animated = true,
-            onClick = onBadgeClick,
             modifier = modifier,
         )
         nerdStats?.isDolbyAtmos == true -> LosslessLabel(
             text = "Dolby Atmos",
             animated = true,
             iconPainter = painterResource(R.drawable.ic_dolby_atmos),
-            onClick = onBadgeClick,
             modifier = modifier,
         )
         // Lossy, but the good end of lossy — a module's 320kbps tier, which
@@ -7407,26 +7425,23 @@ private fun LosslessOrStats(
         nerdStats?.isHiQuality == true -> LosslessLabel(
             text = stringResource(R.string.high_quality),
             animated = false,
-            onClick = onBadgeClick,
             modifier = modifier,
         )
         effectiveQuality == AudioQuality.LOW && nerdStats?.isLowQuality == true -> LosslessLabel(
             text = stringResource(R.string.data_saver),
             animated = false,
-            onClick = onBadgeClick,
             modifier = modifier,
         )
         effectiveQuality == AudioQuality.MEDIUM && nerdStats?.isMediumQuality == true -> LosslessLabel(
             text = stringResource(R.string.medium_quality),
             animated = false,
-            onClick = onBadgeClick,
             modifier = modifier,
         )
         else -> {}
     }
 }
 
-/** A quality glyph ahead of the status label, opening Audio Pipeline when tapped. */
+/** A quality glyph ahead of the status label. */
 @Composable
 private fun LosslessLabel(
     text: String,
@@ -7434,19 +7449,9 @@ private fun LosslessLabel(
     modifier: Modifier = Modifier,
     icon: ImageVector = Icons.Rounded.Headphones,
     iconPainter: Painter? = null,
-    onClick: (() -> Unit)? = null,
 ) {
     Row(
-        modifier = modifier
-            .then(
-                if (onClick != null) {
-                    Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onClick,
-                    )
-                } else Modifier
-            ),
+        modifier = modifier,
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -7490,9 +7495,21 @@ private fun LosslessLabel(
  * The band's width is measured off the text itself via [onSizeChanged]
  * rather than assumed, so the sweep always clears the word fully at both
  * ends instead of being sized for whatever length happened to be typical.
+ *
+ * [style] and [baseAlpha] default to the quality badge's own look; the output
+ * caption under the transport passes its own so the same sweep can run across
+ * a differently-sized, centred line without the badge's styling leaking in.
  */
 @Composable
-private fun ShimmerText(text: String) {
+private fun ShimmerText(
+    text: String,
+    modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.labelMedium.copy(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + 1).sp,
+    ),
+    baseAlpha: Float = 0.55f,
+) {
     var widthPx by remember { mutableIntStateOf(0) }
     val transition = rememberInfiniteTransition(label = "lossless-shimmer")
     val progress by transition.animateFloat(
@@ -7504,7 +7521,7 @@ private fun ShimmerText(text: String) {
         ),
         label = "lossless-shimmer-progress",
     )
-    val baseColor = Color.White.copy(alpha = 0.55f)
+    val baseColor = Color.White.copy(alpha = baseAlpha)
     val brush = if (widthPx <= 0) {
         Brush.linearGradient(listOf(baseColor, baseColor))
     } else {
@@ -7518,14 +7535,10 @@ private fun ShimmerText(text: String) {
     }
     Text(
         text = text,
-        style = MaterialTheme.typography.labelMedium.copy(
-            brush = brush,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + 1).sp,
-        ),
+        style = style.copy(brush = brush),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.onSizeChanged { widthPx = it.width },
+        modifier = modifier.onSizeChanged { widthPx = it.width },
     )
 }
 

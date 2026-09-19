@@ -264,6 +264,8 @@ object NerdStats {
         sources[mediaId] = source
     }
 
+    fun exactSourceFor(mediaId: String?): String? = mediaId?.let { sources[it] }
+
     fun sourceFor(mediaId: String?): String? {
         val key = mediaId ?: return null
         return sources[key]

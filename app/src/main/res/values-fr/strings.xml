@@ -723,6 +723,7 @@
     <string name="automix_mode_performance_subtitle">4 threads · analyse la plus rapide · chauffe et batterie accrues</string>
 
     <string name="automix_not_supported_video">Automix non pris en charge sur les morceaux vidéo</string>
+    <string name="automix_stopped_in_party">Automix : arrêté pendant Écouter ensemble</string>
 
     <string name="automix_performance">Performance d\'Automix</string>
 

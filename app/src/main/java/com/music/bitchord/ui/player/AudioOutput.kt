@@ -22,7 +22,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * The outputs this phone can play music through, kept current while on screen.
@@ -45,6 +48,17 @@ import com.music.bitchord.playback.AudioRouting
  * `getDevices` yet, and on the way out it lingers for a moment after the
  * broadcast. Reading once, on the event, is what made a disconnect take so long
  * to show — the read happened, saw the device still listed, and believed it.
+ *
+ * Which row is *active*, though, is not decided here a second time. It comes
+ * from [AudioOutputStatus.activeDeviceId] — the exact device
+ * `PlaybackService.resolveActiveOutputDevice` just handed the player — because
+ * this function's own [AudioRouting.activeOf] and that resolution can name two
+ * different devices: `activeOf` falls back through Bluetooth-then-wired-then-USB
+ * on its own, while the player also weighs [com.music.bitchord.data.settings.AppSettings.preferUsbDac].
+ * Two independent guesses is exactly what let the picker mark one output active
+ * while the caption under the transport kept naming another. The picker still
+ * decides *which devices exist to choose between*; only which one is lit comes
+ * from the pipeline.
  */
 @Composable
 internal fun rememberAudioOutputs(): List<AudioRouting.Device> {
@@ -57,6 +71,10 @@ internal fun rememberAudioOutputs(): List<AudioRouting.Device> {
     // broadcast that has already been and gone.
     val selectedId by AudioRouting.selectedId.collectAsStateWithLifecycle()
     var outputs by remember(manager) { mutableStateOf(AudioRouting.outputs(manager)) }
+
+    val pipelineActiveId by remember {
+        AudioOutputStatus.current.map { it.activeDeviceId }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = AudioOutputStatus.current.value.activeDeviceId)
 
     DisposableEffect(manager, selectedId) {
         fun refresh() {
@@ -101,7 +119,18 @@ internal fun rememberAudioOutputs(): List<AudioRouting.Device> {
             handler.removeCallbacksAndMessages(null)
         }
     }
-    return outputs
+
+    // Only overridden once the pipeline has named a device this list actually
+    // has a row for — early in the service's life, before anything has been
+    // resolved once, [pipelineActiveId] is null and the list keeps the answer
+    // [AudioRouting.outputs] already marked.
+    return remember(outputs, pipelineActiveId) {
+        if (pipelineActiveId != null && outputs.any { it.id == pipelineActiveId }) {
+            outputs.map { it.copy(isActive = it.id == pipelineActiveId) }
+        } else {
+            outputs
+        }
+    }
 }
 
 /**

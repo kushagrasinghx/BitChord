@@ -598,6 +598,7 @@
     <string name="running">กำลังทำงาน</string>
     <string name="automix_analysis_status">Automix · เพลงนี้: %1$s · ถัดไป: %2$s</string>
     <string name="automix_not_supported_video">Automix ไม่รองรับเพลงแบบวิดีโอ</string>
+    <string name="automix_stopped_in_party">Automix: หยุดทำงานขณะฟังด้วยกัน</string>
     <string name="analysis_complete">วิเคราะห์แล้ว</string>
     <string name="analysis_refining">วิเคราะห์แล้ว กำลังปรับแต่ง…</string>
     <string name="analysis_in_progress">กำลังวิเคราะห์…</string>

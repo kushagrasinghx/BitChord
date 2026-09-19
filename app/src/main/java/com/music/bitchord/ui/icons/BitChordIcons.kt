@@ -99,6 +99,36 @@ object BitChordIcons {
         }.build()
     }
 
+    val Home: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_home",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = STROKE,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                // Roof outline
+                moveTo(3.4f, 12.4f)
+                lineTo(12f, 4.2f)
+                lineTo(20.6f, 12.4f)
+                // Walls
+                moveTo(5.4f, 11f)
+                lineTo(5.4f, 19.8f)
+                moveTo(18.6f, 11f)
+                lineTo(18.6f, 19.8f)
+                // Door
+                moveTo(9.8f, 19.8f)
+                lineTo(9.8f, 15.2f)
+                lineTo(14.2f, 15.2f)
+                lineTo(14.2f, 19.8f)
+            }
+        }.build()
+    }
+
     val Search: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_search",

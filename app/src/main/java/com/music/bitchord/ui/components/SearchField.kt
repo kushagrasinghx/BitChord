@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.music.bitchord.R
 
 /**
@@ -53,6 +54,7 @@ fun SearchField(
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     // Both ways of saying "search this" do the same two things, so they're
     // written once here rather than twice.
     val submit = {
@@ -118,7 +120,10 @@ fun SearchField(
                     .clip(CircleShape)
                     .clickable {
                         onQueryChange("")
-                        focusManager.clearFocus()
+                        // Clearing is an edit, not a dismissal: leave the user
+                        // ready to immediately type their next search.
+                        focusRequester.requestFocus()
+                        keyboardController?.show()
                     },
                 contentAlignment = Alignment.Center,
             ) {

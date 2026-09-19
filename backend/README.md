@@ -4,13 +4,12 @@ The party server behind **Listen together**: create a six-character code, share
 it, and up to five signed-in devices listen to the same thing at the same time.
 Anyone in the party can control the music.
 
-FastAPI + a WebSocket per device, no database, deployed as a single Render web
+Go + a WebSocket per device, no database, deployed as a single Render web
 service.
 
 ```bash
-pip install -r requirements-dev.txt
-uvicorn app.main:app --reload
-pytest
+go run .
+go test -v ./...
 ```
 
 ---
@@ -52,13 +51,13 @@ trick, and four things protect it:
    the round trip, and keeping the sample with the *smallest* round trip is what
    makes this accurate over mobile data. Same idea as NTP. `GET /api/time` gives
    a client a first estimate before it has a socket.
-2. **The server clock never jumps.** `app/clock.py` reads the wall clock once
+2. **The server clock never jumps.** `clock/clock.go` reads the wall clock once
    and advances it monotonically after that, so an NTP step on the host cannot
    rewrite the anchor under a room full of phones at once.
 3. **Resuming is scheduled slightly ahead.** Play and seek anchor
    `JAM_PLAY_LEAD_MS` (default 350 ms) into the future, so every device aims at
    one common instant and has time to buffer, instead of each starting whenever
-   its own packet landed. Before that instant, `position_at` holds at the
+   its own packet landed. Before that instant, `PositionAt` holds at the
    position rather than running backwards.
 4. **The truth is re-stated on a timer.** Every `JAM_STATE_HEARTBEAT_MS`
    (default 5 s) each party is told again where it is, unprompted. Lost frames,
@@ -83,7 +82,7 @@ on every call afterwards. So a member can lie about who they are; they cannot
 act as a member they are not, or join a party whose code they were not given.
 
 If that trade ever stops being acceptable, the place to change it is
-`Party.join`: have the client send a short-lived proof from the account layer and
+`Party.Join`: have the client send a short-lived proof from the account layer and
 verify it there. Nothing above that function would need to move.
 
 ## Capacity and lifecycle
@@ -113,12 +112,16 @@ matching Kotlin's naming keeps `@SerialName` off every field.
 |---|---|
 | `GET /healthz` | Render's health check. |
 | `GET /api/time` | `{"serverMs":…}` — a clock sample before the socket exists. |
-| `POST /api/parties` | Create a party and join it as host. Body: `userId`, `deviceId`, `displayName`, `avatarUrl?`. → `201` with `code`, `token`, `you`, `party`. |
+| `POST /api/parties` | Create a party and join it as host. Body: `userId`, `deviceId`, `displayName`, `avatarUrl?`. → `201` with `code`, `token`, `you`, `party`. Creation is capped per IP and by the service-wide party limit. |
 | `POST /api/parties/{code}/join` | Same body. `404` unknown code, `409` full, `422` no identity. The code is normalised first, so lower case, spaces, and `O`/`I`/`L` typed for `0`/`1` all work. |
 | `GET /api/parties/{code}` | Full snapshot. Needs `Authorization: Bearer <token>`. |
 | `POST /api/parties/{code}/leave` | Give up the slot. Needs the bearer token. |
 
-### WebSocket — `/ws/parties/{code}?token=…`
+### WebSocket — `/ws/parties/{code}`
+
+Pass the party token in `Authorization: Bearer <token>` during the WebSocket
+handshake. Tokens are intentionally not accepted in the URL, which prevents
+them from being recorded in common HTTP access logs.
 
 Client → server:
 
@@ -127,16 +130,20 @@ Client → server:
 {"type": "sync"}                                   // re-send me the state
 {"type": "syncQueue"}                              // my queue copy is stale
 {"type": "report",  "positionMs": 42210, "isPlaying": true}
-{"type": "control", "action": "play",     "positionMs": 42000}
-{"type": "control", "action": "pause",    "positionMs": 42000}   // positionMs optional
-{"type": "control", "action": "seek",     "positionMs": 90000}   // required
-{"type": "control", "action": "setTrack", "track": {…}, "positionMs": 0, "isPlaying": true}
-{"type": "control", "action": "setQueue", "queue": [{…}], "queueIndex": 0}
+{"type": "control", "action": "play",        "positionMs": 42000}
+{"type": "control", "action": "pause",       "positionMs": 42000}   // positionMs optional
+{"type": "control", "action": "seek",        "positionMs": 90000}   // required
+{"type": "control", "action": "setTrack",    "track": {…}, "positionMs": 0, "isPlaying": true}
+{"type": "control", "action": "setQueue",    "queue": [{…}], "queueIndex": 0}
+{"type": "control", "action": "queueAdd",    "tracks": [{…}], "playNext": false}
+{"type": "control", "action": "queueRemove", "videoId": "…"}
+{"type": "control", "action": "queueClear"}
+{"type": "control", "action": "queueMove",   "fromIndex": 2, "toIndex": 5, "videoId": "…"}
 {"type": "control", "action": "next"}
 {"type": "control", "action": "previous"}
 ```
 
-A `track` is `{videoId, title, artist, thumbnailUrl, durationMs}` — enough to
+A `track` is `{videoId, title, artist, thumbnailUrl, durationMs, fromAutoplay}` — enough to
 identify and to *show* a song, and nothing more. Stream URLs, sources, quality
 and download state stay each device's own business, so two people in a party can
 be on different sources at different bitrates and still be in the same place.
@@ -173,7 +180,7 @@ frame as everyone else rather than running on a state it predicted locally.
 - **whole, in a snapshot** — `welcome` and `GET /api/parties/{code}` both carry
   `party.queue`, because a device that has just arrived has no other way to
   learn it;
-- **on change** — a `setQueue` control broadcasts a `queue` frame *before* the
+- **on change** — a queue control broadcasts a `queue` frame *before* the
   `state` frame, so nobody ever holds a state pointing at an index in a list
   they have not been given;
 - **on request** — a client whose `queue.seq` disagrees with the `queueSeq` in a
@@ -184,9 +191,24 @@ This split is the single biggest thing keeping the service cheap. The state
 frame goes to every device every few seconds forever, and the queue is the one
 field in it that is both large and almost never different — a 50-track queue on
 the heartbeat was roughly twenty times the bytes of everything else combined,
-paid continuously, on other people's mobile data. Adding a field to `to_wire`
+paid continuously, on other people's mobile data. Adding a field to `ToWire`
 that grows with the queue puts all of that straight back; put it in
-`queue_to_wire` instead.
+`QueueToWire` instead.
+
+### Shared queue limits and delta moves
+
+To keep memory, bandwidth, and latency strictly bounded:
+
+- **Upcoming limit** (`JAM_MAX_UPCOMING_QUEUE`, default 25): A party holds at
+  most 25 upcoming songs (excluding the active track). Additions past 25 are
+  clamped or rejected with `queue_full`.
+- **Delta actions**: Rather than replacing the whole array on every gesture,
+  clients send lightweight deltas (`queueAdd`, `queueRemove`, `queueClear`,
+  `queueMove`).
+- **Race condition resilience**: `queueMove` carries an optional `videoId`
+  alongside indices. If concurrent network lag (e.g. 800 ms mobile latency) or
+  a track completion shifts indices, the server resolves `fromIndex` from the
+  track's `videoId` under the party lock, preventing misplaced drops.
 
 ## Deploying to Render
 
@@ -196,9 +218,9 @@ service by hand — which is one screen:
 
 - **New → Web Service**, connect this repo
 - **Root Directory** `backend`
-- **Runtime** Python 3
-- **Build** `pip install -r requirements.txt`
-- **Start** `uvicorn app.main:app --host 0.0.0.0 --port $PORT --ws websockets`
+- **Runtime** Go
+- **Build Command** `go build -o server .`
+- **Start Command** `./server`
 - **Health check path** `/healthz`
 - **Instances** 1
 
@@ -225,33 +247,45 @@ Two things about Render specifically:
 - **The free plan spins down after ~15 minutes idle**, which closes every
   WebSocket and drops every party, and the next request then waits ~30 s for a
   cold start. Fine for development; for real use this wants the paid instance
-  type, where the process stays up.
+  type, where the process stays up (or a free uptime monitor pinging `/healthz`
+  every 12 minutes).
 
 ### Environment
 
-Every one of these is optional — `app/config.py` carries the same defaults.
+Every one of these is optional — `config/config.go` carries the same defaults.
 
 | Variable | Default | |
 |---|---|---|
 | `JAM_MAX_MEMBERS` | `5` | Devices per party. |
 | `JAM_STATE_HEARTBEAT_MS` | `5000` | How often the truth is re-stated. |
 | `JAM_PLAY_LEAD_MS` | `350` | How far ahead a resume is scheduled. |
+| `JAM_MAX_UPCOMING_QUEUE` | `25` | Maximum upcoming tracks in shared queue. |
+| `JAM_MAX_QUEUE_LENGTH` | `26` | Hard limit on total queue length (`1 + MaxUpcomingQueue`). |
 | `JAM_DISCONNECT_GRACE_MS` | `45000` | How long a lost socket keeps its slot. |
 | `JAM_EMPTY_PARTY_TTL_MS` | `120000` | How long an empty party survives. |
 | `JAM_PARTY_MAX_AGE_MS` | `43200000` | Hard ceiling on a party's life. |
 | `JAM_CONTROL_RATE_PER_SECOND` | `25` | Per-member control ceiling. |
-| `JAM_MAX_QUEUE_LENGTH` | `500` | Longest queue the server will hold. |
-| `JAM_ALLOWED_ORIGINS` | *(none)* | CORS, if a browser client ever exists. |
+| `JAM_FRAME_RATE_PER_SECOND` | `30` | Per-member WebSocket frame ceiling, including ping and sync frames. |
+| `JAM_MAX_PARTIES` | `50` | Maximum concurrent parties. Conservative default for Render Free (250 sockets at five devices each). |
+| `JAM_CREATE_RATE_PER_MINUTE` | `2` | Maximum new parties per client IP per minute. |
+| `JAM_RATE_LIMIT_MAX_ENTRIES` | `10000` | Maximum tracked client IPs before new creations are rejected, preventing the limiter itself from growing without bound. |
+| `JAM_REQUEST_MAX_BYTES` | `16384` | Maximum REST request size. |
+| `JAM_WEBSOCKET_MAX_BYTES` | `16384` | Maximum incoming WebSocket message size. |
+| `JAM_CONNECTION_IDLE_MS` | `900000` | Close a WebSocket that sends no message for 15 minutes. |
+| `JAM_ALLOWED_ORIGINS` | *(none)* | Comma-separated browser Origin allowlist. Native clients send no Origin and remain supported. |
+| `JAM_TRUST_PROXY` | `false` | Read `X-Forwarded-For` for rate limiting only when a trusted proxy terminates requests. |
+| `PORT` | `8000` | Port the server listens on. |
 
 ## Layout
 
 ```
-app/clock.py      The one clock, monotonic so anchors never jump
-app/codes.py      Six-character codes, and reading a mistyped one charitably
-app/config.py     Environment knobs
-app/party.py      Party, Member, PlaybackState — the sync rule, no I/O
-app/hub.py        Who holds a socket, and how a frame reaches everyone
-app/protocol.py   Join-request validation and the frame-type names
-app/main.py       REST routes, the socket loop, the heartbeat ticker
-tests/            The arithmetic, the capacity rules, and the protocol
+clock/clock.go        The one clock, monotonic so anchors never jump
+codes/codes.go        Six-character codes, and reading a mistyped one charitably
+config/config.go      Environment knobs
+hub/hub.go            Who holds a socket, and how a frame reaches everyone
+party/party.go        Party, Member, PlaybackState — the sync rule, in-memory state
+protocol/protocol.go  Action and frame-type names
+main.go               REST routes, the socket loop, the heartbeat ticker
+main_test.go          REST endpoints and WebSocket integration tests
+party/party_test.go   Capacity limits, queue limits, delta moves, step
 ```

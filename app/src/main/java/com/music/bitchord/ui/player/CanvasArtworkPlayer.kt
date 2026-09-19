@@ -13,6 +13,7 @@ import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.graphics.SurfaceTexture
 import android.os.Build
+import android.util.Log
 import android.view.TextureView
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -54,6 +55,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.roundToInt
 import java.util.Locale
+
+private const val TAG = "CanvasArtworkPlayer"
 
 /**
  * How long a clip gets to paint itself onto a surface it was just handed back
@@ -255,7 +258,13 @@ fun CanvasArtworkPlayer(
         // can still catch the previous, empty buffer.
         withFrameMillis { }
         val view = textureView ?: return@LaunchedEffect
-        view.captureAt(frameCapturePx)?.let(onFrameCaptured)
+        val bitmap = view.captureAt(frameCapturePx)
+        if (bitmap != null) {
+            Log.d(TAG, "frame captured after rendered=true, size=${bitmap.width}x${bitmap.height}")
+            onFrameCaptured(bitmap)
+        } else {
+            Log.w(TAG, "frame capture returned null after rendered=true")
+        }
     }
 
     // The opt-in follow-up to the capture above, for a caller that asked for
@@ -265,11 +274,18 @@ fun CanvasArtworkPlayer(
     // has actually happened and then keep going for as long as it holds.
     LaunchedEffect(rendered, refreshFrameEveryMs, frameCapturePx) {
         val interval = refreshFrameEveryMs ?: return@LaunchedEffect
+        Log.d(TAG, "periodic frame refresh started, interval=$interval")
         if (!rendered) return@LaunchedEffect
         while (isActive) {
             delay(interval)
             val view = textureView ?: continue
-            view.captureAt(frameCapturePx)?.let(onFrameCaptured)
+            val bitmap = view.captureAt(frameCapturePx)
+            if (bitmap != null) {
+                Log.d(TAG, "periodic frame captured, size=${bitmap.width}x${bitmap.height}")
+                onFrameCaptured(bitmap)
+            } else {
+                Log.w(TAG, "periodic frame capture returned null")
+            }
         }
     }
 
@@ -331,6 +347,7 @@ fun CanvasArtworkPlayer(
                         // The first surface needs nothing: prepare() paints it.
                         if (!replacing) return
                         replacing = false
+                        Log.d(TAG, "surface recreated (gen $surfaceGeneration), waiting for frame")
                         surfaceGeneration++
                     }
 
@@ -344,6 +361,7 @@ fun CanvasArtworkPlayer(
 
                     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                         replacing = true
+                        Log.d(TAG, "surface destroyed, rendered=$rendered")
                         // The old buffer is gone now, not when/if ExoPlayer
                         // later reports another first frame. Restore the still
                         // artwork immediately so an empty replacement surface
@@ -360,6 +378,7 @@ fun CanvasArtworkPlayer(
                         if (!rendered) {
                             rendered = true
                             frameTick++
+                            Log.d(TAG, "first frame on surface (tick $frameTick, gen $surfaceGeneration)")
                         }
                     }
                 }

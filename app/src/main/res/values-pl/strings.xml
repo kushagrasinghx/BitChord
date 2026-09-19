@@ -757,6 +757,7 @@
     <string name="automix_mode_performance_subtitle">4 wątki · najszybsza analiza · większe zużycie baterii</string>
 
     <string name="automix_not_supported_video">Automix nie jest obsługiwany dla utworów wideo</string>
+    <string name="automix_stopped_in_party">Automix: zatrzymany podczas wspólnego słuchania</string>
 
     <string name="automix_performance">Wydajność Automix</string>
 

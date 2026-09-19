@@ -5,6 +5,9 @@ import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.UnstableApi
+import com.music.bitchord.playback.audio.AudioBlock
+import com.music.bitchord.playback.audio.FloatAudioProcessor
+import com.music.bitchord.playback.audio.PcmBoundary
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
@@ -16,48 +19,33 @@ import kotlin.math.sqrt
 import kotlin.math.tan
 
 /**
- * The app's own equaliser: a cascade of ten filter sections and a balance trim,
- * running inside ExoPlayer's audio processor chain.
+ * 10-band parametric equaliser, tone controls, pre-amp and left/right balance.
  *
- * ## Why not the platform equaliser
+ * ## The layout
  *
- * [android.media.audiofx.Equalizer] picks its own band count and centre
- * frequencies — five, wherever the device's effect library put them — so the
- * seven centres this app draws sliders under cannot be asked for, the tone pad
- * has no continuously movable filter to drive, and there is no platform effect
- * for left/right balance at all. [SpatialAudioProcessor] already documents the
- * other half of the argument: an OEM effect chain is free to swallow a
- * session-attached effect whole, and one of them did.
+ * [EqLayout] fixes the layout of sections. Bands 0 and 9 are shelves (cornered
+ * at 60 Hz and 14 kHz); the eight between them are peaking bells. The tone
+ * controls (Bass / Treble) share the two shelf sections rather than sitting in
+ * series with them, so a curve that touches both adds the two gains together.
  *
- * ## The filter
+ * Balance is an output trim rather than an extra section, and does not run at
+ * all for mono files — see [onConfigure].
  *
- * The same topology-preserving state-variable filter
- * [TransitionFilterProcessor] uses, per section, with Cytomic's output mixes
- * turning each one into a bell or a shelf. Chosen for the reason given there —
- * the trapezoidal form stays well behaved at every cutoff — which matters more
- * here than it does for a DJ filter: a 60 Hz section is a thousandth of the way
- * to Nyquist, which is exactly where a naive biquad's coefficients lose their
- * precision.
+ * ## State-variable filters
+ *
+ * Implemented as two-integrator state-variable sections using the bilinear
+ * transform with frequency pre-warping (the standard trapezoidal SVF). Chosen
+ * because SVFs decouple frequency from Q — changing gain or bandwidth does not
+ * shift the centre — and because their internal states stay bounded under
+ * parameter modulation, which lets the user drag a band smoothly without
+ * generating transients.
  *
  * ## Gliding
  *
- * Every number here is a target, not a value. Dragging the tone puck or a band
- * slider re-aims them continuously, and stepping filter coefficients per buffer
- * is zipper noise, so gains, Qs, the make-up attenuation and the balance all
- * chase their targets across [GLIDE_FRAMES]-sample sub-blocks. Switching tab or
- * preset is a gain change like any other — see [EqLayout] for why the set of
- * sections never changes shape — so it glides too rather than clicking.
- *
- * ## What this cannot do
- *
- * Nothing in [androidx.media3.exoplayer.audio.DefaultAudioSink]'s processor
- * chain runs when the sink is in float mode: it builds its pipeline from
- * `ToFloatPcmAudioProcessor` alone on that branch and appends
- * `audioProcessorChain.getAudioProcessors()` only on the 16-bit one. So an
- * output set to 32-bit float, on a route that actually granted it, plays with
- * no equaliser, no spatial audio and no silence skipping. That is Media3's
- * design and not something this class can route around; the settings screen
- * says so when it is happening.
+ * Every slider change is a target, not a step. The processor updates its
+ * coefficients once per [GLIDE_FRAMES] frames, chasing the target curve
+ * smoothly. This turns an abrupt preset switch into a short, inaudible glide
+ * instead of a transient that would clip or click.
  */
 @UnstableApi
 class EqualizerProcessor : BaseAudioProcessor() {
@@ -110,18 +98,66 @@ class EqualizerProcessor : BaseAudioProcessor() {
         target = if (enabled) Tuning(curve, balance.coerceIn(-1f, 1f)) else Tuning.OFF
     }
 
+    val isEnabled: Boolean
+        get() = target !== Tuning.OFF
+
+    /**
+     * Configures the Float32 DSP engine for [sampleRate] and [channelCount].
+     */
+    fun configure(sampleRate: Int, channelCount: Int) {
+        this.sampleRate = sampleRate
+        this.channelCount = channelCount
+        val requiredSize = channelCount * EqLayout.SLOTS * 2
+        if (state.size != requiredSize) {
+            state = FloatArray(requiredSize)
+        }
+        if (channelGain.size != channelCount) {
+            channelGain = FloatArray(channelCount) { 1f }
+        }
+        running.fill(false)
+        snapToTarget()
+    }
+
+    /**
+     * Processes interleaved Float32 audio samples in [block] in-place.
+     * Preserves dynamic headroom without clamping to [-1.0f, +1.0f].
+     */
+    fun process(block: AudioBlock) {
+        val frameCount = block.frameCount
+        if (frameCount == 0 || channelCount < 1 || sampleRate <= 0) return
+
+        val tuning = target
+        if (isFlat(tuning) && isSettled(tuning)) {
+            return
+        }
+
+        var remaining = frameCount
+        var frameOffset = 0
+        while (remaining > 0) {
+            val subBlock = min(remaining, GLIDE_FRAMES)
+            glideTowards(tuning)
+            val active = prepareSections()
+            prepareChannelGains()
+
+            for (f in 0 until subBlock) {
+                val baseIdx = (frameOffset + f) * channelCount
+                for (channel in 0 until channelCount) {
+                    var sample = block.samples[baseIdx + channel]
+                    for (index in 0 until active) {
+                        sample = section(activeSlots[index], channel, sample)
+                    }
+                    // Headroom is preserved: sample is stored directly as Float
+                    block.samples[baseIdx + channel] = sample * channelGain[channel]
+                }
+            }
+            flushDenormals(active)
+            frameOffset += subBlock
+            remaining -= subBlock
+        }
+    }
+
     /**
      * 16-bit PCM, any channel count.
-     *
-     * Bowing out with [AudioProcessor.AudioFormat.NOT_SET] rather than throwing
-     * for the reason [SpatialAudioProcessor] spells out: `DefaultAudioSink`
-     * configures every processor in its chain whether or not the effect is
-     * switched on, and a throw from any of them kills the renderer before a
-     * sample is written.
-     *
-     * Unlike that one this accepts mono and multichannel. Widening a mono voice
-     * note is meaningless, but equalising a mono file is not — the local library
-     * is full of them — so only the balance trim stands down below two channels.
      */
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount < 1) {
@@ -132,37 +168,22 @@ class EqualizerProcessor : BaseAudioProcessor() {
             )
             return AudioProcessor.AudioFormat.NOT_SET
         }
-        channelCount = inputAudioFormat.channelCount
-        sampleRate = inputAudioFormat.sampleRate
-        state = FloatArray(channelCount * EqLayout.SLOTS * 2)
-        channelGain = FloatArray(channelCount) { 1f }
-        running.fill(false)
-        snapToTarget()
+        configure(inputAudioFormat.sampleRate, inputAudioFormat.channelCount)
         return inputAudioFormat
     }
 
     override fun onFlush() {
         state.fill(0f)
         running.fill(false)
-        // Snapped, not glided: a flush means a seek or a fresh source, so there
-        // is no continuous signal for a glide to be continuous with.
         snapToTarget()
     }
 
-    /**
-     * State only.
-     *
-     * Deliberately *not* clearing [target]: `DefaultAudioSink` resets its
-     * processors on a format change, and a reset that forgot the curve would
-     * switch the user's equaliser off somewhere in the middle of a queue with
-     * nothing on screen changing to say why. [TransitionFilterProcessor] does
-     * clear its targets here, and is right to — its settings belong to one
-     * transition, while these belong to the listener.
-     */
     override fun onReset() {
         state = FloatArray(0)
         channelGain = FloatArray(0)
         running.fill(false)
+        channelCount = 0
+        sampleRate = 0
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -173,10 +194,6 @@ class EqualizerProcessor : BaseAudioProcessor() {
         val outputBuffer = replaceOutputBuffer(frameCount * bytesPerFrame)
 
         val tuning = target
-        // Flat and already settled there: hand the buffer straight through. The
-        // "already settled" half matters — an equaliser that has just been
-        // switched off is still gliding down, and cutting that glide short is
-        // the click it exists to avoid.
         if (isFlat(tuning) && isSettled(tuning)) {
             outputBuffer.put(inputBuffer)
             outputBuffer.flip()
@@ -186,6 +203,7 @@ class EqualizerProcessor : BaseAudioProcessor() {
         inputBuffer.order(ByteOrder.nativeOrder())
         outputBuffer.order(ByteOrder.nativeOrder())
 
+        val invScale = 1.0f / 32768.0f
         var remaining = frameCount
         while (remaining > 0) {
             val block = min(remaining, GLIDE_FRAMES)
@@ -195,11 +213,11 @@ class EqualizerProcessor : BaseAudioProcessor() {
 
             repeat(block) {
                 for (channel in 0 until channelCount) {
-                    var sample = inputBuffer.short.toFloat()
+                    var sample = inputBuffer.short.toFloat() * invScale
                     for (index in 0 until active) {
                         sample = section(activeSlots[index], channel, sample)
                     }
-                    outputBuffer.putShort(clampToShort(sample * channelGain[channel]))
+                    outputBuffer.putShort(PcmBoundary.clamp16FromFloat(sample * channelGain[channel]))
                 }
             }
             flushDenormals(active)
@@ -220,12 +238,7 @@ class EqualizerProcessor : BaseAudioProcessor() {
 
     private fun glideTowards(tuning: Tuning) {
         for (slot in 0 until EqLayout.SLOTS) {
-            // Decibels, not linear gain: it is the perceptual unit, and it puts
-            // the resting point at zero so a band crossing from cut to boost
-            // passes through flat rather than through a division.
             currentGainDb[slot] = linearGlide(currentGainDb[slot], tuning.curve.gainsDb[slot])
-            // Q the other way round — a bandwidth halves and doubles, it does
-            // not step, so Broad to Focused reads as one even movement.
             currentQ[slot] = geometricGlide(currentQ[slot], tuning.curve.qs[slot])
         }
         currentPreampDb = linearGlide(currentPreampDb, tuning.curve.preampDb)
@@ -257,16 +270,6 @@ class EqualizerProcessor : BaseAudioProcessor() {
 
     // ---- Coefficients ------------------------------------------------------
 
-    /**
-     * Works out which sections are doing anything and updates their
-     * coefficients. Returns how many were filled into [activeSlots].
-     *
-     * A section at 0 dB is arithmetically a wire — its band and low mixes both
-     * fall to zero — so skipping it costs nothing and saves the whole cascade
-     * while the other tab's half of [EqLayout] sits idle. Its state is cleared
-     * on the way out rather than left stale, so nothing it was holding is
-     * waiting to be let go the next time it comes back.
-     */
     private fun prepareSections(): Int {
         var active = 0
         for (slot in 0 until EqLayout.SLOTS) {
@@ -283,6 +286,7 @@ class EqualizerProcessor : BaseAudioProcessor() {
     }
 
     private fun updateCoefficients(slot: Int) {
+        if (sampleRate <= 0) return
         val spec = EqLayout.slots[slot]
         val a = 10f.pow(currentGainDb[slot] / 40f)
         val q = currentQ[slot].coerceAtLeast(MIN_Q)
@@ -318,16 +322,12 @@ class EqualizerProcessor : BaseAudioProcessor() {
         coeffA3[slot] = g * (g * d)
     }
 
-    /** Highest centre the bilinear transform can still place without warping to infinity. */
     private fun usableFrequency(hz: Float): Float =
         hz.coerceIn(MIN_HZ, sampleRate * MAX_FREQUENCY_FRACTION)
 
     private fun prepareChannelGains() {
         val preamp = 10f.pow(currentPreampDb / 20f)
         if (channelCount == 2) {
-            // Attenuate the far side rather than lift the near one: there is no
-            // headroom above full scale to lift into, and a balance that made
-            // things louder would be a volume control with a side effect.
             channelGain[0] = preamp * min(1f, 1f - currentBalance)
             channelGain[1] = preamp * min(1f, 1f + currentBalance)
         } else {
@@ -357,15 +357,6 @@ class EqualizerProcessor : BaseAudioProcessor() {
         }
     }
 
-    /**
-     * Zeroes integrator states that have decayed to nothing.
-     *
-     * A filter left ringing out under silence walks its state down towards
-     * denormal floats, and denormal arithmetic is one to two orders of
-     * magnitude slower than normal arithmetic on hardware that traps it. On an
-     * audio thread with a fixed buffer deadline that is not a slow fade, it is a
-     * dropout — and a quiet passage is exactly when it would happen.
-     */
     private fun flushDenormals(active: Int) {
         for (index in 0 until active) {
             val slot = activeSlots[index]
@@ -376,9 +367,6 @@ class EqualizerProcessor : BaseAudioProcessor() {
             }
         }
     }
-
-    private fun clampToShort(value: Float): Short =
-        value.coerceIn(Short.MIN_VALUE.toFloat(), Short.MAX_VALUE.toFloat()).toInt().toShort()
 
     companion object {
         private const val TAG = "BitChordEqualizer"
@@ -403,7 +391,7 @@ class EqualizerProcessor : BaseAudioProcessor() {
         /** Keeps `tan` away from its pole at Nyquist. */
         private const val MAX_FREQUENCY_FRACTION = 0.45f
 
-        /** A 16-bit sample is never smaller than 1; this is far below inaudible. */
+        /** Safe noise floor threshold to prevent floating point denormals. */
         private const val DENORMAL_FLOOR = 1e-12f
     }
 }

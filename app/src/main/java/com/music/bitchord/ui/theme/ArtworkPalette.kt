@@ -29,6 +29,7 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
@@ -91,37 +92,13 @@ fun rememberArtworkPalette(
      */
     artPx: Int = CARD_ART_PX,
 ): ArtworkPalette {
-    val context = LocalContext.current
     val scheme = MaterialTheme.colorScheme
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
-
-    // The two swatches everything else is derived from, or null until read.
-    var seed by remember(imageUrl) { mutableStateOf(imageUrl?.let(seedCache::get)) }
+    val seed = rememberArtworkSeed(imageUrl, artPx)
     // Whether the colours were there from the first frame. If they were, there
     // is nothing to crossfade *from* and animating would only put a delay in
     // front of a surface that could already be right.
     val knownUpFront = remember(imageUrl) { seed != null }
-
-    LaunchedEffect(imageUrl, artPx) {
-        if (imageUrl == null || seed != null) return@LaunchedEffect
-        val request = ImageRequest.Builder(context)
-            // The size the artwork is *displayed* at, deliberately: the fetch
-            // then shares a disk-cache entry with the row, card or backdrop
-            // drawing the same artwork, instead of pulling its own copy over
-            // the wire — which is the difference between a surface that is
-            // tinted as it opens and one that turns colour a second later.
-            .data(imageUrl.artworkAt(artPx))
-            .size(PALETTE_PX) // palette quality holds up here, and it's far faster
-            .allowHardware(false) // Palette needs pixel access
-            .build()
-        val result = SingletonImageLoader.get(context).execute(request)
-        val bitmap = (result as? SuccessResult)?.image?.toBitmap() ?: return@LaunchedEffect
-        // Quantising 128² pixels is not free, and this coroutine is on the main
-        // dispatcher — left there it stutters whatever is animating the surface in.
-        val found = withContext(Dispatchers.Default) { seedOf(bitmap) } ?: return@LaunchedEffect
-        seedCache[imageUrl] = found
-        seed = found
-    }
 
     val target = seed?.toPalette(dark) ?: ArtworkPalette(
         background = scheme.background,
@@ -152,6 +129,37 @@ fun rememberArtworkPalette(
 }
 
 /**
+ * Reads top-band relative luminance from the cached palette decode.
+ * Returns raw artwork luminance without applying top scrim calculations.
+ */
+@Composable
+fun rememberArtworkTopBandLuminance(
+    imageUrl: String?,
+    artPx: Int = CARD_ART_PX,
+): Float? = rememberArtworkSeed(imageUrl, artPx)?.topBandLuminance
+
+@Composable
+private fun rememberArtworkSeed(imageUrl: String?, artPx: Int): Seed? {
+    val context = LocalContext.current
+    var seed by remember(imageUrl) { mutableStateOf(imageUrl?.let(seedCache::get)) }
+
+    LaunchedEffect(imageUrl, artPx) {
+        if (imageUrl == null || seed != null) return@LaunchedEffect
+        val request = ImageRequest.Builder(context)
+            .data(imageUrl.artworkAt(artPx))
+            .size(PALETTE_PX)
+            .allowHardware(false)
+            .build()
+        val result = SingletonImageLoader.get(context).execute(request)
+        val bitmap = (result as? SuccessResult)?.image?.toBitmap() ?: return@LaunchedEffect
+        val found = withContext(Dispatchers.Default) { seedOf(bitmap) } ?: return@LaunchedEffect
+        seedCache[imageUrl] = found
+        seed = found
+    }
+    return seed
+}
+
+/**
  * Colours already read, keyed by artwork URL.
  *
  * Reading them again costs a decode and a quantise for an answer that cannot
@@ -175,7 +183,12 @@ private const val TINT_FADE_MS = 260
  * The raw artwork colours: what the page is mostly made of, its brightest
  * note, and what its bottom edge averages out to.
  */
-private data class Seed(val dominant: Color, val vibrant: Color, val edge: Color)
+private data class Seed(
+    val dominant: Color,
+    val vibrant: Color,
+    val edge: Color,
+    val topBandLuminance: Float,
+)
 
 private fun seedOf(bitmap: Bitmap): Seed? {
     fun swatches(builder: Palette.Builder) =
@@ -198,7 +211,12 @@ private fun seedOf(bitmap: Bitmap): Seed? {
         val hsl = FloatArray(3).also { ColorUtils.colorToHSL(swatch.rgb, it) }
         hsl[1] * sqrt(swatch.population.toFloat())
     }
-    return Seed(Color(dominant.rgb), Color(vibrant.rgb), bitmap.bottomEdgeColor())
+    return Seed(
+        dominant = Color(dominant.rgb),
+        vibrant = Color(vibrant.rgb),
+        edge = bitmap.bottomEdgeColor(),
+        topBandLuminance = bitmap.topBandRelativeLuminance(),
+    )
 }
 
 private const val SWATCH_COUNT = 24
@@ -234,6 +252,49 @@ private fun Bitmap.bottomEdgeColor(): Color {
 
 /** How much of the artwork's height the edge colour is read from. */
 private const val EDGE_BAND = 0.18f
+
+/**
+ * The status inset occupies only the upper sliver of the full-bleed hero on a
+ * phone. Keep this tight so titles or faces lower in the cover do not decide
+ * the icon colour for pixels that are never behind the system bar.
+ */
+private const val TOP_BAND = 0.10f
+
+private fun Bitmap.topBandRelativeLuminance(): Float {
+    val band = (height * TOP_BAND).toInt().coerceIn(1, height)
+    val pixels = IntArray(width * band)
+    getPixels(pixels, 0, width, 0, 0, width, band)
+    return averageRelativeLuminance(pixels)
+}
+
+/** WCAG relative luminance: average in linear light, never gamma-encoded RGB. */
+internal fun averageRelativeLuminance(pixels: IntArray): Float {
+    if (pixels.isEmpty()) return 0f
+    return pixels.sumOf { relativeLuminance(it).toDouble() }.div(pixels.size).toFloat()
+}
+
+internal fun relativeLuminance(argb: Int): Float {
+    fun linear(channel: Int): Float {
+        val srgb = channel / 255f
+        return if (srgb <= 0.04045f) srgb / 12.92f else ((srgb + 0.055f) / 1.055f).toDouble().pow(2.4).toFloat()
+    }
+    return 0.2126f * linear((argb shr 16) and 0xFF) +
+        0.7152f * linear((argb shr 8) and 0xFF) +
+        0.0722f * linear(argb and 0xFF)
+}
+
+/**
+ * Maps artwork luminance to top scrim opacity to keep white status bar
+ * icons legible over light album covers while staying subtle on dark ones.
+ */
+internal fun topBandScrimAlpha(artworkLuminance: Float?): Float {
+    val luminance = artworkLuminance?.coerceIn(0f, 1f) ?: 0f
+    return PLAYER_STATUS_SCRIM_MIN_ALPHA +
+        (PLAYER_STATUS_SCRIM_MAX_ALPHA - PLAYER_STATUS_SCRIM_MIN_ALPHA) * luminance
+}
+
+private const val PLAYER_STATUS_SCRIM_MIN_ALPHA = 0.16f
+private const val PLAYER_STATUS_SCRIM_MAX_ALPHA = 0.65f
 
 private fun Seed.toPalette(dark: Boolean): ArtworkPalette = if (dark) {
     ArtworkPalette(

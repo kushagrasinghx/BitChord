@@ -136,12 +136,11 @@ fun rememberArtworkMesh(
 
     LaunchedEffect(canvasFrame) {
         val frame = canvasFrame ?: return@LaunchedEffect
-        // Same seed as the still read above, keyed off the URL rather than the
-        // frame — a clip's frames are a moving target and aren't cached (the
-        // next one for this URL is a different picture), but the *arrangement*
-        // [shuffledBelowSeam] scrambles them into should hold still across a
-        // refresh, or the layout would visibly reshuffle under its own colours
-        // once a second.
+        // Reject frames that are too dark or uniform — they are almost always
+        // the first read after a surface recreation, before ExoPlayer has
+        // decoded real content.  A frame whose mean luminance is below this
+        // threshold is discarded; the last valid mesh is kept instead.
+        if (isLikelyBlackFrame(frame)) return@LaunchedEffect
         mesh = withContext(Dispatchers.Default) { meshOf(frame, imageUrl?.hashCode() ?: 0) } ?: mesh
     }
     return mesh

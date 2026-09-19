@@ -454,7 +454,7 @@ private fun BitChordApp(
      * signing in, or picking a channel in YouTube Music's own Accounts list.
      */
     var webSession by remember { mutableStateOf<WebSessionMode?>(null) }
-    var showSettings by remember { mutableStateOf(false) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
     // Replay: the page, the stories over it, and the share sheet over those.
     // Three states rather than one enum because they stack — the stories are
     // opened from the page and the share sheet from either, and closing one
@@ -483,8 +483,8 @@ private fun BitChordApp(
     var detailActiveShelf by remember { mutableStateOf<HomeShelf?>(null) }
     var librarySortMenuOpen by remember { mutableStateOf(false) }
     var showLyricsSources by remember { mutableStateOf(false) }
-    var showAppLanguage by remember { mutableStateOf(false) }
-    var showTranslationLanguage by remember { mutableStateOf(false) }
+    var showAppLanguage by rememberSaveable { mutableStateOf(false) }
+    var showTranslationLanguage by rememberSaveable { mutableStateOf(false) }
     var showAccountSelector by remember { mutableStateOf(false) }
     var showListenBrainzLogin by remember { mutableStateOf(false) }
     var showLastfmLogin by remember { mutableStateOf(false) }
@@ -2871,6 +2871,16 @@ private fun BitChordApp(
 
                 // One tab handler, whichever bar is drawing it.
                 val onTabSelected: (Int) -> Unit = { index ->
+                    // Dismiss any overlay (Settings, Jam, etc.) when a tab is tapped.
+                    showSettings = false
+                    showAccountScrobbling = false
+                    showSources = false
+                    showListenTogether = false
+                    showEqualizer = false
+                    showReplay = false
+                    showHistory = false
+                    libraryShowAll = null
+
                     // Re-tapping the search tab while already on it focuses the
                     // input field and opens the keyboard rather than resetting.
                     if (index == TAB_SEARCH && selectedTab == TAB_SEARCH) {
@@ -2881,14 +2891,6 @@ private fun BitChordApp(
                         }
                         viewModel.clearDetail()
                         viewModel.closeMoodGenre()
-                        showSettings = false
-                        showAccountScrobbling = false
-                        showSources = false
-                        showListenTogether = false
-                        showEqualizer = false
-                        showReplay = false
-                        showHistory = false
-                        libraryShowAll = null
                         selectedTab = index
                     }
                 }

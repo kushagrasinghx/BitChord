@@ -802,6 +802,7 @@ object InnertubeParser {
 
     private fun creditsOf(runs: List<JsonElement>): Credits {
         var credits = Credits()
+        val artistNames = mutableListOf<String>()
         runs.forEach { run ->
             val browse = run.o("navigationEndpoint").o("browseEndpoint")
             val id = browse.s("browseId") ?: return@forEach
@@ -809,13 +810,22 @@ object InnertubeParser {
                 .o("browseEndpointContextMusicConfig").s("pageType").orEmpty()
             credits = when {
                 "ARTIST" in pageType && credits.artistId == null ->
-                    credits.copy(artistId = id, artistName = run.s("text"))
+                    credits.copy(artistId = id)
                 "ALBUM" in pageType && credits.albumId == null ->
                     credits.copy(albumId = id, albumName = run.s("text"))
                 else -> credits
             }
+            // Capture every artist run (including featured/collaborating) so
+            // the full credit survives into Song.artist — e.g. "BBYx, Kenny
+            // Can't Dance, Carla Frigo & Vinny Vibe".
+            if ("ARTIST" in pageType) {
+                val name = run.s("text")
+                if (name != null && name.isNotBlank() && !artistNames.contains(name)) {
+                    artistNames += name
+                }
+            }
         }
-        return credits
+        return credits.copy(artistName = artistNames.joinToString(", "))
     }
 
     /**

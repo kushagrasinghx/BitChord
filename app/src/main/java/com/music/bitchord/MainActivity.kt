@@ -746,20 +746,25 @@ private fun BitChordApp(
     // the track already playing rather than only the next one.
     val syncedLyricsEnabled by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
-    LaunchedEffect(player.song?.videoId, player.durationMs, syncedLyricsEnabled, lyricsSources) {
+    LaunchedEffect(
+        player.song?.videoId,
+        player.durationMs,
+        player.song?.localUri,
+        player.song?.localLyricsUri,
+        syncedLyricsEnabled,
+        lyricsSources,
+    ) {
         player.song?.let {
             viewModel.loadLyrics(
-                it.videoId,
-                it.title,
-                it.artist,
-                // The player's own length, and the catalogue's where it has
-                // none yet. Paused, ExoPlayer never finishes preparing the
-                // track it was skipped to, so it reports no duration at all —
-                // and a lookup that waits for one waits for ever, which left
-                // the lyrics of a paused track loading until it was played.
-                player.durationMs.takeIf { ms -> ms > 0L } ?: it.durationMillis(),
-                it.albumName,
-                it.localUri,
+                videoId = it.videoId,
+                title = it.title,
+                artist = it.artist,
+                durationMs = player.durationMs.takeIf { ms -> ms > 0L } ?: it.durationMillis(),
+                album = it.albumName,
+                localUri = it.localUri,
+                localLyricsUri = it.localLyricsUri,
+                localLyricsSource = it.localLyricsSource,
+                localLyricsFormat = it.localLyricsFormat,
             )
         }
     }

@@ -24,7 +24,6 @@ func TestCodeNormalisation(t *testing.T) {
 		}
 	}
 }
-
 func TestPartyCreationAndJoin(t *testing.T) {
 	store := NewPartyStore()
 	p, err := store.Create()
@@ -250,4 +249,3 @@ func TestQueueMoveUpcoming(t *testing.T) {
 		t.Fatalf("MoveUpcoming no-op should succeed")
 	}
 }
-

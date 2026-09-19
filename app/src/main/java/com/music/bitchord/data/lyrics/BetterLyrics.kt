@@ -2,6 +2,9 @@ package com.music.bitchord.data.lyrics
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 /**
@@ -21,29 +24,13 @@ object BetterLyrics {
     private const val BASE = "https://lyrics-api.boidu.dev/getLyrics"
     private const val PORTATO = "https://lyrics-api.boidu.dev/qq/getLyrics"
 
-    suspend fun lyrics(
+    suspend fun artifact(
         title: String,
         artist: String,
         durationMs: Long,
         album: String? = null,
-    ): List<LyricLine>? = fetch(BASE, title, artist, durationMs, album)
-
-    /** QQ Music's karaoke timings through BetterLyrics' Portato endpoint. */
-    suspend fun portato(
-        title: String,
-        artist: String,
-        durationMs: Long,
-        album: String? = null,
-    ): List<LyricLine>? = fetch(PORTATO, title, artist, durationMs, album)
-
-    private suspend fun fetch(
-        endpoint: String,
-        title: String,
-        artist: String,
-        durationMs: Long,
-        album: String?,
-    ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val url = endpoint.toHttpUrl().newBuilder()
+    ): LyricsArtifact? = withContext(Dispatchers.IO) {
+        val url = BASE.toHttpUrl().newBuilder()
             .addQueryParameter("s", title)
             .addQueryParameter("a", artist)
             .apply {
@@ -54,6 +41,44 @@ object BetterLyrics {
             .build()
 
         val body = lyricsGet(url.toString()) ?: return@withContext null
+        val ttml = runCatching {
+            (lyricsJson.parseToJsonElement(body) as? JsonObject)
+                ?.get("ttml")?.jsonPrimitive?.contentOrNull
+        }.getOrNull() ?: return@withContext null
+
+        val lines = TtmlLyrics.parse(ttml).takeIf { it.isNotEmpty() } ?: return@withContext null
+        LyricsArtifact(
+            source = LyricsSource.BETTER_LYRICS,
+            format = LyricsArtifactFormat.TTML,
+            content = ttml,
+            lines = lines,
+        )
+    }
+
+    /** QQ Music's karaoke timings through BetterLyrics' Portato endpoint. */
+    suspend fun portato(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+    ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        val url = PORTATO.toHttpUrl().newBuilder()
+            .addQueryParameter("s", title)
+            .addQueryParameter("a", artist)
+            .apply {
+                val seconds = durationMs / 1000
+                if (seconds > 0) addQueryParameter("d", seconds.toString())
+                if (!album.isNullOrBlank()) addQueryParameter("al", album)
+            }
+            .build()
+        val body = lyricsGet(url.toString()) ?: return@withContext null
         ProviderLyrics.parse(body)
     }
+
+    suspend fun lyrics(
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+    ): List<LyricLine>? = artifact(title, artist, durationMs, album)?.lines
 }

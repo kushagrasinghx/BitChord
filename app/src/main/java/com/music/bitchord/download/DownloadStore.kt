@@ -84,15 +84,19 @@ object DownloadStore {
      * else — no tags to group by — so leading with the artist is the only thing
      * that puts an album back together in the listing.
      */
-    fun fileNameFor(song: Song, extension: String): String {
+    fun fileNameFor(song: Song, extension: String): String = "${fileStemFor(song)}.$extension"
+
+    /** The stable human-readable stem shared by audio and lyrics sidecars. */
+    fun fileStemFor(song: Song): String {
         val artist = sanitise(song.artist)
         val title = sanitise(song.title)
-        val stem = when {
+        return when {
             artist.isEmpty() -> title
             title.isEmpty() -> artist
             else -> "$artist - $title"
         }.ifEmpty { song.videoId }
-        return "${stem.take(MAX_STEM_CHARS).trimEnd()}.$extension"
+            .take(MAX_STEM_CHARS)
+            .trimEnd()
     }
 
     /**
@@ -187,6 +191,22 @@ object DownloadStore {
         if (uri.scheme == "file") return uri.path?.let { File(it).exists() } == true
         context.contentResolver.openFileDescriptor(uri, "r")?.use { true } == true
     }.getOrDefault(false)
+
+    /** The display name belonging to a URI, used by the lyrics-only task. */
+    fun displayName(context: Context, uri: Uri): String? {
+        if (uri.scheme == "file") return uri.path?.let(::File)?.name
+        return runCatching {
+            context.contentResolver.query(
+                uri,
+                arrayOf(MediaStore.MediaColumns.DISPLAY_NAME),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        }.onFailure { Log.w(TAG, "could not read display name for $uri: ${it.message}") }.getOrNull()
+    }
 
     fun delete(context: Context, uri: Uri): Boolean = runCatching {
         if (uri.scheme == "file") {

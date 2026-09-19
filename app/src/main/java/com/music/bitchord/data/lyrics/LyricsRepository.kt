@@ -60,8 +60,53 @@ import java.util.Collections
  */
 object LyricsRepository {
 
-    /** Lyrics, and which source they turned out to come from. */
-    data class Result(val source: LyricsSource, val lines: List<LyricLine>)
+    /** Parses a persisted sidecar back into the same result the player uses. */
+    fun offline(
+        content: String,
+        format: LyricsArtifactFormat,
+        source: LyricsSource = LyricsSource.LRCLIB,
+    ): Result? {
+        val lines = when (format) {
+            LyricsArtifactFormat.TTML -> TtmlLyrics.parse(content)
+            LyricsArtifactFormat.ENHANCED_LRC -> EnhancedLrc.parse(content)
+            LyricsArtifactFormat.LRC -> LrcLib.parseLrc(content)
+        }.takeIf { it.isNotEmpty() } ?: return null
+        return result(
+            source = source,
+            lines = lines,
+            artifact = LyricsArtifact(source, format, content, lines),
+        )
+    }
+
+    /** Lyrics, their source, and the representation that can be persisted. */
+    data class Result(
+        val source: LyricsSource,
+        val lines: List<LyricLine>,
+        val artifact: LyricsArtifact? = null,
+    )
+
+    /** Direct artifact lookup for download and caching flows. */
+    suspend fun artifact(
+        videoId: String,
+        title: String,
+        artist: String,
+        durationMs: Long,
+        album: String? = null,
+        sources: Set<LyricsSource> = LyricsSource.entries.toSet(),
+        order: List<LyricsSource> = LyricsSource.entries,
+        prioritizeSyllableSync: Boolean = false,
+        isrc: String? = null,
+    ): LyricsArtifact? = lyrics(
+        videoId = videoId,
+        title = title,
+        artist = artist,
+        durationMs = durationMs,
+        album = album,
+        sources = sources,
+        order = order,
+        prioritizeSyllableSync = prioritizeSyllableSync,
+        isrc = isrc,
+    )?.artifact
 
     /**
      * [sources] is the user's pick from Settings; anything not in it is not
@@ -111,10 +156,10 @@ object LyricsRepository {
 
         // Genius is a plain text web scraper. To preserve bandwidth and avoid rate-limiting,
         // it starts lazily and is only contacted if all higher-priority synced sources miss.
-        val racing: List<Pair<LyricsSource, Deferred<List<LyricLine>?>>> = sequence.map { source ->
+        val racing: List<Pair<LyricsSource, Deferred<LyricsArtifact?>>> = sequence.map { source ->
             val startMode = if (source == LyricsSource.GENIUS) kotlinx.coroutines.CoroutineStart.LAZY else kotlinx.coroutines.CoroutineStart.DEFAULT
             source to async(Dispatchers.IO, start = startMode) {
-                fetch(source, videoId, searchTitle, searchArtist, durationMs, album, recording, hit)
+                fetchArtifact(source, videoId, searchTitle, searchArtist, durationMs, album, recording, hit)
             }
         }
 
@@ -124,12 +169,17 @@ object LyricsRepository {
                 // If we already found a line-synced or better result, skip Genius completely
                 if (lineSynced != null && source == LyricsSource.GENIUS) continue
 
-                val lines = runCatching { job.await() }.getOrNull() ?: continue
-                if (lines.any { it.isWordSynced }) return@coroutineScope result(source, lines)
-                if (!prioritizeSyllableSync && lines.any { it.timeMs > 0 }) {
-                    return@coroutineScope result(source, lines)
+                val artifact = runCatching { job.await() }.getOrNull() ?: continue
+                val lines = artifact.lines
+                if (lines.any { it.isWordSynced }) {
+                    LyricsLog.s("Repository", "Word-synced match from ${source.label}")
+                    return@coroutineScope result(source, lines, artifact)
                 }
-                if (lineSynced == null) lineSynced = result(source, lines)
+                if (!prioritizeSyllableSync && lines.any { it.timeMs > 0 }) {
+                    LyricsLog.s("Repository", "Line-synced match from ${source.label}")
+                    return@coroutineScope result(source, lines, artifact)
+                }
+                if (lineSynced == null) lineSynced = result(source, lines, artifact)
             }
             lineSynced
         } finally {
@@ -139,7 +189,7 @@ object LyricsRepository {
         }
     }
 
-    private suspend fun fetch(
+    private suspend fun fetchArtifact(
         source: LyricsSource,
         videoId: String,
         title: String,
@@ -149,30 +199,30 @@ object LyricsRepository {
         isrc: String?,
         /** What [identify] already found, where it ran; saves a second search. */
         hit: BiniLyrics.Hit?,
-    ): List<LyricLine>? {
-        val found = when (source) {
-            LyricsSource.BETTER_LYRICS -> BetterLyrics.lyrics(title, artist, durationMs, album)
-            LyricsSource.BETTER_LYRICS_PORTATO -> BetterLyrics.portato(title, artist, durationMs, album)
-            LyricsSource.LYRICS_PLUS -> LyricsPlus.lyrics(title, artist, durationMs, album, isrc)
-            LyricsSource.BINI_LYRICS ->
-                (hit?.let { BiniLyrics.lyricsFor(it) }
-                    ?: BiniLyrics.lyrics(title, artist, durationMs, album, isrc))
-                    ?.also { remember(videoId, it.isrc) }
-                    ?.lines
-            LyricsSource.UNISON -> Unison.lyrics(title, artist, durationMs, album)
-            LyricsSource.SIMP_MUSIC -> SimpMusicLyrics.lyrics(videoId, durationMs)
-            LyricsSource.YOUTUBE_TRANSCRIPT -> YouTubeTranscriptLyrics.lyrics(videoId)
-            LyricsSource.YOUTUBE_MUSIC -> YouTubeMusicLyrics.lyrics(videoId)
-            LyricsSource.LRCLIB -> LrcLib.lyrics(title, artist, durationMs)
-            LyricsSource.MUSIXMATCH -> Musixmatch.lyrics(title, artist, durationMs)
-            LyricsSource.PAXSENIX -> PaxSenix.lyrics(title, artist, durationMs, album)
-            LyricsSource.PAXSENIX_SPOTIFY -> PaxSenix.spotifyLyrics(title, artist, durationMs)
-            LyricsSource.PAXSENIX_MUSIXMATCH -> PaxSenix.musixmatchLyrics(title, artist, durationMs)
-            LyricsSource.KUGOU -> KuGou.lyrics(title, artist, durationMs, album)
-            LyricsSource.MEGALOBIZ -> Megalobiz.lyrics(title, artist)
-            LyricsSource.GENIUS -> Genius.lyrics(title, artist)
+    ): LyricsArtifact? {
+        LyricsLog.i(source.label, "Querying $source...")
+        val artifact = when (source) {
+            LyricsSource.BETTER_LYRICS -> BetterLyrics.artifact(title, artist, durationMs, album)
+            LyricsSource.BETTER_LYRICS_PORTATO -> BetterLyrics.portato(title, artist, durationMs, album)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.LYRICS_PLUS -> LyricsPlus.artifact(title, artist, durationMs, album, isrc)
+            LyricsSource.BINI_LYRICS -> (hit?.let { BiniLyrics.lyricsFor(it) } ?: BiniLyrics.lyrics(title, artist, durationMs, album, isrc))
+                ?.also { remember(videoId, it.isrc) }?.let { LyricsSerializer.fromLines(source, it.lines) }
+            LyricsSource.UNISON -> Unison.lyrics(title, artist, durationMs, album)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.SIMP_MUSIC -> SimpMusicLyrics.artifact(videoId, durationMs)
+            LyricsSource.YOUTUBE_TRANSCRIPT -> YouTubeTranscriptLyrics.lyrics(videoId)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.YOUTUBE_MUSIC -> YouTubeMusicLyrics.lyrics(videoId)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.LRCLIB -> LrcLib.artifact(title, artist, durationMs)
+            LyricsSource.MUSIXMATCH -> Musixmatch.lyrics(title, artist, durationMs)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.PAXSENIX -> PaxSenix.lyrics(title, artist, durationMs, album)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.PAXSENIX_SPOTIFY -> PaxSenix.spotifyLyrics(title, artist, durationMs)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.PAXSENIX_MUSIXMATCH -> PaxSenix.musixmatchLyrics(title, artist, durationMs)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.KUGOU -> KuGou.lyrics(title, artist, durationMs, album)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.MEGALOBIZ -> Megalobiz.lyrics(title, artist)?.let { LyricsSerializer.fromLines(source, it) }
+            LyricsSource.GENIUS -> Genius.lyrics(title, artist)?.let { LyricsSerializer.fromLines(source, it) }
         }
-        return found
+        if (artifact == null || artifact.lines.isEmpty()) LyricsLog.w(source.label, "No lyrics returned")
+        else LyricsLog.s(source.label, "Returned ${artifact.lines.size} lines")
+        return artifact
     }
 
     /**
@@ -182,8 +232,15 @@ object LyricsRepository {
      * [TtmlLyrics] knows it structurally — [withBackgroundVocals] leaves that
      * one's own split alone.
      */
-    private fun result(source: LyricsSource, lines: List<LyricLine>) =
-        Result(source, lines.withBackgroundVocals())
+    private fun result(
+        source: LyricsSource,
+        lines: List<LyricLine>,
+        artifact: LyricsArtifact? = null,
+    ): Result {
+        val processed = lines.withBackgroundVocals()
+        val finalArtifact = artifact ?: LyricsSerializer.fromLines(source, processed)
+        return Result(source, processed, finalArtifact)
+    }
 
     /**
      * Longest the lookup will wait to find out which recording this is.

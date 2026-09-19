@@ -116,8 +116,8 @@ class DownloadService : Service() {
     private suspend fun work() {
         var idleFor = 0L
         while (true) {
-            val song = Downloads.takeNext()
-            if (song == null) {
+            val task = Downloads.takeNext()
+            if (task == null) {
                 // Nothing to take, but something may still be arriving — or
                 // another worker may fail a track back into view. Only a queue
                 // that stays empty, with nothing else in flight, is finished.
@@ -127,15 +127,15 @@ class DownloadService : Service() {
                 continue
             }
             idleFor = 0L
-            current = song
+            current = task.song
             postNotification()
 
             // Its own job, so one track can be cancelled out from under the
             // loop without taking the rest of the queue with it.
-            val job = scope.launch { Downloads.run(this@DownloadService, song) }
-            Downloads.onRunning(song.videoId, job)
+            val job = scope.launch { Downloads.run(this@DownloadService, task) }
+            Downloads.onRunning(task.song.videoId, job)
             job.join()
-            Downloads.onIdle(song.videoId)
+            Downloads.onIdle(task.song.videoId)
         }
     }
 

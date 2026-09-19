@@ -1060,5 +1060,32 @@
 
     <string name="listen_together_open_count">Listening together · %1$d</string>
 
+    <string name="listen_together_profile">Your party profile</string>
+    <string name="listen_together_nickname_hint">Nickname for this party</string>
+    <string name="listen_together_party_size">Party size</string>
+    <string name="listen_together_party_size_subtitle">Choose 2–10 listeners</string>
+    <string name="listen_together_host_controls">Only you can change capacity or remove listeners</string>
+    <string name="listen_together_remove">Remove</string>
+    <string name="listen_together_activity">Recent activity</string>
+    <string name="listen_together_activity_footer">This session only · latest first · up to 100 actions</string>
+    <string name="listen_together_activity_played">Started playback</string>
+    <string name="listen_together_activity_paused">Paused playback</string>
+    <string name="listen_together_activity_seeked">Sought in the track</string>
+    <string name="listen_together_activity_skipped">Skipped ahead</string>
+    <string name="listen_together_activity_went_back">Went back</string>
+    <string name="listen_together_activity_added">Added to the queue</string>
+    <string name="listen_together_activity_removed_track">Removed a queued track</string>
+    <string name="listen_together_activity_cleared">Cleared upcoming tracks</string>
+    <string name="listen_together_activity_reordered">Reordered the queue</string>
+    <string name="listen_together_activity_removed_member">Removed a listener</string>
+    <string name="listen_together_activity_changed_size">Changed party size</string>
+    <string name="listen_together_activity_updated">Updated the party</string>
+    <string name="party_queue_full">Queue is full (maximum %d songs in party)</string>
+    <string name="source_matching">Source matching</string>
+    <string name="upgrade_length_slack">Track length tolerance</string>
+    <string name="upgrade_length_slack_subtitle">Maximum duration difference allowed for a replacement stream</string>
+    <string name="upgrade_length_slack_footer">A larger tolerance accepts more source matches; a smaller tolerance is stricter. The default is 3 seconds.</string>
+    <string name="seconds_short">%1$d s</string>
+
 
 </resources>

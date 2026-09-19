@@ -509,4 +509,207 @@ class DirectAudioStreamingRegressionTest {
         assertNull("HAL format must be null on direct bypass", evaluated.halFormat)
         assertEquals("PCM24 / 96000 Hz", evaluated.usbEndpointFormat)
     }
+
+    // 14. Streaming 192 kHz direct-capable route
+    @Test
+    fun stream192000HzDirectCapabilitySelectsDirectOutput() {
+        val directSupport192 = DirectAudioProbe.DirectSupport(
+            isDirectSupported = true,
+            isOffloadSupported = false,
+            supportsFloat = false,
+            supportsPcm24 = true,
+            supportsPcm16 = true,
+            description = "Direct PCM supported: 24-bit @ 192000 Hz",
+        )
+
+        val result = OutputNegotiator.negotiate(
+            source = streamingSource(192000, bitDepth = 24),
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 192000,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.USB,
+            deviceName = "Hi-Res DAC",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT, AudioFormat.ENCODING_PCM_24BIT_PACKED),
+            advertisedSampleRates = listOf(44100, 48000, 96000, 192000),
+            requestedMode = OutputPcmMode.FLOAT_32,
+            directSupport = directSupport192,
+        )
+
+        assertEquals(TransportType.AUDIO_TRACK_DIRECT, result.output.transport)
+        assertTrue(result.output.isDirect)
+        assertEquals(PcmEncoding.PCM_24BIT_PACKED, result.output.encoding)
+        assertNull(result.output.systemMixerRateHz)
+    }
+
+    // 15. Unsupported direct capability safely falls back to system mixer
+    @Test
+    fun unsupportedDirectCapabilitySafelyFallsBack() {
+        val result = OutputNegotiator.negotiate(
+            source = streamingSource(176400, bitDepth = 24),
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 176400,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.USB,
+            deviceName = "Basic USB DAC",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT),
+            advertisedSampleRates = listOf(48000),
+            requestedMode = OutputPcmMode.FLOAT_32,
+            directSupport = DirectAudioProbe.DirectSupport.NONE,
+            knownSystemMixerRateHz = 48000,
+        )
+
+        assertEquals(TransportType.AUDIO_TRACK, result.output.transport)
+        assertFalse(result.output.isDirect)
+        assertEquals(PcmEncoding.PCM_16BIT, result.output.encoding)
+        assertEquals(48000, result.output.systemMixerRateHz)
+        assertEquals(FallbackReason.ROUTE_LIMITATION, result.output.fallbackReason)
+    }
+
+    // 16. publishNegotiation propagates route directSupport and descriptors into snapshot
+    @Test
+    fun publishNegotiationPropagatesRouteDirectSupportAndDescriptorsIntoSnapshot() {
+        val directSupport = DirectAudioProbe.DirectSupport(
+            isDirectSupported = true,
+            isOffloadSupported = false,
+            supportsFloat = false,
+            supportsPcm24 = false,
+            supportsPcm16 = true,
+            description = "Direct PCM supported: 16-bit @ 176400 Hz",
+        )
+
+        val result = OutputNegotiator.negotiate(
+            source = streamingSource(176400, bitDepth = 24),
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 176400,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.USB,
+            deviceName = "Chu2 DSP",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT, AudioFormat.ENCODING_PCM_24BIT_PACKED),
+            advertisedSampleRates = listOf(44100, 48000, 88200, 96000),
+            requestedMode = OutputPcmMode.FLOAT_32,
+            directSupport = directSupport,
+        )
+
+        AudioOutputStatus.publishNegotiation(result)
+        val snapshot = AudioOutputStatus.current.value
+
+        assertEquals("Chu2 DSP", snapshot.deviceName)
+        assertTrue(snapshot.isUsb)
+        assertEquals(directSupport, snapshot.directSupport)
+        assertTrue(snapshot.sampleRatesHz.contains(96000))
+        assertTrue(snapshot.encodings.contains(AudioFormat.ENCODING_PCM_24BIT_PACKED))
+        assertTrue(snapshot.directPlaybackActual)
+        assertEquals(TransportType.AUDIO_TRACK_DIRECT, snapshot.transportType)
+    }
+
+    // 17. evaluateActualPath honors negotiationResult route direct support when snapshot.directSupport is null
+    @Test
+    fun evaluateActualPathHonorsNegotiationResultRouteDirectSupport() {
+        val directSupport = DirectAudioProbe.DirectSupport(
+            isDirectSupported = true,
+            isOffloadSupported = false,
+            supportsFloat = false,
+            supportsPcm24 = false,
+            supportsPcm16 = true,
+            description = "Direct PCM supported: 16-bit @ 176400 Hz",
+        )
+
+        val result = OutputNegotiator.negotiate(
+            source = streamingSource(176400, bitDepth = 24),
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 176400,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.USB,
+            deviceName = "Chu2 DSP",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT, AudioFormat.ENCODING_PCM_24BIT_PACKED),
+            advertisedSampleRates = listOf(44100, 48000, 88200, 96000),
+            requestedMode = OutputPcmMode.FLOAT_32,
+            directSupport = directSupport,
+        )
+
+        // Snapshot has null directSupport directly on itself, but holds negotiationResult
+        val snapshotWithNullDirectSupport = AudioOutputStatus.Snapshot(
+            deviceName = "Chu2 DSP",
+            routeKind = AudioRouting.Kind.USB,
+            negotiationResult = result,
+            directSupport = null,
+            requestedTransportType = TransportType.AUDIO_TRACK_DIRECT,
+            actualEncoding = AudioFormat.ENCODING_PCM_16BIT,
+            actualSampleRateHz = 176400,
+        )
+
+        val evaluated = AudioOutputStatus.evaluateActualPath(snapshotWithNullDirectSupport)
+
+        assertTrue("Direct playback must be accepted via negotiation route directSupport", evaluated.directPlaybackActual)
+        assertFalse(evaluated.directPlaybackRejected)
+        assertEquals(TransportType.AUDIO_TRACK_DIRECT, evaluated.transportType)
+    }
+
+    // 18. Local playback behavior remains unchanged
+    @Test
+    fun localPlaybackBehaviorRemainsUnchanged() {
+        val directSupport = DirectAudioProbe.DirectSupport(
+            isDirectSupported = true,
+            isOffloadSupported = false,
+            supportsFloat = false,
+            supportsPcm24 = false,
+            supportsPcm16 = true,
+            description = "Direct PCM supported: 16-bit @ 176400 Hz",
+        )
+
+        val result = OutputNegotiator.negotiate(
+            source = flacSource(176400, bitDepth = 24),
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 176400,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.USB,
+            deviceName = "Chu2 DSP",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT, AudioFormat.ENCODING_PCM_24BIT_PACKED),
+            advertisedSampleRates = listOf(44100, 48000, 88200, 96000),
+            requestedMode = OutputPcmMode.FLOAT_32,
+            directSupport = directSupport,
+        )
+
+        assertEquals(TransportType.AUDIO_TRACK_DIRECT, result.output.transport)
+        assertTrue(result.output.isDirect)
+        assertEquals(PcmEncoding.PCM_16BIT, result.output.encoding)
+        assertNull(result.output.systemMixerRateHz)
+        assertEquals("Float32", result.dsp.format)
+    }
+
+    // 19. Leaving a USB route clears isUsb, rather than latching it on forever
+    @Test
+    fun publishNegotiationClearsIsUsbWhenRouteLeavesUsb() {
+        val usbResult = OutputNegotiator.negotiate(
+            source = streamingSource(96000),
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 96000,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.USB,
+            deviceName = "Chu2 DSP",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT, AudioFormat.ENCODING_PCM_24BIT_PACKED),
+            advertisedSampleRates = listOf(44100, 48000, 96000),
+            requestedMode = OutputPcmMode.FLOAT_32,
+        )
+        AudioOutputStatus.publishNegotiation(usbResult)
+        assertTrue("USB route must set isUsb", AudioOutputStatus.current.value.isUsb)
+
+        val bluetoothResult = OutputNegotiator.negotiate(
+            source = streamingSource(48000, bitDepth = 16),
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 48000,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.BLUETOOTH,
+            deviceName = "Buds",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT),
+            advertisedSampleRates = listOf(44100, 48000),
+            requestedMode = OutputPcmMode.FLOAT_32,
+        )
+        AudioOutputStatus.publishNegotiation(bluetoothResult)
+
+        assertFalse(
+            "isUsb must clear once the route is no longer USB",
+            AudioOutputStatus.current.value.isUsb,
+        )
+    }
 }

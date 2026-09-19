@@ -12,7 +12,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
-import android.util.LruCache
 import android.view.View
 import android.widget.Toast
 import android.window.OnBackInvokedCallback
@@ -207,16 +206,12 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.media3.common.Player
-import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
-import coil3.request.SuccessResult
-import coil3.request.allowHardware
-import coil3.toBitmap
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.music.bitchord.ui.theme.StatusBarIcons
+import com.music.bitchord.ui.theme.rememberArtworkTopBandLuminance
+import com.music.bitchord.ui.theme.topBandScrimAlpha
 import com.music.bitchord.ui.rememberIsForeground
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.optimizedHazeEffect
@@ -366,6 +361,9 @@ private val VERSION_PILL_ART_INSET = 12.dp
  * that was cut off rather than one that ran out.
  */
 private const val HERO_FADE_FRACTION = 0.42f
+/** Kept transparent so the cover remains edge-to-edge, while aiding icon contrast. */
+/** A modest floor while a subview replaces the hero with its artwork-derived mesh. */
+private const val SUBVIEW_STATUS_SCRIM_MIN_ALPHA = 0.40f
 
 /**
  * How often the backdrop re-reads the colours of a playing Canvas clip.
@@ -857,63 +855,6 @@ private const val LYRICS_CONTROLS_IDLE_MS = 5_000L
 
 private const val LYRICS_UNAVAILABLE_HOLD_MS = 5_000L
 private const val LYRICS_UNAVAILABLE_FADE_MS = 900
-private const val LIGHT_ARTWORK_LUMINANCE_THRESHOLD = 0.45f
-
-private val artworkLuminanceCache = LruCache<String, Float>(20)
-
-@Composable
-private fun rememberArtworkLuminance(imageUrl: String?): Float? {
-    val context = LocalContext.current
-    var luminance by remember(imageUrl) { mutableStateOf<Float?>(null) }
-
-    LaunchedEffect(imageUrl) {
-        luminance = null
-        if (imageUrl == null) return@LaunchedEffect
-
-        artworkLuminanceCache.get(imageUrl)?.let { cached ->
-            luminance = cached
-            return@LaunchedEffect
-        }
-
-        val request = ImageRequest.Builder(context)
-            .data(imageUrl.artworkAt(ART_PX))
-            .size(128)
-            .allowHardware(false)
-            .build()
-        val result = SingletonImageLoader.get(context).execute(request)
-        val bitmap = (result as? SuccessResult)?.image?.toBitmap()
-        if (bitmap != null) {
-            val lum = withContext(Dispatchers.Default) {
-                bitmap.topAreaLuminance()
-            }
-            artworkLuminanceCache.put(imageUrl, lum)
-            luminance = lum
-        } else {
-            // Default to dark artwork (0f) so status bar icons stay light if image fails to load
-            luminance = 0f
-        }
-    }
-    return luminance
-}
-
-private fun Bitmap.topAreaLuminance(): Float {
-    val sampleHeight = (height * 0.35f).toInt().coerceIn(1, height)
-    val sampleWidth = width.coerceAtLeast(1)
-    val pixels = IntArray(sampleWidth * sampleHeight)
-    getPixels(pixels, 0, sampleWidth, 0, 0, sampleWidth, sampleHeight)
-
-    var totalLuminance = 0.0
-    val count = pixels.size.coerceAtLeast(1)
-    for (pixel in pixels) {
-        val r = ((pixel shr 16) and 0xFF) / 255.0f
-        val g = ((pixel shr 8) and 0xFF) / 255.0f
-        val b = (pixel and 0xFF) / 255.0f
-        val lum = 0.2126f * r + 0.7152f * g + 0.0722f * b
-        totalLuminance += lum
-    }
-    return (totalLuminance / count).toFloat()
-}
-
 private sealed interface LyricsTranslationUiState {
     data object Idle : LyricsTranslationUiState
     data object Loading : LyricsTranslationUiState
@@ -1031,19 +972,16 @@ fun NowPlayingScreen(
     val density = LocalDensity.current
     val haptics = rememberHaptics()
 
-    // Keep the header caption and the system glyphs on the same contrast
-    // decision. The caption sits over the same upper part of the cover as the
-    // status bar when this is a phone-sized player.
-    val artLuminance = rememberArtworkLuminance(song.thumbnailUrl)
-    val isLightArtwork = artLuminance?.let { it > LIGHT_ARTWORK_LUMINANCE_THRESHOLD } ?: false
+    // This is produced by the palette's existing 128 px decode and cache. It
+    // samples the upper band rather than the whole sleeve because that is what
+    // lies beneath the status bar when the player expands to full bleed.
+    val artTopLuminance = rememberArtworkTopBandLuminance(song.thumbnailUrl, ART_PX)
+    val artworkStatusScrimAlpha = topBandScrimAlpha(artTopLuminance)
 
-    // A docked pane sits beside the page rather than covering the screen, so
-    // the status bar it's under belongs to the page, not this artwork — only
-    // the full-screen sheet gets to repaint it. The navigation bar is left
-    // alone entirely — see [StatusBarIcons].
-    if (!docked) {
-        StatusBarIcons(dark = isLightArtwork)
-    }
+    // Media-player convention: the player always owns light status icons. The
+    // top treatment below, rather than a window-flag flip per cover, provides
+    // their contrast and stays visually stable through artwork transitions.
+    if (!docked) StatusBarIcons(dark = false)
 
     // Kept local to the player: a modal player is not in the page's Haze
     // source tree, so it needs its own source for the same frosted material as
@@ -2203,27 +2141,41 @@ fun NowPlayingScreen(
                 }
             }
 
-            // The clock, the signal bars and the drag handle are all white, and
-            // the banner puts whatever the artwork happens to have up there
-            // directly behind them — a bright frame or a pale sleeve leaves the
-            // top of the screen unreadable. Faded in with the banner and gone
-            // with it.
-            if (heroVisible > 0.01f) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .fillMaxWidth()
-                        .height(statusBarTop + topStrip)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    Color.Black.copy(alpha = 0.38f * heroVisible),
-                                    Color.Transparent,
-                                ),
-                            ),
-                        ),
-                )
+        }
+
+        // This transparent top gradient is always present while the modal
+        // player owns the system bar. Its opacity follows the actual top-band
+        // artwork, rather than changing the status-bar glyph colour per cover.
+        // A subview replaces that hero with an artwork-derived mesh, so it gets
+        // only a modest floor rather than an opaque status-bar surface.
+        val playerSubviewOpen = lyricsOpen || queueOpen || lyricsOffsetOpen ||
+            showAudioPipeline || showAudioOutput
+        val topGradientAlpha = if (playerSubviewOpen) {
+            maxOf(artworkStatusScrimAlpha, SUBVIEW_STATUS_SCRIM_MIN_ALPHA)
+        } else {
+            artworkStatusScrimAlpha
+        }
+
+        val steps = 8
+        val gradientColors = remember(topGradientAlpha) {
+            List(steps) { index ->
+                val progress = index / (steps - 1).toFloat()
+                val factor = (1f - progress).toDouble().pow(1.5).toFloat()
+                Color.Black.copy(alpha = topGradientAlpha * factor)
             }
+        }
+        val topScrimBrush = remember(gradientColors) {
+            Brush.verticalGradient(gradientColors)
+        }
+
+        if (!docked) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .height(statusBarTop + topStrip)
+                    .background(topScrimBrush)
+            )
         }
 
         Column(
@@ -2290,8 +2242,9 @@ fun NowPlayingScreen(
                             )
                             .width(38.dp)
                             .height(5.dp)
+                            .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
                             .clip(RoundedCornerShape(3.dp))
-                            .background(Color.White.copy(alpha = 0.32f)),
+                            .background(Color.White.copy(alpha = 0.70f)),
                     )
                 }
                 // [p] is the shared album-to-panel transition. Keeping this in

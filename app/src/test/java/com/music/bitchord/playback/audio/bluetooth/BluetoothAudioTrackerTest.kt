@@ -150,4 +150,61 @@ class BluetoothAudioTrackerTest {
         assertFalse(defaultTelemetry.isAuthoritative)
         assertEquals("Disconnected", defaultTelemetry.formattedSummary())
     }
+
+    @Test
+    fun a2dpProfileDisplayedIndependentlyFromCodec() {
+        val nonAuthoritativeTelemetry = BluetoothTelemetry(
+            isConnected = true,
+            deviceName = "realme Buds Air 5 Pro",
+            codecName = "System Managed",
+            sampleRateHz = 96000,
+            bitDepth = 32,
+            bitrateLabel = "Not exposed by Android",
+            isAuthoritative = false,
+        )
+
+        assertTrue(nonAuthoritativeTelemetry.isConnected)
+        assertEquals("System Managed", nonAuthoritativeTelemetry.codecName)
+        assertEquals("System Managed / 32-bit / 96000 Hz", nonAuthoritativeTelemetry.formattedSummary())
+    }
+
+    @Test
+    fun authoritativeLdacDisplaysLdac() {
+        val ldacTelemetry = BluetoothTelemetry(
+            isConnected = true,
+            deviceName = "realme Buds Air 5 Pro",
+            codecName = "LDAC",
+            sampleRateHz = 96000,
+            bitDepth = 32,
+            bitrateLabel = "Not exposed by Android",
+            mode = "High Quality (990 kbps nominal)",
+            isAuthoritative = true,
+        )
+
+        assertEquals("LDAC", ldacTelemetry.codecName)
+        assertTrue(ldacTelemetry.isAuthoritative)
+        assertEquals(
+            "LDAC / 32-bit / 96000 Hz (High Quality (990 kbps nominal))",
+            ldacTelemetry.formattedSummary(),
+        )
+    }
+
+    @Test
+    fun noLdacInferenceFromSampleRateOrBitDepth() {
+        // Even when sample rate is 96000 Hz and bit depth is 32-bit,
+        // if authoritative codec is not confirmed, it MUST NOT infer LDAC.
+        val nonAuthoritativeHiRes = BluetoothTelemetry(
+            isConnected = true,
+            deviceName = "Generic Hi-Res Earbuds",
+            codecName = "System Managed",
+            sampleRateHz = 96000,
+            bitDepth = 32,
+            bitrateLabel = "Not exposed by Android",
+            isAuthoritative = false,
+        )
+
+        assertEquals("System Managed", nonAuthoritativeHiRes.codecName)
+        assertFalse(nonAuthoritativeHiRes.codecName.contains("LDAC", ignoreCase = true))
+        assertEquals("Not exposed by Android", nonAuthoritativeHiRes.bitrateLabel)
+    }
 }

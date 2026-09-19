@@ -52,6 +52,7 @@ import com.music.bitchord.playback.AudioOutputStatus
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import java.util.Locale
 
 private val PIPELINE_CARD_SHAPE = RoundedCornerShape(ALERT_CORNER)
 private val PIPELINE_SCRIM_COLOR = Color.Black.copy(alpha = 0.4f)
@@ -331,19 +332,21 @@ fun AudioPipelineDialog(
                         }
 
                         outputStatus.usbEndpointFormat?.let {
-                            PipelineRow("USB Advertised Capability", it)
+                            PipelineRow("USB Device Capability", formatUsbCapability(it))
+                            PipelineNote("Reported by Android for the connected USB device. This describes device capabilities and may differ from the active playback format.")
                         }
 
                         if (outputStatus.routeKind == com.music.bitchord.playback.AudioRouting.Kind.BLUETOOTH) {
                             val bt = outputStatus.bluetoothTelemetry
+                            outputStatus.bluetoothProfile?.let { PipelineRow("Bluetooth", it) }
                             if (bt != null && bt.isConnected) {
-                                PipelineRow("Bluetooth Codec", bt.codecName)
+                                PipelineRow("Codec", if (bt.hasNamedCodec) bt.codecName else "System Managed")
                                 bt.bitDepth?.let { PipelineRow("Codec Bits", "$it-bit") }
                                 bt.sampleRateHz?.let { PipelineRow("Codec Sample Rate", "$it Hz") }
                                 PipelineRow("Codec Bitrate", bt.bitrateLabel)
                                 bt.mode?.let { PipelineRow("Codec Mode", it) }
                             } else {
-                                PipelineRow("Bluetooth Codec", "A2DP Standard")
+                                PipelineRow("Codec", "System Managed")
                             }
                         }
 
@@ -460,4 +463,35 @@ private fun PipelineDoneAction(label: String, onClick: () -> Unit) {
             color = Color.White,
         )
     }
+}
+
+@Composable
+private fun PipelineNote(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall.copy(
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            color = Color.White.copy(alpha = 0.60f),
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 1.dp, bottom = 4.dp),
+    )
+}
+
+internal fun formatUsbCapability(raw: String): String {
+    var formatted = raw
+        .replace("PCM32", "PCM 32-bit")
+        .replace("PCM24", "PCM 24-bit")
+        .replace("PCM16", "PCM 16-bit")
+        .replace("Float32", "Float 32-bit")
+
+    val hzRegex = Regex("""(\d+)\s*Hz""")
+    formatted = hzRegex.replace(formatted) { matchResult ->
+        val hz = matchResult.groupValues[1].toIntOrNull()
+            ?: return@replace matchResult.value
+        "${"%.1f".format(Locale.ROOT, hz / 1000f).removeSuffix(".0")} kHz"
+    }
+    return formatted
 }

@@ -469,7 +469,7 @@ private fun BitChordApp(
     var showListenTogether by remember { mutableStateOf(false) }
     var showEqualizer by remember { mutableStateOf(false) }
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
-    
+
     // Hosted here rather than inside SourcesScreen so its frosted card has
     // something to blur: that screen is drawn inside the `hazeSource` subtree,
     // and a haze effect sampling the layer it is itself part of renders with no
@@ -541,9 +541,9 @@ private fun BitChordApp(
     val partyState by ListenTogether.state.collectAsStateWithLifecycle()
     val partyServerStatus by ListenTogether.serverStatus.collectAsStateWithLifecycle()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
-    // Incremented each time the search tab is re-tapped while already selected,
-    // which SearchScreen uses as a signal to focus the input field.
-    var searchFocusTrigger by remember { mutableIntStateOf(0) }
+    // Set each time the search tab is tapped, which SearchScreen uses as a
+    // signal to focus the input field.
+    var searchFocusRequested by remember { mutableStateOf(false) }
     // Invalidates an in-flight radio lookup when a later play request wins.
     var playRequestGeneration by remember { mutableIntStateOf(0) }
     // Starting radio from the item already playing must not replace that media
@@ -551,9 +551,9 @@ private fun BitChordApp(
     // following radio items carry radioName in their MediaItem extras.
     var activeRadioSeed by remember { mutableStateOf<Pair<String, String>?>(null) }
 
-    // The player fills the screen with dark artwork whichever theme is on, so
-    // it keeps light glyphs; every other surface follows the theme. Replay's
-    // page and stories are the same case — dark artwork either way.
+    // The modal player owns light status glyphs and its own contrast scrim.
+    // Every other surface follows the theme; Replay's page and stories remain
+    // dark artwork either way.
     SystemBarIcons(dark = !darkTheme && !showNowPlaying && !showReplay && replayStory == null)
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
@@ -846,6 +846,7 @@ private fun BitChordApp(
     // reads [scrolled] — which made the whole floating bar, both of its states
     // and every glass surface on them recompose once per frame for the length of
     // a fold. Keyed on the labels so a locale change still rebuilds it.
+    val homeLabel = stringResource(R.string.home)
     val playLabel = stringResource(R.string.play)
     val exploreLabel = stringResource(R.string.explore)
     val libraryLabel = stringResource(R.string.library)
@@ -854,9 +855,9 @@ private fun BitChordApp(
     val replayLabel = stringResource(R.string.replay)
     val queueLabel = stringResource(R.string.queue)
     val sharedLinkLabel = stringResource(R.string.shared_link)
-    val tabs = remember(playLabel, exploreLabel, libraryLabel, searchLabel) {
+    val tabs = remember(homeLabel, exploreLabel, libraryLabel, searchLabel) {
         listOf(
-            BottomTab(playLabel, BitChordIcons.Play),
+            BottomTab(homeLabel, BitChordIcons.Home),
             BottomTab(exploreLabel, BitChordIcons.Explore),
             BottomTab(libraryLabel, BitChordIcons.Library),
             BottomTab(searchLabel, BitChordIcons.Search),
@@ -2509,7 +2510,8 @@ private fun BitChordApp(
                             onLoadMore = viewModel::loadMoreSearchResults,
                             listState = searchListState,
                             scrollResetTrigger = searchScrollReset,
-                            focusTrigger = searchFocusTrigger,
+                            focusRequested = searchFocusRequested,
+                            onFocusHandled = { searchFocusRequested = false },
                             // Search hits are alternatives to each other, not a running
                             // order — play the one tapped and build a station from it.
                             onSongClick = { songs, index ->
@@ -2871,7 +2873,31 @@ private fun BitChordApp(
 
                 // One tab handler, whichever bar is drawing it.
                 val onTabSelected: (Int) -> Unit = { index ->
-                    // Dismiss any overlay (Settings, Jam, etc.) when a tab is tapped.
+        // Dismiss any overlay (Settings, Jam, etc.) when a tab is tapped.
+        showSettings = false
+        showAccountScrobbling = false
+        showSources = false
+        showListenTogether = false
+        showEqualizer = false
+        showReplay = false
+        showHistory = false
+        libraryShowAll = null
+
+        // Re-tapping the search tab while already on it focuses the
+        // input field and opens the keyboard rather than resetting.
+        if (index == TAB_SEARCH && selectedTab == TAB_SEARCH) {
+            searchFocusTrigger++
+        } else {
+            if (index != TAB_SEARCH) {
+                searchFocusTrigger = 0
+            }
+            viewModel.clearDetail()
+            viewModel.closeMoodGenre()
+            selectedTab = index
+        }
+    }
+                    viewModel.clearDetail()
+                    viewModel.closeMoodGenre()
                     showSettings = false
                     showAccountScrobbling = false
                     showSources = false
@@ -2880,19 +2906,7 @@ private fun BitChordApp(
                     showReplay = false
                     showHistory = false
                     libraryShowAll = null
-
-                    // Re-tapping the search tab while already on it focuses the
-                    // input field and opens the keyboard rather than resetting.
-                    if (index == TAB_SEARCH && selectedTab == TAB_SEARCH) {
-                        searchFocusTrigger++
-                    } else {
-                        if (index != TAB_SEARCH) {
-                            searchFocusTrigger = 0
-                        }
-                        viewModel.clearDetail()
-                        viewModel.closeMoodGenre()
-                        selectedTab = index
-                    }
+                    selectedTab = index
                 }
 
                 if (glassActive) Column(

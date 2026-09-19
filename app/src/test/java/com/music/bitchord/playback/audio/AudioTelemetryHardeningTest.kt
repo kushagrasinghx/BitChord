@@ -132,4 +132,90 @@ class AudioTelemetryHardeningTest {
         assertEquals("PCM24 packed", evaluated.halFormat)
         assertNull(evaluated.usbEndpointFormat)
     }
+
+    @Test
+    fun staticUsbCapabilityAndActiveAudioTrackRemainSeparate() {
+        // Moondrop CHU II DSP: Static USB descriptors advertise PCM24 / 96000 Hz max,
+        // but Android runtime direct support confirms PCM16 @ 176.4 kHz direct AudioTrack.
+        val chu2Snapshot = AudioOutputStatus.Snapshot(
+            deviceName = "Moondrop CHU II DSP",
+            routeKind = AudioRouting.Kind.USB,
+            encodings = intArrayOf(AudioFormat.ENCODING_PCM_16BIT, AudioFormat.ENCODING_PCM_24BIT_PACKED),
+            sampleRatesHz = intArrayOf(44100, 48000, 88200, 96000), // static USB capability
+            requestedTransportType = TransportType.AUDIO_TRACK_DIRECT,
+            directPlaybackSelected = true,
+            directSupport = DirectAudioProbe.DirectSupport(
+                isDirectSupported = true,
+                isOffloadSupported = false,
+                supportsFloat = false,
+                supportsPcm24 = false,
+                supportsPcm16 = true,
+                description = "Direct PCM supported: 16-bit @ 176400 Hz",
+            ),
+            actualEncoding = AudioFormat.ENCODING_PCM_16BIT,
+            actualSampleRateHz = 176400,
+        )
+
+        val evaluated = AudioOutputStatus.evaluateActualPath(chu2Snapshot)
+
+        // 1. Static capability truthfully reflects static descriptor: PCM24 / 96000 Hz
+        assertEquals("PCM24 / 96000 Hz", evaluated.usbEndpointFormat)
+        // 2. Active AudioTrack is 176.4 kHz PCM16
+        assertEquals(176400, evaluated.actualSampleRateHz)
+        assertEquals(AudioFormat.ENCODING_PCM_16BIT, evaluated.actualEncoding)
+        // 3. Direct playback is ACTIVE and bypassing mixer (not capped at 96 kHz)
+        assertTrue("Direct playback must be active at 176.4 kHz", evaluated.directPlaybackActual)
+        assertFalse("Direct playback must not be rejected", evaluated.directPlaybackRejected)
+        assertNull("System mixer must be bypassed", evaluated.systemMixerRateHz)
+    }
+
+    @Test
+    fun unknownSampleRateDoesNotRejectDirectPlaybackOnWiredRoute() {
+        // Between a route change and the first AudioTrack publish there is no
+        // measured rate yet. "Not measured" must not read as "unsupported".
+        val pending = AudioOutputStatus.Snapshot(
+            deviceName = "Hi-Res Wired DAC",
+            routeKind = AudioRouting.Kind.WIRED,
+            sampleRatesHz = intArrayOf(44100, 48000, 96000),
+            requestedTransportType = TransportType.AUDIO_TRACK_DIRECT,
+            directSupport = DirectAudioProbe.DirectSupport(
+                isDirectSupported = true,
+                isOffloadSupported = false,
+                supportsFloat = false,
+                supportsPcm24 = true,
+                supportsPcm16 = true,
+                description = "Direct PCM supported: 24-bit @ 96000 Hz",
+            ),
+            actualSampleRateHz = null,
+        )
+
+        val evaluated = AudioOutputStatus.evaluateActualPath(pending)
+
+        assertTrue("Direct playback must survive an unmeasured rate", evaluated.directPlaybackActual)
+        assertFalse("Direct playback must not be rejected", evaluated.directPlaybackRejected)
+    }
+
+    @Test
+    fun usbDeviceCapabilityFormattingIsHumanReadable() {
+        assertEquals(
+            "PCM 24-bit / 96 kHz",
+            com.music.bitchord.ui.components.formatUsbCapability("PCM24 / 96000 Hz"),
+        )
+        assertEquals(
+            "PCM 16-bit / 48 kHz",
+            com.music.bitchord.ui.components.formatUsbCapability("PCM16 / 48000 Hz"),
+        )
+        assertEquals(
+            "PCM 24-bit / 192 kHz",
+            com.music.bitchord.ui.components.formatUsbCapability("PCM24 / 192000 Hz"),
+        )
+        assertEquals(
+            "Float 32-bit / 176.4 kHz",
+            com.music.bitchord.ui.components.formatUsbCapability("Float32 / 176400 Hz"),
+        )
+        assertEquals(
+            "PCM 24-bit / 44.1 kHz",
+            com.music.bitchord.ui.components.formatUsbCapability("PCM24 / 44100 Hz"),
+        )
+    }
 }

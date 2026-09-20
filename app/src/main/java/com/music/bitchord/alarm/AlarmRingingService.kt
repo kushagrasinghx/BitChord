@@ -66,15 +66,12 @@ class AlarmRingingService : Service() {
             .build()
         player = ringingPlayer
         ringingPlayer.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) finishSession()
-            }
             override fun onPlayerError(error: PlaybackException) {
                 finishSession(failed = true)
             }
         })
         ringingPlayer.setMediaItem(MediaItem.fromUri(stream.url))
-        ringingPlayer.repeatMode = Player.REPEAT_MODE_OFF
+        ringingPlayer.repeatMode = Player.REPEAT_MODE_ONE
         ringingPlayer.prepare()
         ringingPlayer.play()
     }
@@ -112,6 +109,7 @@ class AlarmRingingService : Service() {
     private fun releasePlayer() {
         resolveJob?.cancel()
         resolveJob = null
+        player?.repeatMode = Player.REPEAT_MODE_OFF
         player?.stop()
         player?.release()
         player = null

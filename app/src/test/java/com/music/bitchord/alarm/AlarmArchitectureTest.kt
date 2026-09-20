@@ -18,11 +18,27 @@ class AlarmArchitectureTest {
         assertFalse(ordinary.contains("AlarmRingingService"))
     }
 
-    @Test fun `dedicated ringing service owns exactly one media item`() {
+    @Test fun `dedicated ringing service repeats exactly one media item until user response`() {
         val ringing = source("java/com/music/bitchord/alarm/AlarmRingingService.kt")
-        assertTrue(ringing.contains("setMediaItem("))
-        assertFalse(ringing.contains("setMediaItems("))
-        assertTrue(ringing.contains("Player.REPEAT_MODE_OFF"))
+        val start = ringing.substringAfter("private fun startResolvedStream").substringBefore("private fun pauseOrdinaryBitChordPlayback")
+        assertTrue(start.contains("setMediaItem("))
+        assertFalse(start.contains("setMediaItems("))
+        assertTrue(start.contains("Player.REPEAT_MODE_ONE"))
+        assertFalse(start.contains("Player.REPEAT_MODE_OFF"))
+        assertFalse(ringing.contains("Player.STATE_ENDED"))
+        assertTrue(ringing.contains("onPlayerError"))
+    }
+
+    @Test fun `explicit stop and snooze release the repeating alarm player`() {
+        val ringing = source("java/com/music/bitchord/alarm/AlarmRingingService.kt")
+        val receiver = source("java/com/music/bitchord/alarm/AlarmReceiver.kt")
+        assertTrue(ringing.contains("player?.repeatMode = Player.REPEAT_MODE_OFF"))
+        assertTrue(ringing.contains("player?.stop()"))
+        assertTrue(ringing.contains("player?.release()"))
+        assertTrue(ringing.contains("abandonAudioFocusRequest"))
+        assertTrue(receiver.contains("AlarmScheduler.stop(context, id, token)"))
+        assertTrue(receiver.contains("AlarmScheduler.snooze(context, id, token)"))
+        assertTrue(receiver.contains("AlarmRingingService.stop(context, end.previousAlarmVolume)"))
     }
 
     @Test fun `snooze notification is quiet persistent and never full screen`() {

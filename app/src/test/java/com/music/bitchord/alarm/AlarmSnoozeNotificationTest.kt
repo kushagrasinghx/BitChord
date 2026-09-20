@@ -100,6 +100,8 @@ class AlarmSnoozeNotificationTest {
         )
         assertNull(result.collection.alarms.single().snoozeEpochMillis)
         assertNull(result.collection.alarms.single().snoozeToken)
+        assertEquals("a", result.collection.activeSession?.alarmId)
+        assertEquals("a:snooze", result.collection.activeSession?.token)
     }
 
     @Test fun `notification tags and cancel actions are isolated by alarm and token`() {

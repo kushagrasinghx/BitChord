@@ -744,6 +744,13 @@ private fun BitChordApp(
     // remembering it, the automatic preference would see the restored video
     // as a fresh item and immediately convert it again.
     var keepVideoId by remember { mutableStateOf<String?>(null) }
+    // Track conversion from audio to video (inverse of above)
+    var convertedFromAudio by remember { mutableStateOf<Song?>(null) }
+    var convertedVideoId by remember { mutableStateOf<String?>(null) }
+    // Optimistically updated track for instant UI updates when switching versions
+    var optimisticVersionSong by remember { mutableStateOf<Song?>(null) }
+    // Track whether alternate (film/video vs release/audio) version exists for current track
+    var hasAlternateVersion by remember { mutableStateOf(false) }
 
     // Lyrics follow whatever is playing; duration lands a beat after the track.
     // Keyed on the lyric settings too, so turning a source on or off applies to
@@ -918,6 +925,59 @@ private fun BitChordApp(
                 index,
                 audio.copy(
                     isVideoOrigin = true,
+                    fromAutoplay = song.fromAutoplay,
+                    radioName = song.radioName,
+                    playbackSource = song.playbackSource,
+                    playbackSourceType = song.playbackSourceType,
+                    playbackSourceId = song.playbackSourceId,
+                ).toMediaItem(),
+            )
+            c.seekTo(index, position)
+            if (shouldPlay) c.play()
+        } finally {
+            switchingAudioVersion = false
+        }
+    }
+
+    /**
+     * Resolve and apply the video version without replacing the audio row
+     * up front. This is the inverse of switchToMusicOnly.
+     */
+    suspend fun switchToVideo(song: Song, pauseWhileResolving: Boolean) {
+        val c = controller ?: return
+        val index = c.currentMediaItemIndex
+        if (index !in 0 until c.mediaItemCount ||
+            c.currentMediaItem?.mediaId != song.videoId ||
+            switchingAudioVersion
+        ) return
+
+        val resumeAfterResolution = pauseWhileResolving && c.playWhenReady
+        switchingAudioVersion = true
+        if (pauseWhileResolving) c.pause()
+        try {
+            TrackLog.d("Player", "video switch requested for '${song.title}'", song.videoId)
+            val video = runCatching { YtMusicRepository.resolveVideo(song) }.getOrNull()
+            val stillCurrent = c.currentMediaItemIndex == index &&
+                c.currentMediaItem?.mediaId == song.videoId
+
+            if (video == null || video.videoId == song.videoId) {
+                TrackLog.w("Player", "video switch found no distinct video", song.videoId)
+                if (stillCurrent && resumeAfterResolution) c.play()
+                return
+            }
+            if (!stillCurrent) {
+                TrackLog.d("Player", "video switch discarded; listener changed track", song.videoId)
+                return
+            }
+
+            val position = c.currentPosition
+            val shouldPlay = if (pauseWhileResolving) resumeAfterResolution else c.playWhenReady
+            convertedFromAudio = song
+            convertedVideoId = video.videoId
+            TrackLog.d("Player", "video switch applying '${video.title}' (${video.videoId})", song.videoId)
+            c.replaceMediaItem(
+                index,
+                video.copy(
                     fromAutoplay = song.fromAutoplay,
                     radioName = song.radioName,
                     playbackSource = song.playbackSource,

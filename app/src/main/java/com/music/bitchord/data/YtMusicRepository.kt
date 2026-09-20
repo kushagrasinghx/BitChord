@@ -41,6 +41,8 @@ object YtMusicRepository {
     // answer makes the eventual player switch use the exact rendition whose
     // bytes were warmed, without repeating a 10–30 second catalogue search.
     private val audioVersionCache = ConcurrentHashMap<String, Song>()
+    // Cache for video versions when switching from audio to video
+    private val videoVersionCache = ConcurrentHashMap<String, Song>()
 
     /**
      * The core personalised feed. It stays deliberately independent from the
@@ -383,6 +385,31 @@ object YtMusicRepository {
         Log.w(TAG, "audio switch: no official song match for '${song.title}' by '${song.artist}'")
         audioVersionCache[song.videoId] = song
         return song
+    }
+
+    /**
+     * The inverse of [resolveAudio]: finds the video/music-video version of an
+     * audio-only track, used when switching back from audio to video.
+     */
+    suspend fun resolveVideo(song: Song): Song? {
+        if (song.isVideo) return null
+        videoVersionCache[song.videoId]?.let { return it }
+        val target = TrackMatcher.targetOf(song)
+        for (query in TrackMatcher.queries(target)) {
+            val candidates = search(query, SearchFilter.VIDEOS)
+                .getOrNull()
+                ?.filterIsInstance<SearchResult.Track>()
+                ?.map { it.song }
+                .orEmpty()
+            TrackMatcher.best(candidates, target)?.let { match ->
+                Log.d(TAG, "video switch: '${song.title}' -> '${match.title}' ($query)")
+                videoVersionCache[song.videoId] = match
+                return match
+            }
+        }
+        Log.w(TAG, "video switch: no video match for '${song.title}' by '${song.artist}'")
+        videoVersionCache[song.videoId] = song
+        return null
     }
 
     /** Signed-in profile for the settings header. Null when signed out. */

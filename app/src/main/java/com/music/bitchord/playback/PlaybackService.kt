@@ -146,6 +146,7 @@ const val ACTION_TOGGLE_SHUFFLE = "com.music.bitchord.action.TOGGLE_SHUFFLE"
 /** Session actions exposed to Android Auto for the track that is playing. */
 const val ACTION_START_STATION = "com.music.bitchord.action.START_STATION"
 const val ACTION_REVERT_TO_ORIGINAL = "com.music.bitchord.action.REVERT_TO_ORIGINAL"
+const val ACTION_SWAP_TO_VERSION = "com.music.bitchord.action.SWAP_TO_VERSION"
 
 /** Session commands bracketing an explicit radio queue replacement. */
 const val ACTION_BEGIN_RADIO_QUEUE = "com.music.bitchord.action.BEGIN_RADIO_QUEUE"
@@ -572,6 +573,7 @@ class PlaybackService : MediaLibraryService() {
     private val shuffleCommand = SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY)
     private val startStationCommand = SessionCommand(ACTION_START_STATION, Bundle.EMPTY)
     private val revertToOriginalCommand = SessionCommand(ACTION_REVERT_TO_ORIGINAL, Bundle.EMPTY)
+    private val swapToVersionCommand = SessionCommand(ACTION_SWAP_TO_VERSION, Bundle.EMPTY)
     private val beginRadioQueueCommand = SessionCommand(ACTION_BEGIN_RADIO_QUEUE, Bundle.EMPTY)
     private val commitRadioQueueCommand = SessionCommand(ACTION_COMMIT_RADIO_QUEUE, Bundle.EMPTY)
     private val upgradeQualityCommand = SessionCommand(ACTION_UPGRADE_QUALITY, Bundle.EMPTY)
@@ -1625,6 +1627,39 @@ class PlaybackService : MediaLibraryService() {
         val wasPlaying = activePlayer.isPlaying
         swappingMediaId = song.videoId
         activePlayer.replaceMediaItem(index, song.toDirectYouTubeMediaItem())
+        activePlayer.seekTo(index, position)
+        if (wasPlaying) activePlayer.play()
+        refreshCustomLayouts()
+    }
+
+    /**
+     * Swaps the current track to an alternate version (video/audio).
+     * This is called from the UI when the user wants to switch between
+     * video and audio versions of a track.
+     */
+    private fun swapCurrentToVersion(args: Bundle) {
+        val activePlayer = player ?: return
+        val index = activePlayer.currentMediaItemIndex
+        if (index !in 0 until activePlayer.mediaItemCount) return
+        val song = activePlayer.currentMediaItem?.toSong() ?: return
+
+        val targetVideoId = args.getString("targetVideoId")
+        val targetIsVideo = args.getBoolean("targetIsVideo", false)
+
+        if (targetVideoId == null || targetVideoId == song.videoId) return
+
+        val position = activePlayer.currentPosition
+        val wasPlaying = activePlayer.isPlaying
+        swappingMediaId = song.videoId
+
+        // Create the target song with the appropriate flags
+        val targetSong = song.copy(
+            videoId = targetVideoId,
+            isVideo = targetIsVideo,
+            isVideoOrigin = if (targetIsVideo) false else song.isVideoOrigin,
+        )
+
+        activePlayer.replaceMediaItem(index, targetSong.toMediaItem())
         activePlayer.seekTo(index, position)
         if (wasPlaying) activePlayer.play()
         refreshCustomLayouts()
@@ -5497,6 +5532,7 @@ class PlaybackService : MediaLibraryService() {
                 .add(shuffleCommand)
                 .add(startStationCommand)
                 .add(revertToOriginalCommand)
+                .add(swapToVersionCommand)
                 .add(beginRadioQueueCommand)
                 .add(commitRadioQueueCommand)
                 .add(upgradeQualityCommand)
@@ -5519,6 +5555,7 @@ class PlaybackService : MediaLibraryService() {
                 ACTION_TOGGLE_SHUFFLE -> toggleShuffleFromSession()
                 ACTION_START_STATION -> startStationFromSession()
                 ACTION_REVERT_TO_ORIGINAL -> revertCurrentToOriginal()
+                ACTION_SWAP_TO_VERSION -> swapCurrentToVersion(args)
                 ACTION_BEGIN_RADIO_QUEUE -> beginRadioQueue()
                 ACTION_COMMIT_RADIO_QUEUE -> player?.let(::saveQueueSnapshotImmediately)
                 ACTION_UPGRADE_QUALITY -> upgradeQualityNow()

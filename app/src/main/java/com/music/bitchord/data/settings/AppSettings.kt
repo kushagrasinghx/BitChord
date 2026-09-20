@@ -405,6 +405,12 @@ object AppSettings {
      */
     val preferMusicOnly = MutableStateFlow(false)
 
+    /**
+     * Smoothly crossfade audio when switching between video and release versions.
+     * Off by default: the gapless switch is instant and already sounds natural.
+     */
+    val smoothVersionTransition = MutableStateFlow(false)
+
     /** Drops haze blur (status bar, mini player, bottom fade, lyrics focus) for a solid-fill look. */
     val reduceDynamicBlur = MutableStateFlow(false)
 
@@ -770,6 +776,7 @@ object AppSettings {
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
+        smoothVersionTransition.value = prefs.getBoolean(KEY_SMOOTH_VERSION_TRANSITION, false)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
@@ -1118,6 +1125,11 @@ object AppSettings {
     fun setPreferMusicOnly(value: Boolean) {
         preferMusicOnly.value = value
         prefs.edit().putBoolean(KEY_PREFER_MUSIC_ONLY, value).apply()
+    }
+
+    fun setSmoothVersionTransition(value: Boolean) {
+        smoothVersionTransition.value = value
+        prefs.edit().putBoolean(KEY_SMOOTH_VERSION_TRANSITION, value).apply()
     }
 
     fun setReduceDynamicBlur(value: Boolean) {
@@ -1716,6 +1728,7 @@ object AppSettings {
     private const val KEY_SWIPE_TO_PLAY_NEXT = "swipe_to_play_next"
     private const val KEY_DONT_REPEAT_SUGGESTIONS = "dont_repeat_suggestions"
     private const val KEY_PREFER_MUSIC_ONLY = "prefer_music_only"
+    private const val KEY_SMOOTH_VERSION_TRANSITION = "smooth_version_transition"
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
     private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"

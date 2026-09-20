@@ -164,6 +164,34 @@ suspend fun MediaController.commitRadioQueue() {
     ).await()
 }
 
+/**
+ * Swaps the current track to an alternate version (video/audio).
+ * This is called from the UI when the user wants to switch between
+ * video and audio versions of a track.
+ */
+fun MediaController.swapToVersion(targetSong: Song) {
+    val args = bundleOf(
+        "targetVideoId" to targetSong.videoId,
+        "targetIsVideo" to targetSong.isVideo,
+    )
+    sendCustomCommand(
+        SessionCommand("com.music.bitchord.action.SWAP_TO_VERSION", Bundle.EMPTY),
+        args,
+    )
+}
+
+/**
+ * Reverts the current track to its original version.
+ * This is called from the UI when the user wants to switch back
+ * to the original version after a quality upgrade or version swap.
+ */
+fun MediaController.revertToOriginal() {
+    sendCustomCommand(
+        SessionCommand("com.music.bitchord.action.REVERT_TO_ORIGINAL", Bundle.EMPTY),
+        Bundle.EMPTY,
+    )
+}
+
 /** Mirrors the controller into Compose state, polling position while playing. */
 @Composable
 fun rememberPlayerState(controller: MediaController?): PlayerState {

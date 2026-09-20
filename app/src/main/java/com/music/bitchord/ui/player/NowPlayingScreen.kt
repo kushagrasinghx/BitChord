@@ -27,6 +27,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -6182,6 +6184,10 @@ private fun OutputPartyPill(
     onParty: () -> Unit,
     /** Who's in it, before the settings page — see [ListenTogetherMembersSheet]. */
     onOpenMembers: () -> Unit,
+    onChangeTrack: (() -> Unit)? = null,
+    isAudioVersion: Boolean = false,
+    audioVersionSwitching: Boolean = false,
+    showChangeTrack: Boolean = false,
 ) {
     val badge = rememberPartyBadge()
     Pill {
@@ -6191,6 +6197,41 @@ private fun OutputPartyPill(
             contentDescription = stringResource(R.string.audio_output),
             onClick = onOutput,
         )
+        AnimatedVisibility(
+            visible = showChangeTrack && onChangeTrack != null,
+            enter = fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing)) +
+                expandHorizontally(
+                    animationSpec = spring(
+                        dampingRatio = 0.82f,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                    expandFrom = Alignment.CenterHorizontally,
+                    clip = true,
+                ),
+            exit = fadeOut(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                shrinkHorizontally(
+                    animationSpec = spring(
+                        dampingRatio = 0.82f,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                    shrinkTowards = Alignment.CenterHorizontally,
+                    clip = true,
+                ),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                PillDivider()
+                PillSegment(
+                    icon = if (isAudioVersion) BitChordIcons.MusicNote else Icons.Rounded.Videocam,
+                    iconSize = 21.dp,
+                    contentDescription = stringResource(
+                        if (isAudioVersion) R.string.revert_to_original else R.string.convert_to_audio
+                    ),
+                    onClick = onChangeTrack ?: {},
+                    highlighted = isAudioVersion,
+                    loading = false,
+                )
+            }
+        }
         PillDivider()
         PillSegment(
             // Person rather than Groups: the three-person glyph is drawn half
@@ -6234,6 +6275,7 @@ private fun PillSegment(
     trailingLabel: String? = null,
     highlighted: Boolean = false,
     haptic: Haptic = Haptic.Tap,
+    loading: Boolean = false,
     /** See [BottomGlyph], where the same window means the same thing. */
     tapWindowMs: Long = 0L,
 ) {
@@ -6247,6 +6289,7 @@ private fun PillSegment(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                enabled = !loading,
             ) {
                 val now = SystemClock.uptimeMillis()
                 if (now - lastTap.longValue >= tapWindowMs) {
@@ -6259,31 +6302,49 @@ private fun PillSegment(
         contentAlignment = Alignment.Center,
     ) {
         val tint = Color.White.copy(alpha = if (highlighted) 1f else 0.75f)
-        if (icon != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = tint,
-                    modifier = Modifier.size(iconSize),
+        Crossfade(
+            targetState = loading,
+            animationSpec = tween(durationMillis = 200),
+            label = "pillSegmentLoading",
+        ) { isLoading ->
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(17.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp,
                 )
-                if (trailingLabel != null) {
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = trailingLabel,
-                        color = tint,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+            } else if (icon != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Crossfade(
+                        targetState = icon,
+                        animationSpec = tween(durationMillis = 200),
+                        label = "pillSegmentIcon",
+                    ) { currentIcon ->
+                        Icon(
+                            imageVector = currentIcon,
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.size(iconSize),
+                        )
+                    }
+                    if (trailingLabel != null) {
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = trailingLabel,
+                            color = tint,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
                 }
+            } else if (label != null) {
+                Text(
+                    text = label,
+                    color = tint,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
-        } else if (label != null) {
-            Text(
-                text = label,
-                color = tint,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-            )
         }
     }
 }

@@ -3,7 +3,6 @@ package com.music.bitchord.playback
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
-import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.TrackMatcher
@@ -11,9 +10,6 @@ import kotlinx.coroutines.CancellationException
 
 /** Most AutoPlay-suggested tracks kept queued ahead of the current one at once. */
 const val MAX_QUEUED_AUTOPLAY = 10
-
-/** Some externally initiated queues have an explicit finite playback contract. */
-fun PlaybackSourceType?.allowsAutoplay(): Boolean = this != PlaybackSourceType.ALARM
 
 /**
  * Whether AutoPlay should forget its last seed and try the current track again.

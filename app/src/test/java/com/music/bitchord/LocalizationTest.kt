@@ -12,6 +12,25 @@ import javax.xml.parsers.DocumentBuilderFactory
 class LocalizationTest {
 
     @Test
+    fun alarmStrings_arePresentInEverySupportedLocale() {
+        val projectRoot = File(".").canonicalFile
+        val resDir = if (File(projectRoot, "app/src/main/res").exists()) File(projectRoot, "app/src/main/res") else File(projectRoot, "src/main/res")
+        val alarmKeys = Regex("name=\"(alarm_[^\"]+)\"").findAll(File(resDir, "values/strings.xml").readText())
+            .map { it.groupValues[1] }.toSet()
+            .filter { key ->
+                File(resDir.parentFile, "main/java").walkTopDown().filter { it.extension == "kt" }
+                    .any { it.readText().contains("R.string.$key") }
+            }.toSet()
+        SUPPORTED_LANGUAGES.filterNot { it.tag == "en" }.forEach { language ->
+            val directory = File(resDir, "values-${language.tag}")
+            val translated = directory.listFiles { file -> file.extension == "xml" }.orEmpty()
+                .flatMap { Regex("name=\"(alarm_[^\"]+)\"").findAll(it.readText()).map { match -> match.groupValues[1] }.toList() }
+                .toSet()
+            assertTrue("values-${language.tag} missing alarm keys: ${alarmKeys - translated}", translated.containsAll(alarmKeys))
+        }
+    }
+
+    @Test
     fun supportedLanguages_containsVietnamese() {
         val viLanguage = SUPPORTED_LANGUAGES.firstOrNull { it.tag == "vi" }
         assertNotNull("Vietnamese language must be in SUPPORTED_LANGUAGES", viLanguage)

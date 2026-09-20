@@ -1,66 +1,71 @@
 package com.music.bitchord.alarm
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.music.bitchord.MainActivity
 import com.music.bitchord.R
 
-/** Small, silent companion notification whose only extra action is Stop. */
 object AlarmNotification {
+    const val ID = 2201
+    private const val CHANNEL = "music_alarm_ringing_v2"
 
-    fun showActive(context: Context, request: AlarmScheduler.TriggerRequest) {
-        createChannel(context)
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+    fun active(context: Context, alarm: AlarmConfig, token: String): Notification {
+        ensureChannel(context)
+        val fullScreen = AlarmRingingActivity.intent(context, alarm.id, token)
+        return NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification_logo)
-            .setContentTitle(context.getString(R.string.alarm_notification_title))
-            .setContentText(context.getString(R.string.alarm_notification_text, request.song.title))
-            .setContentIntent(contentIntent(context))
+            .setContentTitle(alarm.label.ifBlank { context.getString(R.string.alarm_notification_title) })
+            .setContentText(
+                context.getString(R.string.alarm_notification_text, requireNotNull(alarm.song).title),
+            )
             .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
             .setOngoing(true)
-            .setTimeoutAfter(AlarmStateMachine.ACTIVE_WINDOW_MILLIS)
+            .setContentIntent(fullScreen)
+            .setFullScreenIntent(fullScreen, true)
+            .addAction(
+                0,
+                context.getString(R.string.alarm_snooze),
+                AlarmReceiver.snoozePendingIntent(context, alarm.id, token),
+            )
             .addAction(
                 0,
                 context.getString(R.string.alarm_stop),
-                AlarmReceiver.stopPendingIntent(context, request.token),
+                AlarmReceiver.stopPendingIntent(context, alarm.id, token),
             )
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
     }
+
+    fun canUseFullScreen(context: Context) =
+        Build.VERSION.SDK_INT < 34 ||
+            context.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
 
     fun showFailure(context: Context) {
-        createChannel(context)
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification_logo)
-            .setContentTitle(context.getString(R.string.alarm_failed_title))
-            .setContentText(context.getString(R.string.alarm_failed_text))
-            .setContentIntent(contentIntent(context))
-            .setCategory(NotificationCompat.CATEGORY_ERROR)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(true)
-            .setSilent(true)
-            .build()
-        runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
+        ensureChannel(context)
+        NotificationManagerCompat.from(context).notify(
+            ID,
+            NotificationCompat.Builder(context, CHANNEL)
+                .setSmallIcon(R.drawable.ic_notification_logo)
+                .setContentTitle(context.getString(R.string.alarm_failed_title))
+                .setContentText(context.getString(R.string.alarm_failed_text))
+                .setAutoCancel(true)
+                .build(),
+        )
     }
 
-    fun cancel(context: Context) {
-        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
-    }
+    fun cancel(context: Context) = NotificationManagerCompat.from(context).cancel(ID)
 
-    private fun createChannel(context: Context) {
-        val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(
+    private fun ensureChannel(context: Context) {
+        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
-                CHANNEL_ID,
+                CHANNEL,
                 context.getString(R.string.alarm_channel_name),
-                NotificationManager.IMPORTANCE_DEFAULT,
+                NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = context.getString(R.string.alarm_channel_description)
                 setSound(null, null)
@@ -68,16 +73,4 @@ object AlarmNotification {
             },
         )
     }
-
-    private fun contentIntent(context: Context): PendingIntent = PendingIntent.getActivity(
-        context,
-        REQUEST_CONTENT,
-        Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
-
-    private const val CHANNEL_ID = "music_alarm"
-    private const val NOTIFICATION_ID = 2201
-    private const val REQUEST_CONTENT = 4103
 }

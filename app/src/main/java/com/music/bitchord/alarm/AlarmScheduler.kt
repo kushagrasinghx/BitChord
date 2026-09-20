@@ -1,199 +1,189 @@
 package com.music.bitchord.alarm
 
 import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.os.Build
-import android.util.Log
-import com.music.bitchord.MainActivity
 import java.time.Clock
 import java.time.ZoneId
+import java.util.UUID
 
-/** Thin Android AlarmManager adapter around the pure alarm state transitions. */
 object AlarmScheduler {
-
-    data class TriggerRequest(
-        val song: AlarmSong,
-        val token: String,
-    )
+    data class TriggerRequest(val alarm: AlarmConfig, val token: String, val replaced: AlarmSession?)
+    data class EndRequest(val previousAlarmVolume: Int?)
+    data class SnoozeRequest(val previousAlarmVolume: Int?, val epochMillis: Long)
 
     @Synchronized
-    fun updateConfiguration(
-        context: Context,
-        edit: (AlarmConfig) -> AlarmConfig,
-    ): AlarmConfig {
+    fun create(context: Context): AlarmConfig {
         val app = context.applicationContext
-        cancelPlatformAlarm(app)
-        val edited = AlarmStateMachine.edit(AlarmStore.current(app), edit(AlarmStore.current(app)))
-        AlarmStore.save(app, edited)
-        return if (edited.isReadyToSchedule()) {
-            schedulePersisted(app, edited)
-        } else {
-            edited
+        val state = AlarmStore.current(app)
+        val now = Clock.systemUTC().millis()
+        val entry = AlarmStateMachine.newAlarm(
+            UUID.randomUUID().toString(),
+            (state.alarms.maxOfOrNull { it.creationOrder } ?: now) + 1,
+        )
+        AlarmStore.save(app, state.copy(alarms = state.alarms + entry))
+        return entry
+    }
+
+    @Synchronized
+    fun update(context: Context, id: String, edit: (AlarmConfig) -> AlarmConfig): AlarmConfig? {
+        val app = context.applicationContext
+        val state = AlarmStore.current(app)
+        val old = state.alarms.firstOrNull { it.id == id } ?: return null
+        cancel(app, id, snooze = false)
+        cancel(app, id, snooze = true)
+        val changed = AlarmStateMachine.edit(old, edit(old))
+        var next = state.copy(alarms = state.alarms.map { if (it.id == id) changed else it })
+        AlarmStore.save(app, next)
+        if (!changed.isReadyToSchedule()) return changed
+
+        val scheduled = schedule(app, changed)
+        next = next.copy(alarms = next.alarms.map { if (it.id == id) scheduled else it })
+        AlarmStore.save(app, next)
+        return scheduled
+    }
+
+    fun setEnabled(context: Context, id: String, enabled: Boolean) =
+        update(context, id) { it.copy(enabled = enabled) }
+
+    /** Restores a temporary alarm-stream override left behind by abrupt process death. */
+    @Synchronized
+    fun recoverInterruptedSession(context: Context) {
+        val app = context.applicationContext
+        val state = AlarmStore.current(app)
+        val interrupted = state.activeSession ?: return
+        AlarmVolumeController.restore(app, interrupted.previousAlarmVolume)
+        AlarmNotification.cancel(app)
+        AlarmStore.save(app, state.copy(activeSession = null))
+    }
+
+    @Synchronized
+    fun delete(context: Context, id: String) {
+        val app = context.applicationContext
+        cancel(app, id, snooze = false)
+        cancel(app, id, snooze = true)
+        val state = AlarmStore.current(app)
+        val active = state.activeSession?.takeIf { it.alarmId == id }
+        AlarmStore.save(app, AlarmStateMachine.remove(state, id))
+        active?.let {
+            AlarmRingingService.stop(app, it.previousAlarmVolume)
         }
     }
 
     @Synchronized
-    fun reschedule(context: Context): AlarmConfig {
+    fun rescheduleAll(context: Context, clearActiveSession: Boolean = false) {
         val app = context.applicationContext
-        cancelPlatformAlarm(app)
-        val invalidated = AlarmStateMachine.invalidateSchedule(AlarmStore.current(app))
-        AlarmStore.save(app, invalidated)
-        return if (invalidated.isReadyToSchedule()) {
-            schedulePersisted(app, invalidated)
-        } else {
-            invalidated
+        var state = AlarmStore.current(app)
+        if (clearActiveSession) {
+            AlarmVolumeController.restore(app, state.activeSession?.previousAlarmVolume)
+            state = state.copy(activeSession = null)
         }
-    }
-
-    /** Reconciles permission changes or a missed/past persisted occurrence on app resume. */
-    @Synchronized
-    fun reconcile(context: Context): AlarmConfig {
-        val app = context.applicationContext
-        val current = AlarmStore.current(app)
-        if (!current.isReadyToSchedule()) return current
-        val desiredMode = mode(app)
-        val occurrenceMissingOrPast =
-            current.scheduledEpochMillis == null || current.scheduledEpochMillis <= Clock.systemUTC().millis()
-        return if (occurrenceMissingOrPast || current.scheduleMode != desiredMode) {
-            reschedule(app)
-        } else {
-            current
+        state.alarms.forEach {
+            cancel(app, it.id, snooze = false)
+            cancel(app, it.id, snooze = true)
         }
+        val rescheduled = state.alarms.map { entry ->
+            var updated = AlarmStateMachine.invalidate(entry)
+            if (updated.isReadyToSchedule()) updated = schedule(app, updated)
+            updated.snoozeEpochMillis?.let { epoch ->
+                updated.snoozeToken?.let { token -> set(app, updated.id, token, epoch, snooze = true) }
+            }
+            updated
+        }
+        AlarmStore.save(app, state.copy(alarms = rescheduled))
     }
 
     @Synchronized
     fun consumeTrigger(
         context: Context,
+        id: String,
         token: String,
-        epochMillis: Long,
+        epoch: Long,
+        snooze: Boolean,
     ): TriggerRequest? {
         val app = context.applicationContext
-        val transition = AlarmStateMachine.consumeTrigger(
-            config = AlarmStore.current(app),
-            token = token,
-            epochMillis = epochMillis,
-            nowEpochMillis = Clock.systemUTC().millis(),
+        val transition = AlarmStateMachine.trigger(
+            AlarmStore.current(app),
+            id,
+            token,
+            epoch,
+            Clock.systemUTC().millis(),
+            snooze,
         ) ?: return null
-
-        AlarmStore.save(app, transition.config)
-        if (transition.recurring) {
-            val next = AlarmStateMachine.invalidateSchedule(transition.config)
-            AlarmStore.save(app, next)
-            schedulePersisted(app, next)
+        var state = transition.collection
+        if (!snooze && transition.alarm.repeatDays.isNotEmpty()) {
+            val entry = schedule(app, AlarmStateMachine.invalidate(transition.alarm))
+            state = state.copy(alarms = state.alarms.map { if (it.id == id) entry else it })
         }
-        return TriggerRequest(transition.song, transition.token)
+        AlarmStore.save(app, state)
+        return TriggerRequest(transition.alarm, transition.token, transition.replaced)
     }
 
     @Synchronized
-    fun consumeStop(context: Context, token: String): Boolean {
+    fun captureVolume(context: Context, id: String, token: String, volume: Int) {
         val app = context.applicationContext
-        val current = AlarmStore.current(app)
-        if (!AlarmStateMachine.canStop(current, token, Clock.systemUTC().millis())) return false
-        AlarmStore.save(app, AlarmStateMachine.stopped(current, token))
-        return true
-    }
-
-    @Synchronized
-    fun recordPlaybackFailure(context: Context, token: String) {
-        val app = context.applicationContext
-        val current = AlarmStore.current(app)
         AlarmStore.save(
             app,
-            AlarmStateMachine.playbackFailed(current, token, Clock.systemUTC().millis()),
+            AlarmStateMachine.captureVolume(AlarmStore.current(app), id, token, volume),
         )
     }
 
-    fun canScheduleExact(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
-        return alarmManager(context).canScheduleExactAlarms()
+    @Synchronized
+    fun stop(context: Context, id: String, token: String): EndRequest? {
+        val app = context.applicationContext
+        val transition = AlarmStateMachine.end(AlarmStore.current(app), id, token) ?: return null
+        AlarmStore.save(app, transition.collection)
+        return EndRequest(transition.previousAlarmVolume)
     }
 
-    fun mode(context: Context): AlarmScheduleMode =
-        chooseAlarmScheduleMode(canScheduleExact(context))
-
-    private fun schedulePersisted(context: Context, config: AlarmConfig): AlarmConfig {
-        val next = AlarmScheduleCalculator.nextOccurrence(
-            config = config,
-            now = Clock.systemUTC().instant(),
-            zoneId = ZoneId.systemDefault(),
-        ) ?: return AlarmStateMachine.schedulingFailed(config, Clock.systemUTC().millis()).also {
-            AlarmStore.save(context, it)
-        }
-
-        val requestedMode = mode(context)
-        var scheduled = AlarmStateMachine.scheduled(config, next.toEpochMilli(), requestedMode)
-        AlarmStore.save(context, scheduled)
-
-        return try {
-            setPlatformAlarm(context, scheduled, requestedMode)
-            scheduled
-        } catch (denied: SecurityException) {
-            if (requestedMode == AlarmScheduleMode.EXACT) {
-                scheduled = scheduled.copy(scheduleMode = AlarmScheduleMode.INEXACT)
-                AlarmStore.save(context, scheduled)
-                runCatching { setPlatformAlarm(context, scheduled, AlarmScheduleMode.INEXACT) }
-                    .fold(
-                        onSuccess = { scheduled },
-                        onFailure = { schedulingFailure(context, scheduled, it) },
-                    )
-            } else {
-                schedulingFailure(context, scheduled, denied)
-            }
-        } catch (failure: RuntimeException) {
-            schedulingFailure(context, scheduled, failure)
-        }
+    @Synchronized
+    fun snooze(context: Context, id: String, token: String): SnoozeRequest? {
+        val app = context.applicationContext
+        val transition = AlarmStateMachine.snooze(
+            AlarmStore.current(app),
+            id,
+            token,
+            Clock.systemUTC().millis(),
+        ) ?: return null
+        AlarmStore.save(app, transition.collection)
+        set(app, id, transition.token, transition.epochMillis, snooze = true)
+        return SnoozeRequest(transition.previousAlarmVolume, transition.epochMillis)
     }
 
-    private fun setPlatformAlarm(
-        context: Context,
-        config: AlarmConfig,
-        mode: AlarmScheduleMode,
-    ) {
-        val epochMillis = requireNotNull(config.scheduledEpochMillis)
-        val token = requireNotNull(config.scheduledToken)
-        val trigger = AlarmReceiver.triggerPendingIntent(context, token, epochMillis)
-        val manager = alarmManager(context)
-        if (mode == AlarmScheduleMode.EXACT) {
-            manager.setAlarmClock(
-                AlarmManager.AlarmClockInfo(epochMillis, alarmScreenPendingIntent(context)),
-                trigger,
-            )
+    fun canScheduleExact(context: Context) =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager(context).canScheduleExactAlarms()
+
+    fun mode(context: Context) =
+        if (canScheduleExact(context)) AlarmScheduleMode.EXACT else AlarmScheduleMode.INEXACT
+
+    private fun schedule(context: Context, entry: AlarmConfig): AlarmConfig {
+        val epoch = AlarmScheduleCalculator.nextOccurrence(
+            entry,
+            Clock.systemUTC().instant(),
+            ZoneId.systemDefault(),
+        )?.toEpochMilli() ?: return entry.copy(lastFailure = AlarmFailure.SCHEDULING_UNAVAILABLE)
+        var scheduled = AlarmStateMachine.scheduled(entry, epoch, mode(context))
+        runCatching {
+            set(context, scheduled.id, requireNotNull(scheduled.scheduledToken), epoch, snooze = false)
+        }.onFailure {
+            scheduled = scheduled.copy(lastFailure = AlarmFailure.SCHEDULING_UNAVAILABLE)
+        }
+        return scheduled
+    }
+
+    private fun set(context: Context, id: String, token: String, epoch: Long, snooze: Boolean) {
+        val pendingIntent = AlarmReceiver.triggerPendingIntent(context, id, token, epoch, snooze)
+        if (canScheduleExact(context)) {
+            manager(context).setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, epoch, pendingIntent)
         } else {
-            manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, epochMillis, trigger)
+            manager(context).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, epoch, pendingIntent)
         }
     }
 
-    private fun schedulingFailure(
-        context: Context,
-        config: AlarmConfig,
-        failure: Throwable,
-    ): AlarmConfig {
-        Log.w(TAG, "Unable to schedule music alarm", failure)
-        val failed = AlarmStateMachine.schedulingFailed(config, Clock.systemUTC().millis())
-        AlarmStore.save(context, failed)
-        return failed
-    }
+    private fun cancel(context: Context, id: String, snooze: Boolean) =
+        manager(context).cancel(AlarmReceiver.triggerPendingIntent(context, id, "", 0, snooze))
 
-    private fun cancelPlatformAlarm(context: Context) {
-        alarmManager(context).cancel(AlarmReceiver.triggerPendingIntent(context, "", 0L))
-    }
-
-    private fun alarmManager(context: Context): AlarmManager =
-        context.getSystemService(AlarmManager::class.java)
-
-    private fun alarmScreenPendingIntent(context: Context): PendingIntent = PendingIntent.getActivity(
-        context,
-        REQUEST_SHOW_ALARM,
-        Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
-
-    private const val REQUEST_SHOW_ALARM = 4102
-    private const val TAG = "BitChordAlarm"
+    private fun manager(context: Context) = context.getSystemService(AlarmManager::class.java)
 }
 
-internal fun chooseAlarmScheduleMode(canScheduleExact: Boolean): AlarmScheduleMode =
-    if (canScheduleExact) AlarmScheduleMode.EXACT else AlarmScheduleMode.INEXACT
+internal fun alarmPendingIdentity(alarmId: String, kind: String) = "bitchord://alarm/$alarmId/$kind"

@@ -1,51 +1,9 @@
 package com.music.bitchord.alarm
-
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.*
 import org.junit.Test
-
-class AlarmConfigCodecTest {
-
-    @Test
-    fun `important state round trips`() {
-        val config = AlarmConfig(
-            enabled = true,
-            hour = 6,
-            minute = 45,
-            repeatDays = setOf(1, 3, 5),
-            song = AlarmSong(
-                videoId = "video123",
-                title = "Wake up",
-                artist = "BitChord Artist",
-                artworkUrl = "https://example.invalid/art",
-                durationText = "3:42",
-            ),
-            generation = 8L,
-            scheduledEpochMillis = 123_456L,
-            scheduledToken = "8:abc",
-            scheduleMode = AlarmScheduleMode.INEXACT,
-        )
-        assertEquals(config, AlarmConfigCodec.decode(AlarmConfigCodec.encode(config)))
-    }
-
-    @Test
-    fun `malformed json fails closed`() {
-        val decoded = AlarmConfigCodec.decode("{not-json")
-        assertFalse(decoded.enabled)
-        assertEquals(AlarmConfig(), decoded)
-    }
-
-    @Test
-    fun `unsupported schema fails closed`() {
-        val decoded = AlarmConfigCodec.decode("""{"schemaVersion":99,"enabled":true}""")
-        assertFalse(decoded.enabled)
-    }
-
-    @Test
-    fun `old playlist schema resets safely`() {
-        val decoded = AlarmConfigCodec.decode(
-            """{"schemaVersion":1,"enabled":true,"playlistId":"PL123","playlistTitle":"Old"}""",
-        )
-        assertEquals(AlarmConfig(), decoded)
-    }
+class AlarmConfigCodecTest{
+ private val song=AlarmSong("v","Song","Artist")
+ @Test fun `two alarms retain independent settings through persistence`() {val a=AlarmConfig("a",1,label="Morning",enabled=true,song=song,targetVolumePercent=70,snoozeMinutes=5);val b=AlarmConfig("b",2,label="Evening",song=song.copy(videoId="w"),targetVolumePercent=90,volumeButtonAction=AlarmVolumeButtonAction.STOP);val decoded=AlarmConfigCodec.decode(AlarmConfigCodec.encode(AlarmCollection(alarms=listOf(a,b))));assertEquals(listOf("a","b"),decoded.alarms.map{it.id});assertEquals(70,decoded.alarms[0].targetVolumePercent);assertEquals(AlarmVolumeButtonAction.STOP,decoded.alarms[1].volumeButtonAction);assertNotEquals(decoded.alarms[0].song,decoded.alarms[1].song)}
+ @Test fun `old single alarm schema resets cleanly`() {assertTrue(AlarmConfigCodec.decode("{\"schemaVersion\":2,\"enabled\":true}").alarms.isEmpty())}
+ @Test fun `corrupt data fails closed`() {assertEquals(AlarmCollection(),AlarmConfigCodec.decode("not-json"))}
 }

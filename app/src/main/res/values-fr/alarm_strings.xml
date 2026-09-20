@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<string name="alarm_clock">Réveil</string><string name="alarm_clock_subtitle">Réveillez-vous avec un morceau de BitChord</string>
+<string name="alarm_alarms">Alarmes</string><string name="alarm_add">Ajouter une alarme</string><string name="alarm_empty">Aucune alarme. Touchez + pour en créer une.</string>
+<string name="alarm_edit">Modifier l’alarme</string><string name="alarm_delete">Supprimer l’alarme</string><string name="alarm_delete_confirmation">Supprimer cette alarme ? Sa programmation et son report seront annulés.</string><string name="alarm_label">Nom de l’alarme</string>
+<string name="alarm_enabled">Alarme activée</string><string name="alarm_time">Heure</string><string name="alarm_repeat">Répéter</string><string name="alarm_one_time">Une fois</string><string name="alarm_next">Prochaine : %1$s</string>
+<string name="alarm_song">Morceau de l’alarme</string><string name="alarm_choose_song">Choisir un morceau</string><string name="alarm_search_song">Rechercher des morceaux</string>
+<string name="alarm_volume_percent">Volume de l’alarme · %1$d%%</string><string name="alarm_snooze">Reporter</string><string name="alarm_snooze_duration">Reporter · %1$d min</string>
+<string name="alarm_volume_buttons">Boutons de volume pendant l’alarme</string><string name="alarm_volume_buttons_snooze">Reporter</string><string name="alarm_volume_buttons_stop">Arrêter l’alarme</string><string name="alarm_volume_buttons_adjust">Régler le volume de l’alarme</string>
+<string name="alarm_allow_exact">Autoriser les alarmes exactes</string><string name="alarm_allow_full_screen">Autoriser les alarmes en plein écran</string>
+<string name="alarm_channel_name">Alarme musicale</string><string name="alarm_channel_description">Affiche l’alarme BitChord active et ses commandes</string>
+<string name="alarm_notification_title">Alarme musicale</string><string name="alarm_notification_text">Lecture de %1$s</string><string name="alarm_stop">Arrêter</string>
+<string name="alarm_failed_title">Impossible de démarrer l’alarme</string><string name="alarm_failed_text">BitChord n’a pas pu charger le morceau sélectionné.</string>
+</resources>

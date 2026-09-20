@@ -1724,7 +1724,6 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         val current = exoPlayer.currentMediaItem?.toSong() ?: return
-        if (!current.playbackSourceType.allowsAutoplay()) return
         if (AppSettings.dontRepeatSuggestions.value) sessionSongHistory += current
         val queuedAutoplay = (exoPlayer.currentMediaItemIndex + 1 until exoPlayer.mediaItemCount)
             .count { exoPlayer.getMediaItemAt(it).fromAutoplay }
@@ -1802,7 +1801,6 @@ class PlaybackService : MediaLibraryService() {
     /** Re-arms AutoPlay when an external queue edit exposes an empty tail. */
     private fun refreshAutoplayIfQueueEmpty() {
         val exoPlayer = player ?: return
-        if (!exoPlayer.currentMediaItem?.toSong()?.playbackSourceType.allowsAutoplay()) return
         if (!autoplayQueueNeedsRefresh(
                 enabled = autoplayEnabled(ListenTogether.state.value),
                 repeatAll = exoPlayer.repeatMode == Player.REPEAT_MODE_ALL,

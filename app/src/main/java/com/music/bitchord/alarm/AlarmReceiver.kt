@@ -4,82 +4,84 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.util.Log
+import android.net.Uri
 
-/** Receives only this app's explicit trigger and Stop PendingIntents. */
 class AlarmReceiver : BroadcastReceiver() {
-
     override fun onReceive(context: Context, intent: Intent) {
+        val id = intent.getStringExtra(ID) ?: return
+        val token = intent.getStringExtra(TOKEN) ?: return
         when (intent.action) {
-            ACTION_TRIGGER -> trigger(context, intent)
-            ACTION_STOP -> stop(context, intent)
-        }
-    }
-
-    private fun trigger(context: Context, intent: Intent) {
-        val token = intent.getStringExtra(EXTRA_TOKEN) ?: return
-        val epochMillis = intent.getLongExtra(EXTRA_EPOCH, Long.MIN_VALUE)
-        if (epochMillis == Long.MIN_VALUE) return
-        val request = AlarmScheduler.consumeTrigger(context, token, epochMillis) ?: return
-
-        AlarmNotification.showActive(context, request)
-        val pending = goAsync()
-        AlarmPlaybackCoordinator.play(
-            context = context,
-            selection = request.song,
-        ) { started ->
-            if (!started) {
-                Log.w(TAG, "Music alarm song could not start")
-                AlarmScheduler.recordPlaybackFailure(context, request.token)
-                AlarmNotification.showFailure(context)
+            TRIGGER, SNOOZE_TRIGGER -> {
+                val epoch = intent.getLongExtra(EPOCH, Long.MIN_VALUE)
+                if (epoch == Long.MIN_VALUE) return
+                val request = AlarmScheduler.consumeTrigger(
+                    context,
+                    id,
+                    token,
+                    epoch,
+                    intent.action == SNOOZE_TRIGGER,
+                ) ?: return
+                AlarmRingingService.start(context, request)
             }
-            runCatching { pending.finish() }
-        }
-    }
-
-    private fun stop(context: Context, intent: Intent) {
-        val token = intent.getStringExtra(EXTRA_TOKEN) ?: return
-        if (!AlarmScheduler.consumeStop(context, token)) return
-
-        AlarmNotification.cancel(context)
-        val pending = goAsync()
-        AlarmPlaybackCoordinator.stop(context) { stopped ->
-            if (!stopped) Log.w(TAG, "Unable to connect to playback session for alarm Stop")
-            runCatching { pending.finish() }
+            STOP -> {
+                val end = AlarmScheduler.stop(context, id, token) ?: return
+                AlarmRingingService.stop(context, end.previousAlarmVolume)
+            }
+            SNOOZE -> {
+                val end = AlarmScheduler.snooze(context, id, token) ?: return
+                AlarmRingingService.stop(context, end.previousAlarmVolume)
+            }
         }
     }
 
     companion object {
-        private const val ACTION_TRIGGER = "com.music.bitchord.alarm.TRIGGER"
-        private const val ACTION_STOP = "com.music.bitchord.alarm.STOP"
-        private const val EXTRA_TOKEN = "alarm_token"
-        private const val EXTRA_EPOCH = "alarm_epoch"
+        private const val TRIGGER = "com.music.bitchord.alarm.TRIGGER"
+        private const val SNOOZE_TRIGGER = "com.music.bitchord.alarm.SNOOZE_TRIGGER"
+        private const val STOP = "com.music.bitchord.alarm.STOP"
+        private const val SNOOZE = "com.music.bitchord.alarm.SNOOZE"
+        private const val ID = "alarm_id"
+        private const val TOKEN = "alarm_token"
+        private const val EPOCH = "alarm_epoch"
 
         fun triggerPendingIntent(
             context: Context,
+            id: String,
             token: String,
-            epochMillis: Long,
-        ): PendingIntent = PendingIntent.getBroadcast(
+            epoch: Long,
+            snooze: Boolean,
+        ) = PendingIntent.getBroadcast(
             context,
-            REQUEST_TRIGGER,
+            0,
             Intent(context, AlarmReceiver::class.java)
-                .setAction(ACTION_TRIGGER)
-                .putExtra(EXTRA_TOKEN, token)
-                .putExtra(EXTRA_EPOCH, epochMillis),
+                .setAction(if (snooze) SNOOZE_TRIGGER else TRIGGER)
+                .setData(Uri.parse(alarmPendingIdentity(id, if (snooze) "snooze-trigger" else "trigger")))
+                .putExtra(ID, id)
+                .putExtra(TOKEN, token)
+                .putExtra(EPOCH, epoch),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        fun stopPendingIntent(context: Context, token: String): PendingIntent = PendingIntent.getBroadcast(
+        fun stopPendingIntent(context: Context, id: String, token: String) =
+            action(context, id, token, STOP, "stop")
+
+        fun snoozePendingIntent(context: Context, id: String, token: String) =
+            action(context, id, token, SNOOZE, "snooze")
+
+        private fun action(
+            context: Context,
+            id: String,
+            token: String,
+            action: String,
+            kind: String,
+        ) = PendingIntent.getBroadcast(
             context,
-            REQUEST_STOP,
+            0,
             Intent(context, AlarmReceiver::class.java)
-                .setAction(ACTION_STOP)
-                .putExtra(EXTRA_TOKEN, token),
+                .setAction(action)
+                .setData(Uri.parse(alarmPendingIdentity(id, "$kind/$token")))
+                .putExtra(ID, id)
+                .putExtra(TOKEN, token),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-
-        private const val REQUEST_TRIGGER = 4100
-        private const val REQUEST_STOP = 4101
-        private const val TAG = "BitChordAlarm"
     }
 }

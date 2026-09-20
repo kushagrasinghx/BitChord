@@ -1,151 +1,19 @@
 package com.music.bitchord.alarm
-
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import org.junit.Assert.*
 import org.junit.Test
-
-class AlarmStateMachineTest {
-
-    @Test
-    fun `editing invalidates old schedule and advances generation`() {
-        val current = scheduled(alarm(generation = 4L), 1_000L)
-        val edited = AlarmStateMachine.edit(current, current.copy(hour = 8))
-
-        assertEquals(5L, edited.generation)
-        assertNull(edited.scheduledToken)
-        assertNull(edited.scheduledEpochMillis)
-        assertEquals(8, edited.hour)
-    }
-
-    @Test
-    fun `enabling without a song fails closed`() {
-        val current = AlarmConfig()
-        val edited = AlarmStateMachine.edit(current, current.copy(enabled = true))
-        assertFalse(edited.enabled)
-    }
-
-    @Test
-    fun `enabled alarm with song is ready to schedule`() {
-        val current = AlarmConfig()
-        val edited = AlarmStateMachine.edit(
-            current,
-            current.copy(enabled = true, song = song()),
-        )
-        assertTrue(edited.isReadyToSchedule())
-    }
-
-    @Test
-    fun `exact access selects exact scheduling`() {
-        assertEquals(AlarmScheduleMode.EXACT, chooseAlarmScheduleMode(true))
-    }
-
-    @Test
-    fun `missing exact access selects inexact scheduling`() {
-        assertEquals(AlarmScheduleMode.INEXACT, chooseAlarmScheduleMode(false))
-    }
-
-    @Test
-    fun `scheduling creates a stable nonblank token`() {
-        val first = scheduled(alarm(generation = 2L), 9_000L)
-        val second = scheduled(alarm(generation = 2L), 9_000L)
-        assertNotNull(first.scheduledToken)
-        assertEquals(first.scheduledToken, second.scheduledToken)
-    }
-
-    @Test
-    fun `stale token is rejected`() {
-        val config = scheduled(alarm(), 10_000L)
-        assertNull(AlarmStateMachine.consumeTrigger(config, "old", 10_000L, 10_100L))
-    }
-
-    @Test
-    fun `stale epoch is rejected`() {
-        val config = scheduled(alarm(), 10_000L)
-        assertNull(
-            AlarmStateMachine.consumeTrigger(
-                config,
-                requireNotNull(config.scheduledToken),
-                9_999L,
-                10_100L,
-            ),
-        )
-    }
-
-    @Test
-    fun `one-shot disables after accepted trigger`() {
-        val config = scheduled(alarm(days = emptySet()), 10_000L)
-        val transition = AlarmStateMachine.consumeTrigger(
-            config,
-            requireNotNull(config.scheduledToken),
-            10_000L,
-            10_100L,
-        )
-        assertNotNull(transition)
-        assertFalse(requireNotNull(transition).config.enabled)
-        assertFalse(transition.recurring)
-    }
-
-    @Test
-    fun `recurring alarm remains enabled after trigger`() {
-        val config = scheduled(alarm(days = setOf(1, 3)), 10_000L)
-        val transition = requireNotNull(
-            AlarmStateMachine.consumeTrigger(
-                config,
-                requireNotNull(config.scheduledToken),
-                10_000L,
-                10_100L,
-            ),
-        )
-        assertTrue(transition.config.enabled)
-        assertTrue(transition.recurring)
-        assertNull(transition.config.scheduledToken)
-    }
-
-    @Test
-    fun `active stop requires matching unexpired token`() {
-        val config = AlarmConfig(activeToken = "active", activeUntilEpochMillis = 20_000L)
-        assertTrue(AlarmStateMachine.canStop(config, "active", 19_999L))
-        assertFalse(AlarmStateMachine.canStop(config, "other", 19_999L))
-        assertFalse(AlarmStateMachine.canStop(config, "active", 20_001L))
-    }
-
-    @Test
-    fun `editing preserves current stop token while replacing future schedule`() {
-        val current = AlarmConfig(
-            enabled = true,
-            song = song("video1"),
-            activeToken = "ringing",
-            activeUntilEpochMillis = 20_000L,
-            scheduledToken = "old",
-            scheduledEpochMillis = 15_000L,
-        )
-        val edited = AlarmStateMachine.edit(current, current.copy(song = song("video2")))
-        assertEquals("ringing", edited.activeToken)
-        assertNotEquals("old", edited.scheduledToken)
-    }
-
-    private fun alarm(
-        generation: Long = 1L,
-        days: Set<Int> = emptySet(),
-    ) = AlarmConfig(
-        enabled = true,
-        hour = 7,
-        minute = 0,
-        repeatDays = days,
-        song = song(),
-        generation = generation,
-    )
-
-    private fun song(videoId: String = "video123") = AlarmSong(
-        videoId = videoId,
-        title = "Morning",
-        artist = "BitChord Artist",
-    )
-
-    private fun scheduled(config: AlarmConfig, epoch: Long): AlarmConfig =
-        AlarmStateMachine.scheduled(config, epoch, AlarmScheduleMode.EXACT)
+class AlarmStateMachineTest{
+ private val song=AlarmSong("v","Song","Artist")
+ private fun alarm(id:String,order:Long=1,repeat:Set<Int> = setOf(1))=AlarmConfig(id,order,enabled=true,hour=7,song=song,repeatDays=repeat,generation=2)
+ @Test fun `editing A invalidates only A and keeps B unchanged`() {val a=AlarmStateMachine.scheduled(alarm("a").copy(snoozeEpochMillis=300,snoozeToken="old-snooze"),100,AlarmScheduleMode.EXACT);val b=AlarmStateMachine.scheduled(alarm("b"),200,AlarmScheduleMode.EXACT);val changed=AlarmStateMachine.edit(a,a.copy(hour=8));assertNull(changed.scheduledToken);assertNull(changed.snoozeToken);assertEquals(3,changed.generation);assertEquals(200L,b.scheduledEpochMillis)}
+ @Test fun `disabling A leaves enabled B unchanged`() {val a=alarm("a");val b=alarm("b");val updated=listOf(a,b).map{if(it.id=="a")AlarmStateMachine.edit(it,it.copy(enabled=false))else it};assertFalse(updated.first{it.id=="a"}.enabled);assertEquals(b,updated.first{it.id=="b"})}
+ @Test fun `stale occurrence cannot trigger after edit`() {val old=AlarmStateMachine.scheduled(alarm("a"),100,AlarmScheduleMode.EXACT);val edited=AlarmStateMachine.edit(old,old.copy(hour=8));assertNull(AlarmStateMachine.trigger(AlarmCollection(alarms=listOf(edited)),"a",requireNotNull(old.scheduledToken),100,100,false))}
+ @Test fun `stale snooze occurrence cannot trigger after edit`() {val old=alarm("a").copy(snoozeEpochMillis=300,snoozeToken="old-snooze");val edited=AlarmStateMachine.edit(old,old.copy(hour=8));assertNull(AlarmStateMachine.trigger(AlarmCollection(alarms=listOf(edited)),"a","old-snooze",300,300,true))}
+ @Test fun `stop returns captured alarm volume and rejects stale action`() {val state=AlarmCollection(alarms=listOf(alarm("a")),activeSession=AlarmSession("a","active",999,4));assertNull(AlarmStateMachine.end(state,"a","stale"));val ended=requireNotNull(AlarmStateMachine.end(state,"a","active"));assertEquals(4,ended.previousAlarmVolume);assertNull(ended.collection.activeSession)}
+ @Test fun `snooze A leaves B and base recurrence untouched`() {val a=alarm("a");val b=alarm("b");val active=AlarmCollection(alarms=listOf(a,b),activeSession=AlarmSession("a","t",999,4));val snoozed=requireNotNull(AlarmStateMachine.snooze(active,"a","t",1_000));assertEquals(b,snoozed.collection.alarms[1]);assertEquals(a.repeatDays,snoozed.collection.alarms[0].repeatDays);assertEquals(601_000L,snoozed.epochMillis);assertEquals(4,snoozed.previousAlarmVolume)}
+ @Test fun `new valid trigger replaces older active session deterministically`() {val a=AlarmStateMachine.scheduled(alarm("a"),100,AlarmScheduleMode.EXACT);val b=AlarmStateMachine.scheduled(alarm("b"),200,AlarmScheduleMode.EXACT);val old=AlarmSession("a","old",999,5);val transition=requireNotNull(AlarmStateMachine.trigger(AlarmCollection(alarms=listOf(a,b),activeSession=old),"b",requireNotNull(b.scheduledToken),200,200,false));assertEquals(old,transition.replaced);assertEquals("b",transition.collection.activeSession?.alarmId)}
+ @Test fun `one shot A does not disable recurring B`() {val a=AlarmStateMachine.scheduled(alarm("a",repeat=emptySet()),100,AlarmScheduleMode.EXACT);val b=alarm("b");val result=requireNotNull(AlarmStateMachine.trigger(AlarmCollection(alarms=listOf(a,b)),"a",requireNotNull(a.scheduledToken),100,100,false));assertFalse(result.collection.alarms[0].enabled);assertTrue(result.collection.alarms[1].enabled)}
+ @Test fun `sorting is chronological and stable for equal times`() {val values=listOf(alarm("c",3).copy(hour=9),alarm("b",2),alarm("a",1));assertEquals(listOf("a","b","c"),AlarmStateMachine.sorted(values).map{it.id})}
+ @Test fun `pending identities isolate alarms and action kinds`() {assertNotEquals(alarmPendingIdentity("a","trigger"),alarmPendingIdentity("b","trigger"));assertNotEquals(alarmPendingIdentity("a","trigger"),alarmPendingIdentity("a","snooze-trigger"))}
+ @Test fun `deleting A leaves B intact`() {val b=alarm("b");assertEquals(listOf(b),AlarmStateMachine.remove(AlarmCollection(alarms=listOf(alarm("a"),b)),"a").alarms)}
+ @Test fun `reboot candidates include all enabled alarms only`() {val enabledA=alarm("a");val enabledB=alarm("b");val disabled=alarm("c").copy(enabled=false);assertEquals(listOf(enabledA,enabledB),AlarmStateMachine.rescheduleCandidates(listOf(enabledA,disabled,enabledB)))}
 }

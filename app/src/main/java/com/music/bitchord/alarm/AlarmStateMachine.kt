@@ -1,117 +1,54 @@
 package com.music.bitchord.alarm
 
-/** Pure state transitions shared by the scheduler, receiver, and JVM tests. */
 object AlarmStateMachine {
+    const val ACTIVE_WINDOW_MILLIS = 4L * 60 * 60 * 1000
+    data class TriggerTransition(val collection: AlarmCollection, val alarm: AlarmConfig, val token: String, val replaced: AlarmSession?)
+    data class EndTransition(val collection: AlarmCollection, val previousAlarmVolume: Int?)
+    data class SnoozeTransition(val collection: AlarmCollection, val previousAlarmVolume: Int?, val epochMillis: Long, val token: String)
 
-    const val ACTIVE_WINDOW_MILLIS = 4L * 60L * 60L * 1_000L
-
-    data class TriggerTransition(
-        val config: AlarmConfig,
-        val song: AlarmSong,
-        val token: String,
-        val recurring: Boolean,
-    )
-
-    fun edit(current: AlarmConfig, proposed: AlarmConfig): AlarmConfig {
-        val next = proposed.copy(
-            schemaVersion = AlarmConfig.CURRENT_SCHEMA,
-            enabled = proposed.enabled && proposed.song?.isValid() == true,
-            generation = nextGeneration(current.generation),
-            scheduledEpochMillis = null,
-            scheduledToken = null,
-            scheduleMode = null,
-            activeToken = current.activeToken,
-            activeUntilEpochMillis = current.activeUntilEpochMillis,
-            lastFailure = null,
-            lastFailureEpochMillis = null,
-        )
-        return if (next.isStructurallyValid()) next else current
+    fun newAlarm(id: String, order: Long) = AlarmConfig(id = id, creationOrder = order)
+    fun edit(entry: AlarmConfig, proposed: AlarmConfig) = proposed.copy(
+        id = entry.id, creationOrder = entry.creationOrder,
+        enabled = proposed.enabled && proposed.song?.isValid() == true,
+        generation = next(entry.generation), scheduledEpochMillis = null, scheduledToken = null, scheduleMode = null,
+        snoozeEpochMillis = null, snoozeToken = null,
+        lastFailure = null, lastFailureEpochMillis = null,
+    ).takeIf(AlarmConfig::isStructurallyValid) ?: entry
+    fun invalidate(entry: AlarmConfig) = entry.copy(generation = next(entry.generation), scheduledEpochMillis = null, scheduledToken = null, scheduleMode = null)
+    fun scheduled(entry: AlarmConfig, epoch: Long, mode: AlarmScheduleMode): AlarmConfig {
+        val token = "${entry.id}:${entry.generation.toString(36)}:${epoch.toString(36)}"
+        return entry.copy(scheduledEpochMillis = epoch, scheduledToken = token, scheduleMode = mode, lastFailure = null, lastFailureEpochMillis = null)
     }
-
-    fun invalidateSchedule(config: AlarmConfig): AlarmConfig = config.copy(
-        generation = nextGeneration(config.generation),
-        scheduledEpochMillis = null,
-        scheduledToken = null,
-        scheduleMode = null,
-    )
-
-    fun scheduled(
-        config: AlarmConfig,
-        epochMillis: Long,
-        mode: AlarmScheduleMode,
-    ): AlarmConfig {
-        val token = token(config.generation, epochMillis)
-        return config.copy(
-            scheduledEpochMillis = epochMillis,
-            scheduledToken = token,
-            scheduleMode = mode,
-            lastFailure = null,
-            lastFailureEpochMillis = null,
-        )
+    fun trigger(collection: AlarmCollection, id: String, token: String, epoch: Long, now: Long, snooze: Boolean): TriggerTransition? {
+        val entry = collection.alarms.firstOrNull { it.id == id } ?: return null
+        val valid = if (snooze) entry.snoozeToken == token && entry.snoozeEpochMillis == epoch else entry.isReadyToSchedule() && entry.scheduledToken == token && entry.scheduledEpochMillis == epoch
+        if (!valid) return null
+        val delivered = if (snooze) entry.copy(snoozeToken = null, snoozeEpochMillis = null) else entry.copy(enabled = entry.repeatDays.isNotEmpty(), scheduledToken = null, scheduledEpochMillis = null, scheduleMode = null)
+        val updated = collection.alarms.map { if (it.id == id) delivered else it }
+        val session = AlarmSession(id, token, now + ACTIVE_WINDOW_MILLIS)
+        return TriggerTransition(collection.copy(alarms = updated, activeSession = session), delivered, token, collection.activeSession)
     }
-
-    fun consumeTrigger(
-        config: AlarmConfig,
-        token: String,
-        epochMillis: Long,
-        nowEpochMillis: Long,
-    ): TriggerTransition? {
-        if (!config.isReadyToSchedule()) return null
-        if (config.scheduledToken != token || config.scheduledEpochMillis != epochMillis) return null
-
-        val recurring = config.repeatDays.isNotEmpty()
-        val delivered = config.copy(
-            enabled = recurring,
-            scheduledEpochMillis = null,
-            scheduledToken = null,
-            scheduleMode = null,
-            activeToken = token,
-            activeUntilEpochMillis = nowEpochMillis + ACTIVE_WINDOW_MILLIS,
-            lastFailure = null,
-            lastFailureEpochMillis = null,
-        )
-        return TriggerTransition(
-            config = delivered,
-            song = requireNotNull(config.song),
-            token = token,
-            recurring = recurring,
-        )
+    fun captureVolume(collection: AlarmCollection, id: String, token: String, volume: Int): AlarmCollection =
+        if (collection.activeSession?.alarmId == id && collection.activeSession.token == token && collection.activeSession.previousAlarmVolume == null)
+            collection.copy(activeSession = collection.activeSession.copy(previousAlarmVolume = volume)) else collection
+    fun end(collection: AlarmCollection, id: String, token: String): EndTransition? {
+        val session = collection.activeSession ?: return null
+        if (session.alarmId != id || session.token != token) return null
+        return EndTransition(collection.copy(activeSession = null), session.previousAlarmVolume)
     }
-
-    fun canStop(config: AlarmConfig, token: String, nowEpochMillis: Long): Boolean =
-        config.activeToken == token &&
-            (config.activeUntilEpochMillis ?: Long.MIN_VALUE) >= nowEpochMillis
-
-    fun stopped(config: AlarmConfig, token: String): AlarmConfig =
-        if (config.activeToken == token) {
-            config.copy(activeToken = null, activeUntilEpochMillis = null)
-        } else {
-            config
-        }
-
-    fun playbackFailed(config: AlarmConfig, token: String, nowEpochMillis: Long): AlarmConfig =
-        if (config.activeToken == token) {
-            config.copy(
-                activeToken = null,
-                activeUntilEpochMillis = null,
-                lastFailure = AlarmFailure.PLAYBACK_UNAVAILABLE,
-                lastFailureEpochMillis = nowEpochMillis,
-            )
-        } else {
-            config
-        }
-
-    fun schedulingFailed(config: AlarmConfig, nowEpochMillis: Long): AlarmConfig = config.copy(
-        scheduledEpochMillis = null,
-        scheduledToken = null,
-        scheduleMode = null,
-        lastFailure = AlarmFailure.SCHEDULING_UNAVAILABLE,
-        lastFailureEpochMillis = nowEpochMillis,
+    fun snooze(collection: AlarmCollection, id: String, token: String, now: Long): SnoozeTransition? {
+        val end = end(collection, id, token) ?: return null
+        val entry = end.collection.alarms.firstOrNull { it.id == id } ?: return null
+        val epoch = now + entry.snoozeMinutes * 60_000L
+        val nextToken = "${entry.id}:s:${entry.generation.toString(36)}:${epoch.toString(36)}"
+        val updated = entry.copy(snoozeEpochMillis = epoch, snoozeToken = nextToken)
+        return SnoozeTransition(end.collection.copy(alarms = end.collection.alarms.map { if (it.id == id) updated else it }), end.previousAlarmVolume, epoch, nextToken)
+    }
+    fun sorted(entries: List<AlarmConfig>) = entries.sortedWith(compareBy<AlarmConfig>({ it.hour }, { it.minute }, { it.creationOrder }))
+    fun rescheduleCandidates(entries: List<AlarmConfig>) = entries.filter(AlarmConfig::isReadyToSchedule)
+    fun remove(collection: AlarmCollection, id: String) = collection.copy(
+        alarms = collection.alarms.filterNot { it.id == id },
+        activeSession = collection.activeSession?.takeUnless { it.alarmId == id },
     )
-
-    private fun token(generation: Long, epochMillis: Long): String =
-        "${generation.toString(36)}:${epochMillis.toString(36)}"
-
-    private fun nextGeneration(value: Long): Long =
-        if (value == Long.MAX_VALUE) 1L else value + 1L
+    private fun next(value: Long) = if (value == Long.MAX_VALUE) 1L else value + 1
 }

@@ -203,8 +203,6 @@ enum class PlaybackSourceType {
     EXPLORE,
     BROWSE,
     SHARED_LINK,
-    /** A one-song queue that must not be extended by AutoPlay. */
-    ALARM,
     QUEUE,
 }
 

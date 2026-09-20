@@ -41,8 +41,16 @@ object YtMusicRepository {
     // answer makes the eventual player switch use the exact rendition whose
     // bytes were warmed, without repeating a 10–30 second catalogue search.
     private val audioVersionCache = ConcurrentHashMap<String, Song>()
+<<<<<<< HEAD
     // Cache for video versions when switching from audio to video
     private val videoVersionCache = ConcurrentHashMap<String, Song>()
+=======
+    // Cache for video version lookups from audio tracks (null means no video found).
+    private val videoVersionCache = ConcurrentHashMap<String, Song?>()
+
+    fun cachedAudioVersion(videoId: String): Song? = audioVersionCache[videoId]
+    fun cachedVideoVersion(videoId: String): Song? = videoVersionCache[videoId]
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
 
     /**
      * The core personalised feed. It stays deliberately independent from the
@@ -388,8 +396,15 @@ object YtMusicRepository {
     }
 
     /**
+<<<<<<< HEAD
      * The inverse of [resolveAudio]: finds the video/music-video version of an
      * audio-only track, used when switching back from audio to video.
+=======
+     * Resolves an audio-only track to its video version.
+     *
+     * This is the inverse of [resolveAudio] - it finds the music video
+     * for a catalogue track. Returns null when no video version is found.
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
      */
     suspend fun resolveVideo(song: Song): Song? {
         if (song.isVideo) return null
@@ -408,7 +423,11 @@ object YtMusicRepository {
             }
         }
         Log.w(TAG, "video switch: no video match for '${song.title}' by '${song.artist}'")
+<<<<<<< HEAD
         videoVersionCache[song.videoId] = song
+=======
+        videoVersionCache[song.videoId] = null
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
         return null
     }
 

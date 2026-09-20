@@ -742,7 +742,7 @@
 
     <string name="addon_url_description">Wklej adres URL wtyczki — katalog główny lub manifest.json.</string>
 
-    <string name="advanced_options">Zaawansowane opcje</string>
+    <string name="advanced_options">Opcje zaawansowane i eksperymentalne</string>
 
     <string name="automix_mode_balanced">Zrównoważony</string>
 
@@ -1011,6 +1011,13 @@
     <string name="smooth_version_transition">Płynne przełączanie wersji</string>
 
     <string name="smooth_version_transition_subtitle">Płynnie miksuje dźwięk podczas zmiany między wersją wideo a wydaniem studyjnym</string>
+<<<<<<< HEAD
+=======
+
+    <string name="smart_version_alignment">Inteligentne dopasowanie dźwięku</string>
+
+    <string name="smart_version_alignment_subtitle">Analizuje ścieżkę dźwiękową, by idealnie zgrać moment utworu (np. omijając intro w wideo)</string>
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
 
     <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
 

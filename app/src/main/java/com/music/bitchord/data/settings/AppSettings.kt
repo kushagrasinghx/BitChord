@@ -405,11 +405,19 @@ object AppSettings {
      */
     val preferMusicOnly = MutableStateFlow(false)
 
+<<<<<<< HEAD
     /**
      * Smoothly crossfade audio when switching between video and release versions.
      * Off by default: the gapless switch is instant and already sounds natural.
      */
     val smoothVersionTransition = MutableStateFlow(false)
+=======
+    /** Smoothly crossfades audio when switching between video and release versions of a track. */
+    val smoothVersionTransition = MutableStateFlow(true)
+
+    /** Analyzes audio waveform/envelope to align matching playback moment between versions. */
+    val smartVersionAlignment = MutableStateFlow(true)
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
 
     /** Drops haze blur (status bar, mini player, bottom fade, lyrics focus) for a solid-fill look. */
     val reduceDynamicBlur = MutableStateFlow(false)
@@ -776,7 +784,12 @@ object AppSettings {
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
+<<<<<<< HEAD
         smoothVersionTransition.value = prefs.getBoolean(KEY_SMOOTH_VERSION_TRANSITION, false)
+=======
+        smoothVersionTransition.value = prefs.getBoolean(KEY_SMOOTH_VERSION_TRANSITION, true)
+        smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
@@ -1132,6 +1145,14 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_SMOOTH_VERSION_TRANSITION, value).apply()
     }
 
+<<<<<<< HEAD
+=======
+    fun setSmartVersionAlignment(value: Boolean) {
+        smartVersionAlignment.value = value
+        prefs.edit().putBoolean(KEY_SMART_VERSION_ALIGNMENT, value).apply()
+    }
+
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
     fun setReduceDynamicBlur(value: Boolean) {
         reduceDynamicBlur.value = value
         if (value) highPerformanceMode.value = false
@@ -1729,6 +1750,10 @@ object AppSettings {
     private const val KEY_DONT_REPEAT_SUGGESTIONS = "dont_repeat_suggestions"
     private const val KEY_PREFER_MUSIC_ONLY = "prefer_music_only"
     private const val KEY_SMOOTH_VERSION_TRANSITION = "smooth_version_transition"
+<<<<<<< HEAD
+=======
+    private const val KEY_SMART_VERSION_ALIGNMENT = "smart_version_alignment"
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
     private const val KEY_REDUCE_BLUR = "reduce_dynamic_blur"
     private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"

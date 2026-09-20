@@ -219,6 +219,10 @@ fun SettingsScreen(
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
     val preferMusicOnly by AppSettings.preferMusicOnly.collectAsStateWithLifecycle()
     val smoothVersionTransition by AppSettings.smoothVersionTransition.collectAsStateWithLifecycle()
+<<<<<<< HEAD
+=======
+    val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
     val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
     val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
     val highPerformanceMode by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
@@ -544,7 +548,11 @@ fun SettingsScreen(
                 )
             }
             val smoothVersionTransitionTitle = stringResource(R.string.smooth_version_transition)
+<<<<<<< HEAD
             row(smoothVersionTransitionTitle, "crossfade", "version", "swap", "video", "audio") {
+=======
+            row(smoothVersionTransitionTitle, "crossfade", "version", "swap", "video", "audio", "wydanie") {
+>>>>>>> b27f256f6d27d794b5ce1858f998ca833e504338
                 SettingsRow(
                     icon = Icons.Rounded.Waves,
                     title = smoothVersionTransitionTitle,
@@ -1257,10 +1265,29 @@ fun SettingsScreen(
         }
 
         SearchableSettingsGroup(search, header = stringResource(R.string.advanced_options)) {
+            val smartAlignmentTitle = stringResource(R.string.smart_version_alignment)
+            row(smartAlignmentTitle, "alignment", "sync", "waveform", "video", "audio", "skit", "intro") {
+                SettingsRow(
+                    icon = Icons.Rounded.GraphicEq,
+                    title = smartAlignmentTitle,
+                    subtitle = stringResource(R.string.smart_version_alignment_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = smartVersionAlignment,
+                            onCheckedChange = AppSettings::setSmartVersionAlignment,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
+                )
+            }
             val showNerdStatsTitle = stringResource(R.string.show_nerd_stats)
             row(showNerdStatsTitle, "debug", "bitrate", "codec") {
                 SettingsRow(
-                    icon = Icons.Rounded.GraphicEq,
+                    icon = Icons.Rounded.BarChart,
                     title = showNerdStatsTitle,
                     subtitle = stringResource(R.string.show_nerd_stats_subtitle),
                     trailing = {

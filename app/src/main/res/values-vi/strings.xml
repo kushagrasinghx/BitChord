@@ -1160,4 +1160,38 @@
     <string name="listen_together_status_all_offline">Cả máy chủ tùy chỉnh và máy chủ mặc định đều ngoại tuyến</string>
     <string name="listen_together_top_bar_fallback">Dự phòng · %1$s</string>
 
+    <!-- English fallback for the new alarm feature; native translation pending. -->
+    <string name="alarm_clock">Alarm clock</string>
+    <string name="alarm_clock_subtitle">Wake up to a BitChord playlist</string>
+    <string name="alarm_enabled">Music alarm</string>
+    <string name="alarm_enabled_subtitle">Starts the selected playlist at the scheduled time</string>
+    <string name="alarm_time">Time</string>
+    <string name="alarm_repeat">Repeat</string>
+    <string name="alarm_one_time">One-time</string>
+    <string name="alarm_every_day">Every day</string>
+    <string name="alarm_playlist">Playlist</string>
+    <string name="alarm_choose_playlist">Choose playlist</string>
+    <string name="alarm_no_playlists">No playlists are available for this account.</string>
+    <string name="alarm_playlist_load_failed">Couldn\'t load playlists. Check your connection and account.</string>
+    <string name="alarm_schedule">Schedule</string>
+    <string name="alarm_off">Alarm is off</string>
+    <string name="alarm_scheduled">Alarm scheduled</string>
+    <string name="alarm_not_scheduled">Alarm could not be scheduled</string>
+    <string name="alarm_exact">Exact</string>
+    <string name="alarm_inexact">May be late</string>
+    <string name="alarm_exact_explanation">Android has not granted Alarms &amp; reminders access. The fallback can run late, especially while the phone is idle.</string>
+    <string name="alarm_allow_exact">Allow exact alarms</string>
+    <string name="alarm_next">Next: %1$s</string>
+    <string name="alarm_no_playlist_warning">Choose a playlist before enabling the alarm.</string>
+    <string name="alarm_media_volume_note">The alarm uses BitChord\'s normal player and follows media volume, audio routing and Do Not Disturb.</string>
+    <string name="alarm_last_problem">Last alarm problem</string>
+    <string name="alarm_failure_scheduling">Android could not schedule the alarm. Open this page and try again.</string>
+    <string name="alarm_failure_playback">The selected playlist could not start. Check the playlist, account and network.</string>
+    <string name="alarm_channel_name">Music alarm</string>
+    <string name="alarm_channel_description">Shows the active BitChord music alarm and its Stop action</string>
+    <string name="alarm_notification_title">Music alarm</string>
+    <string name="alarm_notification_text">Playing %1$s</string>
+    <string name="alarm_stop">Stop</string>
+    <string name="alarm_failed_title">Alarm could not start</string>
+    <string name="alarm_failed_text">BitChord could not load the selected playlist.</string>
 </resources>

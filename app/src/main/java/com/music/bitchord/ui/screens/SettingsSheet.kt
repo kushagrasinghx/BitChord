@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Animation
+import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOff
@@ -168,6 +169,7 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
     onAccountScrobbling: () -> Unit,
     onEqualizer: () -> Unit,
+    onAlarmClock: () -> Unit,
     onOpenReplay: () -> Unit,
     onLyricsSources: () -> Unit,
     onTranslationLanguage: () -> Unit,
@@ -528,6 +530,15 @@ fun SettingsScreen(
         }
 
         SearchableSettingsGroup(search, header = stringResource(R.string.playback)) {
+            val alarmClockTitle = stringResource(R.string.alarm_clock)
+            row(alarmClockTitle, "alarm", "wake", "playlist", "schedule") {
+                SettingsRow(
+                    icon = Icons.Rounded.Alarm,
+                    title = alarmClockTitle,
+                    subtitle = stringResource(R.string.alarm_clock_subtitle),
+                    onClick = onAlarmClock,
+                )
+            }
             val preferMusicOnlyTitle = stringResource(R.string.prefer_music_only)
             row(preferMusicOnlyTitle, "video", "audio", "music video") {
                 SettingsRow(

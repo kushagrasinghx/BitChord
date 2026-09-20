@@ -11,4 +11,5 @@
 <string name="alarm_channel_name">Alarme musicale</string><string name="alarm_channel_description">Affiche l’alarme BitChord active et ses commandes</string>
 <string name="alarm_notification_title">Alarme musicale</string><string name="alarm_notification_text">Lecture de %1$s</string><string name="alarm_stop">Arrêter</string>
 <string name="alarm_failed_title">Impossible de démarrer l’alarme</string><string name="alarm_failed_text">BitChord n’a pas pu charger le morceau sélectionné.</string>
+<string name="alarm_snoozed_until">Reportée jusqu’à %1$s</string><string name="alarm_cancel_snooze">Annuler le report</string><string name="alarm_snooze_channel_name">Alarmes reportées</string><string name="alarm_snooze_channel_description">Rappels silencieux pour les alarmes reportées en attente</string>
 </resources>

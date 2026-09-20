@@ -1136,4 +1136,8 @@
     <string name="alarm_allow_full_screen">Allow full-screen alarms</string>
     <string name="alarm_failed_title">Alarm could not start</string>
     <string name="alarm_failed_text">BitChord could not load the selected song.</string>
+    <string name="alarm_snoozed_until">Snoozed until %1$s</string>
+    <string name="alarm_cancel_snooze">Cancel snooze</string>
+    <string name="alarm_snooze_channel_name">Snoozed alarms</string>
+    <string name="alarm_snooze_channel_description">Quiet reminders for pending snoozed alarms</string>
 </resources>

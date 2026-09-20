@@ -32,6 +32,7 @@ object AlarmScheduler {
         val old = state.alarms.firstOrNull { it.id == id } ?: return null
         cancel(app, id, snooze = false)
         cancel(app, id, snooze = true)
+        AlarmNotification.cancelSnooze(app, id)
         val changed = AlarmStateMachine.edit(old, edit(old))
         var next = state.copy(alarms = state.alarms.map { if (it.id == id) changed else it })
         AlarmStore.save(app, next)
@@ -57,11 +58,25 @@ object AlarmScheduler {
         AlarmStore.save(app, state.copy(activeSession = null))
     }
 
+    /** Recreates quiet evidence for every still-valid snooze after process recreation. */
+    fun restorePendingSnoozeNotifications(context: Context) {
+        val app = context.applicationContext
+        val now = Clock.systemUTC().millis()
+        AlarmStore.current(app).alarms.forEach { alarm ->
+            val epoch = alarm.snoozeEpochMillis
+            val token = alarm.snoozeToken
+            if (epoch != null && token != null && epoch > now) {
+                AlarmNotification.showSnoozePending(app, alarm, epoch, token)
+            }
+        }
+    }
+
     @Synchronized
     fun delete(context: Context, id: String) {
         val app = context.applicationContext
         cancel(app, id, snooze = false)
         cancel(app, id, snooze = true)
+        AlarmNotification.cancelSnooze(app, id)
         val state = AlarmStore.current(app)
         val active = state.activeSession?.takeIf { it.alarmId == id }
         AlarmStore.save(app, AlarmStateMachine.remove(state, id))
@@ -81,12 +96,16 @@ object AlarmScheduler {
         state.alarms.forEach {
             cancel(app, it.id, snooze = false)
             cancel(app, it.id, snooze = true)
+            AlarmNotification.cancelSnooze(app, it.id)
         }
         val rescheduled = state.alarms.map { entry ->
             var updated = AlarmStateMachine.invalidate(entry)
             if (updated.isReadyToSchedule()) updated = schedule(app, updated)
             updated.snoozeEpochMillis?.let { epoch ->
-                updated.snoozeToken?.let { token -> set(app, updated.id, token, epoch, snooze = true) }
+                updated.snoozeToken?.let { token ->
+                    set(app, updated.id, token, epoch, snooze = true)
+                    AlarmNotification.showSnoozePending(app, updated, epoch, token)
+                }
             }
             updated
         }
@@ -116,6 +135,7 @@ object AlarmScheduler {
             state = state.copy(alarms = state.alarms.map { if (it.id == id) entry else it })
         }
         AlarmStore.save(app, state)
+        if (snooze) AlarmNotification.cancelSnooze(app, id)
         return TriggerRequest(transition.alarm, transition.token, transition.replaced)
     }
 
@@ -147,7 +167,20 @@ object AlarmScheduler {
         ) ?: return null
         AlarmStore.save(app, transition.collection)
         set(app, id, transition.token, transition.epochMillis, snooze = true)
+        transition.collection.alarms.firstOrNull { it.id == id }?.let { alarm ->
+            AlarmNotification.showSnoozePending(app, alarm, transition.epochMillis, transition.token)
+        }
         return SnoozeRequest(transition.previousAlarmVolume, transition.epochMillis)
+    }
+
+    @Synchronized
+    fun cancelSnooze(context: Context, id: String, token: String): Boolean {
+        val app = context.applicationContext
+        val updated = AlarmStateMachine.cancelSnooze(AlarmStore.current(app), id, token) ?: return false
+        cancel(app, id, snooze = true)
+        AlarmStore.save(app, updated)
+        AlarmNotification.cancelSnooze(app, id)
+        return true
     }
 
     fun canScheduleExact(context: Context) =

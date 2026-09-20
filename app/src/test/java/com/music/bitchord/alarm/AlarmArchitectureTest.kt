@@ -24,4 +24,14 @@ class AlarmArchitectureTest {
         assertFalse(ringing.contains("setMediaItems("))
         assertTrue(ringing.contains("Player.REPEAT_MODE_OFF"))
     }
+
+    @Test fun `snooze notification is quiet persistent and never full screen`() {
+        val notification = source("java/com/music/bitchord/alarm/AlarmNotification.kt")
+        val pending = notification.substringAfter("fun showSnoozePending").substringBefore("fun cancelSnooze")
+        assertTrue(pending.contains("setSilent(true)"))
+        assertTrue(pending.contains("setOngoing(true)"))
+        assertTrue(pending.contains("PRIORITY_LOW"))
+        assertTrue(pending.contains("alarm_cancel_snooze"))
+        assertFalse(pending.contains("setFullScreenIntent"))
+    }
 }

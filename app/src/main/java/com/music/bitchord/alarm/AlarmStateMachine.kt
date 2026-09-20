@@ -44,6 +44,12 @@ object AlarmStateMachine {
         val updated = entry.copy(snoozeEpochMillis = epoch, snoozeToken = nextToken)
         return SnoozeTransition(end.collection.copy(alarms = end.collection.alarms.map { if (it.id == id) updated else it }), end.previousAlarmVolume, epoch, nextToken)
     }
+    fun cancelSnooze(collection: AlarmCollection, id: String, token: String): AlarmCollection? {
+        val entry = collection.alarms.firstOrNull { it.id == id } ?: return null
+        if (entry.snoozeToken != token || entry.snoozeEpochMillis == null) return null
+        val updated = entry.copy(snoozeEpochMillis = null, snoozeToken = null)
+        return collection.copy(alarms = collection.alarms.map { if (it.id == id) updated else it })
+    }
     fun sorted(entries: List<AlarmConfig>) = entries.sortedWith(compareBy<AlarmConfig>({ it.hour }, { it.minute }, { it.creationOrder }))
     fun rescheduleCandidates(entries: List<AlarmConfig>) = entries.filter(AlarmConfig::isReadyToSchedule)
     fun remove(collection: AlarmCollection, id: String) = collection.copy(

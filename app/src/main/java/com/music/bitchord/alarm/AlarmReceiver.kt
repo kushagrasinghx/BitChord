@@ -31,6 +31,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 val end = AlarmScheduler.snooze(context, id, token) ?: return
                 AlarmRingingService.stop(context, end.previousAlarmVolume)
             }
+            CANCEL_SNOOZE -> AlarmScheduler.cancelSnooze(context, id, token)
         }
     }
 
@@ -39,6 +40,7 @@ class AlarmReceiver : BroadcastReceiver() {
         private const val SNOOZE_TRIGGER = "com.music.bitchord.alarm.SNOOZE_TRIGGER"
         private const val STOP = "com.music.bitchord.alarm.STOP"
         private const val SNOOZE = "com.music.bitchord.alarm.SNOOZE"
+        private const val CANCEL_SNOOZE = "com.music.bitchord.alarm.CANCEL_SNOOZE"
         private const val ID = "alarm_id"
         private const val TOKEN = "alarm_token"
         private const val EPOCH = "alarm_epoch"
@@ -66,6 +68,9 @@ class AlarmReceiver : BroadcastReceiver() {
 
         fun snoozePendingIntent(context: Context, id: String, token: String) =
             action(context, id, token, SNOOZE, "snooze")
+
+        fun cancelSnoozePendingIntent(context: Context, id: String, token: String) =
+            action(context, id, token, CANCEL_SNOOZE, "cancel-snooze")
 
         private fun action(
             context: Context,

@@ -139,6 +139,7 @@ import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
 import com.music.bitchord.ui.screens.AlarmScreen
+import com.music.bitchord.alarm.AlarmDeepLink
 import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
 import com.music.bitchord.ui.screens.DiscordScreen
@@ -279,6 +280,7 @@ class MainActivity : AppCompatActivity() {
         // Before the composition, so a cold launch from a widget's artwork has
         // the request already standing by the time BitChordApp first reads it.
         PlayerDeepLink.consume(intent)
+        AlarmDeepLink.consume(intent)
         JamInviteLink.consume(intent)
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
@@ -375,6 +377,7 @@ class MainActivity : AppCompatActivity() {
         // one that just arrived and not the one the task was started with.
         setIntent(intent)
         PlayerDeepLink.consume(intent)
+        AlarmDeepLink.consume(intent)
         JamInviteLink.consume(intent)
         MusicLink.consume(intent)
     }
@@ -476,6 +479,15 @@ private fun BitChordApp(
     var showListenTogether by remember { mutableStateOf(false) }
     var showEqualizer by remember { mutableStateOf(false) }
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
+
+    val alarmScreenRequest by AlarmDeepLink.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(alarmScreenRequest) {
+        if (alarmScreenRequest != null) {
+            showSettings = true
+            showAlarmClock = true
+            AlarmDeepLink.handled()
+        }
+    }
 
     // Hosted here rather than inside SourcesScreen so its frosted card has
     // something to blur: that screen is drawn inside the `hazeSource` subtree,

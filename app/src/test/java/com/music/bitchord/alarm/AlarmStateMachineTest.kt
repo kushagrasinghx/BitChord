@@ -16,4 +16,6 @@ class AlarmStateMachineTest{
  @Test fun `pending identities isolate alarms and action kinds`() {assertNotEquals(alarmPendingIdentity("a","trigger"),alarmPendingIdentity("b","trigger"));assertNotEquals(alarmPendingIdentity("a","trigger"),alarmPendingIdentity("a","snooze-trigger"))}
  @Test fun `deleting A leaves B intact`() {val b=alarm("b");assertEquals(listOf(b),AlarmStateMachine.remove(AlarmCollection(alarms=listOf(alarm("a"),b)),"a").alarms)}
  @Test fun `reboot candidates include all enabled alarms only`() {val enabledA=alarm("a");val enabledB=alarm("b");val disabled=alarm("c").copy(enabled=false);assertEquals(listOf(enabledA,enabledB),AlarmStateMachine.rescheduleCandidates(listOf(enabledA,disabled,enabledB)))}
+ @Test fun `new alarms retain distinct supplied stable identities`() {val a=AlarmStateMachine.newAlarm("uuid-a",1);val b=AlarmStateMachine.newAlarm("uuid-b",2);assertEquals("uuid-a",a.id);assertEquals("uuid-b",b.id);assertNotEquals(a.id,b.id)}
+ @Test fun `enabling A leaves disabled B unchanged`() {val a=alarm("a").copy(enabled=false);val b=alarm("b").copy(enabled=false);val updated=listOf(a,b).map{if(it.id=="a")AlarmStateMachine.edit(it,it.copy(enabled=true))else it};assertTrue(updated.first{it.id=="a"}.enabled);assertEquals(b,updated.first{it.id=="b"})}
 }

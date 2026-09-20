@@ -1211,4 +1211,8 @@
     <string name="alarm_allow_full_screen">Cho phép báo thức toàn màn hình</string>
     <string name="alarm_failed_title">Không thể bắt đầu báo thức</string>
     <string name="alarm_failed_text">BitChord không thể tải bài hát đã chọn.</string>
+    <string name="alarm_snoozed_until">Đã báo lại đến %1$s</string>
+    <string name="alarm_cancel_snooze">Hủy báo lại</string>
+    <string name="alarm_snooze_channel_name">Báo thức đang báo lại</string>
+    <string name="alarm_snooze_channel_description">Nhắc nhở im lặng cho các lần báo lại đang chờ</string>
 </resources>

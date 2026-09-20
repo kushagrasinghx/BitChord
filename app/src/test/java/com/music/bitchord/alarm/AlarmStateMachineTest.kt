@@ -22,18 +22,18 @@ class AlarmStateMachineTest {
     }
 
     @Test
-    fun `enabling without a playlist fails closed`() {
+    fun `enabling without a song fails closed`() {
         val current = AlarmConfig()
         val edited = AlarmStateMachine.edit(current, current.copy(enabled = true))
         assertFalse(edited.enabled)
     }
 
     @Test
-    fun `enabled alarm with playlist is ready to schedule`() {
+    fun `enabled alarm with song is ready to schedule`() {
         val current = AlarmConfig()
         val edited = AlarmStateMachine.edit(
             current,
-            current.copy(enabled = true, playlistId = "PL123", playlistTitle = "Morning"),
+            current.copy(enabled = true, song = song()),
         )
         assertTrue(edited.isReadyToSchedule())
     }
@@ -117,13 +117,13 @@ class AlarmStateMachineTest {
     fun `editing preserves current stop token while replacing future schedule`() {
         val current = AlarmConfig(
             enabled = true,
-            playlistId = "PL1",
+            song = song("video1"),
             activeToken = "ringing",
             activeUntilEpochMillis = 20_000L,
             scheduledToken = "old",
             scheduledEpochMillis = 15_000L,
         )
-        val edited = AlarmStateMachine.edit(current, current.copy(playlistId = "PL2"))
+        val edited = AlarmStateMachine.edit(current, current.copy(song = song("video2")))
         assertEquals("ringing", edited.activeToken)
         assertNotEquals("old", edited.scheduledToken)
     }
@@ -136,9 +136,14 @@ class AlarmStateMachineTest {
         hour = 7,
         minute = 0,
         repeatDays = days,
-        playlistId = "PL123",
-        playlistTitle = "Morning",
+        song = song(),
         generation = generation,
+    )
+
+    private fun song(videoId: String = "video123") = AlarmSong(
+        videoId = videoId,
+        title = "Morning",
+        artist = "BitChord Artist",
     )
 
     private fun scheduled(config: AlarmConfig, epoch: Long): AlarmConfig =

@@ -26,11 +26,10 @@ class AlarmReceiver : BroadcastReceiver() {
         val pending = goAsync()
         AlarmPlaybackCoordinator.play(
             context = context,
-            playlistId = request.playlistId,
-            playlistTitle = request.playlistTitle,
+            selection = request.song,
         ) { started ->
             if (!started) {
-                Log.w(TAG, "Music alarm playlist could not start")
+                Log.w(TAG, "Music alarm song could not start")
                 AlarmScheduler.recordPlaybackFailure(context, request.token)
                 AlarmNotification.showFailure(context)
             }

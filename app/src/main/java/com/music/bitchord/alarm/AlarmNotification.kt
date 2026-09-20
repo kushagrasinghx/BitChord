@@ -18,7 +18,7 @@ object AlarmNotification {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_logo)
             .setContentTitle(context.getString(R.string.alarm_notification_title))
-            .setContentText(context.getString(R.string.alarm_notification_text, request.playlistTitle))
+            .setContentText(context.getString(R.string.alarm_notification_text, request.song.title))
             .setContentIntent(contentIntent(context))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

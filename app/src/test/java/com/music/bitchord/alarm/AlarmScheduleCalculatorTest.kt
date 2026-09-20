@@ -107,8 +107,7 @@ class AlarmScheduleCalculatorTest {
         hour = hour,
         minute = minute,
         repeatDays = days,
-        playlistId = "PL123",
-        playlistTitle = "Morning",
+        song = AlarmSong("video123", "Morning", "BitChord Artist"),
     )
 
     private fun next(config: AlarmConfig, now: String, zoneId: ZoneId): Instant? =

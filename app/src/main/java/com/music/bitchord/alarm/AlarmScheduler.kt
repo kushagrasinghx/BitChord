@@ -14,8 +14,7 @@ import java.time.ZoneId
 object AlarmScheduler {
 
     data class TriggerRequest(
-        val playlistId: String,
-        val playlistTitle: String,
+        val song: AlarmSong,
         val token: String,
     )
 
@@ -84,7 +83,7 @@ object AlarmScheduler {
             AlarmStore.save(app, next)
             schedulePersisted(app, next)
         }
-        return TriggerRequest(transition.playlistId, transition.playlistTitle, transition.token)
+        return TriggerRequest(transition.song, transition.token)
     }
 
     @Synchronized

@@ -7,8 +7,7 @@ object AlarmStateMachine {
 
     data class TriggerTransition(
         val config: AlarmConfig,
-        val playlistId: String,
-        val playlistTitle: String,
+        val song: AlarmSong,
         val token: String,
         val recurring: Boolean,
     )
@@ -16,7 +15,7 @@ object AlarmStateMachine {
     fun edit(current: AlarmConfig, proposed: AlarmConfig): AlarmConfig {
         val next = proposed.copy(
             schemaVersion = AlarmConfig.CURRENT_SCHEMA,
-            enabled = proposed.enabled && proposed.playlistId.isNotBlank(),
+            enabled = proposed.enabled && proposed.song?.isValid() == true,
             generation = nextGeneration(current.generation),
             scheduledEpochMillis = null,
             scheduledToken = null,
@@ -73,8 +72,7 @@ object AlarmStateMachine {
         )
         return TriggerTransition(
             config = delivered,
-            playlistId = config.playlistId,
-            playlistTitle = config.playlistTitle,
+            song = requireNotNull(config.song),
             token = token,
             recurring = recurring,
         )

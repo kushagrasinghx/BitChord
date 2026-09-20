@@ -1992,6 +1992,7 @@ private fun BitChordApp(
                         )
                     }
                     // Handled inside NowPlayingScreen by opening its queue.
+                    PlaybackSourceType.ALARM,
                     PlaybackSourceType.QUEUE -> Unit
                 }
             },

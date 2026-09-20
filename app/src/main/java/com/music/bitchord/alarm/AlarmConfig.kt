@@ -11,9 +11,7 @@ data class AlarmConfig(
     val minute: Int = 0,
     /** ISO weekdays: Monday = 1 through Sunday = 7. Empty means one-shot. */
     val repeatDays: Set<Int> = emptySet(),
-    val playlistId: String = "",
-    val playlistTitle: String = "",
-    val playlistArtworkUrl: String? = null,
+    val song: AlarmSong? = null,
     val generation: Long = 0L,
     val scheduledEpochMillis: Long? = null,
     val scheduledToken: String? = null,
@@ -27,14 +25,28 @@ data class AlarmConfig(
         schemaVersion == CURRENT_SCHEMA &&
             hour in 0..23 &&
             minute in 0..59 &&
-            repeatDays.all { it in 1..7 }
+            repeatDays.all { it in 1..7 } &&
+            song?.isValid() != false &&
+            (!enabled || song != null)
 
     fun isReadyToSchedule(): Boolean =
-        enabled && isStructurallyValid() && playlistId.isNotBlank()
+        enabled && isStructurallyValid() && song?.isValid() == true
 
     companion object {
-        const val CURRENT_SCHEMA = 1
+        const val CURRENT_SCHEMA = 2
     }
+}
+
+/** Stable identity plus the small amount of metadata needed to display one alarm song. */
+@Serializable
+data class AlarmSong(
+    val videoId: String,
+    val title: String,
+    val artist: String,
+    val artworkUrl: String? = null,
+    val durationText: String? = null,
+) {
+    fun isValid(): Boolean = videoId.isNotBlank() && title.isNotBlank()
 }
 @Serializable
 enum class AlarmScheduleMode {

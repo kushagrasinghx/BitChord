@@ -4,32 +4,29 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.AccessAlarm
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.EventRepeat
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,7 +52,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -67,11 +63,16 @@ import com.music.bitchord.alarm.AlarmConfig
 import com.music.bitchord.alarm.AlarmFailure
 import com.music.bitchord.alarm.AlarmScheduleMode
 import com.music.bitchord.alarm.AlarmScheduler
+import com.music.bitchord.alarm.AlarmSong
 import com.music.bitchord.alarm.AlarmStore
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.ROW_ART_PX
-import com.music.bitchord.data.model.UserPlaylist
+import com.music.bitchord.data.model.SearchFilter
+import com.music.bitchord.data.model.SearchResult
+import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.ui.components.SearchField
+import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.thumbnailBorder
 import java.time.DayOfWeek
 import java.time.Instant
@@ -106,19 +107,34 @@ fun AlarmScreen(
     }
 
     var pickingTime by remember { mutableStateOf(false) }
-    var pickingPlaylist by remember { mutableStateOf(false) }
-    var playlists by remember { mutableStateOf<List<UserPlaylist>>(emptyList()) }
-    var playlistsLoading by remember { mutableStateOf(false) }
-    var playlistLoadFailed by remember { mutableStateOf(false) }
+    var pickingSong by remember { mutableStateOf(false) }
+    var songQuery by remember { mutableStateOf("") }
+    var submittedSongQuery by remember { mutableStateOf<String?>(null) }
+    var songSearchGeneration by remember { mutableStateOf(0) }
+    var songResults by remember { mutableStateOf<List<Song>>(emptyList()) }
+    var songsLoading by remember { mutableStateOf(false) }
+    var songSearchFailed by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pickingPlaylist) {
-        if (!pickingPlaylist) return@LaunchedEffect
-        playlistsLoading = true
-        playlistLoadFailed = false
-        YtMusicRepository.userPlaylists()
-            .onSuccess { playlists = it }
-            .onFailure { playlistLoadFailed = true }
-        playlistsLoading = false
+    LaunchedEffect(pickingSong, submittedSongQuery, songSearchGeneration) {
+        val query = submittedSongQuery?.trim().orEmpty()
+        if (!pickingSong || query.isBlank()) return@LaunchedEffect
+        songsLoading = true
+        songSearchFailed = false
+        YtMusicRepository.search(query, SearchFilter.SONGS)
+            .onSuccess { rows ->
+                songResults = rows.mapNotNull { row ->
+                    when (row) {
+                        is SearchResult.TopTrack -> row.song
+                        is SearchResult.Track -> row.song
+                        is SearchResult.Browse -> null
+                    }
+                }.distinctBy(Song::videoId)
+            }
+            .onFailure {
+                songResults = emptyList()
+                songSearchFailed = true
+            }
+        songsLoading = false
     }
 
     fun update(change: (AlarmConfig) -> AlarmConfig) {
@@ -138,15 +154,15 @@ fun AlarmScreen(
             SettingsRow(
                 icon = Icons.Rounded.Alarm,
                 title = stringResource(R.string.alarm_enabled),
-                subtitle = if (config.playlistId.isBlank()) {
-                    stringResource(R.string.alarm_no_playlist_warning)
+                subtitle = if (config.song == null) {
+                    stringResource(R.string.alarm_no_song_warning)
                 } else {
                     stringResource(R.string.alarm_enabled_subtitle)
                 },
                 trailing = {
                     Switch(
                         checked = config.enabled,
-                        enabled = config.playlistId.isNotBlank(),
+                        enabled = config.song?.isValid() == true,
                         onCheckedChange = { enabled -> update { it.copy(enabled = enabled) } },
                         colors = SwitchDefaults.colors(
                             checkedTrackColor = MaterialTheme.colorScheme.primary,
@@ -154,7 +170,7 @@ fun AlarmScreen(
                         ),
                     )
                 },
-                onClick = if (config.playlistId.isNotBlank()) {
+                onClick = if (config.song?.isValid() == true) {
                     { update { it.copy(enabled = !it.enabled) } }
                 } else {
                     null
@@ -199,10 +215,25 @@ fun AlarmScreen(
             }
             RowDivider()
             SettingsRow(
-                icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-                title = stringResource(R.string.alarm_playlist),
-                value = config.playlistTitle.ifBlank { stringResource(R.string.alarm_choose_playlist) },
-                onClick = { pickingPlaylist = true },
+                icon = Icons.Rounded.MusicNote,
+                title = stringResource(R.string.alarm_song),
+                subtitle = config.song?.let { song ->
+                    listOf(song.title, song.artist).filter(String::isNotBlank).joinToString(" · ")
+                } ?: stringResource(R.string.alarm_choose_song),
+                onClick = { pickingSong = true },
+                trailing = config.song?.artworkUrl?.let { artwork ->
+                    {
+                        AsyncImage(
+                            model = artwork.artworkAt(ROW_ART_PX),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(RoundedCornerShape(7.dp))
+                                .thumbnailBorder(RoundedCornerShape(7.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                        )
+                    }
+                },
             )
         }
 
@@ -267,21 +298,32 @@ fun AlarmScreen(
         )
     }
 
-    if (pickingPlaylist) {
-        ModalBottomSheet(onDismissRequest = { pickingPlaylist = false }) {
-            AlarmPlaylistPicker(
-                playlists = playlists,
-                loading = playlistsLoading,
-                failed = playlistLoadFailed,
-                onPick = { playlist ->
+    if (pickingSong) {
+        ModalBottomSheet(onDismissRequest = { pickingSong = false }) {
+            AlarmSongPicker(
+                query = songQuery,
+                onQueryChange = { songQuery = it },
+                onSearch = {
+                    submittedSongQuery = songQuery.trim().takeIf(String::isNotEmpty)
+                    songSearchGeneration++
+                },
+                songs = songResults,
+                loading = songsLoading,
+                failed = songSearchFailed,
+                searched = submittedSongQuery != null,
+                onPick = { song ->
                     update {
                         it.copy(
-                            playlistId = playlist.playlistId,
-                            playlistTitle = playlist.title,
-                            playlistArtworkUrl = playlist.thumbnailUrl,
+                            song = AlarmSong(
+                                videoId = song.videoId,
+                                title = song.title,
+                                artist = song.artist,
+                                artworkUrl = song.thumbnailUrl,
+                                durationText = song.durationText,
+                            ),
                         )
                     }
-                    pickingPlaylist = false
+                    pickingSong = false
                 },
             )
         }
@@ -315,70 +357,55 @@ private fun AlarmTimeDialog(
 }
 
 @Composable
-private fun AlarmPlaylistPicker(
-    playlists: List<UserPlaylist>,
+private fun AlarmSongPicker(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    songs: List<Song>,
     loading: Boolean,
     failed: Boolean,
-    onPick: (UserPlaylist) -> Unit,
+    searched: Boolean,
+    onPick: (Song) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(R.string.alarm_choose_playlist),
+            text = stringResource(R.string.alarm_choose_song),
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp),
         )
+        SearchField(
+            query = query,
+            onQueryChange = onQueryChange,
+            onSubmit = onSearch,
+            placeholder = stringResource(R.string.alarm_search_song),
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 8.dp),
+        )
         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
         when {
-            loading && playlists.isEmpty() -> Box(
+            loading -> Box(
                 modifier = Modifier.fillMaxWidth().height(140.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator(strokeWidth = 2.5.dp, modifier = Modifier.size(28.dp))
             }
-            playlists.isEmpty() -> Text(
-                text = stringResource(
-                    if (failed) R.string.alarm_playlist_load_failed else R.string.alarm_no_playlists,
-                ),
+            failed -> Text(
+                text = stringResource(R.string.alarm_song_search_failed),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(22.dp),
+            )
+            !searched -> Text(
+                text = stringResource(R.string.alarm_song_search_prompt),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(22.dp),
+            )
+            songs.isEmpty() -> Text(
+                text = stringResource(R.string.alarm_no_songs),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(22.dp),
             )
             else -> LazyColumn(Modifier.heightIn(max = 420.dp)) {
-                items(playlists, key = { it.playlistId }) { playlist ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(playlist) }
-                            .padding(horizontal = 22.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        AsyncImage(
-                            model = playlist.thumbnailUrl.artworkAt(ROW_ART_PX),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(RoundedCornerShape(7.dp))
-                                .thumbnailBorder(RoundedCornerShape(7.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                        )
-                        Spacer(Modifier.width(16.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = playlist.title,
-                                style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            if (playlist.subtitle.isNotBlank()) {
-                                Text(
-                                    text = playlist.subtitle,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                    }
+                items(songs, key = Song::videoId) { song ->
+                    SongRow(song = song, onClick = { onPick(song) })
                 }
             }
         }

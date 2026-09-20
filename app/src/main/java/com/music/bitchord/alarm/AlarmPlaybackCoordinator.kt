@@ -5,11 +5,11 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.music.bitchord.playback.PlaybackService
+import com.music.bitchord.playback.toMediaItem
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Bounded MediaController binding; playback remains owned by PlaybackService. */
@@ -17,30 +17,20 @@ object AlarmPlaybackCoordinator {
 
     fun play(
         context: Context,
-        playlistId: String,
-        playlistTitle: String,
+        selection: AlarmSong,
         complete: (Boolean) -> Unit,
     ) {
-        val mediaId = AlarmPlaylistRequest.mediaId(playlistId)
-        if (mediaId == null) {
+        val queue = AlarmSongRequest.queue(selection)
+        if (queue.size != 1) {
             complete(false)
             return
         }
         connect(context, complete) { controller, finish, isFinished ->
-            // Never let a failed playlist lookup resume an unrelated restored queue.
+            // Replace restored playback atomically and force this alarm queue to play once.
             controller.stop()
             controller.clearMediaItems()
-            controller.setMediaItem(
-                MediaItem.Builder()
-                    .setMediaId(mediaId)
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle(playlistTitle)
-                            .setIsPlayable(true)
-                            .build(),
-                    )
-                    .build(),
-            )
+            controller.repeatMode = Player.REPEAT_MODE_OFF
+            controller.setMediaItems(listOf(queue.single().toMediaItem()), 0, 0L)
             controller.prepare()
             controller.play()
 
@@ -49,7 +39,9 @@ object AlarmPlaybackCoordinator {
                 if (isFinished()) return
                 when {
                     controller.playerError != null -> finish(false, 0L)
-                    controller.mediaItemCount > 0 && controller.playWhenReady -> finish(true, SETTLE_MS)
+                    controller.mediaItemCount == 1 &&
+                        controller.currentMediaItem?.mediaId == selection.videoId.trim() &&
+                        controller.playWhenReady -> finish(true, SETTLE_MS)
                     else -> handler.postDelayed(::probe, PROBE_MS)
                 }
             }

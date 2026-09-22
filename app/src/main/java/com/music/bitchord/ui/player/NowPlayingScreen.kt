@@ -1023,6 +1023,12 @@ fun NowPlayingScreen(
      * cover edge to edge exactly as a phone does — see [fullBleedArtworkAvailable].
      */
     docked: Boolean = false,
+    /** Reports whether the inline queue currently owns the player surface. */
+    onQueueOpenChanged: (Boolean) -> Unit,
+    /** Moves the containing sheet with a claimed queue-header drag. */
+    onQueueDismissDrag: (deltaY: Float) -> Unit,
+    /** Settles or dismisses the containing sheet when that drag ends. */
+    onQueueDismissDragEnd: (shouldDismiss: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -1133,6 +1139,15 @@ fun NowPlayingScreen(
     // The queue lives inside the player, Apple-style, rather than in a sheet.
     var queueOpen by remember { mutableStateOf(false) }
     var lyricsOpen by remember { mutableStateOf(false) }
+    val queueOpenChanged = rememberUpdatedState(onQueueOpenChanged)
+    val queueDismissDrag = rememberUpdatedState(onQueueDismissDrag)
+    val queueDismissDragEnd = rememberUpdatedState(onQueueDismissDragEnd)
+    LaunchedEffect(queueOpen) {
+        queueOpenChanged.value(queueOpen)
+    }
+    DisposableEffect(Unit) {
+        onDispose { queueOpenChanged.value(false) }
+    }
     // Whether the lyrics or queue list is actively mid-scroll. The player's own
     // swipe gestures — skip-by-drag and the dismiss band — are suppressed for
     // as long as either is true, so a scroll that grazes past a list's edge
@@ -2334,12 +2349,11 @@ fun NowPlayingScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    // Swallow vertical drags before the sheet can read them as
-                    // "dismiss me". Children that scroll consume first, so the
-                    // lists are unaffected. This sits outside the side padding
-                    // on purpose: inside it, the two gutters were left as bare
-                    // sheet, and a swipe that strayed into one closed the whole
-                    // player instead of scrolling the lyrics or the queue.
+                    // Historical protection for the main player and lyrics:
+                    // swallow vertical drags before the sheet can read them as
+                    // "dismiss me". The queue is deliberately excluded below;
+                    // Material3 disables the parent sheet gesture for it, so its
+                    // LazyColumn owns rows, gaps, gutters and empty space alike.
                     //
                     // With one hole in it, and where that hole is depends on
                     // which screen of the player is up:
@@ -2348,19 +2362,47 @@ fun NowPlayingScreen(
                     //    left unconsumed for the sheet to dismiss with, so the
                     //    player closes from the picture as well as from the
                     //    handle; up is taken here and drags the queue in.
-                    //  * The queue or the lyrics — the header those panels sit
-                    //    below, and nothing else. Down closes the player, up does
-                    //    nothing: there is no sleeve left to pull away from.
-                    //
-                    // The header is worked out from the state rather than read
-                    // off the sleeve, which is the whole point of doing it here:
-                    // the sleeve is still on its way for [QUEUE_TRAVEL_MS] after
-                    // the queue opens, and a hole that waited for it spent that
-                    // half second lying across a list the finger was already
-                    // scrolling.
+                    //  * Lyrics — the compact header, and nothing else. Down is
+                    //    left to the native sheet; the rest stays protected.
+                    //  * Queue — bypasses this blocker completely and uses the
+                    //    dedicated compact-header detector immediately below.
                     .onGloballyPositioned { dismissBandSpace = it }
-                    .pointerInput(showAudioPipeline, panelScrolling) {
-                        if (showAudioPipeline || panelScrolling) return@pointerInput
+                    // Material3's sheet gestures are disabled while the queue is
+                    // open. This single local detector gives only the compact
+                    // current-track header a deliberate downward-dismiss path;
+                    // taps keep flowing to artwork, credits, like and More.
+                    .pointerInput(queueOpen, docked) {
+                        if (!queueOpen || docked) return@pointerInput
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val headerBottom = (ART_BOX_TOP_PAD + HEADER_HEIGHT).toPx()
+                            if (down.position.y !in 0f..headerBottom) return@awaitEachGesture
+
+                            var distance = 0f
+                            var draggingDown = false
+                            val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, overSlop ->
+                                if (overSlop > 0f) {
+                                    draggingDown = true
+                                    distance = overSlop
+                                    queueDismissDrag.value(overSlop)
+                                    change.consume()
+                                }
+                            }
+                            if (drag == null || !draggingDown) return@awaitEachGesture
+
+                            val completed = verticalDrag(drag.id) { change ->
+                                val deltaY = change.positionChange().y
+                                distance += deltaY
+                                queueDismissDrag.value(deltaY)
+                                change.consume()
+                            }
+                            queueDismissDragEnd.value(completed && distance >= swipeThreshold)
+                        }
+                    }
+                    .pointerInput(showAudioPipeline, panelScrolling, queueOpen) {
+                        // The queue now owns its gestures natively. Lyrics keeps
+                        // the historical protection supplied by this blocker.
+                        if (showAudioPipeline || panelScrolling || queueOpen) return@pointerInput
                         awaitEachGesture {
                             // Unconsumed on purpose, as the blanket version was:
                             // the collapsed sleeve's own clickable — the way back

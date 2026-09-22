@@ -22,6 +22,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
@@ -83,6 +84,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -97,6 +99,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -434,6 +437,29 @@ private fun BitChordApp(
      * question this used to answer on its own: is the player covering the page?
      */
     var showNowPlaying by remember { mutableStateOf(false) }
+    var nowPlayingQueueOpen by remember { mutableStateOf(false) }
+    var playerDismissDragPx by remember { mutableFloatStateOf(0f) }
+    var playerDismissReturning by remember { mutableStateOf(false) }
+    val nowPlayingSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    LaunchedEffect(showNowPlaying, nowPlayingQueueOpen) {
+        if (!showNowPlaying) nowPlayingQueueOpen = false
+        if (!showNowPlaying || !nowPlayingQueueOpen) {
+            playerDismissReturning = false
+            playerDismissDragPx = 0f
+        }
+    }
+    LaunchedEffect(playerDismissReturning) {
+        if (playerDismissReturning) {
+            animate(
+                initialValue = playerDismissDragPx,
+                targetValue = 0f,
+                animationSpec = tween(durationMillis = 180),
+            ) { value, _ ->
+                playerDismissDragPx = value
+            }
+            playerDismissReturning = false
+        }
+    }
     // The far end of the relay from a widget's artwork. Cleared here rather than
     // where it was set, so the request is spent by being served — see
     // [PlayerDeepLink.handled]. The sheet itself is gated on there being a track,
@@ -1901,6 +1927,35 @@ private fun BitChordApp(
             lyricsOffsetOpen = showLyricsOffset,
             onDismissLyricsOffset = { showLyricsOffset = false },
             docked = docked,
+            onQueueOpenChanged = { open ->
+                if (!docked) nowPlayingQueueOpen = open
+            },
+            onQueueDismissDrag = { deltaY ->
+                if (!docked) {
+                    playerDismissReturning = false
+                    playerDismissDragPx = (playerDismissDragPx + deltaY).coerceAtLeast(0f)
+                }
+            },
+            onQueueDismissDragEnd = { shouldDismiss ->
+                if (!docked) {
+                    if (shouldDismiss) {
+                        playerDismissReturning = false
+                        scope.launch {
+                            try {
+                                // Keep the finger's visual translation while
+                                // Material finishes from Expanded to Hidden.
+                                nowPlayingSheetState.hide()
+                            } finally {
+                                playerDismissDragPx = 0f
+                                nowPlayingQueueOpen = false
+                                showNowPlaying = false
+                            }
+                        }
+                    } else {
+                        playerDismissReturning = true
+                    }
+                }
+            },
             onListenTogether = {
                 // A phone's player is a sheet over the page, so it has to come
                 // down for the page to be read at all. A tablet's is a pane
@@ -2881,8 +2936,17 @@ private fun BitChordApp(
         // Only raised where it isn't already open beside the page.
         if (!playerDocked && showNowPlaying && playerSong != null) {
             ModalBottomSheet(
-                onDismissRequest = { showNowPlaying = false },
-                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                onDismissRequest = {
+                    playerDismissReturning = false
+                    playerDismissDragPx = 0f
+                    nowPlayingQueueOpen = false
+                    showNowPlaying = false
+                },
+                modifier = Modifier.graphicsLayer {
+                    translationY = playerDismissDragPx
+                },
+                sheetState = nowPlayingSheetState,
+                sheetGesturesEnabled = !nowPlayingQueueOpen,
                 // The player fills the screen and paints its own background to
                 // the very top, so the sheet's default 28.dp top corners would
                 // only cut two notches out of the artwork behind the status bar.

@@ -61,6 +61,46 @@ private val PIPELINE_CONTENT_MAX_HEIGHT = 420.dp
 private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
 
 /**
+ * Whether decoded samples are reaching the output unaltered, and what is
+ * altering them when they aren't.
+ *
+ * Worth stating outright rather than leaving to be inferred from the rows
+ * above it, because it is the one claim in this dialog a listener might act
+ * on, and because the app otherwise breaks bit-exactness whenever the
+ * equaliser or spatial audio is switched on without saying so anywhere.
+ *
+ * There are two independent ways to lose it, and the ordering names the
+ * *first* one in the signal chain, which is also the first thing someone
+ * would change to get it back:
+ *
+ * 1. A DSP stage is running. Every one of these is a filter or a gain, and
+ *    none of them can run and leave the output bit-exact.
+ * 2. The output encoding cannot carry the source — a 24-bit stream on a route
+ *    that will not open a float track, or 32-bit integer PCM, which no route
+ *    can carry. [outputExact] is the sink's own verdict on that; see
+ *    `PrecisionAudioSink.publishOutputExactness`.
+ *
+ * This used to be gated behind a Bit-perfect mode that turned the DSP stages
+ * off for you. The mode is gone — with every stage already idle the samples
+ * were bit-exact without it, so the toggle mostly duplicated the Output
+ * precision preference — but the readout is not, because "is it exact right
+ * now" is worth answering whether or not there is a switch that forces it.
+ */
+private fun bitExactVerdict(
+    outputExact: Boolean,
+    outputExactDetail: String?,
+    loudnessActive: Boolean,
+    eqActive: Boolean,
+    spatialActive: Boolean,
+): String = when {
+    loudnessActive -> "No — loudness normalization"
+    eqActive -> "No — equalizer"
+    spatialActive -> "No — spatial audio"
+    outputExact -> "Yes${outputExactDetail?.let { " ($it)" }.orEmpty()}"
+    else -> "No — ${outputExactDetail ?: "converted downstream"}"
+}
+
+/**
  * Full audio playback pipeline inspection surface, opened from the "Audio Pipeline"
  * row at the bottom of [com.music.bitchord.ui.player.AudioOutputSheet].
  *
@@ -87,6 +127,7 @@ fun AudioPipelineDialog(
     val eqEnabled by AppSettings.equalizerEnabled.collectAsStateWithLifecycle()
     val eqPreset by AppSettings.equalizerPreset.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
+    val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
 
     Box(
         modifier = modifier
@@ -263,6 +304,21 @@ fun AudioPipelineDialog(
                         }
                     } ?: "—"
 
+                    // Loudness reads before the rest of the DSP stage because
+                    // that is the order the samples meet them in — see
+                    // [DspChain] on why the level correction goes first.
+                    val loudnessGainText = when {
+                        !loudnessNormalization -> stringResource(R.string.off)
+                        outputStatus.loudnessGainDb == null -> "—"
+                        else -> stringResource(
+                            R.string.loudness_gain_db,
+                            "%+.1f".format(Locale.ROOT, outputStatus.loudnessGainDb),
+                        )
+                    }
+                    val loudnessMeasuredText = outputStatus.loudnessLufs?.let {
+                        stringResource(R.string.loudness_lufs, "%+.1f".format(Locale.ROOT, it))
+                    } ?: "—"
+
                     PipelineRule()
                     PipelineSection(
                         icon = Icons.Rounded.GraphicEq,
@@ -270,10 +326,27 @@ fun AudioPipelineDialog(
                     ) {
                         PipelineRow(stringResource(R.string.pipeline_pcm_format), pcmFormat)
                         PipelineRow(stringResource(R.string.pipeline_sample_rate), dspRateText)
+                        PipelineRow(stringResource(R.string.pipeline_loudness_gain), loudnessGainText)
+                        PipelineRow(stringResource(R.string.pipeline_loudness_measured), loudnessMeasuredText)
                         PipelineRow(stringResource(R.string.pipeline_eq_preset), eqPresetText)
                         PipelineRow(stringResource(R.string.pipeline_stereo_expand), stereoExpandText)
                         PipelineRow(stringResource(R.string.pipeline_buffers), buffersText)
                         PipelineRow(stringResource(R.string.pipeline_output_api), outputStatus.sink.ifBlank { "AAudio" })
+                        // The verdict, rather than the settings. Names whichever
+                        // stage is altering samples — or, when none is, whether
+                        // the route can carry the decoder's own encoding —
+                        // instead of leaving the reader to infer it from four
+                        // rows above.
+                        PipelineRow(
+                            stringResource(R.string.pipeline_bit_exact),
+                            bitExactVerdict(
+                                outputExact = outputStatus.outputExact,
+                                outputExactDetail = outputStatus.outputExactDetail,
+                                loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
+                                eqActive = eqEnabled,
+                                spatialActive = spatialAudio,
+                            ),
+                        )
                     }
 
                     // 5. Output Device Stage

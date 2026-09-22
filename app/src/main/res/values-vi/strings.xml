@@ -15,6 +15,7 @@
     <string name="search">Tìm kiếm</string>
     <string name="clear_search">Xóa tìm kiếm</string>
     <string name="library">Thư viện</string>
+    <string name="home">Trang chủ</string>
     <string name="play">Phát</string>
     <string name="explore">Khám phá</string>
     <string name="listen_now">Nghe ngay</string>
@@ -150,6 +151,7 @@
     <string name="dolby_atmos_unavailable">Thiết bị này không hỗ trợ Atmos, các bài hát sẽ phát ở phiên bản thông thường</string>
     <string name="spatial_audio">Âm thanh không gian</string>
     <string name="spatial_audio_subtitle">Mở rộng âm trường stereo cho cảm giác đắm chìm hơn</string>
+    <string name="spatial_audio_atmos_subtitle">Tạm dừng ở bản nhạc này — Dolby Atmos vốn đã có âm thanh không gian</string>
     <string name="animated_cover_cellular">Phát ảnh bìa động qua dữ liệu di động</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Bài hát, nghệ sĩ, album và thể loại hàng đầu của bạn</string>
@@ -212,6 +214,7 @@
     <string name="automix_mode_performance_subtitle">4 luồng · phân tích nhanh nhất · tỏa nhiệt và tốn pin hơn</string>
     <string name="skip_silence">Bỏ qua đoạn im lặng</string>
     <string name="skip_silence_subtitle">Cắt bớt các khoảng lặng dài hơn 1 giây</string>
+    <string name="skip_silence_float_subtitle">Không khả dụng với đầu ra float 32-bit</string>
     <string name="equalizer">Bộ chỉnh âm</string>
     <string name="equalizer_subtitle">Bảng điều khiển hệ thống của thiết bị</string>
     <string name="show_nerd_stats">Thống kê chi tiết</string>
@@ -242,6 +245,8 @@
     <string name="stop_music_on_close_subtitle">Dừng phát nhạc khi vuốt đóng khỏi danh sách ứng dụng gần đây</string>
     <string name="hide_volume_bar">Ẩn thanh âm lượng</string>
     <string name="hide_volume_bar_subtitle">Bỏ thanh trượt âm lượng khỏi trình phát chính</string>
+    <string name="hide_song_status">Ẩn trạng thái bài hát</string>
+    <string name="hide_song_status_subtitle">Ẩn dòng “Phát từ” hoặc “Được phát bởi” trong trình phát chính</string>
     <string name="off">Tắt</string>
     <string name="low">Thấp</string>
     <string name="medium">Trung bình</string>
@@ -693,6 +698,14 @@
     <string name="export_compatible_downloads">Xuất bản tải xuống tương thích</string>
     <string name="output_precision">Độ chính xác đầu ra</string>
     <string name="prefer_usb_dac">Ưu tiên DAC USB</string>
+    <string name="loudness_normalization">Chuẩn hóa âm lượng</string>
+    <string name="loudness_normalization_subtitle">Cân bằng âm lượng giữa các bài hát</string>
+    <string name="loudness_target">Âm lượng mục tiêu</string>
+    <string name="loudness_target_subtitle">Nhỏ hơn hợp với tai nghe; lớn hơn hợp với ô tô hoặc loa điện thoại</string>
+    <string name="loudness_target_value">%1$s LUFS</string>
+    <string name="loudness_measuring">Đang đo…</string>
+    <string name="loudness_gain_db">%1$s dB</string>
+    <string name="loudness_lufs">%1$s LUFS</string>
     <string name="blur_unfocused_lyrics">Làm mờ lời không tập trung</string>
     <string name="blur_unfocused_lyrics_subtitle">Tập trung vào câu hát hiện tại</string>
     <string name="advanced_options">Tùy chọn nâng cao</string>
@@ -829,12 +842,9 @@
     <string name="equalizer_balance_right">R</string>
 
     <string name="equalizer_balance_footer">Shifts the sound towards one ear by quietening the other.</string>
-
-    <string name="equalizer_float_title">Not running right now</string>
-
-    <string name="equalizer_float_subtitle">32-bit float output is in use</string>
-
-    <string name="equalizer_float_footer">Android plays float audio through a path with no room for effects, so the equaliser, spatial audio and silence skipping are all bypassed. Set output to 16-bit PCM to use them.</string>
+    <string name="equalizer_bitstream_title">Hiện không hoạt động</string>
+    <string name="equalizer_bitstream_subtitle">Bản nhạc này được gửi tới đầu ra mà không giải mã</string>
+    <string name="equalizer_bitstream_footer">Bộ chỉnh âm chỉ hoạt động trên âm thanh đã giải mã. Bản nhạc này được truyền thẳng dưới dạng bitstream để thiết bị của bạn tự giải mã, nên ở đây không có mẫu âm thanh nào để lọc.</string>
 
     <string name="system_equalizer">System equalizer</string>
 
@@ -940,6 +950,14 @@
 
     <string name="pipeline_pcm_format">PCM Format</string>
 
+    <string name="pipeline_loudness">Loudness</string>
+
+    <string name="pipeline_loudness_gain">Gain</string>
+
+    <string name="pipeline_loudness_measured">Measured</string>
+
+    <string name="pipeline_bit_exact">Bit-exact</string>
+
     <string name="pipeline_eq_preset">EQ Preset</string>
 
     <string name="pipeline_stereo_expand">Stereo Expand</string>
@@ -1007,6 +1025,7 @@
     <string name="listen_together_custom_server_footer">Để trống mục này để sử dụng máy chủ mặc định. Nếu bạn chạy bản sao riêng, mọi người trong nhóm phải trỏ đến cùng một máy chủ.</string>
 
     <string name="listen_together_using_default">Đang sử dụng máy chủ mặc định</string>
+    <string name="listen_together_remove_server">Xóa máy chủ</string>
     <string name="listen_together_switched_to_default">Đã chuyển sang máy chủ mặc định</string>
     <string name="listen_together_custom_server_saved">Đã lưu máy chủ tùy chỉnh</string>
 
@@ -1043,6 +1062,28 @@
     <string name="listen_together_host">Host</string>
 
     <string name="listen_together_away">Away — their slot is held</string>
+
+    <string name="listen_together_manage">Quản lý</string>
+    <string name="listen_together_create_action">Tạo bữa tiệc</string>
+    <string name="listen_together_create_sheet_subtitle">Chọn cách bạn xuất hiện và số người có thể tham gia.</string>
+    <string name="listen_together_creating">Đang tạo…</string>
+    <string name="listen_together_full">Bữa tiệc đã đầy</string>
+    <string name="listen_together_invite">Mời</string>
+    <string name="listen_together_invite_title">Mời bạn bè vào bữa tiệc</string>
+    <string name="listen_together_join_existing">Tham gia bữa tiệc có sẵn</string>
+    <string name="listen_together_join_question">Tham gia bữa tiệc của %1$s?</string>
+    <string name="listen_together_join_question_unnamed">Tham gia bữa tiệc này?</string>
+    <string name="listen_together_joining">Đang tham gia…</string>
+    <string name="listen_together_landing_subtitle">Vì âm nhạc hay hơn khi nghe cùng nhau. Mời bạn bè cùng nghe và thêm bài hát theo thời gian thực, dù họ ở đâu.</string>
+    <string name="listen_together_landing_title">Bắt đầu một bữa tiệc</string>
+    <string name="listen_together_not_now">Để sau</string>
+    <string name="listen_together_preview_footer">Mọi người trong bữa tiệc sẽ thấy tên và ảnh đại diện của bạn.</string>
+    <string name="listen_together_scan_qr">Quét mã QR</string>
+    <string name="listen_together_scan_qr_subtitle">Để bạn bè quét mã này và tham gia.</string>
+    <string name="listen_together_share_link">Chia sẻ liên kết</string>
+    <string name="listen_together_host_only">Chỉ tôi điều khiển nhạc</string>
+    <string name="listen_together_host_only_subtitle">Những người khác cùng nghe và có thể tạm dừng trên thiết bị của họ</string>
+    <string name="listen_together_host_only_notice">Chỉ chủ phòng mới có thể điều khiển nhạc</string>
 
     <string name="listen_together_leave">Leave the party</string>
 

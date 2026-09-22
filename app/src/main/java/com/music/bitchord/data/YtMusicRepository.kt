@@ -177,7 +177,12 @@ object YtMusicRepository {
         }
         val qpSongs = qpShelf?.items?.mapNotNull { item ->
             item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                Song(videoId = vid, title = item.title, artist = item.subtitle, thumbnailUrl = item.thumbnailUrl)
+                Song(
+                    videoId = vid,
+                    title = item.title,
+                    artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                    thumbnailUrl = item.thumbnailUrl,
+                )
             }
         }.orEmpty()
         if (qpSongs.isNotEmpty()) return@call qpSongs
@@ -194,7 +199,12 @@ object YtMusicRepository {
         val homeShelfSongs = candidateShelves.flatMap { shelf ->
             shelf.items.mapNotNull { item ->
                 item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                    Song(videoId = vid, title = item.title, artist = item.subtitle, thumbnailUrl = item.thumbnailUrl)
+                    Song(
+                        videoId = vid,
+                        title = item.title,
+                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                        thumbnailUrl = item.thumbnailUrl,
+                    )
                 }
             }
         }.distinctBy { it.videoId }
@@ -205,7 +215,12 @@ object YtMusicRepository {
         val allHomeTrackSongs = shelves.flatMap { shelf ->
             shelf.items.mapNotNull { item ->
                 item.videoId?.let { vid ->
-                    Song(videoId = vid, title = item.title, artist = item.subtitle, thumbnailUrl = item.thumbnailUrl)
+                    Song(
+                        videoId = vid,
+                        title = item.title,
+                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                        thumbnailUrl = item.thumbnailUrl,
+                    )
                 }
             }
         }.distinctBy { it.videoId }
@@ -218,7 +233,12 @@ object YtMusicRepository {
         val exploreSongs = explore.flatMap { shelf ->
             shelf.items.mapNotNull { item ->
                 item.videoId?.takeUnless { it in excludeSongIds }?.let { vid ->
-                    Song(videoId = vid, title = item.title, artist = item.subtitle, thumbnailUrl = item.thumbnailUrl)
+                    Song(
+                        videoId = vid,
+                        title = item.title,
+                        artist = InnertubeParser.artistFromSubtitle(item.subtitle),
+                        thumbnailUrl = item.thumbnailUrl,
+                    )
                 }
             }
         }.distinctBy { it.videoId }

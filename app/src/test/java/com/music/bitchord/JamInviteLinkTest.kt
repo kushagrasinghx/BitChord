@@ -267,6 +267,43 @@ class JamInviteLinkTest {
         assertFalse(resolution.isFallback)
     }
 
+    @Test
+    fun `invariant 11 switch target resolves blank custom server to idle fallback`() {
+        // The bug this pins: switching parties with no server named on the
+        // invite (a typed code, entered while already live) used to hand
+        // switchPartyWithRecovery the raw customServer preference, which is
+        // "" when nobody has configured one — not the default server's
+        // address — so the switch was refused as an invalid target.
+        assertEquals(
+            ListenTogether.defaultServer,
+            ListenTogether.resolveSwitchTarget(
+                inviteServer = null,
+                customServer = "",
+                idleServer = ListenTogether.defaultServer,
+            ),
+        )
+
+        // A configured custom server still wins when the invite is silent.
+        assertEquals(
+            "https://user-custom.example.com",
+            ListenTogether.resolveSwitchTarget(
+                inviteServer = null,
+                customServer = "https://user-custom.example.com",
+                idleServer = ListenTogether.defaultServer,
+            ),
+        )
+
+        // An invite that names its own server always wins, custom or not.
+        assertEquals(
+            "https://invite-target.example.com",
+            ListenTogether.resolveSwitchTarget(
+                inviteServer = "https://invite-target.example.com",
+                customServer = "https://user-custom.example.com",
+                idleServer = ListenTogether.defaultServer,
+            ),
+        )
+    }
+
     // -------------------------------------------------------------------------
     // URL Validation Matrix Tests
     // -------------------------------------------------------------------------

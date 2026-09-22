@@ -15,6 +15,147 @@ import org.junit.Test
 class SearchPagingTest {
 
     @Test
+    fun `search song keeps artists that have no browse link`() {
+        val json = """
+        {
+          "contents": [{
+            "musicResponsiveListItemRenderer": {
+              "playlistItemData": { "videoId": "pull-me-closer" },
+              "flexColumns": [
+                { "musicResponsiveListItemFlexColumnRenderer": {
+                  "text": { "runs": [{ "text": "Pull Me Closer (feat. JDP)" }] }
+                } },
+                { "musicResponsiveListItemFlexColumnRenderer": {
+                  "text": { "runs": [
+                    { "text": "Song" }, { "text": " • " },
+                    { "text": "BBYX", "navigationEndpoint": { "browseEndpoint": {
+                      "browseId": "UC_BBYX", "browseEndpointContextSupportedConfigs": {
+                        "browseEndpointContextMusicConfig": { "pageType": "MUSIC_PAGE_TYPE_ARTIST" }
+                      }
+                    } } },
+                    { "text": ", " },
+                    { "text": "Kenny Can't Dance", "navigationEndpoint": { "browseEndpoint": {
+                      "browseId": "UC_KENNY", "browseEndpointContextSupportedConfigs": {
+                        "browseEndpointContextMusicConfig": { "pageType": "MUSIC_PAGE_TYPE_ARTIST" }
+                      }
+                    } } },
+                    { "text": ", " }, { "text": "Carla Frigo" },
+                    { "text": " & " }, { "text": "Vinny Vibe" },
+                    { "text": " • " }, { "text": "3:03" }
+                  ] }
+                } }
+              ]
+            }
+          }]
+        }
+        """.trimIndent()
+
+        val song = InnertubeParser.parseSearchSongs(Json.parseToJsonElement(json).jsonObject).single()
+
+        assertEquals("BBYX, Kenny Can't Dance, Carla Frigo, Vinny Vibe", song.artist)
+        assertEquals("UC_BBYX", song.artistId)
+    }
+
+    @Test
+    fun `promoted song keeps every artist in a partially linked credit`() {
+        val json = """
+        {
+          "contents": [{ "musicCardShelfRenderer": {
+            "title": { "runs": [{ "text": "Pull Me Closer (feat. JDP)" }] },
+            "subtitle": { "runs": [
+              { "text": "Song" }, { "text": " • " },
+              { "text": "BBYX", "navigationEndpoint": { "browseEndpoint": {
+                "browseId": "UC_BBYX", "browseEndpointContextSupportedConfigs": {
+                  "browseEndpointContextMusicConfig": { "pageType": "MUSIC_PAGE_TYPE_ARTIST" }
+                }
+              } } },
+              { "text": ", " }, { "text": "Kenny Can't Dance" },
+              { "text": ", " }, { "text": "Carla Frigo" },
+              { "text": " & " }, { "text": "Vinny Vibe" },
+              { "text": " • " }, { "text": "3:03" }
+            ] },
+            "onTap": { "watchEndpoint": { "videoId": "pull-me-closer" } }
+          } }]
+        }
+        """.trimIndent()
+
+        val song = InnertubeParser.parseSearchPage(Json.parseToJsonElement(json).jsonObject)
+            .rows.filterIsInstance<SearchResult.TopTrack>().single().song
+
+        assertEquals("BBYX, Kenny Can't Dance, Carla Frigo, Vinny Vibe", song.artist)
+    }
+
+    @Test
+    fun `shelf subtitle conversion preserves the complete artist segment`() {
+        assertEquals(
+            "BBYX, Kenny Can't Dance, Carla Frigo & Vinny Vibe",
+            InnertubeParser.artistFromSubtitle(
+                "Song • BBYX, Kenny Can't Dance, Carla Frigo & Vinny Vibe • 3:03",
+            ),
+        )
+    }
+
+    @Test
+    fun `album rows inherit every artist from the release header`() {
+        val json = """
+        {
+          "header": { "musicResponsiveHeaderRenderer": {
+            "title": { "runs": [{ "text": "Pull Me Closer" }] },
+            "straplineTextOne": { "runs": [
+              { "text": "BBYX", "navigationEndpoint": { "browseEndpoint": {
+                "browseId": "UC_BBYX", "browseEndpointContextSupportedConfigs": {
+                  "browseEndpointContextMusicConfig": { "pageType": "MUSIC_PAGE_TYPE_ARTIST" }
+                }
+              } } },
+              { "text": ", " }, { "text": "Kenny Can't Dance" },
+              { "text": ", " }, { "text": "Carla Frigo" },
+              { "text": " & " }, { "text": "Vinny Vibe" }
+            ] },
+            "subtitle": { "runs": [
+              { "text": "Album" }, { "text": " • " }, { "text": "2026" }
+            ] }
+          } },
+          "contents": [{ "musicResponsiveListItemRenderer": {
+            "playlistItemData": { "videoId": "pull-me-closer" },
+            "flexColumns": [{ "musicResponsiveListItemFlexColumnRenderer": {
+              "text": { "runs": [{ "text": "Pull Me Closer (feat. JDP)" }] }
+            } }]
+          } }]
+        }
+        """.trimIndent()
+
+        val song = InnertubeParser.collectSongsDeep(Json.parseToJsonElement(json)).single()
+
+        assertEquals("BBYX, Kenny Can't Dance, Carla Frigo, Vinny Vibe", song.artist)
+        assertEquals("UC_BBYX", song.artistId)
+    }
+
+    @Test
+    fun `watch queue keeps the full artist byline for autoplay and link lookup`() {
+        val json = """
+        {
+          "contents": [{ "playlistPanelVideoRenderer": {
+            "videoId": "pull-me-closer",
+            "title": { "runs": [{ "text": "Pull Me Closer (feat. JDP)" }] },
+            "longBylineText": { "runs": [
+              { "text": "BBYX" }, { "text": ", " },
+              { "text": "Kenny Can't Dance" }, { "text": ", " },
+              { "text": "Carla Frigo" }, { "text": " & " },
+              { "text": "Vinny Vibe" }, { "text": " • " },
+              { "text": "Pull Me Closer" }
+            ] },
+            "lengthText": { "runs": [{ "text": "3:03" }] },
+            "thumbnail": { "thumbnails": [{ "url": "https://example.test/cover.jpg" }] }
+          } }]
+        }
+        """.trimIndent()
+
+        val song = InnertubeParser.parseWatchQueue(Json.parseToJsonElement(json)).single()
+
+        assertEquals("BBYX, Kenny Can't Dance, Carla Frigo & Vinny Vibe", song.artist)
+    }
+
+    @Test
     fun `YouTube explicit badge is carried onto the song`() {
         fun row(id: String, badge: String) = """
           {

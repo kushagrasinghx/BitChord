@@ -18,7 +18,13 @@ class JioSaavnSource(
     /** Always Ok since the API endpoints don't need authentication to search. */
     override suspend fun health(): SourceHealth = SourceHealth.Ok()
 
-    override suspend fun search(query: String, limit: Int, waitForAll: Boolean): List<Song> {
+    /** [waitForAll] and [request] are moot: one endpoint, one catalogue, no tiers to ask at. */
+    override suspend fun search(
+        query: String,
+        limit: Int,
+        waitForAll: Boolean,
+        request: StreamRequest?,
+    ): List<Song> {
         TrackLog.d(TAG, "▶ JioSaavn searchSongs() query=\"$query\" limit=$limit")
         val results = prioritizeExplicit(JioSaavnService.searchSongs(query))
         TrackLog.d(TAG, "  ✓ JioSaavn returned ${results.size} tracks" + results.take(5)

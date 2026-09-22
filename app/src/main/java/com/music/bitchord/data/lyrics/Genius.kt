@@ -33,8 +33,24 @@ import java.util.concurrent.TimeUnit
  */
 object Genius {
 
-    private const val BROWSER_AGENT =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    /**
+     * What this says it is, which is deliberately not a browser.
+     *
+     * It used to claim Chrome 124, on the usual reasoning that a site serves a
+     * scraper better if it looks like a person. That reasoning has inverted:
+     * Genius sits behind Cloudflare, and Cloudflare now challenges a
+     * browser-claiming User-Agent whose TLS fingerprint and `sec-ch-ua`
+     * headers do not back the claim. Measured against both endpoints in
+     * September 2026, from the same host and the same second: a Chrome UA is
+     * answered `403` with a bot-challenge page, and a plain one is answered
+     * `200` with the JSON and the lyrics HTML. Claiming to be a browser was
+     * the thing getting this blocked.
+     *
+     * The cost of the 403 was invisible. [httpGet] reads any non-2xx as null,
+     * which travels up as "no lyrics for this track" — indistinguishable from
+     * a song Genius genuinely does not have.
+     */
+    private const val USER_AGENT = "BitChord"
 
     private val json by lazy { Json { ignoreUnknownKeys = true; isLenient = true } }
 
@@ -314,7 +330,7 @@ object Genius {
     private fun httpGet(url: String): String? = runCatching {
         val request = Request.Builder()
             .url(url)
-            .header("User-Agent", BROWSER_AGENT)
+            .header("User-Agent", USER_AGENT)
             .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8")
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()

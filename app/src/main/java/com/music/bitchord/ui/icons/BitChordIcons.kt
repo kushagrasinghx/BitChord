@@ -10,8 +10,10 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Thick-stroke, round-capped icons in the spirit of Telegram's modern icon set.
- * Drawn as strokes (no fills) so the 2.2px weight + round joins read as a
- * single polished family. Tint is applied by [androidx.compose.material3.Icon].
+ * Drawn as strokes so the 2.2px weight + round joins read as a single polished
+ * family. Tint is applied by [androidx.compose.material3.Icon].
+ *
+ * [Home] is the exception and says why it is one.
  */
 object BitChordIcons {
 
@@ -99,6 +101,22 @@ object BitChordIcons {
         }.build()
     }
 
+    /**
+     * The one solid icon in the set, and the tab bar is why.
+     *
+     * Selection here is carried by tint alone — see `GlassNavBar`, where the
+     * unselected tabs are the same glyph at 65% — so the home tab is the anchor
+     * of the bar rather than a state of it, and a filled silhouette reads as
+     * that anchor at 24dp where a four-stroke outline reads as detail.
+     *
+     * Filled *and* stroked, with the same path. The outline of a house is all
+     * corners — an apex, two shoulders, two door jambs — and stroking the fill
+     * with a round-joined pen is what rounds every one of them at once, for a
+     * geometry that stays nine straight lines. The numbers below are therefore
+     * inset by half the stroke: the pen puts back what they give up, and the
+     * door notch is drawn oversized for the same reason, since the pen closes
+     * in on it from both jambs.
+     */
     val Home: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_home",
@@ -106,25 +124,28 @@ object BitChordIcons {
             viewportWidth = 24f, viewportHeight = 24f,
         ).apply {
             path(
+                fill = stroke,
                 stroke = stroke,
-                strokeLineWidth = STROKE,
+                strokeLineWidth = 1.7f,
                 strokeLineCap = StrokeCap.Round,
                 strokeLineJoin = StrokeJoin.Round,
             ) {
-                // Roof outline
-                moveTo(3.4f, 12.4f)
-                lineTo(12f, 4.2f)
-                lineTo(20.6f, 12.4f)
-                // Walls
-                moveTo(5.4f, 11f)
-                lineTo(5.4f, 19.8f)
-                moveTo(18.6f, 11f)
-                lineTo(18.6f, 19.8f)
-                // Door
-                moveTo(9.8f, 19.8f)
-                lineTo(9.8f, 15.2f)
-                lineTo(14.2f, 15.2f)
-                lineTo(14.2f, 19.8f)
+                // Roof, flush with the walls rather than overhanging them: an
+                // eave narrower than the pen it is drawn with comes out as a
+                // blob on the corner instead of a ledge.
+                moveTo(12f, 4.05f)
+                lineTo(19.75f, 11.35f)
+                // Right wall, down to the floor
+                lineTo(19.75f, 19.65f)
+                // Door, cut up out of the bottom edge
+                lineTo(14.95f, 19.65f)
+                lineTo(14.95f, 15.6f)
+                lineTo(9.05f, 15.6f)
+                lineTo(9.05f, 19.65f)
+                // Left wall, back up to the apex
+                lineTo(4.25f, 19.65f)
+                lineTo(4.25f, 11.35f)
+                close()
             }
         }.build()
     }

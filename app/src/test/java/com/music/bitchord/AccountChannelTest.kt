@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.innertube.InnertubeParser
+import com.music.bitchord.auth.normalizeDataSyncId
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -39,13 +40,13 @@ class AccountChannelTest {
         // Not a delegated page, and must not be given one — a `X-Goog-PageId`
         // on the account's own channel is a different request entirely.
         assertNull(personal.pageId)
-        assertEquals("SYNC_PERSONAL", personal.dataSyncId)
+        assertEquals("SESSION_A", personal.dataSyncId)
         assertTrue(personal.activeOnWeb)
 
         val brand = channels[1]
         assertEquals("Analytical Engine Radio", brand.name)
         assertEquals("113355", brand.pageId)
-        assertEquals("SYNC_BRAND", brand.dataSyncId)
+        assertEquals("SESSION_B", brand.dataSyncId)
         assertEquals(false, brand.activeOnWeb)
     }
 
@@ -56,14 +57,18 @@ class AccountChannelTest {
         val channels = parse(SHUFFLED_TOKENS)
         assertEquals(1, channels.size)
         assertEquals("113355", channels[0].pageId)
-        assertEquals("SYNC_BRAND", channels[0].dataSyncId)
+        assertEquals("SESSION_B", channels[0].dataSyncId)
     }
 
     @Test
-    fun `only the account half of the datasync id is kept`() {
-        // `<accountSyncId>||<sessionSyncId>` — the second half changes on its
-        // own schedule and names the session, not the account.
-        assertEquals("SYNC_BRAND", parse(SHUFFLED_TOKENS)[0].dataSyncId)
+    fun `delegated half of the datasync id is used`() {
+        assertEquals("SESSION_B", parse(SHUFFLED_TOKENS)[0].dataSyncId)
+    }
+
+    @Test
+    fun `plain account falls back when delegated half is empty`() {
+        assertEquals("SYNC_PERSONAL", normalizeDataSyncId("SYNC_PERSONAL||"))
+        assertNull(normalizeDataSyncId(""))
     }
 
     @Test

@@ -183,6 +183,22 @@ object SourceRegistry {
 
     fun config(configId: String): SourceConfig? = configs.value.firstOrNull { it.id == configId }
 
+    /**
+     * Drops completed addon track answers for an explicit quality retry.
+     *
+     * Empty responses are normally legitimate and cached, but an addon whose
+     * upstream was temporarily down can express that outage as HTTP 200 with
+     * no rows. The listener pressing "Upgrade quality" is an explicit request
+     * to ask again now, not to repeat that cached answer or a previously issued
+     * stream URL. In-flight calls stay shared so a quick second press cannot
+     * duplicate work already on the wire.
+     */
+    fun clearCompletedAddonTrackCalls() {
+        instances.values
+            .filterIsInstance<AddonSource>()
+            .forEach(AddonSource::clearCompletedTrackCalls)
+    }
+
     // ── Editing ─────────────────────────────────────────────────────────
 
     fun add(config: SourceConfig) = publish(configs.value + config.tidied())

@@ -2,6 +2,8 @@ package com.music.bitchord.data.sources.addon
 
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.module.SharedCalls
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -190,6 +192,9 @@ class AddonClient(rawBaseUrl: String) {
      * but an addon whose manifest is briefly unreachable while its search
      * endpoint is fine should still be searchable, one tier hint the poorer,
      * rather than failing outright on a document nothing here strictly needs.
+     *
+     * Last comes `atmos`, which is the one parameter here that is not about
+     * quality. See [atmosHint].
      */
     private suspend fun settingsFor(tier: String): Map<String, String> {
         val declared = manifest().getOrNull()?.settings.orEmpty()
@@ -204,7 +209,45 @@ class AddonClient(rawBaseUrl: String) {
                 .mapNotNull { it.stringValue }
             params[QUALITY_KEY] = matchTier(tier, options) ?: tier
         }
+        atmosHint()?.let { params.putIfAbsent(ATMOS_KEY, it) }
         return params
+    }
+
+    /**
+     * `auto` when this device and this user both want immersive audio, null
+     * otherwise — the standard `?atmos=` hint the spec defines for hosts.
+     *
+     * Without it an addon holding an Atmos mix has no way to know it may serve
+     * one, so it takes its default branch and sends stereo. That is the whole
+     * of why BitChord never heard Atmos from an addon: not a detection bug —
+     * [AddonStream.isDolbyAtmos] reads every spelling an addon sends — but a
+     * question that was never asked.
+     *
+     * Three things about the shape of this are deliberate:
+     *
+     *  - **The value is exactly `auto`.** `1`/`true` select the spec's *strict*
+     *    mode, where a track with no immersive mix is an error rather than a
+     *    stereo answer — which would turn every ordinary track on an
+     *    Atmos-capable addon into a miss. `auto` is try-Atmos-then-stereo.
+     *  - **It is asked for, not asserted.** Both gates are the same two the
+     *    playback side enforces in
+     *    [ModuleSource.unplayable][com.music.bitchord.data.sources.ModuleSource.unplayable],
+     *    so an addon is only ever offered Atmos when an Atmos answer would
+     *    actually be accepted. With either gate shut the parameter is absent
+     *    entirely and the addon's own default — stereo — stands.
+     *  - **[putIfAbsent], never an override.** An addon that declared its own
+     *    `atmos` setting has said what it wants; the manifest's default wins
+     *    and this adds nothing. Addons that have never heard of the parameter
+     *    ignore it, which is the same basis on which `quality` is already sent
+     *    unconditionally.
+     *
+     * Nothing here names a particular addon. The decoder probe is cached per
+     * process and the settings read is a flow's current value, so this costs
+     * nothing on the IO thread it already runs on.
+     */
+    private fun atmosHint(): String? {
+        val wanted = DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value
+        return if (wanted) ATMOS_AUTO else null
     }
 
     /**
@@ -325,6 +368,20 @@ class AddonClient(rawBaseUrl: String) {
         quietUntilMs = 0L
     }
 
+    /**
+     * Makes the next catalogue and stream lookups real requests without
+     * disturbing a request already in flight.
+     *
+     * Used only for the listener's explicit "Upgrade quality" action. Normal
+     * playback keeps those caches, but a manual retry must be able to recover
+     * immediately from an addon which answered empty while one of its backends
+     * was unavailable or handed out a URL that did not work.
+     */
+    fun clearCompletedTrackCalls() {
+        searches.clearCompleted()
+        streams.clearCompleted()
+    }
+
     /** Parts joined length-prefixed, so no byte a part may contain can act as a delimiter. */
     private fun keyOf(vararg parts: String) = parts.joinToString("|") { "${it.length}:$it" }
 
@@ -337,6 +394,10 @@ class AddonClient(rawBaseUrl: String) {
         const val TIER_LOW = "LOW"
 
         private const val QUALITY_KEY = "quality"
+
+        /** The spec's immersive-audio hint, and the only value BitChord ever sends for it. */
+        private const val ATMOS_KEY = "atmos"
+        private const val ATMOS_AUTO = "auto"
 
         private val LOSSLESS_WORDS = listOf("lossless", "flac", "hifi", "hi-res", "hires", "max", "best")
         private val HIGH_WORDS = listOf("high", "320", "normal", "standard")

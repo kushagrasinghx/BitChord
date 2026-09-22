@@ -1,7 +1,6 @@
 package com.music.bitchord.auth
 
 import android.annotation.SuppressLint
-import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -29,14 +28,6 @@ private const val LOGIN_URL =
         "?ltmpl=music&service=youtube&passive=true" +
     "&continue=https%3A%2F%2Fmusic.youtube.com%2F"
 
-/**
- * CookieManager cannot expire every Google HttpOnly cookie by name. Logging
- * out inside this WebView is the reliable way to make Add account present the
- * account chooser, without touching BitChord's separately encrypted sessions.
- */
-private val LOGOUT_THEN_LOGIN_URL =
-    "https://accounts.google.com/Logout?continue=${Uri.encode(LOGIN_URL)}"
-
 private const val TAG = "BitChord"
 
 /**
@@ -46,10 +37,12 @@ private const val TAG = "BitChord"
  * [WebSessionMode.SIGN_IN] loads the standard Google web login with
  * `continue=music.youtube.com`. The user authenticates directly against
  * accounts.google.com (2FA, passkeys etc. all work — it's the real page). When
- * Google redirects back to music.youtube.com the session is taken automatically
- * and the screen closes. The browser's Google cookies are cleared on the way in,
- * or a listener who signed out would be waved straight back through as the
- * account they were trying to leave — see [BrowserSession.clearGoogleCookies].
+ * Google redirects back to music.youtube.com the listener confirms the profile
+ * shown by the live page. This deliberately leaves a multiple-channel account
+ * enough time to choose its Personal or Brand identity before anything is
+ * saved. The browser's local Google cookies are cleared on the way in without
+ * visiting Google's logout endpoint, so adding an account cannot invalidate a
+ * previously saved session.
  *
  * [WebSessionMode.SWITCH_CHANNEL] keeps those cookies and opens YouTube Music
  * itself, so the listener can use the avatar menu's own Accounts list — the one
@@ -64,6 +57,8 @@ private const val TAG = "BitChord"
 @Composable
 fun YtMusicLoginScreen(
     mode: WebSessionMode,
+    /** Cookie snapshot to install before opening an existing account's channel picker. */
+    initialCookie: String? = null,
     onCaptured: (CapturedSession) -> Unit,
     modifier: Modifier = Modifier,
     /**
@@ -73,42 +68,47 @@ fun YtMusicLoginScreen(
     captureRequest: Int = 0,
     /** Told when a capture was asked for and there was no session to take. */
     onCaptureUnavailable: () -> Unit = {},
+    /** True once a signed-in YouTube Music page is available for confirmation. */
+    onPageReady: (Boolean) -> Unit = {},
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     val currentOnCaptured by rememberUpdatedState(onCaptured)
     val currentOnUnavailable by rememberUpdatedState(onCaptureUnavailable)
+    val currentOnPageReady by rememberUpdatedState(onPageReady)
 
     LaunchedEffect(captureRequest) {
         if (captureRequest == 0) return@LaunchedEffect
         val view = webView
-        if (view == null || !captureFrom(view, currentOnCaptured)) currentOnUnavailable()
+        if (view == null) currentOnUnavailable()
+        else captureFrom(view, currentOnCaptured, currentOnUnavailable)
     }
 
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { context ->
+            // Clearing the local jar is enough to show a fresh Google login.
+            // Never visit accounts.google.com/Logout here: that invalidates a
+            // previously saved account on Google's server, so adding account B
+            // silently breaks account A.
             if (mode == WebSessionMode.SIGN_IN) BrowserSession.clearGoogleCookies()
+            else initialCookie?.let(BrowserSession::installGoogleCookies)
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
 
                 webViewClient = object : WebViewClient() {
-                    private var captured = false
-
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        // Only [WebSessionMode.SIGN_IN] finishes by itself. In
-                        // the switch flow the first music.youtube.com page is
-                        // where the listener starts, not where they are done —
-                        // grabbing the session there would save the channel
-                        // they came to change.
-                        if (mode != WebSessionMode.SIGN_IN) return
-                        if (captured || url?.startsWith(MUSIC_ORIGIN) != true) return
-                        if (view != null && captureFrom(view, currentOnCaptured)) captured = true
+                        // Reaching the Music origin only enables confirmation.
+                        // A multi-channel login can still be waiting for the
+                        // listener to choose an identity on this very page.
+                        // Capturing automatically here is the race that used to
+                        // create a fake "Personal" profile and close too soon.
+                        currentOnPageReady(url?.startsWith(MUSIC_ORIGIN) == true)
                     }
                 }
 
                 webView = this
-                loadUrl(if (mode == WebSessionMode.SIGN_IN) LOGOUT_THEN_LOGIN_URL else "$MUSIC_ORIGIN/")
+                loadUrl(if (mode == WebSessionMode.SIGN_IN) LOGIN_URL else "$MUSIC_ORIGIN/")
             }
         },
     )
@@ -122,9 +122,16 @@ fun YtMusicLoginScreen(
  *   at all — and the caller should leave the screen open rather than saving
  *   something that cannot sign a request. See [AuthStore.hasApiSid].
  */
-private fun captureFrom(view: WebView, onCaptured: (CapturedSession) -> Unit): Boolean {
+private fun captureFrom(
+    view: WebView,
+    onCaptured: (CapturedSession) -> Unit,
+    onUnavailable: () -> Unit,
+) {
     val cookies = CookieManager.getInstance().getCookie(MUSIC_ORIGIN)
-    if (cookies == null || !AuthStore.hasApiSid(cookies)) return false
+    if (cookies == null || !AuthStore.hasApiSid(cookies)) {
+        onUnavailable()
+        return
+    }
     // Flushed here rather than left to the WebView's own schedule: the screen
     // is usually closing in the next frame, and a cookie jar written after
     // that is a jar the next sign-in reads instead of this one.
@@ -132,24 +139,29 @@ private fun captureFrom(view: WebView, onCaptured: (CapturedSession) -> Unit): B
 
     view.evaluateJavascript(YTCFG_PROBE) { raw ->
         val config = raw.parseConfig()
-        if (config == null) {
-            Log.w(TAG, "no ytcfg on the page; falling back to the shell for identity")
+        val loggedIn = config?.get("loggedIn").let {
+            it is JsonPrimitive && it.content == "true"
         }
+        if (config == null || !loggedIn) {
+            Log.w(TAG, "confirmation requested before the page exposed a signed-in identity")
+            onUnavailable()
+            return@evaluateJavascript
+        }
+        val pageId = config.string("pageId")
         onCaptured(
             CapturedSession(
                 cookie = cookies,
-                // `<accountSyncId>||<sessionSyncId>` — only the first half
-                // names the account; the second changes on its own schedule.
-                dataSyncId = config?.string("dataSyncId")?.substringBefore("||"),
-                pageId = config?.string("pageId"),
-                authUser = config?.string("authUser"),
-                visitorData = config?.string("visitorData"),
-                clientVersion = config?.string("clientVersion"),
-                loggedIn = config?.get("loggedIn").let { it is JsonPrimitive && it.content == "true" },
+                // A delegated identity is the most specific answer the live
+                // page can give. Otherwise normalise its DATASYNC_ID.
+                dataSyncId = pageId ?: normalizeDataSyncId(config.string("dataSyncId")),
+                pageId = pageId,
+                authUser = config.string("authUser"),
+                visitorData = config.string("visitorData"),
+                clientVersion = config.string("clientVersion"),
+                loggedIn = true,
             ),
         )
     }
-    return true
 }
 
 /**

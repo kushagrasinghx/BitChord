@@ -52,6 +52,23 @@ val listenTogetherServer: String = (
         ?: "https://bitchord-listen-together.onrender.com"
     ).trim().trimEnd('/')
 
+/*
+ * Bump this by hand before cutting each sideloaded test build ("beta2",
+ * "beta3", ...) and blank it out before cutting the real release. Marks the
+ * versionName below as a pre-release: AppUpdateChecker.isNewer() treats any
+ * "-suffix" as older than a clean release of the same number, so testers
+ * still get the update prompt once the matching tag is actually published.
+ *
+ * Applied to release builds as well as debug ones, and that is the whole
+ * point of it. A sideloaded beta is a *release* build — signed with the real
+ * key, installed over the real package — so leaving the marker off it is
+ * exactly the case that strands a tester: their build calls itself 1.6.1,
+ * the published 1.6.1 then matches it, isNewer() says no, and no prompt ever
+ * comes. Blanking this line is the one step that turns a beta into a release,
+ * so it is the one place to get right.
+ */
+val betaSuffix = "beta2"
+
 android {
     namespace = "com.music.bitchord"
     compileSdk = 36
@@ -62,7 +79,7 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
+        versionCode = 20
         versionName = "1.6.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -129,7 +146,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (betaSuffix.isNotEmpty()) versionNameSuffix = "-$betaSuffix"
+        }
         release {
+            // Carried here too — see [betaSuffix]. A sideloaded beta is a
+            // release build, and it is the one that most needs the marker.
+            if (betaSuffix.isNotEmpty()) versionNameSuffix = "-$betaSuffix"
             /*
              * Off deliberately. Stream resolution runs YouTube's own player
              * JavaScript through Rhino, and NewPipe, Ktor and
@@ -261,6 +284,15 @@ dependencies {
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
     implementation("dev.chrisbanes.haze:haze:1.3.1")
     implementation("dev.chrisbanes.haze:haze-materials:1.3.1")
+
+    // ---- QR encoding, for the party invite ----
+    // `core` only: the `android-core`/`zxing-android-embedded` artifacts bring
+    // a camera scanner and an Activity with it, and nothing here reads a code —
+    // a party is joined by tapping somebody else's link or typing six
+    // characters. This produces the bit matrix; the drawing is ours, in
+    // [com.music.bitchord.ui.components.QrCode], so the result is styled like
+    // the rest of the app rather than a stock black-and-white bitmap.
+    implementation("com.google.zxing:core:3.5.3")
 
     // ---- Markdown rendering (release notes in the update dialog) ----
     // Pure Compose, not an AndroidView wrapper — needed so the text composes

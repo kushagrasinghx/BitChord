@@ -179,6 +179,7 @@
     <string name="dolby_atmos_unavailable">This device can\'t play Atmos, so these songs play in their usual version</string>
     <string name="spatial_audio">Spatial audio</string>
     <string name="spatial_audio_subtitle">Widens stereo tracks for a more immersive feel</string>
+    <string name="spatial_audio_atmos_subtitle">Paused for this track — Dolby Atmos is already spatial</string>
     <string name="animated_cover_cellular">Play animated cover over cellular</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Your top songs, artists, albums and genres</string>
@@ -241,6 +242,7 @@
     <string name="automix_mode_performance_subtitle">4 threads · fastest analysis · higher heat and battery use</string>
     <string name="skip_silence">Skip silence</string>
     <string name="skip_silence_subtitle">Trim gaps longer than a second</string>
+    <string name="skip_silence_float_subtitle">Unavailable on 32-bit float output</string>
     <string name="prefer_music_only">Prefer music-only version</string>
     <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
     <string name="smooth_version_transition">Smooth version transition</string>
@@ -270,9 +272,9 @@
     <string name="equalizer_balance_left">L</string>
     <string name="equalizer_balance_right">R</string>
     <string name="equalizer_balance_footer">Shifts the sound towards one ear by quietening the other.</string>
-    <string name="equalizer_float_title">Not running right now</string>
-    <string name="equalizer_float_subtitle">32-bit float output is in use</string>
-    <string name="equalizer_float_footer">Android plays float audio through a path with no room for effects, so the equaliser, spatial audio and silence skipping are all bypassed. Set output to 16-bit PCM to use them.</string>
+    <string name="equalizer_bitstream_title">Not running right now</string>
+    <string name="equalizer_bitstream_subtitle">This track is sent to the output undecoded</string>
+    <string name="equalizer_bitstream_footer">The equaliser works on decoded audio. This track is passed through as a bitstream for your device to decode, so there are no samples here to filter.</string>
     <string name="system_equalizer">System equalizer</string>
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>
     <string name="system_equalizer_footer">Runs after BitChord\'s, on the whole audio session. Using both applies both.</string>
@@ -321,6 +323,8 @@
     <string name="stop_music_on_close_subtitle">Stops playback when swiped away from recent apps</string>
     <string name="hide_volume_bar">Hide volume bar</string>
     <string name="hide_volume_bar_subtitle">Removes the volume slider from the main player</string>
+    <string name="hide_song_status">Hide Song Status</string>
+    <string name="hide_song_status_subtitle">Hides the “Playing from” or “Played by” text in the main player</string>
     <string name="off">Off</string>
     <string name="low">Low</string>
     <string name="medium">Medium</string>
@@ -859,6 +863,7 @@
     <string name="listen_together_custom_server">Use your own server</string>
     <string name="listen_together_custom_server_footer">Leave this empty to use the default server. If you run your own copy, everyone in the party has to be pointed at the same one.</string>
     <string name="listen_together_using_default">Using default server</string>
+    <string name="listen_together_remove_server">Remove server</string>
     <string name="listen_together_switched_to_default">Switched to default server</string>
     <string name="listen_together_custom_server_saved">Custom server saved</string>
     <string name="listen_together_create">Create a party</string>
@@ -899,6 +904,26 @@
     <string name="listen_together_host">Host</string>
     <string name="listen_together_away">Away — their slot is held</string>
     <string name="listen_together_manage">Manage</string>
+    <string name="listen_together_landing_title">Start a party</string>
+    <string name="listen_together_landing_subtitle">Because music sounds better together. Invite friends to listen and add songs in real time, wherever they are.</string>
+    <string name="listen_together_create_action">Create a party</string>
+    <string name="listen_together_join_existing">Join existing</string>
+    <string name="listen_together_create_sheet_subtitle">Pick how you’ll show up, and how many can join.</string>
+    <string name="listen_together_creating">Creating…</string>
+    <string name="listen_together_joining">Joining…</string>
+    <string name="listen_together_full">This party is full</string>
+    <string name="listen_together_join_question">Join %1$s’s party?</string>
+    <string name="listen_together_join_question_unnamed">Join this party?</string>
+    <string name="listen_together_not_now">Not now</string>
+    <string name="listen_together_preview_footer">People in the party will see your name and profile picture.</string>
+    <string name="listen_together_invite_title">Invite friends to your party</string>
+    <string name="listen_together_share_link">Share link</string>
+    <string name="listen_together_scan_qr">Scan QR code</string>
+    <string name="listen_together_scan_qr_subtitle">Let friends scan this to join.</string>
+    <string name="listen_together_invite">Invite</string>
+    <string name="listen_together_host_only">Only I control the music</string>
+    <string name="listen_together_host_only_subtitle">Everyone else listens along and can pause on their own device</string>
+    <string name="listen_together_host_only_notice">Only the host can control the music</string>
     <string name="listen_together_leave">Leave the party</string>
     <string name="listen_together_leave_subtitle">The others carry on listening</string>
     <string name="listen_together_reconnecting">Reconnecting…</string>
@@ -940,6 +965,30 @@
     <string name="output_precision">Output precision</string>
 
     <string name="prefer_usb_dac">Prefer USB DAC</string>
+
+    <string name="loudness_normalization">Loudness normalization</string>
+
+    <string name="loudness_normalization_subtitle">Levels every track to the same loudness</string>
+
+    <string name="loudness_target">Target loudness</string>
+
+    <string name="loudness_target_subtitle">Quieter suits headphones; louder suits a car or a phone speaker</string>
+
+    <string name="loudness_target_value">%1$s LUFS</string>
+
+    <string name="pipeline_loudness">Loudness</string>
+
+    <string name="pipeline_loudness_gain">Gain</string>
+
+    <string name="pipeline_loudness_measured">Measured</string>
+
+    <string name="pipeline_bit_exact">Bit-exact</string>
+
+    <string name="loudness_measuring">Measuring…</string>
+
+    <string name="loudness_gain_db">%1$s dB</string>
+
+    <string name="loudness_lufs">%1$s LUFS</string>
 
     <string name="blur_unfocused_lyrics">Blur unfocused lyrics</string>
 

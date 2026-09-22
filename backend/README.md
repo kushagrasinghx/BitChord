@@ -95,9 +95,12 @@ verify it there. Nothing above that function would need to move.
 - **A dropped socket is not a departure.** The membership survives
   `JAM_DISCONNECT_GRACE_MS` (default 45 s), which is what makes a tunnel or a
   screen-off invisible to everyone else.
-- **The host is not privileged.** Anyone may control the music; the role only
-  decides who inherits it, and it passes on when the host leaves rather than
-  ending the party.
+- **The host is privileged only if it says so.** By default anyone may control
+  the music and the role just decides who inherits it, passing on when the host
+  leaves rather than ending the party. A host may also set `hostOnlyControl`,
+  after which the server refuses every playback and queue action from anybody
+  else — see the control actions below. The setting belongs to the party, so a
+  new host inherits it rather than being locked out of a party they now own.
 - Parties are swept when nobody has been connected for
   `JAM_EMPTY_PARTY_TTL_MS`, and unconditionally after `JAM_PARTY_MAX_AGE_MS`.
 
@@ -141,7 +144,25 @@ Client → server:
 {"type": "control", "action": "queueMove",   "fromIndex": 2, "toIndex": 5, "videoId": "…"}
 {"type": "control", "action": "next"}
 {"type": "control", "action": "previous"}
+{"type": "control", "action": "setHostOnlyControl", "enabled": true}   // host only
 ```
+
+`setMaxMembers`, `kick` and `setHostOnlyControl` are host-only and answer
+`403 host_only` to anybody else. While `hostOnlyControl` is on, so is every
+action above them in that list — `play`, `pause`, `seek`, `setTrack`,
+`setQueue`, `queueAdd`, `queueRemove`, `queueClear`, `queueMove`, `next`,
+`previous` and `setAutoplay` — which is what makes the restriction real rather
+than a matter of the app hiding its own buttons.
+
+The flag travels on the `members` frame, alongside `maxMembers`, and in the
+snapshot; it is deliberately not on the state frame, which rides the heartbeat.
+Absent from either — an older server — it reads as `false`, which is the
+behaviour the feature shipped with.
+
+A `bye` frame carries a `reason`: `left` when a member gives up their own slot,
+`kicked` when the host removes them. The server holds no grudge — a removed
+device may rejoin immediately as far as it is concerned — but the reason lets a
+client shut its own door, which is what the Android app does for 24 hours.
 
 A `track` is `{videoId, title, artist, thumbnailUrl, durationMs, fromAutoplay}` — enough to
 identify and to *show* a song, and nothing more. Stream URLs, sources, quality

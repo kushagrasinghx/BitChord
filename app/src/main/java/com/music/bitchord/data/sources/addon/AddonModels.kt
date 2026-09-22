@@ -17,7 +17,6 @@ import kotlinx.serialization.json.booleanOrNull
  * the two speak different protocols, and the module one has to download and
  * run somebody's JavaScript to ask the same two questions.
  *
- * Protocol reference: <https://eclipsemusic.app/docs>.
  *
  * Every field the app does not need is absent from these classes rather than
  * present and ignored; what is here is what is read, and a field that stops
@@ -137,6 +136,15 @@ data class AddonTrack(
     /** Not in the spec, but several addons send it and it says the same thing. */
     @SerialName("audioQuality") val audioQuality: String = "",
     /**
+     * How the recording is mixed, when the catalogue distinguishes: `STEREO`,
+     * `DOLBY_ATMOS`, `SONY_360RA`. Read because for at least one backend it is
+     * the *only* thing that tells an immersive row apart — see [isDolbyAtmos].
+     */
+    @SerialName("audioMode") val audioMode: String? = null,
+    @SerialName("audioModes") val audioModes: List<String> = emptyList(),
+    /** Some addons state it outright instead of, or as well as, in [audioModes]. */
+    @SerialName("atmos") val atmos: Boolean? = null,
+    /**
      * A stream URL for the row itself. When present the spec says the host
      * skips the `/stream` call entirely, and so does this app — one round trip
      * saved on the path that has to finish before audio starts.
@@ -147,7 +155,41 @@ data class AddonTrack(
 
     /** Whichever artwork the addon filled in. */
     val artwork: String? get() = artworkURL?.ifBlank { null } ?: albumArtworkURL?.ifBlank { null }
+
+    /**
+     * Whether this row is the immersive mix rather than a stereo one.
+     *
+     * Worth reading on a *row* and not only on a stream, because a catalogue
+     * may publish the Atmos mix as its own track rather than as an alternate
+     * rendition of the stereo one — Tidal does, through this addon:
+     *
+     * ```
+     * tidal:479222720  Gehra Hua  audioQuality=LOSSLESS  audioModes=[STEREO]
+     * tidal:527739156  Gehra Hua  audioQuality=LOW       audioModes=[DOLBY_ATMOS]
+     * ```
+     *
+     * Same recording, same 362s runtime, different ids. Which means asking for
+     * `?atmos=auto` on the first id can never produce Atmos however willing the
+     * server is — the mix is not a rendition of that track, it is a different
+     * track — and the only thing that can find it is this field. Note also the
+     * `LOW`: Tidal files immersive rows under its *lowest* quality label, so a
+     * row read on [audioQuality] alone reads as the worst thing on offer
+     * rather than the best. See [AddonSource.search][com.music.bitchord.data.sources.AddonSource].
+     */
+    val isDolbyAtmos: Boolean
+        get() = atmos == true || ATMOS_HINT.containsMatchIn(
+            "$audioQuality ${audioMode.orEmpty()} ${audioModes.joinToString(" ")} $format",
+        )
 }
+
+/**
+ * The spellings an addon uses for an immersive mix, in any free-text field.
+ *
+ * Shared by rows and streams because they are answering the same question with
+ * the same vocabulary, and a row recognised as Atmos whose stream is not (or
+ * the reverse) is the inconsistency that costs a track its immersive mix.
+ */
+private val ATMOS_HINT = Regex("""atmos|dolby|eac3[_-]?joc|ec-?3""", RegexOption.IGNORE_CASE)
 
 // ── Stream ───────────────────────────────────────────────────────────────
 
@@ -327,7 +369,7 @@ data class AddonStream(
 
     /** Whether the addon says this is the immersive mix rather than a stereo one. */
     val isDolbyAtmos: Boolean
-        get() = ATMOS.containsMatchIn(
+        get() = ATMOS_HINT.containsMatchIn(
             "$qualityText ${audioMode.orEmpty()} ${audioModes.joinToString(" ")} ${statedCodec.orEmpty()}",
         )
 
@@ -338,7 +380,6 @@ data class AddonStream(
         private val KBPS_LABEL = Regex("""(\d{2,4})\s*kbps""", RegexOption.IGNORE_CASE)
         private val KHZ_LABEL = Regex("""([\d.]+)\s*kHz""", RegexOption.IGNORE_CASE)
         private val BIT_DEPTH_LABEL = Regex("""(\d{1,2})\s*-?\s*bit""", RegexOption.IGNORE_CASE)
-        private val ATMOS = Regex("""atmos|dolby|eac3[_-]?joc|ec-?3""", RegexOption.IGNORE_CASE)
     }
 }
 

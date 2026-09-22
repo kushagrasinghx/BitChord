@@ -40,8 +40,17 @@ class YouTubeSource(
      */
     override suspend fun health(): SourceHealth = SourceHealth.Ok()
 
-    /** [waitForAll] is moot: there is one endpoint here, and it is always waited for. */
-    override suspend fun search(query: String, limit: Int, waitForAll: Boolean): List<Song> =
+    /**
+     * [waitForAll] is moot: there is one endpoint here, and it is always waited
+     * for. So is [request] — YouTube publishes one set of rows and the tier is
+     * decided per stream, long after this.
+     */
+    override suspend fun search(
+        query: String,
+        limit: Int,
+        waitForAll: Boolean,
+        request: StreamRequest?,
+    ): List<Song> =
         YtMusicRepository.search(query, SearchFilter.SONGS)
             .getOrDefault(emptyList())
             .filterIsInstance<SearchResult.Track>()

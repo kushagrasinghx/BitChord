@@ -326,9 +326,26 @@ object StreamResolver {
         // The container carries no bitrate field, so this is the only place the
         // real figure is ever known.
         NerdStats.onStreamPicked(videoId, stream.kbps)
+        stream.loudnessDb?.let { loudness[videoId] = it }
         remember(videoId, stream.url)
         return stream.url
     }
+
+    /** Per-track loudness, read once and kept for as long as the process runs. */
+    private val loudness = ConcurrentHashMap<String, Double>()
+
+    /**
+     * YouTube's own normalization figure for [videoId], or null when it has
+     * never resolved or never carried one.
+     *
+     * Populated by [resolve] the first time a track's stream is asked for —
+     * which happens for every YouTube-queued track whether or not another
+     * source ends up serving its bytes, since the YouTube walk always runs
+     * alongside a substitute lookup rather than only when one fails. So a
+     * track substituted to JioSaavn or an addon still carries the figure its
+     * YouTube counterpart resolved.
+     */
+    fun loudnessDbFor(videoId: String): Double? = loudness[videoId]
 
     /**
      * A track this app cannot play, for a reason that will read the same in ten
@@ -585,7 +602,7 @@ object StreamResolver {
             val playable = url ?: return null
             if (timed("$videoId WEB_REMIX probe") { probe(playable) } != Probe.OK) return null
             TrackLog.d(TAG, "resolved $videoId via authenticated WEB_REMIX @ ${picked.kbps}kbps")
-            Stream(playable, picked.kbps, picked.mimeType)
+            Stream(playable, picked.kbps, picked.mimeType, audioConfigLoudness(response))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -599,7 +616,7 @@ object StreamResolver {
      * be. Playback only ever needs the URL; a download needs the rest of it to
      * name the file and declare its type.
      */
-    class Stream(val url: String, val kbps: Int, val mimeType: String) {
+    class Stream(val url: String, val kbps: Int, val mimeType: String, val loudnessDb: Double? = null) {
 
         /**
          * The container these bytes are actually in, which is not always what
@@ -902,7 +919,7 @@ object StreamResolver {
                         TrackLog.d(TAG, "resolved $videoId via ${client.clientName} @ ${picked.kbps}kbps")
                         served(client)
                         preferred = client
-                        return Stream(playable, picked.kbps, picked.mimeType)
+                        return Stream(playable, picked.kbps, picked.mimeType, audioConfigLoudness(response))
                     }
                     // The client itself is being refused this track; don't
                     // spend another round trip on it for a while.
@@ -1064,6 +1081,18 @@ object StreamResolver {
         rankByQuality(audioFormats(response).filter { it.isAac }, maxKbps)
 
     private fun JsonObject.str(key: String): String? = this[key]?.jsonPrimitive?.content
+
+    /**
+     * YouTube's own normalization figure for a track: how many dB its player
+     * would apply to reach its own reference loudness. Carried in
+     * `playerConfig.audioConfig` on the same response [audioFormats] reads,
+     * not per-format.
+     */
+    private fun audioConfigLoudness(response: JsonObject): Double? {
+        val audioConfig = response["playerConfig"]?.jsonObject?.get("audioConfig")?.jsonObject ?: return null
+        return audioConfig.str("loudnessDb")?.toDoubleOrNull()
+            ?: audioConfig.str("perceptualLoudnessDb")?.toDoubleOrNull()
+    }
 
     /**
      * Highest stream at or under the ceiling set for the connection in use; if

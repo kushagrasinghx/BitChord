@@ -329,3 +329,96 @@ func TestQueueOperationsDoNotIncrementPlaybackSeq(t *testing.T) {
 	}
 }
 
+func TestHostOnlyControlIsHostOnly(t *testing.T) {
+	p := NewParty("TEST13")
+	host, err := p.Join("u1", "d1", "Host", nil)
+	if err != nil {
+		t.Fatalf("host join failed: %v", err)
+	}
+	listener, err := p.Join("u2", "d2", "Listener", nil)
+	if err != nil {
+		t.Fatalf("listener join failed: %v", err)
+	}
+
+	// A listener who could turn this off would not be restricted by it.
+	if err := p.SetHostOnlyControl(listener, true); err == nil {
+		t.Fatalf("expected a listener to be refused")
+	} else if pe, ok := err.(*PartyError); !ok || pe.Code != "host_only" {
+		t.Errorf("expected host_only, got %v", err)
+	}
+	if p.HostOnlyControl {
+		t.Errorf("a refused request must not have taken effect")
+	}
+
+	if err := p.SetHostOnlyControl(host, true); err != nil {
+		t.Fatalf("host was refused: %v", err)
+	}
+	if !p.HostOnlyControl {
+		t.Errorf("the host's request did not take effect")
+	}
+}
+
+func TestMayControlFollowsTheSetting(t *testing.T) {
+	p := NewParty("TEST14")
+	host, _ := p.Join("u1", "d1", "Host", nil)
+	listener, _ := p.Join("u2", "d2", "Listener", nil)
+
+	// Every party starts as the shared free-for-all this feature shipped as.
+	if !p.MayControl(listener) {
+		t.Errorf("an open party must let a listener control it")
+	}
+
+	if err := p.SetHostOnlyControl(host, true); err != nil {
+		t.Fatalf("host was refused: %v", err)
+	}
+	if p.MayControl(listener) {
+		t.Errorf("a locked party must not let a listener control it")
+	}
+	if !p.MayControl(host) {
+		t.Errorf("the host is never locked out of their own party")
+	}
+
+	if err := p.SetHostOnlyControl(host, false); err != nil {
+		t.Fatalf("host was refused: %v", err)
+	}
+	if !p.MayControl(listener) {
+		t.Errorf("handing control back must restore it")
+	}
+}
+
+func TestHostOnlyControlPassesToTheNewHost(t *testing.T) {
+	p := NewParty("TEST15")
+	host, _ := p.Join("u1", "d1", "Host", nil)
+	listener, _ := p.Join("u2", "d2", "Listener", nil)
+	if err := p.SetHostOnlyControl(host, true); err != nil {
+		t.Fatalf("host was refused: %v", err)
+	}
+
+	// The host leaving promotes a survivor, who inherits the party's setting
+	// rather than being locked out of a party they now own.
+	p.Remove(host.MemberId)
+	if !listener.IsHost {
+		t.Fatalf("the remaining member was not promoted")
+	}
+	if !p.HostOnlyControl {
+		t.Errorf("the setting belongs to the party, not to whoever set it")
+	}
+	if !p.MayControl(listener) {
+		t.Errorf("the new host must be able to control their own party")
+	}
+}
+
+func TestHostOnlyControlTravelsOnTheSnapshot(t *testing.T) {
+	p := NewParty("TEST16")
+	host, _ := p.Join("u1", "d1", "Host", nil)
+
+	if wire := p.ToWire(); wire["hostOnlyControl"] != false {
+		t.Errorf("a new party must report itself unlocked, got %v", wire["hostOnlyControl"])
+	}
+	if err := p.SetHostOnlyControl(host, true); err != nil {
+		t.Fatalf("host was refused: %v", err)
+	}
+	if wire := p.ToWire(); wire["hostOnlyControl"] != true {
+		t.Errorf("a joining device must learn the party is locked, got %v", wire["hostOnlyControl"])
+	}
+}

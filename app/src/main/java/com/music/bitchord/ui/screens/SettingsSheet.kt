@@ -2,6 +2,7 @@ package com.music.bitchord.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioFormat
 import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.provider.Settings
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.MusicOff
@@ -66,6 +68,7 @@ import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -130,6 +133,7 @@ import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.LocalMediaRepository
+import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
@@ -208,13 +212,17 @@ fun SettingsScreen(
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
     val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
+    val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
+    val playingFormat by NerdStats.current.collectAsStateWithLifecycle()
+    val playingDolbyAtmos = playingFormat?.isDolbyAtmos == true
     val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
+    val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
     val preferMusicOnly by AppSettings.preferMusicOnly.collectAsStateWithLifecycle()
@@ -601,6 +609,25 @@ fun SettingsScreen(
                     badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
                 )
             }
+            val loudnessTitle = stringResource(R.string.loudness_normalization)
+            row(loudnessTitle, "loudness", "volume", "normalize", "replaygain", "lufs") {
+                SettingsRow(
+                    icon = Icons.Rounded.VolumeUp,
+                    title = loudnessTitle,
+                    subtitle = stringResource(R.string.loudness_normalization_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = loudnessNormalization,
+                            onCheckedChange = AppSettings::setLoudnessNormalization,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },
+                )
+            }
             // Automix decides its own length from each pair of tracks —
             // tempo, key, structure — so it replaces the manual slider rather
             // than needing it set to anything first.
@@ -657,7 +684,18 @@ fun SettingsScreen(
                 SettingsRow(
                     icon = Icons.AutoMirrored.Rounded.VolumeOff,
                     title = skipSilenceTitle,
-                    subtitle = stringResource(R.string.skip_silence_subtitle),
+                    // Silence skipping is Media3's own processor, and
+                    // `DefaultAudioSink.configure` appends that processor list
+                    // only on its 16-bit branch — the float branch gets the
+                    // format converter and nothing else. So on a float track
+                    // this switch really does nothing, and the row says so
+                    // rather than letting someone toggle it and wonder. The
+                    // equaliser is unaffected: it runs upstream of that sink.
+                    subtitle = if (outputStatus.actualEncoding == AudioFormat.ENCODING_PCM_FLOAT) {
+                        stringResource(R.string.skip_silence_float_subtitle)
+                    } else {
+                        stringResource(R.string.skip_silence_subtitle)
+                    },
                     trailing = {
                         Switch(
                             checked = skipSilence,
@@ -676,7 +714,19 @@ fun SettingsScreen(
                 SettingsRow(
                     icon = Icons.Rounded.SurroundSound,
                     title = spatialAudioTitle,
-                    subtitle = stringResource(R.string.spatial_audio_subtitle),
+                    // Widening a JOC stream would fight the object-based mix
+                    // Dolby has already spatialized, so the service holds this
+                    // off for the duration of an Atmos track — see
+                    // `PlaybackService.applySpatialAudioEnabled`. Said on the
+                    // row because the switch stays where the listener left it,
+                    // and a switch reading "on" over an effect that is not
+                    // running is the same silent lie the equaliser screen used
+                    // to tell.
+                    subtitle = if (playingDolbyAtmos) {
+                        stringResource(R.string.spatial_audio_atmos_subtitle)
+                    } else {
+                        stringResource(R.string.spatial_audio_subtitle)
+                    },
                     trailing = {
                         Switch(
                             checked = spatialAudio,
@@ -1246,6 +1296,25 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setHideVolumeBar(!hideVolumeBar) },
+                )
+            }
+            val hideSongStatusTitle = stringResource(R.string.hide_song_status)
+            row(hideSongStatusTitle, "player", "playing from", "played by") {
+                SettingsRow(
+                    icon = Icons.Rounded.VisibilityOff,
+                    title = hideSongStatusTitle,
+                    subtitle = stringResource(R.string.hide_song_status_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = hideSongStatus,
+                            onCheckedChange = AppSettings::setHideSongStatus,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setHideSongStatus(!hideSongStatus) },
                 )
             }
         }

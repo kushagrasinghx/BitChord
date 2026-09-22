@@ -129,21 +129,32 @@ class AddonSource(
      *
      * [waitForAll] is ignored, and has nothing here to mean: it exists so a
      * background pass can wait out the slow plugin in a module index, and an
-     * addon is a single call whose entire cost is one HTTP round trip. The
-     * addon is asked at the tier the app would want at best — a search is
-     * where a row's advertised quality is read, and asking at a capped tier
-     * would have a tier-aware catalogue describe rows it was never going to be
-     * asked for.
+     * addon is a single call whose entire cost is one HTTP round trip.
+     *
+     * The tier is [request]'s when a stream is what this search is for, and
+     * lossless otherwise. Asking at the tier that will actually be streamed is
+     * the point: a tier-aware catalogue describes its rows differently per
+     * tier, and a metered listener searching for something to play at 128kbps
+     * was being handed rows advertising a FLAC this app was never going to ask
+     * that addon for — ranked on a quality claim that would not survive the
+     * `/stream` call. A search with no request behind it is the search box,
+     * where the best the catalogue holds is exactly what should be shown.
      *
      * The order is left exactly as it arrived.
      * [TrackMatcher][com.music.bitchord.data.sources.TrackMatcher] decides which
      * rows are the recording and [SourceResolver] decides which to open; an
      * addon knows its own catalogue better than a re-sort here would.
      */
-    override suspend fun search(query: String, limit: Int, waitForAll: Boolean): List<Song> =
+    override suspend fun search(
+        query: String,
+        limit: Int,
+        waitForAll: Boolean,
+        request: StreamRequest?,
+    ): List<Song> =
         withContext(Dispatchers.IO) {
             if (query.isBlank()) return@withContext emptyList()
-            val tracks = client.search(query, AddonClient.TIER_LOSSLESS).getOrElse { failure ->
+            val tier = request?.tier ?: AddonClient.TIER_LOSSLESS
+            val tracks = client.search(query, tier).getOrElse { failure ->
                 TrackLog.w(TAG, "${config.displayName}: search failed — ${failure.message}")
                 return@withContext emptyList()
             }
@@ -161,7 +172,17 @@ class AddonSource(
                         durationText = track.durationSec?.let {
                             "${it / 60}:${"%02d".format(Locale.ROOT, it % 60)}"
                         },
-                        sourceQuality = ModuleSource.qualityTier("${track.audioQuality} ${track.format}"),
+                        // Atmos is read before the tier label and not from it.
+                        // Tidal publishes its immersive rows as
+                        // `audioQuality: LOW`, so a row scored on that label
+                        // alone sorts the one mix the listener turned Atmos on
+                        // for *below* every stereo row — see
+                        // [AddonTrack.isDolbyAtmos].
+                        sourceQuality = if (track.isDolbyAtmos) {
+                            ModuleSource.DOLBY
+                        } else {
+                            ModuleSource.qualityTier("${track.audioQuality} ${track.format}")
+                        },
                     )
                 }
                 .toList()
@@ -338,6 +359,11 @@ class AddonSource(
     fun release() {
         rows.clear()
         client.clear()
+    }
+
+    /** Forces the next completed track lookup back onto the network. */
+    fun clearCompletedTrackCalls() {
+        client.clearCompletedTrackCalls()
     }
 
     private companion object {

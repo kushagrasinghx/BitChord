@@ -293,6 +293,28 @@ object AppSettings {
     val preferUsbDac = MutableStateFlow(false)
 
     /**
+     * Level every track to the same loudness, using YouTube's own
+     * normalization figure for it — see
+     * [com.music.bitchord.playback.PlaybackService.setupLoudnessEnhancer].
+     *
+     * On by default, which is the one genuinely contentious thing about it.
+     * The case for it: a queue drawn from several sources is a queue of
+     * several mastering eras, and the gap between a 1980s CD transfer and a
+     * modern master is routinely fifteen decibels — loud enough that the
+     * listener's own volume control is the wrong tool, because the setting
+     * that suits one track hurts at the next. Every streaming service
+     * normalizes by default for the same reason.
+     *
+     * The case against it is that a constant gain is still a multiplication,
+     * so this is the first thing in BitChord that is *on* out of the box and
+     * alters samples. Rather than hide that, the Audio Pipeline readout names
+     * it: its Bit-exact row reports the first stage in the chain that is
+     * altering samples, and switching this off is the first thing a listener
+     * chasing an untouched signal would do.
+     */
+    val loudnessNormalization = MutableStateFlow(true)
+
+    /**
      * Whether a source offering a Dolby Atmos rendition is allowed to serve it.
      *
      * On by default: where the device can decode it, Atmos is the premium
@@ -391,6 +413,9 @@ object AppSettings {
 
     /** Hides the volume slider on the main player, leaving the rest of the layout to reflow. */
     val hideVolumeBar = MutableStateFlow(false)
+
+    /** Hides the "Playing from" / "Played by" caption at the top of the main player. */
+    val hideSongStatus = MutableStateFlow(false)
 
     /** Swiping a song row plays it next instead of adding it to the end of the queue. */
     val swipeToPlayNext = MutableStateFlow(false)
@@ -754,6 +779,7 @@ object AppSettings {
             )
         }.getOrDefault(OutputPcmMode.PCM_16)
         preferUsbDac.value = prefs.getBoolean(KEY_PREFER_USB_DAC, false)
+        loudnessNormalization.value = prefs.getBoolean(KEY_LOUDNESS_NORMALIZATION, true)
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
@@ -781,6 +807,7 @@ object AppSettings {
         )
         stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, false)
         hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
+        hideSongStatus.value = prefs.getBoolean(KEY_HIDE_SONG_STATUS, false)
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
         preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
@@ -1125,6 +1152,11 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_HIDE_VOLUME_BAR, value).apply()
     }
 
+    fun setHideSongStatus(value: Boolean) {
+        hideSongStatus.value = value
+        prefs.edit().putBoolean(KEY_HIDE_SONG_STATUS, value).apply()
+    }
+
     fun setSwipeToPlayNext(value: Boolean) {
         swipeToPlayNext.value = value
         prefs.edit().putBoolean(KEY_SWIPE_TO_PLAY_NEXT, value).apply()
@@ -1391,6 +1423,11 @@ object AppSettings {
     fun setPreferUsbDac(value: Boolean) {
         preferUsbDac.value = value
         prefs.edit().putBoolean(KEY_PREFER_USB_DAC, value).apply()
+    }
+
+    fun setLoudnessNormalization(value: Boolean) {
+        loudnessNormalization.value = value
+        prefs.edit().putBoolean(KEY_LOUDNESS_NORMALIZATION, value).apply()
     }
 
     fun setExportDownloads(value: Boolean) {
@@ -1725,6 +1762,7 @@ object AppSettings {
     private const val KEY_SKIP_SILENCE = "skip_silence"
     private const val KEY_OUTPUT_PCM_MODE = "output_pcm_mode"
     private const val KEY_PREFER_USB_DAC = "prefer_usb_dac"
+    private const val KEY_LOUDNESS_NORMALIZATION = "loudness_normalization"
     private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
@@ -1746,6 +1784,7 @@ object AppSettings {
     private const val KEY_PERFORMANCE_REFRESH_RATE = "performance_refresh_rate"
     private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"
     private const val KEY_HIDE_VOLUME_BAR = "hide_volume_bar"
+    private const val KEY_HIDE_SONG_STATUS = "hide_song_status"
     private const val KEY_SWIPE_TO_PLAY_NEXT = "swipe_to_play_next"
     private const val KEY_DONT_REPEAT_SUGGESTIONS = "dont_repeat_suggestions"
     private const val KEY_PREFER_MUSIC_ONLY = "prefer_music_only"

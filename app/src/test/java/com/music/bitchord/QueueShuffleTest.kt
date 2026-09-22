@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import com.music.bitchord.playback.QueueShuffle
+import com.music.bitchord.playback.queueStartIndex
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -13,6 +14,16 @@ class QueueShuffleTest {
     /** The upcoming stretch of the queue as turning shuffle off leaves it. */
     private fun restored(upcoming: List<String>, original: List<String>): List<String> =
         QueueShuffle.restoreOrder(upcoming, original).map { upcoming[it] }
+
+    @Test
+    fun `a shuffled queue starts at the tapped track moved to its head`() {
+        assertEquals(0, queueStartIndex(requestedIndex = 3, itemCount = 5, shuffled = true))
+    }
+
+    @Test
+    fun `an unshuffled queue starts at the tapped track's list position`() {
+        assertEquals(3, queueStartIndex(requestedIndex = 3, itemCount = 5, shuffled = false))
+    }
 
     @Test
     fun `a random identity is rotated so the first shuffle always moves a track`() {

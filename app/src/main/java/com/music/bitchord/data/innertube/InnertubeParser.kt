@@ -1,5 +1,6 @@
 package com.music.bitchord.data.innertube
 
+import com.music.bitchord.auth.normalizeDataSyncId
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.ArtistPage
@@ -599,8 +600,9 @@ object InnertubeParser {
             .o("musicResponsiveListItemFlexColumnRenderer").o("text").runs()
         if (title.isBlank()) return null
 
-        val subtitle = columns.getOrNull(1)
-            .o("musicResponsiveListItemFlexColumnRenderer").o("text").runs()
+        val subtitleRuns = columns.getOrNull(1)
+            .o("musicResponsiveListItemFlexColumnRenderer").o("text").a("runs").orEmpty()
+        val subtitle = subtitleRuns.joinToString("") { it.s("text").orEmpty() }
         val parts = subtitle.split(" • ").filter { it.isNotBlank() }
         // A search row states its runtime in the subtitle; an album's own rows
         // do not — the release is billed once in the header and the per-track
@@ -632,6 +634,7 @@ object InnertubeParser {
                 it.o("musicResponsiveListItemFlexColumnRenderer").o("text").a("runs").orEmpty()
             },
         )
+        val creditedArtists = artistNamesFromRuns(subtitleRuns)
 
         val thumbnails = renderer.o("thumbnail").o("musicThumbnailRenderer")
             .o("thumbnail").a("thumbnails")
@@ -639,11 +642,12 @@ object InnertubeParser {
         return Song(
             videoId = videoId,
             title = title,
-            // The run that links to an artist page is the authoritative
-            // credit; the "All" tab often lists only "Song • 4:30" otherwise,
-            // and an album's own rows carry no credit at all — the release is
-            // billed once, in the header the row hangs under.
-            artist = credits.artistName?.takeIf { it.isNotBlank() }
+            // Preserve the whole artist segment even when only some of its
+            // names link to artist pages. The "All" tab can list only
+            // "Song • 4:30" instead, and an album's own rows can carry no
+            // credit at all, so retain the linked and page-level fallbacks.
+            artist = creditedArtists
+                ?: credits.artistName?.takeIf { it.isNotBlank() }
                 ?: artist
                 ?: fallback.artistName
                 ?: "Unknown artist",
@@ -682,6 +686,7 @@ object InnertubeParser {
         val rowType = parts.firstOrNull { it.lowercase(Locale.ROOT) in TYPE_WORDS }
             ?.lowercase(Locale.ROOT)
         val credits = creditsOf(subtitleRuns)
+        val creditedArtists = artistNamesFromRuns(subtitleRuns)
         val artist = parts.firstOrNull {
             !it.matches(DURATION) && it.lowercase(Locale.ROOT) !in TYPE_WORDS && !it.matches(TALLY)
         }
@@ -691,7 +696,10 @@ object InnertubeParser {
         return Song(
             videoId = videoId,
             title = title,
-            artist = credits.artistName?.takeIf { it.isNotBlank() } ?: artist ?: "Unknown artist",
+            artist = creditedArtists
+                ?: credits.artistName?.takeIf { it.isNotBlank() }
+                ?: artist
+                ?: "Unknown artist",
             thumbnailUrl = thumbnails.best(),
             durationText = duration,
             artistId = credits.artistId,
@@ -819,6 +827,34 @@ object InnertubeParser {
     }
 
     /**
+     * Every name in the artist segment, including names without a browse link.
+     * YouTube alternates name and separator runs inside a bullet-delimited
+     * segment, but only some names are guaranteed to carry an artist endpoint.
+     */
+    private fun artistNamesFromRuns(runs: List<JsonElement>): String? {
+        val groups = mutableListOf<MutableList<JsonElement>>(mutableListOf())
+        runs.forEach { run ->
+            if (run.s("text")?.trim() == "•") {
+                groups += mutableListOf<JsonElement>()
+            } else {
+                groups.last() += run
+            }
+        }
+        val artistGroup = groups.firstOrNull { group ->
+            group.any { run ->
+                val pageType = run.o("navigationEndpoint").o("browseEndpoint")
+                    .o("browseEndpointContextSupportedConfigs")
+                    .o("browseEndpointContextMusicConfig").s("pageType").orEmpty()
+                "ARTIST" in pageType
+            }
+        } ?: return null
+        return artistGroup.mapIndexedNotNull { index, run ->
+            if (index % 2 != 0) return@mapIndexedNotNull null
+            run.s("text")?.trim()?.takeIf { it.isNotBlank() }
+        }.distinct().joinToString(", ").ifBlank { null }
+    }
+
+    /**
      * Who a release page is billed to, off its own header.
      *
      * An album or single doesn't repeat the credit on every track — it says
@@ -847,7 +883,8 @@ object InnertubeParser {
         if (parts.none { it.lowercase(Locale.ROOT) in RELEASE_WORDS }) return Credits()
 
         val credits = creditsOf(lines.flatten())
-        if (credits.artistName?.isNotBlank() == true) return credits
+        val creditedArtists = lines.firstNotNullOfOrNull(::artistNamesFromRuns)
+        if (creditedArtists != null) return credits.copy(artistName = creditedArtists)
         // An artist YouTube has no page for is named in the same line without
         // a link to follow, leaving the name as the only thing to go on.
         val name = parts.firstOrNull {
@@ -968,11 +1005,7 @@ object InnertubeParser {
                 .ifBlank { item.o("accountName").s("simpleText").orEmpty() }
             if (name.isBlank()) return@mapNotNull null
             val pageId = item.findString("pageId")
-            // `<accountSyncId>||<sessionSyncId>`; only the first half names the
-            // account, exactly as in the shell's own DATASYNC_ID.
-            val dataSyncId = item.findString("datasyncIdToken")
-                ?.substringBefore("||")
-                ?.takeIf { it.isNotBlank() }
+            val dataSyncId = normalizeDataSyncId(item.findString("datasyncIdToken"))
             if (pageId == null && dataSyncId == null) return@mapNotNull null
             AccountChannel(
                 name = name,

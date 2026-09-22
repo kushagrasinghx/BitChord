@@ -257,6 +257,16 @@ fun MediaController.revertToOriginal() {
     sendCustomCommand(
         SessionCommand("com.music.bitchord.action.REVERT_TO_ORIGINAL", Bundle.EMPTY),
         Bundle.EMPTY,
+ * Marks the span of a queue-row drag — see [PartySync.beginQueueDrag]. Each
+ * neighbour the row crosses is still its own `moveMediaItem`, sent the moment
+ * it happens so the local queue and the on-screen list stay in step; this only
+ * tells a jam's party sync to hold its publish until the row is dropped,
+ * instead of sending one for every neighbour crossed along the way.
+ */
+fun MediaController.setQueueDragActive(active: Boolean) {
+    sendCustomCommand(
+        SessionCommand(ACTION_QUEUE_DRAG, Bundle.EMPTY),
+        bundleOf(EXTRA_QUEUE_DRAG_ACTIVE to active),
     )
 }
 
@@ -753,7 +763,14 @@ suspend fun MediaController.playSongs(songs: List<Song>, startIndex: Int) {
         }
         queue.map { it.toMediaItem() }
     }
-    setMediaItems(items, startIndex.coerceIn(0, items.size - 1), 0L)
+    setMediaItems(items, queueStartIndex(startIndex, items.size, shuffled), 0L)
     prepare()
     play()
 }
+
+/**
+ * The selected track is moved to the head when a new queue is shuffled, so
+ * playback must begin there rather than at its index in the unshuffled list.
+ */
+internal fun queueStartIndex(requestedIndex: Int, itemCount: Int, shuffled: Boolean): Int =
+    if (shuffled) 0 else requestedIndex.coerceIn(0, itemCount - 1)

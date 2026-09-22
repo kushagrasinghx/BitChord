@@ -93,8 +93,16 @@ class ModuleSource(
      * [TrackMatcher][com.music.bitchord.data.sources.TrackMatcher] decides
      * which rows are the recording and [SourceResolver] decides which of those
      * to open. This only has to be complete enough to contain the right one.
+     *
+     * [request] is unused: a module's `search` takes a query and nothing else,
+     * and the tier is negotiated per stream in [stream].
      */
-    override suspend fun search(query: String, limit: Int, waitForAll: Boolean): List<Song> =
+    override suspend fun search(
+        query: String,
+        limit: Int,
+        waitForAll: Boolean,
+        request: StreamRequest?,
+    ): List<Song> =
         withContext(Dispatchers.IO) {
             if (query.isBlank()) return@withContext emptyList()
             val indexUrl = config.baseUrl
@@ -504,6 +512,20 @@ class ModuleSource(
         const val LOSSLESS = "LOSSLESS"
         const val HIGH = "HIGH"
         const val LOW = "LOW"
+
+        /**
+         * A row that is the immersive mix, whatever bitrate label it carries.
+         *
+         * Deliberately not a rung on the same ladder as the other three. Atmos
+         * is a different *mix*, not a better or worse copy of the same one, and
+         * the catalogues that publish it do not agree on where it sits: Tidal
+         * files its immersive rows under `audioQuality: LOW`, which read as a
+         * bitrate would rank the mix a listener switched Atmos on for below
+         * every stereo row in the list. Tagging it as what it is lets the one
+         * place that decides — [SourceResolver.preferred][com.music.bitchord.data.sources.SourceResolver]
+         * — ask the listener's preference instead of a number.
+         */
+        const val DOLBY = "DOLBY"
 
         /** Worst to best, so a row's best available tier can be picked out by index. */
         val TIERS = listOf(LOW, HIGH, LOSSLESS)

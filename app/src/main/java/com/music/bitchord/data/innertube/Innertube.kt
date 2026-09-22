@@ -1,5 +1,6 @@
 package com.music.bitchord.data.innertube
 
+import com.music.bitchord.auth.normalizeDataSyncId
 import com.music.bitchord.data.DebugLog as Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -431,12 +432,10 @@ object Innertube {
             return clientVersion?.let { SessionScope(null, null, "0", it) }
         }
 
-        // `<accountSyncId>||<sessionSyncId>`; only the first half identifies
-        // the account, and the second changes on its own schedule.
-        val dataSyncId = CONFIG_DATASYNC_ID.find(html)?.groupValues?.get(1)
-            ?.substringBefore("||")
-            ?.takeIf { it.isNotBlank() }
         val pageId = CONFIG_PAGE_ID.find(html)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+        val dataSyncId = pageId ?: normalizeDataSyncId(
+            CONFIG_DATASYNC_ID.find(html)?.groupValues?.get(1),
+        )
         val authUser = CONFIG_SESSION_INDEX.find(html)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
 
         // The shell's own visitor id, which is bound to this session. Strictly

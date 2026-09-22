@@ -535,6 +535,94 @@ object QualityUpgrade {
         }
     }
 
+    /**
+     * A fresh play of [mediaId] has begun on [uri] — re-open a verdict that no
+     * longer describes what is playing.
+     *
+     * [asked] means "this track has had its second look", and the comment on it
+     * scopes that to one playback: *for as long as it lasts*. Nothing enforced
+     * the scope. The set is keyed by media id alone and survives the track
+     * ending, so playing the same song twice in one session went:
+     *
+     * ```
+     *   23:38:28  substituted: 'Gehra Hua' … over YouTube at Dolby Atmos   ← asked += i1o1p_DD6TU
+     *   23:44:07  TIMING track selected: i1o1p_DD6TU (reason=3)            ← and nothing at all
+     * ```
+     *
+     * The second play is a different stream from the one the verdict was
+     * reached about. The upgraded bytes live under their own rendition key and
+     * the marked item URI went with the queue entry that carried it, so a
+     * fresh entry reads the *base* cache entry — the 146kbps Opus YouTube
+     * served before the upgrade — and [couldStillUpgrade] then refuses it a
+     * second look on the strength of a yes that applied to the copy it is no
+     * longer playing. The track plays worse the second time than the first,
+     * for the rest of the process, and silently: this is the cheap main-thread
+     * check, so nothing is logged when it says no.
+     *
+     * Guarded on the marker rather than cleared unconditionally. An item that
+     * *is* the upgraded copy — or a hand-reverted `q=original` — is already
+     * excluded by [couldStillUpgrade] on its own terms, and re-opening those
+     * would have the swap that just happened looked for again. And this is a
+     * transition, not a progress sample, so it cannot reinstate the every-five-
+     * seconds offer that [asked] exists to prevent: pausing and resuming does
+     * not come through here.
+     *
+     * @param rendition the item's [MARKER], via [cacheTag] — null for an
+     *   ordinary queue entry, set on an upgraded or hand-reverted one. Taken
+     *   as the marker rather than as the `Uri` it came from because that is
+     *   the whole of what this reads, and because `Uri` is a framework stub
+     *   under unit test.
+     */
+    fun onPlaybackStarted(mediaId: String, rendition: String?) {
+        if (rendition != null) return
+        asked -= mediaId
+    }
+
+    /**
+     * Whether [mediaId] is *known* to be playing YouTube's own copy, so the
+     * player menu should offer to upgrade it rather than to revert it.
+     *
+     * The menu used to read this off [OriginalVersion][com.music.bitchord.playback.OriginalVersion]'s
+     * pin alone, which only a listener's own revert ever sets. An upgrade that
+     * is found, swapped in and then fails to prove itself puts the track back
+     * on the stream it came from — see the revert path in
+     * [PlaybackService][com.music.bitchord.playback.PlaybackService] — and
+     * nothing pins anything, so the menu went on offering "Revert to original"
+     * for a track already playing YouTube's Opus. The row did nothing, and the
+     * one row that would have helped was the one it was standing in front of.
+     *
+     * Both halves are required, and each rules out a different wrong answer:
+     *
+     *  - **No upgrade marker on the item.** [StreamChoice] records the copy the
+     *    *first* resolve settled on and is not cleared when an upgrade swaps a
+     *    better one in, so on a successfully upgraded track it still names
+     *    YouTube. The marker is what says the swap happened, and a track
+     *    playing its upgraded copy is exactly the one that should be offered
+     *    the revert.
+     *  - **A recorded choice that is not a substitute.** `null` means nothing
+     *    resolved this track in this process — it is playing off the disk cache
+     *    — and what is in that entry is genuinely unknown. Today's behaviour is
+     *    kept there deliberately: revert stays on offer as the escape hatch for
+     *    a substitution nothing announced, which is the case it was written for.
+     */
+    fun isKnownToBePlayingYouTubesOwn(mediaId: String, rendition: String?): Boolean {
+        if (rendition != null) return false
+        return StreamChoice.of(mediaId) != null && !StreamChoice.isSubstitute(mediaId)
+    }
+
+    /**
+     * Test seam. [couldStillUpgrade] cannot answer this on its own — it also
+     * consults [SourceResolver.canSubstituteForYouTube], which needs a
+     * populated registry — so the verdict is read directly to keep the scoping
+     * of [asked] testable without standing a source list up around it.
+     */
+    internal fun hasAnsweredFor(mediaId: String): Boolean = mediaId in asked
+
+    /** Test seam: puts [mediaId] in the state a completed second look leaves it. */
+    internal fun markAnsweredForTest(mediaId: String) {
+        asked += mediaId
+    }
+
     /** Abandons the second look for [mediaId] — the queue has moved on. */
     fun forget(mediaId: String) {
         pending.remove(mediaId)?.inFlight?.cancel()

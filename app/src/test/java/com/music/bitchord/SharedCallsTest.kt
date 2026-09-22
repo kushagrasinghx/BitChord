@@ -77,6 +77,53 @@ class SharedCallsTest {
     }
 
     @Test
+    fun `an explicit refresh drops a completed answer`() = runBlocking {
+        val calls = AtomicInteger()
+        val shared = shared<String>(ttlMs = 60_000)
+
+        shared.get("q", { "" }) { Result.success("answer-${calls.incrementAndGet()}") }
+        shared.clearCompleted()
+        val refreshed = shared.get("q", { "" }) {
+            Result.success("answer-${calls.incrementAndGet()}")
+        }
+
+        assertEquals("answer-2", refreshed.getOrNull())
+        assertEquals(2, calls.get())
+    }
+
+    @Test
+    fun `an explicit refresh keeps a request already in flight`() = runBlocking {
+        val calls = AtomicInteger()
+        val joined = AtomicInteger()
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val shared = shared<String>(ttlMs = 60_000, onReuse = { joined.incrementAndGet() })
+
+        val first = async(Dispatchers.Default) {
+            shared.get("q", { "" }) {
+                calls.incrementAndGet()
+                started.complete(Unit)
+                release.await()
+                Result.success("flac")
+            }
+        }
+        started.await()
+        shared.clearCompleted()
+        val second = async(Dispatchers.Default) {
+            shared.get("q", { "" }) {
+                calls.incrementAndGet()
+                Result.success("duplicate")
+            }
+        }
+        while (joined.get() < 1) yield()
+        release.complete(Unit)
+
+        assertEquals("flac", first.await().getOrNull())
+        assertEquals("flac", second.await().getOrNull())
+        assertEquals(1, calls.get())
+    }
+
+    @Test
     fun `an expired answer is asked again`() = runBlocking {
         val calls = AtomicInteger()
         var clock = 0L

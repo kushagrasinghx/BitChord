@@ -46,6 +46,40 @@ import java.util.Locale
 object StreamContainer {
 
     /**
+     * Gives a manifest retry a different playback URI from the progressive
+     * item it replaces.
+     *
+     * Media3's [androidx.media3.exoplayer.source.ProgressiveMediaSource]
+     * accepts an updated [androidx.media3.common.MediaItem] in place when its
+     * URI, image duration and custom cache key are unchanged. MIME type is not
+     * part of that decision. Consequently, replacing an item with the same URI
+     * plus `application/dash+xml` only updates the old progressive source; it
+     * does not send the item back through `DefaultMediaSourceFactory` to build
+     * a DASH source.
+     *
+     * The marker changes only the app's virtual `bitchord://` URI. The resolver
+     * ignores it, and [AudioCache] keys YouTube tracks from `v`/`q` and source
+     * tracks from `s`/`t`, so it neither changes the real stream selected nor
+     * invents another cache rendition. Its sole job is to make Media3 construct
+     * the correctly typed source.
+     *
+     * Kept as a string operation so this rule remains testable on the plain JVM
+     * without Android's `Uri` implementation.
+     */
+    fun markedForManifestReopen(uri: String, mime: String): String {
+        val transport = when (mime) {
+            MimeTypes.APPLICATION_MPD -> "dash"
+            MimeTypes.APPLICATION_M3U8 -> "hls"
+            else -> return uri
+        }
+        val fragmentAt = uri.indexOf('#')
+        val base = if (fragmentAt >= 0) uri.substring(0, fragmentAt) else uri
+        val fragment = if (fragmentAt >= 0) uri.substring(fragmentAt) else ""
+        val separator = if ('?' in base) '&' else '?'
+        return "$base$separator$REOPEN_PARAMETER=$transport$fragment"
+    }
+
+    /**
      * The mime type Media3 needs to be told for [url], or null when it points
      * at ordinary audio and needs no telling.
      *
@@ -133,5 +167,6 @@ object StreamContainer {
      */
     fun manifestServing(mediaId: String): String? = serving[mediaId]?.let(::manifestMimeOf)
 
+    private const val REOPEN_PARAMETER = "manifest_reopen"
     private const val MAX_REMEMBERED = 64
 }

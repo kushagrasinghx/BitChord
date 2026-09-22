@@ -64,6 +64,21 @@ object AudioOutputStatus {
         val bufferSize: Int? = null,
         val decoderOutputEncoding: String? = null,
         val dspFormat: String = "Float32",
+        /**
+         * Whether the DSP chain can run on the playing track at all.
+         *
+         * False only on the sink's legacy path, which a stream that was never
+         * decoded to linear PCM takes — a passthrough or offload bitstream.
+         * There is nothing to filter there, so the equaliser and spatial audio
+         * are genuinely inert, and the equaliser screen says so.
+         *
+         * Notably *not* tied to the output encoding. The DSP chain runs inside
+         * `PrecisionAudioSink`, upstream of Media3's own processor list, so a
+         * float AudioTrack makes no difference to it — an older readout keyed
+         * off exactly that and spent months telling people their equaliser was
+         * off while it was working.
+         */
+        val dspAvailable: Boolean = true,
         val directUsbProbe: DirectUsbProbeResult? = null,
         val directSupport: DirectAudioProbe.DirectSupport? = null,
         val directPlaybackSupported: Boolean = false,
@@ -84,6 +99,24 @@ object AudioOutputStatus {
          */
         val bluetoothProfile: String? = null,
         val negotiationResult: OutputNegotiationResult? = null,
+        /**
+         * Whether the output encoding carries the decoder's samples intact.
+         *
+         * Only the encoding half of bit-exactness: it says the trip from
+         * `PcmBoundary` to AudioTrack loses nothing, not that the listener has
+         * every DSP stage switched off. A 24-bit stream on a route that will
+         * not open a float track is false here, with [outputExactDetail]
+         * naming why. See `PrecisionAudioSink.publishOutputExactness`.
+         */
+        val outputExact: Boolean = false,
+        val outputExactDetail: String? = null,
+        /**
+         * Gain loudness normalization is applying to the playing track, in dB,
+         * or null when it is off or YouTube offered no figure for this track.
+         */
+        val loudnessGainDb: Float? = null,
+        /** YouTube's own normalization figure for the playing track, in dB, when known. */
+        val loudnessLufs: Float? = null,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -107,7 +140,8 @@ object AudioOutputStatus {
                 decoderName == other.decoderName &&
                 bufferSize == other.bufferSize &&
                 decoderOutputEncoding == other.decoderOutputEncoding &&
-                dspFormat == other.dspFormat &&
+                dspFormat == other.dspFormat &&
+                dspAvailable == other.dspAvailable &&
                 directUsbProbe == other.directUsbProbe &&
                 directSupport == other.directSupport &&
                 directPlaybackSupported == other.directPlaybackSupported &&
@@ -120,7 +154,11 @@ object AudioOutputStatus {
                 usbEndpointFormat == other.usbEndpointFormat &&
                 bluetoothTelemetry == other.bluetoothTelemetry &&
                 bluetoothProfile == other.bluetoothProfile &&
-                negotiationResult == other.negotiationResult
+                negotiationResult == other.negotiationResult &&
+                outputExact == other.outputExact &&
+                outputExactDetail == other.outputExactDetail &&
+                loudnessGainDb == other.loudnessGainDb &&
+                loudnessLufs == other.loudnessLufs
         }
 
         override fun hashCode(): Int {
@@ -143,7 +181,8 @@ object AudioOutputStatus {
             result = 31 * result + (decoderName?.hashCode() ?: 0)
             result = 31 * result + (bufferSize ?: 0)
             result = 31 * result + (decoderOutputEncoding?.hashCode() ?: 0)
-            result = 31 * result + dspFormat.hashCode()
+            result = 31 * result + dspFormat.hashCode()
+            result = 31 * result + dspAvailable.hashCode()
             result = 31 * result + (directUsbProbe?.hashCode() ?: 0)
             result = 31 * result + (directSupport?.hashCode() ?: 0)
             result = 31 * result + directPlaybackSupported.hashCode()
@@ -157,6 +196,10 @@ object AudioOutputStatus {
             result = 31 * result + (bluetoothTelemetry?.hashCode() ?: 0)
             result = 31 * result + (bluetoothProfile?.hashCode() ?: 0)
             result = 31 * result + (negotiationResult?.hashCode() ?: 0)
+            result = 31 * result + outputExact.hashCode()
+            result = 31 * result + (outputExactDetail?.hashCode() ?: 0)
+            result = 31 * result + (loudnessGainDb?.hashCode() ?: 0)
+            result = 31 * result + (loudnessLufs?.hashCode() ?: 0)
             return result
         }
     }
@@ -292,8 +335,14 @@ object AudioOutputStatus {
             fallbackReason = result.output.fallbackReason,
             fallbackDetail = result.output.fallbackDetail,
             systemMixerRateHz = result.output.systemMixerRateHz,
-            decoderOutputEncoding = result.decoder.encoding,
-            dspFormat = result.dsp.format,
+            // decoderOutputEncoding and dspFormat are deliberately not taken from
+            // the negotiation. The negotiator predicts a route; it never sees a
+            // decoder buffer, so both of those fields are constants there
+            // ("Float32"). [publishDsp] carries the measured values, written by
+            // the sink once it has a real format in hand — and since this runs on
+            // every route change and on every Bluetooth telemetry tick, copying
+            // the constants here overwrote the measurement within milliseconds
+            // and left both rows reading "Float32" forever.
         )
         current.value = evaluateActualPath(baseSnapshot)
     }
@@ -302,11 +351,39 @@ object AudioOutputStatus {
         current.value = current.value.copy(decoderName = decoderName)
     }
 
-    fun publishDsp(decoderOutputEncoding: String?, dspFormat: String = "Float32") {
+    fun publishDsp(
+        decoderOutputEncoding: String?,
+        dspFormat: String = "Float32",
+        dspAvailable: Boolean = true,
+    ) {
         current.value = current.value.copy(
             decoderOutputEncoding = decoderOutputEncoding,
             dspFormat = dspFormat,
+            dspAvailable = dspAvailable,
         )
+    }
+
+    /**
+     * Whether the output encoding carries the decoder's samples intact, and why
+     * not when it doesn't. Written only by the sink the listener can hear — see
+     * `PrecisionAudioSink.isAudible`.
+     */
+    fun publishOutputExactness(exact: Boolean, detail: String?) {
+        current.value = current.value.copy(
+            outputExact = exact,
+            outputExactDetail = detail,
+        )
+    }
+
+    /**
+     * What loudness normalization is doing to the playing track. Nulls mean
+     * "nothing" — off, or YouTube offered no figure for this track — and are
+     * what the readout shows as inactive.
+     */
+    fun publishLoudness(gainDb: Float?, lufs: Float?) {
+        val snapshot = current.value
+        if (snapshot.loudnessGainDb == gainDb && snapshot.loudnessLufs == lufs) return
+        current.value = snapshot.copy(loudnessGainDb = gainDb, loudnessLufs = lufs)
     }
 
     fun publishAudioTrack(encoding: Int, sampleRateHz: Int, bufferSize: Int? = null) {

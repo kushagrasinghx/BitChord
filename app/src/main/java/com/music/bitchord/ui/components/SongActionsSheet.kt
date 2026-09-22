@@ -146,6 +146,8 @@ fun SongActionsSheet(
      * See [com.music.bitchord.playback.OriginalVersion].
      */
     onUpgradeQuality: (() -> Unit)? = null,
+    /** Keeps the upgrade row visible but untappable while its lookup is running. */
+    upgradeQualityInProgress: Boolean = false,
     onShare: (() -> Unit)? = null,
     /**
      * Copies what the app logged while starting this track. Null everywhere
@@ -208,6 +210,7 @@ fun SongActionsSheet(
                     },
                 ),
                 accent = palette.accent,
+                enabled = onRollbackToOriginal != null || !upgradeQualityInProgress,
                 onClick = it,
             )
             HorizontalDivider(
@@ -632,26 +635,31 @@ internal fun ActionRow(
     value: String? = null,
     tint: Color? = null,
     accent: Color = MaterialTheme.colorScheme.primary,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 22.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = tint ?: MaterialTheme.colorScheme.onBackground,
+            tint = (tint ?: MaterialTheme.colorScheme.onBackground).copy(
+                alpha = if (enabled) 1f else 0.4f,
+            ),
             modifier = Modifier.size(22.dp),
         )
         Spacer(Modifier.width(18.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.onBackground.copy(
+                alpha = if (enabled) 1f else 0.4f,
+            ),
             modifier = Modifier.weight(1f),
         )
         if (value != null) {
@@ -659,7 +667,7 @@ internal fun ActionRow(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = accent,
+                color = accent.copy(alpha = if (enabled) 1f else 0.4f),
                 maxLines = 1,
             )
         }

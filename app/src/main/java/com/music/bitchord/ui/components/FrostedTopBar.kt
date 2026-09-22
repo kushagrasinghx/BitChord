@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -82,6 +83,22 @@ val TopBarContentHeight = 52.dp
  * it, so content rests below the glass instead of against it.
  */
 val TopBarContentGap = 12.dp
+
+/**
+ * How much of each end of the bar is spoken for, so a long title truncates
+ * instead of running under what sits there.
+ *
+ * Only ever consumed through the larger of the two — see the title's padding.
+ * They are kept apart rather than collapsed into one number because they
+ * describe two different things, and the wordmark is the one that changes when
+ * the logo or the Dev badge does.
+ */
+private val BackInset = 54.dp
+private val WordmarkInset = 96.dp
+private val ActionsInset = 56.dp
+
+/** What the leading end of the bar needs: a back button, or the wordmark. */
+private fun leadingInset(hasBack: Boolean): Dp = if (hasBack) BackInset else WordmarkInset
 
 /**
  * How far down the window the bar actually ends: the status bar inset it is
@@ -173,7 +190,15 @@ fun FrostedTopBar(
                 label = "topBarTitleAnimation",
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .padding(start = if (onBack != null) 54.dp else 96.dp, end = 56.dp)
+                    // Reserve room for whatever flanks the title — and reserve
+                    // the *same* room on both sides. Equal is the whole point:
+                    // the title is centered within this padded box, so an inset
+                    // that differs end to end moves it off the bar's centre by
+                    // half that difference. Reserving what each side actually
+                    // needs (96dp for the wordmark, 56dp for the actions) put
+                    // every root tab's title 20dp right of centre, which is
+                    // visible against a status bar clock that is not.
+                    .padding(horizontal = max(leadingInset(onBack != null), ActionsInset))
                     .fillMaxWidth()
                     .graphicsLayer { alpha = titleAlpha },
             ) { trailing ->

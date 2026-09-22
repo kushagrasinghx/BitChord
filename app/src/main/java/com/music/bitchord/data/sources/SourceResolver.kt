@@ -625,6 +625,13 @@ object SourceResolver {
      * in the audio for nothing. 160 to 320 clears it; 128 to 192 does not.
      */
     internal fun worthSwapping(candidate: StreamFormat, playing: StreamFormat?): Boolean {
+        // Never away from an immersive mix. A FLAC is a better *copy* and a
+        // worse *mix* once Atmos is what the listener chose, and cutting one in
+        // over the other mid-song is a downgrade dressed as an upgrade.
+        // [QualityUpgrade.needsLosslessFollowUp] already treats Atmos as final,
+        // so this is the belt to that braces — it also covers the late answer
+        // that arrives from a pass started before the Atmos stream landed.
+        if (playing?.isDolbyAtmos == true && !candidate.isDolbyAtmos) return false
         if (candidate.isLossless == true || candidate.isDolbyAtmos) return true
         val gain = (candidate.kbps ?: return false) - (playing?.kbps ?: return false)
         return gain >= UPGRADE_MIN_GAIN_KBPS
@@ -809,7 +816,15 @@ object SourceResolver {
     ): SourceStream? {
         for (query in TrackMatcher.queries(target)) {
             val candidates = attempt(source) {
-                source.search(query, limit = MATCH_CANDIDATES, waitForAll = waitForAll)
+                source.search(
+                    query,
+                    limit = MATCH_CANDIDATES,
+                    waitForAll = waitForAll,
+                    // The search and the stream are one question here: a
+                    // catalogue that files its rows by tier should describe
+                    // them at the tier this is about to ask for.
+                    request = request,
+                )
             } ?: return null
             var matches = TrackMatcher.ranked(candidates, target)
             if (requireSharedArtist) {
@@ -906,11 +921,33 @@ object SourceResolver {
     ): List<Song> {
         val sameLength = matches.filter { TrackMatcher.withinSeconds(it, target, SAME_RECORDING_SEC) }
         val eligible = sameLength.ifEmpty { matches }
+        // The immersive mix goes first when the listener asked for immersive
+        // audio and the device can decode it. This is not a quality rung and
+        // is not competing with one: a catalogue may publish the Atmos mix as
+        // its own row rather than as an alternate rendition of the stereo one,
+        // in which case no `?atmos=` hint on the stereo row can ever reach it
+        // — picking the row *is* the only way to hear it. Ordering is enough;
+        // [streamBest] stops at the first row that answers, and an Atmos
+        // answer on a device that cannot play it was already refused upstream
+        // by [ModuleSource.unplayable].
+        if (atmosWanted()) {
+            val immersiveFirst = eligible.sortedByDescending { it.sourceQuality == ModuleSource.DOLBY }
+            if (immersiveFirst.firstOrNull()?.sourceQuality == ModuleSource.DOLBY) return immersiveFirst
+        }
         if (!wantsLossless) return eligible
         // Stable, so the confidence order [TrackMatcher.ranked] produced
         // survives inside each tier.
         return eligible.sortedByDescending { it.sourceQuality == ModuleSource.LOSSLESS }
     }
+
+    /**
+     * Whether an immersive mix is worth preferring right now — the same two
+     * gates the playback side enforces in [ModuleSource.unplayable] and the
+     * addon path sends its `?atmos=` hint on, asked in the one place that
+     * chooses between rows.
+     */
+    private fun atmosWanted(): Boolean =
+        DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value
 
     private suspend fun streamBest(
         source: MusicSource,
@@ -974,8 +1011,18 @@ object SourceResolver {
      */
     internal fun isBetter(candidate: StreamFormat, current: StreamFormat?): Boolean {
         if (current == null) return true
-        if (candidate.isLossless != current.isLossless) return candidate.isLossless == true
+        // Immersive first, and ahead of lossless rather than behind it. This
+        // used to sit *after* the lossless test, which made it unreachable in
+        // the only comparison it exists for: an Atmos stream is E-AC-3 and so
+        // answers `isLossless == false`, so a FLAC won on the line above and
+        // the Atmos line below never ran. A track offered as both then played
+        // as the FLAC no matter what the Atmos setting said — and worse, a
+        // mid-playback upgrade would cut the FLAC in over an Atmos stream
+        // already playing. Anything immersive that reaches here has already
+        // cleared [ModuleSource.unplayable], so it is a mix this device and
+        // this listener both want.
         if (candidate.isDolbyAtmos != current.isDolbyAtmos) return candidate.isDolbyAtmos
+        if (candidate.isLossless != current.isLossless) return candidate.isLossless == true
         return (candidate.kbps ?: 0) > (current.kbps ?: 0)
     }
 

@@ -458,14 +458,21 @@ func (m *Member) ToWire() map[string]interface{} {
 
 // Party holds members and playback state for a single room code.
 type Party struct {
-	mu           sync.Mutex
-	Code         string
-	Members      map[string]*Member
-	Playback     *PlaybackState
-	MaxMembers   int
-	CreatedAtMs  int64
-	TouchedAtMs  int64
-	EmptySinceMs *int64
+	mu         sync.Mutex
+	Code       string
+	Members    map[string]*Member
+	Playback   *PlaybackState
+	MaxMembers int
+	// HostOnlyControl restricts every playback and queue action to the host.
+	//
+	// Deliberately on Party rather than on PlaybackState: it changes rarely and
+	// PlaybackState.ToWire rides the heartbeat to every device every few
+	// seconds. It travels with MaxMembers on the members frame instead, which
+	// is only sent when something about the membership actually changes.
+	HostOnlyControl bool
+	CreatedAtMs     int64
+	TouchedAtMs     int64
+	EmptySinceMs    *int64
 }
 
 func NewParty(code string) *Party {
@@ -558,6 +565,31 @@ func (p *Party) SetMaxMembers(member *Member, maxMembers int) error {
 	p.MaxMembers = maxMembers
 	p.Touch()
 	return nil
+}
+
+// SetHostOnlyControl restricts the music to the host, or hands it back to
+// everyone. Host-only, like SetMaxMembers: a listener who could turn this off
+// is not restricted by it.
+func (p *Party) SetHostOnlyControl(member *Member, enabled bool) error {
+	if !member.IsHost {
+		return NewPartyError(403, "host_only", "Only the host can change who controls the music.")
+	}
+	if p.HostOnlyControl == enabled {
+		return nil
+	}
+	p.HostOnlyControl = enabled
+	p.Touch()
+	return nil
+}
+
+// MayControl reports whether this member is allowed to drive playback and the
+// queue right now.
+//
+// The host always may. Everyone else may until the host says otherwise — which
+// is the behaviour this feature shipped with and stays the default for a party
+// that never touches the setting.
+func (p *Party) MayControl(member *Member) bool {
+	return !p.HostOnlyControl || member.IsHost
 }
 
 func (p *Party) Authenticate(token string) (*Member, error) {
@@ -683,13 +715,14 @@ func (p *Party) ToWire() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"code":        p.Code,
-		"createdAtMs": p.CreatedAtMs,
-		"maxMembers":  p.MaxMembers,
-		"members":     membersWire,
-		"playback":    p.Playback.ToWire(now),
-		"queue":       p.Playback.QueueToWire(),
-		"serverMs":    now,
+		"code":            p.Code,
+		"createdAtMs":     p.CreatedAtMs,
+		"maxMembers":      p.MaxMembers,
+		"hostOnlyControl": p.HostOnlyControl,
+		"members":         membersWire,
+		"playback":        p.Playback.ToWire(now),
+		"queue":           p.Playback.QueueToWire(),
+		"serverMs":        now,
 	}
 }
 

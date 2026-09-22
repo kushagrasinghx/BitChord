@@ -9,10 +9,24 @@ import com.music.bitchord.playback.TransitionFilterProcessor
 /**
  * Composite DSP chain executing BitChord's custom audio processors in their canonical sequence:
  *
- * AudioBlock(Float32) -> SpatialAudioProcessor -> EqualizerProcessor -> TransitionFilterProcessor -> AudioBlock(Float32)
+ * AudioBlock(Float32) -> SpatialAudioProcessor -> EqualizerProcessor
+ *   -> TransitionFilterProcessor -> AudioBlock(Float32)
  *
  * Operates purely on in-place Float32 audio blocks without intermediate fixed-point quantization,
  * preserving full dynamic range and headroom.
+ *
+ * Loudness normalization is not one of these stages — it runs as a platform
+ * `LoudnessEnhancer` effect on the audio session instead, driven by
+ * `PlaybackService.setupLoudnessEnhancer`, so it applies to whichever player
+ * is audible without needing a seat in this per-sink chain.
+ *
+ * ## Staying out of the way
+ *
+ * Every stage here self-bypasses when its own setting is off, returning before
+ * it reads a single sample rather than multiplying through by unity. With all
+ * three idle the block leaves this class byte-identical to how it arrived,
+ * which is what lets [PcmBoundary]'s power-of-two scaling round-trip 16- and
+ * 24-bit integers unchanged — see `PrecisionAudioSink.publishOutputExactness`.
  */
 class DspChain(
     val spatial: SpatialAudioProcessor = SpatialAudioProcessor(),
@@ -45,7 +59,8 @@ class DspChain(
                     val transitionOn = transition.isFiltering
                     Log.d(
                         TAG,
-                        "process() #$count frames=$frames sr=$sr spatial=$spatialOn eq=$eqOn transition=$transitionOn",
+                        "process() #$count frames=$frames sr=$sr " +
+                            "spatial=$spatialOn eq=$eqOn transition=$transitionOn",
                     )
                 } catch (_: Throwable) {
                 }

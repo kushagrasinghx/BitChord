@@ -337,6 +337,14 @@ fun AddonEditorAlert(
     onSave: () -> Unit,
     /** Offered only for a source already stored — there is nothing to remove otherwise. */
     onRemove: (() -> Unit)?,
+    /**
+     * What [onRemove] is called, for the callers that are not removing a source.
+     *
+     * The party server's address wears this same card — one field, an address
+     * to test, four stacked actions — and "Remove source" would be the one line
+     * on it still talking about addons.
+     */
+    removeLabel: String? = null,
     onDismiss: () -> Unit,
 ) {
     AlertScaffold(hazeState = hazeState, onDismiss = { if (!testing) onDismiss() }) {
@@ -395,7 +403,7 @@ fun AddonEditorAlert(
         if (onRemove != null) {
             AlertRule()
             AlertAction(
-                label = stringResource(R.string.remove_source),
+                label = removeLabel ?: stringResource(R.string.remove_source),
                 emphasised = false,
                 destructive = true,
                 onClick = onRemove,

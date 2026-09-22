@@ -17,6 +17,18 @@ enum class WebSessionMode {
 }
 
 /**
+ * Value accepted by Innertube as `context.user.onBehalfOfUser`.
+ * YouTube commonly exposes `DATASYNC_ID` as `account||delegated`; the second
+ * half is the active identity, while plain accounts can leave it empty.
+ */
+internal fun normalizeDataSyncId(raw: String?): String? {
+    val value = raw?.takeIf { it.isNotBlank() } ?: return null
+    if (!value.contains("||")) return value
+    return value.substringAfter("||").takeIf { it.isNotBlank() }
+        ?: value.substringBefore("||").takeIf { it.isNotBlank() }
+}
+
+/**
  * A session lifted out of the in-app browser: the cookie, plus who the page
  * being looked at says it is.
  *
@@ -27,14 +39,15 @@ enum class WebSessionMode {
  * showing is not a question at all — it is written down in the page. Reading
  * it there is what lets "switch to the channel I want, then save" work.
  *
- * All identity fields are nullable: a page that will not give them up leaves
- * the app exactly where it was before, scraping the shell for its best guess.
+ * Individual identity fields are nullable because a personal viewer need not
+ * have a channel. The capture itself is accepted only from a page whose config
+ * says it is signed in, and the API verifies it before it is persisted.
  */
 data class CapturedSession(
     val cookie: String,
     /** `DELEGATED_SESSION_ID` — set only while a brand channel is selected. */
     val pageId: String?,
-    /** `DATASYNC_ID`, account half only. */
+    /** Active identity used as `context.user.onBehalfOfUser`. */
     val dataSyncId: String?,
     /** `SESSION_INDEX` — which Google account in the cookie jar. */
     val authUser: String?,
@@ -56,6 +69,34 @@ data class CapturedSession(
  * else, and shows barely a flicker while refusing to.
  */
 object BrowserSession {
+
+    /**
+     * Makes the in-app YouTube page use a saved account without asking Google
+     * to sign any account out.
+     *
+     * The encrypted account registry owns independent cookie snapshots. The
+     * WebView, however, has one process-wide jar, so opening the channel picker
+     * after selecting an older account would otherwise show whichever account
+     * happened to sign in most recently. Replace the local jar with that
+     * account's snapshot before loading YouTube Music.
+     */
+    fun installGoogleCookies(cookieHeader: String) {
+        clearGoogleCookies()
+        val manager = runCatching { CookieManager.getInstance() }.getOrElse {
+            Log.w("BitChord", "no cookie manager to restore: ${it.message}")
+            return
+        }
+        val entries = cookieHeader.split(';').mapNotNull { entry ->
+            val name = entry.substringBefore('=').trim()
+            val value = entry.substringAfter('=', "").trim()
+            if (name.isEmpty() || value.isEmpty()) null else "$name=$value; Path=/; Secure"
+        }
+        YOUTUBE_ORIGINS.forEach { origin ->
+            entries.forEach { cookie -> manager.setCookie(origin, cookie) }
+        }
+        runCatching { manager.flush() }
+        Log.d("BitChord", "restored ${entries.size} browser cookies for the selected account")
+    }
 
     /**
      * Forgets the Google login the in-app browser is holding.
@@ -102,5 +143,11 @@ object BrowserSession {
         "https://accounts.google.com",
         "https://www.google.com",
         "https://google.com",
+    )
+
+    private val YOUTUBE_ORIGINS = listOf(
+        "https://music.youtube.com",
+        "https://www.youtube.com",
+        "https://youtube.com",
     )
 }

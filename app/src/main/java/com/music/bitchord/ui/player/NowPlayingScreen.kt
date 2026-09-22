@@ -916,6 +916,13 @@ fun NowPlayingScreen(
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    /**
+     * A control the host has taken away was reached for anyway.
+     *
+     * The buttons are gone while a party is locked, but a swipe has no button
+     * to remove — so the gesture answers instead of silently doing nothing.
+     */
+    onBlockedControl: () -> Unit,
     onSeek: (Long) -> Unit,
     /**
      * Seek to a fraction of the track, for the scrubber.
@@ -936,6 +943,14 @@ fun NowPlayingScreen(
     onJumpTo: (Int) -> Unit,
     onRemoveFromQueue: (Int) -> Unit,
     onMoveInQueue: (Int, Int) -> Unit,
+    /**
+     * A queue row started or stopped being dragged.
+     *
+     * Lets the caller tell a jam's party sync that a reorder is in progress, so
+     * it can hold its publish until the row is dropped instead of sending one
+     * for every neighbour the drag crosses. See [PartySync.beginQueueDrag].
+     */
+    onQueueDragActiveChange: (Boolean) -> Unit = {},
     onClearQueue: () -> Unit,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
@@ -1000,6 +1015,9 @@ fun NowPlayingScreen(
     var showAudioOutput by remember { mutableStateOf(false) }
     // Gated on the Bluetooth permission the first time — see [rememberOutputPicker].
     val openAudioOutput = rememberOutputPicker { showAudioOutput = true }
+    // Listening in a party whose host has taken the controls: the transport
+    // keeps only play/pause, which from here moves this device alone.
+    val controlsLocked = rememberControlsLocked()
     var showListenTogetherMembers by remember { mutableStateOf(false) }
     // Who's actually in the party is worth a look before the settings page —
     // see [ListenTogetherMembersSheet]. Only meaningful once there is a party
@@ -1014,6 +1032,7 @@ fun NowPlayingScreen(
         onSeek(adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs))
     }
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
+    val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
 
     // Animated cover art: the looping video some labels publish alongside a
     // release, laid over the sleeve. A miss is the normal answer — see
@@ -1941,10 +1960,12 @@ fun NowPlayingScreen(
                     queue = queue,
                     currentIndex = queueIndex,
                     autoplayEnabled = autoplayEnabled,
+                    controlsLocked = controlsLocked,
                     onJumpTo = onJumpTo,
                     onRemove = onRemoveFromQueue,
                     onMove = onMoveInQueue,
                     onClear = onClearQueue,
+                    onDragActiveChange = onQueueDragActiveChange,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -1992,6 +2013,7 @@ fun NowPlayingScreen(
             onOpenOutput = openAudioOutput,
             onListenTogether = onListenTogether,
             onOpenListenTogetherMembers = openListenTogetherMembers,
+            controlsLocked = controlsLocked,
             lyricsOpen = lyricsOpen,
             queueOpen = queueOpen,
             onToggleLyrics = toggleLyrics,
@@ -2226,7 +2248,7 @@ fun NowPlayingScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .pointerInput(showAudioPipeline, panelScrolling) {
+                .pointerInput(showAudioPipeline, panelScrolling, controlsLocked) {
                     if (showAudioPipeline || panelScrolling) return@pointerInput
                     var total = 0f
                     detectHorizontalDragGestures(
@@ -2236,7 +2258,12 @@ fun NowPlayingScreen(
                             // The same two buzzes the transport glyphs give, so
                             // swiping the sleeve and tapping skip feel like one
                             // gesture with two spellings.
+                            val crossed = total <= -swipeThreshold || total >= swipeThreshold
                             when {
+                                // Still tracks the finger and still springs
+                                // back, so the sleeve does not feel dead —
+                                // it just says why it did not move on.
+                                controlsLocked -> if (crossed) onBlockedControl()
                                 total <= -swipeThreshold -> {
                                     haptics.play(Haptic.SkipNext)
                                     onNext()
@@ -2294,7 +2321,7 @@ fun NowPlayingScreen(
                 // composition until its final frame gives the caption a real
                 // fade on both entry and exit, but removes its click target
                 // entirely once lyrics or the queue owns the player.
-                if (p < 0.999f) {
+                if (!hideSongStatus && p < 0.999f) {
                     Text(
                         text = playedBy?.let {
                             stringResource(R.string.played_by, it)
@@ -3046,11 +3073,13 @@ fun NowPlayingScreen(
                             queue = queue,
                             currentIndex = queueIndex,
                             autoplayEnabled = autoplayEnabled,
+                            controlsLocked = controlsLocked,
                             onJumpTo = onJumpTo,
                             onRemove = onRemoveFromQueue,
                             onMove = onMoveInQueue,
                             onClear = onClearQueue,
                             onScrollingChange = { queueScrolling = it },
+                            onDragActiveChange = onQueueDragActiveChange,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -3265,7 +3294,10 @@ fun NowPlayingScreen(
                     onClick = onPrevious,
                     // Lit whenever back has something to do — either a track to
                     // step to, or enough elapsed for it to restart this one.
-                    enabled = hasPrevious || positionMs > BACK_RESTARTS_AFTER_MS,
+                    // Faded and inert, not removed, while the host holds the
+                    // controls: the transport keeps its shape either way.
+                    enabled = !controlsLocked &&
+                        (hasPrevious || positionMs > BACK_RESTARTS_AFTER_MS),
                     haptic = Haptic.SkipPrevious,
                 )
                 // While the stream URL resolves and buffers, the play glyph
@@ -3295,7 +3327,7 @@ fun NowPlayingScreen(
                     contentDescription = stringResource(R.string.widget_next),
                     size = 48.dp,
                     onClick = onNext,
-                    enabled = hasNext,
+                    enabled = !controlsLocked && hasNext,
                     haptic = Haptic.SkipNext,
                 )
             }
@@ -3659,6 +3691,8 @@ private fun WidePlayerControls(
     onListenTogether: () -> Unit,
     /** Opens [ListenTogetherMembersSheet] rather than settings directly — see [NowPlayingScreen]. */
     onOpenListenTogetherMembers: () -> Unit,
+    /** @see ListenTogether.State.controlsLocked */
+    controlsLocked: Boolean,
     lyricsOpen: Boolean,
     queueOpen: Boolean,
     onToggleLyrics: () -> Unit,
@@ -3792,7 +3826,8 @@ private fun WidePlayerControls(
                     contentDescription = stringResource(R.string.widget_previous),
                     size = 48.dp,
                     onClick = onPrevious,
-                    enabled = hasPrevious || positionMs > BACK_RESTARTS_AFTER_MS,
+                    enabled = !controlsLocked &&
+                        (hasPrevious || positionMs > BACK_RESTARTS_AFTER_MS),
                     haptic = Haptic.SkipPrevious,
                 )
                 if (isLoading) {
@@ -3820,7 +3855,7 @@ private fun WidePlayerControls(
                     contentDescription = stringResource(R.string.widget_next),
                     size = 48.dp,
                     onClick = onNext,
-                    enabled = hasNext,
+                    enabled = !controlsLocked && hasNext,
                     haptic = Haptic.SkipNext,
                 )
             }
@@ -6277,19 +6312,34 @@ private fun OutputCaption(
     val badge = rememberPartyBadge()
     val outputName = rememberAudioOutputName(accountName)
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
-    // Above what 16-bit/48kHz covers, on the device actually being played to
-    // — [AudioOutputStatus.actualEncoding] is read off the negotiated
-    // AudioTrack, the same figure the Audio Pipeline dialog states as fact,
-    // not off what the source merely claims. Same shine as the Lossless /
-    // Hi-Res Lossless badge below the seek bar, for the same reason: this is
-    // confirmed, not advertised, so it's worth it.
-    val isHiResOutput = when (outputStatus.actualEncoding) {
+    val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
+    // What the route is *capable* of, read off the negotiated AudioTrack —
+    // the same figure the Audio Pipeline dialog states as fact, not what the
+    // source merely claims.
+    //
+    // On its own this is a claim about the container, not about the music.
+    // A float-capable route opens a float track for everything that plays
+    // through it, so a 128kbps Opus scored exactly as high here as a studio
+    // master and wore the same shine — which is what this used to do.
+    val routeCarriesHiRes = when (outputStatus.actualEncoding) {
         AudioFormat.ENCODING_PCM_24BIT_PACKED,
         AudioFormat.ENCODING_PCM_32BIT,
         AudioFormat.ENCODING_PCM_FLOAT,
         -> true
         else -> (outputStatus.actualSampleRateHz ?: 0) > 48_000
     }
+    // So the stream has to be worth the container. Measured on the decoder's
+    // own format rather than the source's advertised rung — the same figures
+    // the Hi-Res Lossless badge below the seek bar reads, and for the same
+    // reason: confirmed, not advertised.
+    //
+    // Both halves, because either alone says something the shine does not
+    // mean. A hi-res file on the built-in speaker is capped at 16-bit before
+    // it leaves the app, and a lossy stream stays lossy however wide the
+    // track under it is. The shine means the device is receiving this music
+    // at the quality it was sent in.
+    val streamIsHiRes = nerdStats?.isHiRes == true
+    val isHiResOutput = streamIsHiRes && routeCarriesHiRes
     // The host's first name, exactly as the output line already shortens the
     // account's — "Kushagra's Jam" alongside "Kushagra's Phone".
     val jamName = badge.hostFirstName
@@ -6338,6 +6388,25 @@ private fun ListenTogether.State.badge(): PartyBadge = PartyBadge(
         ?.firstOrNull()
         ?.takeIf { it.isNotBlank() },
 )
+
+/**
+ * Whether the host has taken control of the party this device is listening in.
+ *
+ * Same `distinctUntilChanged` treatment as [rememberPartyBadge], and for the
+ * same reason: this answer changes about twice a party, while the state it is
+ * read from is replaced every few seconds.
+ *
+ * @see ListenTogether.State.controlsLocked
+ */
+@Composable
+internal fun rememberControlsLocked(): Boolean {
+    val locked = remember {
+        ListenTogether.state.map { it.controlsLocked }.distinctUntilChanged()
+    }
+    return locked
+        .collectAsStateWithLifecycle(initialValue = ListenTogether.state.value.controlsLocked)
+        .value
+}
 
 /**
  * [PartyBadge] as it changes, and only when it actually does.
@@ -6615,6 +6684,25 @@ private fun Modifier.bleedHorizontally(gutter: Dp): Modifier = layout { measurab
     }
 }
 
+/**
+ * How a queue row moves when the running order changes under it.
+ *
+ * Placement only — the fades are off deliberately. A row Compose treats as
+ * removed or inserted goes on being drawn at the slot it used to hold for as
+ * long as it takes to fade, and a queue row's background is transparent: the
+ * fading copy and whichever row is sliding through that slot both draw their
+ * title and artist into the same few pixels, which reads as one song's name
+ * printed over another's rather than as anything moving. Without the fades a
+ * row that leaves is gone the moment it leaves, so movement is the only thing
+ * left to see.
+ *
+ * Bounded rather than the default spring for a related reason: every track
+ * change moves the section boundary — see [autoplaySectionStart] — so the
+ * newly current row and the AutoPlay heading trade places, and a low-stiffness
+ * spring is still visibly settling that trade long after the track changed.
+ */
+private val QUEUE_ROW_MOTION = tween<IntOffset>(durationMillis = 200, easing = FastOutSlowInEasing)
+
 /** Softens the list where it meets the header and the scrubber. */
 private fun Modifier.fadingEdges(): Modifier = this
     .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
@@ -6645,11 +6733,17 @@ private fun InlineQueue(
     queue: List<Song>,
     currentIndex: Int,
     autoplayEnabled: Boolean,
+    /**
+     * Read-only: the party's running order is the host's while this is set, so
+     * the queue is here to be looked at and scrolled, not worked.
+     */
+    controlsLocked: Boolean,
     onJumpTo: (Int) -> Unit,
     onRemove: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onClear: () -> Unit,
     onScrollingChange: (Boolean) -> Unit = {},
+    onDragActiveChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -6682,8 +6776,19 @@ private fun InlineQueue(
     // across a reorder, which plain videoId+index (the previous key) wasn't:
     // that changed on every swap and silently broke animateItem's ability to
     // tell "this row moved" from "this row was replaced".
-    val manualKeys = remember(manualRows) { manualRows.stableQueueKeys() }
-    val autoplayKeys = remember(autoplayRows) { autoplayRows.stableQueueKeys("autoplay/") }
+    //
+    // Computed once over the *whole* queue rather than per section: a track
+    // AutoPlay picked crosses into the manual section the moment it becomes
+    // current (or falls behind it), and a key that depended on which section
+    // it was in changed the instant it crossed — animateItem read that as the
+    // old row being deleted and a new one inserted rather than as one row
+    // moving, so it faded the two in and out in place instead of sliding the
+    // row smoothly, and with every row background transparent the fading
+    // pair showed through each other. A key keyed only by position in the
+    // full queue never changes at that boundary, so the row now just moves.
+    val queueKeys = remember(queue) { queue.stableQueueKeys() }
+    val manualKeys = queueKeys.subList(0, autoplayStart)
+    val autoplayKeys = queueKeys.subList(autoplayStart, queue.size)
 
     // The heading is a row of the same LazyColumn, so it shifts every
     // AutoPlay index below it along by one — hence the offset back to queue
@@ -6701,12 +6806,14 @@ private fun InlineQueue(
         lazyRange = firstMovable until autoplayStart,
         lazyOffset = 0,
         onMove = onMove,
+        onDragActiveChange = onDragActiveChange,
     )
     val autoplayDrag = rememberQueueDragState(
         listState = listState,
         lazyRange = (autoplayStart + headingCount) until (autoplayStart + headingCount + autoplayRows.size),
         lazyOffset = headingCount,
         onMove = onMove,
+        onDragActiveChange = onDragActiveChange,
     )
 
     // Open on what's playing, not at the top of a long queue. The heading sits
@@ -6717,10 +6824,23 @@ private fun InlineQueue(
     // the edge auto-scroll below — which would leave the rest of that drag
     // unable to scroll at all. Reordering is also the one time the user is
     // certainly looking somewhere other than at the current track.
+    //
+    // The first jump is a snap rather than a scroll — sliding in from the top
+    // of a long queue to whatever is playing minutes in would just be a scroll
+    // animation with nothing to look at along the way. Every jump after that
+    // is a track change with the sheet already open and on screen, so it
+    // animates instead of cutting straight there.
+    var hasScrolledOnce by remember { mutableStateOf(false) }
     LaunchedEffect(currentIndex) {
         val holding = manualDrag.draggedKey != null || autoplayDrag.draggedKey != null
         if (!holding && currentIndex in queue.indices) {
-            listState.scrollToItem(currentIndex + if (currentIndex >= autoplayStart) 1 else 0)
+            val target = currentIndex + if (currentIndex >= autoplayStart) 1 else 0
+            if (hasScrolledOnce) {
+                listState.animateScrollToItem(target)
+            } else {
+                listState.scrollToItem(target)
+                hasScrolledOnce = true
+            }
         }
     }
 
@@ -6738,10 +6858,10 @@ private fun InlineQueue(
             Text(
                 text = stringResource(R.string.clear),
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White.copy(alpha = 0.75f),
+                color = Color.White.copy(alpha = if (controlsLocked) 0.25f else 0.75f),
                 modifier = Modifier
                     .clip(RoundedCornerShape(percent = 50))
-                    .clickable(onClick = onClear)
+                    .clickable(enabled = !controlsLocked, onClick = onClear)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
@@ -6770,10 +6890,11 @@ private fun InlineQueue(
                     isCurrent = index == currentIndex,
                     onClick = { onJumpTo(index) },
                     onRemove = { onRemove(index) },
+                    locked = controlsLocked,
                     // Only what's still queued ahead. The playing track and
                     // everything already played sit above the line a drag
                     // can't cross.
-                    draggable = index >= firstMovable,
+                    draggable = !controlsLocked && index >= firstMovable,
                     dragging = dragging,
                     onDragStart = { manualDrag.onDragStart(key) },
                     onDrag = manualDrag::onDrag,
@@ -6786,7 +6907,17 @@ private fun InlineQueue(
                         // neighbours skip the animation too, for as long as
                         // *anything* in the section is being dragged — see the
                         // note on [manualDrag] below for why.
-                        .then(if (manualDrag.draggedKey != null) Modifier else Modifier.animateItem()),
+                        .then(
+                            if (manualDrag.draggedKey != null) {
+                                Modifier
+                            } else {
+                                Modifier.animateItem(
+                                    fadeInSpec = null,
+                                    fadeOutSpec = null,
+                                    placementSpec = QUEUE_ROW_MOTION,
+                                )
+                            },
+                        ),
                 )
             }
             // Heading first, then what AutoPlay has lined up under it. With
@@ -6796,6 +6927,18 @@ private fun InlineQueue(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            // Moves on the same terms as the rows around it.
+                            // Every track change trades this heading with the
+                            // row that just became current, and while the rows
+                            // animated and this did not, it landed in the row's
+                            // old slot a whole animation early — so the two
+                            // drew over each other for as long as the row took
+                            // to arrive.
+                            .animateItem(
+                                fadeInSpec = null,
+                                fadeOutSpec = null,
+                                placementSpec = QUEUE_ROW_MOTION,
+                            )
                             .padding(vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -6837,7 +6980,8 @@ private fun InlineQueue(
                     isCurrent = at == currentIndex,
                     onClick = { onJumpTo(at) },
                     onRemove = { onRemove(at) },
-                    draggable = true,
+                    locked = controlsLocked,
+                    draggable = !controlsLocked,
                     dragging = dragging,
                     onDragStart = { autoplayDrag.onDragStart(key) },
                     onDrag = autoplayDrag::onDrag,
@@ -6845,7 +6989,17 @@ private fun InlineQueue(
                     modifier = Modifier
                         .zIndex(if (dragging) 1f else 0f)
                         .graphicsLayer { translationY = if (dragging) autoplayDrag.renderOffset else 0f }
-                        .then(if (autoplayDrag.draggedKey != null) Modifier else Modifier.animateItem()),
+                        .then(
+                            if (autoplayDrag.draggedKey != null) {
+                                Modifier
+                            } else {
+                                Modifier.animateItem(
+                                    fadeInSpec = null,
+                                    fadeOutSpec = null,
+                                    placementSpec = QUEUE_ROW_MOTION,
+                                )
+                            },
+                        ),
                 )
             }
         }
@@ -6858,12 +7012,12 @@ private fun InlineQueue(
  * that count, so two copies of one song each keep their own identity instead
  * of colliding on the same LazyColumn key.
  */
-private fun List<Song>.stableQueueKeys(prefix: String = ""): List<String> {
+private fun List<Song>.stableQueueKeys(): List<String> {
     val seen = HashMap<String, Int>()
     return map { song ->
         val n = seen.getOrDefault(song.videoId, 0)
         seen[song.videoId] = n + 1
-        if (n == 0) "$prefix${song.videoId}" else "$prefix${song.videoId}#$n"
+        if (n == 0) song.videoId else "${song.videoId}#$n"
     }
 }
 
@@ -6934,11 +7088,13 @@ private fun rememberQueueDragState(
     lazyRange: IntRange,
     lazyOffset: Int,
     onMove: (Int, Int) -> Unit,
+    onDragActiveChange: (Boolean) -> Unit = {},
 ): QueueDragState {
     val state = remember(listState) { QueueDragState(listState) }
     state.lazyRange = lazyRange
     state.lazyOffset = lazyOffset
     state.onMove = onMove
+    state.onDragActiveChange = onDragActiveChange
     with(LocalDensity.current) {
         state.edgeZone = QUEUE_EDGE_SCROLL_ZONE.toPx()
         state.edgeSpeed = QUEUE_EDGE_SCROLL_SPEED.toPx()
@@ -7008,6 +7164,14 @@ private class QueueDragState(private val listState: LazyListState) {
     var lazyOffset: Int = 0
     var onMove: (Int, Int) -> Unit = { _, _ -> }
 
+    /**
+     * A row started or stopped being dragged — see [PartySync.beginQueueDrag].
+     * Every neighbour crossed while dragging is still its own [onMove] call, so
+     * the local queue and the party's copy of it can be told apart: the party
+     * only needs to hear about the reorder once, when the row is dropped.
+     */
+    var onDragActiveChange: (Boolean) -> Unit = {}
+
     /** [QUEUE_EDGE_SCROLL_ZONE] and [QUEUE_EDGE_SCROLL_SPEED], in pixels. */
     var edgeZone: Float = 0f
     var edgeSpeed: Float = 0f
@@ -7061,6 +7225,7 @@ private class QueueDragState(private val listState: LazyListState) {
         renderOffset = 0f
         awaiting = null
         setAutoScroll(0f)
+        onDragActiveChange(true)
     }
 
     /** The finger moved [deltaY] pixels and the list stayed put. */
@@ -7075,6 +7240,7 @@ private class QueueDragState(private val listState: LazyListState) {
         renderOffset = 0f
         awaiting = null
         setAutoScroll(0f)
+        onDragActiveChange(false)
     }
 
     /**
@@ -7247,6 +7413,8 @@ private fun InlineQueueRow(
     isCurrent: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit,
+    /** @see InlineQueue */
+    locked: Boolean = false,
     modifier: Modifier = Modifier,
     draggable: Boolean = false,
     dragging: Boolean = false,
@@ -7274,7 +7442,10 @@ private fun InlineQueueRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (dragging) Color.White.copy(alpha = 0.06f) else Color.Transparent)
-            .clickable(onClick = onClick)
+            // Disabled rather than merely ignored: a clickable that answers a
+            // tap with a ripple and then does nothing reads as the app having
+            // missed the tap, which is what this looked like while locked.
+            .clickable(enabled = !locked, onClick = onClick)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -7336,19 +7507,21 @@ private fun InlineQueueRow(
             )
             Spacer(Modifier.width(10.dp))
         }
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .clickable(onClick = onRemove),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Rounded.Close,
-                contentDescription = stringResource(R.string.remove_from_queue),
-                tint = Color.White.copy(alpha = 0.55f),
-                modifier = Modifier.size(18.dp),
-            )
+        if (!locked) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onRemove),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.remove_from_queue),
+                    tint = Color.White.copy(alpha = 0.55f),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
     }
 }

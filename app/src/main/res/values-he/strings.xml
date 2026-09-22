@@ -1014,12 +1014,6 @@
 
     <string name="equalizer_balance_footer">Shifts the sound towards one ear by quietening the other.</string>
 
-    <string name="equalizer_float_title">Not running right now</string>
-
-    <string name="equalizer_float_subtitle">32-bit float output is in use</string>
-
-    <string name="equalizer_float_footer">Android plays float audio through a path with no room for effects, so the equaliser, spatial audio and silence skipping are all bypassed. Set output to 16-bit PCM to use them.</string>
-
     <string name="system_equalizer">System equalizer</string>
 
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>

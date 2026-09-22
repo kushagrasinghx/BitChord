@@ -1,6 +1,5 @@
 package com.music.bitchord.ui.screens
 
-import android.media.AudioFormat
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -236,17 +235,24 @@ fun EqualizerScreen(
                 )
             }
 
-            // Media3 builds its float pipeline out of the format converter alone and
-            // appends the processor chain only on the 16-bit branch, so on this
-            // route there is nothing for the equaliser to run in. Said plainly here
-            // rather than left as a dead control, because the alternative is a
-            // screen that responds to every touch and changes no sound whatsoever.
-            if (outputStatus.actualEncoding == AudioFormat.ENCODING_PCM_FLOAT) {
-                SettingsGroup(footer = stringResource(R.string.equalizer_float_footer)) {
+            // A stream that never gets decoded to linear PCM — a passthrough or
+            // offload bitstream — reaches the output as the bytes it arrived
+            // as, and there is no sample for a filter to touch. Said plainly
+            // here rather than left as a dead control, because the alternative
+            // is a screen that responds to every touch and changes no sound.
+            //
+            // This tested `actualEncoding == ENCODING_PCM_FLOAT` for a long
+            // while, which was true of the old pipeline and has been wrong
+            // since the DSP chain moved upstream into [PrecisionAudioSink].
+            // Float output does not affect the equaliser at all; it only drops
+            // Media3's *own* processors, which is a claim about silence
+            // skipping and belongs on that setting, not this screen.
+            if (!outputStatus.dspAvailable) {
+                SettingsGroup(footer = stringResource(R.string.equalizer_bitstream_footer)) {
                     SettingsRow(
                         icon = Icons.Rounded.Warning,
-                        title = stringResource(R.string.equalizer_float_title),
-                        subtitle = stringResource(R.string.equalizer_float_subtitle),
+                        title = stringResource(R.string.equalizer_bitstream_title),
+                        subtitle = stringResource(R.string.equalizer_bitstream_subtitle),
                     )
                 }
             }

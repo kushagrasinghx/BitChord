@@ -147,6 +147,19 @@ class CrossfadeController(
      * Only feeds the stats line — nothing about a transition waits on it.
      */
     private val analysisRunningFor: (MediaItem) -> Boolean = { false },
+    /**
+     * The track about to be loaded onto the standby player, announced at the
+     * moment [begin] arms rather than at the handoff.
+     *
+     * The timing is the entire point. Anything keyed to the *incoming* track
+     * that lives on the standby player's audio path has to be set before that
+     * player renders a frame, and the handoff happens after the incoming track
+     * is already audible. Loudness normalization is the case that motivated
+     * it: the standby's processor has to be told which song it is about to
+     * level, or it spends the first half of the blend applying the outgoing
+     * track's gain to the incoming one.
+     */
+    private val onArmIncoming: (MediaItem) -> Unit = {},
 ) {
 
     private enum class Phase {
@@ -894,6 +907,10 @@ class CrossfadeController(
         // fight each other. Undone in [finish].
         into.setPlaybackSpeed((AppSettings.playbackSpeed.value * incomingPlaybackRate).toFloat())
         into.volume = 0f
+        // Before `setMediaItems`, so the standby's per-player audio state is
+        // right for the incoming track from its very first decoded frame
+        // rather than from the handoff, which is half a blend too late.
+        items.getOrNull(nextIndex)?.let(onArmIncoming)
         into.setMediaItems(items, nextIndex, incomingCueTimeMs)
         // Buffers without sounding. Started for real in [startFade].
         into.playWhenReady = false

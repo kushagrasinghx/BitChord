@@ -94,6 +94,9 @@ fun GlassNavBar(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
+    controlsLocked: Boolean = false,
+    onBlockedControl: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // Held for the same reason [tabs] is. The glass factory below closes over
@@ -142,6 +145,8 @@ fun GlassNavBar(
                     onNext = onNext,
                     onPrevious = onPrevious,
                     onExpand = onExpand,
+                    controlsLocked = controlsLocked,
+                    onBlockedControl = onBlockedControl,
                     modifier = accessoryModifier.then(glassSurface()),
                 )
             }
@@ -158,6 +163,8 @@ fun GlassNavBar(
                     onNext = onNext,
                     onPrevious = onPrevious,
                     onExpand = onExpand,
+                    controlsLocked = controlsLocked,
+                    onBlockedControl = onBlockedControl,
                     modifier = accessoryModifier.fillMaxWidth().then(glassSurface()),
                 )
             }
@@ -270,6 +277,8 @@ private fun GlassNowPlaying(
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    controlsLocked: Boolean,
+    onBlockedControl: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -319,6 +328,8 @@ private fun GlassNowPlaying(
                         haptics.play(Haptic.SkipPrevious)
                         onPrevious()
                     },
+                    locked = controlsLocked,
+                    onBlocked = onBlockedControl,
                 )
                 .padding(
                     horizontal = if (isInline) 8.dp else 12.dp,
@@ -406,12 +417,13 @@ private fun GlassNowPlaying(
                         haptics.play(Haptic.SkipNext)
                         onNext()
                     },
+                    enabled = !controlsLocked,
                     modifier = Modifier.size(glyphSlot),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
                         contentDescription = stringResource(R.string.widget_next),
-                        tint = contentColor,
+                        tint = contentColor.copy(alpha = if (controlsLocked) 0.3f else 1f),
                         modifier = Modifier.size(glyphSize),
                     )
                 }

@@ -2441,6 +2441,12 @@ fun NowPlayingScreen(
             // controls at the foot of the screen. Filled in from inside the box,
             // where the sleeve's real size is known; see [lastControlSpread].
             var controlSpread by remember { mutableStateOf(lastControlSpread) }
+            val effectiveControlSpread = lerp(controlSpread, 0.dp, queueProgress)
+            // Queue mode keeps every interactive footprint, but gives its weighted
+            // list the purely decorative gaps and the hidden volume placeholder.
+            val reclaimableQueueSpacing = 14.dp + 18.dp + 6.dp + 18.dp + 18.dp +
+                if (hideVolumeBar) 32.dp else 0.dp
+            val reclaimedQueueSpacing = lerp(0.dp, reclaimableQueueSpacing, queueProgress)
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
@@ -2464,7 +2470,7 @@ fun NowPlayingScreen(
                 // or coming back from the lyrics panel, where the strip is
                 // rebuilt from scratch) was pocketed for good. The gaps
                 // ratcheted open a little at a time and the sleeve paid for it.
-                val roomy = maxHeight + controlSpread
+                val roomy = maxHeight + effectiveControlSpread - reclaimedQueueSpacing
                 // The sleeve is square, so it is bounded by whichever of the
                 // two axes runs out first: the player's width on a phone, or —
                 // on a tablet, where there is width to spare — the height left
@@ -3252,8 +3258,13 @@ fun NowPlayingScreen(
             // the scrubber above it, and the volume bar and toggle row below,
             // which sit close enough together to read as one. Both of its own
             // gaps take half the spread, so on a tall screen it holds the
-            // centre rather than drifting up under the seek bar.
-            Spacer(Modifier.height(14.dp + controlSpread / 2))
+            // centre rather than drifting up under the seek bar. Queue mode
+            // progressively returns both decorative gaps to the list above.
+            Spacer(
+                Modifier.height(
+                    lerp(14.dp, 0.dp, queueProgress) + effectiveControlSpread / 2,
+                ),
+            )
 
             // ---- Transport ----
             Row(
@@ -3304,10 +3315,13 @@ fun NowPlayingScreen(
             }
 
             // Keep the volume slot's full footprint when its contents are
-            // hidden. Removing the slot itself shortened the controls by 50dp
-            // and moved every control below it. A display preference should not
-            // change the half-player's geometry.
-            Spacer(Modifier.height(18.dp + controlSpread / 2))
+            // hidden in the normal player. Queue mode can reclaim that empty
+            // slot without changing the geometry of the visible volume control.
+            Spacer(
+                Modifier.height(
+                    lerp(18.dp, 0.dp, queueProgress) + effectiveControlSpread / 2,
+                ),
+            )
 
             // ---- Volume ----
             if (!hideVolumeBar) {
@@ -3349,12 +3363,12 @@ fun NowPlayingScreen(
                 }
             } else {
                 // ThinSlider's fixed touch target: activeHeight (10dp) + 22dp.
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(lerp(32.dp, 0.dp, queueProgress)))
             }
 
             // The volume slider already has 13dp below its drawn track.
             // Balance that invisible inset with the caption gap below the icons.
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(lerp(6.dp, 0.dp, queueProgress)))
 
             // Lyrics and queue are the two things that are true of the player in
             // both states, so they are simply always here. Only the capsule
@@ -3458,7 +3472,7 @@ fun NowPlayingScreen(
             }
             }
             // Keep the current output caption visible in both player and queue modes.
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(lerp(18.dp, 0.dp, queueProgress)))
             Box(
                 modifier = Modifier.fillMaxWidth().height(20.dp),
                 contentAlignment = Alignment.TopCenter,
@@ -3469,7 +3483,7 @@ fun NowPlayingScreen(
                     onOpenParty = onListenTogether,
                 )
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(lerp(18.dp, 0.dp, queueProgress)))
             }
             }
             }

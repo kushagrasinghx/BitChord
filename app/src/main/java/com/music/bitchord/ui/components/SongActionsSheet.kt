@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ThumbDown
@@ -162,6 +163,8 @@ fun SongActionsSheet(
      * as before — present when the id is there, absent when it never was.
      */
     resolvingLinks: Boolean = false,
+    dontRecommendArtistLabel: String? = null,
+    onDontRecommendArtist: (() -> Unit)? = null,
 ) {
     var pickingSleepTimer by remember { mutableStateOf(false) }
     // Read from the thumbnail the row that opened this sheet was already
@@ -250,6 +253,15 @@ fun SongActionsSheet(
                 modifier = Modifier.padding(vertical = 6.dp),
                 thickness = 0.5.dp,
                 color = palette.divider,
+            )
+        }
+
+        if (dontRecommendArtistLabel != null && onDontRecommendArtist != null) {
+            ActionRow(
+                icon = Icons.Rounded.RemoveCircle,
+                label = dontRecommendArtistLabel,
+                accent = palette.accent,
+                onClick = onDontRecommendArtist,
             )
         }
 

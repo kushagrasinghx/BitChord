@@ -233,6 +233,15 @@ enum class SearchFilter(val label: String, val params: String?) {
     PLAYLISTS("Playlists", "EgWKAQIoAWoKEAkQChAFEAMQBA=="),
 }
 
+/** YouTube Music's opaque, Home-scoped recommendation feedback command. */
+data class RecommendationFeedbackAction(
+    val label: String,
+    val forwardToken: String,
+    val undoToken: String?,
+    val confirmationText: String? = null,
+    val undoLabel: String? = null,
+)
+
 /** A card in a home-feed carousel: either a track (videoId) or an album/playlist (browseId). */
 data class ShelfItem(
     val title: String,
@@ -240,6 +249,7 @@ data class ShelfItem(
     val thumbnailUrl: String?,
     val videoId: String?,
     val browseId: String?,
+    val dontRecommendArtist: RecommendationFeedbackAction? = null,
 )
 
 /** The signed-in Google account, as YouTube Music reports it. */

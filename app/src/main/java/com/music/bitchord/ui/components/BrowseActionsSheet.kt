@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +45,7 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.ui.HomeRecommendationTarget
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
 
@@ -104,6 +106,8 @@ data class BrowseTarget(
      * questions about the download record, not about what this sheet is.
      */
     val downloadId: String? = null,
+    /** Present only when this exact target came from a recommendation card on Home. */
+    val homeRecommendation: HomeRecommendationTarget? = null,
 )
 
 /**
@@ -116,10 +120,9 @@ data class BrowseTarget(
  * and Shuffle; the page's own header already carries both, so there they are
  * null and the sheet is the queue rows and the download.
  *
- * The queue rows are always offered. They are the reason this menu exists: a
- * release is exactly the kind of thing someone wants *after* what is playing
- * rather than instead of it, and until now the only way to queue one was to
- * open it and long-press its tracks one at a time.
+ * Queue rows are offered for releases. The sole exception is a Home artist
+ * card carrying native recommendation feedback: it reuses this surface for
+ * that contextual action without inventing a playable artist queue.
  *
  * Deleting asks a second time, in place. A playlist is the only thing in this
  * app whose loss can't be undone by tapping the same row again, and a
@@ -128,8 +131,8 @@ data class BrowseTarget(
 @Composable
 fun BrowseActionsSheet(
     target: BrowseTarget,
-    onPlayNext: () -> Unit,
-    onAddToQueue: () -> Unit,
+    onPlayNext: (() -> Unit)? = null,
+    onAddToQueue: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     onPlay: (() -> Unit)? = null,
     onShuffle: (() -> Unit)? = null,
@@ -161,6 +164,8 @@ fun BrowseActionsSheet(
      * also happens to be downloaded.
      */
     onDeleteDownload: (() -> Unit)? = null,
+    dontRecommendArtistLabel: String? = null,
+    onDontRecommendArtist: (() -> Unit)? = null,
 ) {
     var renaming by remember { mutableStateOf(false) }
     var confirmingDelete by remember { mutableStateOf(false) }
@@ -183,16 +188,15 @@ fun BrowseActionsSheet(
 
         onPlay?.let { ActionRow(Icons.Rounded.PlayArrow, stringResource(R.string.play), onClick = it) }
         onShuffle?.let { ActionRow(BitChordIcons.Shuffle, stringResource(R.string.shuffle), onClick = it) }
-        ActionRow(
-            Icons.AutoMirrored.Rounded.PlaylistPlay,
-            stringResource(R.string.play_next),
-            onClick = onPlayNext,
-        )
-        ActionRow(
-            Icons.AutoMirrored.Rounded.QueueMusic,
-            stringResource(R.string.add_to_queue),
-            onClick = onAddToQueue,
-        )
+        onPlayNext?.let {
+            ActionRow(Icons.AutoMirrored.Rounded.PlaylistPlay, stringResource(R.string.play_next), onClick = it)
+        }
+        onAddToQueue?.let {
+            ActionRow(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.add_to_queue), onClick = it)
+        }
+        if (dontRecommendArtistLabel != null && onDontRecommendArtist != null) {
+            ActionRow(Icons.Rounded.RemoveCircle, dontRecommendArtistLabel, onClick = onDontRecommendArtist)
+        }
         onDownloadAll?.let { download ->
             // Saying which of the three it is, rather than offering the same row
             // whatever the state — this is where a release is asked for now that

@@ -736,6 +736,10 @@ object YtMusicRepository {
     suspend fun setLibraryStatus(token: String): Result<Unit> =
         call("library:feedback") { Innertube.sendFeedback(token) }
 
+    /** Forwards one opaque native recommendation command without interpreting its token. */
+    suspend fun sendRecommendationFeedback(token: String): Result<Unit> =
+        call("recommendation:feedback") { Innertube.sendFeedback(token) }
+
     /**
      * Saves an album or playlist to the library, or removes it. [playlistId] is
      * the one the page named — see [LibraryState].

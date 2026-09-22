@@ -180,10 +180,12 @@ import com.music.bitchord.playback.swapToVersion
 import com.music.bitchord.playback.smart.VersionAudioAligner
 import com.music.bitchord.download.DownloadSession
 import com.music.bitchord.download.DownloadStore
+import com.music.bitchord.download.MediaTagger
 import com.music.bitchord.download.DownloadTarget
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.components.BrowseActionsSheet
 import com.music.bitchord.ui.components.BrowseTarget
+import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.DownloadManagerSheet
 import com.music.bitchord.ui.components.PlaylistPickerSheet
 import com.music.bitchord.ui.components.SongActionsSheet
@@ -208,6 +210,7 @@ import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.data.sources.SourceConfig
+import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.ui.components.ListenBrainzTokenAlert
 import com.music.bitchord.ui.components.MiniPlayer
@@ -254,6 +257,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import java.util.Locale
 
 /** A full first screen of a native YouTube Music radio before AutoPlay tops it up. */
@@ -492,6 +496,7 @@ private fun BitChordApp(
     // background at all. Hosting it here also puts the scrim over the tab bar
     // and the mini player, like every other alert in the app.
     var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
+    var confirmJioSaavn by remember { mutableStateOf(false) }
     var editingPartyServer by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     // A Library shelf's "Show all" — the shelf it was opened from, so its own
@@ -726,12 +731,19 @@ private fun BitChordApp(
         id?.let { Downloads.recordIdOf(it) ?: it }?.takeIf { it in savedCollections }
     }
     LaunchedEffect(savedDownloads, savedCollections, detail?.browseId) {
-        val open = detail?.browseId ?: return@LaunchedEffect
+        val openPage = detail ?: return@LaunchedEffect
+        val open = openPage.browseId
         // A downloaded playlist's page is a snapshot of the same folder and goes
         // stale for the same reasons — and it is the one page a delete can empty
         // out entirely, which is worth saying rather than leaving rows behind
         // that play nothing.
-        if (open == "local:downloads" || Downloads.recordIdOf(open) != null) {
+        // openDetail is already taking the initial snapshot while the page is
+        // Loading. Starting reloadLocalDetail at the same time used to perform
+        // the same disk work twice on every open, which was especially visible
+        // for large download libraries and slow content providers.
+        if (openPage.songs !is UiState.Loading &&
+            (open == "local:downloads" || Downloads.recordIdOf(open) != null)
+        ) {
             viewModel.reloadLocalDetail(open)
         }
     }
@@ -1815,6 +1827,16 @@ private fun BitChordApp(
         // nothing on disk for it to group.
         if (from != null && !blocked) {
             Downloads.rememberCollection(from, requested)
+            // A collection cover is not part of any audio file. Cache the
+            // header image separately so its Downloads card still has artwork
+            // with no connection, then atomically replace the remote URL in
+            // the persisted collection record.
+            if (!from.thumbnailUrl.isNullOrBlank()) {
+                scope.launch(Dispatchers.IO) {
+                    MediaTagger.cacheArtwork(context.applicationContext, from.thumbnailUrl)
+                        ?.let { Downloads.rememberCollectionArtwork(from.id, it) }
+                }
+            }
         }
         when {
             // The row's own icon reports a queued download, so a single tap
@@ -2493,6 +2515,7 @@ private fun BitChordApp(
                         SourcesScreen(
                             contentPadding = listPadding,
                             onEditSource = { editingSource = it },
+                            onConfirmJioSaavn = { confirmJioSaavn = true },
                         )
                     } else if (key == "listen_together") {
                         ListenTogetherScreen(
@@ -4095,6 +4118,22 @@ private fun BitChordApp(
                     editingSource = null
                 },
                 scope = scope,
+            )
+        }
+
+        if (confirmJioSaavn) {
+            ConfirmationAlert(
+                hazeState = hazeState,
+                title = stringResource(R.string.enable_jiosaavn),
+                description = stringResource(R.string.jiosaavn_mismatch_warning),
+                confirmLabel = stringResource(R.string.enable_anyway),
+                onConfirm = {
+                    SourceRegistry.configs.value
+                        .firstOrNull { it.kind == SourceKind.JIOSAAVN }
+                        ?.let { SourceRegistry.setEnabled(it.id, true) }
+                    confirmJioSaavn = false
+                },
+                onDismiss = { confirmJioSaavn = false },
             )
         }
 

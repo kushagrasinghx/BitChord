@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.withLock
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
+import java.security.MessageDigest
 import kotlin.math.max
 
 /**
@@ -80,7 +81,7 @@ object MediaTagger {
     internal class Artwork(val bytes: ByteArray, val mime: String)
 
     /** Fetch artwork before publication so batch downloads can overlap it with audio. */
-    internal fun artworkFor(track: Song): Artwork? {
+    internal fun artworkFor(context: Context, track: Song): Artwork? {
         if (track.thumbnailUrl.isNullOrBlank()) {
             // Said out loud rather than returned as a quiet null. An album's own
             // track rows carry no artwork — the release is billed once in the
@@ -92,6 +93,7 @@ object MediaTagger {
             Log.d(TAG, "no artwork url for ${track.videoId}; saving it without a cover")
             return null
         }
+        cachedArtwork(context, track.thumbnailUrl)?.let { return it }
         return fetchCover(track)
     }
 
@@ -116,6 +118,66 @@ object MediaTagger {
      * overlapping *lookups*, not rewrites.
      */
     private val taggingLock = Mutex()
+
+    /** Serialises creation of the shared artwork sidecar for album batches. */
+    private val artworkFileLock = Any()
+
+    /**
+     * Keep a local copy of artwork independently of the audio container.
+     *
+     * Android's metadata readers do not consistently expose Matroska/WebM
+     * attachments, even when the cover is valid and other players can read it.
+     * The app therefore must not depend on extracting the attachment again to
+     * draw a downloaded Opus track. The same sidecar also gives downloaded
+     * album and playlist records an image that remains available offline.
+     */
+    internal fun persistArtwork(context: Context, sourceUrl: String?, artwork: Artwork?): String? {
+        if (sourceUrl.isNullOrBlank() || artwork == null || artwork.bytes.isEmpty()) return null
+        return runCatching {
+            val folder = File(context.filesDir, "download-artwork")
+            val target = artworkFile(context, sourceUrl)
+            val name = target.name
+            synchronized(artworkFileLock) {
+                if (!target.exists()) {
+                    if (!folder.exists() && !folder.mkdirs()) error("Could not create artwork folder")
+                    val temp = File(folder, ".$name-${System.nanoTime()}.part")
+                    try {
+                        temp.writeBytes(artwork.bytes)
+                        if (!temp.renameTo(target) && !target.exists()) {
+                            temp.copyTo(target, overwrite = false)
+                        }
+                    } finally {
+                        temp.delete()
+                    }
+                }
+            }
+            Uri.fromFile(target).toString()
+        }.onFailure {
+            Log.w(TAG, "could not save artwork sidecar: ${it.message}")
+        }.getOrNull()
+    }
+
+    /** Fetch and persist a collection cover before its remote URL goes stale. */
+    internal fun cacheArtwork(context: Context, sourceUrl: String?): String? {
+        if (sourceUrl.isNullOrBlank()) return null
+        artworkFile(context, sourceUrl).takeIf { it.isFile }?.let { return Uri.fromFile(it).toString() }
+        val artwork = fetchCover(sourceUrl.artworkAt(1200) ?: sourceUrl, "collection") ?: return null
+        return persistArtwork(context, sourceUrl, artwork)
+    }
+
+    private fun cachedArtwork(context: Context, sourceUrl: String): Artwork? = runCatching {
+        artworkFile(context, sourceUrl).takeIf { it.isFile }
+            ?.readBytes()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { Artwork(it, "image/jpeg") }
+    }.getOrNull()
+
+    private fun artworkFile(context: Context, sourceUrl: String): File {
+        val name = MessageDigest.getInstance("SHA-256")
+            .digest(sourceUrl.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 0xFF) } + ".jpg"
+        return File(File(context.filesDir, "download-artwork"), name)
+    }
 
     internal suspend fun embed(
         context: Context,
@@ -333,6 +395,10 @@ object MediaTagger {
 
     private fun fetchCover(track: Song): Artwork? {
         val url = track.artworkAt(1200) ?: return null
+        return fetchCover(url, track.videoId)
+    }
+
+    private fun fetchCover(url: String, logId: String): Artwork? {
         return runCatching {
             val request = okhttp3.Request.Builder().url(url).build()
             Http.client.newCall(request).execute().use { response ->
@@ -344,7 +410,7 @@ object MediaTagger {
                 scaled.compress(Bitmap.CompressFormat.JPEG, 92, out)
                 Artwork(out.toByteArray(), "image/jpeg")
             }
-        }.onFailure { Log.d(TAG, "no cover embedded for ${track.videoId}: ${it.message}") }.getOrNull()
+        }.onFailure { Log.d(TAG, "no cover saved for $logId: ${it.message}") }.getOrNull()
     }
 
     private fun downscale(bitmap: Bitmap, maxSide: Int): Bitmap {

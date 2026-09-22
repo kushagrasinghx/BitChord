@@ -35,7 +35,8 @@ data class SourceConfig(
     /** What the user called it. Blank falls back to the server's host, or the kind's own label. */
     val label: String = "",
     val baseUrl: String = "",
-    val enabled: Boolean = true,
+    /** JioSaavn is opt-in because catalogue matches can select the wrong recording. */
+    val enabled: Boolean = kind != SourceKind.JIOSAAVN,
 ) {
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
@@ -58,8 +59,8 @@ data class SourceConfig(
  * disabled — it needs no configuration, so a "remove" would delete something
  * the user could not then re-create by typing anything in, it would just be a
  * switch that hides itself. Addons are entirely optional: with none
- * configured, YouTube and JioSaavn are all there is, and that is now the
- * default state of a fresh install rather than a build secret's absence.
+ * configured, YouTube is the only active source on a fresh install. JioSaavn
+ * is present but off until the user accepts its catalogue-matching risk.
  */
 object SourceRegistry {
 
@@ -99,36 +100,52 @@ object SourceRegistry {
         }
 
         val stored = prefs.getString(KEY_SOURCES, null)?.let(::decodeStored) ?: emptyList()
+        val jioOptInMigrationDone = prefs.getBoolean(KEY_JIOSAAVN_OPT_IN_V1, false)
+        val after = sourcesForInit(stored, forceJioSaavnOff = !jioOptInMigrationDone)
 
-        // Seeded rather than persisted-on-first-write, so that a build that
-        // adds a new built-in kind picks it up for existing installs too.
+        // Publish state and the migration marker in one preferences edit. If a
+        // process dies after recording the marker but before recording the
+        // disabled source, the next launch would otherwise believe the forced
+        // opt-out had already happened and silently restore the old on state.
+        publish(after, persist = false)
+        if (after != stored || !jioOptInMigrationDone) {
+            prefs.edit()
+                .putString(KEY_SOURCES, json.encodeToString(ListSerializer(SourceConfig.serializer()), after))
+                .putBoolean(KEY_JIOSAAVN_OPT_IN_V1, true)
+                .apply()
+        }
+    }
+
+    /**
+     * Built-in seeding and one-time source migrations, kept pure for tests.
+     *
+     * [forceJioSaavnOff] is true exactly once for every install that first runs
+     * this version, including upgrades whose stored config currently says on.
+     * Once the marker is written, a user who deliberately enables JioSaavn is
+     * left enabled on subsequent launches.
+     */
+    internal fun sourcesForInit(
+        stored: List<SourceConfig>,
+        forceJioSaavnOff: Boolean,
+    ): List<SourceConfig> {
+        // Seeded rather than persisted-on-first-write, so a build adding a new
+        // built-in kind picks it up for existing installs too. SourceConfig's
+        // default is the policy: JioSaavn off, YouTube on.
         val seeded = stored + BUILT_IN_KINDS
             .filter { kind -> stored.none { it.kind == kind } }
-            .map { SourceConfig(kind = it, enabled = true) }
+            .map { SourceConfig(kind = it) }
 
-        // The built-in module index is gone. It was never the user's to
-        // configure — it arrived from a build secret, was named on their behalf
-        // and could not be edited — and the catalogue behind it is no longer
-        // maintained, so what an install upgrading into this build holds is a
-        // switch pointing at a server that will not answer. Dropped rather than
-        // left switched off: leaving it would put a permanently unreachable row
-        // at the top of the sources screen with nothing anyone could do about
-        // it, and the sources a user adds themselves are now the whole story.
-        //
-        // Deliberately only [SourceKind.MODULE], which nothing but that seeding
-        // ever created. A [SourceKind.CUSTOM_MODULE] index is one somebody typed
-        // in and may still be working; it is no longer offered, but it is not
-        // this code's to delete.
-        val withModule = seeded.filterNot { it.kind == SourceKind.MODULE }
-
-        // YouTube is not switchable — see [setEnabled] — so a config persisted
-        // as disabled by an earlier build would strand the app with no source
-        // it is allowed to turn back on.
-        val after = withModule.map {
-            if (it.kind == SourceKind.YOUTUBE && !it.enabled) it.copy(enabled = true) else it
-        }
-
-        publish(after, persist = after != stored)
+        // The retired built-in module is removed, while a custom module entered
+        // by the user is preserved.
+        return seeded
+            .filterNot { it.kind == SourceKind.MODULE }
+            .map { config ->
+                when {
+                    config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
+                    config.kind == SourceKind.JIOSAAVN && forceJioSaavnOff -> config.copy(enabled = false)
+                    else -> config
+                }
+            }
     }
 
     /**
@@ -152,15 +169,19 @@ object SourceRegistry {
     /**
      * The enabled sources, module first and YouTube last, however they're stored.
      *
-     * The user's standing choice and nothing else. A stream is budgeted on top
-     * of this by [activeForPlayback]; a download is not budgeted here at all —
-     * see [SourceResolver.forDownload].
+     * The user's standing choice and nothing else. Both playback and downloads
+     * start here, so disabling JioSaavn or an addon excludes it from both. A
+     * stream is budgeted further by [activeForPlayback]; downloads deliberately
+     * apply no connection-quality ceiling — see [SourceResolver.forDownload].
      */
     fun active(): List<MusicSource> =
-        configs.value
-            .filter { it.enabled && it.isComplete }
+        enabledConfigs(configs.value)
             .sortedBy { it.kind.rank }
             .mapNotNull { instances[it.id] }
+
+    /** The common eligibility gate used by playback and download source walks. */
+    internal fun enabledConfigs(configs: List<SourceConfig>): List<SourceConfig> =
+        configs.filter { it.enabled && it.isComplete }
 
     /**
      * [active], minus the sources the ceiling on the connection in hand does
@@ -443,6 +464,8 @@ object SourceRegistry {
     private val BUILT_IN_KINDS = listOf(SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 
     private const val KEY_SOURCES = "sources"
+    /** One-shot migration: existing users must explicitly opt in again. */
+    private const val KEY_JIOSAAVN_OPT_IN_V1 = "jiosaavn_opt_in_v1"
     private const val PREFIX = "src:"
     private const val SEPARATOR = "::"
 }

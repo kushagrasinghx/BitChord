@@ -142,8 +142,13 @@ object SourceResolver {
         target: TrackMatcher.Target,
     ): SourceStream? {
         val request = requestForNow()
-        val pinned = SourceRegistry.instance(configId)
         val active = SourceRegistry.activeForPlayback()
+        // A pin identifies where the row originally came from; it does not
+        // override the source switch. Looking the instance up directly used to
+        // reopen disabled JioSaavn/addon tracks already sitting in the queue.
+        // Resolve the pin only from the enabled list so Off means off for both
+        // newly matched tracks and source-backed rows queued earlier.
+        val pinned = active.firstOrNull { it.configId == configId }
 
         // The upgrade path: with lossless asked for and the pinned source
         // unable to serve it, anything ranked above it that can is worth

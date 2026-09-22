@@ -3,11 +3,13 @@ package com.music.bitchord
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.jiosaavn.RawSongItem
 import com.music.bitchord.data.jiosaavn.prioritizeExplicit
+import com.music.bitchord.data.jiosaavn.selectBestSaavnStream
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.ModuleSource
 import com.music.bitchord.data.sources.MusicSource
+import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
@@ -574,6 +576,80 @@ class SourcesTest {
         assertTrue(RawSongItem(explicitContent = "true").isExplicit)
         assertFalse(RawSongItem(explicitContent = "false").isExplicit)
         assertFalse(RawSongItem(explicitContent = "").isExplicit)
+    }
+
+    @Test
+    fun `JioSaavn is off by default on a fresh install`() {
+        assertFalse(SourceConfig(kind = SourceKind.JIOSAAVN).enabled)
+        val sources = SourceRegistry.sourcesForInit(emptyList(), forceJioSaavnOff = true)
+
+        assertFalse(sources.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+        assertTrue(sources.single { it.kind == SourceKind.YOUTUBE }.enabled)
+    }
+
+    @Test
+    fun `the opt-in migration disables JioSaavn once for existing installs`() {
+        val previouslyEnabled = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = true)
+
+        val migrated = SourceRegistry.sourcesForInit(
+            listOf(previouslyEnabled),
+            forceJioSaavnOff = true,
+        )
+        assertFalse(migrated.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+
+        val userEnabledAgain = migrated.map {
+            if (it.kind == SourceKind.JIOSAAVN) it.copy(enabled = true) else it
+        }
+        val nextLaunch = SourceRegistry.sourcesForInit(
+            userEnabledAgain,
+            forceJioSaavnOff = false,
+        )
+        assertTrue(nextLaunch.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+    }
+
+    @Test
+    fun `disabled JioSaavn and addons are excluded from the source list used by downloads`() {
+        val disabledJio = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = false)
+        val disabledAddon = SourceConfig(
+            kind = SourceKind.ADDON,
+            baseUrl = "https://disabled.example",
+            enabled = false,
+        )
+        val enabledAddon = SourceConfig(
+            kind = SourceKind.ADDON,
+            baseUrl = "https://enabled.example",
+            enabled = true,
+        )
+        val youtube = SourceConfig(kind = SourceKind.YOUTUBE)
+
+        val enabled = SourceRegistry.enabledConfigs(
+            listOf(disabledJio, disabledAddon, enabledAddon, youtube),
+        )
+
+        assertEquals(listOf(enabledAddon.id, youtube.id), enabled.map { it.id })
+    }
+
+    @Test
+    fun `JioSaavn upgrades a parameterized 96kbps CDN URL without losing its query`() {
+        val url = "https://aac.saavncdn.com/871/song_96.mp4?Expires=123&Signature=abc"
+
+        val selected = selectBestSaavnStream(url, supports320 = true)!!
+
+        assertEquals(
+            "https://aac.saavncdn.com/871/song_320.mp4?Expires=123&Signature=abc",
+            selected.url,
+        )
+        assertEquals(320, selected.kbps)
+    }
+
+    @Test
+    fun `JioSaavn never calls an unrecognised unchanged URL 320kbps`() {
+        val url = "https://aac.saavncdn.com/871/song.mp4?token=abc"
+
+        val selected = selectBestSaavnStream(url, supports320 = true)!!
+
+        assertEquals(url, selected.url)
+        assertNull(selected.kbps)
     }
 
     @Test

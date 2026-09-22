@@ -632,10 +632,10 @@ object StreamResolver {
          * perfectly good download ends up refusing to open in half the players
          * on the device.
          *
-         * Downloads no longer reach the WebM branch — [resolveForDownload]
-         * takes MP4 or nothing — but playback still hands Opus around, and a
-         * file an older build already wrote is still a `.webm` this app has to
-         * be able to describe.
+         * App-private downloads can keep the WebM rendition, while exported
+         * downloads require MP4. Playback also hands Opus around, and a file an
+         * older build already wrote is still a `.webm` this app has to be able
+         * to describe.
          */
         val downloadExtension: String
             get() = when {

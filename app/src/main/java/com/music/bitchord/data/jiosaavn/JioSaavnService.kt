@@ -53,6 +53,36 @@ data class RawMoreInfo(
 /** A decoded CDN URL and the bitrate it will really deliver. */
 data class SaavnStream(val url: String, val kbps: Int?)
 
+/**
+ * Select the highest JioSaavn CDN rendition without losing URL parameters.
+ *
+ * The encrypted URL normally names the 96 kbps file and the catalogue states
+ * whether the parallel 320 kbps object exists. CDN URLs are not guaranteed to
+ * end at `.mp4`: cache-busting or access query parameters may follow it. The
+ * old end-anchored match missed those URLs, left `_96.mp4` in place, and still
+ * reported 320 upstream. Playback and Downloads consequently displayed 320
+ * while both fetched the 96 kbps object.
+ */
+internal fun selectBestSaavnStream(decryptedUrl: String, supports320: Boolean): SaavnStream? {
+    if (decryptedUrl.isBlank()) return null
+    val rendition = Regex(
+        "_(48|96|160|320)\\.(mp4|aac|mp3)(?=[?#]|$)",
+        RegexOption.IGNORE_CASE,
+    ).find(decryptedUrl)
+        // An unrecognised URL must not be labelled 320 merely because the
+        // catalogue says that rendition exists; no rewrite was actually made.
+        ?: return SaavnStream(decryptedUrl, null)
+
+    val offered = rendition.groupValues[1].toInt()
+    if (!supports320) return SaavnStream(decryptedUrl, offered)
+
+    val extension = rendition.groupValues[2]
+    return SaavnStream(
+        decryptedUrl.replaceRange(rendition.range, "_320.$extension"),
+        320,
+    )
+}
+
 @Serializable
 data class RawSongItem(
     val id: String = "",
@@ -149,21 +179,7 @@ object JioSaavnService {
      */
     private fun bestStream(encryptedUrl: String, supports320: Boolean): SaavnStream? {
         val decryptedUrl = decryptUrl(encryptedUrl)
-        if (decryptedUrl.isBlank()) return null
-
-        val suffix = Regex("_(48|96|160|320)\\.(mp4|aac|mp3)$").find(decryptedUrl)
-            // No recognisable rung in the name, so there is nothing to rewrite
-            // and nothing to claim: the bitrate goes up as unknown rather than
-            // as a guess.
-            ?: return SaavnStream(decryptedUrl, if (supports320) 320 else null)
-
-        val offered = suffix.groupValues[1].toIntOrNull()
-        val extension = suffix.groupValues[2]
-        return if (supports320) {
-            SaavnStream(decryptedUrl.replaceRange(suffix.range, "_320.$extension"), 320)
-        } else {
-            SaavnStream(decryptedUrl, offered)
-        }
+        return selectBestSaavnStream(decryptedUrl, supports320)
     }
 
     suspend fun searchSongs(query: String): List<RawSongItem> = runCatching {

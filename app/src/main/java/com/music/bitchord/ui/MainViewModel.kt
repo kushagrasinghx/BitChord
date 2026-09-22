@@ -1975,6 +1975,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         thumbnailUrl: String? = null,
         type: BrowseType = BrowseType.OTHER,
     ) {
+        // A fast double tap used to push two identical loading pages and launch
+        // two identical browse requests. Besides wasting the connection, both
+        // completions then raced to update every matching browse id in the
+        // stack. The page is pushed synchronously, so this closes that window
+        // without suppressing a deliberate revisit after the first page loads.
+        if (_detailStack.value.lastOrNull()?.let {
+                it.browseId == browseId && it.songs is UiState.Loading
+            } == true
+        ) return
         val resolved = browseTypeOf(browseId, type)
         _detailStack.value += DetailPage(
             browseId = browseId,
@@ -2155,10 +2164,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * The tracks of the downloaded playlist [browseId] names that are still on
      * disk, in the order the playlist had.
      *
-     * Reads the whole Downloads folder rather than the record's own uris,
-     * because that read is what fills in an album tag the record never carried
-     * and what collapses a music video's two ids down to the one file it saved —
-     * see [Downloads.collectionsAmong], of which this is a single-playlist view.
+     * The download record already names those files, so opening this page must
+     * not scan every unrelated download first. [Downloads.getCollectionSongs]
+     * verifies only this collection and still collapses aliases that point to
+     * the same saved file.
      *
      * Empty is the honest answer for a record whose files have all been deleted
      * from under it, and callers turn that into an empty-state message rather than
@@ -2166,8 +2175,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private suspend fun downloadedPlaylist(browseId: String): List<Song> {
         val id = Downloads.recordIdOf(browseId) ?: return emptyList()
-        val folder = LocalMediaRepository.getDownloadedSongs(getApplication())
-        return Downloads.collectionsAmong(folder).firstOrNull { it.id == id }?.songs.orEmpty()
+        return Downloads.getCollectionSongs(getApplication(), id)
     }
 
     /**
@@ -2187,6 +2195,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun fillIn(browseId: String, token: String, artworkFallback: String?) {
         viewModelScope.launch {
+            // Publish and draw the first response before spending the shared
+            // connection on page two. On a long playlist the continuation can
+            // otherwise start in the same main-loop turn as the state update,
+            // making a ready first screen feel as if it were still loading.
+            delay(150)
             var next: String? = token
             while (next != null) {
                 val fetched = YtMusicRepository.moreSongs(next).getOrNull() ?: return@launch

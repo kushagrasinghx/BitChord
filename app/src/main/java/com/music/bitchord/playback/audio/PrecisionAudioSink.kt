@@ -133,6 +133,14 @@ class PrecisionAudioSink(
     /** Presentation time just past the last frame written, where drained frames continue from. */
     private var emittedEndTimeUs: Long = C.TIME_UNSET
 
+    /**
+     * The span of real input since the last flush: its first presentation time and the end of its latest block.
+     * [getCurrentPositionUs] stays inside it once the chain's latency is taken off, so the position neither dips
+     * before a seek target while the delay line fills nor runs past the track's end while its tail drains.
+     */
+    private var inputStartTimeUs: Long = C.TIME_UNSET
+    private var inputEndTimeUs: Long = C.TIME_UNSET
+
     override fun configure(audioSinkConfig: AudioSink.AudioSinkConfig) {
         val format = audioSinkConfig.format
         activeFormat = format
@@ -356,6 +364,8 @@ class PrecisionAudioSink(
             pendingAccessUnitCount = blockAccessUnits
             framesEmittedForInput += decodedFrames
             emittedEndTimeUs = advanceTimestamp(blockTimeUs, decodedFrames.toLong())
+            if (inputStartTimeUs == C.TIME_UNSET) inputStartTimeUs = blockTimeUs
+            inputEndTimeUs = emittedEndTimeUs
             drainFramesRemaining = -1
 
             val consumed = delegate.handleBuffer(
@@ -389,6 +399,8 @@ class PrecisionAudioSink(
     override fun flush() {
         drainFramesRemaining = -1
         emittedEndTimeUs = C.TIME_UNSET
+        inputStartTimeUs = C.TIME_UNSET
+        inputEndTimeUs = C.TIME_UNSET
         outputByteBuffer.clear()
         outputByteBuffer.flip()
         audioBlock.clear()
@@ -405,6 +417,8 @@ class PrecisionAudioSink(
     override fun reset() {
         drainFramesRemaining = -1
         emittedEndTimeUs = C.TIME_UNSET
+        inputStartTimeUs = C.TIME_UNSET
+        inputEndTimeUs = C.TIME_UNSET
         processCounter = 0L
         outputByteBuffer.clear()
         outputByteBuffer.flip()
@@ -477,6 +491,25 @@ class PrecisionAudioSink(
             if (!consumed || outputByteBuffer.hasRemaining()) return false
         }
         return true
+    }
+
+    /**
+     * The delegate's position is that of the frames it has played, stamped with the presentation times of the
+     * input they were made from. The DSP chain delays its output ([DspChain.latencyFrames]: ~50 ms while spatial
+     * audio is on), so what is audible is that much older: synced lyrics, and anything else that follows the
+     * position, would otherwise run early by the delay.
+     */
+    override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
+        val position = super.getCurrentPositionUs(sourceEnded)
+        if (!isPrecisionActive || position == AudioSink.CURRENT_POSITION_NOT_SET || configuredSampleRate <= 0) {
+            return position
+        }
+        val latencyFrames = dspChain.latencyFrames()
+        if (latencyFrames <= 0) return position
+        var heard = position - latencyFrames * C.MICROS_PER_SECOND / configuredSampleRate
+        if (inputStartTimeUs != C.TIME_UNSET) heard = maxOf(heard, inputStartTimeUs)
+        if (inputEndTimeUs != C.TIME_UNSET) heard = minOf(heard, inputEndTimeUs)
+        return heard
     }
 
     override fun isEnded(): Boolean {

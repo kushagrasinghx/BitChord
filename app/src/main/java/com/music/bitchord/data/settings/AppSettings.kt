@@ -810,6 +810,11 @@ object AppSettings {
         loudnessNormalization.value = prefs.getBoolean(KEY_LOUDNESS_NORMALIZATION, true)
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
+        if (!prefs.contains(KEY_SPATIAL_AUDIO_MODE) && spatialAudio.value) {
+            // Spatial audio was already on before there was a choice of effect: that was the widener, and an
+            // update shouldn't swap it for something ~6 dB quieter with a room in it. They can pick Spatialize.
+            prefs.edit().putString(KEY_SPATIAL_AUDIO_MODE, SpatialMode.WIDEN.name).apply()
+        }
         spatialAudioMode.value = runCatching {
             SpatialMode.valueOf(prefs.getString(KEY_SPATIAL_AUDIO_MODE, null) ?: SpatialMode.SPATIALIZE.name)
         }.getOrDefault(SpatialMode.SPATIALIZE)

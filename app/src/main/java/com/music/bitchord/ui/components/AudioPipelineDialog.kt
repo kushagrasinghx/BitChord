@@ -287,8 +287,12 @@ fun AudioPipelineDialog(
                     } else {
                         "Flat"
                     }
+                    // What is actually applied, not just what is switched on: the effect pauses for Dolby Atmos
+                    // and only ever touches stereo.
                     val stereoExpandText = when {
                         !spatialAudio -> "100%"
+                        nerdStats?.isDolbyAtmos == true -> "Paused (Dolby Atmos)"
+                        nerdStats?.channels?.let { it != 2 } == true -> "100% (not stereo)"
                         spatialAudioMode == SpatialMode.SPATIALIZE -> "Spatialized 5.1"
                         else -> "250%"
                     }

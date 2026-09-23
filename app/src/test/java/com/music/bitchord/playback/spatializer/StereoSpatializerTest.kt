@@ -179,7 +179,8 @@ class StereoSpatializerTest {
     fun `the tail flushes the delayed audio and the room`() {
         val rate = 48000
         val spatializer = StereoSpatializer(rate, shippedResponses(rate))
-        val burst = FloatArray(2 * 4096) { i -> if (i / 2 < 2048) (0.5 * sin(i * 0.01)).toFloat() else 0f }
+        // audio right up to the last input frame, so the tail has to cover everything on its own
+        val burst = FloatArray(2 * 4096) { i -> (0.5 * sin(i * 0.01)).toFloat() }
         spatializer.process(burst, 4096)
         val tail = FloatArray(2 * spatializer.tailFrames)
         spatializer.process(tail, spatializer.tailFrames)
@@ -190,34 +191,151 @@ class StereoSpatializerTest {
         assertTrue("nothing left after the tail", energy(after, 0, after.size) < 1e-12)
     }
 
-    @Test
-    fun `spatial processor spatializes and still widens`() {
-        val rate = 48000
-        SpeakerResponseStore.install(shippedResponses(rate))
-        val processor = SpatialAudioProcessor()
-        processor.configure(rate, 2)
-        processor.enabled = true
-        processor.mode = SpatialMode.SPATIALIZE
-
-        val block = AudioBlock(2, 4096)
-        val src = testSignal(rate, 4096)
-        repeat(4) {
-            System.arraycopy(src, 0, block.samples, 0, src.size)
-            block.setFrameCount(4096)
-            processor.process(block)
+    /** Runs [signal] through [processor] in [block]-frame blocks, calling [before] ahead of each block. */
+    private fun run(processor: SpatialAudioProcessor, signal: FloatArray, block: Int = 4096, before: (Int) -> Unit = {}): FloatArray {
+        val out = signal.copyOf()
+        val audio = AudioBlock(2, block)
+        var done = 0
+        var index = 0
+        while (done < signal.size / 2) {
+            val n = minOf(block, signal.size / 2 - done)
+            before(index++)
+            System.arraycopy(out, 2 * done, audio.samples, 0, 2 * n)
+            audio.setFrameCount(n)
+            processor.process(audio)
+            System.arraycopy(audio.samples, 0, out, 2 * done, 2 * n)
+            done += n
         }
-        assertTrue(block.samples.all { it.isFinite() })
-        assertTrue("spatialized output is audible", block.samples.sumOf { (it * it).toDouble() } > 1.0)
-        assertTrue(processor.tailFrames() > 0)
+        return out
+    }
 
-        processor.mode = SpatialMode.WIDEN
-        System.arraycopy(src, 0, block.samples, 0, src.size)
-        block.setFrameCount(4096)
-        processor.process(block)
+    private fun processorAt(rate: Int, mode: SpatialMode, enabled: Boolean = true): SpatialAudioProcessor {
+        SpeakerResponseStore.install(shippedResponses(rate))
+        return SpatialAudioProcessor().also {
+            it.configure(rate, 2)
+            it.enabled = enabled
+            it.mode = mode
+        }
+    }
+
+    @Test
+    fun `both effects run with the spatializer's latency and report it`() {
+        val rate = 48000
+        val latency = StereoSpatializer.latencyFramesFor(rate)
+        val spatialize = processorAt(rate, SpatialMode.SPATIALIZE)
+        val out = run(spatialize, testSignal(rate, 4 * 4096))
+        assertTrue(out.all { it.isFinite() })
+        assertTrue("spatialized output is audible", out.sumOf { (it * it).toDouble() } > 1.0)
+        assertEquals(latency, spatialize.latencyFrames())
+        assertTrue(spatialize.tailFrames() > latency)
+
+        val widen = processorAt(rate, SpatialMode.WIDEN)
+        val src = testSignal(rate, 4096)
+        val widened = run(widen, src)
+        assertEquals(latency, widen.latencyFrames())
+        // the widener's output is its input, delayed: the mid (L+R) survives, scaled by the output gain
+        for (i in latency + 1000 until 4096 step 97) {
+            val mid = (src[2 * (i - latency)] + src[2 * (i - latency) + 1]) * 0.5f
+            assertEquals(mid * 0.82f, (widened[2 * i] + widened[2 * i + 1]) * 0.5f, 0.2f)
+        }
+
+        val off = processorAt(rate, SpatialMode.SPATIALIZE, enabled = false)
+        val dry = testSignal(rate, 4096)
+        assertTrue(run(off, dry).contentEquals(dry))
+        assertEquals(0, off.latencyFrames())
+        assertEquals(0, off.tailFrames())
+    }
+
+    @Test
+    fun `switching effects mid-stream is a smooth crossfade`() {
+        val rate = 48000
+        val frames = 8 * rate
+        // a steady 440 Hz tone, slightly different in each channel
+        val signal = FloatArray(2 * frames) { i ->
+            val t = (i / 2).toDouble() / rate
+            (0.3 * sin(2 * PI * 440 * t + if (i % 2 == 0) 0.0 else 0.7)).toFloat()
+        }
+        val processor = processorAt(rate, SpatialMode.SPATIALIZE)
+        val block = 1024
+        val out = run(processor, signal, block) { index ->
+            when (index * block / rate) { // switch once in each second
+                1 -> processor.mode = SpatialMode.WIDEN
+                2 -> processor.mode = SpatialMode.SPATIALIZE
+                3 -> processor.enabled = false
+                4 -> processor.enabled = true
+                5 -> processor.mode = SpatialMode.WIDEN
+                6 -> processor.enabled = false
+                7 -> processor.enabled = true
+            }
+        }
+        // a hard switch jumps by up to the full amplitude; the tone itself moves at most ~0.02 per sample
+        var worst = 0f
+        var at = 0
+        for (i in rate / 2 until frames) for (c in 0..1) {
+            val step = abs(out[2 * i + c] - out[2 * (i - 1) + c])
+            if (step > worst) { worst = step; at = i }
+        }
+        assertTrue("largest sample-to-sample step $worst at frame $at", worst < 0.05f)
+        assertTrue(out.all { it.isFinite() })
+    }
+
+    @Test
+    fun `turning the effect off moves the latency to zero and back`() {
+        val rate = 44100
+        val processor = processorAt(rate, SpatialMode.SPATIALIZE)
+        run(processor, testSignal(rate, 4096))
+        assertEquals(StereoSpatializer.latencyFramesFor(rate), processor.latencyFrames())
+        processor.enabled = false
+        run(processor, testSignal(rate, 4096))
+        assertEquals(0, processor.latencyFrames())
         assertEquals(0, processor.tailFrames())
-        // widening keeps the mid (L+R) exactly, scaled by the output gain
-        val i = 1000
-        val mid = (src[2 * i] + src[2 * i + 1]) * 0.5f
-        assertEquals(mid * 0.82f, (block.samples[2 * i] + block.samples[2 * i + 1]) * 0.5f, 0.2f)
+        processor.enabled = true
+        run(processor, testSignal(rate, 4 * 4096))
+        assertEquals(StereoSpatializer.latencyFramesFor(rate), processor.latencyFrames())
+    }
+
+    @Test
+    fun `a non-finite sample does not silence the spatializer`() {
+        val rate = 48000
+        val spatializer = StereoSpatializer(rate, shippedResponses(rate))
+        val signal = testSignal(rate, 8 * 4096)
+        signal[2 * 1000] = Float.NaN
+        signal[2 * 1001 + 1] = Float.POSITIVE_INFINITY
+        spatializer.process(signal, 8 * 4096)
+        assertTrue(signal.all { it.isFinite() })
+        val late = (6 * 4096 until 8 * 4096).sumOf { (signal[2 * it] * signal[2 * it]).toDouble() }
+        assertTrue("audio after the bad samples", late > 1.0)
+    }
+
+    /** |H(f)| of one response, in dB. */
+    private fun magnitudeDb(h: FloatArray, rate: Int, f: Double): Double {
+        var re = 0.0
+        var im = 0.0
+        for (n in h.indices) {
+            re += h[n] * cos(2 * PI * f * n / rate)
+            im -= h[n] * sin(2 * PI * f * n / rate)
+        }
+        return 10 * log10(re * re + im * im)
+    }
+
+    @Test
+    fun `resampled responses keep their level and frequency response`() {
+        val cases = listOf(44100 to 22050, 48000 to 32000, 44100 to 88200, 48000 to 96000, 48000 to 192000)
+        for ((from, to) in cases) {
+            val base = shippedResponses(from)
+            val started = System.nanoTime()
+            val resampled = base.resampledTo(to)
+            val ms = (System.nanoTime() - started) / 1e6
+            assertTrue("$from -> $to Hz took $ms ms", ms < 2000)
+            for ((input, ear) in listOf(0 to 0, 2 to 1, 3 to 0, 5 to 0)) {
+                for (f in doubleArrayOf(100.0, 1000.0, 6000.0)) {
+                    // the LFE feed is low-passed at 150 Hz: above that its level is too small to compare
+                    if (f > 0.4 * to || (input == 3 && f > 150)) continue
+                    val a = magnitudeDb(base.response(input, ear), from, f)
+                    val b = magnitudeDb(resampled.response(input, ear), to, f)
+                    assertEquals("$from -> $to Hz, input $input ear $ear at $f Hz", a, b, 0.1)
+                }
+            }
+        }
     }
 }

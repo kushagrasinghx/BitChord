@@ -69,7 +69,9 @@ class PrecisionAudioSinkTest {
         override fun getFormatSupport(format: Format): Int =
             formatSupportPredicate?.invoke(format) ?: formatSupportReturn
 
-        override fun getCurrentPositionUs(sourceEnded: Boolean): Long = 0L
+        var positionUs: Long = 0L
+
+        override fun getCurrentPositionUs(sourceEnded: Boolean): Long = positionUs
 
         override fun configure(audioSinkConfig: AudioSink.AudioSinkConfig) {
             this.configuredConfig = audioSinkConfig
@@ -1378,6 +1380,36 @@ class PrecisionAudioSinkTest {
         while (!fakeDelegate.playedToEndOfStream && guard++ < 1000) sink.playToEndOfStream()
         assertTrue(fakeDelegate.playedToEndOfStream)
         assertTrue(sink.isEnded())
+    }
+
+    @Test
+    fun `position is what is audible, the chain latency behind the frames played`() {
+        val fakeDelegate = FakeAudioSink()
+        val chain = spatializerChain()
+        val sink = createSink(fakeDelegate, dspChain = chain)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(2400), 1_000_000L, 1)) // 50 ms at 48 kHz
+        val latencyUs = chain.latencyFrames() * C.MICROS_PER_SECOND / 48000
+        assertTrue("latency $latencyUs us", latencyUs in 40_000L..60_000L)
+
+        fakeDelegate.positionUs = 1_049_000L
+        assertEquals(1_049_000L - latencyUs, sink.getCurrentPositionUs(false))
+        // not before the first input frame while the delay fills...
+        fakeDelegate.positionUs = 1_020_000L
+        assertEquals(1_000_000L, sink.getCurrentPositionUs(false))
+        // ...and not past the last one while the tail drains
+        fakeDelegate.positionUs = 1_200_000L
+        assertEquals(1_050_000L, sink.getCurrentPositionUs(false))
+    }
+
+    @Test
+    fun `position passes straight through when nothing delays the audio`() {
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(fakeDelegate)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(512), 0L, 1))
+        fakeDelegate.positionUs = 123_456L
+        assertEquals(123_456L, sink.getCurrentPositionUs(false))
     }
 
     @Test

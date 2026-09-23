@@ -73,10 +73,14 @@ class DspChain(
     }
 
     /**
-     * Frames the chain still owes after the last input frame (the stereo spatializer's latency and room tail);
-     * [PrecisionAudioSink] feeds that much silence through at end of stream. The other stages have no latency.
+     * Frames the chain still owes after the last input frame (the spatial effect's delay and, when spatializing,
+     * its room tail); [PrecisionAudioSink] feeds that much silence through at end of stream. The other stages have
+     * no latency.
      */
     fun tailFrames(): Int = spatial.tailFrames()
+
+    /** Frames between a sample entering the chain and leaving it right now (the spatial effect's delay). */
+    fun latencyFrames(): Int = spatial.latencyFrames()
 
     @Suppress("DEPRECATION")
     override fun flush() {

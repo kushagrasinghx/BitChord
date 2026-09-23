@@ -8,14 +8,14 @@ equaliser. **Widen**, the original mid/side widener, is still there for speakers
 ## Signal chain
 
 ```
-stereo ──► upmixer (STFT, 2 → 5.1: L R C LFE Ls Rs) ──► 6 × 2 convolution (virtual speakers + room) ──► −8 dB ──► peak limiter ──► EQ ─► …
+stereo ──► upmixer (STFT, 2 → 5.1: L R C LFE Ls Rs) ──► 6 × 2 convolution (virtual speakers + room) ──► −8.3 dB ──► peak limiter ──► EQ ─► …
 ```
 
 | Stage | File | What it does |
 |---|---|---|
 | Upmixer | `SurroundUpmixer.kt`, `UpmixerTables.kt` | sqrt-Hann STFT (2048 / hop 1024 up to 48 kHz). Per-bin left/right covariance, smoothed over 0.27 octave and 130 ms; the ambience is the smaller eigenvalue. Steering gains from lookup tables split the direct sound between the front channels and a phantom centre. The ambience goes to the surrounds through three all-pass combs and an EQ. Everything below 80 Hz (Linkwitz-Riley) plus the centre feeds the LFE channel. The tables are generated at runtime from ~25 parameters. |
 | Virtual speakers | `PartitionedConvolver.kt`, `SpeakerResponses.kt` | Uniformly partitioned overlap-save convolution with the shipped 6 × 2 responses (`assets/spatializer/speakers_<rate>.bin`). Speakers sit at L/R ±49° / −10°, C 0° / −10°, Ls/Rs ±130°; the right-side speakers are exact mirror images of the left-side ones. The LFE is a dry 150 Hz low-passed feed. The room is mixed in 13 dB below the direct sound (measured over both ears the direct sound carries ≈ 15 dB more energy than the room); it reverberates for ≈ 290 ms (T30) with little bass. |
-| Output | `PeakLimiter.kt`, `StereoSpatializer.kt` | −8 dB headroom (the upmix adds peaks of up to ~9 dB, mostly bass), then a stereo-linked look-ahead limiter at −1 dBFS with a 250 ms release. It only has work to do on rare peaks, so the bass is not squashed. |
+| Output | `PeakLimiter.kt`, `StereoSpatializer.kt` | −8.3 dB headroom (the upmix adds peaks of up to ~9 dB, mostly bass), then a stereo-linked look-ahead limiter at −0.3 dBFS with a 150 ms release. It turns the whole mix down, bass included, so it is tuned to act as little as possible. |
 
 **Latency.** Output lags input by ≈ 2 hops + 5 ms, about 48 ms at 44.1/48 kHz. `PrecisionAudioSink` reports the
 position that is audible (that much behind the frames played), so synced lyrics and PartySync stay in time. At end
@@ -28,8 +28,8 @@ producing settled output. Turning spatial audio on or off changes the delay, so 
 which ~50 ms of audio is skipped (off) or repeated (on); it never clicks.
 
 **Loudness.** The spatialized output plays about 6 dB quieter than the stereo source: that is the headroom that
-keeps the limiter idle. On loud masters it still reduces by more than 1 dB only a fraction of a percent of the time
-(by more than 0.1 dB up to about a fifth of the time, because of its slow release).
+keeps the limiter idle on most music. On loud, dense masters it reduces by more than 0.1 dB about a tenth of the
+time (more than 1 dB well under 1 %), which costs the bass ~0.1 dB in the loudest passages.
 
 **Sample rates.** Responses ship for 44.1 and 48 kHz and match each other to within 0.03 dB up to 20 kHz; both
 are prepared at service start, off the audio thread. Other rates from 22.05 to 192 kHz are resampled once, from the

@@ -8,8 +8,10 @@ import kotlin.math.roundToInt
 
 /**
  * Stereo-linked look-ahead peak limiter for the spatializer output, tuned to stay out of the way: it only has work to
- * do on the rare peaks the spatialized mix pushes past [ceilingDb] after [StereoSpatializer]'s headroom trim (measured
- * on bass-heavy masters: under 3 dB of reduction, for a fraction of a percent of the time).
+ * do on the peaks the spatialized mix still pushes past [ceilingDb] after [StereoSpatializer]'s headroom trim. It
+ * turns the whole mix down, bass included, for as long as its release lasts, so it is tuned to act as little as
+ * possible: measured on loud, dense masters it reduces by more than 0.1 dB about a tenth of the time, by at most
+ * ~2 dB, and costs the bass ~0.1 dB there; on most music it never acts.
  *
  * Gain law: required gain per sample (ceiling / peak), its minimum over the look-ahead window, an instant-down /
  * slow-up one-pole ([releaseMs]), then a moving average over the look-ahead so the gain has reached its target by
@@ -17,9 +19,9 @@ import kotlin.math.roundToInt
  */
 class PeakLimiter(
     sampleRate: Int,
-    ceilingDb: Float = -1f,
+    ceilingDb: Float = -0.3f,
     lookaheadMs: Float = DEFAULT_LOOKAHEAD_MS,
-    releaseMs: Float = 250f,
+    releaseMs: Float = 150f,
 ) {
     val latencyFrames: Int = latencyFramesFor(sampleRate, lookaheadMs)
     private val w = latencyFrames + 1

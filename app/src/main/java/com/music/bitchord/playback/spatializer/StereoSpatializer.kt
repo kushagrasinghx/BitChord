@@ -105,9 +105,10 @@ class StereoSpatializer(
 
         /**
          * Output trim. The upmix + room raise peaks by up to ~9 dB over the stereo source (mostly bass, through the
-         * LFE path) while loudness rises ~1.5 dB; -8 dB keeps [PeakLimiter] idle almost all of the time on loud,
-         * bass-heavy masters, so the spatialized sound is not squashed. It plays ~6 dB quieter than the stereo source.
+         * LFE path) while loudness rises ~1.5 dB. With the limiter's ceiling at -0.3 dBFS, -8.3 dB leaves it idle on
+         * most music and acting briefly on loud, dense masters, where it would otherwise pull the bass down with
+         * every peak. It plays ~6 dB quieter than the stereo source.
          */
-        const val HEADROOM_DB = -8.0
+        const val HEADROOM_DB = -8.3
     }
 }

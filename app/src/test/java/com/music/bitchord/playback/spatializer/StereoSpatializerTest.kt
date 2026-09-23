@@ -130,7 +130,9 @@ class StereoSpatializerTest {
             val centre = earBalanceDb(rate, 1f, 1f)
             assertTrue("$rate Hz: hard left should be louder in the left ear ($hardLeft dB)", hardLeft > 3.0)
             assertTrue("$rate Hz: hard right should be louder in the right ear ($hardRight dB)", hardRight < -3.0)
-            assertEquals("$rate Hz: a centred source should stay centred", 0.0, centre, 1.5)
+            // the right-side speakers are mirror images of the left-side ones
+            assertEquals("$rate Hz: left and right should mirror each other", 0.0, hardLeft + hardRight, 0.01)
+            assertEquals("$rate Hz: a centred source should stay centred", 0.0, centre, 0.1)
         }
     }
 

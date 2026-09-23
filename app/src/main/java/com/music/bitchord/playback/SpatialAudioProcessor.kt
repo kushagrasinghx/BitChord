@@ -7,11 +7,28 @@ import androidx.media3.common.util.UnstableApi
 import com.music.bitchord.playback.audio.AudioBlock
 import com.music.bitchord.playback.audio.FloatAudioProcessor
 import com.music.bitchord.playback.audio.PcmBoundary
+import com.music.bitchord.playback.spatializer.SpeakerResponseStore
+import com.music.bitchord.playback.spatializer.StereoSpatializer
 import java.nio.ByteOrder
 import kotlin.math.roundToInt
 
+/** How [SpatialAudioProcessor] spatializes a stereo track. */
+enum class SpatialMode {
+    /** Mid/side widening plus a short cross-feed: cheap, speaker-friendly, not true binaural. */
+    WIDEN,
+
+    /**
+     * Stereo Spatialization ([StereoSpatializer]), for headphones: upmix to 5.1, then play the six channels as
+     * virtual speakers in a room around the listener, rendered with measured head-related impulse responses.
+     */
+    SPATIALIZE,
+}
+
 /**
- * Cheap stand-in for "spatial audio": widens the mid/side image and mixes in
+ * Spatial audio for stereo tracks, in one of two [SpatialMode]s.
+ *
+ * [SpatialMode.SPATIALIZE] hands the float path to [StereoSpatializer]. [SpatialMode.WIDEN] is the
+ * cheap stand-in this class started as: widens the mid/side image and mixes in
  * a short, low-passed cross-feed between channels — the same trick most
  * consumer virtual-surround plugins use. O(1) per sample, no FFT or
  * convolution, so it costs nothing worth measuring on a phone CPU.
@@ -26,6 +43,20 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
 
     @Volatile
     var enabled: Boolean = false
+
+    /** Which spatializer runs while [enabled]. Read on the audio thread at every block. */
+    @Volatile
+    var mode: SpatialMode = SpatialMode.SPATIALIZE
+
+    /**
+     * The spatializer for the current rate, built on first use. Null while the rate has no responses
+     * (outside [SpeakerResponseStore.MIN_RATE]..[SpeakerResponseStore.MAX_RATE], or before the store is
+     * initialised), in which case [SpatialMode.SPATIALIZE] falls back to widening rather than going silent.
+     */
+    private var spatializer: StereoSpatializer? = null
+
+    /** Whether the previous block went through [spatializer]; a fresh start resets it so no stale audio replays. */
+    private var spatializerRunning = false
 
     /** How much wider the stereo image gets. 1.0 = untouched. */
     private val widthGain = 2.5f
@@ -52,6 +83,9 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
      * Configures the Float32 DSP engine for [sampleRate] and [channelCount].
      */
     fun configure(sampleRate: Int, channelCount: Int) {
+        // A new stream in the same format (the next track of a gapless run) keeps the spatializer going:
+        // resetting it would cut the previous track's tail and open a ~50 ms hole. Seeks still reset it (flush).
+        val keepSpatializer = spatializerRunning && sampleRate == this.sampleRate && channelCount == this.channelCount
         this.sampleRate = sampleRate
         this.channelCount = channelCount
         if (channelCount != 2 || sampleRate <= 0) {
@@ -70,6 +104,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
             delayRight = FloatArray(delaySamples)
         }
         onFlush()
+        spatializerRunning = keepSpatializer
     }
 
     /**
@@ -77,8 +112,24 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
      * Preserves dynamic headroom without clamping to [-1.0f, +1.0f].
      */
     fun process(block: AudioBlock) {
-        if (!enabled || block.frameCount == 0) return
+        if (!enabled || block.frameCount == 0) {
+            if (!enabled) spatializerRunning = false
+            return
+        }
         if (block.channelCount != 2) return // Spatial widening only applies to stereo
+
+        if (mode == SpatialMode.SPATIALIZE) {
+            val active = activeSpatializer()
+            if (active != null) {
+                if (!spatializerRunning) {
+                    active.reset()
+                    spatializerRunning = true
+                }
+                active.process(block.samples, block.frameCount)
+                return
+            }
+        }
+        spatializerRunning = false
 
         val delaySize = delayLeft.size
         if (delaySize == 0) return
@@ -121,6 +172,25 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     }
 
     /**
+     * Frames of output still owed after the last input frame: the spatializer's latency plus its room tail.
+     * The precision sink feeds this much silence through the chain at end of stream so the end of a track is not
+     * cut off. Zero when the spatializer is not running.
+     */
+    fun tailFrames(): Int =
+        if (enabled && spatializerRunning) spatializer?.tailFrames ?: 0 else 0
+
+    private fun activeSpatializer(): StereoSpatializer? {
+        val current = spatializer
+        if (current != null && current.sampleRate == sampleRate) return current
+        if (channelCount != 2 || sampleRate <= 0) return null
+        val responses = SpeakerResponseStore.forRate(sampleRate) ?: return null
+        return StereoSpatializer(sampleRate, responses).also {
+            spatializer = it
+            spatializerRunning = false
+        }
+    }
+
+    /**
      * Stereo 16-bit only: the widening is written in terms of a left and a
      * right sample, and there is no mid/side of a mono voice note or of a 5.1
      * mix to widen.
@@ -149,6 +219,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     }
 
     override fun onFlush() {
+        spatializerRunning = false
         delayLeft.fill(0f)
         delayRight.fill(0f)
         delayIndex = 0
@@ -157,6 +228,8 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     }
 
     override fun onReset() {
+        spatializer = null
+        spatializerRunning = false
         delayLeft = FloatArray(0)
         delayRight = FloatArray(0)
         delayIndex = 0

@@ -122,6 +122,17 @@ class PrecisionAudioSink(
     private var timestampedInputTimeUs: Long = C.TIME_UNSET
     private var framesEmittedForInput: Long = 0L
 
+    /**
+     * End-of-stream drain of the DSP chain's tail ([DspChain.tailFrames]: the stereo spatializer's latency plus its
+     * room). -1 until [playToEndOfStream] first runs; then the frames of silence still to push through the chain.
+     * The renderer calls [playToEndOfStream] on every loop until [isEnded], so the drain resumes where the
+     * delegate's backpressure stopped it, and the delegate only hears about end of stream once it is done.
+     */
+    private var drainFramesRemaining: Int = -1
+
+    /** Presentation time just past the last frame written, where drained frames continue from. */
+    private var emittedEndTimeUs: Long = C.TIME_UNSET
+
     override fun configure(audioSinkConfig: AudioSink.AudioSinkConfig) {
         val format = audioSinkConfig.format
         activeFormat = format
@@ -344,6 +355,8 @@ class PrecisionAudioSink(
             pendingPresentationTimeUs = blockTimeUs
             pendingAccessUnitCount = blockAccessUnits
             framesEmittedForInput += decodedFrames
+            emittedEndTimeUs = advanceTimestamp(blockTimeUs, decodedFrames.toLong())
+            drainFramesRemaining = -1
 
             val consumed = delegate.handleBuffer(
                 outputByteBuffer,
@@ -374,6 +387,8 @@ class PrecisionAudioSink(
     }
 
     override fun flush() {
+        drainFramesRemaining = -1
+        emittedEndTimeUs = C.TIME_UNSET
         outputByteBuffer.clear()
         outputByteBuffer.flip()
         audioBlock.clear()
@@ -388,6 +403,8 @@ class PrecisionAudioSink(
     }
 
     override fun reset() {
+        drainFramesRemaining = -1
+        emittedEndTimeUs = C.TIME_UNSET
         processCounter = 0L
         outputByteBuffer.clear()
         outputByteBuffer.flip()
@@ -420,21 +437,57 @@ class PrecisionAudioSink(
     }
 
     override fun playToEndOfStream() {
-        if (isPrecisionActive && outputByteBuffer.hasRemaining()) {
+        if (isPrecisionActive) {
+            if (outputByteBuffer.hasRemaining()) {
+                val consumed = delegate.handleBuffer(outputByteBuffer, pendingPresentationTimeUs, pendingAccessUnitCount)
+                if (!consumed || outputByteBuffer.hasRemaining()) return
+            }
+            if (!drainTail()) return
+        } else if (outputByteBuffer.hasRemaining()) {
             delegate.handleBuffer(outputByteBuffer, pendingPresentationTimeUs, pendingAccessUnitCount)
         }
         delegate.playToEndOfStream()
     }
 
+    /**
+     * Pushes the chain's tail (see [drainFramesRemaining]) through to the delegate as silence-in, audio-out.
+     * Returns false while the delegate is still applying backpressure; call again on the next render loop.
+     */
+    private fun drainTail(): Boolean {
+        val outEncoding = targetOutputEncoding ?: return true
+        if (drainFramesRemaining < 0) drainFramesRemaining = dspChain.tailFrames()
+        val channels = audioBlock.channelCount
+        while (drainFramesRemaining > 0) {
+            val frames = minOf(drainFramesRemaining, audioBlock.capacityFrames)
+            audioBlock.reset(frames)
+            java.util.Arrays.fill(audioBlock.samples, 0, frames * channels, 0f)
+            dspChain.process(audioBlock)
+            outputByteBuffer.clear()
+            PcmBoundary.encode(
+                sourceBlock = audioBlock,
+                encoding = outEncoding,
+                outputBuffer = outputByteBuffer,
+            )
+            outputByteBuffer.flip()
+            pendingPresentationTimeUs = emittedEndTimeUs
+            pendingAccessUnitCount = 0
+            emittedEndTimeUs = advanceTimestamp(emittedEndTimeUs, frames.toLong())
+            drainFramesRemaining -= frames
+            val consumed = delegate.handleBuffer(outputByteBuffer, pendingPresentationTimeUs, 0)
+            if (!consumed || outputByteBuffer.hasRemaining()) return false
+        }
+        return true
+    }
+
     override fun isEnded(): Boolean {
-        if (isPrecisionActive && outputByteBuffer.hasRemaining()) {
+        if (isPrecisionActive && (outputByteBuffer.hasRemaining() || drainFramesRemaining > 0)) {
             return false
         }
         return delegate.isEnded()
     }
 
     override fun hasPendingData(): Boolean {
-        if (isPrecisionActive && outputByteBuffer.hasRemaining()) {
+        if (isPrecisionActive && (outputByteBuffer.hasRemaining() || drainFramesRemaining > 0)) {
             return true
         }
         return delegate.hasPendingData()

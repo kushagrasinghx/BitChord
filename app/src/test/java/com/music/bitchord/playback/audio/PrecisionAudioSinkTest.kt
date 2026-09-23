@@ -12,7 +12,11 @@ import androidx.media3.exoplayer.audio.AudioSink
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.EqualizerProcessor
 import com.music.bitchord.playback.SpatialAudioProcessor
+import com.music.bitchord.playback.SpatialMode
 import com.music.bitchord.playback.TransitionFilterProcessor
+import com.music.bitchord.playback.spatializer.SpeakerResponseStore
+import com.music.bitchord.playback.spatializer.SpeakerResponses
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -1312,5 +1316,79 @@ class PrecisionAudioSinkTest {
         assertEquals(PcmEncoding.PCM_FLOAT, sink.inputPcmEncoding)
         assertEquals(PcmEncoding.PCM_16BIT, sink.targetOutputEncoding)
         assertEquals(C.ENCODING_PCM_16BIT, fakeDelegate.configuredConfig?.format?.pcmEncoding)
+    }
+
+    // ---- End-of-stream drain -------------------------------------------------
+    //
+    // Stereo Spatialization delays its output (~48 ms) and adds a room tail, so
+    // the last input sample is not the last output sample. At end of stream the
+    // sink pushes that tail through the chain before telling the delegate, and
+    // must keep reporting "not ended" while it does — including across calls
+    // when the delegate applies backpressure.
+
+    private fun spatializerChain(): DspChain {
+        val root = File(".").canonicalFile
+        val asset = listOf(File(root, "app/src/main/assets/spatializer/speakers_48000.bin"),
+            File(root, "src/main/assets/spatializer/speakers_48000.bin")).first { it.exists() }
+        SpeakerResponseStore.install(asset.inputStream().use { SpeakerResponses.read(it) })
+        val spatial = SpatialAudioProcessor().apply { enabled = true; mode = SpatialMode.SPATIALIZE }
+        return DspChain(spatial, EqualizerProcessor(), TransitionFilterProcessor())
+    }
+
+    private fun floatBurst(frames: Int): ByteBuffer {
+        val b = ByteBuffer.allocate(frames * 8).order(ByteOrder.nativeOrder())
+        for (i in 0 until frames) { val v = (0.3 * Math.sin(i * 0.05)).toFloat(); b.putFloat(v); b.putFloat(v) }
+        b.flip()
+        return b
+    }
+
+    @Test
+    fun `end of stream drains the spatializer tail before ending the delegate`() {
+        val fakeDelegate = FakeAudioSink()
+        val chain = spatializerChain()
+        val sink = createSink(fakeDelegate, dspChain = chain)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(2048), 0L, 1))
+        val tail = chain.tailFrames()
+        assertTrue(tail > 0)
+        val callsBefore = fakeDelegate.handleBufferCallCount
+
+        sink.playToEndOfStream()
+
+        assertTrue(fakeDelegate.playedToEndOfStream)
+        val expectedBlocks = (tail + 4095) / 4096
+        assertEquals(expectedBlocks, fakeDelegate.handleBufferCallCount - callsBefore)
+    }
+
+    @Test
+    fun `drain resumes across backpressure and holds isEnded off`() {
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(fakeDelegate, dspChain = spatializerChain())
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(2048), 0L, 1))
+        fakeDelegate.isEndedReturn = true
+        fakeDelegate.bytesToConsumePerCall = 4096 * 8 / 3
+
+        sink.playToEndOfStream()
+        assertFalse(fakeDelegate.playedToEndOfStream)
+        assertFalse(sink.isEnded())
+        assertTrue(sink.hasPendingData())
+
+        var guard = 0
+        while (!fakeDelegate.playedToEndOfStream && guard++ < 1000) sink.playToEndOfStream()
+        assertTrue(fakeDelegate.playedToEndOfStream)
+        assertTrue(sink.isEnded())
+    }
+
+    @Test
+    fun `an idle chain ends straight away`() {
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(fakeDelegate)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(512), 0L, 1))
+        val calls = fakeDelegate.handleBufferCallCount
+        sink.playToEndOfStream()
+        assertTrue(fakeDelegate.playedToEndOfStream)
+        assertEquals(calls, fakeDelegate.handleBufferCallCount)
     }
 }

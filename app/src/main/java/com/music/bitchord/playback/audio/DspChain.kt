@@ -72,6 +72,12 @@ class DspChain(
         transition.process(block)
     }
 
+    /**
+     * Frames the chain still owes after the last input frame (the stereo spatializer's latency and room tail);
+     * [PrecisionAudioSink] feeds that much silence through at end of stream. The other stages have no latency.
+     */
+    fun tailFrames(): Int = spatial.tailFrames()
+
     @Suppress("DEPRECATION")
     override fun flush() {
         spatial.flush()

@@ -49,6 +49,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.SpatialMode
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -127,6 +128,7 @@ fun AudioPipelineDialog(
     val eqEnabled by AppSettings.equalizerEnabled.collectAsStateWithLifecycle()
     val eqPreset by AppSettings.equalizerPreset.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
+    val spatialAudioMode by AppSettings.spatialAudioMode.collectAsStateWithLifecycle()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
 
     Box(
@@ -285,7 +287,11 @@ fun AudioPipelineDialog(
                     } else {
                         "Flat"
                     }
-                    val stereoExpandText = if (spatialAudio) "250%" else "100%"
+                    val stereoExpandText = when {
+                        !spatialAudio -> "100%"
+                        spatialAudioMode == SpatialMode.SPATIALIZE -> "Spatialized 5.1"
+                        else -> "250%"
+                    }
                     val buffersText = outputStatus.bufferSize?.let { size ->
                         val rate = outputStatus.actualSampleRateHz
                         val bytesPerSample = when (outputStatus.actualEncoding) {

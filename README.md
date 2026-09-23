@@ -49,6 +49,7 @@
 - **Offline downloads** — save tracks with embedded metadata.
 - **Local music library** integration.
 - **Background playback** via a proper foreground media session.
+- **Stereo Spatialization** — any stereo track played through virtual 5.1 speakers in a room, for headphones; HRTFs by Meta Reality Labs Research (SS2, CC BY 4.0). See [docs/stereo-spatialization.md](docs/stereo-spatialization.md).
 - **Apple-like lyrics animation** — credit to [binimum](https://github.com/binimum/am-lyrics).
 
 #### Experience

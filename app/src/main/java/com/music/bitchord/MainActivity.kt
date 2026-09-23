@@ -558,6 +558,7 @@ private fun BitChordApp(
     // page's own overflow — because only one of them can be held at a time.
     var browseActions by remember { mutableStateOf<BrowseTarget?>(null) }
     val autoplay by AppSettings.autoplay.collectAsStateWithLifecycle()
+    val autoDownloadPlaylists by AppSettings.autoDownloadPlaylists.collectAsStateWithLifecycle()
     val partyState by ListenTogether.state.collectAsStateWithLifecycle()
     // The same answer the playback service acts on, rather than a second one
     // derived here — see [autoplayEnabledFor]. Drawing the local preference in
@@ -1922,10 +1923,12 @@ private fun BitChordApp(
             autoplayEnabled = autoplayEnabled,
             signedIn = signedIn,
             likeStatus = likeStatuses[song.videoId] ?: LikeStatus.INDIFFERENT,
-            onToggleLike = { viewModel.toggleLike(song.videoId) },
+            onToggleLike = { viewModel.toggleLike(song) },
             // The service owns both the queue and the Shuffle state. Keeping
             // the toggle on that side prevents the UI from changing the icon
             // before its asynchronous reorder command has actually landed.
+            // QueueShuffle.toggle() now persists the setting itself, so no
+            // extra AppSettings call is needed here.
             onToggleShuffle = { controller?.toggleShuffle() },
             onCycleRepeat = {
                 controller?.let {
@@ -2522,6 +2525,10 @@ private fun BitChordApp(
                                     downloadId = downloadIdFor(page.browseId),
                                 )
                             },
+                            autoDownloadPlaylist = page.browseId in autoDownloadPlaylists,
+                            onToggleAutoDownloadPlaylist = if (page.type == BrowseType.PLAYLIST) {
+                                { viewModel.toggleAutoDownloadPlaylist(page.browseId) }
+                            } else null,
                             onArtistClick = { id, name ->
                                 viewModel.openDetail(id, name, "Artist", null, BrowseType.ARTIST)
                             },
@@ -3267,6 +3274,8 @@ private fun BitChordApp(
                     onDownload = { downloadSong(song) },
                     // The sheet stays up for a rating: it shows the new state
                     // in place, and people often thumb a song and then queue it.
+                    onToggleLike = { viewModel.toggleLike(song) },
+                    onToggleDislike = { viewModel.toggleDislike(song) },
                     onToggleLike = { viewModel.toggleLike(song.videoId) },
                     onToggleDislike = {
                         val previousStatus = viewModel.toggleDislike(song.videoId)

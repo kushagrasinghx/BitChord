@@ -1,38 +1,25 @@
-# Gradle
+# Git
+.git/
+
+# Android / Gradle
 .gradle/
-/build/
-/app/build/
 build/
-gradle-app.setting
-!gradle-wrapper.jar
-!gradle-wrapper.properties
-
-# Local configuration file (SDK path, etc.)
-local.properties
-
-# Kotlin
-.kotlin/
-
-# Android Studio / IntelliJ
-.idea/
-*.iml
-*.ipr
-*.iws
-.navigation/
-captures/
+*/build/
+app/build/
 .externalNativeBuild/
 .cxx/
-*.hprof
 
-# Log/OS files
-*.log
-.DS_Store
-Thumbs.db
+# IDE
+.idea/
+*.iml
 
-# Release signing — never commit the key or its passwords
-keystore.properties
-*.jks
-*.keystore
+# Local config
+local.properties
+
+# Generated
+*.apk
+*.aab
+*.class
 
 # Project scratch / debug artifacts
 .shots/

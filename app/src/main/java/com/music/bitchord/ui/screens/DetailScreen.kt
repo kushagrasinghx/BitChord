@@ -50,6 +50,8 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.DownloadDone
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -232,6 +234,8 @@ fun DetailScreen(
      * wouldn't just be refused.
      */
     onToggleLibrary: (() -> Unit)? = null,
+    autoDownloadPlaylist: Boolean = false,
+    onToggleAutoDownloadPlaylist: (() -> Unit)? = null,
     /**
      * Subscribes to this artist's channel, or unsubscribes —
      * [DetailPage.subscription] says which way round. The artist page's answer
@@ -413,6 +417,8 @@ fun DetailScreen(
                         onMore = onMore,
                         onArtistClick = onArtistClick,
                         onToggleLibrary = onToggleLibrary,
+                        autoDownloadPlaylist = autoDownloadPlaylist,
+                        onToggleAutoDownloadPlaylist = onToggleAutoDownloadPlaylist,
                     )
                 }
             }
@@ -643,6 +649,8 @@ private fun ReleaseHeader(
     onMore: ((List<Song>) -> Unit)?,
     onArtistClick: (String, String) -> Unit,
     onToggleLibrary: (() -> Unit)?,
+    autoDownloadPlaylist: Boolean,
+    onToggleAutoDownloadPlaylist: (() -> Unit)?,
 ) {
     val (credit, meta) = page.headerLines(trackCount)
     // Every row on a release carries the same credit — see [pageCredit] — so
@@ -721,7 +729,8 @@ private fun ReleaseHeader(
                 // up: the pill sheds padding first, being the widest thing here,
                 // and the circles come down 4dp after that. The alternative is a
                 // row that runs off the edge of the screen.
-                val circles = listOfNotNull(library, onMore).size + 2 // + Shuffle, Search
+                val autoDownload = onToggleAutoDownloadPlaylist != null
+                val circles = listOfNotNull(library, onMore).size + (if (autoDownload) 1 else 0) + 2 // + Shuffle, Search
                 val full = circles >= 4
                 val circleSize = if (full) 46.dp else 50.dp
                 Spacer(Modifier.height(14.dp))
@@ -768,6 +777,19 @@ private fun ReleaseHeader(
                             else -> 14.dp
                         },
                     )
+                    if (autoDownload) {
+                        CircleIconButton(
+                            icon = if (autoDownloadPlaylist) Icons.Rounded.DownloadDone else Icons.Rounded.Download,
+                            contentDescription = stringResource(
+                                if (autoDownloadPlaylist) R.string.disable_auto_download_playlist
+                                else R.string.enable_auto_download_playlist,
+                            ),
+                            palette = palette,
+                            onClick = { onToggleAutoDownloadPlaylist?.invoke() },
+                            haptic = if (autoDownloadPlaylist) Haptic.ToggleOff else Haptic.ToggleOn,
+                            size = circleSize,
+                        )
+                    }
                     // Where the download circle used to be. Downloading a
                     // release is a thing done once and then not thought about;
                     // finding a track on a long playlist is a thing done while

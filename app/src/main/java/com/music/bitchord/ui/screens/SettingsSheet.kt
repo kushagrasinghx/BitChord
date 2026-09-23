@@ -220,6 +220,7 @@ fun SettingsScreen(
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
+    val autoDownloadLikedSongs by AppSettings.autoDownloadLikedSongs.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
@@ -257,6 +258,7 @@ fun SettingsScreen(
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
 
     val replayGenres by AppSettings.replayGenres.collectAsStateWithLifecycle()
+    val topSongsLimit by AppSettings.topSongsLimit.collectAsStateWithLifecycle()
 
     // Read here so the row can say "In a party · ABC123" rather than making
     // somebody open the screen to find out whether they are still in one.
@@ -526,6 +528,14 @@ fun SettingsScreen(
                     checked = exportDownloads,
                     onCheckedChange = AppSettings::setExportDownloads,
                     subtitle = "Music/BitChord".takeIf { exportDownloads },
+                )
+            }
+            val autoDownloadLikedSongsTitle = "Auto-download liked songs"
+            row(autoDownloadLikedSongsTitle, "like", "heart", divided = false) {
+                SettingsSubRow(
+                    title = autoDownloadLikedSongsTitle,
+                    checked = autoDownloadLikedSongs,
+                    onCheckedChange = AppSettings::setAutoDownloadLikedSongs,
                 )
             }
         }
@@ -1165,6 +1175,22 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setReplayGenres(!replayGenres) },
+                )
+            }
+            val topSongsShownTitle = stringResource(R.string.top_songs_shown)
+            row(topSongsShownTitle, "replay", "top songs", "limit") {
+                SliderRow(
+                    icon = Icons.Rounded.BarChart,
+                    title = topSongsShownTitle,
+                    subtitle = stringResource(R.string.top_songs_shown_subtitle),
+                    value = topSongsLimit.toString(),
+                    sliderValue = topSongsLimit.toFloat(),
+                    onSliderValue = {
+                        AppSettings.setTopSongsLimit(it.roundToInt())
+                    },
+                    valueRange = AppSettings.MIN_TOP_SONGS_LIMIT.toFloat()..
+                        AppSettings.MAX_TOP_SONGS_LIMIT.toFloat(),
+                    steps = 98,
                 )
             }
             val exportDataTitle = stringResource(R.string.export_data)

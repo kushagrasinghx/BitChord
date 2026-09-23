@@ -1132,8 +1132,15 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
-        // Stereo Spatialization's speaker responses live in assets; the audio thread loads them on first use.
+        // Stereo Spatialization's speaker responses live in assets. Load them, with the upmixer tables and the
+        // convolution spectra, for the two common rates off the audio thread, so the first spatialized block
+        // doesn't wait on them; other rates are prepared on first use.
         com.music.bitchord.playback.spatializer.SpeakerResponseStore.init(this)
+        kotlin.concurrent.thread(name = "spatializer-warmup", priority = Thread.MIN_PRIORITY) {
+            for (rate in intArrayOf(44100, 48000)) {
+                runCatching { com.music.bitchord.playback.spatializer.StereoSpatializer.warmUp(rate) }
+            }
+        }
 
         if (com.music.bitchord.data.innertube.Innertube.cookie == null) {
             com.music.bitchord.data.innertube.Innertube.cookie = com.music.bitchord.auth.AuthStore(this).cookie

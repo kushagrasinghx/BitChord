@@ -25,7 +25,7 @@ class StereoSpatializer(
         }
     }
 
-    private val tables = UpmixerTables(sampleRate)
+    private val tables = UpmixerTables.forRate(sampleRate)
     private val upmixer = SurroundUpmixer(tables)
     val hop: Int = upmixer.hop
     private val convolver = PartitionedConvolver(responses.spectra(hop))
@@ -63,8 +63,11 @@ class StereoSpatializer(
     fun process(samples: FloatArray, frames: Int) {
         val cap = queue.size / 2
         for (i in 0 until frames) {
-            inL[fill] = samples[2 * i]
-            inR[fill] = samples[2 * i + 1]
+            // a single NaN or infinity would otherwise stay in the upmixer's smoothed state until the next reset
+            val l = samples[2 * i]
+            val r = samples[2 * i + 1]
+            inL[fill] = if (l.isFinite()) l else 0f
+            inR[fill] = if (r.isFinite()) r else 0f
             if (++fill == hop) {
                 fill = 0
                 upmixer.processHop(inL, inR, six)
@@ -86,6 +89,20 @@ class StereoSpatializer(
     }
 
     companion object {
+        /** [latencyFrames] of a spatializer at [sampleRate] (with the output stage), without building one. */
+        fun latencyFramesFor(sampleRate: Int): Int =
+            UpmixerTables.frameSizeFor(sampleRate) + PeakLimiter.latencyFramesFor(sampleRate)
+
+        /**
+         * Builds what a spatializer at [sampleRate] needs (upmixer tables, the responses and their partition
+         * spectra) so the first spatialized block doesn't pay for it on the audio thread. Safe to call from any
+         * thread, any number of times.
+         */
+        fun warmUp(sampleRate: Int) {
+            UpmixerTables.forRate(sampleRate)
+            SpeakerResponseStore.forRate(sampleRate)?.spectra(UpmixerTables.frameSizeFor(sampleRate) / 2)
+        }
+
         /**
          * Output trim. The upmix + room raise peaks by up to ~9 dB over the stereo source (mostly bass, through the
          * LFE path) while loudness rises ~1.5 dB; -8 dB keeps [PeakLimiter] idle almost all of the time on loud,

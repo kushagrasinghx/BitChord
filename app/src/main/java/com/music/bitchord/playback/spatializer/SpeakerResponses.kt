@@ -64,33 +64,67 @@ class SpeakerResponses(val sampleRate: Int, val taps: Int, private val data: Flo
         s
     }
 
-    /** Kaiser-windowed sinc resampling of every response to [target] Hz (band-limited when going down). */
+    /**
+     * Kaiser-windowed sinc resampling of every response to [target] Hz (band-limited when going down).
+     *
+     * The responses keep their frequency response, not their sample values: at twice the rate the same response
+     * spans twice the taps, so every tap is scaled by `sampleRate / target`.
+     *
+     * Polyphase: for the rational ratio `up / down` (in lowest terms) the read position of output tap n,
+     * `n * down / up`, has only `up` distinct fractional parts, so the windowed-sinc kernel is computed once per
+     * phase and each output tap is a plain dot product. That keeps this cheap enough to run where the first block
+     * at a new rate needs it (tens of milliseconds even at 192 kHz, rather than seconds).
+     */
     fun resampledTo(target: Int): SpeakerResponses {
         if (target == sampleRate) return this
         val ratio = target.toDouble() / sampleRate
         val outTaps = ceil(taps * ratio).toInt()
         val cutoff = min(1.0, ratio)
         val half = ceil(HALF_WIDTH / cutoff).toInt()
-        val out = FloatArray(INPUTS * EARS * outTaps)
+        val width = 2 * half + 2
+        val scale = sampleRate.toDouble() / target
+        val g = gcd(target, sampleRate)
+        val up = target / g
+        val down = sampleRate / g
         val i0Beta = besselI0(KAISER_BETA)
-        for (ch in 0 until INPUTS * EARS) {
-            val src = ch * taps
-            val dst = ch * outTaps
-            for (n in 0 until outTaps) {
-                val center = n / ratio
-                val k0 = floor(center).toInt() - half
-                var acc = 0.0
-                for (k in k0..k0 + 2 * half + 1) {
-                    if (k < 0 || k >= taps) continue
-                    val x = center - k
-                    val u = x / (half + 1)
-                    if (abs(u) >= 1.0) continue
-                    val arg = PI * cutoff * x
-                    val sinc = if (abs(arg) < 1e-12) 1.0 else sin(arg) / arg
-                    val win = besselI0(KAISER_BETA * sqrt(1 - u * u)) / i0Beta
-                    acc += data[src + k] * cutoff * sinc * win
+        // weight of the input tap at distance x (input samples) from the read position
+        fun weight(x: Double): Double {
+            val u = x / (half + 1)
+            if (abs(u) >= 1.0) return 0.0
+            val arg = PI * cutoff * x
+            val sinc = if (abs(arg) < 1e-12) 1.0 else sin(arg) / arg
+            return scale * cutoff * sinc * besselI0(KAISER_BETA * sqrt(1 - u * u)) / i0Beta
+        }
+        val out = FloatArray(INPUTS * EARS * outTaps)
+        if (up <= MAX_PHASES) {
+            // kernel[p][j]: weight of input tap floor(pos) - half + j when frac(pos) = p / up
+            val kernel = Array(up) { p -> DoubleArray(width) { j -> weight(p.toDouble() / up + half - j) } }
+            for (ch in 0 until INPUTS * EARS) {
+                val src = ch * taps
+                val dst = ch * outTaps
+                for (n in 0 until outTaps) {
+                    val pos = n.toLong() * down
+                    val k0 = (pos / up).toInt() - half
+                    val w = kernel[(pos % up).toInt()]
+                    val j0 = maxOf(0, -k0)
+                    val j1 = minOf(width, taps - k0)
+                    var acc = 0.0
+                    for (j in j0 until j1) acc += data[src + k0 + j] * w[j]
+                    out[dst + n] = acc.toFloat()
                 }
-                out[dst + n] = acc.toFloat()
+            }
+        } else {
+            // an unusual ratio with too many phases to tabulate: evaluate the kernel per tap
+            for (ch in 0 until INPUTS * EARS) {
+                val src = ch * taps
+                val dst = ch * outTaps
+                for (n in 0 until outTaps) {
+                    val center = n / ratio
+                    val k0 = floor(center).toInt() - half
+                    var acc = 0.0
+                    for (k in maxOf(0, k0) until minOf(taps, k0 + width)) acc += data[src + k] * weight(center - k)
+                    out[dst + n] = acc.toFloat()
+                }
             }
         }
         return SpeakerResponses(target, outTaps, out)
@@ -102,6 +136,9 @@ class SpeakerResponses(val sampleRate: Int, val taps: Int, private val data: Flo
         private const val MAGIC = 0x50534342 // "BCSP" little-endian
         private const val HALF_WIDTH = 32.0
         private const val KAISER_BETA = 8.6
+        private const val MAX_PHASES = 1024
+
+        private tailrec fun gcd(a: Int, b: Int): Int = if (b == 0) a else gcd(b, a % b)
 
         /**
          * Parses the asset format, little-endian: `"BCSP"`, u32 version (1), u32 sample rate, u32 inputs (6),

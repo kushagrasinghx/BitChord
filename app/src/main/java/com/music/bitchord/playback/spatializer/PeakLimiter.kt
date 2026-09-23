@@ -18,11 +18,11 @@ import kotlin.math.roundToInt
 class PeakLimiter(
     sampleRate: Int,
     ceilingDb: Float = -1f,
-    lookaheadMs: Float = 5f,
+    lookaheadMs: Float = DEFAULT_LOOKAHEAD_MS,
     releaseMs: Float = 250f,
 ) {
-    private val w = max(1, (sampleRate * lookaheadMs / 1000f).roundToInt())
-    val latencyFrames: Int = w - 1
+    val latencyFrames: Int = latencyFramesFor(sampleRate, lookaheadMs)
+    private val w = latencyFrames + 1
     private val ceiling = 10.0.pow(ceilingDb / 20.0).toFloat()
     private val release = exp(-1.0 / (sampleRate * releaseMs / 1000.0)).toFloat()
 
@@ -78,7 +78,12 @@ class PeakLimiter(
         }
     }
 
-    private companion object {
-        const val RESYNC = 1 shl 16
+    companion object {
+        private const val RESYNC = 1 shl 16
+        const val DEFAULT_LOOKAHEAD_MS = 5f
+
+        /** The look-ahead delay in frames: the window is [lookaheadMs] long, the delay one frame shorter. */
+        fun latencyFramesFor(sampleRate: Int, lookaheadMs: Float = DEFAULT_LOOKAHEAD_MS): Int =
+            max(1, (sampleRate * lookaheadMs / 1000f).roundToInt()) - 1
     }
 }

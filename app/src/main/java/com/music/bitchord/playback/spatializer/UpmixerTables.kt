@@ -19,7 +19,7 @@ import kotlin.math.tan
  * Every runtime table of the stereo -> 5.1 upmixer ([SurroundUpmixer]), generated from the parameters in the
  * companion object for one sample rate and frame size. Nothing is precomputed or shipped: the kernels, time
  * constants, steering tables and filters all follow from ~25 numbers. Float32 arithmetic is kept deliberately where
- * it appears, so the tables (and therefore the output) are identical on every device.
+ * it appears, so the tables match the reference to float rounding on every device. [forRate] shares one set per rate.
  *
  * @param sampleRate stream rate in Hz
  * @param n STFT frame size (hop = n / 2); 2048 up to 48 kHz, scaled with the rate above that
@@ -65,11 +65,16 @@ class UpmixerTables(val sampleRate: Int, val n: Int = frameSizeFor(sampleRate)) 
         val loF = 2.0.pow(oct * -0.5).toFloat()
         val hiF = 2.0.pow(oct * 0.5).toFloat()
         val uc = if ((u + 1).toFloat() / u.toFloat() <= hiF) u else 0
-        val values = ArrayList<Float>(f * 64)
+        var values = FloatArray(f * 64)
+        var count = 0
+        fun add(v: Float) {
+            if (count == values.size) values = values.copyOf(2 * values.size)
+            values[count++] = v
+        }
         val tmp = FloatArray(f)
         var prevStart = 0
         var prevKernel = floatArrayOf(1f)
-        kernelStart[0] = 0; kernelOffset[0] = 0; values.add(1f); peak[0] = 1f
+        kernelStart[0] = 0; kernelOffset[0] = 0; add(1f); peak[0] = 1f
         for (kk in 1 until f) {
             val kf = kk.toFloat()
             val up = if (kk < uc) hiF * kf else (hiF * uc.toFloat() - uc.toFloat()) + kf
@@ -106,11 +111,11 @@ class UpmixerTables(val sampleRate: Int, val n: Int = frameSizeFor(sampleRate)) 
                 peak[kk] = peak[kk - 1]
             }
             kernelStart[kk] = prevStart
-            kernelOffset[kk] = values.size
-            for (v in prevKernel) values.add(v)
+            kernelOffset[kk] = count
+            for (v in prevKernel) add(v)
         }
-        kernelOffset[f] = values.size
-        kernelValues = FloatArray(values.size) { values[it] }
+        kernelOffset[f] = count
+        kernelValues = values.copyOf(count)
 
         // ---- covariance / steering-gain time constants -------------------------------------------------------
         val aCov = exp(-1.0 / ((COV_TAU * sampleRate) / hop)).toFloat()
@@ -164,8 +169,10 @@ class UpmixerTables(val sampleRate: Int, val n: Int = frameSizeFor(sampleRate)) 
             val (fc, gainDb, q) = SURROUND_EQ[i]
             rbjPeak(fc, gainDb, q, sampleRate.toDouble())
         }
-        // all-pass comb delays are in samples at 44.1/48 kHz; keep their duration at higher rates
-        val scale = if (sampleRate > 48000) sampleRate / 48000.0 else 1.0
+        // all-pass comb delays are in samples at 44.1/48 kHz; at higher rates keep their duration, scaling from the
+        // rate's own family (88.2 kHz from 44.1, 96 kHz from 48)
+        val family = if (sampleRate % 11025 == 0) 44100 else 48000
+        val scale = if (sampleRate > family) sampleRate.toDouble() / family else 1.0
         combDelays = IntArray(COMB_DELAYS.size) { max(1, Math.round(COMB_DELAYS[it] * scale).toInt()) }
     }
 
@@ -200,6 +207,12 @@ class UpmixerTables(val sampleRate: Int, val n: Int = frameSizeFor(sampleRate)) 
             Triple(5529.0, 6.021, 0.86265),
             Triple(6374.0, -7.959, 2.87771),
         )
+
+        private val shared = HashMap<Int, UpmixerTables>()
+
+        /** The tables for [sampleRate] at the default frame size, built once and shared: they are read-only. */
+        @Synchronized
+        fun forRate(sampleRate: Int): UpmixerTables = shared.getOrPut(sampleRate) { UpmixerTables(sampleRate) }
 
         /** STFT frame: 2048 up to 48 kHz, doubled per octave of rate above that (same time/frequency resolution). */
         fun frameSizeFor(sampleRate: Int): Int {

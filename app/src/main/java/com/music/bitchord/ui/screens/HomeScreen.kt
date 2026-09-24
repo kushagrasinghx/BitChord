@@ -51,6 +51,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Extension
+import dev.chrisbanes.haze.materials.HazeMaterials
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import com.music.bitchord.ui.components.optimizedHazeEffect
+import com.music.bitchord.ui.components.liquidGlass
+import androidx.compose.foundation.border
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.R
 import coil3.compose.AsyncImage
@@ -82,7 +92,7 @@ import com.music.bitchord.ui.player.MeshPalette
 private const val RECENTS_TITLE = "Recents"
 private const val RECENT_TRACKS_PER_COLUMN = 4
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 fun HomeScreen(
     state: UiState<List<HomeShelf>>,
@@ -93,9 +103,13 @@ fun HomeScreen(
     refreshing: Boolean,
     onRefresh: () -> Unit,
     pullState: PullToRefreshState,
+    hazeState: dev.chrisbanes.haze.HazeState? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues,
     title: String,
+    tabs: List<Pair<String, String>>,
+    activeTab: String,
+    onTabSelect: (String) -> Unit,
     signedIn: Boolean = true,
     onSignIn: (() -> Unit)? = null,
     /**
@@ -112,17 +126,21 @@ fun HomeScreen(
 ) {
     val recentsViewType by AppSettings.homeRecentsViewType.collectAsStateWithLifecycle()
 
-    PullToRefresh(
-        refreshing = refreshing,
-        onRefresh = onRefresh,
-        state = pullState,
-        modifier = modifier,
-    ) {
-        LazyColumn(
-            state = listState,
+    Box(modifier = modifier) {
+        PullToRefresh(
+            refreshing = refreshing,
+            onRefresh = onRefresh,
+            state = pullState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = contentPadding,
         ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = contentPadding.calculateTopPadding() + if (tabs.size > 1) 72.dp else 0.dp,
+                    bottom = contentPadding.calculateBottomPadding()
+                ),
+            ) {
             item {
                 Text(
                     text = title,
@@ -177,8 +195,12 @@ fun HomeScreen(
                     if (loadingMore) feedMoreSkeleton()
                 }
             }
-        }
-    }
+        } // End LazyColumn
+        } // End PullToRefresh
+
+        // Tabs have been moved to HomeTabsRow and are called from MainActivity
+        // to ensure they sit visually above the TopFadeBlur layer.
+    } // End Main Wrapper Box
 
     if (onLoadMore != null && state is UiState.Success) {
         val loadMore by rememberUpdatedState(onLoadMore)
@@ -901,3 +923,63 @@ internal fun ShelfCard(
         )
     }
 }
+
+@Composable
+fun HomeTabsRow(
+    tabs: List<Pair<String, String>>,
+    activeTab: String,
+    onTabSelect: (String) -> Unit,
+    topPadding: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    if (tabs.size <= 1) return
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = topPadding),
+    ) {
+        androidx.compose.material3.ScrollableTabRow(
+            selectedTabIndex = tabs.indexOfFirst { it.first == activeTab }.coerceAtLeast(0),
+            containerColor = Color.Transparent,
+            divider = {},
+            edgePadding = 16.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            tabs.forEach { (id, tabTitle) ->
+                val selected = activeTab == id
+                val icon = when {
+                    id == com.music.bitchord.ui.MainViewModel.HOME_TAB_UNIFIED -> androidx.compose.material.icons.Icons.Rounded.Dashboard
+                    id.contains("youtube", ignoreCase = true) -> androidx.compose.material.icons.Icons.Rounded.PlayCircle
+                    id.contains("jiosaavn", ignoreCase = true) -> androidx.compose.material.icons.Icons.Rounded.GraphicEq
+                    id.contains("subsonic", ignoreCase = true) -> androidx.compose.material.icons.Icons.Rounded.Dns
+                    else -> androidx.compose.material.icons.Icons.Rounded.Extension
+                }
+                
+                androidx.compose.material3.Tab(
+                    selected = selected,
+                    onClick = { onTabSelect(id) },
+                    selectedContentColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+                    unselectedContentColor = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    androidx.compose.foundation.layout.Column(
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
+                        androidx.compose.material3.Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp).padding(bottom = 4.dp)
+                        )
+                        androidx.compose.material3.Text(
+                            text = tabTitle,
+                            style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

@@ -90,6 +90,7 @@ import com.music.bitchord.data.scrobbling.ScrobbleManager
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.EqualizerMode
 import com.music.bitchord.data.settings.OutputPcmMode
+import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
@@ -3531,7 +3532,12 @@ class PlaybackService : MediaLibraryService() {
         // that need it, and an async that fails without ever being awaited is
         // an unhandled exception in this service's scope.
         val fallback = scope.async(Dispatchers.IO + TrackLog.about(videoId)) {
-            runCatching { StreamResolver.resolve(videoId) }
+            runCatching { 
+                if (SourceRegistry.configs.value.none { it.kind == SourceKind.YOUTUBE && it.enabled }) {
+                    throw IllegalStateException("YouTube Music is disabled")
+                }
+                StreamResolver.resolve(videoId) 
+            }
         }
 
         // First past the post. A null because [lookup] won is a module miss; a

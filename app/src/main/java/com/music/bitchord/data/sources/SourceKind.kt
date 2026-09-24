@@ -127,6 +127,15 @@ enum class SourceKind(
         rank = 1,
     ),
 
+    OPENSUBSONIC(
+        label = "OpenSubsonic",
+        detail = "An OpenSubsonic server. You must include your username and password in the URL, like https://server.com?u=user&p=pass",
+        labels = listOf("Lossless", "Self-hosted"),
+        needsServer = true,
+        canServeLossless = true,
+        rank = 0,
+    ),
+
     JIOSAAVN(
         label = "JioSaavn",
         detail = "JioSaavn high-quality streams up to 320kbps AAC/MP4. A lossy fallback, tried before YouTube.",

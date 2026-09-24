@@ -42,6 +42,9 @@ sealed interface DetectedFormat {
      */
     data class ModuleIndex(val moduleCount: Int, val url: String) : DetectedFormat
 
+    /** An OpenSubsonic server. */
+    data class OpenSubsonic(val url: String) : DetectedFormat
+
     /** Recognised, and not something this app can play. [reason] is shown to the user. */
     data class Unsupported(val reason: String) : DetectedFormat
 }
@@ -75,7 +78,7 @@ object SourceFormats {
      *     guessed, still works, and there is no honest reason to turn it away
      *     over a missing description of something that demonstrably functions.
      */
-    suspend fun identify(rawUrl: String): Result<DetectedFormat> = withContext(Dispatchers.IO) {
+    suspend fun identify(rawUrl: String, username: String? = null, password: String? = null): Result<DetectedFormat> = withContext(Dispatchers.IO) {
         val url = rawUrl.trim().trimEnd('/')
         if (url.toHttpUrlOrNull() == null) {
             return@withContext Result.success(
@@ -115,10 +118,41 @@ object SourceFormats {
             )
         }
 
+        // Try OpenSubsonic
+        val osProbed = probeOpenSubsonic(url, username, password)
+        if (osProbed.isSuccess) {
+            TrackLog.d(TAG, "identify(${AddonClient.redact(url)}) — OpenSubsonic ping answered")
+            return@withContext Result.success(DetectedFormat.OpenSubsonic(url))
+        }
+
         // Report what was actually found over the transport error from a URL
         // the user never typed.
         firstUnsupported?.let { return@withContext Result.success(it) }
         Result.failure(lastFailure ?: AddonUnavailable("Nothing answered at that address"))
+    }
+
+    private suspend fun probeOpenSubsonic(url: String, username: String?, password: String?): Result<Unit> {
+        val parsed = url.toHttpUrlOrNull() ?: return Result.failure(AddonException("Invalid URL"))
+        val builder = parsed.newBuilder()
+            .addPathSegment("rest")
+            .addPathSegment("ping.view")
+            .addQueryParameter("v", "1.15.0")
+            .addQueryParameter("c", "BitChord")
+            .addQueryParameter("f", "json")
+        if (!username.isNullOrBlank()) {
+            builder.addQueryParameter("u", username.trim())
+        }
+        if (!password.isNullOrBlank()) {
+            builder.addQueryParameter("p", password)
+        }
+        val pingUrl = builder.build().toString()
+        val body = fetch(pingUrl).getOrElse { return Result.failure(it) }
+        val root = runCatching { json.parseToJsonElement(body) }.getOrNull() as? JsonObject
+            ?: return Result.failure(AddonException("Not OpenSubsonic"))
+        if (root.containsKey("subsonic-response")) {
+            return Result.success(Unit)
+        }
+        return Result.failure(AddonException("Not OpenSubsonic"))
     }
 
     /**

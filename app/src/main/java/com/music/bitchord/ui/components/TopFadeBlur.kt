@@ -2,6 +2,7 @@ package com.music.bitchord.ui.components
 
 import androidx.compose.animation.core.EaseOutCubic
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -12,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
@@ -105,13 +107,40 @@ fun TopFadeBlur(
      * underneath would be painted over by the blurred content and do nothing.
      */
     scrimColor: Color,
+    hasTabs: Boolean = false,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+
     // The bar fills itself solid instead when blur is reduced, so this has
     // nothing left to do.
-    if (reduceDynamicBlur) return
+    if (reduceDynamicBlur) {
+        val solidHeight = topBarHeight() + if (hasTabs) 72.dp else 0.dp
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(solidHeight)
+                .background(MaterialTheme.colorScheme.surface)
+        )
+        return
+    }
 
-    val height = topBarHeight() + FADE_RUN
+    val height = topBarHeight() + if (hasTabs) 72.dp else FADE_RUN
+
+    if (hasTabs) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(height)
+                .optimizedHazeEffect(
+                    state = hazeState,
+                    style = HazeMaterials.regular(pageColor),
+                )
+                .background(scrimColor.copy(alpha = SCRIM_PEAK))
+                .border(0.5.dp, Color.White.copy(alpha = 0.12f))
+        )
+        return
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()

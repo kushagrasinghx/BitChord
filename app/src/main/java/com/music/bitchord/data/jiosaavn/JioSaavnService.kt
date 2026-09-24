@@ -227,4 +227,9 @@ object JioSaavnService {
         }
         return result.onFailure { TrackLog.w(TAG, "Saavn getDetails error: ${it.message}") }.getOrNull()
     }
+
+    suspend fun getTrending(): List<RawSongItem> = runCatching {
+        // As a simple fake home feed, we search for a popular term.
+        searchSongs("top hits")
+    }.getOrDefault(emptyList())
 }

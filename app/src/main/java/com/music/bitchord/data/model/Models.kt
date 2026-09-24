@@ -197,6 +197,7 @@ enum class BrowseType { ALBUM, ARTIST, PLAYLIST, OTHER }
 /** A queue-level origin shown above Now Playing, in the style of Spotify. */
 enum class PlaybackSourceType {
     HOME,
+    HOME_STRICT,
     SEARCH,
     HISTORY,
     REPLAY,

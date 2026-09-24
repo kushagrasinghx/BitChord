@@ -117,6 +117,7 @@ import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.rememberLikedIds
 import com.music.bitchord.ui.components.libraryGrid
 import com.music.bitchord.ui.components.lightweightLiquidGlass
 import com.music.bitchord.ui.components.thumbnailBorder
@@ -241,6 +242,14 @@ fun DetailScreen(
      */
     onToggleSubscription: (() -> Unit)? = null,
     /**
+     * Toggles the heart on a track row; null hides the heart.
+     *
+     * Present on every list on this page — a release and a playlist both
+     * answer "is this in my Liked Music" the same way, and a menu is one hop
+     * further than the thing itself. [rememberLikedIds] supplies the state.
+     */
+    onToggleLike: ((Song) -> Unit)? = null,
+    /**
      * How the track list is ordered — the release's own running order by
      * default, or alphabetical. Owned by the caller rather than this page
      * because the control for it lives in the top bar, alongside the account
@@ -258,6 +267,7 @@ fun DetailScreen(
     }
     val isArtist = page.type == BrowseType.ARTIST
     val palette = rememberArtworkPalette(page.thumbnailUrl)
+    val likedIds = rememberLikedIds()
 
     // Narrowing the running order in place — the release equivalent of the
     // filter box on the Local Music tab, and the one thing a long track list
@@ -539,6 +549,8 @@ fun DetailScreen(
                             isCurrent = isCurrent,
                             isPlaying = isCurrent && isPlaying,
                             activeTint = palette.accent,
+                            liked = song.videoId in likedIds,
+                            onToggleLike = onToggleLike?.let { toggle -> { toggle(song) } },
                         )
                         if (position < matches.lastIndex) {
                             HorizontalDivider(

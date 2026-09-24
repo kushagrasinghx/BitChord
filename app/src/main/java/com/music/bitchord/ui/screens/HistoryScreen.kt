@@ -18,6 +18,7 @@ import com.music.bitchord.data.model.UiState
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.rememberLikedIds
 import com.music.bitchord.ui.components.songListSkeleton
 
 /**
@@ -39,9 +40,18 @@ fun HistoryScreen(
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
     onRetry: () -> Unit,
+    /**
+     * Toggles the heart on a row; null hides the heart.
+     *
+     * History is the list where a track worth playing again turns up most
+     * often, so it is the one place a rating is likeliest to be needed — and
+     * [rememberLikedIds] already knows which rows are there.
+     */
+    onToggleLike: ((Song) -> Unit)? = null,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
+    val likedIds = rememberLikedIds()
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxSize(),
@@ -69,6 +79,8 @@ fun HistoryScreen(
                         onClick = { onSongClick(songs, index) },
                         onLongPress = { onSongLongPress(song) },
                         onSwipeToQueue = { onSongSwipe(song) },
+                        liked = song.videoId in likedIds,
+                        onToggleLike = onToggleLike?.let { toggle -> { toggle(song) } },
                     )
                     if (index < songs.lastIndex) {
                         HorizontalDivider(

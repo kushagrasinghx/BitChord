@@ -27,6 +27,7 @@ import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.stats.ArtistFacts
 import com.music.bitchord.data.stats.ListeningStats
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.SmartDownloads
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -61,6 +62,12 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this)
+        // Anything the listener liked while the phone had no signal, sent as
+        // soon as one comes back. Opened here rather than in the ViewModel
+        // because the queue outlives every screen that adds to it, and the
+        // network callback that drains it has to be registered before the
+        // first cold start after an offline session can do its work.
+        com.music.bitchord.data.offline.RatingOutbox.init(this)
         // Restores a party this device is still a member of, so a process death
         // mid-session is something the rest of the party never sees. The socket
         // and the clock offset are not restored — both are re-established on
@@ -77,6 +84,13 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // What's already saved to Downloads, so the song menu can say so
         // without a media-store query per row.
         Downloads.init(this)
+        // The automatic download pass's own memory, then its place on the
+        // schedule — registered only while the switch is on, so somebody who
+        // never turned the feature on is never woken for it. The ledger is
+        // opened first: WorkManager can hand the worker to a cold process, and
+        // reading an uninitialized file would silently invent an empty one.
+        SmartDownloads.init(this)
+        if (AppSettings.smartDownloads.value) SmartDownloads.schedule(this)
         // The device's own listening record. Opened here rather than in
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.

@@ -71,6 +71,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,10 +102,12 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.settings.LocalMusicSort
 import com.music.bitchord.download.DownloadedCollection
+import com.music.bitchord.download.SmartDownloads
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.rememberLikedIds
 import com.music.bitchord.ui.components.rememberRemoteArtworkUrl
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.TopBarContentGap
@@ -117,6 +120,20 @@ import java.util.Locale
 private const val LOCAL_TAB_SONGS = 0
 private const val LOCAL_TAB_ARTISTS = 1
 private const val LOCAL_TAB_ALBUMS = 2
+
+/**
+ * Which downloads the Downloads page is willing to list.
+ *
+ * The split is the same one [com.music.bitchord.download.SmartDownloads] draws
+ * when it decides what it may delete — a track the background fetched is not
+ * the listener's choice, and on a phone where those two have grown apart the
+ * only way to see either set on its own is to be able to hide the other.
+ */
+private enum class DownloadOrigin {
+    ALL,
+    MANUAL,
+    AUTOMATIC,
+}
 
 /**
  * Local Music folder view with three tabs: Songs (default), Artists, Albums.
@@ -172,6 +189,15 @@ fun LocalMusicScreen(
     onDeleteDownloads: ((List<Song>) -> Unit)? = null,
     /** Copies the selected Downloads rows to the WebDAV server; null hides the action. */
     onUploadToWebDav: ((List<Song>) -> Unit)? = null,
+    /**
+     * Toggles the heart on a row; null hides the heart.
+     *
+     * A plain part of the row rather than something only one folder of this
+     * screen gets: it answers "is this in my Liked Music" for the row in front
+     * of you, downloaded or not, and the ⋮ carries the same rating for anyone
+     * who reaches for a menu instead.
+     */
+    onToggleLike: ((Song) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // Which top-level tab is selected.
@@ -186,12 +212,41 @@ fun LocalMusicScreen(
     } else {
         AppSettings.localMusicSort.collectAsStateWithLifecycle()
     }
+    // Which origin the Downloads page is willing to show, as an ordinal so it
+    // survives process death like the search box does. Zero is "everything",
+    // and it is the default because a listener who has not asked for a split
+    // should not be shown one.
+    var downloadOrigin by rememberSaveable { mutableIntStateOf(DownloadOrigin.ALL.ordinal) }
+    // The background's own ids, read once per entry into Downloads rather than
+    // per row: the ledger is a small JSON blob and the list it labels does not
+    // change while the page is open, so a StateFlow here would re-read it on
+    // every download that finishes.
+    var automaticIds by remember { mutableStateOf<Set<String>?>(null) }
+    LaunchedEffect(isDownloads) {
+        automaticIds = if (isDownloads) SmartDownloads.decidedIds() else emptySet()
+    }
     val viewType by if (isDownloads) {
         AppSettings.downloadedMusicViewType.collectAsStateWithLifecycle()
     } else {
         AppSettings.localMusicViewType.collectAsStateWithLifecycle()
     }
-    val sortedSongs = remember(songs, sortOrder) { songs.sortedForLibrary(sortOrder) }
+    val originFiltered = remember(songs, downloadOrigin, automaticIds, isDownloads) {
+        if (!isDownloads) songs
+        else when (DownloadOrigin.entries[downloadOrigin]) {
+            DownloadOrigin.ALL -> songs
+            DownloadOrigin.MANUAL -> {
+                val automatic = automaticIds ?: emptySet()
+                songs.filterNot { it.videoId in automatic }
+            }
+            DownloadOrigin.AUTOMATIC -> {
+                val automatic = automaticIds ?: emptySet()
+                songs.filter { it.videoId in automatic }
+            }
+        }
+    }
+    val sortedSongs = remember(originFiltered, sortOrder) {
+        originFiltered.sortedForLibrary(sortOrder)
+    }
     var selectedDownloadIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     // Kept separately from the tracks selected for deletion: different albums
     // can share tracks, so inferring an album's selection from those track ids
@@ -225,6 +280,12 @@ fun LocalMusicScreen(
     var drillDownArt by remember { mutableStateOf<String?>(null) }
 
     val inDrillDown = drillDownLabel != null
+
+    // Only the overrides map, and only the hearts in it: this list is read per
+    // row, so it has to be a set the row can ask in O(1) rather than a status
+    // lookup across the whole library. Nothing here re-reads YouTube — a heart
+    // changed on the phone stays changed until the app reloads the library.
+    val likedIds = rememberLikedIds()
 
     val leaveDrillDown = {
         drillDownLabel = null
@@ -295,6 +356,12 @@ fun LocalMusicScreen(
                 val next = if (viewType == LibraryViewType.GRID) LibraryViewType.LIST else LibraryViewType.GRID
                 if (isDownloads) AppSettings.setDownloadedMusicViewType(next)
                 else AppSettings.setLocalMusicViewType(next)
+            },
+            downloadOrigin = downloadOrigin,
+            onDownloadOriginChange = if (isDownloads) {
+                { downloadOrigin = it }
+            } else {
+                null
             },
             modifier = Modifier.padding(
                 // The same clearance every other page under the frosted bar
@@ -388,6 +455,8 @@ fun LocalMusicScreen(
                         selectedIds = selectedDownloadIds,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
+                        likedIds = likedIds,
+                        onToggleLike = onToggleLike,
                         onSongClick = { tracks, index ->
                             val song = tracks[index]
                             if (selectingDownloads) toggleDownloadSelection(song) else onSongClick(tracks, index)
@@ -435,6 +504,8 @@ fun LocalMusicScreen(
                         // carry the actions sheet itself or the page loses it.
                         onSongMore = onSongLongPress,
                         onSongSwipe = onSongSwipe,
+                        likedIds = likedIds,
+                        onToggleLike = onToggleLike,
                         contentPadding = bodyContentPadding,
                     )
                 }
@@ -504,11 +575,14 @@ private fun SongsTab(
     selectedIds: Set<String> = emptySet(),
     currentSong: Song? = null,
     isPlaying: Boolean = false,
+    /** Which of these rows are already in Liked Music; empty hides the hearts. */
+    likedIds: Set<String> = emptySet(),
     onSongClick: (List<Song>, Int) -> Unit,
     onSongLongPress: (Song) -> Unit,
     /** The row's ⋮, where holding it does something else — see [SongRow]. */
     onSongMore: ((Song) -> Unit)? = null,
     onSongSwipe: (Song) -> Unit,
+    onToggleLike: ((Song) -> Unit)? = null,
     contentPadding: PaddingValues,
 ) {
     if (viewType == LibraryViewType.GRID) {
@@ -566,6 +640,8 @@ private fun SongsTab(
                     onLongPress = { onSongLongPress(song) },
                     onMore = onSongMore?.let { more -> { more(song) } },
                     onSwipeToQueue = { onSongSwipe(song) },
+                    liked = song.videoId in likedIds,
+                    onToggleLike = onToggleLike?.let { toggle -> { toggle(song) } },
                 )
                 if (index < songs.lastIndex) {
                     HorizontalDivider(
@@ -1341,11 +1417,14 @@ private fun DrillDownSongList(
     selectedIds: Set<String> = emptySet(),
     currentSong: Song? = null,
     isPlaying: Boolean = false,
+    /** Which of these rows are already in Liked Music; empty hides the hearts. */
+    likedIds: Set<String> = emptySet(),
     onSongClick: (List<Song>, Int) -> Unit,
     onSongLongPress: (Song) -> Unit,
     /** The row's ⋮, where holding it does something else — see [SongRow]. */
     onSongMore: ((Song) -> Unit)? = null,
     onSongSwipe: (Song) -> Unit,
+    onToggleLike: ((Song) -> Unit)? = null,
     onShuffle: (List<Song>) -> Unit,
     /** The ⋮ in the header, acting on the whole artist or album. */
     onMore: (() -> Unit)?,
@@ -1427,6 +1506,8 @@ private fun DrillDownSongList(
                     onLongPress = { onSongLongPress(song) },
                     onMore = onSongMore?.let { more -> { more(song) } },
                     onSwipeToQueue = { onSongSwipe(song) },
+                    liked = song.videoId in likedIds,
+                    onToggleLike = onToggleLike?.let { toggle -> { toggle(song) } },
                 )
                 if (index < songs.lastIndex) {
                     HorizontalDivider(
@@ -1476,6 +1557,9 @@ private fun LocalSearchField(
     onSortOrderChange: (LocalMusicSort) -> Unit,
     viewType: LibraryViewType,
     onViewTypeToggle: () -> Unit,
+    downloadOrigin: Int = DownloadOrigin.ALL.ordinal,
+    /** Null off the Downloads page, which has no origin to pick between. */
+    onDownloadOriginChange: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var sortMenuOpen by remember { mutableStateOf(false) }
@@ -1559,12 +1643,30 @@ private fun LocalSearchField(
                     .clickable { sortMenuOpen = true },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Rounded.Sort,
-                    contentDescription = stringResource(R.string.sort_music),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(19.dp),
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Rounded.Sort,
+                        contentDescription = stringResource(R.string.sort_music),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(19.dp),
+                    )
+                    // A filter that has hidden part of the list is invisible
+                    // otherwise: the rows are simply fewer, and a list of
+                    // twenty reads as a list of twenty until somebody counts.
+                    // A pip in the corner says "not everything" without
+                    // spending the icon's meaning on it.
+                    if (onDownloadOriginChange != null &&
+                        downloadOrigin != DownloadOrigin.ALL.ordinal
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 4.dp, end = 4.dp)
+                                .size(7.dp)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape),
+                        )
+                    }
+                }
             }
             DropdownMenu(
                 expanded = sortMenuOpen,
@@ -1590,9 +1692,54 @@ private fun LocalSearchField(
                         },
                     )
                 }
+                // Ordering and inclusion are two halves of one question —
+                // "how is this list arranged" — and both belong to the same
+                // control. Kept below the sorts behind a divider because
+                // choosing an order is something done dozens of times and
+                // hiding half the list is a decision made once and left.
+                if (onDownloadOriginChange != null) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.downloads_show),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 2.dp),
+                    )
+                    DownloadOrigin.entries.forEach { origin ->
+                        DropdownMenuItem(
+                            text = { Text(origin.label()) },
+                            trailingIcon = if (origin.ordinal == downloadOrigin) {
+                                {
+                                    Icon(
+                                        Icons.Rounded.Check,
+                                        contentDescription = stringResource(R.string.selected),
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                            onClick = {
+                                onDownloadOriginChange(origin.ordinal)
+                                sortMenuOpen = false
+                            },
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun DownloadOrigin.label(): String = when (this) {
+    DownloadOrigin.ALL -> stringResource(R.string.downloads_show_all)
+    DownloadOrigin.MANUAL -> stringResource(R.string.downloads_show_manual)
+    DownloadOrigin.AUTOMATIC -> stringResource(R.string.downloads_show_auto)
 }
 
 @Composable

@@ -8,6 +8,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -29,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.haptics.Haptic
@@ -74,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
@@ -267,6 +271,19 @@ fun libraryGrid(available: Dp): LibraryGridSpec {
 }
 
 /**
+ * Which of the app's tracks are in Liked Music right now, as a set of ids.
+ *
+ * One read of [LikeState], shared by every list that draws a heart: a row has
+ * to know its own state the moment it is composed, and asking the network per
+ * page would put a round trip in front of every list in the app.
+ */
+@Composable
+fun rememberLikedIds(): Set<String> {
+    val overrides by LikeState.overrides.collectAsStateWithLifecycle()
+    return remember(overrides) { overrides.filterValues { it == LikeStatus.LIKE }.keys }
+}
+
+/**
  * One track row, used by search, library and detail pages.
  *
  * Swiping it either way queues the track or plays it next, per
@@ -291,6 +308,17 @@ fun SongRow(
      */
     onMore: (() -> Unit)? = null,
     onSwipeToQueue: (() -> Unit)? = null,
+    /**
+     * Whether this row is in Liked Music, and what tapping a heart does about
+     * it. Both nullable together: null hides the heart, which is the answer
+     * only for rows too narrow to carry one (the compact and typeahead rows).
+     *
+     * [rememberLikedIds] is where [liked] comes from; the ⋮ still opens the
+     * actions sheet that offers the same rating twice over, because the heart
+     * is there to be tapped without hunting for a menu.
+     */
+    liked: Boolean = false,
+    onToggleLike: (() -> Unit)? = null,
     /**
      * What the row paints over the swipe reveal as it slides back.
      *
@@ -368,6 +396,8 @@ fun SongRow(
             isPlaying = isPlaying,
             activeTint = activeTint,
             selected = selected,
+            liked = liked,
+            onToggleLike = onToggleLike,
         )
         return
     }
@@ -414,6 +444,8 @@ fun SongRow(
             isPlaying = isPlaying,
             activeTint = activeTint,
             selected = selected,
+            liked = liked,
+            onToggleLike = onToggleLike,
         )
     }
 }
@@ -480,6 +512,8 @@ private fun SongRowContent(
     isPlaying: Boolean = false,
     activeTint: Color = MaterialTheme.colorScheme.primary,
     selected: Boolean = false,
+    liked: Boolean = false,
+    onToggleLike: (() -> Unit)? = null,
 ) {
     val titleColor by animateColorAsState(
         targetValue = if (isCurrent) activeTint else MaterialTheme.colorScheme.onBackground,
@@ -575,7 +609,32 @@ private fun SongRowContent(
                 color = subtitleColor,
             )
         }
-        // Same sheet the long-press opens, for anyone who doesn't think to hold.
+        // The heart, then the sheet the long-press opens — for anyone who
+        // doesn't think to hold. Kept independent: either is complete alone.
+        if (onToggleLike != null) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onToggleLike),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    // The colour says it to somebody looking; the words
+                    // only have to exist for a screen reader, which
+                    // cannot see pink.
+                    contentDescription = stringResource(R.string.like),
+                    modifier = Modifier.size(20.dp),
+                    tint = if (liked) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
         if (onMore != null) {
             Box(
                 modifier = Modifier

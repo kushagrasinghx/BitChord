@@ -10,13 +10,16 @@ import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -40,6 +43,7 @@ import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Cloud
+import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Download
@@ -53,6 +57,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Today
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.LibraryMusic
@@ -87,6 +92,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -95,21 +101,33 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
@@ -145,11 +163,19 @@ import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.SmartDownloadFootprint
+import com.music.bitchord.download.SmartDownloads
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.roundToInt
+import kotlin.math.sin
 import java.util.Locale
 
 /**
@@ -219,7 +245,16 @@ fun SettingsScreen(
     val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
+    val smartDownloadsCellular by AppSettings.smartDownloadsCellular.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
+    val smartDownloads by AppSettings.smartDownloads.collectAsStateWithLifecycle()
+    val smartDownloadsPlaylists by AppSettings.smartDownloadsPlaylists.collectAsStateWithLifecycle()
+    val smartDownloadsDailyLimit by AppSettings.smartDownloadsDailyLimit.collectAsStateWithLifecycle()
+    val smartDownloadsKeep by AppSettings.smartDownloadsKeep.collectAsStateWithLifecycle()
+    // A count rather than the whole map: all the footprint calculation needs to
+    // know is that something landed on or left the disk, and holding the map
+    // here would recompose every row of this sheet on every download.
+    val savedDownloadCount = Downloads.saved.collectAsStateWithLifecycle().value.size
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
@@ -268,7 +303,18 @@ fun SettingsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var picking by remember { mutableStateOf<QualityTarget?>(null) }
     var pickingDownloadQuality by remember { mutableStateOf(false) }
+    var pickingCellular by remember { mutableStateOf(false) }
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
+    // True while the keep slider's row is covered by its own dial.
+    // Opened by letting go of the slider at its far right — see the row — and
+    // closed by any of Save, Cancel or a tap outside, so it behaves like the
+    // picker it sits beside rather than like a dialog of its own.
+    var editingKeep by remember { mutableStateOf(false) }
+    // What the automatic downloads actually weigh, read off disk rather than
+    // estimated from the count: it is the one figure the row shows beside the
+    // dial, and the only place a listener can see it without opening a file
+    // manager. Recomputed when the allow-list changes or a download lands.
+    var keepFootprint by remember { mutableStateOf(SmartDownloadFootprint(0, 0, 0, 0)) }
     // What the last export or import did, shown on the row that did it rather
     // than as a toast: a backup is the one action here whose outcome nobody can
     // check by looking at the app afterwards. Held per direction, or an import's
@@ -508,16 +554,34 @@ fun SettingsScreen(
                     onClick = { pickingDownloadQuality = true },
                 )
             }
-            // Reads as part of Download quality above it, not as a setting
-            // of its own — same treatment as Play animated cover over
-            // cellular gets under Animated cover art.
-            val downloadWifiOnlyTitle = stringResource(R.string.download_wifi_only)
-            row(downloadWifiOnlyTitle, "wi-fi", "cellular", divided = false) {
-                SettingsSubRow(
-                    title = downloadWifiOnlyTitle,
-                    checked = wifiOnlyDownloads,
-                    onCheckedChange = AppSettings::setWifiOnlyDownloads,
-                    badge = stringResource(R.string.blocking).takeIf { wifiOnlyDownloads && metered == true },
+            // The old single "Download over Wi-Fi only" switch is now a row
+            // that opens a sheet, because it stopped being one question the
+            // moment automatic downloads existed: a listener may perfectly
+            // well refuse data for a tap they are watching while letting the
+            // background pass top the library up on the commute, and one
+            // switch cannot say either half of that. Same treatment as
+            // Download quality above it, which is why it sits here rather than
+            // under Automatic downloads further down.
+            val cellularTitle = stringResource(R.string.download_cellular)
+            row(cellularTitle, "wi-fi", "cellular", "mobile data") {
+                SettingsRow(
+                    icon = Icons.Rounded.SignalCellularAlt,
+                    title = cellularTitle,
+                    subtitle = stringResource(R.string.download_cellular_subtitle),
+                    value = when {
+                        !wifiOnlyDownloads && smartDownloadsCellular ->
+                            stringResource(R.string.download_cellular_everything)
+                        wifiOnlyDownloads && !smartDownloadsCellular ->
+                            stringResource(R.string.download_cellular_wifi_only)
+                        !wifiOnlyDownloads ->
+                            stringResource(R.string.download_cellular_manual_only)
+                        else -> stringResource(R.string.download_cellular_auto_only)
+                    },
+                    // No badge here. "Blocking" was set on a row whose value
+                    // already says it — and badge text is not width-limited, so
+                    // on the one value long enough it wrapped into a vertical
+                    // column and laid the row out sideways.
+                    onClick = { pickingCellular = true },
                 )
             }
             val exportDownloadsTitle = stringResource(R.string.export_compatible_downloads)
@@ -528,6 +592,140 @@ fun SettingsScreen(
                     onCheckedChange = AppSettings::setExportDownloads,
                     subtitle = "Music/BitChord".takeIf { exportDownloads },
                 )
+            }
+            // Last in the group because it is a download too — but the only one
+            // here nobody taps for. A full row rather than a sub-row, since
+            // everything below answers to this switch rather than to the
+            // Download quality row that starts the card.
+            val smartDownloadsTitle = stringResource(R.string.smart_downloads)
+            row(smartDownloadsTitle, "automatic", "auto download", "liked") {
+                SettingsRow(
+                    icon = Icons.Rounded.CloudDownload,
+                    title = smartDownloadsTitle,
+                    subtitle = stringResource(R.string.smart_downloads_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = smartDownloads,
+                            onCheckedChange = { enabled ->
+                                AppSettings.setSmartDownloads(enabled)
+                                // Registering (or dropping) the once-a-day
+                                // request here rather than on the next cold
+                                // start is what makes the switch mean
+                                // something today. Turning it on also runs the
+                                // pass immediately: a switch whose first
+                                // visible effect is "tomorrow" reads as
+                                // broken, and there is no harm in the pass
+                                // finding a quota already spent.
+                                if (enabled) {
+                                    SmartDownloads.schedule(context)
+                                    SmartDownloads.runNow(context)
+                                } else {
+                                    SmartDownloads.cancel(context)
+                                }
+                            },
+                        )
+                    },
+                )
+            }
+            // The three subordinate rows only exist once the switch is on, and
+            // they are sub-rows to it: none of them decides whether anything
+            // happens, only how much and of what.
+            if (smartDownloads) {
+                val smartPlaylistsTitle = stringResource(R.string.smart_downloads_playlists)
+                row(smartPlaylistsTitle, "playlist", divided = false) {
+                    SettingsSubRow(
+                        title = smartPlaylistsTitle,
+                        checked = smartDownloadsPlaylists,
+                        onCheckedChange = AppSettings::setSmartDownloadsPlaylists,
+                        subtitle = stringResource(R.string.smart_downloads_playlists_subtitle),
+                    )
+                }
+                val smartDailyTitle = stringResource(R.string.smart_downloads_daily_limit)
+                row(smartDailyTitle, "quota", "day", divided = false) {
+                    SliderRow(
+                        icon = Icons.Rounded.Today,
+                        title = smartDailyTitle,
+                        subtitle = stringResource(R.string.smart_downloads_daily_limit_subtitle),
+                        value = pluralStringResource(
+                            R.plurals.track_count_plural,
+                            smartDownloadsDailyLimit,
+                            smartDownloadsDailyLimit,
+                        ),
+                        sliderValue = smartDownloadsDailyLimit.toFloat(),
+                        onSliderValue = { AppSettings.setSmartDownloadsDailyLimit(it.roundToInt()) },
+                        valueRange = AppSettings.SMART_DAILY_LIMIT_MIN.toFloat()..
+                            AppSettings.SMART_DAILY_LIMIT_MAX.toFloat(),
+                        // One notch every five tracks, so a drag lands on a
+                        // number somebody would have chosen by hand.
+                        steps = (AppSettings.SMART_DAILY_LIMIT_MAX -
+                            AppSettings.SMART_DAILY_LIMIT_MIN) / 5 - 1,
+                    )
+                }
+                val smartKeepTitle = stringResource(R.string.smart_downloads_keep)
+                row(smartKeepTitle, "storage", "evict", "remove", divided = false) {
+                    // The weight on the right is an average of whatever is on
+                    // disk right now, so it has to be re-read when a download
+                    // lands, when the allowance moves — which changes what the
+                    // allowance weighs — and when the feature is switched on at
+                    // all. Reading it here rather than in the row keeps the
+                    // disk off the composition path: a suspend call inside a
+                    // coroutine keyed on exactly the things that change it.
+                    LaunchedEffect(smartDownloadsKeep, savedDownloadCount, smartDownloads) {
+                        keepFootprint = runCatching { SmartDownloads.footprint(context) }
+                            .getOrDefault(SmartDownloadFootprint(0, 0, 0, 0))
+                    }
+                    Box {
+                        SliderRow(
+                            icon = Icons.Rounded.Storage,
+                            title = smartKeepTitle,
+                            subtitle = stringResource(R.string.smart_downloads_keep_subtitle),
+                            // Count and weight on one line, with no mark
+                            // between them: the weight is what it costs, and
+                            // it says so on its own once the count has said
+                            // what is being costed.
+                            value = "$smartDownloadsKeep ≈${formatBytes(keepFootprint.estimateBytes)}",
+                            sliderValue = smartDownloadsKeep
+                                .toFloat()
+                                .coerceAtMost(AppSettings.SMART_KEEP_MAX.toFloat()),
+                            onSliderValue = { AppSettings.setSmartDownloadsKeep(it.roundToInt()) },
+                            valueRange = AppSettings.SMART_KEEP_MIN.toFloat()..
+                                AppSettings.SMART_KEEP_MAX.toFloat(),
+                            steps = (AppSettings.SMART_KEEP_MAX - AppSettings.SMART_KEEP_MIN) / 50 - 1,
+                            onSliderValueFinished = {
+                                // Releasing at the far right is how a listener
+                                // says "further than this", and it is the only
+                                // gesture the slider has for it — hence the
+                                // dial living there, where the typed answer
+                                // used to. On release rather than on the drag:
+                                // a slider that opens over every thumb that
+                                // crosses the last notch is a slider nobody can
+                                // use.
+                                if (smartDownloadsKeep >= AppSettings.SMART_KEEP_MAX) editingKeep = true
+                            },
+                            // Dimmed rather than hidden: the row still has to
+                            // be there for the popup to read as laid over it.
+                            modifier = Modifier.alpha(if (editingKeep) 0.12f else 1f),
+                        )
+                        if (editingKeep) {
+                            SmartKeepDialPopup(
+                                current = smartDownloadsKeep,
+                                averageBytes = keepFootprint.averageBytes,
+                                onSave = { draft ->
+                                    AppSettings.setSmartDownloadsKeep(draft)
+                                    editingKeep = false
+                                },
+                                onDismiss = { editingKeep = false },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(
+                                        start = TEXT_INSET,
+                                        end = ROW_INSET,
+                                        bottom = 6.dp,
+                                    ),
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -1437,6 +1635,30 @@ fun SettingsScreen(
         }
     }
 
+    if (pickingCellular) {
+        ModalBottomSheet(
+            onDismissRequest = { pickingCellular = false },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            CellularDataSheet(
+                manual = !wifiOnlyDownloads,
+                automatic = smartDownloadsCellular,
+                onManualChange = { AppSettings.setWifiOnlyDownloads(!it) },
+                onAutomaticChange = { enabled ->
+                    AppSettings.setSmartDownloadsCellular(enabled)
+                    // The daily request carries the network constraint, so the
+                    // one written before this flipped is still asking for
+                    // Wi-Fi and would sit there until the next cold start.
+                    // Only worth touching when the feature is on — otherwise
+                    // there is no request to update and registering one for a
+                    // switch nobody has turned on would wake the process for
+                    // nothing.
+                    if (smartDownloads) SmartDownloads.reschedule(context)
+                },
+            )
+        }
+    }
+
     if (pickingAutomixPerformance) {
         ModalBottomSheet(
             onDismissRequest = { pickingAutomixPerformance = false },
@@ -1721,6 +1943,22 @@ private fun formatCacheSize(mb: Int): String {
     return if (gb == gb.toInt().toFloat()) "${gb.toInt()} GB" else "%.1f GB".format(Locale.ROOT, gb)
 }
 
+/**
+ * The same thing from bytes, for figures that start well under a gigabyte.
+ *
+ * Bytes rather than megabytes because this is read off actual files, where
+ * "0 MB" would be the answer for any album-sized run of downloads that had
+ * not yet reached a whole megabyte each — and rounding such a figure down to
+ * nothing is how a full bar ends up claiming the folder is empty.
+ */
+private fun formatBytes(bytes: Long): String {
+    if (bytes <= 0L) return "0 MB"
+    val mb = bytes / (1024f * 1024f)
+    if (mb < 1024f) return "${mb.roundToInt().coerceAtLeast(1)} MB"
+    val gb = mb / 1024f
+    return if (gb == gb.toInt().toFloat()) "${gb.toInt()} GB" else "%.1f GB".format(Locale.ROOT, gb)
+}
+
 /** Who you're signed in as, straight from YouTube Music's account menu. */
 @Composable
 internal fun AccountCard(
@@ -1947,6 +2185,353 @@ private fun AutomixPerformanceSheet(
                 }
             }
         }
+    }
+}
+
+/**
+ * One full clockwise turn of the keep dial, in tracks: the old slider's whole
+ * range, so one sweep of the thumb does what dragging it end to end used to.
+ */
+private const val KEEP_TURN_TRACKS = AppSettings.SMART_KEEP_MAX
+/** The smallest change the dial reports — also the slider's old step. */
+private const val KEEP_STEP_TRACKS = 50
+/** Across the dial: wide enough for a five-digit count, small enough to read. */
+private val KEEP_DIAL_SIZE = 176.dp
+
+/**
+ * The typed answer's replacement: the same slot over the same row, with the
+ * dial where the keyboard used to be.
+ *
+ * Reachable only by releasing the slider at its far right — the one gesture a
+ * slider has for "further than this" — so a listener who never goes past a
+ * thousand meets no change at all. One clockwise turn past the slider's end is
+ * another [KEEP_TURN_TRACKS] tracks, and the ceiling is ten turns away, which
+ * is the same reach the typed box had and no typing.
+ *
+ * Turning is a proposal, not a write: the count in the middle is a draft until
+ * Save, and a tap outside drops it, exactly as the box it replaces did.
+ */
+@Composable
+private fun SmartKeepDialPopup(
+    current: Int,
+    averageBytes: Long,
+    onSave: (Int) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var draft by remember(current) { mutableStateOf(current) }
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 6.dp,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.smart_downloads_keep),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(Modifier.height(6.dp))
+            SmartKeepDial(
+                label = stringResource(R.string.smart_downloads_keep),
+                keep = draft,
+                onKeepChange = { draft = it },
+            )
+            // What the draft would weigh, next to the number it is a count
+            // of: past a thousand the two figures start to move apart and
+            // neither means much alone.
+            Text(
+                text = "≈${formatBytes(averageBytes * draft)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+                TextButton(onClick = { onSave(draft) }) {
+                    Text(stringResource(R.string.save))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The dial itself: twelve marks on a bezel, one fixed index under them, and a
+ * mark on the knob that points at where the allowance stands. The count sits
+ * in the middle, unrotated — a number that turns is a number nobody can read
+ * while they are turning it.
+ *
+ * The knob's mark is derived from the value rather than accumulated from the
+ * drag, so the two can never disagree: a number written by anything else — a
+ * restored setting, the outbox, another screen — lands the mark in the right
+ * place on its own.
+ *
+ * One full clockwise turn is [KEEP_TURN_TRACKS] tracks and the smallest report
+ * is [KEEP_STEP_TRACKS], which is also the step the slider used to move in, so
+ * every figure the dial can land on is one the slider could land on.
+ */
+@Composable
+private fun SmartKeepDial(
+    label: String,
+    keep: Int,
+    onKeepChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalHapticFeedback.current
+    val latestKeep by rememberUpdatedState(keep)
+    val latestChange by rememberUpdatedState(onKeepChange)
+    // Where the touch went, in the dial's own coordinates. The angle is taken
+    // from the centre rather than from the drag deltas because a drag that
+    // passes over the middle has no direction of its own, and a dial read from
+    // deltas would jump the moment it did.
+    var centre by remember { mutableStateOf(Offset.Zero) }
+    var lastAngle by remember { mutableStateOf(Float.NaN) }
+    // Whole tracks the dial has been turned but not yet reported, kept so a
+    // slow hand still gets there: without it a drag under the step's worth of
+    // arc would round away to nothing every frame.
+    var owing by remember { mutableStateOf(0f) }
+
+    val bezelColor = MaterialTheme.colorScheme.outline
+    // The knob is a disc *in* the card the dial is drawn on, so it takes the
+    // card's own surface rather than the surface the popup is made of — the
+    // two are one step apart in tone and a knob the same colour as its
+    // surroundings would leave the index marks floating.
+    val knobColor = MaterialTheme.colorScheme.surface
+    val markerColor = MaterialTheme.colorScheme.primary
+
+    Box(
+        modifier = modifier
+            .size(KEEP_DIAL_SIZE)
+            .onSizeChanged { centre = Offset(it.width / 2f, it.height / 2f) }
+            .semantics {
+                contentDescription = label
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = keep.toFloat(),
+                    range = AppSettings.SMART_KEEP_MIN.toFloat()..
+                        AppSettings.SMART_KEEP_CEILING.toFloat(),
+                    steps = (AppSettings.SMART_KEEP_CEILING -
+                        AppSettings.SMART_KEEP_MIN) / KEEP_STEP_TRACKS - 1,
+                )
+                setProgress { target ->
+                    onKeepChange(
+                        target.roundToInt().coerceIn(
+                            AppSettings.SMART_KEEP_MIN,
+                            AppSettings.SMART_KEEP_CEILING,
+                        ),
+                    )
+                    true
+                }
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { position ->
+                        lastAngle = atan2(position.y - centre.y, position.x - centre.x)
+                    },
+                    onDragEnd = { lastAngle = Float.NaN; owing = 0f },
+                    onDragCancel = { lastAngle = Float.NaN; owing = 0f },
+                    onDrag = { change, _ ->
+                        val angle = atan2(
+                            change.position.y - centre.y,
+                            change.position.x - centre.x,
+                        )
+                        val previous = lastAngle
+                        if (!previous.isNaN()) {
+                            // Screen angles grow clockwise — y points down — and
+                            // so does the allowance: the dial turns the way a
+                            // safe's does, and only ever one way round.
+                            var delta = angle - previous
+                            if (delta > PI) delta -= 2f * PI.toFloat()
+                            if (delta < -PI) delta += 2f * PI.toFloat()
+                            owing += delta * KEEP_TURN_TRACKS.toFloat() / (2f * PI.toFloat())
+                            if (abs(owing) >= KEEP_STEP_TRACKS.toFloat()) {
+                                val steps = (owing / KEEP_STEP_TRACKS).toInt()
+                                owing -= steps * KEEP_STEP_TRACKS
+                                val turned = (latestKeep + steps * KEEP_STEP_TRACKS).coerceIn(
+                                    AppSettings.SMART_KEEP_MIN,
+                                    AppSettings.SMART_KEEP_CEILING,
+                                )
+                                if (turned != latestKeep) {
+                                    latestChange(turned)
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                } else {
+                                    // At an end stop the turn is spent rather than
+                                    // owed: kept, it would have to be unwound
+                                    // before the dial responded the other way.
+                                    owing = 0f
+                                }
+                            }
+                        }
+                        lastAngle = angle
+                    },
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val middle = Offset(size.width / 2f, size.height / 2f)
+            // Three dips of margin: the index mark lives outside the bezel's
+            // own line, and a mark clipped by the node reads as a shorter mark
+            // rather than as a fixed point to read against.
+            val outer = size.minDimension / 2f - 3.dp.toPx()
+            drawCircle(color = bezelColor, radius = outer, style = Stroke(2.dp.toPx()))
+            // Twelve marks, as on the clock the dial is standing in for. The
+            // one at the top is the index and is drawn in the accent, thicker
+            // and longer, so the turning mark always has something to be
+            // measured against.
+            repeat(12) { index ->
+                val radians = index * (2f * PI.toFloat() / 12f)
+                val direction = Offset(sin(radians), -cos(radians))
+                val isIndex = index == 0
+                val start = outer - if (isIndex) 16.dp.toPx() else 10.dp.toPx()
+                drawLine(
+                    color = if (isIndex) markerColor else bezelColor,
+                    start = middle + direction * (outer - start),
+                    end = middle + direction * (outer - 2.dp.toPx()),
+                    strokeWidth = if (isIndex) 3.dp.toPx() else 1.5.dp.toPx(),
+                    cap = StrokeCap.Round,
+                )
+            }
+            val knob = outer - 14.dp.toPx()
+            drawCircle(color = knobColor, radius = knob)
+            drawCircle(color = bezelColor, radius = knob, style = Stroke(1.dp.toPx()))
+            // The turning mark: a bar on the knob's rim, far enough out to be
+            // read at a glance and far enough in to stay clear of the count.
+            val radians = ((keep - AppSettings.SMART_KEEP_MIN).toFloat() /
+                KEEP_TURN_TRACKS.toFloat()) * 2f * PI.toFloat()
+            val direction = Offset(sin(radians), -cos(radians))
+            drawLine(
+                color = markerColor,
+                start = middle + direction * (knob - 16.dp.toPx()),
+                end = middle + direction * (knob - 4.dp.toPx()),
+                strokeWidth = 4.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+        // Unrotated, and large enough to be the thing the eye lands on before
+        // the mark around it.
+        Text(
+            text = keep.toString(),
+            style = MaterialTheme.typography.headlineLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * The two questions the old "Download over Wi-Fi only" switch had fused
+ * together, as two switches of their own.
+ *
+ * Both off — still the default — is exactly what that switch used to say, so
+ * nobody updating arrives to a changed behaviour. And "neither" is a real
+ * answer rather than an oversight: it is the listener who wants the app to
+ * spend no data at all, which neither half can express on its own. Ordered as
+ * the two bills are usually met — a tap somebody is watching first, the work
+ * nobody asked for second.
+ */
+@Composable
+private fun CellularDataSheet(
+    manual: Boolean,
+    automatic: Boolean,
+    onManualChange: (Boolean) -> Unit,
+    onAutomaticChange: (Boolean) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    val feedback = {
+        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Row(
+            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.SignalCellularAlt,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = stringResource(R.string.download_cellular),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.download_cellular_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+        CellularToggleRow(
+            title = stringResource(R.string.download_cellular_manual),
+            subtitle = stringResource(R.string.download_cellular_manual_sub),
+            checked = manual,
+            onCheckedChange = {
+                feedback()
+                onManualChange(it)
+            },
+        )
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+        CellularToggleRow(
+            title = stringResource(R.string.download_cellular_auto),
+            subtitle = stringResource(R.string.download_cellular_auto_sub),
+            checked = automatic,
+            onCheckedChange = {
+                feedback()
+                onAutomaticChange(it)
+            },
+        )
+    }
+}
+
+/**
+ * One option of that sheet: label and gloss on the left, the switch on the
+ * right, both live.
+ *
+ * The text is clickable as well as the switch, because a row of this width is
+ * mostly text and half of it being inert reads as a broken control. Only the
+ * text carries the hit region — the switch keeps its own — so one tap cannot
+ * toggle twice.
+ */
+@Composable
+private fun CellularToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clickable { onCheckedChange(!checked) },
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -2370,13 +2955,16 @@ internal fun SliderRow(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
     subtitle: String? = null,
+    modifier: Modifier = Modifier,
+    /** Called when the thumb is let go — the moment a drag is a decision. */
+    onSliderValueFinished: (() -> Unit)? = null,
 ) {
     val colors = SliderDefaults.colors(
         thumbColor = MaterialTheme.colorScheme.primary,
         activeTrackColor = MaterialTheme.colorScheme.primary,
         inactiveTrackColor = MaterialTheme.colorScheme.outline,
     )
-    Column(Modifier.padding(start = ROW_INSET, end = ROW_INSET, top = 12.dp, bottom = 4.dp)) {
+    Column(modifier.padding(start = ROW_INSET, end = ROW_INSET, top = 12.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,
@@ -2412,8 +3000,11 @@ internal fun SliderRow(
             valueRange = valueRange,
             steps = steps,
             colors = colors,
-            // Bare track: the step ticks and the end-stop dot are noise when the
-            // value is already spelled out on the line above.
+            onValueChangeFinished = onSliderValueFinished,
+            // One measurement per row: the thumb and the track it runs on say
+            // the same thing twice, which is the point of a slider, and a
+            // second, differently-scaled strip laid into the track asked the
+            // reader to compare two bars that never shared a scale.
             track = { state ->
                 SliderDefaults.Track(
                     sliderState = state,

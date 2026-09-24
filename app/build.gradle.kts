@@ -352,6 +352,15 @@ dependencies {
     // the app for a saving that does not matter in a self-distributed APK.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
 
+    // ---- Background scheduling: WorkManager, for smart downloads ----
+    // The only scheduled work in the project — nothing else runs on a timer,
+    // so there was nothing to build the automatic download pass on top of. The
+    // request itself asks for an unmetered network (see SmartDownloads), which
+    // is a stronger bound than the manual download switch puts on a tap: that
+    // one is about somebody watching the transfer, this one is about a pass
+    // spending storage where nobody would see the bill.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+
     testImplementation("junit:junit:4.13.2")
     // A real HTTP server for the addon tests. The addon protocol is entirely
     // "what does this app send, and what does it do with what comes back", and

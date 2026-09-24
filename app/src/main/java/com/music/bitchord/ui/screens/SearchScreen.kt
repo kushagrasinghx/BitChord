@@ -70,6 +70,7 @@ import com.music.bitchord.ui.components.topBarContentPadding
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SearchField
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.rememberLikedIds
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.songListSkeleton
 import com.music.bitchord.ui.haptics.Haptic
@@ -111,12 +112,21 @@ fun SearchScreen(
     onHistoryClear: () -> Unit,
     /** Long-press handler for typeahead rows — opens the song actions sheet. */
     onTypeaheadLongPress: ((Song) -> Unit)? = null,
+    /**
+     * Toggles the heart on a track result; null hides the heart.
+     *
+     * Rating from the results rather than only from the row's ⋮ — the list is
+     * already the comparison being made, and [rememberLikedIds] marks the ones
+     * already rated.
+     */
+    onToggleLike: ((Song) -> Unit)? = null,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues,
 ) {
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val likedIds = rememberLikedIds()
     // Tapping the search tab from the nav bar sets focusRequested;
     // respond by focusing the field and opening the keyboard.
     LaunchedEffect(focusRequested) {
@@ -263,6 +273,8 @@ fun SearchScreen(
                                     },
                                     onLongPress = { onSongLongPress(row.song) },
                                     onSwipeToQueue = { onSongSwipe(row.song) },
+                                    liked = row.song.videoId in likedIds,
+                                    onToggleLike = onToggleLike?.let { toggle -> { toggle(row.song) } },
                                 )
                                 is SearchResult.Browse -> BrowseRow(
                                     item = row.item,

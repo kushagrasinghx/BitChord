@@ -44,14 +44,13 @@ object SpatialEffect {
  *
  * ## Latency and switching
  *
- * The spatializer delays the audio by [StereoSpatializer.latencyFrames] (~50 ms). While the effect is on, the
- * widener is delayed by the same amount, so switching between the two modes is a crossfade between time-aligned
- * signals: nothing skips, repeats or clicks. The incoming path is started ahead of the crossfade and fed until it
- * produces real output (the spatializer also until its steering has settled), so it never fades in from silence.
+ * The spatializer delays the audio by [StereoSpatializer.latencyFrames] (~50 ms); the widener, as ever, adds no
+ * delay. [latencyFrames] reports the current delay so the player's position follows what is actually heard.
  *
- * Turning the effect on or off does change the latency, by those ~50 ms. That switch is a short crossfade as well,
- * so it cannot click, though under it ~50 ms of audio is skipped (off) or heard twice (on). [latencyFrames]
- * reports the current delay so the player's position follows what is actually heard.
+ * Every change of effect is a crossfade, never a cut: switching the widener on or off is a 60 ms crossfade between
+ * time-aligned signals. Going to or from the spatializer changes the delay by those ~50 ms, so it is a short 20 ms
+ * crossfade instead, under which ~50 ms of audio is skipped or heard twice; it cannot click. The spatializer is
+ * started ahead of that crossfade and fed until its steering has settled, so it never fades in from silence.
  *
  * A new stream (after a seek, flush or format change) starts directly on the right path without a crossfade.
  * The next track of a gapless run in the same format continues on the running path, tail and all.
@@ -67,9 +66,12 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     @Volatile
     var enabled: Boolean = false
 
-    /** Which effect runs while [enabled]. Read on the audio thread at every block. */
+    /**
+     * Which effect runs while [enabled]. Read on the audio thread at every block. The widener unless told
+     * otherwise, as before there was a choice; PlaybackService sets it from the listener's setting.
+     */
     @Volatile
-    var mode: SpatialMode = SpatialMode.SPATIALIZE
+    var mode: SpatialMode = SpatialMode.WIDEN
 
     private enum class Path { DRY, WIDEN, SPATIALIZE }
 
@@ -113,10 +115,8 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     var bypassReason: String? = null
         private set
 
-    /** The delay both effects share while on: the spatializer's latency at this rate, 0 where it cannot run. */
+    /** The spatializer's latency at this rate, 0 where it cannot run. */
     private var alignFrames = 0
-    private var align = FloatArray(0)
-    private var alignPos = 0
 
     /** The path being heard, or faded out of while [target] differs. */
     private var heard = Path.DRY
@@ -160,7 +160,6 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         } else {
             0
         }
-        align = FloatArray(2 * alignFrames)
         val delaySamples = if (stereo) (sampleRate * DELAY_MS / 1000f).roundToInt().coerceAtLeast(1) else 0
         if (delayLeft.size != delaySamples) {
             delayLeft = FloatArray(delaySamples)
@@ -260,7 +259,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
      */
     fun expectedLatencyUs(): Long {
         if (!enabled || channelCount != 2 || sampleRate <= 0) return 0L
-        if (mode == SpatialMode.SPATIALIZE && spatializerUnavailable) return 0L
+        if (mode != SpatialMode.SPATIALIZE || spatializerUnavailable) return 0L
         return alignFrames.toLong() * 1_000_000L / sampleRate
     }
 
@@ -288,8 +287,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         if (want == heard) return
         start(want)
         primeFrames = when (want) {
-            Path.DRY -> 0
-            Path.WIDEN -> alignFrames + delayLeft.size
+            Path.DRY, Path.WIDEN -> 0
             Path.SPATIALIZE -> alignFrames + SPATIALIZE_WARMUP_HOPS * (spatializer?.hop ?: 0)
         }
         val fadeMs = if (latencyOf(heard) == latencyOf(want)) ALIGNED_FADE_MS else SHIFTING_FADE_MS
@@ -305,11 +303,11 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         }
     }
 
-    private fun latencyOf(path: Path): Int = if (path == Path.DRY) 0 else alignFrames
+    private fun latencyOf(path: Path): Int = if (path == Path.SPATIALIZE) alignFrames else 0
 
     private fun tailOf(path: Path): Int = when (path) {
         Path.DRY -> 0
-        Path.WIDEN -> alignFrames + delayLeft.size
+        Path.WIDEN -> 0
         Path.SPATIALIZE -> spatializer?.tailFrames ?: 0
     }
 
@@ -329,7 +327,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         return StereoSpatializer(sampleRate, responses).also { spatializer = it }
     }
 
-    /** Mid/side widening plus the cross-feed, then the delay that lines it up with the spatializer. */
+    /** Mid/side widening plus the cross-feed, exactly as before the spatializer existed. */
     private fun widen(buffer: FloatArray, frames: Int) {
         val delaySize = delayLeft.size
         if (delaySize > 0) {
@@ -364,19 +362,6 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
             lowpassLeft = lpL
             lowpassRight = lpR
         }
-        if (alignFrames > 0) {
-            var p = alignPos
-            for (i in 0 until frames) {
-                val l = buffer[2 * i]
-                val r = buffer[2 * i + 1]
-                buffer[2 * i] = align[2 * p]
-                buffer[2 * i + 1] = align[2 * p + 1]
-                align[2 * p] = l
-                align[2 * p + 1] = r
-                p = if (p + 1 == alignFrames) 0 else p + 1
-            }
-            alignPos = p
-        }
     }
 
     private fun clearWidener() {
@@ -385,8 +370,6 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         delayIndex = 0
         lowpassLeft = 0f
         lowpassRight = 0f
-        align.fill(0f)
-        alignPos = 0
     }
 
     /**
@@ -438,8 +421,6 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         primeFrames = 0
         fadePos = 0
         alignFrames = 0
-        align = FloatArray(0)
-        alignPos = 0
         delayLeft = FloatArray(0)
         delayRight = FloatArray(0)
         delayIndex = 0
@@ -511,10 +492,10 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         private const val BYTES_PER_FRAME = 4 // stereo, 16-bit
         private const val DELAY_MS = 15
 
-        /** Crossfade between Widen and Spatialize (same latency, aligned): long enough to be a smooth morph. */
+        /** Crossfade when the delay doesn't change (the widener on or off): long enough to be a smooth morph. */
         private const val ALIGNED_FADE_MS = 60
 
-        /** Crossfade when the effect turns on or off: short, as the two sides are ~50 ms apart in time. */
+        /** Crossfade to or from the spatializer: short, as the two sides are ~50 ms apart in time. */
         private const val SHIFTING_FADE_MS = 20
 
         /** Hops the spatializer runs before it is faded in, so its steering has settled (~130 ms at 48 kHz). */

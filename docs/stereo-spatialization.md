@@ -25,10 +25,11 @@ the next track changes sample rate or channel count, the sink holds the new conf
 out the delayed end of the old track and 100 ms of its room, faded, as `DefaultAudioSink` does with its own
 processors. A version swap seeks the incoming player ahead by the same delay, so both versions line up in the fade.
 
-**Switching.** While spatial audio is on, Widen runs with the same delay as Spatialize, so switching between them is
-a 60 ms crossfade between time-aligned signals; the incoming effect is started first and only faded in once it is
-producing settled output. Turning spatial audio on or off changes the delay, so it is a short 20 ms crossfade, under
-which ~50 ms of audio is skipped (off) or repeated (on); it never clicks.
+**Switching.** Every change of effect is a crossfade, never a cut. The widener adds no delay, as before, so turning
+it on or off is a 60 ms crossfade between time-aligned signals. Going to or from Spatialize changes the delay by
+~50 ms, so that is a short 20 ms crossfade, under which ~50 ms of audio is skipped or heard twice; it never clicks.
+The spatializer is started ahead of the crossfade and fed until its steering has settled, so it never fades in
+from silence.
 
 **Loudness.** The spatialized output plays about 6 dB quieter than the stereo source: that is the headroom that
 keeps the limiter idle on most music. On loud, dense masters it reduces by more than 0.1 dB about a tenth of the

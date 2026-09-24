@@ -285,7 +285,7 @@ class StereoSpatializerTest {
     }
 
     @Test
-    fun `both effects run with the spatializer's latency and report it`() {
+    fun `the spatializer reports its latency and the widener adds none`() {
         val rate = 48000
         val latency = StereoSpatializer.latencyFramesFor(rate)
         val spatialize = processorAt(rate, SpatialMode.SPATIALIZE)
@@ -298,10 +298,11 @@ class StereoSpatializerTest {
         val widen = processorAt(rate, SpatialMode.WIDEN)
         val src = testSignal(rate, 4096)
         val widened = run(widen, src)
-        assertEquals(latency, widen.latencyFrames())
-        // the widener's output is its input, delayed: the mid (L+R) survives, scaled by the output gain
-        for (i in latency + 1000 until 4096 step 97) {
-            val mid = (src[2 * (i - latency)] + src[2 * (i - latency) + 1]) * 0.5f
+        assertEquals(0, widen.latencyFrames())
+        assertEquals(0, widen.tailFrames())
+        // the widener works in place with no delay: the mid (L+R) survives, scaled by the output gain
+        for (i in 1000 until 4096 step 97) {
+            val mid = (src[2 * i] + src[2 * i + 1]) * 0.5f
             assertEquals(mid * 0.82f, (widened[2 * i] + widened[2 * i + 1]) * 0.5f, 0.2f)
         }
 

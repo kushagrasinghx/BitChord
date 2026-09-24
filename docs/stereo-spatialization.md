@@ -63,7 +63,8 @@ cached. Above 48 kHz the STFT frame doubles per octave, so its time and frequenc
 * **Room:** synthesised from the same HRTFs, using image sources plus stochastic reflections with a late tail.
 
 The shipped `speakers_<rate>.bin` files are these HRTFs and this room rendered into one response per speaker and
-ear, then made left/right symmetric: the right-side speakers' responses are mirror images of the left-side ones, and
-the centre's direct sound is the same in both ears (each ear keeps its own room). The 44.1 kHz set is resampled from
+ear, then made left/right symmetric: the right-side speakers' responses are mirror images of the left-side ones; the
+centre speaker reaches both ears identically for its first 30 ms (direct sound and early reflections, which decide
+where it is heard), and after that each ear keeps its own room, energy-matched to the other ear in time and frequency. The 44.1 kHz set is resampled from
 the 48 kHz one with a linear-phase filter flat to 20 kHz. They are distributed under CC BY 4.0, with the attribution
 above.

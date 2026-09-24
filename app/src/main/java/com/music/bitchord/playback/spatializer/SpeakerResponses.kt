@@ -28,10 +28,10 @@ class SpeakerResponses(val sampleRate: Int, val taps: Int, private val data: Flo
     fun response(input: Int, ear: Int): FloatArray =
         data.copyOfRange((input * EARS + ear) * taps, (input * EARS + ear + 1) * taps)
 
-    /** Partition spectra for a convolution block size, shared by every spatializer at this rate. */
+    /** Partition spectra (double precision) for a convolution block size, shared by every spatializer at this rate. */
     class Spectra(val block: Int, val partitions: Int) {
-        val re = Array(SpeakerResponses.INPUTS) { Array(SpeakerResponses.EARS) { Array(partitions) { FloatArray(block + 1) } } }
-        val im = Array(SpeakerResponses.INPUTS) { Array(SpeakerResponses.EARS) { Array(partitions) { FloatArray(block + 1) } } }
+        val re = Array(SpeakerResponses.INPUTS) { Array(SpeakerResponses.EARS) { Array(partitions) { DoubleArray(block + 1) } } }
+        val im = Array(SpeakerResponses.INPUTS) { Array(SpeakerResponses.EARS) { Array(partitions) { DoubleArray(block + 1) } } }
         /** Leading partitions that carry energy, per (input, ear); the rest are skipped. */
         val activePartitions = Array(SpeakerResponses.INPUTS) { IntArray(SpeakerResponses.EARS) }
     }
@@ -42,18 +42,18 @@ class SpeakerResponses(val sampleRate: Int, val taps: Int, private val data: Flo
     fun spectra(block: Int): Spectra = spectraCache.getOrPut(block) {
         val parts = (taps + block - 1) / block
         val s = Spectra(block, parts)
-        val fft = RealFft(2 * block)
-        val frame = FloatArray(2 * block)
+        val fft = RealFftDouble(2 * block)
+        val frame = DoubleArray(2 * block)
         for (c in 0 until INPUTS) for (e in 0 until EARS) {
             val base = (c * EARS + e) * taps
             var last = 0
             for (p in 0 until parts) {
-                frame.fill(0f)
+                frame.fill(0.0)
                 val n = min(block, taps - p * block)
                 var nonzero = false
                 for (i in 0 until n) {
                     val v = data[base + p * block + i]
-                    frame[i] = v
+                    frame[i] = v.toDouble()
                     if (v != 0f) nonzero = true
                 }
                 if (nonzero) last = p + 1

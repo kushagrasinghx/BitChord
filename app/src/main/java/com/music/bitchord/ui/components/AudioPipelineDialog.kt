@@ -49,7 +49,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
-import com.music.bitchord.playback.SpatialMode
+import com.music.bitchord.playback.SpatialEffect
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -92,11 +92,12 @@ private fun bitExactVerdict(
     outputExactDetail: String?,
     loudnessActive: Boolean,
     eqActive: Boolean,
-    spatialActive: Boolean,
+    spatialEffect: String?,
 ): String = when {
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"
-    spatialActive -> "No — spatial audio"
+    spatialEffect == SpatialEffect.SPATIALIZE -> "No — Stereo Spatialization"
+    spatialEffect != null -> "No — stereo widening"
     outputExact -> "Yes${outputExactDetail?.let { " ($it)" }.orEmpty()}"
     else -> "No — ${outputExactDetail ?: "converted downstream"}"
 }
@@ -128,7 +129,6 @@ fun AudioPipelineDialog(
     val eqEnabled by AppSettings.equalizerEnabled.collectAsStateWithLifecycle()
     val eqPreset by AppSettings.equalizerPreset.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
-    val spatialAudioMode by AppSettings.spatialAudioMode.collectAsStateWithLifecycle()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
 
     Box(
@@ -287,14 +287,16 @@ fun AudioPipelineDialog(
                     } else {
                         "Flat"
                     }
-                    // What is actually applied, not just what is switched on: the effect pauses for Dolby Atmos
-                    // and only ever touches stereo.
+                    // What the spatial stage is actually doing to the samples, as the audible sink reports it, not
+                    // what is switched on: it pauses for Dolby Atmos, leaves mono and multichannel files alone, and
+                    // passes through untouched at rates it has no speaker responses for.
                     val stereoExpandText = when {
                         !spatialAudio -> "100%"
                         nerdStats?.isDolbyAtmos == true -> "Paused (Dolby Atmos)"
-                        nerdStats?.channels?.let { it != 2 } == true -> "100% (not stereo)"
-                        spatialAudioMode == SpatialMode.SPATIALIZE -> "Spatialized 5.1"
-                        else -> "250%"
+                        outputStatus.spatialEffect == SpatialEffect.SPATIALIZE -> "Spatialized 5.1"
+                        outputStatus.spatialEffect != null -> "250%"
+                        outputStatus.spatialBypass != null -> "100% (${outputStatus.spatialBypass})"
+                        else -> "100%"
                     }
                     val buffersText = outputStatus.bufferSize?.let { size ->
                         val rate = outputStatus.actualSampleRateHz
@@ -354,7 +356,7 @@ fun AudioPipelineDialog(
                                 outputExactDetail = outputStatus.outputExactDetail,
                                 loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
                                 eqActive = eqEnabled,
-                                spatialActive = spatialAudio,
+                                spatialEffect = outputStatus.spatialEffect,
                             ),
                         )
                     }

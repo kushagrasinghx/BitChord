@@ -157,7 +157,71 @@ class StereoSpatializerTest {
             val back = FloatArray(n)
             fft.inverse(re, im, back)
             for (j in 0 until n) assertEquals(x[j].toDouble(), back[j] / n.toDouble(), 1e-4)
+
+            // the double-precision twin, to double-precision tolerances
+            val fftD = RealFftDouble(n)
+            val xd = DoubleArray(n) { sin(it * 0.37) + (it % 7) * 0.1 }
+            val reD = DoubleArray(n / 2 + 1)
+            val imD = DoubleArray(n / 2 + 1)
+            fftD.forward(xd, reD, imD)
+            for (k in 0..n / 2 step maxOf(1, n / 64)) {
+                var sr = 0.0
+                var si = 0.0
+                for (j in 0 until n) {
+                    sr += xd[j] * cos(2 * PI * j * k / n)
+                    si -= xd[j] * sin(2 * PI * j * k / n)
+                }
+                assertEquals("double re[$k] n=$n", sr, reD[k], 1e-9 * n)
+                assertEquals("double im[$k] n=$n", si, imD[k], 1e-9 * n)
+            }
+            val backD = DoubleArray(n)
+            fftD.inverse(reD, imD, backD)
+            for (j in 0 until n) assertEquals(xd[j], backD[j] / n, 1e-12)
         }
+    }
+
+    @Test
+    fun `the convolver matches exact double-precision convolution`() {
+        val rate = 48000
+        val responses = shippedResponses(rate)
+        val block = 1024
+        val blocks = 3
+        val conv = PartitionedConvolver(responses.spectra(block))
+        var s = 4242L
+        fun next(): Float {
+            s = (s * 1664525L + 1013904223L) and 0xFFFFFFFFL
+            return ((((s ushr 8).toDouble() / 16777216.0) * 2.0 - 1.0) * 0.25).toFloat()
+        }
+        val input = Array(6) { FloatArray(blocks * block) { next() } }
+        val out = Array(2) { FloatArray(blocks * block) }
+        val inBlock = Array(6) { FloatArray(block) }
+        val l = FloatArray(block)
+        val r = FloatArray(block)
+        for (b in 0 until blocks) {
+            for (c in 0 until 6) System.arraycopy(input[c], b * block, inBlock[c], 0, block)
+            conv.process(inBlock, l, r)
+            System.arraycopy(l, 0, out[0], b * block, block)
+            System.arraycopy(r, 0, out[1], b * block, block)
+        }
+        val h = Array(6) { c -> Array(2) { e -> responses.response(c, e) } }
+        var errSq = 0.0
+        var refSq = 0.0
+        for (n in (blocks - 1) * block until blocks * block) {
+            for (e in 0..1) {
+                var exact = 0.0
+                for (c in 0 until 6) {
+                    val hc = h[c][e]
+                    val x = input[c]
+                    for (k in 0..minOf(n, hc.size - 1)) exact += x[n - k].toDouble() * hc[k]
+                }
+                val d = out[e][n] - exact
+                errSq += d * d
+                refSq += exact * exact
+            }
+        }
+        // what is left is the Float32 rounding of the output itself (~-150 dB); Float32 transforms gave ~-131 dB
+        val db = 10 * log10(errSq / refSq)
+        assertTrue("convolution error $db dB relative to the signal", db < -140.0)
     }
 
     @Test

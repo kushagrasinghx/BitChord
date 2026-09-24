@@ -27,6 +27,12 @@ enum class SpatialMode {
     SPATIALIZE,
 }
 
+/** What [SpatialAudioProcessor.activeEffect] reports while each effect is altering samples. */
+object SpatialEffect {
+    const val SPATIALIZE = "Stereo Spatialization"
+    const val WIDEN = "Widen"
+}
+
 /**
  * Spatial audio for stereo tracks, in one of two [SpatialMode]s.
  *
@@ -90,6 +96,23 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     private var spatializer: StereoSpatializer? = null
     private var spatializerUnavailable = false
 
+    /** Why [SpatialMode.SPATIALIZE] can't run at this rate, once known; see [bypassReason]. */
+    private var unsupportedReason: String? = null
+
+    /**
+     * The effect actually altering samples right now ("Stereo Spatialization", "Widen"), or null while the
+     * audio passes through untouched. Written on the audio thread per block; the audible sink publishes it so
+     * the Audio Pipeline readout reports what is happening rather than what is switched on.
+     */
+    @Volatile
+    var activeEffect: String? = null
+        private set
+
+    /** Why the effect is switched on but leaving the samples untouched (not stereo, no responses at this rate). */
+    @Volatile
+    var bypassReason: String? = null
+        private set
+
     /** The delay both effects share while on: the spatializer's latency at this rate, 0 where it cannot run. */
     private var alignFrames = 0
     private var align = FloatArray(0)
@@ -129,6 +152,7 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         if (!sameFormat) {
             spatializer = null
             spatializerUnavailable = false
+            unsupportedReason = null
         }
         val stereo = channelCount == 2 && sampleRate > 0
         alignFrames = if (stereo && sampleRate in SpeakerResponseStore.MIN_RATE..SpeakerResponseStore.MAX_RATE) {
@@ -151,7 +175,13 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
      */
     fun process(block: AudioBlock) {
         val frames = block.frameCount
-        if (frames == 0 || block.channelCount != 2 || channelCount != 2 || sampleRate <= 0) return
+        if (frames == 0) return
+        if (block.channelCount != 2 || channelCount != 2 || sampleRate <= 0) {
+            // Mono voice notes and multichannel files pass through bit for bit; there is no stereo image to act on.
+            activeEffect = null
+            bypassReason = if (enabled) NOT_STEREO else null
+            return
+        }
 
         val want = wantedPath()
         if (fresh) {
@@ -163,6 +193,12 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         } else if (want != target) {
             switchTo(want)
         }
+        activeEffect = when {
+            heard == Path.SPATIALIZE || target == Path.SPATIALIZE -> SpatialEffect.SPATIALIZE
+            heard == Path.WIDEN || target == Path.WIDEN -> SpatialEffect.WIDEN
+            else -> null
+        }
+        bypassReason = if (activeEffect == null && enabled && mode == SpatialMode.SPATIALIZE) unsupportedReason else null
         // Off and settled: the block leaves untouched, not multiplied through by unity.
         if (heard == Path.DRY && target == Path.DRY) return
 
@@ -214,10 +250,27 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
         return latencyOf(if (switching) target else heard)
     }
 
+    /** [latencyFrames] in microseconds at the configured rate. */
+    fun latencyUs(): Long = if (sampleRate > 0) latencyFrames().toLong() * 1_000_000L / sampleRate else 0L
+
+    /**
+     * The delay this processor will add once it is running with the current settings and format, in
+     * microseconds. Unlike [latencyUs] it is already known right after a seek or flush, before the first block:
+     * what a caller needs to line a freshly seeked player up with one that is already playing.
+     */
+    fun expectedLatencyUs(): Long {
+        if (!enabled || channelCount != 2 || sampleRate <= 0) return 0L
+        if (mode == SpatialMode.SPATIALIZE && spatializerUnavailable) return 0L
+        return alignFrames.toLong() * 1_000_000L / sampleRate
+    }
+
     private fun wantedPath(): Path = when {
         !enabled -> Path.DRY
-        mode == SpatialMode.SPATIALIZE && activeSpatializer() != null -> Path.SPATIALIZE
-        else -> Path.WIDEN
+        mode == SpatialMode.WIDEN -> Path.WIDEN
+        activeSpatializer() != null -> Path.SPATIALIZE
+        // No responses at this rate (outside what they cover, or they failed to load): leave the samples exactly
+        // as they are rather than quietly running a different effect; [bypassReason] says why.
+        else -> Path.DRY
     }
 
     private fun sampleOf(path: Path, dry: FloatArray, index: Int): Float = when (path) {
@@ -262,10 +315,15 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
 
     private fun activeSpatializer(): StereoSpatializer? {
         spatializer?.let { return it }
-        if (spatializerUnavailable || alignFrames == 0) return null
-        val responses = SpeakerResponseStore.forRate(sampleRate)
+        if (spatializerUnavailable) return null
+        val responses = if (alignFrames == 0) null else SpeakerResponseStore.forRate(sampleRate)
         if (responses == null) {
             spatializerUnavailable = true
+            unsupportedReason = if (alignFrames == 0) {
+                "no speaker responses at %.1f kHz".format(java.util.Locale.ROOT, sampleRate / 1000.0)
+            } else {
+                "speaker responses unavailable"
+            }
             return null
         }
         return StereoSpatializer(sampleRate, responses).also { spatializer = it }
@@ -371,6 +429,9 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     override fun onReset() {
         spatializer = null
         spatializerUnavailable = false
+        unsupportedReason = null
+        activeEffect = null
+        bypassReason = null
         fresh = true
         heard = Path.DRY
         target = Path.DRY
@@ -447,16 +508,18 @@ class SpatialAudioProcessor : BaseAudioProcessor() {
     }
 
     private companion object {
-        const val BYTES_PER_FRAME = 4 // stereo, 16-bit
-        const val DELAY_MS = 15
+        private const val BYTES_PER_FRAME = 4 // stereo, 16-bit
+        private const val DELAY_MS = 15
 
         /** Crossfade between Widen and Spatialize (same latency, aligned): long enough to be a smooth morph. */
-        const val ALIGNED_FADE_MS = 60
+        private const val ALIGNED_FADE_MS = 60
 
         /** Crossfade when the effect turns on or off: short, as the two sides are ~50 ms apart in time. */
-        const val SHIFTING_FADE_MS = 20
+        private const val SHIFTING_FADE_MS = 20
 
         /** Hops the spatializer runs before it is faded in, so its steering has settled (~130 ms at 48 kHz). */
-        const val SPATIALIZE_WARMUP_HOPS = 6
+        private const val SPATIALIZE_WARMUP_HOPS = 6
+
+        private const val NOT_STEREO = "not stereo"
     }
 }

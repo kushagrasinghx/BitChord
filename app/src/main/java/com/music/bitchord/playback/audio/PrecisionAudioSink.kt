@@ -130,6 +130,16 @@ class PrecisionAudioSink(
      */
     private var drainFramesRemaining: Int = -1
 
+    /** Length of the drain in progress, and how many of its last frames fade out (only a reconfiguration's do). */
+    private var drainTotalFrames: Int = 0
+    private var drainFadeFrames: Int = 0
+
+    /**
+     * A configuration for a new sample rate or channel count, held back while the DSP chain still owes output for
+     * the stream before it; see [configure].
+     */
+    private var pendingConfig: AudioSink.AudioSinkConfig? = null
+
     /** Presentation time just past the last frame written, where drained frames continue from. */
     private var emittedEndTimeUs: Long = C.TIME_UNSET
 
@@ -142,6 +152,27 @@ class PrecisionAudioSink(
     private var inputEndTimeUs: Long = C.TIME_UNSET
 
     override fun configure(audioSinkConfig: AudioSink.AudioSinkConfig) {
+        // A new sample rate or channel count resets the DSP chain, and with spatial audio on the chain is still
+        // holding the end of the previous stream (the effect's ~50 ms delay, then its room). Resetting now would
+        // cut that off, so the configuration is held back, as DefaultAudioSink holds its own, and the next
+        // handleBuffer plays the held audio out in the old format first. Nothing is held while no stage owes
+        // output, so a bit-exact stream reconfigures at once, exactly as before.
+        if (pendingConfig != null) {
+            pendingConfig = audioSinkConfig
+            return
+        }
+        val current = activeFormat
+        val format = audioSinkConfig.format
+        if (isPrecisionActive && current != null && dspChain.tailFrames() > 0 &&
+            (format.sampleRate != current.sampleRate || format.channelCount != current.channelCount)
+        ) {
+            pendingConfig = audioSinkConfig
+            return
+        }
+        applyConfiguration(audioSinkConfig)
+    }
+
+    private fun applyConfiguration(audioSinkConfig: AudioSink.AudioSinkConfig) {
         val format = audioSinkConfig.format
         activeFormat = format
 
@@ -274,6 +305,15 @@ class PrecisionAudioSink(
         if (!isPrecisionActive) {
             return delegate.handleBuffer(inputBuffer, presentationTimeUs, encodedAccessUnitCount)
         }
+        pendingConfig?.let { config ->
+            // This buffer is already in the new format: first finish the old stream, then switch.
+            if (!finishStreamForReconfiguration()) return false
+            pendingConfig = null
+            applyConfiguration(config)
+            if (!isPrecisionActive) {
+                return delegate.handleBuffer(inputBuffer, presentationTimeUs, encodedAccessUnitCount)
+            }
+        }
 
         val inEncoding = inputPcmEncoding ?: return delegate.handleBuffer(
             inputBuffer,
@@ -346,6 +386,7 @@ class PrecisionAudioSink(
 
             // Process normalized Float32 samples through custom DSP chain
             dspChain.process(audioBlock)
+            if (isAudible()) AudioOutputStatus.publishSpatial(dspChain.spatial.activeEffect, dspChain.spatial.bypassReason)
 
             // Encode processed samples to target PCM output buffer (Float32 or PCM16)
             outputByteBuffer.clear()
@@ -397,6 +438,11 @@ class PrecisionAudioSink(
     }
 
     override fun flush() {
+        // A seek abandons whatever was being played out, but a held configuration still has to take effect.
+        pendingConfig?.let {
+            pendingConfig = null
+            applyConfiguration(it)
+        }
         drainFramesRemaining = -1
         emittedEndTimeUs = C.TIME_UNSET
         inputStartTimeUs = C.TIME_UNSET
@@ -415,6 +461,7 @@ class PrecisionAudioSink(
     }
 
     override fun reset() {
+        pendingConfig = null
         drainFramesRemaining = -1
         emittedEndTimeUs = C.TIME_UNSET
         inputStartTimeUs = C.TIME_UNSET
@@ -442,6 +489,7 @@ class PrecisionAudioSink(
                 dspFormat = "Float32",
                 dspAvailable = true,
             )
+            AudioOutputStatus.publishSpatial(effect = null, bypass = null)
         }
         delegate.reset()
     }
@@ -457,6 +505,10 @@ class PrecisionAudioSink(
                 if (!consumed || outputByteBuffer.hasRemaining()) return
             }
             if (!drainTail()) return
+            pendingConfig?.let {
+                pendingConfig = null
+                applyConfiguration(it)
+            }
         } else if (outputByteBuffer.hasRemaining()) {
             delegate.handleBuffer(outputByteBuffer, pendingPresentationTimeUs, pendingAccessUnitCount)
         }
@@ -464,18 +516,47 @@ class PrecisionAudioSink(
     }
 
     /**
-     * Pushes the chain's tail (see [drainFramesRemaining]) through to the delegate as silence-in, audio-out.
-     * Returns false while the delegate is still applying backpressure; call again on the next render loop.
+     * Before a held configuration takes effect: plays out the chain's delay (the last ~50 ms of the old stream's
+     * music) and [RECONFIGURE_FADE_MS] of its room, faded. Kept short on purpose: the new stream's first buffer
+     * is stamped where the old one ended, and DefaultAudioSink treats a jump of 200 ms or more as a discontinuity.
      */
-    private fun drainTail(): Boolean {
+    private fun finishStreamForReconfiguration(): Boolean {
+        if (outputByteBuffer.hasRemaining()) {
+            val consumed = delegate.handleBuffer(outputByteBuffer, pendingPresentationTimeUs, pendingAccessUnitCount)
+            if (!consumed || outputByteBuffer.hasRemaining()) return false
+        }
+        val fade = RECONFIGURE_FADE_MS * configuredSampleRate / 1000
+        return drainTail(minOf(dspChain.tailFrames(), dspChain.latencyFrames() + fade), fade)
+    }
+
+    /**
+     * Pushes the chain's tail (see [drainFramesRemaining]) through to the delegate as silence-in, audio-out,
+     * [totalFrames] of it with the last [fadeFrames] faded out. Returns false while the delegate is still applying
+     * backpressure; call again on the next render loop.
+     */
+    private fun drainTail(totalFrames: Int = dspChain.tailFrames(), fadeFrames: Int = 0): Boolean {
         val outEncoding = targetOutputEncoding ?: return true
-        if (drainFramesRemaining < 0) drainFramesRemaining = dspChain.tailFrames()
+        if (drainFramesRemaining < 0) {
+            drainFramesRemaining = totalFrames
+            drainTotalFrames = totalFrames
+            drainFadeFrames = minOf(fadeFrames, totalFrames)
+        }
         val channels = audioBlock.channelCount
         while (drainFramesRemaining > 0) {
             val frames = minOf(drainFramesRemaining, audioBlock.capacityFrames)
             audioBlock.reset(frames)
             java.util.Arrays.fill(audioBlock.samples, 0, frames * channels, 0f)
             dspChain.process(audioBlock)
+            if (drainFadeFrames > 0) {
+                val written = drainTotalFrames - drainFramesRemaining
+                val fadeStart = drainTotalFrames - drainFadeFrames
+                for (i in 0 until frames) {
+                    val left = drainTotalFrames - (written + i)
+                    if (written + i < fadeStart) continue
+                    val gain = (0.5 - 0.5 * kotlin.math.cos(Math.PI * left / drainFadeFrames)).toFloat()
+                    for (c in 0 until channels) audioBlock.samples[i * channels + c] *= gain
+                }
+            }
             outputByteBuffer.clear()
             PcmBoundary.encode(
                 sourceBlock = audioBlock,
@@ -513,14 +594,14 @@ class PrecisionAudioSink(
     }
 
     override fun isEnded(): Boolean {
-        if (isPrecisionActive && (outputByteBuffer.hasRemaining() || drainFramesRemaining > 0)) {
+        if (isPrecisionActive && (outputByteBuffer.hasRemaining() || drainFramesRemaining > 0 || pendingConfig != null)) {
             return false
         }
         return delegate.isEnded()
     }
 
     override fun hasPendingData(): Boolean {
-        if (isPrecisionActive && (outputByteBuffer.hasRemaining() || drainFramesRemaining > 0)) {
+        if (isPrecisionActive && (outputByteBuffer.hasRemaining() || drainFramesRemaining > 0 || pendingConfig != null)) {
             return true
         }
         return delegate.hasPendingData()
@@ -712,6 +793,9 @@ class PrecisionAudioSink(
     companion object {
         private const val TAG = "PrecisionAudioSink"
         const val DEFAULT_CAPACITY_FRAMES: Int = 4096
+
+        /** How much of the room is played out, fading, before a held reconfiguration; see [finishStreamForReconfiguration]. */
+        private const val RECONFIGURE_FADE_MS = 100
 
         /**
          * Widest channel layout the precision path will take on. Eight covers

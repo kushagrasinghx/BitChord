@@ -20,7 +20,10 @@ stereo ──► upmixer (STFT, 2 → 5.1: L R C LFE Ls Rs) ──► 6 × 2 con
 **Latency.** Output lags input by ≈ 2 hops + 5 ms, about 48 ms at 44.1/48 kHz. `PrecisionAudioSink` reports the
 position that is audible (that much behind the frames played), so synced lyrics and PartySync stay in time. At end
 of stream the sink pushes that much silence plus the room tail through the chain (`PrecisionAudioSink.drainTail`),
-so track endings are not cut. Gapless tracks in the same format keep the spatializer running across the boundary.
+so track endings are not cut. Gapless tracks in the same format keep the spatializer running across the boundary; when
+the next track changes sample rate or channel count, the sink holds the new configuration back until it has played
+out the delayed end of the old track and 100 ms of its room, faded, as `DefaultAudioSink` does with its own
+processors. A version swap seeks the incoming player ahead by the same delay, so both versions line up in the fade.
 
 **Switching.** While spatial audio is on, Widen runs with the same delay as Spatialize, so switching between them is
 a 60 ms crossfade between time-aligned signals; the incoming effect is started first and only faded in once it is
@@ -36,6 +39,29 @@ are prepared at service start, off the audio thread. Other rates from 22.05 to 1
 matching family, with a polyphase windowed-sinc that keeps each response's level and frequency response, and
 cached. Above 48 kHz the STFT frame doubles per octave, so its time and frequency resolution stays the same.
 
+## Bit-perfect and lossless
+
+Stereo Spatialization is an effect, so while it runs the output is new samples by definition. What it guarantees:
+
+* **Off means untouched.** With spatial audio off, the spatial stage returns before reading a sample, adds no latency
+  and no end-of-stream audio, and the sink hands the delegate the decoder's own bytes (16-bit stays 16-bit, 24-bit
+  travels exactly as float). When it has nothing to act on, the same holds with it switched on: mono and
+  multichannel files, rates it has no responses for (outside 22.05–192 kHz, e.g. 352.8/384 kHz DXD), Dolby Atmos
+  tracks, and after it is switched off (once its 20 ms crossfade has run). `PrecisionAudioSinkTest` asserts this
+  on the bytes handed to the delegate.
+* **The readout says what is happening.** The Audio Pipeline dialog's bit-exact verdict and stereo row come from
+  what the spatial stage is actually doing to the playing track, published live by the audible sink
+  (`AudioOutputStatus.spatialEffect` / `spatialBypass`), not from the setting: "No — Stereo Spatialization"
+  only while it is altering samples, and "100% (not stereo)" or "100% (no speaker responses at 352.8 kHz)" when
+  it is on but passing audio through.
+* **Native rate, full precision.** Audio is never resampled: the spatializer runs at the stream's own rate
+  (hi-res 88.2–192 kHz included, with the responses resampled once, level-exact), on Float32 blocks like the rest
+  of the chain. The convolution runs in double precision; measured against exact double-precision convolution its
+  error is the Float32 rounding of its own output (≈ -150 dB below the signal; Float32 transforms left ≈ -147
+  dBFS RMS and -130 dBFS peaks). The upmixer is Float32 by design.
+* **Output format is the listener's.** The effect never changes the output encoding; with float output the
+  spatialized signal reaches AudioTrack as Float32, with 16-bit output it is quantized like any other DSP stage's.
+
 **Tests.** `StereoSpatializerTest` checks:
 
 * the full chain on a deterministic signal, fed in awkward block sizes, against expected output computed offline by
@@ -46,9 +72,11 @@ cached. Above 48 kHz the STFT frame doubles per octave, so its time and frequenc
 * that switching effects and turning them on and off never jumps from one sample to the next, and the reported
   latency follows;
 * that a NaN or infinite input sample does not silence the spatializer;
-* the FFT, the limiter and the end-of-stream tail.
+* that the convolver matches exact double-precision convolution to better than -140 dB;
+* the FFT (Float32 and double), the limiter and the end-of-stream tail.
 
-`PrecisionAudioSinkTest` covers the end-of-stream drain, including under backpressure, and the audible position.
+`PrecisionAudioSinkTest` covers the end-of-stream drain (including under backpressure), the audible position, bit-exact
+output whenever spatial audio has nothing to do, and holding a sample-rate change until the held audio has played.
 
 ## Credits
 

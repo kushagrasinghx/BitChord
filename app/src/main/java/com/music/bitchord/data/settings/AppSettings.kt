@@ -258,12 +258,93 @@ object AppSettings {
     val wifiOnlyDownloads = MutableStateFlow(true)
 
     /**
+     * Whether the background pass may spend mobile data.
+     *
+     * Deliberately a different switch from [wifiOnlyDownloads] rather than one
+     * shared flag: they are two different bills. [wifiOnlyDownloads] answers
+     * for a tap somebody is watching and can undo by waiting for Wi-Fi; this
+     * answers for work happening behind them, where the only sign a plan was
+     * spent is the invoice. Turning this on while [wifiOnlyDownloads] stays on
+     * is a perfectly ordinary configuration — "let it top itself up on data,
+     * but never make me wait for a download I asked for".
+     *
+     * Off by default, and the WorkManager request is rebuilt whenever it
+     * changes — see [SmartDownloads.schedule][com.music.bitchord.download.SmartDownloads.schedule],
+     * whose network constraint is read from here.
+     */
+    val smartDownloadsCellular = MutableStateFlow(false)
+
+    /**
      * Keep ordinary downloads in Music/BitChord where other music apps can see
      * them. Off (the default) keeps downloads in this app's private storage.
      * HLS downloads always stay private because they are a playlist package,
      * not one portable audio file.
      */
     val exportDownloads = MutableStateFlow(false)
+
+    /**
+     * Keep the listener's own library offline without being asked for it.
+     *
+     * The switch below is the head of four that only make sense together, so
+     * they are read and written as a group: [smartDownloads] says whether any
+     * of it runs, [smartDownloadsPlaylists] says what else besides liked
+     * tracks, and the two limits say how much. Off by default — a feature that
+     * spends storage and starts work in the background is not something to
+     * have turned on for somebody who has just installed the app.
+     */
+    val smartDownloads = MutableStateFlow(false)
+
+    /**
+     * Keep library playlists offline too, not only what was liked.
+     *
+     * A separate switch rather than part of the master one because it is the
+     * difference between a handful of new singles and a back catalogue: it
+     * costs one browse request per playlist on every run, which is a very
+     * different bill for somebody with ten playlists than for somebody with
+     * three.
+     */
+    val smartDownloadsPlaylists = MutableStateFlow(false)
+
+    /**
+     * The most tracks one automatic run may queue, refilled daily.
+     *
+     * Counted by day rather than by run because the run happens as often as
+     * the network happens to allow — a cap per run would mean a device that
+     * found Wi-Fi four times downloaded four times as much as one that found
+     * it once, which is a rule about the radio rather than about anything the
+     * listener chose.
+     */
+    val smartDownloadsDailyLimit = MutableStateFlow(DEFAULT_SMART_DAILY_LIMIT)
+
+    /**
+     * How many automatically downloaded tracks are kept on disk at once.
+     *
+     * The whole feature's shape: fetch a few new ones a day, and drop the
+     * oldest automatic ones past this many so the folder stops growing without
+     * limit. Only tracks the feature downloaded itself are ever dropped — a
+     * file somebody tapped to download is theirs to keep, and this has no way
+     * of knowing they meant it differently.
+     */
+    val smartDownloadsKeep = MutableStateFlow(DEFAULT_SMART_KEEP)
+
+    /** Slider bounds for [smartDownloadsDailyLimit], in tracks. */
+    const val SMART_DAILY_LIMIT_MIN = 5
+    const val SMART_DAILY_LIMIT_MAX = 100
+
+    /** Slider bounds for [smartDownloadsKeep], in tracks. */
+    const val SMART_KEEP_MIN = 50
+    const val SMART_KEEP_MAX = 1000
+
+    /**
+     * The most [smartDownloadsKeep] will store, however it was entered.
+     *
+     * [SMART_KEEP_MAX] is where the *slider* runs out, which is a UI decision —
+     * a drag that had to cross ten thousand would be useless for reaching
+     * three hundred. This is the value's own ceiling, reachable only by typing
+     * it into the row's editor, and it exists because a phone with a hundred
+     * gigabytes of music is not hypothetical.
+     */
+    const val SMART_KEEP_CEILING = 10_000
 
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
@@ -777,6 +858,17 @@ object AppSettings {
     val downloadsAllowedNow: Boolean
         get() = !wifiOnlyDownloads.value || meteredConnection.value != true
 
+    /**
+     * Whether the background pass may start on the connection in hand.
+     *
+     * Split from [downloadsAllowedNow] because the two switches are allowed to
+     * disagree, and the whole point of them disagreeing is that each download
+     * path asks its own question. A null [meteredConnection] is let through for
+     * the same reason it is there: offline is not a Wi-Fi setting's failure.
+     */
+    val downloadsAllowedForBackground: Boolean
+        get() = smartDownloadsCellular.value || meteredConnection.value != true
+
     fun init(context: Context) {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
         authStore = AuthStore(context)
@@ -811,7 +903,18 @@ object AppSettings {
         migrateDownloadQuality()
         downloadQuality.value = readDownloadQuality()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
+        smartDownloadsCellular.value = prefs.getBoolean(KEY_SMART_DOWNLOADS_CELLULAR, false)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
+        smartDownloads.value = prefs.getBoolean(KEY_SMART_DOWNLOADS, false)
+        smartDownloadsPlaylists.value = prefs.getBoolean(KEY_SMART_DOWNLOADS_PLAYLISTS, false)
+        smartDownloadsDailyLimit.value = prefs.getInt(
+            KEY_SMART_DOWNLOADS_DAILY_LIMIT,
+            DEFAULT_SMART_DAILY_LIMIT,
+        ).coerceIn(SMART_DAILY_LIMIT_MIN, SMART_DAILY_LIMIT_MAX)
+        smartDownloadsKeep.value = prefs.getInt(
+            KEY_SMART_DOWNLOADS_KEEP,
+            DEFAULT_SMART_KEEP,
+        ).coerceIn(SMART_KEEP_MIN, SMART_KEEP_CEILING)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixPerformanceMode.value = runCatching {
@@ -1094,6 +1197,33 @@ object AppSettings {
     fun setWifiOnlyDownloads(value: Boolean) {
         wifiOnlyDownloads.value = value
         prefs.edit().putBoolean(KEY_WIFI_ONLY_DOWNLOADS, value).apply()
+    }
+
+    fun setSmartDownloadsCellular(value: Boolean) {
+        smartDownloadsCellular.value = value
+        prefs.edit().putBoolean(KEY_SMART_DOWNLOADS_CELLULAR, value).apply()
+    }
+
+    fun setSmartDownloads(value: Boolean) {
+        smartDownloads.value = value
+        prefs.edit().putBoolean(KEY_SMART_DOWNLOADS, value).apply()
+    }
+
+    fun setSmartDownloadsPlaylists(value: Boolean) {
+        smartDownloadsPlaylists.value = value
+        prefs.edit().putBoolean(KEY_SMART_DOWNLOADS_PLAYLISTS, value).apply()
+    }
+
+    fun setSmartDownloadsDailyLimit(value: Int) {
+        val normalized = value.coerceIn(SMART_DAILY_LIMIT_MIN, SMART_DAILY_LIMIT_MAX)
+        smartDownloadsDailyLimit.value = normalized
+        prefs.edit().putInt(KEY_SMART_DOWNLOADS_DAILY_LIMIT, normalized).apply()
+    }
+
+    fun setSmartDownloadsKeep(value: Int) {
+        val normalized = value.coerceIn(SMART_KEEP_MIN, SMART_KEEP_CEILING)
+        smartDownloadsKeep.value = normalized
+        prefs.edit().putInt(KEY_SMART_DOWNLOADS_KEEP, normalized).apply()
     }
 
     fun setCrossfadeSeconds(value: Int) {
@@ -1928,6 +2058,14 @@ object AppSettings {
     private const val KEY_UPGRADE_LENGTH_SLACK_SECONDS = "upgrade_length_slack_seconds"
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
+    private const val KEY_SMART_DOWNLOADS = "smart_downloads"
+    private const val KEY_SMART_DOWNLOADS_CELLULAR = "smart_downloads_cellular"
+    private const val KEY_SMART_DOWNLOADS_PLAYLISTS = "smart_downloads_playlists"
+    private const val KEY_SMART_DOWNLOADS_DAILY_LIMIT = "smart_downloads_daily_limit"
+    private const val KEY_SMART_DOWNLOADS_KEEP = "smart_downloads_keep"
+
+    private const val DEFAULT_SMART_DAILY_LIMIT = 20
+    private const val DEFAULT_SMART_KEEP = 300
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"

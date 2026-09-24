@@ -45,6 +45,7 @@ import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
+import com.music.bitchord.data.offline.RatingOutbox
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.download.Downloads
 import android.util.LruCache
@@ -581,7 +582,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (unliked) forgetFromLibrary(videoId)
                 },
                 onFailure = {
-                    LikeState.set(videoId, previous)
+                    // Two different kinds of "no", and only one of them is
+                    // YouTube's opinion. The request that never left the
+                    // device has not been refused by anything — taking the
+                    // heart back for that would be reporting a failure to
+                    // somebody who never heard the question, and they cannot
+                    // tell the difference on screen. Keep it, queue it, and
+                    // send it when a connection returns.
+                    if (RatingOutbox.isOffline()) {
+                        RatingOutbox.enqueue(videoId, status, previous)
+                    } else {
+                        LikeState.set(videoId, previous)
+                    }
                 },
             )
         }
@@ -1224,6 +1236,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (_detailStack.value.any { page -> page.browseId == "local:all" }) {
                     reloadLocalDetail("local:all")
                 }
+            }
+        }
+        viewModelScope.launch {
+            // A like queued while the phone was offline arrives here, often
+            // long after the screen that tapped it is gone — so the rest of
+            // what a rating means is applied at delivery, not at the tap. The
+            // tap itself only ever had to move the heart.
+            RatingOutbox.delivered.collect { delivery ->
+                val status = delivery.statusEnum
+                val unliked = delivery.previousEnum == LikeStatus.LIKE &&
+                    status == LikeStatus.INDIFFERENT
+                libraryStale = true
+                if (status != LikeStatus.LIKE) dropFromLikedLists(delivery.videoId)
+                if (unliked) forgetFromLibrary(delivery.videoId)
             }
         }
         viewModelScope.launch {

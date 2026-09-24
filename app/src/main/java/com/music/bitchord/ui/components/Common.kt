@@ -8,6 +8,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -292,6 +294,15 @@ fun SongRow(
     onMore: (() -> Unit)? = null,
     onSwipeToQueue: (() -> Unit)? = null,
     /**
+     * Whether this row is in Liked Music, and what tapping a heart does about
+     * it. Both null-able together: null hides the heart, which is every page
+     * except Downloads — everywhere else the ⋮ opens an actions sheet that
+     * already offers it, and a second copy of the same control is a second
+     * place to mis-tap rather than a shortcut.
+     */
+    liked: Boolean = false,
+    onToggleLike: (() -> Unit)? = null,
+    /**
      * What the row paints over the swipe reveal as it slides back.
      *
      * It has to be the colour of the page the row is *on*, not the theme's
@@ -368,6 +379,8 @@ fun SongRow(
             isPlaying = isPlaying,
             activeTint = activeTint,
             selected = selected,
+            liked = liked,
+            onToggleLike = onToggleLike,
         )
         return
     }
@@ -414,6 +427,8 @@ fun SongRow(
             isPlaying = isPlaying,
             activeTint = activeTint,
             selected = selected,
+            liked = liked,
+            onToggleLike = onToggleLike,
         )
     }
 }
@@ -480,6 +495,8 @@ private fun SongRowContent(
     isPlaying: Boolean = false,
     activeTint: Color = MaterialTheme.colorScheme.primary,
     selected: Boolean = false,
+    liked: Boolean = false,
+    onToggleLike: (() -> Unit)? = null,
 ) {
     val titleColor by animateColorAsState(
         targetValue = if (isCurrent) activeTint else MaterialTheme.colorScheme.onBackground,
@@ -575,7 +592,32 @@ private fun SongRowContent(
                 color = subtitleColor,
             )
         }
-        // Same sheet the long-press opens, for anyone who doesn't think to hold.
+        // The heart, then the sheet the long-press opens — for anyone who
+        // doesn't think to hold. Kept independent: either is complete alone.
+        if (onToggleLike != null) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onToggleLike),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    // The colour says it to somebody looking; the words
+                    // only have to exist for a screen reader, which
+                    // cannot see pink.
+                    contentDescription = stringResource(R.string.like),
+                    modifier = Modifier.size(20.dp),
+                    tint = if (liked) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+        }
         if (onMore != null) {
             Box(
                 modifier = Modifier

@@ -2706,6 +2706,7 @@ private fun BitChordApp(
                                 } else {
                                     null
                                 },
+                            onToggleLike = { song -> viewModel.toggleLike(song.videoId) },
                             onSongClick = { songs, index ->
                                 playFrom(
                                     songs,

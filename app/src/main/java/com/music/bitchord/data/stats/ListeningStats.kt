@@ -314,6 +314,39 @@ object ListeningStats {
         }.sorted()
     }
 
+    /**
+     * When each of [ids] was last played, as epoch millis. Ids nothing is
+     * known about are left out of the result rather than given a zero.
+     *
+     * Every month rather than the current one, because "when did I last hear
+     * this" is most often answered by a file from months ago, and because the
+     * caller cannot know which month each id fell in. The open bucket is read
+     * too, so a track played seconds ago does not look older than one played
+     * last week just because the current month has not been flushed yet.
+     *
+     * Pruned months contribute nothing, and the caller is expected to read
+     * that as "never" — see the eviction order in
+     * [com.music.bitchord.download.SmartDownloads.trim]. Filesystem only: no
+     * network, no queue, one pass over a handful of small JSON files.
+     */
+    suspend fun lastPlayedAt(ids: Collection<String>): Map<String, Long> = withContext(Dispatchers.IO) {
+        if (!ready || ids.isEmpty()) return@withContext emptyMap()
+        val wanted = ids.toHashSet()
+        val found = HashMap<String, Long>(wanted.size)
+        synchronized(lock) {
+            val buckets = months().mapNotNull { read(it.toString()) } +
+                (open?.snapshot()?.let { listOf(it) } ?: emptyList())
+            buckets.forEach { bucket ->
+                bucket.tracks.forEach { track ->
+                    if (track.id in wanted && track.last > found.getOrDefault(track.id, 0L)) {
+                        found[track.id] = track.last
+                    }
+                }
+            }
+        }
+        found
+    }
+
     private fun read(key: String): StoredBucket? {
         val file = File(directory, "$key.json")
         if (!file.exists()) return null

@@ -75,6 +75,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.offline.RatingOutbox
 import com.music.bitchord.data.lyrics.EmbeddedLyrics
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsRepository
@@ -2463,6 +2464,14 @@ class PlaybackService : MediaLibraryService() {
         favoriteActionJob = scope.launch {
             YtMusicRepository.rate(videoId, target)
                 .onFailure {
+                    // The network never carried it, so nobody has refused
+                    // anything — the heart stays where the finger put it and
+                    // the outbox sends it when a connection returns. Only a
+                    // real answer from YouTube gets to take it back.
+                    if (RatingOutbox.isOffline()) {
+                        RatingOutbox.enqueue(videoId, target, previous)
+                        return@onFailure
+                    }
                     LikeState.set(videoId, previous)
                     refreshCustomLayouts()
                     TrackLog.w("BitChord", "notification favorite failed: ${it.message}", about = videoId)

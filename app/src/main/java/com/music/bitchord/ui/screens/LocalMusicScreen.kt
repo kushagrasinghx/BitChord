@@ -91,9 +91,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.model.CARD_ART_PX
-import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.R
@@ -109,6 +107,7 @@ import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SongRow
+import com.music.bitchord.ui.components.rememberLikedIds
 import com.music.bitchord.ui.components.rememberRemoteArtworkUrl
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.TopBarContentGap
@@ -191,13 +190,12 @@ fun LocalMusicScreen(
     /** Copies the selected Downloads rows to the WebDAV server; null hides the action. */
     onUploadToWebDav: ((List<Song>) -> Unit)? = null,
     /**
-     * Toggles the heart on a Downloads row; null hides the heart.
+     * Toggles the heart on a row; null hides the heart.
      *
-     * Downloads only, and only because that is the one list where a track
-     * nobody chose personally sits next to one somebody did — a heart there
-     * answers "is this in my Liked Music" for the row you are actually
-     * looking at, where the same heart on every other page has a ⋮ that
-     * already does it.
+     * A plain part of the row rather than something only one folder of this
+     * screen gets: it answers "is this in my Liked Music" for the row in front
+     * of you, downloaded or not, and the ⋮ carries the same rating for anyone
+     * who reaches for a menu instead.
      */
     onToggleLike: ((Song) -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -287,10 +285,7 @@ fun LocalMusicScreen(
     // row, so it has to be a set the row can ask in O(1) rather than a status
     // lookup across the whole library. Nothing here re-reads YouTube — a heart
     // changed on the phone stays changed until the app reloads the library.
-    val likeOverrides by LikeState.overrides.collectAsStateWithLifecycle()
-    val likedIds = remember(likeOverrides) {
-        likeOverrides.filterValues { it == LikeStatus.LIKE }.keys
-    }
+    val likedIds = rememberLikedIds()
 
     val leaveDrillDown = {
         drillDownLabel = null
@@ -460,6 +455,8 @@ fun LocalMusicScreen(
                         selectedIds = selectedDownloadIds,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
+                        likedIds = likedIds,
+                        onToggleLike = onToggleLike,
                         onSongClick = { tracks, index ->
                             val song = tracks[index]
                             if (selectingDownloads) toggleDownloadSelection(song) else onSongClick(tracks, index)
@@ -507,8 +504,8 @@ fun LocalMusicScreen(
                         // carry the actions sheet itself or the page loses it.
                         onSongMore = onSongLongPress,
                         onSongSwipe = onSongSwipe,
-                        likedIds = if (isDownloads) likedIds else emptySet(),
-                        onToggleLike = if (isDownloads) onToggleLike else null,
+                        likedIds = likedIds,
+                        onToggleLike = onToggleLike,
                         contentPadding = bodyContentPadding,
                     )
                 }
@@ -1420,11 +1417,14 @@ private fun DrillDownSongList(
     selectedIds: Set<String> = emptySet(),
     currentSong: Song? = null,
     isPlaying: Boolean = false,
+    /** Which of these rows are already in Liked Music; empty hides the hearts. */
+    likedIds: Set<String> = emptySet(),
     onSongClick: (List<Song>, Int) -> Unit,
     onSongLongPress: (Song) -> Unit,
     /** The row's ⋮, where holding it does something else — see [SongRow]. */
     onSongMore: ((Song) -> Unit)? = null,
     onSongSwipe: (Song) -> Unit,
+    onToggleLike: ((Song) -> Unit)? = null,
     onShuffle: (List<Song>) -> Unit,
     /** The ⋮ in the header, acting on the whole artist or album. */
     onMore: (() -> Unit)?,
@@ -1506,6 +1506,8 @@ private fun DrillDownSongList(
                     onLongPress = { onSongLongPress(song) },
                     onMore = onSongMore?.let { more -> { more(song) } },
                     onSwipeToQueue = { onSongSwipe(song) },
+                    liked = song.videoId in likedIds,
+                    onToggleLike = onToggleLike?.let { toggle -> { toggle(song) } },
                 )
                 if (index < songs.lastIndex) {
                     HorizontalDivider(

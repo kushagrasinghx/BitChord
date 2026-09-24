@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.haptics.Haptic
@@ -76,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
@@ -269,6 +271,19 @@ fun libraryGrid(available: Dp): LibraryGridSpec {
 }
 
 /**
+ * Which of the app's tracks are in Liked Music right now, as a set of ids.
+ *
+ * One read of [LikeState], shared by every list that draws a heart: a row has
+ * to know its own state the moment it is composed, and asking the network per
+ * page would put a round trip in front of every list in the app.
+ */
+@Composable
+fun rememberLikedIds(): Set<String> {
+    val overrides by LikeState.overrides.collectAsStateWithLifecycle()
+    return remember(overrides) { overrides.filterValues { it == LikeStatus.LIKE }.keys }
+}
+
+/**
  * One track row, used by search, library and detail pages.
  *
  * Swiping it either way queues the track or plays it next, per
@@ -295,10 +310,12 @@ fun SongRow(
     onSwipeToQueue: (() -> Unit)? = null,
     /**
      * Whether this row is in Liked Music, and what tapping a heart does about
-     * it. Both null-able together: null hides the heart, which is every page
-     * except Downloads — everywhere else the ⋮ opens an actions sheet that
-     * already offers it, and a second copy of the same control is a second
-     * place to mis-tap rather than a shortcut.
+     * it. Both nullable together: null hides the heart, which is the answer
+     * only for rows too narrow to carry one (the compact and typeahead rows).
+     *
+     * [rememberLikedIds] is where [liked] comes from; the ⋮ still opens the
+     * actions sheet that offers the same rating twice over, because the heart
+     * is there to be tapped without hunting for a menu.
      */
     liked: Boolean = false,
     onToggleLike: (() -> Unit)? = null,

@@ -2534,6 +2534,7 @@ private fun BitChordApp(
                             },
                             onSongLongPress = { songActions = it },
                             onSongSwipe = onSongSwipe,
+                            onToggleLike = { song -> viewModel.toggleLike(song.videoId) },
                             onRetry = viewModel::loadHistory,
                             contentPadding = listPadding,
                         )
@@ -2842,6 +2843,9 @@ private fun BitChordApp(
                             } else {
                                 null
                             },
+                            // The heart on every track row — the same rating
+                            // the row's ⋮ already offers, one tap closer.
+                            onToggleLike = { song -> viewModel.toggleLike(song.videoId) },
                             songSort = songSort,
                             contentPadding = listPadding,
                         )
@@ -2946,6 +2950,7 @@ private fun BitChordApp(
                             },
                             onSongLongPress = openSongMenu,
                             onSongSwipe = onSongSwipe,
+                            onToggleLike = { song -> viewModel.toggleLike(song.videoId) },
                             onTopResultPlay = { song ->
                                 viewModel.recordEntity(SearchHistoryEntity(
                                     id = song.videoId,

@@ -138,6 +138,8 @@ import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.screens.AccountAndScrobblingScreen
+import com.music.bitchord.ui.screens.AlarmScreen
+import com.music.bitchord.alarm.AlarmDeepLink
 import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
 import com.music.bitchord.ui.screens.DiscordScreen
@@ -291,6 +293,7 @@ class MainActivity : AppCompatActivity() {
         // Before the composition, so a cold launch from a widget's artwork has
         // the request already standing by the time BitChordApp first reads it.
         PlayerDeepLink.consume(intent)
+        AlarmDeepLink.consume(intent)
         JamInviteLink.consume(intent)
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
@@ -387,6 +390,7 @@ class MainActivity : AppCompatActivity() {
         // one that just arrived and not the one the task was started with.
         setIntent(intent)
         PlayerDeepLink.consume(intent)
+        AlarmDeepLink.consume(intent)
         JamInviteLink.consume(intent)
         MusicLink.consume(intent)
     }
@@ -483,10 +487,20 @@ private fun BitChordApp(
     /** Which story card the share sheet is for, or null for the whole Replay. */
     var replaySharePage by remember { mutableStateOf<ReplayStoryPage?>(null) }
     var showAccountScrobbling by remember { mutableStateOf(false) }
+    var showAlarmClock by remember { mutableStateOf(false) }
     var showSources by remember { mutableStateOf(false) }
     var showListenTogether by remember { mutableStateOf(false) }
     var showEqualizer by remember { mutableStateOf(false) }
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
+
+    val alarmScreenRequest by AlarmDeepLink.pending.collectAsStateWithLifecycle()
+    LaunchedEffect(alarmScreenRequest) {
+        if (alarmScreenRequest != null) {
+            showSettings = true
+            showAlarmClock = true
+            AlarmDeepLink.handled()
+        }
+    }
 
     // Hosted here rather than inside SourcesScreen so its frosted card has
     // something to blur: that screen is drawn inside the `hazeSource` subtree,
@@ -698,6 +712,7 @@ private fun BitChordApp(
     LaunchedEffect(showSettings) {
         if (!showSettings) {
             showAccountScrobbling = false
+            showAlarmClock = false
         }
     }
 
@@ -2100,10 +2115,16 @@ private fun BitChordApp(
         BackHandler(enabled = showEqualizer) {
             showEqualizer = false
         }
+        BackHandler(enabled = showAlarmClock) {
+            showAlarmClock = false
+        }
         // One back step out of Settings, or out of any tab but Home, lands on
         // Home rather than exiting — only Home itself hands back to the system,
         // which is what actually closes/minimizes the app.
-        BackHandler(enabled = showSettings && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer) {
+        BackHandler(
+            enabled = showSettings && !showAccountScrobbling && !showSources && !showListenTogether &&
+                !showEqualizer && !showAlarmClock,
+        ) {
             showSettings = false
             // Only when Settings was the whole of what was on screen. Opened
             // over Replay or over a release page, closing it reveals that again
@@ -2152,6 +2173,7 @@ private fun BitChordApp(
                         showSources -> "sources"
                         showListenTogether -> "listen_together"
                         showEqualizer -> "equalizer"
+                        showAlarmClock -> "alarm_clock"
                         // Above Replay, not below it. The top bar's account
                         // button sets `showSettings` from every page including
                         // this one, so with Replay winning the tie the button
@@ -2347,6 +2369,8 @@ private fun BitChordApp(
                         )
                     } else if (key == "equalizer") {
                         EqualizerScreen(contentPadding = listPadding)
+                    } else if (key == "alarm_clock") {
+                        AlarmScreen(contentPadding = listPadding)
                     } else if (key == "settings") {
                         SettingsScreen(
                             windowWidth = windowWidth,
@@ -2359,6 +2383,7 @@ private fun BitChordApp(
                             onSignOut = { viewModel.signOut() },
                             onAccountScrobbling = { showAccountScrobbling = true },
                             onEqualizer = { showEqualizer = true },
+                            onAlarmClock = { showAlarmClock = true },
                             onOpenReplay = {
                                 showSettings = false
                                 showReplay = true
@@ -2808,6 +2833,7 @@ private fun BitChordApp(
                         showSources -> stringResource(R.string.sources)
                         showListenTogether -> stringResource(R.string.listen_together)
                         showEqualizer -> stringResource(R.string.equalizer)
+                        showAlarmClock -> stringResource(R.string.alarm_clock)
                         showSettings -> stringResource(R.string.settings)
                         showReplay -> stringResource(R.string.replay)
                         detail != null && detailActiveShelf != null -> detailActiveShelf?.title.orEmpty()
@@ -2843,6 +2869,7 @@ private fun BitChordApp(
                         showSources -> ({ showSources = false })
                         showListenTogether -> ({ showListenTogether = false })
                         showEqualizer -> ({ showEqualizer = false })
+                        showAlarmClock -> ({ showAlarmClock = false })
                         showSettings -> ({ showSettings = false })
                         showReplay -> ({ showReplay = false })
                         detailActiveShelf != null -> ({ detailActiveShelf = null })

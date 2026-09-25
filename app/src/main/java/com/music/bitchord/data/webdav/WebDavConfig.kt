@@ -82,8 +82,7 @@ object WebDavConfig {
         return com.music.bitchord.data.remote.RemoteSong.build(
             videoId = idFor(fileUrl),
             streamUrl = fileUrl,
-            fileName = decoded,
-            albumName = albumName,
+            credit = com.music.bitchord.data.remote.RemoteSong.credit(decoded).copy(album = albumName),
             source = "WebDAV",
             browseId = BROWSE_ID,
         )

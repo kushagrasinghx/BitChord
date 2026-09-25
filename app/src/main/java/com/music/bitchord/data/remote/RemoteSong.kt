@@ -4,11 +4,17 @@ import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.Song
 
 /**
- * What every remote file library names a track: `Artist - Title`, or just
- * the title when there is no artist worth naming — plus the Song row itself,
- * which only differs per library in identity, address and credit.
+ * What every remote file library names a track, read from where the file
+ * sits rather than from tags a listing never touches. `Artist/Album
+ * (Year)/NN - Title.ext` is the layout nearly every ripped or bought
+ * library keeps: the folder above the album names the artist, the album
+ * folder drops its year, the file drops its track number, and a file
+ * still named `Artist - Title` names both itself — a featured credit on
+ * one track beats the folder.
  */
 object RemoteSong {
+
+    data class Credit(val title: String, val artist: String?, val album: String?)
 
     fun splitArtistTitle(base: String): Pair<String?, String?> =
         if (" - " in base) {
@@ -18,27 +24,57 @@ object RemoteSong {
             null to base
         }
 
+    /** [relativePath] runs from the library root: forward slashes, decoded. */
+    fun credit(relativePath: String): Credit {
+        val segments = relativePath.split('/').filter { it.isNotBlank() }
+        val fileName = segments.lastOrNull().orEmpty()
+        val folders = segments.dropLast(1).dropLastWhile { discFolder.matches(it.trim()) }
+        val album = folders.lastOrNull()
+            ?.let { yearSuffix.replace(it, "").trim() }
+            ?.takeIf { it.isNotBlank() }
+        val folderArtist = folders.dropLast(1).lastOrNull()?.trim()?.takeIf { it.isNotBlank() }
+        val base = fileName.substringBeforeLast('.').takeIf { it.isNotBlank() } ?: fileName
+        val unnumbered = stripTrackNumber(base, inAlbum = album != null)
+        val (fileArtist, split) = splitArtistTitle(unnumbered)
+        val credited = fileArtist != null &&
+            (folderArtist == null || fileArtist.startsWith(folderArtist, ignoreCase = true))
+        return Credit(
+            title = (if (credited) split else null) ?: unnumbered.ifBlank { base },
+            artist = if (credited) fileArtist else folderArtist,
+            album = album,
+        )
+    }
+
+    private val discFolder = Regex("""(?i)^(disc|disk|cd)\s*\d+$""")
+    private val yearSuffix = Regex("""\s*[(\[](19|20)\d{2}[)\]]\s*$""")
+    private val trackPrefix = Regex("""^(\d{1,2}[-.])?\d{1,3}\s*[-._]\s*(?=\S)""")
+
+    // "14 Strawberry's Wake" only reads as numbered inside an album folder;
+    // loose, "21 Guns" is a title.
+    private val looseTrackPrefix = Regex("""^\d{2}\s+(?=\S)""")
+
+    private fun stripTrackNumber(base: String, inAlbum: Boolean): String {
+        val strict = trackPrefix.replaceFirst(base, "")
+        if (strict != base) return strict
+        return if (inAlbum) looseTrackPrefix.replaceFirst(base, "") else base
+    }
+
     fun build(
         videoId: String,
         streamUrl: String,
-        fileName: String,
-        albumName: String?,
+        credit: Credit,
         source: String,
         browseId: String,
-    ): Song {
-        val base = fileName.substringBeforeLast('.').takeIf { it.isNotBlank() } ?: fileName
-        val (artist, title) = splitArtistTitle(base)
-        return Song(
-            videoId = videoId,
-            title = title ?: base,
-            artist = artist ?: "Unknown Artist",
-            thumbnailUrl = null,
-            durationText = null,
-            albumName = albumName?.takeIf { it.isNotBlank() },
-            localUri = streamUrl,
-            playbackSource = source,
-            playbackSourceType = PlaybackSourceType.BROWSE,
-            playbackSourceId = browseId,
-        )
-    }
+    ): Song = Song(
+        videoId = videoId,
+        title = credit.title,
+        artist = credit.artist ?: "Unknown Artist",
+        thumbnailUrl = null,
+        durationText = null,
+        albumName = credit.album,
+        localUri = streamUrl,
+        playbackSource = source,
+        playbackSourceType = PlaybackSourceType.BROWSE,
+        playbackSourceId = browseId,
+    )
 }

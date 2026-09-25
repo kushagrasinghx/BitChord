@@ -68,6 +68,12 @@ object SmbConfig {
 
     fun isSmbId(videoId: String): Boolean = videoId.startsWith("smb:")
 
+    private fun libraryPath(path: String, basePath: String): String {
+        val trimmed = path.trim('/')
+        val base = basePath.trim('/')
+        return if (base.isNotEmpty() && trimmed.startsWith("$base/")) trimmed.substring(base.length + 1) else trimmed
+    }
+
     fun isSmbUrl(url: String): Boolean = url.startsWith("smb://")
 
     /**
@@ -86,14 +92,13 @@ object SmbConfig {
         return path.takeIf { it.isNotBlank() }
     }
 
-    fun songFor(host: String, share: String, path: String, albumName: String? = null): Song {
-        val fileName = path.substringAfterLast('/').substringAfterLast('\\')
+    /** [basePath] is the configured folder: credits read from the library below it. */
+    fun songFor(host: String, share: String, path: String, basePath: String = ""): Song {
         val streamUrl = "smb://${normalizeHost(host)}/${share.trim().trim('/')}/${path.trim('/')}"
         return com.music.bitchord.data.remote.RemoteSong.build(
             videoId = idFor(host, share, path),
             streamUrl = streamUrl,
-            fileName = fileName,
-            albumName = albumName,
+            credit = com.music.bitchord.data.remote.RemoteSong.credit(libraryPath(path, basePath)),
             source = "SMB",
             browseId = BROWSE_ID,
         )

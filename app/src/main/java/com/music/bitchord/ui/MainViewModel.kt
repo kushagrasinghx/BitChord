@@ -97,6 +97,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _home = MutableStateFlow<UiState<List<HomeShelf>>>(UiState.Loading)
     val home: StateFlow<UiState<List<HomeShelf>>> = _home.asStateFlow()
 
+    private val _recommendationFeedbackNotice =
+        MutableStateFlow<RecommendationFeedbackNotice?>(null)
+    val recommendationFeedbackNotice: StateFlow<RecommendationFeedbackNotice?> =
+        _recommendationFeedbackNotice.asStateFlow()
+    private val recommendationFeedbackNoticeIds = AtomicLong(0L)
+    private var pendingRecommendationUndo: PendingRecommendationUndo? = null
+
+    private data class PendingRecommendationUndo(
+        val noticeId: Long,
+        val undoToken: String,
+        val removed: RemovedHomeRecommendation?,
+        val label: String,
+    )
+
     /**
      * Token for the next page of Home shelves; null once there's nothing
      * more. Declared here rather than by [loadMoreHome] because [init] calls
@@ -1490,6 +1504,79 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         val added = shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
         if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
+    }
+
+    fun sendDontRecommendArtist(target: HomeRecommendationTarget) {
+        if (!requireSignIn()) return
+        val action = target.item.dontRecommendArtist ?: return
+        viewModelScope.launch {
+            YtMusicRepository.sendRecommendationFeedback(action.forwardToken)
+                .onSuccess {
+                    val current = (_home.value as? UiState.Success)?.data
+                    val mutation = current?.let { removeHomeRecommendation(it, target) }
+                    mutation?.first?.let { _home.value = UiState.Success(it) }
+                    val noticeId = recommendationFeedbackNoticeIds.incrementAndGet()
+                    val undoToken = action.undoToken
+                    pendingRecommendationUndo = if (undoToken != null) {
+                        PendingRecommendationUndo(
+                            noticeId,
+                            undoToken,
+                            mutation?.second,
+                            action.undoLabel ?: text(R.string.cancel),
+                        )
+                    } else {
+                        null
+                    }
+                    _recommendationFeedbackNotice.value = RecommendationFeedbackNotice(
+                        id = noticeId,
+                        message = action.confirmationText ?: action.label,
+                        actionLabel = undoToken?.let { action.undoLabel ?: text(R.string.cancel) },
+                    )
+                }
+                .onFailure { showRecommendationFeedbackError(it) }
+        }
+    }
+
+    fun undoRecommendationFeedback(noticeId: Long) {
+        val pending = pendingRecommendationUndo?.takeIf { it.noticeId == noticeId } ?: return
+        viewModelScope.launch {
+            YtMusicRepository.sendRecommendationFeedback(pending.undoToken)
+                .onSuccess {
+                    val current = (_home.value as? UiState.Success)?.data
+                    val restored = current?.let { shelves ->
+                        pending.removed?.let { restoreHomeRecommendation(shelves, it) }
+                    }
+                    if (restored != null) {
+                        _home.value = UiState.Success(restored)
+                    } else {
+                        loadHome()
+                    }
+                    pendingRecommendationUndo = null
+                    if (_recommendationFeedbackNotice.value?.id == noticeId) {
+                        _recommendationFeedbackNotice.value = null
+                    }
+                }
+                .onFailure { showRecommendationFeedbackError(it, keepUndo = pending) }
+        }
+    }
+
+    fun dismissRecommendationFeedbackNotice(noticeId: Long) {
+        if (_recommendationFeedbackNotice.value?.id != noticeId) return
+        _recommendationFeedbackNotice.value = null
+        if (pendingRecommendationUndo?.noticeId == noticeId) pendingRecommendationUndo = null
+    }
+
+    private fun showRecommendationFeedbackError(
+        failure: Throwable,
+        keepUndo: PendingRecommendationUndo? = null,
+    ) {
+        val noticeId = recommendationFeedbackNoticeIds.incrementAndGet()
+        pendingRecommendationUndo = keepUndo?.copy(noticeId = noticeId)
+        _recommendationFeedbackNotice.value = RecommendationFeedbackNotice(
+            id = noticeId,
+            message = failure.friendly(),
+            actionLabel = keepUndo?.label,
+        )
     }
 
     /** Refreshes the core feed without blanking the current Play page first. */

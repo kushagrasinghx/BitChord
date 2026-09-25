@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -105,7 +106,7 @@ fun HomeScreen(
      * a tap, so a track card opens the track menu and a card that points at a
      * collection opens the album / playlist one.
      */
-    onItemLongPress: ((ShelfItem) -> Unit)? = null,
+    onItemLongPress: ((ShelfItem, Int, Int) -> Unit)? = null,
     // Explore doesn't page — only Home has a continuation worth following.
     onLoadMore: (() -> Unit)? = null,
     loadingMore: Boolean = false,
@@ -208,7 +209,7 @@ fun HomeScreen(
 private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
     shelves: List<HomeShelf>,
     onItemClick: (ShelfItem, String) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)?,
+    onItemLongPress: ((ShelfItem, Int, Int) -> Unit)?,
     firstIsHero: Boolean = true,
     recentsViewType: LibraryViewType,
     onRecentsViewTypeToggle: () -> Unit,
@@ -220,14 +221,28 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
                 RecentShelf(
                     shelf = shelf,
                     onItemClick = openItem,
-                    onItemLongPress = onItemLongPress,
+                    onItemLongPress = onItemLongPress?.let { callback ->
+                        { item, itemIndex -> callback(item, index, itemIndex) }
+                    },
                     viewType = recentsViewType,
                     onViewTypeToggle = onRecentsViewTypeToggle,
                 )
             } else if (index == 0 && firstIsHero) {
-                HeroShelf(shelf = shelf, onItemClick = openItem, onItemLongPress = onItemLongPress)
+                HeroShelf(
+                    shelf = shelf,
+                    onItemClick = openItem,
+                    onItemLongPress = onItemLongPress?.let { callback ->
+                        { item, itemIndex -> callback(item, index, itemIndex) }
+                    },
+                )
             } else {
-                Shelf(shelf = shelf, onItemClick = openItem, onItemLongPress = onItemLongPress)
+                Shelf(
+                    shelf = shelf,
+                    onItemClick = openItem,
+                    onItemLongPress = onItemLongPress?.let { callback ->
+                        { item, itemIndex -> callback(item, index, itemIndex) }
+                    },
+                )
             }
         }
     }
@@ -238,7 +253,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
 private fun RecentShelf(
     shelf: HomeShelf,
     onItemClick: (ShelfItem) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)?,
+    onItemLongPress: ((ShelfItem, Int) -> Unit)?,
     viewType: LibraryViewType,
     onViewTypeToggle: () -> Unit,
 ) {
@@ -256,13 +271,14 @@ private fun RecentShelf(
                     contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(shelf.items.chunked(RECENT_TRACKS_PER_COLUMN)) { column ->
+                    itemsIndexed(shelf.items.chunked(RECENT_TRACKS_PER_COLUMN)) { columnIndex, column ->
                         Column(Modifier.width(columnWidth)) {
-                            column.forEach { item ->
+                            column.forEachIndexed { rowIndex, item ->
+                                val itemIndex = columnIndex * RECENT_TRACKS_PER_COLUMN + rowIndex
                                 RecentTrackRow(
                                     item = item,
                                     onClick = { onItemClick(item) },
-                                    onLongPress = onItemLongPress?.let { { it(item) } },
+                                    onLongPress = onItemLongPress?.let { { it(item, itemIndex) } },
                                 )
                             }
                         }
@@ -276,11 +292,11 @@ private fun RecentShelf(
                     contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    items(shelf.items) { item ->
+                    itemsIndexed(shelf.items) { itemIndex, item ->
                         HeroCard(
                             item = item,
                             onClick = { onItemClick(item) },
-                            onLongPress = onItemLongPress?.let { { it(item) } },
+                            onLongPress = onItemLongPress?.let { { it(item, itemIndex) } },
                             modifier = Modifier.width(cardWidth),
                         )
                     }
@@ -630,7 +646,7 @@ internal fun localizeCardSubtitle(subtitle: String): String {
 private fun HeroShelf(
     shelf: HomeShelf,
     onItemClick: (ShelfItem) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)? = null,
+    onItemLongPress: ((ShelfItem, Int) -> Unit)? = null,
 ) {
     Column(Modifier.padding(bottom = 26.dp)) {
         SectionHeader(shelf.title, shelf.subtitle)
@@ -645,11 +661,11 @@ private fun HeroShelf(
                 contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                items(shelf.items) { item ->
+                itemsIndexed(shelf.items) { itemIndex, item ->
                     HeroCard(
                         item = item,
                         onClick = { onItemClick(item) },
-                        onLongPress = onItemLongPress?.let { { it(item) } },
+                        onLongPress = onItemLongPress?.let { { it(item, itemIndex) } },
                         modifier = Modifier.width(cardWidth),
                     )
                 }
@@ -725,7 +741,7 @@ private fun HeroCard(
 internal fun Shelf(
     shelf: HomeShelf,
     onItemClick: (ShelfItem) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)? = null,
+    onItemLongPress: ((ShelfItem, Int) -> Unit)? = null,
     leadingCard: (@Composable () -> Unit)? = null,
 ) {
     Column(Modifier.padding(bottom = 26.dp)) {
@@ -735,11 +751,11 @@ internal fun Shelf(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             leadingCard?.let { card -> item(key = "leading") { card() } }
-            items(shelf.items) { item ->
+            itemsIndexed(shelf.items) { itemIndex, item ->
                 ShelfCard(
                     item = item,
                     onClick = { onItemClick(item) },
-                    onLongPress = onItemLongPress?.let { { it(item) } },
+                    onLongPress = onItemLongPress?.let { { it(item, itemIndex) } },
                 )
             }
         }

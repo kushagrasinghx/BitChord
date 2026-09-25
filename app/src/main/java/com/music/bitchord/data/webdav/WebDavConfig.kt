@@ -71,22 +71,35 @@ object WebDavConfig {
         videoId.removePrefix("webdav:").takeIf { isWebDavId(videoId) && it.startsWith("http") }
 
     /**
-     * A row for a remote file. Title/artist come from the filename —
-     * "Artist - Title.ext" splits, anything else is a title by an unknown
-     * artist — and the parent folder names the album when there is one.
+     * A row for a remote file, credited from where it sits below [baseUrl] —
+     * see [RemoteSong.credit][com.music.bitchord.data.remote.RemoteSong.credit].
+     * [displayName] is the server's own name for the file when it carries
+     * one, preferred over the URL's last segment.
      */
-    fun songFor(fileUrl: String, albumName: String? = null): Song {
-        val decoded = runCatching {
-            java.net.URLDecoder.decode(fileUrl.substringAfterLast('/'), "UTF-8")
-        }.getOrDefault(fileUrl.substringAfterLast('/'))
+    fun songFor(fileUrl: String, baseUrl: String = "", displayName: String? = null): Song {
+        val path = libraryPath(fileUrl, baseUrl)
+        val named = displayName?.takeIf { it.isNotBlank() }
+            ?.let { name -> path.substringBeforeLast('/', "").let { dir -> if (dir.isEmpty()) name else "$dir/$name" } }
+            ?: path
         return com.music.bitchord.data.remote.RemoteSong.build(
             videoId = idFor(fileUrl),
             streamUrl = fileUrl,
-            credit = com.music.bitchord.data.remote.RemoteSong.credit(decoded).copy(album = albumName),
+            credit = com.music.bitchord.data.remote.RemoteSong.credit(named),
             source = "WebDAV",
             browseId = BROWSE_ID,
         )
     }
+
+    /** The decoded path of [fileUrl] below [baseUrl]: what a library layout is read from. */
+    fun libraryPath(fileUrl: String, baseUrl: String): String {
+        val file = decodedPath(fileUrl).trim('/')
+        val base = decodedPath(normalizeUrl(baseUrl)).trim('/')
+        return if (base.isNotEmpty() && file.startsWith("$base/", ignoreCase = true)) file.substring(base.length + 1) else file
+    }
+
+    private fun decodedPath(url: String): String = runCatching { java.net.URI(url).path.orEmpty() }
+        .recoverCatching { java.net.URLDecoder.decode(url.substringAfter("://").substringAfter('/', ""), "UTF-8") }
+        .getOrDefault("")
 }
 
 /**

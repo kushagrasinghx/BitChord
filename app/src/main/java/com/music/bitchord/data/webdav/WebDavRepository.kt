@@ -4,15 +4,14 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.URLDecoder
 
 /**
  * WebDAV library as [Song] rows, shaped like the on-device library so the
  * same Songs / Artists / Albums view can draw it.
  *
- * Stateless apart from [AppSettings]: every load re-lists the server. The
- * album of a track is its parent folder, which groups a "Music/Artist/Album"
- * remote layout back into releases without any tags.
+ * Stateless apart from [AppSettings]: every load re-lists the server. Tracks
+ * are credited from their place below the configured URL, which groups an
+ * "Artist/Album" remote layout back into releases without any tags.
  */
 object WebDavRepository {
 
@@ -39,18 +38,9 @@ object WebDavRepository {
         password: String,
     ): Result<Unit> = WebDavClient.testConnection(url, username, password)
 
-    fun WebDavClient.Entry.toSong(artworkUrl: String? = null): Song {
-        val album = parentFolderName(url)
-        return WebDavConfig.songFor(url, albumName = album).copy(
-            // Prefer the server's display name over the URL-decoded guess when
-            // it carries one.
-            title = displayName.substringBeforeLast('.').takeIf { it.isNotBlank() }
-                ?.let { splitTitle(it).second } ?: WebDavConfig.songFor(url).title,
-            artist = splitTitle(displayName.substringBeforeLast('.')).first
-                ?: WebDavConfig.songFor(url, album).artist,
-            thumbnailUrl = artworkUrl,
-        )
-    }
+    fun WebDavClient.Entry.toSong(artworkUrl: String? = null): Song =
+        WebDavConfig.songFor(url, baseUrl = AppSettings.webdavUrl.value, displayName = displayName)
+            .copy(thumbnailUrl = artworkUrl)
 
     /**
      * The cover for a track: a picture filed beside it. Embedded pictures
@@ -64,19 +54,4 @@ object WebDavRepository {
         val uri = java.net.URI(fileUrl)
         "${uri.host.orEmpty()}${uri.path.orEmpty().trimEnd('/').substringBeforeLast('/', "")}"
     }.getOrDefault(fileUrl.substringBeforeLast('/'))
-
-    private fun splitTitle(base: String): Pair<String?, String?> {
-        return if (" - " in base) {
-            val parts = base.split(" - ", limit = 2)
-            parts[0].trim().takeIf { it.isNotBlank() } to parts[1].trim().takeIf { it.isNotBlank() }
-        } else {
-            null to base.trim().takeIf { it.isNotBlank() }
-        }
-    }
-
-    internal fun parentFolderName(fileUrl: String): String? = runCatching {
-        val path = java.net.URI(fileUrl).path.orEmpty().trimEnd('/')
-        val parent = path.substringBeforeLast('/', "").substringAfterLast('/').trim()
-        URLDecoder.decode(parent, "UTF-8").takeIf { it.isNotBlank() }
-    }.getOrNull()
 }

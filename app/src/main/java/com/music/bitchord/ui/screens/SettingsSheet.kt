@@ -147,6 +147,7 @@ import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
+import com.music.bitchord.playback.SpatialMode
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -195,6 +196,7 @@ fun SettingsScreen(
     // which caches the codec-list walk for the life of the process.
     val dolbyAtmosSupported = DeviceCodecs.playsDolbyAtmos
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
+    val spatialAudioMode by AppSettings.spatialAudioMode.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -695,10 +697,10 @@ fun SettingsScreen(
                     // and a switch reading "on" over an effect that is not
                     // running is the same silent lie the equaliser screen used
                     // to tell.
-                    subtitle = if (playingDolbyAtmos) {
-                        stringResource(R.string.spatial_audio_atmos_subtitle)
-                    } else {
-                        stringResource(R.string.spatial_audio_subtitle)
+                    subtitle = when {
+                        playingDolbyAtmos -> stringResource(R.string.spatial_audio_atmos_subtitle)
+                        spatialAudioMode == SpatialMode.SPATIALIZE -> stringResource(R.string.spatial_audio_spatialize_subtitle)
+                        else -> stringResource(R.string.spatial_audio_subtitle)
                     },
                     trailing = {
                         Switch(
@@ -712,6 +714,21 @@ fun SettingsScreen(
                     },
                     onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
                 )
+                // Spatialize is Stereo Spatialization, the headphone renderer (virtual 5.1 speakers in a room);
+                // Widen is the original mid/side widener, the lighter choice for speakers. Only offered while the
+                // effect is on.
+                if (spatialAudio) {
+                    val spatialModes = listOf(SpatialMode.SPATIALIZE, SpatialMode.WIDEN)
+                    SegmentedControl(
+                        options = listOf(
+                            stringResource(R.string.spatial_mode_spatialize),
+                            stringResource(R.string.spatial_mode_widen),
+                        ),
+                        selectedIndex = spatialModes.indexOf(spatialAudioMode).coerceAtLeast(0),
+                        onSelect = { AppSettings.setSpatialAudioMode(spatialModes[it]) },
+                        modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
+                    )
+                }
             }
             // The system panel is not listed here as well. A device with a
             // Dolby or Dirac panel has something BitChord cannot reproduce and

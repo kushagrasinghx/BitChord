@@ -161,6 +161,9 @@
     <string name="spatial_audio">Âm thanh không gian</string>
     <string name="spatial_audio_subtitle">Mở rộng âm trường stereo cho cảm giác đắm chìm hơn</string>
     <string name="spatial_audio_atmos_subtitle">Tạm dừng ở bản nhạc này — Dolby Atmos vốn đã có âm thanh không gian</string>
+    <string name="spatial_audio_spatialize_subtitle">Không gian hóa stereo — loa 5.1 ảo quanh bạn, nghe tốt nhất bằng tai nghe</string>
+    <string name="spatial_mode_spatialize">Không gian hóa</string>
+    <string name="spatial_mode_widen">Mở rộng</string>
     <string name="animated_cover_cellular">Phát ảnh bìa động qua dữ liệu di động</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Bài hát, nghệ sĩ, album và thể loại hàng đầu của bạn</string>

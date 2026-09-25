@@ -12,7 +12,13 @@ import androidx.media3.exoplayer.audio.AudioSink
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.EqualizerProcessor
 import com.music.bitchord.playback.SpatialAudioProcessor
+import com.music.bitchord.playback.SpatialEffect
+import com.music.bitchord.playback.SpatialMode
 import com.music.bitchord.playback.TransitionFilterProcessor
+import com.music.bitchord.playback.spatializer.SpeakerResponseStore
+import com.music.bitchord.playback.spatializer.SpeakerResponses
+import com.music.bitchord.playback.spatializer.StereoSpatializer
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -65,7 +71,9 @@ class PrecisionAudioSinkTest {
         override fun getFormatSupport(format: Format): Int =
             formatSupportPredicate?.invoke(format) ?: formatSupportReturn
 
-        override fun getCurrentPositionUs(sourceEnded: Boolean): Long = 0L
+        var positionUs: Long = 0L
+
+        override fun getCurrentPositionUs(sourceEnded: Boolean): Long = positionUs
 
         override fun configure(audioSinkConfig: AudioSink.AudioSinkConfig) {
             this.configuredConfig = audioSinkConfig
@@ -1312,5 +1320,222 @@ class PrecisionAudioSinkTest {
         assertEquals(PcmEncoding.PCM_FLOAT, sink.inputPcmEncoding)
         assertEquals(PcmEncoding.PCM_16BIT, sink.targetOutputEncoding)
         assertEquals(C.ENCODING_PCM_16BIT, fakeDelegate.configuredConfig?.format?.pcmEncoding)
+    }
+
+    // ---- End-of-stream drain -------------------------------------------------
+    //
+    // Stereo Spatialization delays its output (~48 ms) and adds a room tail, so
+    // the last input sample is not the last output sample. At end of stream the
+    // sink pushes that tail through the chain before telling the delegate, and
+    // must keep reporting "not ended" while it does — including across calls
+    // when the delegate applies backpressure.
+
+    private fun spatializerChain(): DspChain {
+        val root = File(".").canonicalFile
+        val asset = listOf(File(root, "app/src/main/assets/spatializer/speakers_48000.bin"),
+            File(root, "src/main/assets/spatializer/speakers_48000.bin")).first { it.exists() }
+        SpeakerResponseStore.install(asset.inputStream().use { SpeakerResponses.read(it) })
+        val spatial = SpatialAudioProcessor().apply { enabled = true; mode = SpatialMode.SPATIALIZE }
+        return DspChain(spatial, EqualizerProcessor(), TransitionFilterProcessor())
+    }
+
+    private fun floatBurst(frames: Int): ByteBuffer {
+        val b = ByteBuffer.allocate(frames * 8).order(ByteOrder.nativeOrder())
+        for (i in 0 until frames) { val v = (0.3 * Math.sin(i * 0.05)).toFloat(); b.putFloat(v); b.putFloat(v) }
+        b.flip()
+        return b
+    }
+
+    @Test
+    fun `end of stream drains the spatializer tail before ending the delegate`() {
+        val fakeDelegate = FakeAudioSink()
+        val chain = spatializerChain()
+        val sink = createSink(fakeDelegate, dspChain = chain)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(2048), 0L, 1))
+        val tail = chain.tailFrames()
+        assertTrue(tail > 0)
+        val callsBefore = fakeDelegate.handleBufferCallCount
+
+        sink.playToEndOfStream()
+
+        assertTrue(fakeDelegate.playedToEndOfStream)
+        val expectedBlocks = (tail + 4095) / 4096
+        assertEquals(expectedBlocks, fakeDelegate.handleBufferCallCount - callsBefore)
+    }
+
+    @Test
+    fun `drain resumes across backpressure and holds isEnded off`() {
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(fakeDelegate, dspChain = spatializerChain())
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(2048), 0L, 1))
+        fakeDelegate.isEndedReturn = true
+        fakeDelegate.bytesToConsumePerCall = 4096 * 8 / 3
+
+        sink.playToEndOfStream()
+        assertFalse(fakeDelegate.playedToEndOfStream)
+        assertFalse(sink.isEnded())
+        assertTrue(sink.hasPendingData())
+
+        var guard = 0
+        while (!fakeDelegate.playedToEndOfStream && guard++ < 1000) sink.playToEndOfStream()
+        assertTrue(fakeDelegate.playedToEndOfStream)
+        assertTrue(sink.isEnded())
+    }
+
+    @Test
+    fun `position is what is audible, the chain latency behind the frames played`() {
+        val fakeDelegate = FakeAudioSink()
+        val chain = spatializerChain()
+        val sink = createSink(fakeDelegate, dspChain = chain)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(2400), 1_000_000L, 1)) // 50 ms at 48 kHz
+        val latencyUs = chain.latencyFrames() * C.MICROS_PER_SECOND / 48000
+        assertTrue("latency $latencyUs us", latencyUs in 40_000L..60_000L)
+
+        fakeDelegate.positionUs = 1_049_000L
+        assertEquals(1_049_000L - latencyUs, sink.getCurrentPositionUs(false))
+        // not before the first input frame while the delay fills...
+        fakeDelegate.positionUs = 1_020_000L
+        assertEquals(1_000_000L, sink.getCurrentPositionUs(false))
+        // ...and not past the last one while the tail drains
+        fakeDelegate.positionUs = 1_200_000L
+        assertEquals(1_050_000L, sink.getCurrentPositionUs(false))
+    }
+
+    @Test
+    fun `position passes straight through when nothing delays the audio`() {
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(fakeDelegate)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(512), 0L, 1))
+        fakeDelegate.positionUs = 123_456L
+        assertEquals(123_456L, sink.getCurrentPositionUs(false))
+    }
+
+    @Test
+    fun `an idle chain ends straight away`() {
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(fakeDelegate)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(512), 0L, 1))
+        val calls = fakeDelegate.handleBufferCallCount
+        sink.playToEndOfStream()
+        assertTrue(fakeDelegate.playedToEndOfStream)
+        assertEquals(calls, fakeDelegate.handleBufferCallCount)
+    }
+
+    // ---- Bit-exactness with spatial audio switched on ----------------------------------------
+    //
+    // Spatial audio is on but has nothing to act on (mono, multichannel, a rate it has no speaker
+    // responses for), or has just been switched off: the samples handed to the delegate must be
+    // the decoder's own, bit for bit, as with every other stage idle.
+
+    private fun pcm16(frames: Int, channels: Int, seed: Int = 1): ShortArray =
+        ShortArray(frames * channels) { i -> ((Math.sin(i * 0.013 + seed) * 20000).toInt() + (i % 7) - 3).toShort() }
+
+    private fun pcm16Buffer(samples: ShortArray): ByteBuffer {
+        val b = ByteBuffer.allocate(samples.size * 2).order(ByteOrder.nativeOrder())
+        samples.forEach(b::putShort)
+        b.flip()
+        return b
+    }
+
+    private fun assertHandedExactly(expected: ShortArray, delegate: FakeAudioSink, what: String) {
+        val handed = delegate.lastHandledBuffer!!.duplicate().order(ByteOrder.nativeOrder())
+        handed.rewind()
+        expected.forEachIndexed { i, v -> assertEquals("$what: sample $i altered", v, handed.getShort()) }
+    }
+
+    @Test
+    fun `spatial audio leaves mono and multichannel audio bit for bit`() {
+        for (channels in intArrayOf(1, 6)) {
+            val fakeDelegate = FakeAudioSink()
+            val sink = createSink(fakeDelegate, enableFloatOutput = false, dspChain = spatializerChain())
+            sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_16BIT, channels)).build())
+            val samples = pcm16(1024, channels)
+            assertTrue(sink.handleBuffer(pcm16Buffer(samples), 0L, 1))
+            assertHandedExactly(samples, fakeDelegate, "$channels channels")
+            assertNull(AudioOutputStatus.current.value.spatialEffect)
+            assertEquals("not stereo", AudioOutputStatus.current.value.spatialBypass)
+            assertEquals(0, sink.dspChain.tailFrames())
+        }
+    }
+
+    @Test
+    fun `spatial audio passes a rate it has no responses for through untouched`() {
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(fakeDelegate, enableFloatOutput = false, dspChain = spatializerChain())
+        val format = rawFormat(C.ENCODING_PCM_16BIT).buildUpon().setSampleRate(352800).build()
+        sink.configure(AudioSink.AudioSinkConfig.Builder(format).build())
+        val samples = pcm16(2048, 2)
+        assertTrue(sink.handleBuffer(pcm16Buffer(samples), 0L, 1))
+        assertHandedExactly(samples, fakeDelegate, "352.8 kHz")
+        assertNull(AudioOutputStatus.current.value.spatialEffect)
+        assertTrue(AudioOutputStatus.current.value.spatialBypass.orEmpty().contains("352.8 kHz"))
+        assertEquals(0, sink.dspChain.tailFrames())
+        assertEquals(0, sink.dspChain.latencyFrames())
+    }
+
+    @Test
+    fun `switching spatial audio off returns to bit-exact output once its crossfade ends`() {
+        val fakeDelegate = FakeAudioSink()
+        val chain = spatializerChain()
+        val sink = createSink(fakeDelegate, enableFloatOutput = false, dspChain = chain)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_16BIT)).build())
+        var t = 0L
+        repeat(6) {
+            assertTrue(sink.handleBuffer(pcm16Buffer(pcm16(4096, 2, it)), t, 1))
+            t += 85_333L
+        }
+        assertEquals(SpatialEffect.SPATIALIZE, AudioOutputStatus.current.value.spatialEffect)
+
+        chain.spatial.enabled = false
+        assertTrue(sink.handleBuffer(pcm16Buffer(pcm16(4096, 2, 7)), t, 1)) // the 20 ms crossfade is in here
+        t += 85_333L
+        val samples = pcm16(4096, 2, 8)
+        assertTrue(sink.handleBuffer(pcm16Buffer(samples), t, 1))
+        assertHandedExactly(samples, fakeDelegate, "after switching off")
+        assertNull(AudioOutputStatus.current.value.spatialEffect)
+        assertEquals(0, chain.tailFrames())
+        assertEquals(0, chain.latencyFrames())
+    }
+
+    // ---- Format changes while spatial audio holds audio --------------------------------------
+
+    @Test
+    fun `a sample-rate change plays out what spatial audio still holds before reconfiguring`() {
+        val fakeDelegate = FakeAudioSink()
+        val chain = spatializerChain()
+        val sink = createSink(fakeDelegate, dspChain = chain)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(4096), 0L, 1))
+        val callsBefore = fakeDelegate.handleBufferCallCount
+
+        val at44 = rawFormat(C.ENCODING_PCM_FLOAT).buildUpon().setSampleRate(44100).build()
+        sink.configure(AudioSink.AudioSinkConfig.Builder(at44).build())
+        // held: the delegate stays on the old rate, and the sink still has audio to play
+        assertEquals(48000, fakeDelegate.configuredConfig?.format?.sampleRate)
+        assertTrue(sink.hasPendingData())
+        assertFalse(sink.isEnded())
+
+        assertTrue(sink.handleBuffer(floatBurst(1024), 100_000L, 1))
+        assertEquals(44100, fakeDelegate.configuredConfig?.format?.sampleRate)
+        // the effect's delay plus 100 ms of faded room, in blocks of at most 4096 frames, then the new buffer
+        val held = StereoSpatializer.latencyFramesFor(48000) + 4800
+        assertEquals((held + 4095) / 4096 + 1, fakeDelegate.handleBufferCallCount - callsBefore)
+    }
+
+    @Test
+    fun `with nothing held a sample-rate change reconfigures at once`() {
+        val fakeDelegate = FakeAudioSink()
+        val sink = createSink(fakeDelegate)
+        sink.configure(AudioSink.AudioSinkConfig.Builder(rawFormat(C.ENCODING_PCM_FLOAT)).build())
+        assertTrue(sink.handleBuffer(floatBurst(512), 0L, 1))
+        val at44 = rawFormat(C.ENCODING_PCM_FLOAT).buildUpon().setSampleRate(44100).build()
+        sink.configure(AudioSink.AudioSinkConfig.Builder(at44).build())
+        assertEquals(44100, fakeDelegate.configuredConfig?.format?.sampleRate)
+        assertFalse(sink.hasPendingData())
     }
 }

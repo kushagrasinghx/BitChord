@@ -581,6 +581,10 @@ class PlaybackService : MediaLibraryService() {
     private var activeTrackIsDolbyAtmos = false
 
     private var activeFilter: TransitionFilterProcessor = transitionFilterA
+
+    /** The spatial processor of the player in the spare role: each player keeps its A or B set of processors. */
+    private fun spareSpatialProcessor(): SpatialAudioProcessor =
+        if (spareFilter === transitionFilterA) spatialAudioProcessorA else spatialAudioProcessorB
     private var spareFilter: TransitionFilterProcessor = transitionFilterB
 
     /** Automix's DSP analyzer — see [com.music.bitchord.playback.smart.TrackAnalyzer]. */
@@ -1133,6 +1137,15 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        // Stereo Spatialization's speaker responses live in assets. Load them, with the upmixer tables and the
+        // convolution spectra, for the two common rates off the audio thread, so the first spatialized block
+        // doesn't wait on them; other rates are prepared on first use.
+        com.music.bitchord.playback.spatializer.SpeakerResponseStore.init(this)
+        kotlin.concurrent.thread(name = "spatializer-warmup", priority = Thread.MIN_PRIORITY) {
+            for (rate in intArrayOf(44100, 48000)) {
+                runCatching { com.music.bitchord.playback.spatializer.StereoSpatializer.warmUp(rate) }
+            }
+        }
 
         if (com.music.bitchord.data.innertube.Innertube.cookie == null) {
             com.music.bitchord.data.innertube.Innertube.cookie = com.music.bitchord.auth.AuthStore(this).cookie
@@ -1889,9 +1902,18 @@ class PlaybackService : MediaLibraryService() {
                 return@launch
             }
 
-            // Sync playback position with exact live position right before starting playback on standby
+            // Sync playback position with exact live position right before starting playback on standby.
+            // With spatial audio on, a freshly seeked player is heard that effect's delay (~50 ms) after the
+            // position it seeked to, while the outgoing player's position is already what is being heard: a
+            // running swap seeks that much further ahead so the two meet in time. A paused one doesn't, so it
+            // resumes exactly where it stopped.
+            val spatialLeadMs = if (wasPlaying && activePlayer.playWhenReady) {
+                spareSpatialProcessor().expectedLatencyUs() / 1000
+            } else {
+                0L
+            }
             val livePos = activePlayer.currentPosition
-            val targetLivePos = (livePos + alignmentOffsetMs).coerceAtLeast(0L)
+            val targetLivePos = (livePos + alignmentOffsetMs + spatialLeadMs).coerceAtLeast(0L)
             standbyPlayer.seekTo(currentIndex, targetLivePos)
 
             val willPlay = wasPlaying && activePlayer.playWhenReady
@@ -1915,7 +1937,7 @@ class PlaybackService : MediaLibraryService() {
                     // resume time, which is the one part that cannot go.
                     standbyPlayer.seekTo(
                         currentIndex,
-                        (activePlayer.currentPosition + alignmentOffsetMs).coerceAtLeast(0L),
+                        (activePlayer.currentPosition + alignmentOffsetMs + spatialLeadMs).coerceAtLeast(0L),
                     )
                     val resyncTimeout = SystemClock.elapsedRealtime() + 300L
                     while (isActive && standbyPlayer.playbackState != Player.STATE_READY && SystemClock.elapsedRealtime() < resyncTimeout) {
@@ -5574,6 +5596,9 @@ class PlaybackService : MediaLibraryService() {
             AppSettings.spatialAudio.collect { applySpatialAudioEnabled() }
         }
         scope.launch {
+            AppSettings.spatialAudioMode.collect { applySpatialAudioEnabled() }
+        }
+        scope.launch {
             AppSettings.loudnessNormalization.collect {
                 setupLoudnessEnhancer(player?.currentMediaItem?.mediaId)
             }
@@ -5634,6 +5659,9 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun applySpatialAudioEnabled() {
         val enabled = AppSettings.spatialAudio.value && !activeTrackIsDolbyAtmos
+        val mode = AppSettings.spatialAudioMode.value
+        spatialAudioProcessorA.mode = mode
+        spatialAudioProcessorB.mode = mode
         spatialAudioProcessorA.enabled = enabled
         spatialAudioProcessorB.enabled = enabled
     }

@@ -49,6 +49,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.SpatialEffect
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -91,11 +92,12 @@ private fun bitExactVerdict(
     outputExactDetail: String?,
     loudnessActive: Boolean,
     eqActive: Boolean,
-    spatialActive: Boolean,
+    spatialEffect: String?,
 ): String = when {
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"
-    spatialActive -> "No — spatial audio"
+    spatialEffect == SpatialEffect.SPATIALIZE -> "No — Stereo Spatialization"
+    spatialEffect != null -> "No — stereo widening"
     outputExact -> "Yes${outputExactDetail?.let { " ($it)" }.orEmpty()}"
     else -> "No — ${outputExactDetail ?: "converted downstream"}"
 }
@@ -285,7 +287,17 @@ fun AudioPipelineDialog(
                     } else {
                         "Flat"
                     }
-                    val stereoExpandText = if (spatialAudio) "250%" else "100%"
+                    // What the spatial stage is actually doing to the samples, as the audible sink reports it, not
+                    // what is switched on: it pauses for Dolby Atmos, leaves mono and multichannel files alone, and
+                    // passes through untouched at rates it has no speaker responses for.
+                    val stereoExpandText = when {
+                        !spatialAudio -> "100%"
+                        nerdStats?.isDolbyAtmos == true -> "Paused (Dolby Atmos)"
+                        outputStatus.spatialEffect == SpatialEffect.SPATIALIZE -> "Spatialized 5.1"
+                        outputStatus.spatialEffect != null -> "250%"
+                        outputStatus.spatialBypass != null -> "100% (${outputStatus.spatialBypass})"
+                        else -> "100%"
+                    }
                     val buffersText = outputStatus.bufferSize?.let { size ->
                         val rate = outputStatus.actualSampleRateHz
                         val bytesPerSample = when (outputStatus.actualEncoding) {
@@ -344,7 +356,7 @@ fun AudioPipelineDialog(
                                 outputExactDetail = outputStatus.outputExactDetail,
                                 loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
                                 eqActive = eqEnabled,
-                                spatialActive = spatialAudio,
+                                spatialEffect = outputStatus.spatialEffect,
                             ),
                         )
                     }

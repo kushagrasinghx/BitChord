@@ -12,6 +12,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.playback.SpatialMode
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -346,12 +347,21 @@ object AppSettings {
     val dolbyAtmos = MutableStateFlow(true)
 
     /**
-     * Widens stereo output via [com.music.bitchord.playback.SpatialAudioProcessor],
-     * a stereo widening + cross-feed effect running inside ExoPlayer's own
-     * pipeline. Not true object-based spatial audio — YouTube only ever hands
-     * us a stereo stream, so there's no Atmos-style source to render.
+     * Spatial audio for stereo tracks via [com.music.bitchord.playback.SpatialAudioProcessor],
+     * running inside BitChord's own DSP chain. Not object-based spatial audio —
+     * a stereo stream has no Atmos-style objects to render — but with
+     * [spatialAudioMode] [SpatialMode.SPATIALIZE] (Stereo Spatialization) it is a
+     * full headphone renderer (upmix to 5.1, then virtual speakers in a room);
+     * with [SpatialMode.WIDEN], the original stereo widening + cross-feed.
      */
     val spatialAudio = MutableStateFlow(false)
+
+    /**
+     * Which effect [spatialAudio] runs. Stereo Spatialization by default: it is
+     * the one that sounds like spatial audio on headphones; widening remains for
+     * speakers and for listeners who prefer it.
+     */
+    val spatialAudioMode = MutableStateFlow(SpatialMode.SPATIALIZE)
 
     /**
      * The app's own equaliser, master switch.
@@ -830,6 +840,14 @@ object AppSettings {
         loudnessNormalization.value = prefs.getBoolean(KEY_LOUDNESS_NORMALIZATION, true)
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
+        if (!prefs.contains(KEY_SPATIAL_AUDIO_MODE) && spatialAudio.value) {
+            // Spatial audio was already on before there was a choice of effect: that was the widener, and an
+            // update shouldn't swap it for something ~6 dB quieter with a room in it. They can pick Spatialize.
+            prefs.edit().putString(KEY_SPATIAL_AUDIO_MODE, SpatialMode.WIDEN.name).apply()
+        }
+        spatialAudioMode.value = runCatching {
+            SpatialMode.valueOf(prefs.getString(KEY_SPATIAL_AUDIO_MODE, null) ?: SpatialMode.SPATIALIZE.name)
+        }.getOrDefault(SpatialMode.SPATIALIZE)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
             EqualizerMode.valueOf(prefs.getString(KEY_EQ_MODE, null) ?: EqualizerMode.DYNAMIC.name)
@@ -1124,6 +1142,11 @@ object AppSettings {
     fun setSpatialAudio(value: Boolean) {
         spatialAudio.value = value
         prefs.edit().putBoolean(KEY_SPATIAL_AUDIO, value).apply()
+    }
+
+    fun setSpatialAudioMode(value: SpatialMode) {
+        spatialAudioMode.value = value
+        prefs.edit().putString(KEY_SPATIAL_AUDIO_MODE, value.name).apply()
     }
 
     fun setEqualizerEnabled(value: Boolean) {
@@ -1939,6 +1962,7 @@ object AppSettings {
     private const val KEY_LOUDNESS_NORMALIZATION = "loudness_normalization"
     private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
+    private const val KEY_SPATIAL_AUDIO_MODE = "spatial_audio_mode"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"
     private const val KEY_EQ_TONE_X = "equalizer_tone_x"

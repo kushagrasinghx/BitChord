@@ -117,6 +117,13 @@ object AudioOutputStatus {
         val loudnessGainDb: Float? = null,
         /** YouTube's own normalization figure for the playing track, in dB, when known. */
         val loudnessLufs: Float? = null,
+        /**
+         * The spatial effect altering the playing track's samples right now ("Stereo Spatialization", "Widen"),
+         * or null while they pass through untouched — what the processor is doing, not what the setting says.
+         */
+        val spatialEffect: String? = null,
+        /** Why spatial audio is switched on but leaving the samples untouched (not stereo, unsupported rate). */
+        val spatialBypass: String? = null,
     ) {
         override fun equals(other: Any?): Boolean {
             if (this === other) return true
@@ -140,7 +147,8 @@ object AudioOutputStatus {
                 decoderName == other.decoderName &&
                 bufferSize == other.bufferSize &&
                 decoderOutputEncoding == other.decoderOutputEncoding &&
-                dspFormat == other.dspFormat &&
+                dspFormat == other.dspFormat &&
+
                 dspAvailable == other.dspAvailable &&
                 directUsbProbe == other.directUsbProbe &&
                 directSupport == other.directSupport &&
@@ -158,7 +166,9 @@ object AudioOutputStatus {
                 outputExact == other.outputExact &&
                 outputExactDetail == other.outputExactDetail &&
                 loudnessGainDb == other.loudnessGainDb &&
-                loudnessLufs == other.loudnessLufs
+                loudnessLufs == other.loudnessLufs &&
+                spatialEffect == other.spatialEffect &&
+                spatialBypass == other.spatialBypass
         }
 
         override fun hashCode(): Int {
@@ -181,7 +191,8 @@ object AudioOutputStatus {
             result = 31 * result + (decoderName?.hashCode() ?: 0)
             result = 31 * result + (bufferSize ?: 0)
             result = 31 * result + (decoderOutputEncoding?.hashCode() ?: 0)
-            result = 31 * result + dspFormat.hashCode()
+            result = 31 * result + dspFormat.hashCode()
+
             result = 31 * result + dspAvailable.hashCode()
             result = 31 * result + (directUsbProbe?.hashCode() ?: 0)
             result = 31 * result + (directSupport?.hashCode() ?: 0)
@@ -200,6 +211,8 @@ object AudioOutputStatus {
             result = 31 * result + (outputExactDetail?.hashCode() ?: 0)
             result = 31 * result + (loudnessGainDb?.hashCode() ?: 0)
             result = 31 * result + (loudnessLufs?.hashCode() ?: 0)
+            result = 31 * result + (spatialEffect?.hashCode() ?: 0)
+            result = 31 * result + (spatialBypass?.hashCode() ?: 0)
             return result
         }
     }
@@ -384,6 +397,17 @@ object AudioOutputStatus {
         val snapshot = current.value
         if (snapshot.loudnessGainDb == gainDb && snapshot.loudnessLufs == lufs) return
         current.value = snapshot.copy(loudnessGainDb = gainDb, loudnessLufs = lufs)
+    }
+
+    /**
+     * What spatial audio is doing to the playing track: the effect altering samples, or why it is leaving them
+     * untouched. Written by the sink the listener can hear, per block, so it returns early unless something
+     * changed.
+     */
+    fun publishSpatial(effect: String?, bypass: String?) {
+        val snapshot = current.value
+        if (snapshot.spatialEffect == effect && snapshot.spatialBypass == bypass) return
+        current.value = snapshot.copy(spatialEffect = effect, spatialBypass = bypass)
     }
 
     fun publishAudioTrack(encoding: Int, sampleRateHz: Int, bufferSize: Int? = null) {

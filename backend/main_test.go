@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/KabirSinghBhatia/BitChord/backend/config"
 	"github.com/KabirSinghBhatia/BitChord/backend/protocol"
 )
 
@@ -233,6 +234,63 @@ func TestCreateRateLimiter(t *testing.T) {
 	}
 	if !limiter.Allow("203.0.113.11") {
 		t.Fatal("expected a separate IP to have its own allowance")
+	}
+}
+
+func TestRequestOrigin(t *testing.T) {
+	r := httptest.NewRequest("GET", "http://example.com/invite/ABC123", nil)
+	r.Header.Set("X-Forwarded-Proto", "https")
+
+	// Without JAM_TRUST_PROXY the forwarded proto is ignored.
+	if got := requestOrigin(r); got != "http://example.com" {
+		t.Errorf("Expected http://example.com, got %s", got)
+	}
+
+	config.TrustProxy = true
+	defer func() { config.TrustProxy = false }()
+	if got := requestOrigin(r); got != "https://example.com" {
+		t.Errorf("Expected https://example.com, got %s", got)
+	}
+
+	// An explicit public origin wins over request headers.
+	config.PublicOrigin = "https://party.example.com"
+	defer func() { config.PublicOrigin = "" }()
+	if got := requestOrigin(r); got != "https://party.example.com" {
+		t.Errorf("Expected https://party.example.com, got %s", got)
+	}
+
+	// When unset it falls back to inference.
+	config.PublicOrigin = ""
+	if got := requestOrigin(r); got != "https://example.com" {
+		t.Errorf("Expected fallback to https://example.com, got %s", got)
+	}
+}
+
+func TestInviteDeepLinkUsesPublicOrigin(t *testing.T) {
+	ts := setupTestServer()
+	defer ts.Close()
+
+	p, err := store.Create()
+	if err != nil {
+		t.Fatalf("Party creation failed: %v", err)
+	}
+
+	config.PublicOrigin = "https://party.example.com"
+	defer func() { config.PublicOrigin = "" }()
+
+	res, err := http.Get(ts.URL + "/invite/" + p.Code)
+	if err != nil {
+		t.Fatalf("GET /invite/%s failed: %v", p.Code, err)
+	}
+	buf := new(bytes.Buffer)
+	_, _ = buf.ReadFrom(res.Body)
+	content := buf.String()
+
+	if !strings.Contains(content, "server=https%3A%2F%2Fparty.example.com") {
+		t.Errorf("Expected deep link to carry the public origin, got: %s", content)
+	}
+	if strings.Contains(content, "server=http%3A") {
+		t.Errorf("Expected no http server URL in deep link, got: %s", content)
 	}
 }
 

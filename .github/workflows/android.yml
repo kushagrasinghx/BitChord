@@ -35,6 +35,30 @@ jobs:
         name: bitchord-dev-debug
         path: app/build/outputs/apk/dev/debug/*.apk
 
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.27'
+
+    - name: Build
+      run: go build ./...
+
+    - name: Vet
+      run: go vet ./...
+
+    - name: Test
+      run: go test ./...
+
   build-prod-release:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

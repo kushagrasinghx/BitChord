@@ -55,7 +55,13 @@ class WebDavTest {
 
     @Test
     fun mapsFilenameToSong() {
-        val song = WebDavConfig.songFor("https://cloud.example.com/Music/Artist%20-%20Title.mp3", "Album")
+        val song = WebDavConfig.songFor(
+            "https://cloud.example.com/Music/Artist%20-%20Title.mp3",
+            baseUrl = "https://cloud.example.com/Music",
+        )
+        assertEquals("Title", song.title)
+        assertEquals("Artist", song.artist)
+        assertNull(song.albumName)
         assertTrue(song.videoId.startsWith("webdav:"))
         assertEquals("https://cloud.example.com/Music/Artist%20-%20Title.mp3", song.localUri)
         assertEquals(WebDavConfig.BROWSE_ID, song.playbackSourceId)
@@ -168,10 +174,18 @@ class WebDavTest {
     }
 
     @Test
-    fun derivesParentFolder() {
+    fun creditsFromLayoutBelowBaseUrl() {
+        val song = WebDavConfig.songFor(
+            "https://cloud.example.com/remote.php/dav/files/me/Music/Muse/Will%20of%20the%20People%20(2022)/09%20-%20Euphoria.flac",
+            baseUrl = "https://cloud.example.com/remote.php/dav/files/me/Music",
+            displayName = "09 - Euphoria.flac",
+        )
+        assertEquals("Euphoria", song.title)
+        assertEquals("Muse", song.artist)
+        assertEquals("Will of the People", song.albumName)
         assertEquals(
-            "Album",
-            WebDavRepository.parentFolderName("https://cloud.example.com/Music/Artist/Album/song.mp3"),
+            "Muse/Will of the People (2022)/09 - Euphoria.flac",
+            WebDavConfig.libraryPath(song.localUri!!, "cloud.example.com/remote.php/dav/files/me/Music/"),
         )
     }
 

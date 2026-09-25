@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.remote.RemoteArtwork
+import com.music.bitchord.data.remote.RemoteSong
 import com.music.bitchord.data.smb.SmbAuth
 import com.music.bitchord.data.smb.SmbConfig
 import com.music.bitchord.data.smb.SmbConnection
@@ -53,7 +54,7 @@ class SmbTest {
 
     @Test
     fun buildsStableIdsAndUrls() {
-        val song = SmbConfig.songFor("NAS.local", "Music", "Artist/Album/Artist - Title.flac", "Album")
+        val song = SmbConfig.songFor("NAS.local", "Music", "Artist/Album/Artist - Title.flac")
         assertEquals("smb:nas.local/Music/Artist/Album/Artist - Title.flac", song.videoId)
         assertEquals("smb://nas.local/Music/Artist/Album/Artist - Title.flac", song.localUri)
         assertEquals("Title", song.title)
@@ -79,6 +80,50 @@ class SmbTest {
         assertEquals("", user.domain)
         assertFalse(user.isGuest)
         assertFalse(user.isAnonymous)
+    }
+
+    @Test
+    fun creditsFromLibraryLayout() {
+        val featured = RemoteSong.credit(
+            "ONE OK ROCK/35xxxv (Deluxe Edition) (2015)/08 ONE OK ROCK feat. Tyler Carter - Decision.flac",
+        )
+        assertEquals("Decision", featured.title)
+        assertEquals("ONE OK ROCK feat. Tyler Carter", featured.artist)
+        assertEquals("35xxxv (Deluxe Edition)", featured.album)
+
+        val numbered = RemoteSong.credit("Dance Gavin Dance/Tree City Sessions 2 (2020)/14 Strawberry's Wake.flac")
+        assertEquals("Strawberry's Wake", numbered.title)
+        assertEquals("Dance Gavin Dance", numbered.artist)
+        assertEquals("Tree City Sessions 2", numbered.album)
+
+        val disc = RemoteSong.credit("[Alexandros]/Where's My History! (2021)/Disc 01/02 - Song.flac")
+        assertEquals("Song", disc.title)
+        assertEquals("[Alexandros]", disc.artist)
+        assertEquals("Where's My History!", disc.album)
+
+        val dashed = RemoteSong.credit("Set It Off/Cinematics (2012)/16 - I'll Sleep When I'm Dead - Mira Remix.flac")
+        assertEquals("I'll Sleep When I'm Dead - Mira Remix", dashed.title)
+        assertEquals("Set It Off", dashed.artist)
+        assertEquals("Cinematics", dashed.album)
+
+        val loose = RemoteSong.credit("21 Guns.mp3")
+        assertEquals("21 Guns", loose.title)
+        assertNull(loose.artist)
+        assertNull(loose.album)
+    }
+
+    @Test
+    fun songFor_readsCreditsBelowBasePath() {
+        val song = SmbConfig.songFor(
+            "nas",
+            "data",
+            "media/music/Muse/Will of the People (2022)/09 - Euphoria.flac",
+            basePath = "media/music",
+        )
+        assertEquals("Euphoria", song.title)
+        assertEquals("Muse", song.artist)
+        assertEquals("Will of the People", song.albumName)
+        assertEquals("smb:nas/data/media/music/Muse/Will of the People (2022)/09 - Euphoria.flac", song.videoId)
     }
 
     @Test

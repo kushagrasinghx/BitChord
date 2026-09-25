@@ -45,13 +45,8 @@ object SmbRepository {
         entry: SmbClient.Entry,
         siblings: List<SmbClient.Entry>,
     ): Song {
-        // Entry paths accumulate from the base folder down, so they are
-        // already share-rooted.
-        val fullPath = entry.path
-        val album = fullPath.substringBeforeLast('/', "").substringAfterLast('/').trim()
-            .takeIf { it.isNotBlank() }
         val coverUrls = siblings.map { streamUrl(host, share, it.path) }
-        return SmbConfig.songFor(host, share, fullPath, albumName = album).copy(
+        return SmbConfig.songFor(host, share, entry.path, basePath = SmbAuth.basePath).copy(
             thumbnailUrl = RemoteArtwork.pick(coverUrls),
         )
     }

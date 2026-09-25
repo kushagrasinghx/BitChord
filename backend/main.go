@@ -667,6 +667,9 @@ var inviteTemplate = template.Must(template.New("invite").Parse(`<!DOCTYPE html>
 </html>`))
 
 func requestOrigin(r *http.Request) string {
+	if config.PublicOrigin != "" {
+		return config.PublicOrigin
+	}
 	proto := "http"
 	if r.TLS != nil {
 		proto = "https"

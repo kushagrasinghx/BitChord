@@ -1,6 +1,8 @@
 package config
 
 import (
+	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -48,6 +50,19 @@ func getBool(key string, fallback bool) bool {
 	return parsed
 }
 
+func getOrigin(key string) string {
+	val := strings.TrimRight(strings.TrimSpace(os.Getenv(key)), "/")
+	if val == "" {
+		return ""
+	}
+	u, err := url.Parse(val)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Path != "" {
+		log.Printf("%s %q is not an http(s) origin; ignoring", key, val)
+		return ""
+	}
+	return val
+}
+
 // IsAllowedOrigin deliberately does not support a wildcard. Browser clients
 // must be explicitly named; native clients send no Origin header.
 func IsAllowedOrigin(origin string) bool {
@@ -80,5 +95,6 @@ var (
 	FrameRatePerSecond   = float64(getInt("JAM_FRAME_RATE_PER_SECOND", 30))
 	AllowedOrigins       = getCSV("JAM_ALLOWED_ORIGINS", "")
 	TrustProxy           = getBool("JAM_TRUST_PROXY", false)
+	PublicOrigin         = getOrigin("JAM_PUBLIC_ORIGIN")
 	Port                 = getInt("PORT", 8000)
 )

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">đã phân tích</string>
+    <string name="analysis_in_progress">đang phân tích…</string>
+    <string name="analysis_refining">đã phân tích, đang tinh chỉnh…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">Automix · bài này: %1$s · tiếp theo: %2$s</string>
+    <string name="automix_not_supported_video">Automix không được hỗ trợ trên các bài hát dạng video</string>
+    <string name="automix_stopped_in_party">Automix: đã dừng trong Listen together</string>
+    <string name="autoplay">Tự động phát (AutoPlay)</string>
+    <string name="autoplay_empty_description">Nhạc tương tự sẽ tiếp tục được phát</string>
+    <string name="autoplay_off">Tắt tự động phát</string>
+    <string name="autoplay_on">Bật tự động phát</string>
+    <string name="autoplay_queue_description">Nhạc tương tự, được chọn để phát tiếp theo</string>
+    <string name="bit_depth">%1$d-bit</string>
+    <string name="change_lyrics_provider">Đổi</string>
+    <string name="channel_count">%1$d kênh</string>
+    <string name="choose_lyrics_provider">Chọn nguồn lời bài hát</string>
+    <string name="clear">Xóa</string>
+    <string name="close_lyrics">Đóng lời bài hát</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ từ %1$s</string>
+    <string name="drag_to_reorder">Kéo để sắp xếp lại</string>
+    <string name="failed">Thất bại</string>
+    <string name="hi_res_lossless">Hi-Res Lossless</string>
+    <string name="high_quality">Chất lượng cao</string>
+    <string name="high_quality_upgrading">Chất lượng cao, đang nâng cấp</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">Nhạc không lời</string>
+    <string name="like">Thích</string>
+    <string name="listen_together">Listen together</string>
+    <string name="listen_together_away">Away — their slot is held</string>
+    <string name="listen_together_host">Host</string>
+    <string name="listen_together_in_party">In a party · %1$s</string>
+    <string name="listen_together_jam">%1$s’s Jam</string>
+    <string name="listen_together_jam_unnamed">Listening together</string>
+    <string name="listen_together_manage">Quản lý</string>
+    <string name="listen_together_open">Listen together</string>
+    <string name="listen_together_open_count">Listening together · %1$d</string>
+    <string name="listen_together_you">You</string>
+    <string name="lossless">Lossless</string>
+    <string name="lyrics_already_in_language">These lyrics are already in %1$s</string>
+    <string name="lyrics_already_romanized">Lời bài hát này đã dùng ký tự Latinh</string>
+    <string name="lyrics_by">Lời bài hát bởi %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>Giai điệu đang vang lên</item>
+        <item>Bài hát đang bắt đầu</item>
+        <item>Khởi động</item>
+        <item>Tạo bầu không khí</item>
+        <item>Âm trầm trước, lời ca theo sau</item>
+        <item>Chờ một chút</item>
+        <item>Cảm nhận cao trào</item>
+        <item>Chỉ có giai điệu lúc này</item>
+        <item>Điệp khúc sắp tới rồi</item>
+        <item>Cứ thư thả</item>
+        <item>Chuẩn bị cất giọng</item>
+        <item>Những nốt nhạc đầu tiên</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>Đang tải lời bài hát</item>
+        <item>Đang tìm lời ca</item>
+        <item>Đang tìm từng câu hát</item>
+        <item>Lời bài hát đang tải</item>
+        <item>Đang kiểm tra bản lời</item>
+        <item>Đang tìm kiếm tập bài hát</item>
+        <item>Đang sắp xếp lời bài hát</item>
+        <item>Lời ca sắp xuất hiện</item>
+        <item>Đang tra cứu kho lưu trữ</item>
+        <item>Đang tìm đúng câu chữ</item>
+        <item>Lời bài hát đang hoàn thiện</item>
+        <item>Sắp tìm thấy lời bài hát</item>
+    </string-array>
+    <string name="lyrics_not_available">Không có lời bài hát</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">Nguồn hiện tại</string>
+    <string name="lyrics_provider_fetching">Đang tải lời bài hát…</string>
+    <string name="lyrics_provider_found">Đã tìm thấy lời bài hát · Chạm để dùng</string>
+    <string name="lyrics_provider_not_fetched">Chạm để tải</string>
+    <string name="lyrics_provider_not_found">Không tìm thấy lời bài hát</string>
+    <string name="lyrics_romanization_unavailable">Không thể chuyển lời bài hát này sang chữ Latinh</string>
+    <string name="lyrics_romanized">Phiên âm Latinh</string>
+    <string name="lyrics_saved_with_download">Lời bài hát được lưu kèm bản tải này</string>
+    <string name="lyrics_translated_to">Translated to %1$s</string>
+    <string name="lyrics_translation_unavailable">Translation is unavailable right now</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">Mono</string>
+    <string name="more">Thêm</string>
+    <string name="next_from">Tiếp theo từ: %1$s</string>
+    <string name="next_in_queue">Tiếp theo trong hàng đợi</string>
+    <string name="no_lyrics_for_track">Không có lời cho bài hát này</string>
+    <string name="no_lyrics_found">Không tìm thấy lời bài hát</string>
+    <string name="now_playing">Đang phát</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">Tạm dừng</string>
+    <string name="play">Phát</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">Đang phát %1$s Radio</string>
+    <string name="queue">Hàng đợi</string>
+    <string name="remove_from_liked">Xóa khỏi Nhạc đã thích</string>
+    <string name="remove_from_queue">Xóa khỏi hàng đợi</string>
+    <string name="repeat_all">Lặp lại tất cả</string>
+    <string name="repeat_off">Tắt lặp lại</string>
+    <string name="repeat_one">Lặp lại một bài</string>
+    <string name="romanize_lyrics">Chuyển lời bài hát sang chữ Latinh</string>
+    <string name="romanizing_lyrics">Đang chuyển lời bài hát sang chữ Latinh…</string>
+    <string name="show_original_lyrics">Show original lyrics</string>
+    <string name="shuffle_off">Tắt trộn bài</string>
+    <string name="shuffle_on">Bật trộn bài</string>
+    <string name="stereo">Stereo</string>
+    <string name="translate_lyrics">Translate lyrics</string>
+    <string name="translating_lyrics_to">Translating to %1$s…</string>
+    <string name="up_next">Tiếp theo</string>
+    <string name="upgrading_quality">Đang nâng cấp chất lượng</string>
+    <string name="waiting">đang chờ</string>
+    <string name="widget_next">Tiếp theo</string>
+    <string name="widget_previous">Trước</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

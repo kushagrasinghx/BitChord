@@ -42,10 +42,6 @@
     <string name="shuffle">Shuffle</string>
     <string name="more">More</string>
     <string name="lyrics_offset">Lyrics offset</string>
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
-    <string name="lyrics_offset_reset">Reset</string>
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="auto_quick_picks">Quick picks</string>
     <string name="auto_recents">Recent</string>
     <string name="auto_liked">Liked songs</string>
@@ -123,8 +119,6 @@
     <string name="rich_presence">Rich presence</string>
     <string name="scrobbling">Scrobbling</string>
     <string name="now_playing">Now playing</string>
-    <string name="next_in_queue">Next in queue</string>
-    <string name="next_from">Next from: %1$s</string>
     <string name="selected">Selected</string>
     <string name="select_all">Select all</string>
     <string name="password">Password</string>
@@ -376,22 +370,9 @@
     <string name="always_on">Always on</string>
     <string name="api_token">API token</string>
     <string name="audio_quality_connection">While on %1$s</string>
-    <string name="autoplay">AutoPlay</string>
     <string name="back_in_future_version">Back in a future version</string>
     <string name="buttons">Buttons</string>
     <string name="clear_name">Clear name</string>
-    <string name="close_lyrics">Close lyrics</string>
-    <string name="translate_lyrics">Translate lyrics</string>
-    <string name="romanize_lyrics">Romanize lyrics</string>
-    <string name="show_original_lyrics">Show original lyrics</string>
-    <string name="translating_lyrics_to">Translating to %1$s…</string>
-    <string name="lyrics_translated_to">Translated to %1$s</string>
-    <string name="romanizing_lyrics">Romanizing lyrics…</string>
-    <string name="lyrics_romanized">Romanized pronunciation</string>
-    <string name="lyrics_already_romanized">These lyrics already use Latin characters</string>
-    <string name="lyrics_romanization_unavailable">Romanization is unavailable for these lyrics</string>
-    <string name="lyrics_already_in_language">These lyrics are already in %1$s</string>
-    <string name="lyrics_translation_unavailable">Translation is unavailable right now</string>
     <string name="translation_language">Translation language</string>
     <string name="translation_language_description">The language the translate button turns lyrics into.</string>
     <string name="translation_language_app_default">App language</string>
@@ -432,33 +413,9 @@
     <string name="enter_token_to_enable">Enter a token to enable</string>
     <string name="first_button">First button</string>
     <string name="got_it">Got it</string>
-    <string name="high_quality">High quality</string>
-    <string name="instrumental">Instrumental</string>
     <string name="pause">Pause</string>
-    <string name="lyrics_by">Lyrics by %1$s</string>
-    <string name="change_lyrics_provider">Change</string>
-    <string name="choose_lyrics_provider">Choose lyrics provider</string>
-    <string name="lyrics_provider_current">Current provider</string>
-    <string name="lyrics_provider_found">Lyrics found · Tap to use</string>
-    <string name="lyrics_provider_not_found">Lyrics not found</string>
-    <string name="lyrics_provider_fetching">Fetching lyrics…</string>
-    <string name="lyrics_provider_not_fetched">Tap to fetch</string>
-    <string name="no_lyrics_found">No lyrics found</string>
-    <string name="lyrics_saved_with_download">Lyrics saved with this download</string>
     <string name="shuffle_on">Shuffle on</string>
     <string name="shuffle_off">Shuffle off</string>
-    <string name="repeat_one">Repeat one</string>
-    <string name="repeat_all">Repeat all</string>
-    <string name="repeat_off">Repeat off</string>
-    <string name="autoplay_on">AutoPlay on</string>
-    <string name="autoplay_off">AutoPlay off</string>
-    <string name="autoplay_queue_description">Similar music, selected to play next</string>
-    <string name="autoplay_empty_description">Similar music will keep playing</string>
-    <string name="high_quality_upgrading">High quality, upgrading</string>
-    <string name="upgrading_quality">Upgrading quality</string>
-    <string name="hi_res_lossless">Hi-Res Lossless</string>
-    <string name="data_saver">Data-Saver</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="audio_pipeline_subtitle">Live signal path, decoder to output</string>
     <string name="pipeline_track_info">Track Info</string>
@@ -483,11 +440,8 @@
     <string name="pipeline_buffers">Buffers</string>
     <string name="pipeline_output_api">Output API</string>
     <string name="pipeline_device_name">Device Name</string>
-    <string name="bit_depth">%1$d-bit</string>
     <string name="mono">Mono</string>
     <string name="stereo">Stereo</string>
-    <string name="channel_count">%1$d ch</string>
-    <string name="downgraded_from">↓ from %1$s</string>
     <string name="history">History</string>
     <string name="sources">Sources</string>
     <string name="wifi">Wi-Fi</string>
@@ -502,9 +456,6 @@
     <string name="downloading_progress">Downloading · %1$d%%</string>
     <string name="starting">Starting</string>
     <string name="start_radio">Start radio</string>
-    <string name="playing_radio">Playing %1$s Radio</string>
-    <string name="playing_from">Playing from %1$s</string>
-    <string name="played_by">Played by %1$s</string>
     <string name="shared_link">Shared link</string>
     <string name="radio_started">%1$s radio started</string>
     <string name="saved_to_bitchord_folder">Saved to Music/BitChord</string>
@@ -584,7 +535,6 @@
     <string name="listenbrainz_token">ListenBrainz token</string>
     <string name="listenbrainz_token_description">Paste your ListenBrainz user token to enable scrobbling.</string>
     <string name="listening_history">Listening history</string>
-    <string name="lyrics_not_available">Lyrics not available</string>
     <string name="lyrics_sources_order">Sources are tried in this order. Drag to reorder them. The first source with lyrics wins unless syllable lyrics are prioritized.</string>
     <string name="paxsenix_api_key">PaxSenix API key</string>
     <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
@@ -596,7 +546,6 @@
     <string name="addon_url_description">Paste the addon’s URL — either its root or its manifest.json. BitChord reads what it can search and stream, then asks it for tracks over plain HTTP.</string>
     <string name="monthly_listeners">%1$s monthly listeners</string>
     <string name="name">Name</string>
-    <string name="no_lyrics_for_track">No lyrics for this track</string>
     <string name="no_playlists_yet">No playlists yet. Use the row above to create one.</string>
     <string name="no_tracks_here">No tracks here</string>
     <string name="not_connected">Not connected</string>
@@ -618,7 +567,6 @@
     <string name="remove">Remove</string>
     <string name="remove_from_liked">Remove from Liked Music</string>
     <string name="remove_from_playlist">Remove from this playlist</string>
-    <string name="remove_from_queue">Remove from queue</string>
     <string name="rename_playlist">Rename playlist</string>
     <string name="reset_to_default">Reset to default</string>
     <string name="rich_presence_footer">Show what you are playing on your Discord profile.</string>
@@ -678,7 +626,6 @@
     <string name="token">Token</string>
     <string name="turn_off_timer">Turn off timer</string>
     <string name="undo_dislike">Undo dislike</string>
-    <string name="up_next">Up next</string>
     <string name="verb_competing">Competing in</string>
     <string name="verb_listening">Listening to</string>
     <string name="verb_playing">Playing</string>
@@ -815,13 +762,6 @@
     <string name="delete_playlist_confirmation">Delete “%1$s”? Tap again to confirm.</string>
     <string name="delete_download_confirmation">Remove “%1$s” from this device? Tap again to confirm.</string>
     <string name="running">Running</string>
-    <string name="automix_analysis_status">Automix · this song: %1$s · next: %2$s</string>
-    <string name="automix_not_supported_video">Automix not supported on video songs</string>
-    <string name="automix_stopped_in_party">Automix: stopped in listen together</string>
-    <string name="analysis_complete">analysed</string>
-    <string name="analysis_refining">analysed, refining…</string>
-    <string name="analysis_in_progress">analysing…</string>
-    <string name="waiting">waiting</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">not fetched</string>
     <string name="version_cut_fetching">fetching</string>
@@ -855,34 +795,6 @@
     <string name="this_month">This month</string>
     <string name="this_year">This year</string>
     <string name="all_time">All time</string>
-    <string-array name="lyrics_intro_lines">
-        <item>The beat is landing</item>
-        <item>The song is starting</item>
-        <item>Warming up</item>
-        <item>Setting the mood</item>
-        <item>Bass first, words later</item>
-        <item>Wait for it</item>
-        <item>Feel that build</item>
-        <item>Just the groove for now</item>
-        <item>The hook is on the way</item>
-        <item>Let it breathe</item>
-        <item>Cue the vocals</item>
-        <item>First notes in</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>Getting the lyrics</item>
-        <item>Finding the words</item>
-        <item>Fetching the verses</item>
-        <item>Lyrics are loading</item>
-        <item>Checking the lyric sheet</item>
-        <item>Searching the songbook</item>
-        <item>Lining up the lyrics</item>
-        <item>Words are on the way</item>
-        <item>Checking the archives</item>
-        <item>Finding the right words</item>
-        <item>Lyrics are coming together</item>
-        <item>Almost found the words</item>
-    </string-array>
     <string name="switch_account">Switch account</string>
     <string name="accounts">Accounts</string>
     <string name="profiles">Profiles</string>
@@ -900,14 +812,6 @@
     <string name="use_this_profile">Use this profile</string>
     <string name="switch_profile_hint">Switch using the avatar, then use this profile.</string>
     <string name="profile_unavailable">No signed-in profile is available on this page yet.</string>
-    <string name="open_lyrics">Lyrics</string>
-    <string name="audio_output">Audio output</string>
-    <string name="audio_output_playing">Playing here</string>
-    <string name="wired_headphones">Wired headphones</string>
-    <string name="usb_audio">USB audio</string>
-    <string name="hdmi_output">HDMI</string>
-    <string name="personal_phone">%1$s’s Phone</string>
-    <string name="this_phone">This phone</string>
 
     <!-- Listen together -->
     <string name="listen_together">Listen together</string>
@@ -963,7 +867,6 @@
     <string name="listen_together_you">You</string>
     <string name="listen_together_host">Host</string>
     <string name="listen_together_away">Away — their slot is held</string>
-    <string name="listen_together_manage">Manage</string>
     <string name="listen_together_landing_title">Start a party</string>
     <string name="listen_together_landing_subtitle">Because music sounds better together. Invite friends to listen and add songs in real time, wherever they are.</string>
     <string name="listen_together_create_action">Create a party</string>
@@ -989,10 +892,6 @@
     <string name="listen_together_reconnecting">Reconnecting…</string>
     <string name="listen_together_syncing_clock">Measuring the clock…</string>
     <string name="listen_together_in_sync">In sync · %1$d ms round trip</string>
-    <string name="listen_together_jam">%1$s’s Jam</string>
-    <string name="listen_together_jam_unnamed">Listening together</string>
-    <string name="listen_together_open">Listen together</string>
-    <string name="listen_together_open_count">Listening together · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">Join party on custom server?</string>
     <string name="listen_together_custom_server_dialog_message">This party is hosted on an external server:\n\n%1$s\n\nDo you want to switch your party server and join party %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">Switch &amp; Join</string>

@@ -153,8 +153,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import java.util.Locale
 
-/** Past this point in a track, back restarts it instead of skipping to the previous one. */
-const val BACK_RESTARTS_AFTER_MS = 10_000L
 
 /** Session command used by both the player UI and the media notification. */
 const val ACTION_TOGGLE_AUTOPLAY = "com.music.bitchord.action.TOGGLE_AUTOPLAY"
@@ -372,8 +370,9 @@ class PlaybackService : MediaLibraryService() {
                         val likedCard = libPlaylists?.firstOrNull {
                             it.browseId == "VLLM" || it.title.contains("liked", ignoreCase = true)
                         }
-                        if (likedCard?.browseId != null) {
-                            YtMusicRepository.browseSongs(likedCard.browseId).getOrNull()?.songs
+                        val likedBrowseId = likedCard?.browseId
+                        if (likedBrowseId != null) {
+                            YtMusicRepository.browseSongs(likedBrowseId).getOrNull()?.songs
                         } else null
                     }
                     ?: YtMusicRepository.browseSongs("FEmusic_liked_videos").getOrNull()?.songs

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">วิเคราะห์แล้ว</string>
+    <string name="analysis_in_progress">กำลังวิเคราะห์…</string>
+    <string name="analysis_refining">วิเคราะห์แล้ว กำลังปรับแต่ง…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">Automix · เพลงนี้: %1$s · ถัดไป: %2$s</string>
+    <string name="automix_not_supported_video">Automix ไม่รองรับเพลงแบบวิดีโอ</string>
+    <string name="automix_stopped_in_party">Automix: หยุดทำงานขณะฟังด้วยกัน</string>
+    <string name="autoplay">AutoPlay</string>
+    <string name="autoplay_empty_description">เพลงที่คล้ายกันจะเล่นต่อไปเรื่อย ๆ</string>
+    <string name="autoplay_off">ปิด AutoPlay</string>
+    <string name="autoplay_on">เปิด AutoPlay</string>
+    <string name="autoplay_queue_description">เพลงที่คล้ายกัน เลือกไว้ให้เล่นต่อไป</string>
+    <string name="bit_depth">%1$d บิต</string>
+    <string name="change_lyrics_provider">เปลี่ยน</string>
+    <string name="channel_count">%1$d ช่อง</string>
+    <string name="choose_lyrics_provider">เลือกผู้ให้บริการเนื้อเพลง</string>
+    <string name="clear">ล้าง</string>
+    <string name="close_lyrics">ปิดเนื้อเพลง</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ จาก %1$s</string>
+    <string name="drag_to_reorder">ลากเพื่อจัดลำดับใหม่</string>
+    <string name="failed">ล้มเหลว</string>
+    <string name="hi_res_lossless">Hi-Res ไม่สูญเสียคุณภาพ</string>
+    <string name="high_quality">คุณภาพสูง</string>
+    <string name="high_quality_upgrading">คุณภาพสูง กำลังอัปเกรด</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">บรรเลง</string>
+    <string name="like">ถูกใจ</string>
+    <string name="listen_together">ฟังด้วยกัน</string>
+    <string name="listen_together_away">ไม่อยู่ — ที่นั่งยังถูกจองไว้</string>
+    <string name="listen_together_host">เจ้าของปาร์ตี้</string>
+    <string name="listen_together_in_party">อยู่ในปาร์ตี้ · %1$s</string>
+    <string name="listen_together_jam">แจมของ %1$s</string>
+    <string name="listen_together_jam_unnamed">กำลังฟังด้วยกัน</string>
+    <string name="listen_together_manage">จัดการ</string>
+    <string name="listen_together_open">ฟังด้วยกัน</string>
+    <string name="listen_together_open_count">กำลังฟังด้วยกัน · %1$d</string>
+    <string name="listen_together_you">คุณ</string>
+    <string name="lossless">ไม่สูญเสียคุณภาพ</string>
+    <string name="lyrics_already_in_language">เนื้อเพลงนี้เป็นภาษา %1$s อยู่แล้ว</string>
+    <string name="lyrics_already_romanized">เนื้อเพลงนี้ใช้อักษรละตินอยู่แล้ว</string>
+    <string name="lyrics_by">เนื้อเพลงโดย %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>จังหวะกำลังจะมา</item>
+        <item>เพลงกำลังเริ่ม</item>
+        <item>กำลังวอร์มอัพ</item>
+        <item>กำลังปรับอารมณ์</item>
+        <item>เบสมาก่อน คำร้องตามหลัง</item>
+        <item>รอสักครู่</item>
+        <item>สัมผัสจังหวะที่กำลังไต่ระดับ</item>
+        <item>ตอนนี้มีแค่ทำนอง</item>
+        <item>ท่อนฮุกกำลังจะมา</item>
+        <item>ปล่อยให้มันไหลลื่น</item>
+        <item>เตรียมพร้อมสำหรับเสียงร้อง</item>
+        <item>โน้ตแรกมาแล้ว</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>กำลังดึงเนื้อเพลง</item>
+        <item>กำลังหาคำร้อง</item>
+        <item>กำลังดึงท่อนเพลง</item>
+        <item>เนื้อเพลงกำลังโหลด</item>
+        <item>กำลังตรวจสอบแผ่นเนื้อเพลง</item>
+        <item>กำลังค้นหาในสมุดเพลง</item>
+        <item>กำลังจัดเรียงเนื้อเพลง</item>
+        <item>คำร้องกำลังจะมา</item>
+        <item>กำลังตรวจสอบคลังเก็บ</item>
+        <item>กำลังหาคำที่ถูกต้อง</item>
+        <item>เนื้อเพลงกำลังประกอบกัน</item>
+        <item>เกือบหาคำร้องเจอแล้ว</item>
+    </string-array>
+    <string name="lyrics_not_available">ไม่มีเนื้อเพลง</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">ผู้ให้บริการปัจจุบัน</string>
+    <string name="lyrics_provider_fetching">กำลังดึงเนื้อเพลง…</string>
+    <string name="lyrics_provider_found">พบเนื้อเพลง · แตะเพื่อใช้</string>
+    <string name="lyrics_provider_not_fetched">แตะเพื่อดึงข้อมูล</string>
+    <string name="lyrics_provider_not_found">ไม่พบเนื้อเพลง</string>
+    <string name="lyrics_romanization_unavailable">ไม่สามารถแปลงเนื้อเพลงนี้เป็นอักษรโรมันได้</string>
+    <string name="lyrics_romanized">คำอ่านแบบอักษรโรมัน</string>
+    <string name="lyrics_saved_with_download">บันทึกเนื้อเพลงไว้พร้อมกับไฟล์ที่ดาวน์โหลดนี้</string>
+    <string name="lyrics_translated_to">แปลเป็น %1$s แล้ว</string>
+    <string name="lyrics_translation_unavailable">ใช้งานการแปลไม่ได้ในขณะนี้</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">โมโน</string>
+    <string name="more">เพิ่มเติม</string>
+    <string name="next_from">ถัดไปจาก: %1$s</string>
+    <string name="next_in_queue">ถัดไปในคิว</string>
+    <string name="no_lyrics_for_track">ไม่มีเนื้อเพลงสำหรับแทร็กนี้</string>
+    <string name="no_lyrics_found">ไม่พบเนื้อเพลง</string>
+    <string name="now_playing">กำลังเล่น</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">หยุดชั่วคราว</string>
+    <string name="play">เล่น</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">กำลังเล่นวิทยุ %1$s</string>
+    <string name="queue">คิว</string>
+    <string name="remove_from_liked">นำออกจากเพลงที่ถูกใจ</string>
+    <string name="remove_from_queue">นำออกจากคิว</string>
+    <string name="repeat_all">วนซ้ำทั้งหมด</string>
+    <string name="repeat_off">ปิดวนซ้ำ</string>
+    <string name="repeat_one">วนซ้ำเพลงเดียว</string>
+    <string name="romanize_lyrics">แสดงเนื้อเพลงเป็นอักษรโรมัน</string>
+    <string name="romanizing_lyrics">กำลังแปลงเนื้อเพลงเป็นอักษรโรมัน…</string>
+    <string name="show_original_lyrics">แสดงเนื้อเพลงต้นฉบับ</string>
+    <string name="shuffle_off">ปิดสุ่มเล่น</string>
+    <string name="shuffle_on">เปิดสุ่มเล่น</string>
+    <string name="stereo">สเตอริโอ</string>
+    <string name="translate_lyrics">แปลเนื้อเพลง</string>
+    <string name="translating_lyrics_to">กำลังแปลเป็น %1$s…</string>
+    <string name="up_next">กำลังจะเล่นต่อไป</string>
+    <string name="upgrading_quality">กำลังอัปเกรดคุณภาพ</string>
+    <string name="waiting">กำลังรอ</string>
+    <string name="widget_next">ถัดไป</string>
+    <string name="widget_previous">ก่อนหน้า</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">נותח</string>
+    <string name="analysis_in_progress">מנתח…</string>
+    <string name="analysis_refining">נותח, משפר…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">Automix · השיר הזה: %1$s · הבא: %2$s</string>
+    <string name="automix_not_supported_video">Automix אינו נתמך בקטעי וידאו</string>
+    <string name="automix_stopped_in_party">Automix: הופסק בהאזנה ביחד</string>
+    <string name="autoplay">הפעלה אוטומטית</string>
+    <string name="autoplay_empty_description">מוזיקה דומה תמשיך להתנגן</string>
+    <string name="autoplay_off">הפעלה אוטומטית כבויה</string>
+    <string name="autoplay_on">הפעלה אוטומטית מופעלת</string>
+    <string name="autoplay_queue_description">מוזיקה דומה, נבחרה להתנגן בהמשך</string>
+    <string name="bit_depth">%1$d-ביט</string>
+    <string name="change_lyrics_provider">שינוי</string>
+    <string name="channel_count">%1$d ערוצים</string>
+    <string name="choose_lyrics_provider">בחירת ספק מילים</string>
+    <string name="clear">ניקוי</string>
+    <string name="close_lyrics">סגור מילים</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ מ-%1$s</string>
+    <string name="drag_to_reorder">גרור כדי לשנות סדר</string>
+    <string name="failed">נכשל</string>
+    <string name="hi_res_lossless">ללא אובדן נתונים ברזולוציה גבוהה</string>
+    <string name="high_quality">איכות גבוהה</string>
+    <string name="high_quality_upgrading">איכות גבוהה, משדרג</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">אינסטרומנטלי</string>
+    <string name="like">לייק</string>
+    <string name="listen_together">להאזין ביחד</string>
+    <string name="listen_together_away">מרוחק — המקום נשמר</string>
+    <string name="listen_together_host">מארח</string>
+    <string name="listen_together_in_party">במסיבה · %1$s</string>
+    <string name="listen_together_jam">הג׳אם של %1$s</string>
+    <string name="listen_together_jam_unnamed">מאזינים ביחד</string>
+    <string name="listen_together_manage">ניהול</string>
+    <string name="listen_together_open">להאזין ביחד</string>
+    <string name="listen_together_open_count">מאזינים ביחד · %1$d</string>
+    <string name="listen_together_you">אתם</string>
+    <string name="lossless">Lossless</string>
+    <string name="lyrics_already_in_language">המילים כבר ב%1$s</string>
+    <string name="lyrics_already_romanized">המילים האלה כבר כתובות באותיות לטיניות</string>
+    <string name="lyrics_by">מילים מאת %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>הקצב מתקרב</item>
+        <item>השיר מתחיל</item>
+        <item>מתחממים</item>
+        <item>קובעים את האווירה</item>
+        <item>קודם בס, אחר כך מילים</item>
+        <item>חכה לזה</item>
+        <item>תרגיש את ההתגברות</item>
+        <item>רק הגרוב בינתיים</item>
+        <item>הפזמון בדרך</item>
+        <item>תן לזה לנשום</item>
+        <item>הכן את השירה</item>
+        <item>תווים ראשונים</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>משיג את המילים</item>
+        <item>מוצא את המילים</item>
+        <item>מביא את הבתים</item>
+        <item>המילים נטענות</item>
+        <item>בודק את דף המילים</item>
+        <item>מחפש בספר השירים</item>
+        <item>מסדר את המילים</item>
+        <item>מילים בדרך</item>
+        <item>בודק בארכיונים</item>
+        <item>מוצא את המילים הנכונות</item>
+        <item>המילים מתחברות</item>
+        <item>כמעט מצאתי את המילים</item>
+    </string-array>
+    <string name="lyrics_not_available">מילים לא זמינות</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">הספק הנוכחי</string>
+    <string name="lyrics_provider_fetching">מביא מילים…</string>
+    <string name="lyrics_provider_found">נמצאו מילים · הקישו לשימוש</string>
+    <string name="lyrics_provider_not_fetched">הקישו כדי להביא</string>
+    <string name="lyrics_provider_not_found">לא נמצאו מילים</string>
+    <string name="lyrics_romanization_unavailable">תעתיק לטיני לא זמין למילים האלה</string>
+    <string name="lyrics_romanized">הגייה בתעתיק לטיני</string>
+    <string name="lyrics_saved_with_download">מילים נשמרו יחד עם ההורדה הזו</string>
+    <string name="lyrics_translated_to">תורגם ל%1$s</string>
+    <string name="lyrics_translation_unavailable">התרגום אינו זמין כרגע</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">מונו</string>
+    <string name="more">עוד</string>
+    <string name="next_from">הבא מתוך: %1$s</string>
+    <string name="next_in_queue">הבא בתור</string>
+    <string name="no_lyrics_for_track">אין מילים לרצועה זו</string>
+    <string name="no_lyrics_found">לא נמצאו מילים</string>
+    <string name="now_playing">מתנגן כעת</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">השהה</string>
+    <string name="play">הפעלה</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">מנגן רדיו %1$s</string>
+    <string name="queue">תור ההשמעה</string>
+    <string name="remove_from_liked">הסר ממוזיקה שאהבתי</string>
+    <string name="remove_from_queue">הסר מהתור</string>
+    <string name="repeat_all">חזור על הכל</string>
+    <string name="repeat_off">חזרה כבויה</string>
+    <string name="repeat_one">חזור על אחד</string>
+    <string name="romanize_lyrics">תעתיק לטיני למילים</string>
+    <string name="romanizing_lyrics">מתעתק את המילים…</string>
+    <string name="show_original_lyrics">הצג מילים מקוריות</string>
+    <string name="shuffle_off">ערבוב כבוי</string>
+    <string name="shuffle_on">ערבוב מופעל</string>
+    <string name="stereo">סטריאו</string>
+    <string name="translate_lyrics">תרגם מילים</string>
+    <string name="translating_lyrics_to">מתרגם ל%1$s…</string>
+    <string name="up_next">הבא בתור</string>
+    <string name="upgrading_quality">משדרג איכות</string>
+    <string name="waiting">ממתין</string>
+    <string name="widget_next">הבא</string>
+    <string name="widget_previous">הקודם</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

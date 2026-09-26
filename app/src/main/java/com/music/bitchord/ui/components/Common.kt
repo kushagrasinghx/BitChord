@@ -82,14 +82,6 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.foundation.border
 
-fun Modifier.thumbnailBorder(shape: Shape): Modifier = composed {
-    this.border(
-        width = 1.dp,
-        color = if (isSystemInDarkTheme()) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.15f),
-        shape = shape
-    )
-}
-
 /**
  * The left and right inset every page's content sits at.
  *
@@ -127,37 +119,6 @@ val FLOATING_BAR_MAX_WIDTH = 440.dp
  * showing: enough to say the row scrolls without a card being half a card.
  */
 val SHELF_CARD_WIDTH = 150.dp
-
-/** A song title with the catalogue-standard outlined E for explicit audio. */
-@Composable
-fun ExplicitSongTitle(
-    song: Song,
-    style: TextStyle,
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (song.isExplicit == true) {
-            Text(
-                text = "E",
-                style = MaterialTheme.typography.labelSmall,
-                color = color,
-                modifier = Modifier
-                    .border(1.dp, color.copy(alpha = 0.72f), RoundedCornerShape(2.dp))
-                    .padding(horizontal = 3.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-        }
-        Text(
-            text = song.title,
-            style = style,
-            color = color,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
 
 /** Share of the row a lead-shelf card takes, so the next one peeks in past it. */
 private const val HERO_CARD_FRACTION = 0.70f

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">已分析</string>
+    <string name="analysis_in_progress">正在分析…</string>
+    <string name="analysis_refining">已分析，正在优化…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">自动混音 · 当前歌曲：%1$s · 下一首：%2$s</string>
+    <string name="automix_not_supported_video">视频类歌曲不支持 Automix</string>
+    <string name="automix_stopped_in_party">Automix：一起听期间已停止</string>
+    <string name="autoplay">AutoPlay</string>
+    <string name="autoplay_empty_description">相似音乐将继续播放</string>
+    <string name="autoplay_off">AutoPlay 已关闭</string>
+    <string name="autoplay_on">AutoPlay 已开启</string>
+    <string name="autoplay_queue_description">相似音乐，已选定接下来播放</string>
+    <string name="bit_depth">%1$d 位</string>
+    <string name="change_lyrics_provider">更改</string>
+    <string name="channel_count">%1$d 声道</string>
+    <string name="choose_lyrics_provider">选择歌词来源</string>
+    <string name="clear">清除</string>
+    <string name="close_lyrics">关闭歌词</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ 来自 %1$s</string>
+    <string name="drag_to_reorder">拖动以重新排序</string>
+    <string name="failed">失败</string>
+    <string name="hi_res_lossless">Hi-Res 无损</string>
+    <string name="high_quality">高品质</string>
+    <string name="high_quality_upgrading">高品质，升级中</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">纯音乐</string>
+    <string name="like">喜欢</string>
+    <string name="listen_together">一起听</string>
+    <string name="listen_together_away">暂离 — 位置为其保留</string>
+    <string name="listen_together_host">主持人</string>
+    <string name="listen_together_in_party">派对中 · %1$s</string>
+    <string name="listen_together_jam">%1$s 的同听</string>
+    <string name="listen_together_jam_unnamed">一起听</string>
+    <string name="listen_together_manage">管理</string>
+    <string name="listen_together_open">一起听</string>
+    <string name="listen_together_open_count">一起听 · %1$d</string>
+    <string name="listen_together_you">你</string>
+    <string name="lossless">无损</string>
+    <string name="lyrics_already_in_language">歌词已经是%1$s</string>
+    <string name="lyrics_already_romanized">这些歌词已经是拉丁字母</string>
+    <string name="lyrics_by">歌词来自 %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>节奏落地啦</item>
+        <item>歌曲开始啦</item>
+        <item>热场中</item>
+        <item>氛围调节中</item>
+        <item>先来低音，歌词随后</item>
+        <item>稍等一下</item>
+        <item>感受这段铺垫</item>
+        <item>先感受节奏</item>
+        <item>高潮部分马上到</item>
+        <item>让旋律先喘口气</item>
+        <item>人声准备登场</item>
+        <item>第一个音符响起</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>正在获取歌词</item>
+        <item>正在寻找歌词</item>
+        <item>正在抓取歌词段落</item>
+        <item>歌词加载中</item>
+        <item>正在查看歌词单</item>
+        <item>正在翻阅歌本</item>
+        <item>正在排列歌词</item>
+        <item>歌词马上就到</item>
+        <item>正在查阅档案</item>
+        <item>正在寻找准确的歌词</item>
+        <item>歌词正在拼凑完成</item>
+        <item>就快找到歌词了</item>
+    </string-array>
+    <string name="lyrics_not_available">暂无歌词</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">当前来源</string>
+    <string name="lyrics_provider_fetching">正在获取歌词…</string>
+    <string name="lyrics_provider_found">已找到歌词 · 点按以使用</string>
+    <string name="lyrics_provider_not_fetched">点按以获取</string>
+    <string name="lyrics_provider_not_found">未找到歌词</string>
+    <string name="lyrics_romanization_unavailable">这些歌词无法转换为罗马音</string>
+    <string name="lyrics_romanized">罗马音发音</string>
+    <string name="lyrics_saved_with_download">歌词已随此次下载保存</string>
+    <string name="lyrics_translated_to">已翻译为%1$s</string>
+    <string name="lyrics_translation_unavailable">翻译目前不可用</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">单声道</string>
+    <string name="more">更多</string>
+    <string name="next_from">接下来来自：%1$s</string>
+    <string name="next_in_queue">队列中的下一首</string>
+    <string name="no_lyrics_for_track">此曲目没有歌词</string>
+    <string name="no_lyrics_found">未找到歌词</string>
+    <string name="now_playing">正在播放</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">暂停</string>
+    <string name="play">播放</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">正在播放 %1$s 电台</string>
+    <string name="queue">播放队列</string>
+    <string name="remove_from_liked">从喜欢的音乐中移除</string>
+    <string name="remove_from_queue">从播放队列中移除</string>
+    <string name="repeat_all">全部循环</string>
+    <string name="repeat_off">循环已关闭</string>
+    <string name="repeat_one">单曲循环</string>
+    <string name="romanize_lyrics">罗马音歌词</string>
+    <string name="romanizing_lyrics">正在转换为罗马音…</string>
+    <string name="show_original_lyrics">显示原歌词</string>
+    <string name="shuffle_off">随机播放已关闭</string>
+    <string name="shuffle_on">随机播放已开启</string>
+    <string name="stereo">立体声</string>
+    <string name="translate_lyrics">翻译歌词</string>
+    <string name="translating_lyrics_to">正在翻译为%1$s…</string>
+    <string name="up_next">接下来播放</string>
+    <string name="upgrading_quality">正在升级音质</string>
+    <string name="waiting">等待中</string>
+    <string name="widget_next">下一首</string>
+    <string name="widget_previous">上一首</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="17dp"
+    android:height="12dp"
+    android:viewportWidth="108.95"
+    android:viewportHeight="76.599">
+    <!-- Official Dolby double-D mark, adapted from the Dolby Atmos SVG. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M0,0 L0,76.599 L108.95,76.599 L108.95,0 L0,0 z M12.882,9.987 L25.264,9.987 C38.156,9.987 48.932,22.857 48.932,38.151 C48.935,53.883 38.156,66.612 25.264,66.612 L12.882,66.612 L12.882,9.987 z M83.688,9.987 L96.17,9.987 L96.17,66.612 L83.688,66.612 C70.79,66.612 60.017,53.883 60.017,38.151 C60.017,22.857 70.79,9.987 83.688,9.987 z" />
+</vector>

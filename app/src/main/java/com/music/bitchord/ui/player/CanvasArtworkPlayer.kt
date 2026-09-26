@@ -32,6 +32,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
@@ -67,12 +69,6 @@ private const val TAG = "CanvasArtworkPlayer"
  */
 private const val REPAINT_TIMEOUT_MS = 700L
 
-/** How a clip fills the bounds supplied by its caller. */
-enum class CanvasContentMode {
-    CROP,
-    FIT_PORTRAIT,
-}
-
 /**
  * The looping video that plays over a track's cover art, sized to fill and
  * clipped by whatever laid it out.
@@ -89,7 +85,7 @@ enum class CanvasContentMode {
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun CanvasArtworkPlayer(
+internal fun AndroidCanvasArtworkPlayer(
     canvas: CanvasArtwork,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
@@ -105,7 +101,7 @@ fun CanvasArtworkPlayer(
     /** Fires once the clip has an actual frame on screen, and again if it drops back to none. */
     onRenderedChanged: (Boolean) -> Unit = {},
     /** A single frame off the playing clip, for callers that want to re-tint around it. */
-    onFrameCaptured: (Bitmap) -> Unit = {},
+    onFrameCaptured: (ImageBitmap) -> Unit = {},
     /**
      * Keep calling [onFrameCaptured] every so many milliseconds instead of
      * only once — for a caller re-tinting its backdrop off a playing clip,
@@ -301,7 +297,7 @@ fun CanvasArtworkPlayer(
         val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
         if (bitmap != null) {
             Log.d(TAG, "frame captured after rendered=true, size=${bitmap.width}x${bitmap.height}")
-            onFrameCaptured(bitmap)
+            onFrameCaptured(bitmap.asImageBitmap())
         } else {
             Log.w(TAG, "frame capture returned null after rendered=true")
         }
@@ -322,7 +318,7 @@ fun CanvasArtworkPlayer(
             val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
             if (bitmap != null) {
                 Log.d(TAG, "periodic frame captured, size=${bitmap.width}x${bitmap.height}")
-                onFrameCaptured(bitmap)
+                onFrameCaptured(bitmap.asImageBitmap())
             } else {
                 Log.w(TAG, "periodic frame capture returned null")
             }
@@ -700,4 +696,27 @@ private fun mimeTypeOf(url: String): String? {
         path.endsWith(".mp4") -> MimeTypes.VIDEO_MP4
         else -> null
     }
+}
+
+/** The phone's decoder behind [CanvasArtworkPlayer] — see [PlayerHost.CanvasVideo]. */
+@Composable
+internal fun AndroidCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
+    AndroidCanvasArtworkPlayer(
+        canvas = spec.canvas,
+        isPlaying = spec.isPlaying,
+        modifier = modifier,
+        contentMode = spec.contentMode,
+        alignPortraitTop = spec.alignPortraitTop,
+        onAspectRatioChanged = spec.onAspectRatioChanged,
+        portraitRevealBounds = spec.portraitRevealBounds,
+        presentationAlpha = spec.presentationAlpha,
+        onRenderedChanged = spec.onRenderedChanged,
+        onFrameCaptured = spec.onFrameCaptured,
+        refreshFrameEveryMs = spec.refreshFrameEveryMs,
+        frameCapturePx = spec.frameCapturePx,
+        onCoverChanged = spec.onCoverChanged,
+        bottomFade = spec.bottomFade,
+        bottomFadeEndPx = spec.bottomFadeEndPx,
+        pausedForTransition = spec.pausedForTransition,
+    )
 }

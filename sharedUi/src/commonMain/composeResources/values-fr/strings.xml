@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">analysée</string>
+    <string name="analysis_in_progress">analyse en cours…</string>
+    <string name="analysis_refining">analysée, affinage…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">Automix · cette chanson : %1$s · suivante : %2$s</string>
+    <string name="automix_not_supported_video">Automix non pris en charge sur les morceaux vidéo</string>
+    <string name="automix_stopped_in_party">Automix : arrêté pendant Écouter ensemble</string>
+    <string name="autoplay">Lecture automatique</string>
+    <string name="autoplay_empty_description">De la musique similaire continuera d\'être lue</string>
+    <string name="autoplay_off">AutoPlay désactivé</string>
+    <string name="autoplay_on">AutoPlay activé</string>
+    <string name="autoplay_queue_description">Musique similaire, sélectionnée pour être lue ensuite</string>
+    <string name="bit_depth">%1$d bits</string>
+    <string name="change_lyrics_provider">Changer</string>
+    <string name="channel_count">%1$d canaux</string>
+    <string name="choose_lyrics_provider">Choisir la source des paroles</string>
+    <string name="clear">Effacer</string>
+    <string name="close_lyrics">Fermer les paroles</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ depuis %1$s</string>
+    <string name="drag_to_reorder">Glisser pour réorganiser</string>
+    <string name="failed">Échec</string>
+    <string name="hi_res_lossless">Sans perte haute résolution</string>
+    <string name="high_quality">Haute qualité</string>
+    <string name="high_quality_upgrading">Haute qualité, amélioration en cours</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">Instrumental</string>
+    <string name="like">J\'aime</string>
+    <string name="listen_together">Écouter ensemble</string>
+    <string name="listen_together_away">Absent — sa place est gardée</string>
+    <string name="listen_together_host">Hôte</string>
+    <string name="listen_together_in_party">Dans une session · %1$s</string>
+    <string name="listen_together_jam">Jam de %1$s</string>
+    <string name="listen_together_jam_unnamed">Écoute commune</string>
+    <string name="listen_together_manage">Gérer</string>
+    <string name="listen_together_open">Écouter ensemble</string>
+    <string name="listen_together_open_count">Écoute commune · %1$d</string>
+    <string name="listen_together_you">Toi</string>
+    <string name="lossless">Sans perte</string>
+    <string name="lyrics_already_in_language">Ces paroles sont déjà en %1$s</string>
+    <string name="lyrics_already_romanized">Ces paroles utilisent déjà l\'alphabet latin</string>
+    <string name="lyrics_by">Paroles de %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>Le beat arrive</item>
+        <item>La chanson démarre</item>
+        <item>Échauffement</item>
+        <item>Ambiance en préparation</item>
+        <item>La basse d\'abord, les mots ensuite</item>
+        <item>Patience…</item>
+        <item>Sentez la montée</item>
+        <item>Pour l\'instant, juste le groove</item>
+        <item>Le refrain arrive</item>
+        <item>Laissez-la respirer</item>
+        <item>Voix en approche</item>
+        <item>Premières notes</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>Récupération des paroles</item>
+        <item>Recherche des mots</item>
+        <item>Récupération des couplets</item>
+        <item>Chargement des paroles</item>
+        <item>Consultation de la feuille de paroles</item>
+        <item>Recherche dans le recueil</item>
+        <item>Synchronisation des paroles</item>
+        <item>Les mots arrivent</item>
+        <item>Consultation des archives</item>
+        <item>Recherche des bons mots</item>
+        <item>Les paroles prennent forme</item>
+        <item>Presque trouvé les mots</item>
+    </string-array>
+    <string name="lyrics_not_available">Paroles non disponibles</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">Source actuelle</string>
+    <string name="lyrics_provider_fetching">Récupération des paroles…</string>
+    <string name="lyrics_provider_found">Paroles trouvées · Touche pour les utiliser</string>
+    <string name="lyrics_provider_not_fetched">Touche pour récupérer</string>
+    <string name="lyrics_provider_not_found">Paroles introuvables</string>
+    <string name="lyrics_romanization_unavailable">La romanisation n\'est pas disponible pour ces paroles</string>
+    <string name="lyrics_romanized">Prononciation romanisée</string>
+    <string name="lyrics_saved_with_download">Paroles enregistrées avec ce téléchargement</string>
+    <string name="lyrics_translated_to">Traduit en %1$s</string>
+    <string name="lyrics_translation_unavailable">La traduction est indisponible pour le moment</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">Mono</string>
+    <string name="more">Plus</string>
+    <string name="next_from">À suivre depuis : %1$s</string>
+    <string name="next_in_queue">Suivant dans la file d\'attente</string>
+    <string name="no_lyrics_for_track">Aucune parole pour ce titre</string>
+    <string name="no_lyrics_found">Aucune parole trouvée</string>
+    <string name="now_playing">Lecture en cours</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">Pause</string>
+    <string name="play">Lecture</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">Lecture de la radio %1$s</string>
+    <string name="queue">File d\'attente</string>
+    <string name="remove_from_liked">Retirer de Musique que j\'aime</string>
+    <string name="remove_from_queue">Retirer de la file d\'attente</string>
+    <string name="repeat_all">Tout répéter</string>
+    <string name="repeat_off">Répétition désactivée</string>
+    <string name="repeat_one">Répéter une chanson</string>
+    <string name="romanize_lyrics">Romaniser les paroles</string>
+    <string name="romanizing_lyrics">Romanisation des paroles…</string>
+    <string name="show_original_lyrics">Afficher les paroles originales</string>
+    <string name="shuffle_off">Lecture aléatoire désactivée</string>
+    <string name="shuffle_on">Lecture aléatoire activée</string>
+    <string name="stereo">Stéréo</string>
+    <string name="translate_lyrics">Traduire les paroles</string>
+    <string name="translating_lyrics_to">Traduction en %1$s…</string>
+    <string name="up_next">À suivre</string>
+    <string name="upgrading_quality">Amélioration de la qualité</string>
+    <string name="waiting">en attente</string>
+    <string name="widget_next">Suivant</string>
+    <string name="widget_previous">Précédent</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

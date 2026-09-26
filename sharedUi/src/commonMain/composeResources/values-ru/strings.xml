@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">анализ завершён</string>
+    <string name="analysis_in_progress">анализируется…</string>
+    <string name="analysis_refining">анализ завершён, уточняется…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">Автомикс · эта песня: %1$s · следующая: %2$s</string>
+    <string name="automix_not_supported_video">Automix не поддерживается для видео-треков</string>
+    <string name="automix_stopped_in_party">Automix: остановлен в режиме «Слушать вместе»</string>
+    <string name="autoplay">Автовоспроизведение</string>
+    <string name="autoplay_empty_description">Похожая музыка будет продолжать играть</string>
+    <string name="autoplay_off">Автовоспроизведение выключено</string>
+    <string name="autoplay_on">Автовоспроизведение включено</string>
+    <string name="autoplay_queue_description">Похожая музыка, выбранная для воспроизведения следующей</string>
+    <string name="bit_depth">%1$d-бит</string>
+    <string name="change_lyrics_provider">Изменить</string>
+    <string name="channel_count">%1$d кан.</string>
+    <string name="choose_lyrics_provider">Выбрать источник текстов</string>
+    <string name="clear">Очистить</string>
+    <string name="close_lyrics">Закрыть текст песни</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ с %1$s</string>
+    <string name="drag_to_reorder">Перетащите, чтобы изменить порядок</string>
+    <string name="failed">Ошибка</string>
+    <string name="hi_res_lossless">Hi-Res Lossless</string>
+    <string name="high_quality">Высокое качество</string>
+    <string name="high_quality_upgrading">Высокое качество, улучшение</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">Инструментал</string>
+    <string name="like">Нравится</string>
+    <string name="listen_together">Слушать вместе</string>
+    <string name="listen_together_away">Отошёл — место сохранено</string>
+    <string name="listen_together_host">Хост</string>
+    <string name="listen_together_in_party">В вечеринке · %1$s</string>
+    <string name="listen_together_jam">Джем %1$s</string>
+    <string name="listen_together_jam_unnamed">Слушаем вместе</string>
+    <string name="listen_together_manage">Управление</string>
+    <string name="listen_together_open">Слушать вместе</string>
+    <string name="listen_together_open_count">Слушаем вместе · %1$d</string>
+    <string name="listen_together_you">Вы</string>
+    <string name="lossless">Без потерь</string>
+    <string name="lyrics_already_in_language">Текст уже на языке %1$s</string>
+    <string name="lyrics_already_romanized">Этот текст уже написан латиницей</string>
+    <string name="lyrics_by">Текст песни: %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>Бит набирает обороты</item>
+        <item>Песня начинается</item>
+        <item>Разогрев</item>
+        <item>Создаём настроение</item>
+        <item>Сначала бас, слова потом</item>
+        <item>Ещё чуть-чуть</item>
+        <item>Чувствуете нарастание?</item>
+        <item>Пока только грув</item>
+        <item>Припев уже близко</item>
+        <item>Дайте треку задышать</item>
+        <item>Включаем вокал</item>
+        <item>Первые ноты уже звучат</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>Загружаем текст</item>
+        <item>Ищем слова</item>
+        <item>Достаём куплеты</item>
+        <item>Текст загружается</item>
+        <item>Сверяемся с текстовкой</item>
+        <item>Листаем песенник</item>
+        <item>Выстраиваем строки</item>
+        <item>Слова уже в пути</item>
+        <item>Заглядываем в архив</item>
+        <item>Подбираем нужные слова</item>
+        <item>Текст почти готов</item>
+        <item>Слова почти найдены</item>
+    </string-array>
+    <string name="lyrics_not_available">Текст недоступен</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">Текущий источник</string>
+    <string name="lyrics_provider_fetching">Загрузка текста…</string>
+    <string name="lyrics_provider_found">Текст найден · Нажмите, чтобы использовать</string>
+    <string name="lyrics_provider_not_fetched">Нажмите, чтобы загрузить</string>
+    <string name="lyrics_provider_not_found">Текст не найден</string>
+    <string name="lyrics_romanization_unavailable">Транслитерация недоступна для этого текста</string>
+    <string name="lyrics_romanized">Произношение латиницей</string>
+    <string name="lyrics_saved_with_download">Текст сохранён вместе с этой загрузкой</string>
+    <string name="lyrics_translated_to">Переведено на %1$s</string>
+    <string name="lyrics_translation_unavailable">Перевод сейчас недоступен</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">Моно</string>
+    <string name="more">Ещё</string>
+    <string name="next_from">Далее из: %1$s</string>
+    <string name="next_in_queue">Следующая в очереди</string>
+    <string name="no_lyrics_for_track">Для этого трека нет текста</string>
+    <string name="no_lyrics_found">Текст не найден</string>
+    <string name="now_playing">Сейчас играет</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">Пауза</string>
+    <string name="play">Играть</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">Воспроизведение радио %1$s</string>
+    <string name="queue">Очередь</string>
+    <string name="remove_from_liked">Удалить из понравившейся музыки</string>
+    <string name="remove_from_queue">Удалить из очереди</string>
+    <string name="repeat_all">Повтор всех</string>
+    <string name="repeat_off">Повтор выключен</string>
+    <string name="repeat_one">Повтор одной песни</string>
+    <string name="romanize_lyrics">Транслитерировать текст</string>
+    <string name="romanizing_lyrics">Транслитерация текста…</string>
+    <string name="show_original_lyrics">Показать оригинал</string>
+    <string name="shuffle_off">Перемешивание выключено</string>
+    <string name="shuffle_on">Перемешивание включено</string>
+    <string name="stereo">Стерео</string>
+    <string name="translate_lyrics">Перевести текст</string>
+    <string name="translating_lyrics_to">Перевод на %1$s…</string>
+    <string name="up_next">Далее</string>
+    <string name="upgrading_quality">Улучшение качества</string>
+    <string name="waiting">ожидание</string>
+    <string name="widget_next">Далее</string>
+    <string name="widget_previous">Назад</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

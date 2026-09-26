@@ -79,14 +79,6 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/** What the current track's provider picker already knows without another request. */
-enum class LyricsProviderState {
-    NOT_FETCHED,
-    FETCHING,
-    FOUND,
-    NOT_FOUND,
-}
-
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authStore = AuthStore(app)

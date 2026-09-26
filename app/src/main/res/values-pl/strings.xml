@@ -96,8 +96,6 @@
     <string name="rich_presence">Status na Discordzie</string>
     <string name="scrobbling">Scrobbling</string>
     <string name="now_playing">Teraz odtwarzane</string>
-    <string name="next_in_queue">Następny w kolejce</string>
-    <string name="next_from">Następne z: %1$s</string>
     <string name="selected">Wybrano</string>
     <string name="password">Hasło</string>
     <string name="username">Nazwa użytkownika</string>
@@ -267,22 +265,9 @@
     <string name="always_on">Zawsze włączone</string>
     <string name="api_token">Token API</string>
     <string name="audio_quality_connection">Gdy połączono przez %1$s</string>
-    <string name="autoplay">Autoodtwarzanie</string>
     <string name="back_in_future_version">Powróci w przyszłej wersji</string>
     <string name="buttons">Przyciski</string>
     <string name="clear_name">Wyczyść nazwę</string>
-    <string name="close_lyrics">Zamknij teksty</string>
-    <string name="translate_lyrics">Przetłumacz tekst</string>
-    <string name="romanize_lyrics">Latynizuj tekst</string>
-    <string name="show_original_lyrics">Pokaż oryginalny tekst</string>
-    <string name="translating_lyrics_to">Tłumaczenie na %1$s…</string>
-    <string name="lyrics_translated_to">Przetłumaczono na %1$s</string>
-    <string name="romanizing_lyrics">Latynizowanie tekstu…</string>
-    <string name="lyrics_romanized">Wymowa w alfabecie łacińskim</string>
-    <string name="lyrics_already_romanized">Ten tekst jest już zapisany alfabetem łacińskim</string>
-    <string name="lyrics_romanization_unavailable">Latynizacja jest niedostępna dla tego tekstu</string>
-    <string name="lyrics_already_in_language">Ten tekst jest już w języku %1$s</string>
-    <string name="lyrics_translation_unavailable">Tłumaczenie jest teraz niedostępne</string>
     <string name="connect_account_first">Najpierw połącz konto</string>
     <string name="connected_presence_off">Połączono, obecność wyłączona</string>
     <string name="copy_log">Kopiuj log</string>
@@ -317,36 +302,11 @@
     <string name="enter_token_to_enable">Wprowadź token, aby włączyć</string>
     <string name="first_button">Pierwszy przycisk</string>
     <string name="got_it">Rozumiem</string>
-    <string name="high_quality">Wysoka jakość</string>
-    <string name="instrumental">Instrumentalny</string>
     <string name="pause">Wstrzymaj</string>
-    <string name="lyrics_by">Tekst przez %1$s</string>
-    <string name="change_lyrics_provider">Zmień</string>
-    <string name="choose_lyrics_provider">Wybierz źródło tekstów</string>
-    <string name="lyrics_provider_current">Aktualne źródło</string>
-    <string name="lyrics_provider_found">Tekst znaleziony · Dotknij, aby użyć</string>
-    <string name="lyrics_provider_not_found">Nie znaleziono tekstu</string>
-    <string name="lyrics_provider_fetching">Pobieranie tekstu…</string>
-    <string name="lyrics_provider_not_fetched">Dotknij, aby pobrać</string>
-    <string name="no_lyrics_found">Nie znaleziono tekstu</string>
-    <string name="lyrics_saved_with_download">Teksty zapisane wraz z tym pobieraniem</string>
     <string name="shuffle_on">Losowanie włączone</string>
     <string name="shuffle_off">Losowanie wyłączone</string>
-    <string name="repeat_one">Powtórz jeden</string>
-    <string name="repeat_all">Powtórz wszystkie</string>
-    <string name="repeat_off">Powtarzanie wyłączone</string>
-    <string name="autoplay_on">Autoodtwarzanie włączone</string>
-    <string name="autoplay_off">Autoodtwarzanie wyłączone</string>
-    <string name="autoplay_queue_description">Podobna muzyka, wybrana do odtworzenia w następnej kolejności</string>
-    <string name="autoplay_empty_description">Podobna muzyka będzie nadal odtwarzana</string>
-    <string name="high_quality_upgrading">Wysoka jakość, uaktualnianie</string>
-    <string name="upgrading_quality">Uaktualnianie jakości</string>
-    <string name="hi_res_lossless">Hi-Res Lossless</string>
-    <string name="bit_depth">%1$d-bit</string>
     <string name="mono">Mono</string>
     <string name="stereo">Stereo</string>
-    <string name="channel_count">%1$d kan</string>
-    <string name="downgraded_from">↓ z %1$s</string>
     <string name="history">Historia</string>
     <string name="sources">Źródła</string>
     <string name="wifi">Wi-Fi</string>
@@ -394,7 +354,6 @@
     <string name="listenbrainz_token">Token ListenBrainz</string>
     <string name="listenbrainz_token_description">Wklej token użytkownika ListenBrainz, aby włączyć scrobbling.</string>
     <string name="listening_history">Historia odtwarzania</string>
-    <string name="lyrics_not_available">Tekst niedostępny</string>
     <string name="lyrics_sources_order">Źródła są sprawdzane w tej kolejności. Przeciągnij, aby zmienić ich kolejność. Pierwsze źródło z tekstami wygrywa, chyba że preferowane są teksty zsynchronizowane do sylab.</string>
     <string name="max_delay">Maksymalne opóźnienie</string>
     <string name="max_delay_subtitle">Maksymalne opóźnienie scrobble w sekundach</string>
@@ -402,7 +361,6 @@
     <string name="min_song_duration_subtitle">Krótsze utwory nie będą scrobblowane</string>
     <string name="monthly_listeners">%1$s słuchaczy miesięcznie</string>
     <string name="name">Nazwa</string>
-    <string name="no_lyrics_for_track">Brak tekstów do tego utworu</string>
     <string name="no_playlists_yet">Brak playlist. Użyj rzędu powyżej, by jedną stworzyć.</string>
     <string name="no_tracks_here">Nie ma tu utworów</string>
     <string name="not_connected">Nie połączono</string>
@@ -424,7 +382,6 @@
     <string name="remove">Usuń</string>
     <string name="remove_from_liked">Usuń z Polubionych Utworów</string>
     <string name="remove_from_playlist">Usuń z tej playlisty</string>
-    <string name="remove_from_queue">Usuń z kolejki</string>
     <string name="rename_playlist">Zmień nazwę playlisty</string>
     <string name="reset_to_default">Przywróć domyślne</string>
     <string name="rich_presence_footer">Pokaż w co grasz na swoim profilu na Discordzie.</string>
@@ -487,7 +444,6 @@
     <string name="token">Token</string>
     <string name="turn_off_timer">Wyłącz minutnik</string>
     <string name="undo_dislike">Cofnij Nie lubię</string>
-    <string name="up_next">Następne</string>
     <string name="verb_competing">Rywalizuje w</string>
     <string name="verb_listening">Słucha</string>
     <string name="verb_playing">Gra w</string>
@@ -602,11 +558,6 @@
     <string name="delete_playlist_confirmation">Usunąć „%1$s”? Stuknij ponownie, by potwierdzić.</string>
     <string name="delete_download_confirmation">Usunąć „%1$s” z urządzenia? Stuknij ponownie, by potwierdzić.</string>
     <string name="running">Uruchomiono</string>
-    <string name="automix_analysis_status">Automix · ten utwór: %1$s · następny: %2$s</string>
-    <string name="analysis_complete">przeanalizowano</string>
-    <string name="analysis_refining">przeanalizowano, ulepszanie…</string>
-    <string name="analysis_in_progress">analizowanie…</string>
-    <string name="waiting">oczekiwanie</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">nie pobrano</string>
     <string name="version_cut_fetching">pobieranie</string>
@@ -720,34 +671,6 @@
         <item quantity="many">%1$d miesięcy słuchania</item>
         <item quantity="other">%1$d miesięcy słuchania</item>
     </plurals>
-    <string-array name="lyrics_intro_lines">
-        <item>Nadchodzi beat</item>
-        <item>Piosenka się zaczyna</item>
-        <item>Rozgrzewka</item>
-        <item>Tworzenie nastroju</item>
-        <item>Najpierw bas, potem słowa</item>
-        <item>Poczekaj na to</item>
-        <item>Poczuj to narastanie</item>
-        <item>Tylko groove na razie</item>
-        <item>Refren jest w drodze</item>
-        <item>Daj mu oddychać</item>
-        <item>Przygotuj wokale</item>
-        <item>Pierwsze nuty</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>Pobieranie tekstów</item>
-        <item>Szukanie słów</item>
-        <item>Pobieranie zwrotek</item>
-        <item>Ładowanie tekstów</item>
-        <item>Sprawdzanie kartki z tekstami</item>
-        <item>Przeszukiwanie śpiewnika</item>
-        <item>Układanie tekstów</item>
-        <item>Słowa są w drodze</item>
-        <item>Sprawdzanie archiwów</item>
-        <item>Szukanie odpowiednich słów</item>
-        <item>Teksty się łączą</item>
-        <item>Prawie znaleziono słowa</item>
-    </string-array>
     <string name="hebrew">Hebrajski</string>
     <string name="switch_to_grid_view">Przełącz na widok siatki</string>
     <string name="grid_view">Siatka</string>
@@ -808,7 +731,6 @@
     <string name="listen_together_you">Ty</string>
     <string name="listen_together_host">Gospodarz</string>
     <string name="listen_together_away">Poza zasięgiem — miejsce jest trzymane</string>
-    <string name="listen_together_manage">Zarządzaj</string>
     <string name="listen_together_landing_title">Rozpocznij imprezę</string>
     <string name="listen_together_landing_subtitle">Bo muzyka razem brzmi lepiej. Zaproś znajomych, by słuchali i dodawali utwory na żywo, gdziekolwiek są.</string>
     <string name="listen_together_create_action">Utwórz imprezę</string>
@@ -834,10 +756,6 @@
     <string name="listen_together_reconnecting">Ponowne łączenie…</string>
     <string name="listen_together_syncing_clock">Mierzenie zegara…</string>
     <string name="listen_together_in_sync">Zsynchronizowano · %1$d ms w obie strony</string>
-    <string name="listen_together_jam">Jam użytkownika %1$s</string>
-    <string name="listen_together_jam_unnamed">Wspólne słuchanie</string>
-    <string name="listen_together_open">Słuchajcie razem</string>
-    <string name="listen_together_open_count">Wspólne słuchanie · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">Dołączyć do imprezy na własnym serwerze?</string>
     <string name="listen_together_custom_server_dialog_message">Ta impreza działa na zewnętrznym serwerze:\n\n%1$s\n\nCzy chcesz zmienić serwer imprez i dołączyć do imprezy %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">Zmień i dołącz</string>
@@ -899,8 +817,6 @@
 
     <string name="automix_mode_performance_subtitle">4 wątki · najszybsza analiza · większe zużycie baterii</string>
 
-    <string name="automix_not_supported_video">Automix nie jest obsługiwany dla utworów wideo</string>
-    <string name="automix_stopped_in_party">Automix: zatrzymany podczas wspólnego słuchania</string>
 
     <string name="automix_performance">Wydajność Automix</string>
 
@@ -969,7 +885,6 @@
 
     <string name="personal">Osobisty</string>
 
-    <string name="playing_radio">Odtwarzanie radia %1$s</string>
 
     <string name="playlist_action">Playlista</string>
 
@@ -1114,13 +1029,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="auto_quick_picks">Quick picks</string>
 
@@ -1259,9 +1170,7 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="audio_pipeline_subtitle">Ścieżka sygnału na żywo, od dekodera do wyjścia</string>
@@ -1310,9 +1219,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1329,21 +1236,13 @@
 
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
-    <string name="open_lyrics">Lyrics</string>
 
-    <string name="audio_output">Audio output</string>
 
-    <string name="audio_output_playing">Playing here</string>
 
-    <string name="wired_headphones">Wired headphones</string>
 
-    <string name="usb_audio">USB audio</string>
 
-    <string name="hdmi_output">HDMI</string>
 
-    <string name="personal_phone">%1$s’s Phone</string>
 
-    <string name="this_phone">This phone</string>
 
 
 

@@ -115,8 +115,6 @@
     <string name="rich_presence">Presenza avanzata</string>
     <string name="scrobbling">Scrobbling</string>
     <string name="now_playing">In riproduzione</string>
-    <string name="next_in_queue">Prossimo in coda</string>
-    <string name="next_from">Prossimo da: %1$s</string>
     <string name="selected">Selezionato</string>
     <string name="select_all">Seleziona tutto</string>
     <string name="password">Password</string>
@@ -312,22 +310,9 @@
     <string name="always_on">Sempre attivo</string>
     <string name="api_token">Token API</string>
     <string name="audio_quality_connection">Con %1$s</string>
-    <string name="autoplay">AutoPlay</string>
     <string name="back_in_future_version">Tornerà in una versione futura</string>
     <string name="buttons">Pulsanti</string>
     <string name="clear_name">Cancella nome</string>
-    <string name="close_lyrics">Chiudi testi</string>
-    <string name="translate_lyrics">Traduci testo</string>
-    <string name="romanize_lyrics">Traslittera il testo</string>
-    <string name="show_original_lyrics">Mostra testo originale</string>
-    <string name="translating_lyrics_to">Traduzione in %1$s…</string>
-    <string name="lyrics_translated_to">Tradotto in %1$s</string>
-    <string name="romanizing_lyrics">Traslitterazione del testo…</string>
-    <string name="lyrics_romanized">Pronuncia traslitterata</string>
-    <string name="lyrics_already_romanized">Questo testo usa già caratteri latini</string>
-    <string name="lyrics_romanization_unavailable">La traslitterazione non è disponibile per questo testo</string>
-    <string name="lyrics_already_in_language">Questo testo è già in %1$s</string>
-    <string name="lyrics_translation_unavailable">La traduzione non è disponibile al momento</string>
     <string name="connect_account_first">Collega prima un account</string>
     <string name="connected_presence_off">Connesso, presenza disattivata</string>
     <string name="copy_log">Copia log</string>
@@ -362,36 +347,11 @@
     <string name="enter_token_to_enable">Inserisci un token per attivare</string>
     <string name="first_button">Primo pulsante</string>
     <string name="got_it">Capito</string>
-    <string name="high_quality">Alta qualità</string>
-    <string name="instrumental">Strumentale</string>
     <string name="pause">Pausa</string>
-    <string name="lyrics_by">Testi di %1$s</string>
-    <string name="change_lyrics_provider">Cambia</string>
-    <string name="choose_lyrics_provider">Scegli la fonte dei testi</string>
-    <string name="lyrics_provider_current">Fonte attuale</string>
-    <string name="lyrics_provider_found">Testo trovato · Tocca per usarlo</string>
-    <string name="lyrics_provider_not_found">Testo non trovato</string>
-    <string name="lyrics_provider_fetching">Recupero del testo…</string>
-    <string name="lyrics_provider_not_fetched">Tocca per recuperare</string>
-    <string name="no_lyrics_found">Nessun testo trovato</string>
-    <string name="lyrics_saved_with_download">Testi salvati con questo download</string>
     <string name="shuffle_on">Casuale attivo</string>
     <string name="shuffle_off">Casuale disattivo</string>
-    <string name="repeat_one">Ripeti uno</string>
-    <string name="repeat_all">Ripeti tutto</string>
-    <string name="repeat_off">Ripeti disattivo</string>
-    <string name="autoplay_on">AutoPlay attivo</string>
-    <string name="autoplay_off">AutoPlay disattivo</string>
-    <string name="autoplay_queue_description">Musica simile, selezionata per la riproduzione successiva</string>
-    <string name="autoplay_empty_description">Continuerà con musica simile</string>
-    <string name="high_quality_upgrading">Alta qualità, aggiornamento in corso</string>
-    <string name="upgrading_quality">Aggiornamento qualità</string>
-    <string name="hi_res_lossless">Hi-Res Lossless</string>
-    <string name="bit_depth">%1$d bit</string>
     <string name="mono">Mono</string>
     <string name="stereo">Stereo</string>
-    <string name="channel_count">%1$d canali</string>
-    <string name="downgraded_from">↓ da %1$s</string>
     <string name="history">Cronologia</string>
     <string name="sources">Sorgenti</string>
     <string name="wifi">Wi-Fi</string>
@@ -406,7 +366,6 @@
     <string name="downloading_progress">Download in corso · %1$d%%</string>
     <string name="starting">Avvio</string>
     <string name="start_radio">Avvia radio</string>
-    <string name="playing_radio">Riproduzione radio %1$s</string>
     <string name="radio_started">Radio %1$s avviata</string>
     <string name="saved_to_bitchord_folder">Salvato in Musica/BitChord</string>
     <string name="nothing_downloading">Nessun download in corso</string>
@@ -480,7 +439,6 @@
     <string name="listenbrainz_token">Token ListenBrainz</string>
     <string name="listenbrainz_token_description">Incolla il tuo token utente ListenBrainz per attivare lo scrobbling.</string>
     <string name="listening_history">Cronologia di ascolto</string>
-    <string name="lyrics_not_available">Testi non disponibili</string>
     <string name="lyrics_sources_order">Le sorgenti vengono provate in quest\'ordine. Trascina per riordinarle. Vince la prima sorgente con testi disponibili, a meno che i testi sillabici non siano prioritari.</string>
     <string name="max_delay">Ritardo massimo</string>
     <string name="max_delay_subtitle">Ritardo massimo dello scrobble in secondi</string>
@@ -488,7 +446,6 @@
     <string name="min_song_duration_subtitle">I brani più brevi non verranno registrati</string>
     <string name="monthly_listeners">%1$s ascoltatori mensili</string>
     <string name="name">Nome</string>
-    <string name="no_lyrics_for_track">Nessun testo per questo brano</string>
     <string name="no_playlists_yet">Ancora nessuna playlist. Usa la riga sopra per crearne una.</string>
     <string name="no_tracks_here">Nessun brano qui</string>
     <string name="not_connected">Non connesso</string>
@@ -510,7 +467,6 @@
     <string name="remove">Rimuovi</string>
     <string name="remove_from_liked">Rimuovi da Musica che mi piace</string>
     <string name="remove_from_playlist">Rimuovi da questa playlist</string>
-    <string name="remove_from_queue">Rimuovi dalla coda</string>
     <string name="rename_playlist">Rinomina playlist</string>
     <string name="reset_to_default">Ripristina predefiniti</string>
     <string name="rich_presence_footer">Mostra cosa stai ascoltando sul tuo profilo Discord.</string>
@@ -570,7 +526,6 @@
     <string name="token">Token</string>
     <string name="turn_off_timer">Disattiva timer</string>
     <string name="undo_dislike">Annulla non mi piace</string>
-    <string name="up_next">In arrivo</string>
     <string name="verb_competing">In gara in</string>
     <string name="verb_listening">In ascolto di</string>
     <string name="verb_playing">In riproduzione</string>
@@ -702,13 +657,6 @@
     <string name="delete_playlist_confirmation">Eliminare “%1$s”? Tocca di nuovo per confermare.</string>
     <string name="delete_download_confirmation">Rimuovere “%1$s” da questo dispositivo? Tocca di nuovo per confermare.</string>
     <string name="running">In esecuzione</string>
-    <string name="automix_analysis_status">Automix · questo brano: %1$s · successivo: %2$s</string>
-    <string name="automix_not_supported_video">Automix non supportato sui video musicali</string>
-    <string name="automix_stopped_in_party">Automix: interrotto in “Ascoltare insieme”</string>
-    <string name="analysis_complete">analizzato</string>
-    <string name="analysis_refining">analizzato, rifinitura…</string>
-    <string name="analysis_in_progress">analisi in corso…</string>
-    <string name="waiting">in attesa</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">non recuperato</string>
     <string name="version_cut_fetching">recupero</string>
@@ -742,34 +690,6 @@
     <string name="this_month">Questo mese</string>
     <string name="this_year">Quest\'anno</string>
     <string name="all_time">Sempre</string>
-    <string-array name="lyrics_intro_lines">
-        <item>Il ritmo sta arrivando</item>
-        <item>Il brano sta iniziando</item>
-        <item>Riscaldamento</item>
-        <item>Si crea l\'atmosfera</item>
-        <item>Prima il basso, poi le parole</item>
-        <item>Aspetta</item>
-        <item>Senti la crescita</item>
-        <item>Per ora solo il groove</item>
-        <item>Il ritornello sta arrivando</item>
-        <item>Lascialo respirare</item>
-        <item>Via alla voce</item>
-        <item>Prime note in arrivo</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>Recupero dei testi</item>
-        <item>Ricerca delle parole</item>
-        <item>Recupero delle strofe</item>
-        <item>I testi si stanno caricando</item>
-        <item>Controllo del foglio dei testi</item>
-        <item>Ricerca nel songbook</item>
-        <item>Allineamento dei testi</item>
-        <item>Le parole stanno arrivando</item>
-        <item>Controllo degli archivi</item>
-        <item>Ricerca delle parole giuste</item>
-        <item>I testi si stanno completando</item>
-        <item>Quasi trovate le parole</item>
-    </string-array>
     <string name="switch_account">Cambia account</string>
     <string name="accounts">Account</string>
     <string name="profiles">Profili</string>
@@ -842,7 +762,6 @@
     <string name="listen_together_you">Tu</string>
     <string name="listen_together_host">Host</string>
     <string name="listen_together_away">Assente — il posto è tenuto</string>
-    <string name="listen_together_manage">Gestisci</string>
     <string name="listen_together_landing_title">Avvia un party</string>
     <string name="listen_together_landing_subtitle">Perché la musica suona meglio in compagnia. Invita gli amici ad ascoltare e aggiungere brani in tempo reale, ovunque si trovino.</string>
     <string name="listen_together_create_action">Crea un party</string>
@@ -868,10 +787,6 @@
     <string name="listen_together_reconnecting">Riconnessione…</string>
     <string name="listen_together_syncing_clock">Misurazione dell’orologio…</string>
     <string name="listen_together_in_sync">In sincrono · %1$d ms di andata e ritorno</string>
-    <string name="listen_together_jam">Jam di %1$s</string>
-    <string name="listen_together_jam_unnamed">Ascolto insieme</string>
-    <string name="listen_together_open">Ascolta insieme</string>
-    <string name="listen_together_open_count">Ascolto insieme · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">Entrare nel party su un server personalizzato?</string>
     <string name="listen_together_custom_server_dialog_message">Questo party è ospitato su un server esterno:\n\n%1$s\n\nVuoi cambiare server dei party ed entrare nel party %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">Cambia ed entra</string>
@@ -1051,13 +966,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="settings_search_hint">Search settings</string>
 
@@ -1160,9 +1071,7 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="audio_pipeline_subtitle">Percorso del segnale in tempo reale, dal decoder all\'uscita</string>
@@ -1211,9 +1120,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1230,21 +1137,13 @@
 
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
-    <string name="open_lyrics">Lyrics</string>
 
-    <string name="audio_output">Audio output</string>
 
-    <string name="audio_output_playing">Playing here</string>
 
-    <string name="wired_headphones">Wired headphones</string>
 
-    <string name="usb_audio">USB audio</string>
 
-    <string name="hdmi_output">HDMI</string>
 
-    <string name="personal_phone">%1$s’s Phone</string>
 
-    <string name="this_phone">This phone</string>
 
 
 

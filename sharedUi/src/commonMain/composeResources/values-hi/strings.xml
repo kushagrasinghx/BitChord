@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">विश्लेषित</string>
+    <string name="analysis_in_progress">विश्लेषण हो रहा है…</string>
+    <string name="analysis_refining">विश्लेषित, सुधार हो रहा है…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">ऑटोमिक्स · यह गाना: %1$s · अगला: %2$s</string>
+    <string name="automix_not_supported_video">वीडियो गानों पर Automix समर्थित नहीं है</string>
+    <string name="automix_stopped_in_party">Automix: साथ में सुनें के दौरान बंद</string>
+    <string name="autoplay">ऑटोप्ले</string>
+    <string name="autoplay_empty_description">मिलता-जुलता संगीत चलता रहेगा</string>
+    <string name="autoplay_off">ऑटोप्ले बंद</string>
+    <string name="autoplay_on">ऑटोप्ले चालू</string>
+    <string name="autoplay_queue_description">मिलता-जुलता संगीत, आगे चलाने के लिए चुना गया</string>
+    <string name="bit_depth">%1$d-बिट</string>
+    <string name="change_lyrics_provider">बदलें</string>
+    <string name="channel_count">%1$d ch</string>
+    <string name="choose_lyrics_provider">लिरिक्स प्रदाता चुनें</string>
+    <string name="clear">साफ़ करें</string>
+    <string name="close_lyrics">लिरिक्स बंद करें</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ %1$s से</string>
+    <string name="drag_to_reorder">क्रम बदलने के लिए खींचें</string>
+    <string name="failed">विफल</string>
+    <string name="hi_res_lossless">हाई-रेस लॉसलेस</string>
+    <string name="high_quality">हाई क्वालिटी</string>
+    <string name="high_quality_upgrading">हाई क्वालिटी, अपग्रेड हो रहा है</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">इंस्ट्रूमेंटल</string>
+    <string name="like">पसंद</string>
+    <string name="listen_together">साथ में सुनें</string>
+    <string name="listen_together_away">दूर हैं — उनकी जगह रखी है</string>
+    <string name="listen_together_host">होस्ट</string>
+    <string name="listen_together_in_party">पार्टी में · %1$s</string>
+    <string name="listen_together_jam">%1$s का जैम</string>
+    <string name="listen_together_jam_unnamed">साथ में सुन रहे हैं</string>
+    <string name="listen_together_manage">मैनेज करें</string>
+    <string name="listen_together_open">साथ में सुनें</string>
+    <string name="listen_together_open_count">साथ में सुन रहे हैं · %1$d</string>
+    <string name="listen_together_you">आप</string>
+    <string name="lossless">लॉसलेस</string>
+    <string name="lyrics_already_in_language">ये लिरिक्स पहले से %1$s में हैं</string>
+    <string name="lyrics_already_romanized">ये लिरिक्स पहले से लैटिन अक्षरों में हैं</string>
+    <string name="lyrics_by">%1$s द्वारा लिरिक्स</string>
+    <string-array name="lyrics_intro_lines">
+        <item>बीट उतर रही है</item>
+        <item>गाना शुरू हो रहा है</item>
+        <item>वॉर्मअप हो रहा है</item>
+        <item>माहौल बन रहा है</item>
+        <item>पहले बेस, फिर शब्द</item>
+        <item>थोड़ा रुकिए</item>
+        <item>बिल्ड-अप महसूस कीजिए</item>
+        <item>अभी तो बस ग्रूव</item>
+        <item>हुक आने ही वाला है</item>
+        <item>इसे थोड़ी सांस लेने दीजिए</item>
+        <item>वोकल्स की बारी</item>
+        <item>पहले सुर आ गए</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>लिरिक्स लाए जा रहे हैं</item>
+        <item>शब्द ढूंढे जा रहे हैं</item>
+        <item>पंक्तियां लाई जा रही हैं</item>
+        <item>लिरिक्स लोड हो रहे हैं</item>
+        <item>लिरिक्स शीट जांची जा रही है</item>
+        <item>सॉन्गबुक खंगाली जा रही है</item>
+        <item>लिरिक्स तरतीब में लगाए जा रहे हैं</item>
+        <item>शब्द आने ही वाले हैं</item>
+        <item>आर्काइव्स जांचे जा रहे हैं</item>
+        <item>सही शब्द ढूंढे जा रहे हैं</item>
+        <item>लिरिक्स जुड़ रहे हैं</item>
+        <item>शब्द लगभग मिल गए</item>
+    </string-array>
+    <string name="lyrics_not_available">लिरिक्स उपलब्ध नहीं हैं</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">मौजूदा प्रदाता</string>
+    <string name="lyrics_provider_fetching">लिरिक्स लाए जा रहे हैं…</string>
+    <string name="lyrics_provider_found">लिरिक्स मिल गए · इस्तेमाल करने के लिए टैप करें</string>
+    <string name="lyrics_provider_not_fetched">लाने के लिए टैप करें</string>
+    <string name="lyrics_provider_not_found">लिरिक्स नहीं मिले</string>
+    <string name="lyrics_romanization_unavailable">इन लिरिक्स के लिए रोमन रूप उपलब्ध नहीं है</string>
+    <string name="lyrics_romanized">रोमन उच्चारण</string>
+    <string name="lyrics_saved_with_download">इस डाउनलोड के साथ लिरिक्स सेव किए गए</string>
+    <string name="lyrics_translated_to">%1$s में अनुवादित</string>
+    <string name="lyrics_translation_unavailable">अनुवाद अभी उपलब्ध नहीं है</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">मोनो</string>
+    <string name="more">और</string>
+    <string name="next_from">अगला यहाँ से: %1$s</string>
+    <string name="next_in_queue">कतार में अगला</string>
+    <string name="no_lyrics_for_track">इस ट्रैक के लिए कोई लिरिक्स नहीं हैं</string>
+    <string name="no_lyrics_found">कोई लिरिक्स नहीं मिले</string>
+    <string name="now_playing">अभी चल रहा है</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">रोकें</string>
+    <string name="play">चलाएं</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">%1$s रेडियो चल रहा है</string>
+    <string name="queue">कतार</string>
+    <string name="remove_from_liked">पसंदीदा संगीत से हटाएं</string>
+    <string name="remove_from_queue">कतार से हटाएं</string>
+    <string name="repeat_all">सभी दोहराएं</string>
+    <string name="repeat_off">दोहराना बंद</string>
+    <string name="repeat_one">एक गाना दोहराएं</string>
+    <string name="romanize_lyrics">लिरिक्स रोमन में दिखाएँ</string>
+    <string name="romanizing_lyrics">लिरिक्स रोमन में बदले जा रहे हैं…</string>
+    <string name="show_original_lyrics">मूल लिरिक्स दिखाएँ</string>
+    <string name="shuffle_off">शफ़ल बंद</string>
+    <string name="shuffle_on">शफ़ल चालू</string>
+    <string name="stereo">स्टीरियो</string>
+    <string name="translate_lyrics">लिरिक्स का अनुवाद करें</string>
+    <string name="translating_lyrics_to">%1$s में अनुवाद हो रहा है…</string>
+    <string name="up_next">आगे बजेगा</string>
+    <string name="upgrading_quality">क्वालिटी अपग्रेड हो रही है</string>
+    <string name="waiting">प्रतीक्षा में</string>
+    <string name="widget_next">अगला</string>
+    <string name="widget_previous">पिछला</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

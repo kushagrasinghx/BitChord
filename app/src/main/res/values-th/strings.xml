@@ -91,8 +91,6 @@
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">การสโครบเบิล</string>
     <string name="now_playing">กำลังเล่น</string>
-    <string name="next_in_queue">ถัดไปในคิว</string>
-    <string name="next_from">ถัดไปจาก: %1$s</string>
     <string name="selected">เลือกแล้ว</string>
     <string name="select_all">เลือกทั้งหมด</string>
     <string name="password">รหัสผ่าน</string>
@@ -288,22 +286,9 @@
     <string name="always_on">เปิดตลอดเวลา</string>
     <string name="api_token">โทเคน API</string>
     <string name="audio_quality_connection">ขณะใช้ %1$s</string>
-    <string name="autoplay">AutoPlay</string>
     <string name="back_in_future_version">จะกลับมาในเวอร์ชันถัดไป</string>
     <string name="buttons">ปุ่ม</string>
     <string name="clear_name">ล้างชื่อ</string>
-    <string name="close_lyrics">ปิดเนื้อเพลง</string>
-    <string name="translate_lyrics">แปลเนื้อเพลง</string>
-    <string name="romanize_lyrics">แสดงเนื้อเพลงเป็นอักษรโรมัน</string>
-    <string name="show_original_lyrics">แสดงเนื้อเพลงต้นฉบับ</string>
-    <string name="translating_lyrics_to">กำลังแปลเป็น %1$s…</string>
-    <string name="lyrics_translated_to">แปลเป็น %1$s แล้ว</string>
-    <string name="romanizing_lyrics">กำลังแปลงเนื้อเพลงเป็นอักษรโรมัน…</string>
-    <string name="lyrics_romanized">คำอ่านแบบอักษรโรมัน</string>
-    <string name="lyrics_already_romanized">เนื้อเพลงนี้ใช้อักษรละตินอยู่แล้ว</string>
-    <string name="lyrics_romanization_unavailable">ไม่สามารถแปลงเนื้อเพลงนี้เป็นอักษรโรมันได้</string>
-    <string name="lyrics_already_in_language">เนื้อเพลงนี้เป็นภาษา %1$s อยู่แล้ว</string>
-    <string name="lyrics_translation_unavailable">ใช้งานการแปลไม่ได้ในขณะนี้</string>
     <string name="connect_account_first">เชื่อมต่อบัญชีก่อน</string>
     <string name="connected_presence_off">เชื่อมต่อแล้ว ปิดการแสดงสถานะ</string>
     <string name="copy_log">คัดลอกล็อก</string>
@@ -338,36 +323,11 @@
     <string name="enter_token_to_enable">ป้อนโทเคนเพื่อเปิดใช้งาน</string>
     <string name="first_button">ปุ่มแรก</string>
     <string name="got_it">เข้าใจแล้ว</string>
-    <string name="high_quality">คุณภาพสูง</string>
-    <string name="instrumental">บรรเลง</string>
     <string name="pause">หยุดชั่วคราว</string>
-    <string name="lyrics_by">เนื้อเพลงโดย %1$s</string>
-    <string name="change_lyrics_provider">เปลี่ยน</string>
-    <string name="choose_lyrics_provider">เลือกผู้ให้บริการเนื้อเพลง</string>
-    <string name="lyrics_provider_current">ผู้ให้บริการปัจจุบัน</string>
-    <string name="lyrics_provider_found">พบเนื้อเพลง · แตะเพื่อใช้</string>
-    <string name="lyrics_provider_not_found">ไม่พบเนื้อเพลง</string>
-    <string name="lyrics_provider_fetching">กำลังดึงเนื้อเพลง…</string>
-    <string name="lyrics_provider_not_fetched">แตะเพื่อดึงข้อมูล</string>
-    <string name="no_lyrics_found">ไม่พบเนื้อเพลง</string>
-    <string name="lyrics_saved_with_download">บันทึกเนื้อเพลงไว้พร้อมกับไฟล์ที่ดาวน์โหลดนี้</string>
     <string name="shuffle_on">เปิดสุ่มเล่น</string>
     <string name="shuffle_off">ปิดสุ่มเล่น</string>
-    <string name="repeat_one">วนซ้ำเพลงเดียว</string>
-    <string name="repeat_all">วนซ้ำทั้งหมด</string>
-    <string name="repeat_off">ปิดวนซ้ำ</string>
-    <string name="autoplay_on">เปิด AutoPlay</string>
-    <string name="autoplay_off">ปิด AutoPlay</string>
-    <string name="autoplay_queue_description">เพลงที่คล้ายกัน เลือกไว้ให้เล่นต่อไป</string>
-    <string name="autoplay_empty_description">เพลงที่คล้ายกันจะเล่นต่อไปเรื่อย ๆ</string>
-    <string name="high_quality_upgrading">คุณภาพสูง กำลังอัปเกรด</string>
-    <string name="upgrading_quality">กำลังอัปเกรดคุณภาพ</string>
-    <string name="hi_res_lossless">Hi-Res ไม่สูญเสียคุณภาพ</string>
-    <string name="bit_depth">%1$d บิต</string>
     <string name="mono">โมโน</string>
     <string name="stereo">สเตอริโอ</string>
-    <string name="channel_count">%1$d ช่อง</string>
-    <string name="downgraded_from">↓ จาก %1$s</string>
     <string name="history">ประวัติ</string>
     <string name="sources">แหล่งข้อมูล</string>
     <string name="wifi">Wi-Fi</string>
@@ -382,7 +342,6 @@
     <string name="downloading_progress">กำลังดาวน์โหลด · %1$d%%</string>
     <string name="starting">กำลังเริ่ม</string>
     <string name="start_radio">เริ่มวิทยุ</string>
-    <string name="playing_radio">กำลังเล่นวิทยุ %1$s</string>
     <string name="radio_started">เริ่มวิทยุ %1$s แล้ว</string>
     <string name="saved_to_bitchord_folder">บันทึกลง Music/BitChord แล้ว</string>
     <string name="nothing_downloading">ไม่มีการดาวน์โหลด</string>
@@ -447,7 +406,6 @@
     <string name="listenbrainz_token">โทเคน ListenBrainz</string>
     <string name="listenbrainz_token_description">วางโทเคนผู้ใช้ ListenBrainz ของคุณเพื่อเปิดใช้งานการสโครบเบิล</string>
     <string name="listening_history">ประวัติการฟัง</string>
-    <string name="lyrics_not_available">ไม่มีเนื้อเพลง</string>
     <string name="lyrics_sources_order">แหล่งข้อมูลจะถูกลองตามลำดับนี้ ลากเพื่อจัดลำดับใหม่ แหล่งข้อมูลแรกที่มีเนื้อเพลงจะถูกใช้ เว้นแต่ตั้งค่าให้เนื้อเพลงแบบพยางค์มาก่อน</string>
     <string name="max_delay">ความล่าช้าสูงสุด</string>
     <string name="max_delay_subtitle">ความล่าช้าสูงสุดในการสโครบเบิล หน่วยเป็นวินาที</string>
@@ -455,7 +413,6 @@
     <string name="min_song_duration_subtitle">เพลงที่สั้นกว่านี้จะไม่ถูกสโครบเบิล</string>
     <string name="monthly_listeners">ผู้ฟังรายเดือน %1$s คน</string>
     <string name="name">ชื่อ</string>
-    <string name="no_lyrics_for_track">ไม่มีเนื้อเพลงสำหรับแทร็กนี้</string>
     <string name="no_playlists_yet">ยังไม่มีเพลย์ลิสต์ ใช้แถวด้านบนเพื่อสร้างเพลย์ลิสต์</string>
     <string name="no_tracks_here">ไม่มีแทร็กที่นี่</string>
     <string name="not_connected">ไม่ได้เชื่อมต่อ</string>
@@ -477,7 +434,6 @@
     <string name="remove">นำออก</string>
     <string name="remove_from_liked">นำออกจากเพลงที่ถูกใจ</string>
     <string name="remove_from_playlist">นำออกจากเพลย์ลิสต์นี้</string>
-    <string name="remove_from_queue">นำออกจากคิว</string>
     <string name="rename_playlist">เปลี่ยนชื่อเพลย์ลิสต์</string>
     <string name="reset_to_default">รีเซ็ตเป็นค่าเริ่มต้น</string>
     <string name="rich_presence_footer">แสดงสิ่งที่คุณกำลังเล่นบนโปรไฟล์ Discord ของคุณ</string>
@@ -537,7 +493,6 @@
     <string name="token">โทเคน</string>
     <string name="turn_off_timer">ปิดตัวจับเวลา</string>
     <string name="undo_dislike">เลิกกดไม่ชอบ</string>
-    <string name="up_next">กำลังจะเล่นต่อไป</string>
     <string name="verb_competing">กำลังแข่งขันใน</string>
     <string name="verb_listening">กำลังฟัง</string>
     <string name="verb_playing">กำลังเล่น</string>
@@ -665,13 +620,6 @@
     <string name="delete_playlist_confirmation">ลบ “%1$s” หรือไม่ แตะอีกครั้งเพื่อยืนยัน</string>
     <string name="delete_download_confirmation">นำ “%1$s” ออกจากอุปกรณ์นี้หรือไม่ แตะอีกครั้งเพื่อยืนยัน</string>
     <string name="running">กำลังทำงาน</string>
-    <string name="automix_analysis_status">Automix · เพลงนี้: %1$s · ถัดไป: %2$s</string>
-    <string name="automix_not_supported_video">Automix ไม่รองรับเพลงแบบวิดีโอ</string>
-    <string name="automix_stopped_in_party">Automix: หยุดทำงานขณะฟังด้วยกัน</string>
-    <string name="analysis_complete">วิเคราะห์แล้ว</string>
-    <string name="analysis_refining">วิเคราะห์แล้ว กำลังปรับแต่ง…</string>
-    <string name="analysis_in_progress">กำลังวิเคราะห์…</string>
-    <string name="waiting">กำลังรอ</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">ยังไม่ได้ดึง</string>
     <string name="version_cut_fetching">กำลังดึง</string>
@@ -704,34 +652,6 @@
     <string name="this_month">เดือนนี้</string>
     <string name="this_year">ปีนี้</string>
     <string name="all_time">ตลอดเวลา</string>
-    <string-array name="lyrics_intro_lines">
-        <item>จังหวะกำลังจะมา</item>
-        <item>เพลงกำลังเริ่ม</item>
-        <item>กำลังวอร์มอัพ</item>
-        <item>กำลังปรับอารมณ์</item>
-        <item>เบสมาก่อน คำร้องตามหลัง</item>
-        <item>รอสักครู่</item>
-        <item>สัมผัสจังหวะที่กำลังไต่ระดับ</item>
-        <item>ตอนนี้มีแค่ทำนอง</item>
-        <item>ท่อนฮุกกำลังจะมา</item>
-        <item>ปล่อยให้มันไหลลื่น</item>
-        <item>เตรียมพร้อมสำหรับเสียงร้อง</item>
-        <item>โน้ตแรกมาแล้ว</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>กำลังดึงเนื้อเพลง</item>
-        <item>กำลังหาคำร้อง</item>
-        <item>กำลังดึงท่อนเพลง</item>
-        <item>เนื้อเพลงกำลังโหลด</item>
-        <item>กำลังตรวจสอบแผ่นเนื้อเพลง</item>
-        <item>กำลังค้นหาในสมุดเพลง</item>
-        <item>กำลังจัดเรียงเนื้อเพลง</item>
-        <item>คำร้องกำลังจะมา</item>
-        <item>กำลังตรวจสอบคลังเก็บ</item>
-        <item>กำลังหาคำที่ถูกต้อง</item>
-        <item>เนื้อเพลงกำลังประกอบกัน</item>
-        <item>เกือบหาคำร้องเจอแล้ว</item>
-    </string-array>
     <string name="switch_account">สลับบัญชี</string>
     <string name="accounts">บัญชี</string>
     <string name="profiles">โปรไฟล์</string>
@@ -804,7 +724,6 @@
     <string name="listen_together_you">คุณ</string>
     <string name="listen_together_host">เจ้าของปาร์ตี้</string>
     <string name="listen_together_away">ไม่อยู่ — ที่นั่งยังถูกจองไว้</string>
-    <string name="listen_together_manage">จัดการ</string>
     <string name="listen_together_landing_title">เริ่มปาร์ตี้</string>
     <string name="listen_together_landing_subtitle">เพราะเพลงฟังด้วยกันยิ่งเพราะ ชวนเพื่อนมาฟังและเพิ่มเพลงแบบเรียลไทม์ได้ ไม่ว่าจะอยู่ที่ไหน</string>
     <string name="listen_together_create_action">สร้างปาร์ตี้</string>
@@ -830,10 +749,6 @@
     <string name="listen_together_reconnecting">กำลังเชื่อมต่ออีกครั้ง…</string>
     <string name="listen_together_syncing_clock">กำลังวัดเวลา…</string>
     <string name="listen_together_in_sync">ตรงกัน · ไปกลับ %1$d มิลลิวินาที</string>
-    <string name="listen_together_jam">แจมของ %1$s</string>
-    <string name="listen_together_jam_unnamed">กำลังฟังด้วยกัน</string>
-    <string name="listen_together_open">ฟังด้วยกัน</string>
-    <string name="listen_together_open_count">กำลังฟังด้วยกัน · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">เข้าร่วมปาร์ตี้บนเซิร์ฟเวอร์ที่กำหนดเองไหม</string>
     <string name="listen_together_custom_server_dialog_message">ปาร์ตี้นี้โฮสต์อยู่บนเซิร์ฟเวอร์ภายนอก:\n\n%1$s\n\nต้องการเปลี่ยนเซิร์ฟเวอร์ปาร์ตี้และเข้าร่วมปาร์ตี้ %2$s หรือไม่</string>
     <string name="listen_together_custom_server_switch_and_join">เปลี่ยนและเข้าร่วม</string>
@@ -859,13 +774,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="auto_quick_picks">Quick picks</string>
 
@@ -1028,9 +939,7 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="audio_pipeline_subtitle">เส้นทางสัญญาณแบบเรียลไทม์ จากตัวถอดรหัสถึงเอาต์พุต</string>
@@ -1079,9 +988,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1110,21 +1017,13 @@
 
     <string name="sort_songs">Sort songs</string>
 
-    <string name="open_lyrics">Lyrics</string>
 
-    <string name="audio_output">Audio output</string>
 
-    <string name="audio_output_playing">Playing here</string>
 
-    <string name="wired_headphones">Wired headphones</string>
 
-    <string name="usb_audio">USB audio</string>
 
-    <string name="hdmi_output">HDMI</string>
 
-    <string name="personal_phone">%1$s’s Phone</string>
 
-    <string name="this_phone">This phone</string>
 
 
 

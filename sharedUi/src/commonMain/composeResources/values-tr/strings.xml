@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">analiz edildi</string>
+    <string name="analysis_in_progress">analiz ediliyor…</string>
+    <string name="analysis_refining">analiz edildi, iyileştiriliyor…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">Automix · bu şarkı: %1$s · sonraki: %2$s</string>
+    <string name="automix_not_supported_video">Automix video şarkılarında desteklenmiyor</string>
+    <string name="automix_stopped_in_party">Automix: Birlikte dinle sırasında durduruldu</string>
+    <string name="autoplay">AutoPlay</string>
+    <string name="autoplay_empty_description">Benzer müzikler çalmaya devam edecek</string>
+    <string name="autoplay_off">AutoPlay kapalı</string>
+    <string name="autoplay_on">AutoPlay açık</string>
+    <string name="autoplay_queue_description">Sonra çalmak üzere seçilen benzer müzikler</string>
+    <string name="bit_depth">%1$d bit</string>
+    <string name="change_lyrics_provider">Değiştir</string>
+    <string name="channel_count">%1$d kanal</string>
+    <string name="choose_lyrics_provider">Söz sağlayıcısını seç</string>
+    <string name="clear">Temizle</string>
+    <string name="close_lyrics">Sözleri kapat</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ %1$s kaynağından</string>
+    <string name="drag_to_reorder">Yeniden sıralamak için sürükleyin</string>
+    <string name="failed">Başarısız</string>
+    <string name="hi_res_lossless">Hi-Res Kayıpsız</string>
+    <string name="high_quality">Yüksek kalite</string>
+    <string name="high_quality_upgrading">Yüksek kalite, yükseltiliyor</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">Enstrümantal</string>
+    <string name="like">Beğen</string>
+    <string name="listen_together">Birlikte dinle</string>
+    <string name="listen_together_away">Uzakta — yeri tutuluyor</string>
+    <string name="listen_together_host">Kurucu</string>
+    <string name="listen_together_in_party">Partide · %1$s</string>
+    <string name="listen_together_jam">%1$s’in Jam’ı</string>
+    <string name="listen_together_jam_unnamed">Birlikte dinleme</string>
+    <string name="listen_together_manage">Yönet</string>
+    <string name="listen_together_open">Birlikte dinle</string>
+    <string name="listen_together_open_count">Birlikte dinleme · %1$d</string>
+    <string name="listen_together_you">Sen</string>
+    <string name="lossless">Kayıpsız</string>
+    <string name="lyrics_already_in_language">Bu sözler zaten %1$s dilinde</string>
+    <string name="lyrics_already_romanized">Bu sözler zaten Latin harfleri kullanıyor</string>
+    <string name="lyrics_by">Sözler: %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>Ritim geliyor</item>
+        <item>Şarkı başlıyor</item>
+        <item>Isınıyor</item>
+        <item>Atmosfer hazırlanıyor</item>
+        <item>Önce bas, sonra sözler</item>
+        <item>Biraz bekle</item>
+        <item>Yükselişi hisset</item>
+        <item>Şimdilik sadece ritim</item>
+        <item>Nakarat yolda</item>
+        <item>Nefes almasına izin ver</item>
+        <item>Vokale hazır ol</item>
+        <item>İlk notalar geldi</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>Sözler alınıyor</item>
+        <item>Kelimeler bulunuyor</item>
+        <item>Dizeler getiriliyor</item>
+        <item>Sözler yükleniyor</item>
+        <item>Söz sayfası kontrol ediliyor</item>
+        <item>Şarkı kitabında aranıyor</item>
+        <item>Sözler sıralanıyor</item>
+        <item>Kelimeler yolda</item>
+        <item>Arşivler kontrol ediliyor</item>
+        <item>Doğru kelimeler bulunuyor</item>
+        <item>Sözler bir araya geliyor</item>
+        <item>Kelimeler neredeyse bulundu</item>
+    </string-array>
+    <string name="lyrics_not_available">Sözler mevcut değil</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">Geçerli sağlayıcı</string>
+    <string name="lyrics_provider_fetching">Sözler getiriliyor…</string>
+    <string name="lyrics_provider_found">Sözler bulundu · Kullanmak için dokun</string>
+    <string name="lyrics_provider_not_fetched">Getirmek için dokun</string>
+    <string name="lyrics_provider_not_found">Sözler bulunamadı</string>
+    <string name="lyrics_romanization_unavailable">Bu sözler için Latin harflerine çevirme kullanılamıyor</string>
+    <string name="lyrics_romanized">Latin harfleriyle okunuş</string>
+    <string name="lyrics_saved_with_download">Sözler bu indirmeyle kaydedildi</string>
+    <string name="lyrics_translated_to">%1$s diline çevrildi</string>
+    <string name="lyrics_translation_unavailable">Çeviri şu anda kullanılamıyor</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">Mono</string>
+    <string name="more">Daha fazla</string>
+    <string name="next_from">Sıradaki: %1$s</string>
+    <string name="next_in_queue">Sıradaki</string>
+    <string name="no_lyrics_for_track">Bu parça için söz yok</string>
+    <string name="no_lyrics_found">Söz bulunamadı</string>
+    <string name="now_playing">Şu an çalıyor</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">Duraklat</string>
+    <string name="play">Çal</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">%1$s Radyosu çalıyor</string>
+    <string name="queue">Sıra</string>
+    <string name="remove_from_liked">Beğenilen Müzikten kaldır</string>
+    <string name="remove_from_queue">Sıradan kaldır</string>
+    <string name="repeat_all">Tümünü tekrarla</string>
+    <string name="repeat_off">Tekrar kapalı</string>
+    <string name="repeat_one">Birini tekrarla</string>
+    <string name="romanize_lyrics">Sözleri Latin harflerine çevir</string>
+    <string name="romanizing_lyrics">Sözler Latin harflerine çevriliyor…</string>
+    <string name="show_original_lyrics">Özgün sözleri göster</string>
+    <string name="shuffle_off">Karışık çalma kapalı</string>
+    <string name="shuffle_on">Karışık çalma açık</string>
+    <string name="stereo">Stereo</string>
+    <string name="translate_lyrics">Sözleri çevir</string>
+    <string name="translating_lyrics_to">%1$s diline çevriliyor…</string>
+    <string name="up_next">Sıradaki</string>
+    <string name="upgrading_quality">Kalite yükseltiliyor</string>
+    <string name="waiting">bekliyor</string>
+    <string name="widget_next">Sonraki</string>
+    <string name="widget_previous">Önceki</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

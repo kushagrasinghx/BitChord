@@ -88,8 +88,6 @@
     <string name="rich_presence">リッチプレゼンス</string>
     <string name="scrobbling">スクロブリング</string>
     <string name="now_playing">再生中</string>
-    <string name="next_in_queue">キューの次の曲</string>
-    <string name="next_from">次の再生元: %1$s</string>
     <string name="selected">選択済み</string>
     <string name="password">パスワード</string>
     <string name="username">ユーザー名</string>
@@ -264,22 +262,9 @@
     <string name="always_on">常にオン</string>
     <string name="api_token">APIトークン</string>
     <string name="audio_quality_connection">%1$s接続時</string>
-    <string name="autoplay">AutoPlay</string>
     <string name="back_in_future_version">今後のバージョンで復活予定</string>
     <string name="buttons">ボタン</string>
     <string name="clear_name">名前を消去</string>
-    <string name="close_lyrics">歌詞を閉じる</string>
-    <string name="translate_lyrics">歌詞を翻訳</string>
-    <string name="romanize_lyrics">歌詞をローマ字化</string>
-    <string name="show_original_lyrics">元の歌詞を表示</string>
-    <string name="translating_lyrics_to">%1$sに翻訳中…</string>
-    <string name="lyrics_translated_to">%1$sに翻訳済み</string>
-    <string name="romanizing_lyrics">歌詞をローマ字化しています…</string>
-    <string name="lyrics_romanized">ローマ字読み</string>
-    <string name="lyrics_already_romanized">この歌詞はすでにラテン文字です</string>
-    <string name="lyrics_romanization_unavailable">この歌詞はローマ字化できません</string>
-    <string name="lyrics_already_in_language">この歌詞はすでに%1$sです</string>
-    <string name="lyrics_translation_unavailable">現在、翻訳を利用できません</string>
     <string name="connect_account_first">先にアカウントを連携してください</string>
     <string name="connected_presence_off">接続済み、プレゼンスはオフ</string>
     <string name="copy_log">ログをコピー</string>
@@ -314,36 +299,11 @@
     <string name="enter_token_to_enable">有効にするにはトークンを入力してください</string>
     <string name="first_button">1つ目のボタン</string>
     <string name="got_it">了解</string>
-    <string name="high_quality">高音質</string>
-    <string name="instrumental">インストゥルメンタル</string>
     <string name="pause">一時停止</string>
-    <string name="lyrics_by">歌詞提供：%1$s</string>
-    <string name="change_lyrics_provider">変更</string>
-    <string name="choose_lyrics_provider">歌詞の提供元を選択</string>
-    <string name="lyrics_provider_current">現在の提供元</string>
-    <string name="lyrics_provider_found">歌詞が見つかりました · タップして使用</string>
-    <string name="lyrics_provider_not_found">歌詞が見つかりません</string>
-    <string name="lyrics_provider_fetching">歌詞を取得中…</string>
-    <string name="lyrics_provider_not_fetched">タップして取得</string>
-    <string name="no_lyrics_found">歌詞が見つかりません</string>
-    <string name="lyrics_saved_with_download">このダウンロードに歌詞を保存済み</string>
     <string name="shuffle_on">シャッフル: オン</string>
     <string name="shuffle_off">シャッフル: オフ</string>
-    <string name="repeat_one">1曲をリピート</string>
-    <string name="repeat_all">すべてリピート</string>
-    <string name="repeat_off">リピート: オフ</string>
-    <string name="autoplay_on">AutoPlay: オン</string>
-    <string name="autoplay_off">AutoPlay: オフ</string>
-    <string name="autoplay_queue_description">次に再生される、似た曲</string>
-    <string name="autoplay_empty_description">似た曲が引き続き再生されます</string>
-    <string name="high_quality_upgrading">高音質、アップグレード中</string>
-    <string name="upgrading_quality">音質をアップグレード中</string>
-    <string name="hi_res_lossless">ハイレゾロスレス</string>
-    <string name="bit_depth">%1$dビット</string>
     <string name="mono">モノラル</string>
     <string name="stereo">ステレオ</string>
-    <string name="channel_count">%1$dch</string>
-    <string name="downgraded_from">↓ %1$sから</string>
     <string name="history">履歴</string>
     <string name="sources">ソース</string>
     <string name="wifi">Wi-Fi</string>
@@ -418,7 +378,6 @@
     <string name="listenbrainz_token">ListenBrainzトークン</string>
     <string name="listenbrainz_token_description">スクロブリングを有効にするには、ListenBrainzのユーザートークンを貼り付けてください。</string>
     <string name="listening_history">再生履歴</string>
-    <string name="lyrics_not_available">歌詞は利用できません</string>
     <string name="lyrics_sources_order">ソースはこの順番で試されます。ドラッグして並べ替えられます。音節単位の歌詞が優先されていない限り、歌詞が見つかった最初のソースが採用されます。</string>
     <string name="max_delay">最大遅延</string>
     <string name="max_delay_subtitle">スクロブルまでの最大遅延（秒）</string>
@@ -426,7 +385,6 @@
     <string name="min_song_duration_subtitle">これより短い曲はスクロブルされません</string>
     <string name="monthly_listeners">月間リスナー数 %1$s人</string>
     <string name="name">名前</string>
-    <string name="no_lyrics_for_track">この曲の歌詞はありません</string>
     <string name="no_playlists_yet">プレイリストはまだありません。上の行から作成してください。</string>
     <string name="no_tracks_here">ここにはトラックがありません</string>
     <string name="not_connected">未接続</string>
@@ -448,7 +406,6 @@
     <string name="remove">削除</string>
     <string name="remove_from_liked">高く評価した音楽から削除</string>
     <string name="remove_from_playlist">このプレイリストから削除</string>
-    <string name="remove_from_queue">再生キューから削除</string>
     <string name="rename_playlist">プレイリスト名を変更</string>
     <string name="reset_to_default">デフォルトに戻す</string>
     <string name="rich_presence_footer">Discordのプロフィールに再生中の曲を表示します。</string>
@@ -508,7 +465,6 @@
     <string name="token">トークン</string>
     <string name="turn_off_timer">タイマーをオフにする</string>
     <string name="undo_dislike">低評価を取り消す</string>
-    <string name="up_next">次の曲</string>
     <string name="verb_competing">参加中</string>
     <string name="verb_listening">再生中</string>
     <string name="verb_playing">プレイ中</string>
@@ -635,11 +591,6 @@
     <string name="delete_playlist_confirmation">「%1$s」を削除しますか？もう一度タップして確定します。</string>
     <string name="delete_download_confirmation">「%1$s」をこのデバイスから削除しますか？もう一度タップして確定します。</string>
     <string name="running">実行中</string>
-    <string name="automix_analysis_status">オートミックス · この曲：%1$s · 次：%2$s</string>
-    <string name="analysis_complete">分析済み</string>
-    <string name="analysis_refining">分析済み、調整中…</string>
-    <string name="analysis_in_progress">分析中…</string>
-    <string name="waiting">待機中</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">未取得</string>
     <string name="version_cut_fetching">取得中</string>
@@ -672,34 +623,6 @@
     <string name="this_month">今月</string>
     <string name="this_year">今年</string>
     <string name="all_time">すべての期間</string>
-    <string-array name="lyrics_intro_lines">
-        <item>ビートが着地中</item>
-        <item>曲がスタート</item>
-        <item>ウォーミングアップ中</item>
-        <item>ムードを演出中</item>
-        <item>まずベース、言葉は後で</item>
-        <item>お楽しみに</item>
-        <item>盛り上がりを感じて</item>
-        <item>今はグルーヴだけ</item>
-        <item>サビが近づいています</item>
-        <item>少し間を置いて</item>
-        <item>ボーカルの出番</item>
-        <item>最初の音が鳴った</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>歌詞を取得中</item>
-        <item>言葉を探しています</item>
-        <item>歌詞を呼び出し中</item>
-        <item>歌詞を読み込み中</item>
-        <item>歌詞カードを確認中</item>
-        <item>歌詞集を検索中</item>
-        <item>歌詞を並べています</item>
-        <item>言葉がもうすぐ届きます</item>
-        <item>アーカイブを確認中</item>
-        <item>ぴったりの言葉を探しています</item>
-        <item>歌詞がまとまりつつあります</item>
-        <item>もう少しで言葉が見つかりそう</item>
-    </string-array>
 
     <!-- Listen together -->
     <string name="listen_together">一緒に聴く</string>
@@ -755,7 +678,6 @@
     <string name="listen_together_you">あなた</string>
     <string name="listen_together_host">ホスト</string>
     <string name="listen_together_away">離席中 — 枠は確保されています</string>
-    <string name="listen_together_manage">管理</string>
     <string name="listen_together_landing_title">パーティーを始める</string>
     <string name="listen_together_landing_subtitle">音楽はみんなで聴くともっと楽しい。友だちを招待して、どこにいてもリアルタイムで一緒に聴いたり曲を追加したりできます。</string>
     <string name="listen_together_create_action">パーティーを作成</string>
@@ -781,10 +703,6 @@
     <string name="listen_together_reconnecting">再接続中…</string>
     <string name="listen_together_syncing_clock">時刻を計測中…</string>
     <string name="listen_together_in_sync">同期中 · 往復 %1$d ms</string>
-    <string name="listen_together_jam">%1$s のジャム</string>
-    <string name="listen_together_jam_unnamed">一緒に聴いています</string>
-    <string name="listen_together_open">一緒に聴く</string>
-    <string name="listen_together_open_count">一緒に聴いています · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">カスタムサーバーのパーティーに参加しますか？</string>
     <string name="listen_together_custom_server_dialog_message">このパーティーは外部サーバーでホストされています:\n\n%1$s\n\nパーティーサーバーを切り替えて、パーティー %2$s に参加しますか？</string>
     <string name="listen_together_custom_server_switch_and_join">切り替えて参加</string>
@@ -980,8 +898,6 @@
 
     <string name="automix_mode_performance_subtitle">4 スレッド · 最速分析 · 発熱とバッテリー消費が高くなります</string>
 
-    <string name="automix_not_supported_video">動画の曲では Automix はサポートされていません</string>
-    <string name="automix_stopped_in_party">Automix: 一緒に聴く中は停止</string>
 
     <string name="automix_performance">Automix パフォーマンス</string>
 
@@ -1016,7 +932,6 @@
 
     <string name="liquid_glass_unavailable">Android 12 以降が必要です</string>
 
-    <string name="playing_radio">%1$s ラジオを再生中</string>
 
     <string name="playlist_action">プレイリスト</string>
 
@@ -1059,13 +974,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="auto_quick_picks">Quick picks</string>
 
@@ -1202,9 +1113,7 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="audio_pipeline_subtitle">デコーダーから出力までのリアルタイム信号経路</string>
@@ -1253,9 +1162,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1272,21 +1179,13 @@
 
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
-    <string name="open_lyrics">Lyrics</string>
 
-    <string name="audio_output">Audio output</string>
 
-    <string name="audio_output_playing">Playing here</string>
 
-    <string name="wired_headphones">Wired headphones</string>
 
-    <string name="usb_audio">USB audio</string>
 
-    <string name="hdmi_output">HDMI</string>
 
-    <string name="personal_phone">%1$s’s Phone</string>
 
-    <string name="this_phone">This phone</string>
 
 
 

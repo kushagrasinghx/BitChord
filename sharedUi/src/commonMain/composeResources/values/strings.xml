@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">analysed</string>
+    <string name="analysis_in_progress">analysing…</string>
+    <string name="analysis_refining">analysed, refining…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">Automix · this song: %1$s · next: %2$s</string>
+    <string name="automix_not_supported_video">Automix not supported on video songs</string>
+    <string name="automix_stopped_in_party">Automix: stopped in listen together</string>
+    <string name="autoplay">AutoPlay</string>
+    <string name="autoplay_empty_description">Similar music will keep playing</string>
+    <string name="autoplay_off">AutoPlay off</string>
+    <string name="autoplay_on">AutoPlay on</string>
+    <string name="autoplay_queue_description">Similar music, selected to play next</string>
+    <string name="bit_depth">%1$d-bit</string>
+    <string name="change_lyrics_provider">Change</string>
+    <string name="channel_count">%1$d ch</string>
+    <string name="choose_lyrics_provider">Choose lyrics provider</string>
+    <string name="clear">Clear</string>
+    <string name="close_lyrics">Close lyrics</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ from %1$s</string>
+    <string name="drag_to_reorder">Drag to reorder</string>
+    <string name="failed">Failed</string>
+    <string name="hi_res_lossless">Hi-Res Lossless</string>
+    <string name="high_quality">High quality</string>
+    <string name="high_quality_upgrading">High quality, upgrading</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">Instrumental</string>
+    <string name="like">Like</string>
+    <string name="listen_together">Listen together</string>
+    <string name="listen_together_away">Away — their slot is held</string>
+    <string name="listen_together_host">Host</string>
+    <string name="listen_together_in_party">In a party · %1$s</string>
+    <string name="listen_together_jam">%1$s’s Jam</string>
+    <string name="listen_together_jam_unnamed">Listening together</string>
+    <string name="listen_together_manage">Manage</string>
+    <string name="listen_together_open">Listen together</string>
+    <string name="listen_together_open_count">Listening together · %1$d</string>
+    <string name="listen_together_you">You</string>
+    <string name="lossless">Lossless</string>
+    <string name="lyrics_already_in_language">These lyrics are already in %1$s</string>
+    <string name="lyrics_already_romanized">These lyrics already use Latin characters</string>
+    <string name="lyrics_by">Lyrics by %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>The beat is landing</item>
+        <item>The song is starting</item>
+        <item>Warming up</item>
+        <item>Setting the mood</item>
+        <item>Bass first, words later</item>
+        <item>Wait for it</item>
+        <item>Feel that build</item>
+        <item>Just the groove for now</item>
+        <item>The hook is on the way</item>
+        <item>Let it breathe</item>
+        <item>Cue the vocals</item>
+        <item>First notes in</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>Getting the lyrics</item>
+        <item>Finding the words</item>
+        <item>Fetching the verses</item>
+        <item>Lyrics are loading</item>
+        <item>Checking the lyric sheet</item>
+        <item>Searching the songbook</item>
+        <item>Lining up the lyrics</item>
+        <item>Words are on the way</item>
+        <item>Checking the archives</item>
+        <item>Finding the right words</item>
+        <item>Lyrics are coming together</item>
+        <item>Almost found the words</item>
+    </string-array>
+    <string name="lyrics_not_available">Lyrics not available</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">Current provider</string>
+    <string name="lyrics_provider_fetching">Fetching lyrics…</string>
+    <string name="lyrics_provider_found">Lyrics found · Tap to use</string>
+    <string name="lyrics_provider_not_fetched">Tap to fetch</string>
+    <string name="lyrics_provider_not_found">Lyrics not found</string>
+    <string name="lyrics_romanization_unavailable">Romanization is unavailable for these lyrics</string>
+    <string name="lyrics_romanized">Romanized pronunciation</string>
+    <string name="lyrics_saved_with_download">Lyrics saved with this download</string>
+    <string name="lyrics_translated_to">Translated to %1$s</string>
+    <string name="lyrics_translation_unavailable">Translation is unavailable right now</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">Mono</string>
+    <string name="more">More</string>
+    <string name="next_from">Next from: %1$s</string>
+    <string name="next_in_queue">Next in queue</string>
+    <string name="no_lyrics_for_track">No lyrics for this track</string>
+    <string name="no_lyrics_found">No lyrics found</string>
+    <string name="now_playing">Now playing</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">Pause</string>
+    <string name="play">Play</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">Playing %1$s Radio</string>
+    <string name="queue">Queue</string>
+    <string name="remove_from_liked">Remove from Liked Music</string>
+    <string name="remove_from_queue">Remove from queue</string>
+    <string name="repeat_all">Repeat all</string>
+    <string name="repeat_off">Repeat off</string>
+    <string name="repeat_one">Repeat one</string>
+    <string name="romanize_lyrics">Romanize lyrics</string>
+    <string name="romanizing_lyrics">Romanizing lyrics…</string>
+    <string name="show_original_lyrics">Show original lyrics</string>
+    <string name="shuffle_off">Shuffle off</string>
+    <string name="shuffle_on">Shuffle on</string>
+    <string name="stereo">Stereo</string>
+    <string name="translate_lyrics">Translate lyrics</string>
+    <string name="translating_lyrics_to">Translating to %1$s…</string>
+    <string name="up_next">Up next</string>
+    <string name="upgrading_quality">Upgrading quality</string>
+    <string name="waiting">waiting</string>
+    <string name="widget_next">Next</string>
+    <string name="widget_previous">Previous</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+</resources>

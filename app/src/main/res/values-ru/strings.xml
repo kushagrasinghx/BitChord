@@ -103,8 +103,6 @@
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Скробблинг</string>
     <string name="now_playing">Сейчас играет</string>
-    <string name="next_in_queue">Следующая в очереди</string>
-    <string name="next_from">Далее из: %1$s</string>
     <string name="selected">Выбрано</string>
     <string name="password">Пароль</string>
     <string name="username">Имя пользователя</string>
@@ -279,22 +277,9 @@
     <string name="always_on">Всегда включено</string>
     <string name="api_token">API-токен</string>
     <string name="audio_quality_connection">Через %1$s</string>
-    <string name="autoplay">Автовоспроизведение</string>
     <string name="back_in_future_version">Вернётся в будущей версии</string>
     <string name="buttons">Кнопки</string>
     <string name="clear_name">Очистить имя</string>
-    <string name="close_lyrics">Закрыть текст песни</string>
-    <string name="translate_lyrics">Перевести текст</string>
-    <string name="romanize_lyrics">Транслитерировать текст</string>
-    <string name="show_original_lyrics">Показать оригинал</string>
-    <string name="translating_lyrics_to">Перевод на %1$s…</string>
-    <string name="lyrics_translated_to">Переведено на %1$s</string>
-    <string name="romanizing_lyrics">Транслитерация текста…</string>
-    <string name="lyrics_romanized">Произношение латиницей</string>
-    <string name="lyrics_already_romanized">Этот текст уже написан латиницей</string>
-    <string name="lyrics_romanization_unavailable">Транслитерация недоступна для этого текста</string>
-    <string name="lyrics_already_in_language">Текст уже на языке %1$s</string>
-    <string name="lyrics_translation_unavailable">Перевод сейчас недоступен</string>
     <string name="connect_account_first">Сначала подключите аккаунт</string>
     <string name="connected_presence_off">Подключено, Presence отключён</string>
     <string name="copy_log">Скопировать журнал</string>
@@ -329,36 +314,11 @@
     <string name="enter_token_to_enable">Введите токен, чтобы включить</string>
     <string name="first_button">Первая кнопка</string>
     <string name="got_it">Понятно</string>
-    <string name="high_quality">Высокое качество</string>
-    <string name="instrumental">Инструментал</string>
     <string name="pause">Пауза</string>
-    <string name="lyrics_by">Текст песни: %1$s</string>
-    <string name="change_lyrics_provider">Изменить</string>
-    <string name="choose_lyrics_provider">Выбрать источник текстов</string>
-    <string name="lyrics_provider_current">Текущий источник</string>
-    <string name="lyrics_provider_found">Текст найден · Нажмите, чтобы использовать</string>
-    <string name="lyrics_provider_not_found">Текст не найден</string>
-    <string name="lyrics_provider_fetching">Загрузка текста…</string>
-    <string name="lyrics_provider_not_fetched">Нажмите, чтобы загрузить</string>
-    <string name="no_lyrics_found">Текст не найден</string>
-    <string name="lyrics_saved_with_download">Текст сохранён вместе с этой загрузкой</string>
     <string name="shuffle_on">Перемешивание включено</string>
     <string name="shuffle_off">Перемешивание выключено</string>
-    <string name="repeat_one">Повтор одной песни</string>
-    <string name="repeat_all">Повтор всех</string>
-    <string name="repeat_off">Повтор выключен</string>
-    <string name="autoplay_on">Автовоспроизведение включено</string>
-    <string name="autoplay_off">Автовоспроизведение выключено</string>
-    <string name="autoplay_queue_description">Похожая музыка, выбранная для воспроизведения следующей</string>
-    <string name="autoplay_empty_description">Похожая музыка будет продолжать играть</string>
-    <string name="high_quality_upgrading">Высокое качество, улучшение</string>
-    <string name="upgrading_quality">Улучшение качества</string>
-    <string name="hi_res_lossless">Hi-Res Lossless</string>
-    <string name="bit_depth">%1$d-бит</string>
     <string name="mono">Моно</string>
     <string name="stereo">Стерео</string>
-    <string name="channel_count">%1$d кан.</string>
-    <string name="downgraded_from">↓ с %1$s</string>
     <string name="history">История</string>
     <string name="sources">Источники</string>
     <string name="wifi">Wi-Fi</string>
@@ -451,7 +411,6 @@
     <string name="listenbrainz_token">Токен ListenBrainz</string>
     <string name="listenbrainz_token_description">Вставьте токен пользователя ListenBrainz, чтобы включить скробблинг.</string>
     <string name="listening_history">История прослушивания</string>
-    <string name="lyrics_not_available">Текст недоступен</string>
     <string name="lyrics_sources_order">Источники пробуются в этом порядке. Перетащите, чтобы изменить порядок. Побеждает первый источник с текстом, если только не приоритизирован текст по слогам.</string>
     <string name="max_delay">Максимальная задержка</string>
     <string name="max_delay_subtitle">Максимальная задержка скробблинга в секундах</string>
@@ -459,7 +418,6 @@
     <string name="min_song_duration_subtitle">Более короткие песни не будут скробблиться</string>
     <string name="monthly_listeners">%1$s слушателей в месяц</string>
     <string name="name">Название</string>
-    <string name="no_lyrics_for_track">Для этого трека нет текста</string>
     <string name="no_playlists_yet">Пока нет плейлистов. Используйте строку выше, чтобы создать новый.</string>
     <string name="no_tracks_here">Здесь нет треков</string>
     <string name="not_connected">Не подключено</string>
@@ -481,7 +439,6 @@
     <string name="remove">Удалить</string>
     <string name="remove_from_liked">Удалить из понравившейся музыки</string>
     <string name="remove_from_playlist">Удалить из этого плейлиста</string>
-    <string name="remove_from_queue">Удалить из очереди</string>
     <string name="rename_playlist">Переименовать плейлист</string>
     <string name="reset_to_default">Сбросить по умолчанию</string>
     <string name="rich_presence_footer">Показывать, что вы слушаете, в вашем профиле Discord.</string>
@@ -541,7 +498,6 @@
     <string name="token">Токен</string>
     <string name="turn_off_timer">Выключить таймер</string>
     <string name="undo_dislike">Отменить «не нравится»</string>
-    <string name="up_next">Далее</string>
     <string name="verb_competing">Участвует в</string>
     <string name="verb_listening">Слушает</string>
     <string name="verb_playing">Играет</string>
@@ -676,11 +632,6 @@
     <string name="delete_playlist_confirmation">Удалить «%1$s»? Нажмите ещё раз для подтверждения.</string>
     <string name="delete_download_confirmation">Удалить «%1$s» с этого устройства? Нажмите ещё раз для подтверждения.</string>
     <string name="running">Выполняется</string>
-    <string name="automix_analysis_status">Автомикс · эта песня: %1$s · следующая: %2$s</string>
-    <string name="analysis_complete">анализ завершён</string>
-    <string name="analysis_refining">анализ завершён, уточняется…</string>
-    <string name="analysis_in_progress">анализируется…</string>
-    <string name="waiting">ожидание</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">не загружено</string>
     <string name="version_cut_fetching">загрузка</string>
@@ -715,34 +666,6 @@
     <string name="this_month">Этот месяц</string>
     <string name="this_year">Этот год</string>
     <string name="all_time">За всё время</string>
-    <string-array name="lyrics_intro_lines">
-        <item>Бит набирает обороты</item>
-        <item>Песня начинается</item>
-        <item>Разогрев</item>
-        <item>Создаём настроение</item>
-        <item>Сначала бас, слова потом</item>
-        <item>Ещё чуть-чуть</item>
-        <item>Чувствуете нарастание?</item>
-        <item>Пока только грув</item>
-        <item>Припев уже близко</item>
-        <item>Дайте треку задышать</item>
-        <item>Включаем вокал</item>
-        <item>Первые ноты уже звучат</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>Загружаем текст</item>
-        <item>Ищем слова</item>
-        <item>Достаём куплеты</item>
-        <item>Текст загружается</item>
-        <item>Сверяемся с текстовкой</item>
-        <item>Листаем песенник</item>
-        <item>Выстраиваем строки</item>
-        <item>Слова уже в пути</item>
-        <item>Заглядываем в архив</item>
-        <item>Подбираем нужные слова</item>
-        <item>Текст почти готов</item>
-        <item>Слова почти найдены</item>
-    </string-array>
 
     <!-- Listen together -->
     <string name="listen_together">Слушать вместе</string>
@@ -798,7 +721,6 @@
     <string name="listen_together_you">Вы</string>
     <string name="listen_together_host">Хост</string>
     <string name="listen_together_away">Отошёл — место сохранено</string>
-    <string name="listen_together_manage">Управление</string>
     <string name="listen_together_landing_title">Начать вечеринку</string>
     <string name="listen_together_landing_subtitle">Потому что вместе музыка звучит лучше. Приглашайте друзей слушать и добавлять песни в реальном времени, где бы они ни были.</string>
     <string name="listen_together_create_action">Создать вечеринку</string>
@@ -824,10 +746,6 @@
     <string name="listen_together_reconnecting">Переподключение…</string>
     <string name="listen_together_syncing_clock">Сверяем часы…</string>
     <string name="listen_together_in_sync">Синхронно · %1$d мс на круг</string>
-    <string name="listen_together_jam">Джем %1$s</string>
-    <string name="listen_together_jam_unnamed">Слушаем вместе</string>
-    <string name="listen_together_open">Слушать вместе</string>
-    <string name="listen_together_open_count">Слушаем вместе · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">Присоединиться к вечеринке на своём сервере?</string>
     <string name="listen_together_custom_server_dialog_message">Эта вечеринка размещена на внешнем сервере:\n\n%1$s\n\nСменить сервер вечеринок и присоединиться к вечеринке %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">Сменить и войти</string>
@@ -889,8 +807,6 @@
 
     <string name="automix_mode_performance_subtitle">4 потока · самый быстрый анализ · выше нагрев и расход</string>
 
-    <string name="automix_not_supported_video">Automix не поддерживается для видео-треков</string>
-    <string name="automix_stopped_in_party">Automix: остановлен в режиме «Слушать вместе»</string>
 
     <string name="automix_performance">Производительность Automix</string>
 
@@ -959,7 +875,6 @@
 
     <string name="personal">Личный</string>
 
-    <string name="playing_radio">Воспроизведение радио %1$s</string>
 
     <string name="playlist_action">Плейлист</string>
 
@@ -1104,13 +1019,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="auto_quick_picks">Quick picks</string>
 
@@ -1247,9 +1158,7 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
     <string name="audio_pipeline_subtitle">Путь сигнала в реальном времени, от декодера до выхода</string>
@@ -1298,9 +1207,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1317,21 +1224,13 @@
 
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
-    <string name="open_lyrics">Lyrics</string>
 
-    <string name="audio_output">Audio output</string>
 
-    <string name="audio_output_playing">Playing here</string>
 
-    <string name="wired_headphones">Wired headphones</string>
 
-    <string name="usb_audio">USB audio</string>
 
-    <string name="hdmi_output">HDMI</string>
 
-    <string name="personal_phone">%1$s’s Phone</string>
 
-    <string name="this_phone">This phone</string>
 
 
 

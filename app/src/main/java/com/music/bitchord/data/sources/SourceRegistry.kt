@@ -7,6 +7,7 @@ import android.util.Log
 import com.music.bitchord.auth.EncryptedPrefs
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.DetectedFormat
@@ -429,13 +430,7 @@ object SourceRegistry {
     fun trackKey(configId: String, trackId: String) = "$PREFIX$configId$SEPARATOR$trackId"
 
     /** The `(configId, trackId)` inside a [trackKey], or null if this is an ordinary YouTube id. */
-    fun parseTrackKey(key: String): Pair<String, String>? {
-        if (!key.startsWith(PREFIX)) return null
-        val body = key.removePrefix(PREFIX)
-        val cut = body.indexOf(SEPARATOR)
-        if (cut <= 0) return null
-        return body.substring(0, cut) to body.substring(cut + SEPARATOR.length)
-    }
+    fun parseTrackKey(key: String): Pair<String, String>? = SourceTrackKeys.parse(key)
 
     /** The playback URI for a source-backed track; [PlaybackService] resolves it at open time. */
     fun trackUri(configId: String, trackId: String): String =

@@ -446,18 +446,22 @@ private fun BitChordApp(
     // Three states rather than one enum because they stack — the stories are
     // opened from the page and the share sheet from either, and closing one
     // has to reveal what it was opened from.
-    var showReplay by remember { mutableStateOf(false) }
+    var showReplay by rememberSaveable { mutableStateOf(false) }
     // Library cards use the same Replay page as every other entry point, but
     // category cards ask it to start at their matching ranked section.
-    var replayLandingPage by remember { mutableStateOf(ReplayStoryPage.INTRO) }
-    var replayStory by remember { mutableStateOf<ReplayStoryPage?>(null) }
-    var showReplayShare by remember { mutableStateOf(false) }
+    var replayLandingPage by rememberSaveable { mutableStateOf(ReplayStoryPage.INTRO) }
+    var replayStory by rememberSaveable { mutableStateOf<ReplayStoryPage?>(null) }
+    var showReplayShare by rememberSaveable { mutableStateOf(false) }
     /** Which story card the share sheet is for, or null for the whole Replay. */
-    var replaySharePage by remember { mutableStateOf<ReplayStoryPage?>(null) }
-    var showAccountScrobbling by remember { mutableStateOf(false) }
-    var showSources by remember { mutableStateOf(false) }
-    var showListenTogether by remember { mutableStateOf(false) }
-    var showEqualizer by remember { mutableStateOf(false) }
+    var replaySharePage by rememberSaveable { mutableStateOf<ReplayStoryPage?>(null) }
+    // Track which sub-screen was opened from Settings so AnimatedContent keeps
+    // SettingsSheet mounted underneath and back navigation restores scroll.
+    // null = no sub-screen overlay; non-null = that key is rendered as overlay.
+    var settingsSubScreen by rememberSaveable { mutableStateOf<String?>(null) }
+    var showAccountScrobbling by rememberSaveable { mutableStateOf(false) }
+    var showSources by rememberSaveable { mutableStateOf(false) }
+    var showListenTogether by rememberSaveable { mutableStateOf(false) }
+    var showEqualizer by rememberSaveable { mutableStateOf(false) }
     var showSpotifyCanvasAuth by remember { mutableStateOf(false) }
 
     // Hosted here rather than inside SourcesScreen so its frosted card has
@@ -2154,6 +2158,7 @@ private fun BitChordApp(
                 showListenTogether = false
                 showEqualizer = false
                 showReplay = false
+                settingsSubScreen = null
                 showHistory = false
                 showDiscord = false
                 libraryShowAll = null
@@ -2226,9 +2231,15 @@ private fun BitChordApp(
         BackHandler(enabled = showReplayShare) { showReplayShare = false }
         BackHandler(enabled = replayStory != null && !showReplayShare) { replayStory = null }
         BackHandler(
-            enabled = showReplay && !showSettings && replayStory == null && !showReplayShare,
+            enabled = showReplay && replayStory == null && !showReplayShare,
         ) {
-            showReplay = false
+            if (settingsSubScreen == "replay") {
+                // Dismiss Replay overlay and return to SettingsSheet beneath.
+                showReplay = false
+                settingsSubScreen = null
+            } else {
+                showReplay = false
+            }
         }
         BackHandler(
             enabled = detail != null && !showSettings && !showAccountScrobbling && !showSources && !showListenTogether &&
@@ -2242,20 +2253,24 @@ private fun BitChordApp(
         }
         BackHandler(enabled = showAccountScrobbling && !showDiscord) {
             showAccountScrobbling = false
+            if (settingsSubScreen == "account_scrobbling") settingsSubScreen = null
         }
         BackHandler(enabled = showSources) {
             showSources = false
+            if (settingsSubScreen == "sources") settingsSubScreen = null
         }
         BackHandler(enabled = showListenTogether) {
             showListenTogether = false
+            if (settingsSubScreen == "listen_together") settingsSubScreen = null
         }
         BackHandler(enabled = showEqualizer) {
             showEqualizer = false
+            if (settingsSubScreen == "equalizer") settingsSubScreen = null
         }
         // One back step out of Settings, or out of any tab but Home, lands on
         // Home rather than exiting — only Home itself hands back to the system,
         // which is what actually closes/minimizes the app.
-        BackHandler(enabled = showSettings && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer) {
+        BackHandler(enabled = showSettings && !showAccountScrobbling && !showSources && !showListenTogether && !showEqualizer && !showReplay) {
             showSettings = false
             // Only when Settings was the whole of what was on screen. Opened
             // over Replay or over a release page, closing it reveals that again
@@ -2300,6 +2315,10 @@ private fun BitChordApp(
                         // give way to the `detail != null` branch below it
                         // rather than keep showing the grid underneath.
                         libraryShowAll != null && detail == null -> "library_show_all"
+                        // When a sub-screen overlay is active, keep SettingsSheet
+                        // mounted so its scroll position survives.  The overlay is
+                        // rendered below the AnimatedContent block.
+                        settingsSubScreen != null -> "settings"
                         showAccountScrobbling -> "account_scrobbling"
                         showSources -> "sources"
                         showListenTogether -> "listen_together"
@@ -2512,17 +2531,29 @@ private fun BitChordApp(
                                 webSession = WebSessionMode.SIGN_IN
                             },
                             onSignOut = { viewModel.signOut() },
-                            onAccountScrobbling = { showAccountScrobbling = true },
-                            onEqualizer = { showEqualizer = true },
+                            onAccountScrobbling = {
+                                settingsSubScreen = "account_scrobbling"
+                                showAccountScrobbling = true
+                            },
+                            onEqualizer = {
+                                settingsSubScreen = "equalizer"
+                                showEqualizer = true
+                            },
                             onOpenReplay = {
-                                showSettings = false
+                                settingsSubScreen = "replay"
                                 replayLandingPage = ReplayStoryPage.INTRO
                                 showReplay = true
                             },
                             onLyricsSources = { showLyricsSources = true },
                             onTranslationLanguage = { showTranslationLanguage = true },
-                            onSources = { showSources = true },
-                            onListenTogether = { showListenTogether = true },
+                            onSources = {
+                                settingsSubScreen = "sources"
+                                showSources = true
+                            },
+                            onListenTogether = {
+                                settingsSubScreen = "listen_together"
+                                showListenTogether = true
+                            },
                             onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                             onAppLanguage = { showAppLanguage = true },
                             contentPadding = listPadding,
@@ -3019,6 +3050,7 @@ private fun BitChordApp(
                         showSources -> ({ showSources = false })
                         showListenTogether -> ({ showListenTogether = false })
                         showEqualizer -> ({ showEqualizer = false })
+                        settingsSubScreen != null -> ({ settingsSubScreen = null })
                         showSettings -> ({ showSettings = false })
                         showReplay -> ({ showReplay = false })
                         detailActiveShelf != null -> ({ detailActiveShelf = null })
@@ -3217,6 +3249,7 @@ private fun BitChordApp(
                     showListenTogether = false
                     showEqualizer = false
                     showReplay = false
+                    settingsSubScreen = null
                     showHistory = false
                     libraryShowAll = null
                     selectedTab = index
@@ -3330,6 +3363,121 @@ private fun BitChordApp(
                 // scroll from taking the next touch meant for that list.
                 Box(Modifier.guardSheetFromContentTouches(nowPlayingSheetState)) {
                     nowPlaying(playerSong)
+                }
+            }
+        }
+
+        // ---- Settings sub-screen overlays ----
+        // When a sub-screen is opened from Settings, AnimatedContent keeps
+        // "settings" as target so SettingsSheet stays mounted with its scroll.
+        // Each overlay is wrapped in an opaque Surface so it fully obscures
+        // the preserved SettingsSheet beneath — without it, both screens bleed
+        // through each other and text becomes unreadable.
+        when (settingsSubScreen) {
+            "account_scrobbling" -> {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    AccountAndScrobblingScreen(
+                        signedIn = signedIn,
+                        account = account,
+                        channelName = selectedChannelName,
+                        onSignIn = {
+                            settingsSubScreen = null
+                            showSettings = false
+                            webSession = WebSessionMode.SIGN_IN
+                        },
+                        onSwitchChannel = {
+                            viewModel.loadChannels()
+                            showAccountSelector = true
+                        },
+                        onSignOut = { viewModel.signOut() },
+                        onOpenListenBrainzLogin = { showListenBrainzLogin = true },
+                        onOpenLastfmLogin = { showLastfmLogin = true },
+                        onOpenDiscord = { showDiscord = true },
+                        contentPadding = listPadding,
+                    )
+                }
+            }
+            "sources" -> {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    SourcesScreen(
+                        contentPadding = listPadding,
+                        onEditSource = { editingSource = it },
+                        onEditWebDav = { showWebDavEditor = true },
+                        onEditSmb = { showSmbEditor = true },
+                        onConfirmJioSaavn = { confirmJioSaavn = true },
+                    )
+                }
+            }
+            "listen_together" -> {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    ListenTogetherScreen(
+                        signedIn = signedIn,
+                        inviteCode = activeJamInviteCode,
+                        inviteServer = activeJamInviteServer,
+                        onInviteHandled = {
+                            activeJamInviteCode = null
+                            activeJamInviteServer = null
+                        },
+                        onSignIn = {
+                            settingsSubScreen = null
+                            showSettings = false
+                            webSession = WebSessionMode.SIGN_IN
+                        },
+                        contentPadding = listPadding,
+                        onEditServer = { editingPartyServer = true },
+                    )
+                }
+            }
+            "equalizer" -> {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    EqualizerScreen(contentPadding = listPadding)
+                }
+            }
+            "replay" -> {
+                if (showReplay && !showReplayShare) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background,
+                    ) {
+                        ReplayScreen(
+                            state = replay,
+                            holder = account?.name.orEmpty(),
+                            onPeriodChange = setReplayPeriod,
+                            onOpenStory = { replayStory = it },
+                            onPlaySong = { song ->
+                                playRadio(song, QueueSource(replayLabel, PlaybackSourceType.REPLAY))
+                            },
+                            onOpenArtist = { id, name ->
+                                settingsSubScreen = null
+                                showReplay = false
+                                openByName(id, name, null, BrowseType.ARTIST)
+                            },
+                            onOpenAlbum = { id, title, artist, art ->
+                                settingsSubScreen = null
+                                showReplay = false
+                                openByName(id, title, artist, BrowseType.ALBUM, art)
+                            },
+                            onShare = {
+                                replaySharePage = null
+                                showReplayShare = true
+                            },
+                            contentPadding = listPadding,
+                            listState = replayListState,
+                            landingPage = replayLandingPage,
+                        )
+                    }
                 }
             }
         }

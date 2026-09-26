@@ -476,8 +476,8 @@
     <string name="sources_order_footer">如果某个来源没有该曲目或无法访问，BitChord 会尝试下一个来源。排在 YouTube 之前的来源如果返回更好的版本，可以替换其录音。</string>
     <string name="sources_order_header">来源，按此顺序尝试</string>
     <string name="sources_quality_capped">此连接的设置低于高品质，因此串流会被转码以符合该限制，下载不受影响。</string>
-    <string name="jiosaavn_mismatch_warning">可能匹配到歌曲的错误版本。启用风险自负。</string>
-    <string name="enable_jiosaavn">启用 JioSaavn？</string>
+    <string name="catalogue_mismatch_warning">可能匹配到歌曲的错误版本。启用风险自负。</string>
+    <string name="enable_catalogue">启用 Catalogue？</string>
     <string name="enable_anyway">仍然启用</string>
     <string name="sources_subtitle">音频的来源及使用顺序</string>
     <string name="source_matching">来源匹配</string>

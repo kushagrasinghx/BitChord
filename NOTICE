@@ -1,0 +1,22 @@
+BitChord — NOTICE
+
+BitChord is an unofficial, independent third-party player. It is not
+affiliated with, endorsed by, or sponsored by Google LLC, YouTube,
+YouTube Music, Deezer, Telegram, Discord, Last.fm, or ListenBrainz.
+
+Third-party names, marks, artwork, and logos referenced by this project
+(such as YouTube, YouTube Music, and Google) remain the property of
+their respective owners. They are named here only to describe
+compatibility (nominative use) and imply no endorsement.
+
+This project ships no media files and hosts no music. All playback,
+artwork, and metadata come from the user's own local files, the user's
+own authenticated accounts, or user-configured sources.
+
+Service endpoints, client identities, and link hosts are not in this
+repository at all: they arrive in a user-imported service file (see
+README.md). The only network names kept in code are the auth guard
+suffixes in ServiceConfig, a safety valve that restricts where the
+session cookie may be sent — never an endpoint.
+
+See README.md (Disclaimer & Legal Notice), DMCA.md, and LICENSE.

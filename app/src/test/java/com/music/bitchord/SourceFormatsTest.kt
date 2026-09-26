@@ -30,7 +30,7 @@ class SourceFormatsTest {
     fun `a real addon manifest is recognised and its name read`() {
         val body = """
             {"id":"com.unified.music.quality","name":"Unified · Quality First","version":"1.0.0",
-             "description":"Tidal + Qobuz + YouTube Music + JioSaavn in one addon.",
+             "description":"Tidal + Qobuz + YouTube Music + Catalogue in one addon.",
              "icon":"https://unified-addon.netlify.app/icon.png",
              "resources":["search","stream","catalog"],
              "types":["track","album","artist","playlist"],"contentType":"music"}

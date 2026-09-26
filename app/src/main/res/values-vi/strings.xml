@@ -977,8 +977,8 @@
 
     <string name="translation_language_subtitle">Follows the app language</string>
 
-    <string name="jiosaavn_mismatch_warning">Có thể khớp nhầm phiên bản bài hát. Hãy tự chịu rủi ro khi bật.</string>
-    <string name="enable_jiosaavn">Bật JioSaavn?</string>
+    <string name="catalogue_mismatch_warning">Có thể khớp nhầm phiên bản bài hát. Hãy tự chịu rủi ro khi bật.</string>
+    <string name="enable_catalogue">Bật Catalogue?</string>
     <string name="enable_anyway">Vẫn bật</string>
 
     <string name="search_languages">Search languages</string>
@@ -1205,6 +1205,34 @@
     <string name="listen_together_switch_failed_stayed_in_party">Couldn’t join party: %1$s. Remaining in party %2$s.</string>
     <string name="listen_together_switch_failed">Couldn’t join party: %1$s.</string>
     <string name="listen_together_open_count">Listening together · %1$d</string>
+
+    <string name="legal_footer">Ứng dụng không chính thức · Không liên kết với YouTube hay Google</string>
+    <string name="sign_in_compliance_footer">Đăng nhập dùng tài khoản của chính bạn trên trang web chính thức của Google. BitChord không bao giờ thấy mật khẩu của bạn. Ứng dụng bên thứ ba có thể chịu Điều khoản dịch vụ của YouTube và luật bản quyền nơi bạn sống — hãy tự cân nhắc khi sử dụng.</string>
+
+    <string name="service_file">Tệp dịch vụ</string>
+    <string name="service_file_subtitle">Điểm kết nối và định danh máy khách của dịch vụ phát nhạc</string>
+    <string name="service_file_ready">Đã cài đặt · %1$s · %2$d máy khách</string>
+    <string name="service_file_missing_subtitle">Chưa cài đặt — cần có để phát nhạc, tìm kiếm và đăng nhập</string>
+    <string name="service_file_import">Nhập tệp dịch vụ</string>
+    <string name="service_file_test">Kiểm tra kết nối</string>
+    <string name="service_file_testing">Đang kiểm tra…</string>
+    <string name="service_file_test_ok">Kết nối được (%1$d)</string>
+    <string name="service_file_test_failed">Không kết nối được: %1$s</string>
+    <string name="service_file_clear">Gỡ tệp dịch vụ</string>
+    <string name="service_file_clear_title">Gỡ tệp dịch vụ?</string>
+    <string name="service_file_clear_warning">Phát nhạc, tìm kiếm, đăng nhập và chia sẻ liên kết sẽ ngừng hoạt động cho đến khi nhập tệp khác. Các nội dung đã tải và tệp trên thiết bị không bị ảnh hưởng.</string>
+    <string name="service_file_cleared">Đã gỡ tệp dịch vụ</string>
+    <string name="service_file_imported">Đã cài đặt · %1$s</string>
+    <string name="service_file_import_failed">Nhập thất bại: %1$s</string>
+    <string name="service_file_imported_tested">Đã cài đặt · %1$s · Kết nối được (%2$d)</string>
+    <string name="service_file_imported_unreachable">Đã cài đặt · %1$s · Không kết nối được: %2$s</string>
+    <string name="service_file_required_title">Cần có tệp dịch vụ</string>
+    <string name="service_file_required_text">Tính năng này cần điểm kết nối và định danh máy khách của dịch vụ — những thứ được cung cấp riêng và không bao giờ tự động tải về. Hãy nhập tệp để tiếp tục.</string>
+    <string name="service_file_open_settings">Mở Cài đặt</string>
+    <string name="service_file_import_link">Nhập từ liên kết</string>
+    <string name="service_file_url_title">Liên kết tệp dịch vụ</string>
+    <string name="service_file_url_hint">https://…/bitchord-service.json</string>
+    <string name="service_file_downloading">Đang tải…</string>
     <string name="audio_pipeline_subtitle">Live signal path, decoder to output</string>
     <string name="song_added_to_playlist">Added to playlist</string>
     <string name="song_already_in_playlist">Already in playlist</string>

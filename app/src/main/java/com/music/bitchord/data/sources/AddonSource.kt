@@ -386,7 +386,7 @@ class AddonSource(
          * `mp4` is in the list and is the interesting one. It names a container
          * rather than a codec, so it is not in [SELF_DESCRIBING_CONTAINERS] and
          * never overrides something better — but leaving it out entirely was
-         * wrong in a way worth spelling out. A live addon's JioSaavn backend
+         * wrong in a way worth spelling out. A live addon's Catalogue backend
          * answers `{"format": "mp4", "quality": "320kbps"}` with a URL ending
          * `_320.mp4`, and with `mp4` unrecognised *nothing* named the codec: the
          * format came back with a null one, and a null codec means

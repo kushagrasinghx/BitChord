@@ -877,16 +877,16 @@ class AddonSourceTest {
     }
 
     /**
-     * The same addon's JioSaavn backend answers with `format: "mp4"` — a
+     * The same addon's Catalogue backend answers with `format: "mp4"` — a
      * container, in the same field the Tidal answer used for a transport. It
      * must not be mistaken for one, or a plain audio file is opened as a
      * manifest and nothing plays.
      */
     @Test
     fun `a container in the format field is not mistaken for a transport`() = runBlocking {
-        val url = "https://aac.saavncdn.com/601/b81082b74fa06e4596b5b111b0115d1a_320.mp4"
+        val url = "https://audio.catalogue.invalid/601/b81082b74fa06e4596b5b111b0115d1a_320.mp4"
         route("/manifest.json", manifest())
-        route("/stream/t1", json("""{"url":"$url","format":"mp4","quality":"320kbps","provider":"JioSaavn"}"""))
+        route("/stream/t1", json("""{"url":"$url","format":"mp4","quality":"320kbps","provider":"Catalogue"}"""))
 
         val stream = AddonSource(config()).stream("t1", StreamRequest.Best)!!
 

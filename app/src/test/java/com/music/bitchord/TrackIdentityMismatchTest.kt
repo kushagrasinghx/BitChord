@@ -66,11 +66,11 @@ class TrackIdentityMismatchTest {
             durationSec = catalogueDuration,
             album = "Hurry Up Tomorrow",
         )
-        val jioSaavnTrack = song("São Paulo", "The Weeknd", "5:02", album = "Hurry Up Tomorrow")
+        val catalogueTrack = song("São Paulo", "The Weeknd", "5:02", album = "Hurry Up Tomorrow")
 
         assertTrue(
             "TrackMatcher must accept 302s candidate against 302s catalogue target",
-            TrackMatcher.withinSeconds(jioSaavnTrack, target, 2),
+            TrackMatcher.withinSeconds(catalogueTrack, target, 2),
         )
     }
 
@@ -158,7 +158,7 @@ class TrackIdentityMismatchTest {
         )
 
         val youtubeVideoRuntime = 209 // 3:29 music video (2kjolTLZ_Mg)
-        val jioSaavnCandidateDuration = 302 // 5:02 album stream (-rq378sI)
+        val catalogueCandidateDuration = 302 // 5:02 album stream (-rq378sI)
 
         // 1. Check cached rendition mismatch detection
         assertTrue(
@@ -178,20 +178,20 @@ class TrackIdentityMismatchTest {
         )
 
         // 3. Confirm regression behavior without fix:
-        // Raw runtime comparison would fail and reject the genuine JioSaavn album stream
+        // Raw runtime comparison would fail and reject the genuine Catalogue album stream
         assertFalse(
             "Flawed check against raw 209s runtime would reject genuine 302s album stream",
-            SourceResolver.sameRecordingAs(jioSaavnCandidateDuration, youtubeVideoRuntime),
+            SourceResolver.sameRecordingAs(catalogueCandidateDuration, youtubeVideoRuntime),
         )
 
         // 4. Confirm fixed behavior:
-        // Comparison against effective catalogue duration accepts the genuine JioSaavn stream
+        // Comparison against effective catalogue duration accepts the genuine Catalogue stream
         assertTrue(
-            "Check against effective duration accepts genuine 302s JioSaavn album stream",
-            SourceResolver.sameRecordingAs(jioSaavnCandidateDuration, effectiveDuration),
+            "Check against effective duration accepts genuine 302s Catalogue album stream",
+            SourceResolver.sameRecordingAs(catalogueCandidateDuration, effectiveDuration),
         )
 
-        val jioSaavnSong = song(
+        val catalogueSong = song(
             title = "São Paulo",
             artist = "The Weeknd, Anitta",
             durationText = "5:02",
@@ -201,8 +201,8 @@ class TrackIdentityMismatchTest {
         val effectiveTarget = catalogueTarget.copy(durationSec = effectiveDuration)
 
         assertTrue(
-            "TrackMatcher matches genuine JioSaavn song against effective target",
-            TrackMatcher.withinSeconds(jioSaavnSong, effectiveTarget, 2),
+            "TrackMatcher matches genuine Catalogue song against effective target",
+            TrackMatcher.withinSeconds(catalogueSong, effectiveTarget, 2),
         )
     }
 }

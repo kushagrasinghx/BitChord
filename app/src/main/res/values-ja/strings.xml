@@ -476,8 +476,8 @@
     <string name="sources_order_footer">ソースにトラックがない、またはアクセスできない場合、BitChordは次のソースを試します。YouTubeより上のソースは、より良いバージョンが見つかった場合にその録音を置き換えられます。</string>
     <string name="sources_order_header">ソース（この順番で試行）</string>
     <string name="sources_quality_capped">この接続は「高音質」より低く設定されているため、ストリームはその上限に合わせてトランスコードされます。ダウンロードには影響しません。</string>
-    <string name="jiosaavn_mismatch_warning">曲の別バージョンに一致してしまうことがあります。自己責任で有効にしてください。</string>
-    <string name="enable_jiosaavn">JioSaavnを有効にしますか？</string>
+    <string name="catalogue_mismatch_warning">曲の別バージョンに一致してしまうことがあります。自己責任で有効にしてください。</string>
+    <string name="enable_catalogue">Catalogueを有効にしますか？</string>
     <string name="enable_anyway">有効にする</string>
     <string name="sources_subtitle">音声の取得元と使用する順序</string>
     <string name="source_matching">ソースの照合</string>

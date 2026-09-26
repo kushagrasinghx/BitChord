@@ -160,8 +160,8 @@ class AudioPipelineTest {
         NerdStats.onSourceStream("track-456", StreamFormat(codec = "flac"), source = "Unified Addon")
         assertEquals("Unified Addon", NerdStats.sourceFor("track-456"))
 
-        NerdStats.onStreamPicked("track-789", 320, source = "JioSaavn")
-        assertEquals("JioSaavn", NerdStats.sourceFor("track-789"))
+        NerdStats.onStreamPicked("track-789", 320, source = "Catalogue")
+        assertEquals("Catalogue", NerdStats.sourceFor("track-789"))
     }
 
     @Test
@@ -183,13 +183,13 @@ class AudioPipelineTest {
     @Test
     fun `forgetLastSession clears all recorded sources and snapshots`() {
         NerdStats.recordSource("track-1", "YouTube")
-        NerdStats.recordSource("track-2", "JioSaavn")
+        NerdStats.recordSource("track-2", "Catalogue")
         NerdStats.current.value = NerdStats.Snapshot(
             mimeType = "audio/flac",
             bitrateKbps = 1411,
             sampleRateHz = 44100,
             channels = 2,
-            sourceName = "JioSaavn",
+            sourceName = "Catalogue",
         )
 
         NerdStats.forgetLastSession()

@@ -455,8 +455,8 @@
     <string name="sources_order_footer">אם למקור אין רצועה, BitChord מנסה את הבא. מקורות מעל YouTube יכולים להחליפו כשהם מוצאים גרסה טובה יותר.</string>
     <string name="sources_order_header">מקורות, נוסו בסדר זה</string>
     <string name="sources_quality_capped">חיבור זה מוגדר מתחת לאיכות גבוהה, ולכן השידורים מומרים כדי להתאים למגבלה. הורדות אינן מושפעות.</string>
-    <string name="jiosaavn_mismatch_warning">עלול להתאים גרסה שגויה של שיר. ההפעלה על אחריותכם.</string>
-    <string name="enable_jiosaavn">להפעיל את JioSaavn?</string>
+    <string name="catalogue_mismatch_warning">עלול להתאים גרסה שגויה של שיר. ההפעלה על אחריותכם.</string>
+    <string name="enable_catalogue">להפעיל את Catalogue?</string>
     <string name="enable_anyway">להפעיל בכל זאת</string>
     <string name="sources_subtitle">מאיפה מגיע האודיו והסדר שבו נעשה שימוש</string>
     <string name="source_matching">התאמת מקורות</string>

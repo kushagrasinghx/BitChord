@@ -186,7 +186,7 @@ class DiscordRPC(
             "https://raw.githubusercontent.com/kushagrasinghx/BitChord/main/app/src/main/ic_launcher-playstore.png"
 
         fun watchUrl(song: Song): String =
-            "https://music.youtube.com/watch?v=${song.videoId}"
+            com.music.bitchord.data.service.ServiceConfig.watchUrl(song.videoId)
 
         /**
          * Resolves template variables in text.

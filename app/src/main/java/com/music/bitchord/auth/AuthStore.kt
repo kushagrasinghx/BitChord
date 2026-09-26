@@ -6,9 +6,9 @@ import android.content.SharedPreferences
 /**
  * Encrypted-at-rest storage for credentials.
  *
- * Two live here: the YouTube Music session cookie, and — if the user turns on
+ * Two live here: the streaming service session cookie, and — if the user turns on
  * the Discord integration — that account's own bearer token. Neither is a
- * password: the Google one is typed into accounts.google.com inside a WebView,
+ * password: the service one is typed into the real login page inside a WebView,
  * and the Discord one is read out of a completed login session. But both grant
  * full access to their account, so they don't go in the plain prefs the
  * scrobbler tokens use.
@@ -186,7 +186,7 @@ class AuthStore(context: Context) {
         // sign-out that leaves it in place is not one: the next sign-in is
         // waved straight through as the account just signed out of, with no
         // opportunity to choose another. See [BrowserSession].
-        BrowserSession.clearGoogleCookies()
+        BrowserSession.clearLoginCookies()
     }
 
     companion object {

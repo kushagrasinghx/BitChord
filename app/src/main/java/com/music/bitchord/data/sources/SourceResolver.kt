@@ -56,7 +56,7 @@ object SourceResolver {
         // Always the best the sources can do, bounded only by the connection's
         // own ceiling. There used to be a "Prefer lossless" switch in front of
         // this and it earned its removal: every source already degrades on its
-        // own terms — a module hands back its best rendition, JioSaavn its
+        // own terms — a module hands back its best rendition, Catalogue its
         // 320kbps AAC, YouTube its Opus — so switching it off asked the module
         // for a *worse* file than it was holding (`StreamRequest.Best` maps to
         // the module's `HIGH` tier) while changing nothing about the two lossy
@@ -145,7 +145,7 @@ object SourceResolver {
         val active = SourceRegistry.activeForPlayback()
         // A pin identifies where the row originally came from; it does not
         // override the source switch. Looking the instance up directly used to
-        // reopen disabled JioSaavn/addon tracks already sitting in the queue.
+        // reopen disabled Catalogue/addon tracks already sitting in the queue.
         // Resolve the pin only from the enabled list so Off means off for both
         // newly matched tracks and source-backed rows queued earlier.
         val pinned = active.firstOrNull { it.configId == configId }
@@ -236,7 +236,7 @@ object SourceResolver {
      * The reliable last rung for a source-backed queue item whose chosen stream
      * failed in the player.
      *
-     * Unlike [resolve], this asks only YouTube. The failed addon/JioSaavn source
+     * Unlike [resolve], this asks only YouTube. The failed addon/Catalogue source
      * must not get another chance to return the identical URL, and unlike
      * [substituteForYouTube] this starts with metadata rather than an existing
      * YouTube video id, so it first finds the matching YouTube Music row.
@@ -371,13 +371,13 @@ object SourceResolver {
         // Racing them matters as much as asking them. Walked in rank order this
         // took 13.6s on 'Bounce' — a module needed 7.6s to search and another
         // 5.0s to produce a 128kbps MP3 that was then refused, and only after
-        // all of that was JioSaavn asked, which answered with 320kbps in 246ms:
+        // all of that was Catalogue asked, which answered with 320kbps in 246ms:
         //
         // ```
         //   46:44.823  'Bounce' is playing 141 kbps … looking for a better copy
         //   46:57.477  Ricky's Addon offered MP3 · 128 kbps
         //   46:57.478  … isn't worth swapping 'Bounce' off 141 kbps
-        //   46:57.478  ▶ JioSaavn searchSongs()        ← 12.65s in
+        //   46:57.478  ▶ Catalogue searchSongs()        ← 12.65s in
         //   46:58.608  upgraded to MP4 · 320 kbps at 13569ms
         // ```
         //
@@ -432,14 +432,14 @@ object SourceResolver {
      *  2. **The best lossy copy otherwise.** A lossless source that settled for
      *     a transcode is not thereby wasted — its offer is kept and weighed
      *     against what the lossy sources hold, and the better rendition wins on
-     *     [isBetter]. This is where JioSaavn's 320kbps AAC comes in: it outranks
+     *     [isBetter]. This is where Catalogue's 320kbps AAC comes in: it outranks
      *     YouTube for playback and used to be skipped entirely here, so a track
      *     streamed at 320 was filed at whatever YouTube's ladder gave.
      *  3. **YouTube**, by this returning null. Which is not a failure — see the
      *     floor below for when it is deliberately preferred.
      *
      * Steps 1 and 2 are started together rather than in sequence. A module
-     * search runs to twenty seconds and JioSaavn answers in about four tenths of
+     * search runs to twenty seconds and Catalogue answers in about four tenths of
      * one, and the whole lookup is bounded by `Downloads.SOURCE_LOOKUP_MS` —
      * queued behind the modules, the fast source would routinely have the
      * timeout land on it and the download would fall to YouTube holding a 320
@@ -501,7 +501,7 @@ object SourceResolver {
             // Standard, and the one rung the sources are no use for: it is a
             // ceiling of 128kbps chosen to fit more on the device, and a source
             // has no way to be asked for *that* rung rather than for the best it
-            // has. JioSaavn's 320 is not a better answer to it, it is the wrong
+            // has. Catalogue's 320 is not a better answer to it, it is the wrong
             // answer to it. YouTube's ladder is the only one that can be capped.
             is StreamRequest.Capped -> return@coroutineScope null
         }
@@ -524,7 +524,7 @@ object SourceResolver {
         //
         // On the High rung nobody is: there is no lossless answer to look for,
         // so every ranked source goes into the race and competes on rendition
-        // alone. That is what puts JioSaavn's 320 in front of YouTube's AAC for
+        // alone. That is what puts Catalogue's 320 in front of YouTube's AAC for
         // a setting whose own description is "best AAC on offer".
         val bitExact = if (wantsLossless) ranked.filter { it.kind.canServeLossless } else emptyList()
         val elsewhere = ranked - bitExact.toSet()
@@ -532,7 +532,7 @@ object SourceResolver {
         // Asked now, read at the end — and raced rather than walked, because
         // these differ in speed by two orders of magnitude and the whole lookup
         // is on a clock. See [bestAcross], which takes the first answer that
-        // clears the bar rather than the best of all of them: JioSaavn's four
+        // clears the bar rather than the best of all of them: Catalogue's four
         // tenths of a second is what that rule is tuned for, and a module that
         // beats it to the line with something thin is a case the floor below
         // catches by sending the download to YouTube.
@@ -719,11 +719,11 @@ object SourceResolver {
      * of magnitude. Measured on '9:45':
      *
      * ```
-     *   JioSaavn        search 245ms + stream 131ms   ≈ 0.4s
+     *   Catalogue        search 245ms + stream 131ms   ≈ 0.4s
      *   Ricky's Addon   search → settled stream       ≈ 13.5s
      * ```
      *
-     * Queued behind the module, JioSaavn's answer arrives at ~14s. Nobody is
+     * Queued behind the module, Catalogue's answer arrives at ~14s. Nobody is
      * waiting that long for a song to start, so YouTube wins the race in
      * [PlaybackService][com.music.bitchord.playback.PlaybackService]'s
      * `resolveWithModulePriority` every single time and the listener gets
@@ -756,7 +756,7 @@ object SourceResolver {
      * collect the resulting streams before choosing. Previously that flag only
      * reached each source's search call; this loop still returned the first
      * usable stream and cancelled the rest, which could discard an exact Tidal
-     * FLAC or JioSaavn 320 result during an upgrade.
+     * FLAC or Catalogue 320 result during an upgrade.
      *
      * @return the winning source alongside its stream, so callers can name it in
      *   a log line without searching the list again.
@@ -860,13 +860,13 @@ object SourceResolver {
             if (requireSharedArtist) {
                 matches = matches.filter { TrackMatcher.sharesArtist(target.artist, it.artist) }
             }
-            // JioSaavn can return different audio under the same title and
+            // The catalogue source can return different audio under the same title and
             // artist on different releases. With no album on the requested
             // track there is no honest way to choose between those rows;
             // duration is not enough when the wrong recording is only a
             // second away. Treat it as this source missing and retain the
             // known-correct fallback.
-            if (source.kind == SourceKind.JIOSAAVN &&
+            if (source.kind == SourceKind.CATALOGUE &&
                 TrackMatcher.hasConflictingAlbums(matches, target)
             ) {
                 val canonical = TrackMatcher.uniquelyMostCreditedCloseMatch(matches, target)
@@ -1141,7 +1141,7 @@ object SourceResolver {
      * use. So the bar is the *best* YouTube could turn out to have: clearing it
      * means the source's copy wins whichever rung was waiting, and failing it
      * means YouTube might well be better and is certainly the more reliable
-     * fetch. JioSaavn's 320 clears it; its 160 does not, and neither does a
+     * fetch. Catalogue's 320 clears it; its 160 does not, and neither does a
      * module's 128kbps MP3 settle-for.
      */
     private const val YOUTUBE_BEST_AAC_KBPS = 256

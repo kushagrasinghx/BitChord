@@ -646,8 +646,8 @@
     <string name="sources_order_footer">If a source does not have a track or cannot be reached, BitChord tries the next one. Sources above YouTube can replace its recording when they return a better version.</string>
     <string name="sources_order_header">Sources, tried in this order</string>
     <string name="sources_quality_capped">This connection is set below High quality, so streams are transcoded to fit that limit. Downloads are unaffected.</string>
-    <string name="jiosaavn_mismatch_warning">May match the wrong version of a song. Enable at your own risk.</string>
-    <string name="enable_jiosaavn">Enable JioSaavn?</string>
+    <string name="catalogue_mismatch_warning">May match the wrong version of a song. Enable at your own risk.</string>
+    <string name="enable_catalogue">Enable Catalogue?</string>
     <string name="enable_anyway">Enable anyway</string>
     <string name="sources_subtitle">Where audio comes from and the order used</string>
     <string name="source_matching">Source matching</string>
@@ -1143,5 +1143,33 @@
     <string name="card_plays_format">%1$s plays</string>
 
     <string name="card_songs_format">%1$s songs</string>
+
+    <string name="legal_footer">Unofficial client · Not affiliated with YouTube or Google</string>
+    <string name="sign_in_compliance_footer">Sign-in uses your own account in Google’s official web page. BitChord never sees your password. Third-party clients may be subject to YouTube’s Terms of Service and your local copyright laws — use at your own discretion.</string>
+
+    <string name="service_file">Service file</string>
+    <string name="service_file_subtitle">Endpoints and client identities for the streaming service</string>
+    <string name="service_file_ready">Installed · %1$s · %2$d clients</string>
+    <string name="service_file_missing_subtitle">Not installed — streaming, search and sign-in need it</string>
+    <string name="service_file_import">Import service file</string>
+    <string name="service_file_test">Test connection</string>
+    <string name="service_file_testing">Testing…</string>
+    <string name="service_file_test_ok">Reachable (%1$d)</string>
+    <string name="service_file_test_failed">Unreachable: %1$s</string>
+    <string name="service_file_clear">Remove service file</string>
+    <string name="service_file_clear_title">Remove the service file?</string>
+    <string name="service_file_clear_warning">Streaming, search, sign-in and link sharing stop working until another file is imported. Downloads and local files are unaffected.</string>
+    <string name="service_file_cleared">Service file removed</string>
+    <string name="service_file_imported">Installed · %1$s</string>
+    <string name="service_file_import_failed">Import failed: %1$s</string>
+    <string name="service_file_imported_tested">Installed · %1$s · Reachable (%2$d)</string>
+    <string name="service_file_imported_unreachable">Installed · %1$s · Unreachable: %2$s</string>
+    <string name="service_file_required_title">Service file required</string>
+    <string name="service_file_required_text">This needs the service’s endpoints and client identities, which ship separately and are never downloaded automatically. Import the file to continue.</string>
+    <string name="service_file_open_settings">Open Settings</string>
+    <string name="service_file_import_link">Import from link</string>
+    <string name="service_file_url_title">Service file link</string>
+    <string name="service_file_url_hint">https://…/bitchord-service.json</string>
+    <string name="service_file_downloading">Downloading…</string>
 
 </resources>

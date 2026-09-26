@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /** What an intent from outside the app turned out to be asking for. */
 sealed interface LinkRequest {
-    /** A song, by video id — `watch?v=`, a `youtu.be` short link, a Short. */
+    /** A song, by video id — `watch?v=`, a short link, a Short. */
     data class Track(val videoId: String) : LinkRequest
 
     /** An album, playlist or artist page, by browse id. */
@@ -96,30 +96,36 @@ object MusicLink {
     }
 
     /**
-     * What a YouTube or YouTube Music URL points at, or null for one this app
-     * has nothing to show for.
+     * What a service URL points at, or null for one this app has nothing to
+     * show for.
      *
-     * Deliberately forgiving about the host: `music.youtube.com`,
-     * `www.youtube.com`, `m.youtube.com` and `youtu.be` all address the same
-     * catalogue with the same ids, and a link is just as likely to arrive
-     * through a share sheet — where the manifest's host list never applies —
-     * as through the browser.
+     * Deliberately forgiving about the host: the imported service file names
+     * every host that addresses the catalogue with the same ids, and a link
+     * is just as likely to arrive through a share sheet — where the
+     * manifest's host list never applies — as through the browser. Without an
+     * installed service file no host is recognised.
      */
     fun parse(uri: Uri): LinkRequest? {
-        val host = uri.host?.lowercase()?.removePrefix("www.") ?: return null
+        val hosts = runCatching {
+            com.music.bitchord.data.service.ServiceConfig.linkHosts()
+        }.getOrNull() ?: return null
+        val short = runCatching {
+            com.music.bitchord.data.service.ServiceConfig.shortHost()
+        }.getOrNull()
+        val host = uri.host?.lowercase()?.removeSuffix(".")?.removePrefix("www.") ?: return null
         val segments = uri.pathSegments.orEmpty()
-        if (host == "youtu.be") {
+        if (short != null && (host == short || host == short.removePrefix("www."))) {
             return segments.firstOrNull()?.let(::track)
         }
-        if (host != "youtube.com" && host != "music.youtube.com" && host != "m.youtube.com") {
+        if (host !in hosts) {
             return null
         }
         val list = uri.getQueryParameter("list")?.trim().orEmpty()
         return when (segments.firstOrNull()) {
             // A watch link often carries the playlist it was opened from as
             // well. The video is what was tapped, so it wins; the list only
-            // stands in when the link names no video at all, which is how YT
-            // Music writes "play this album" links.
+            // stands in when the link names no video at all, which is how the
+            // service writes "play this album" links.
             "watch" -> uri.getQueryParameter("v")?.let(::track) ?: playlist(list)
             "playlist" -> playlist(list)
             // A Short and an embed are both a bare id in the path.
@@ -130,7 +136,7 @@ object MusicLink {
                 ?.let(LinkRequest::Page)
             "search" -> uri.getQueryParameter("q")?.trim()?.takeIf { it.isNotEmpty() }
                 ?.let { LinkRequest.Search(it, play = false) }
-            // A link to nothing in particular — music.youtube.com itself, an
+            // A link to nothing in particular — the service home, an
             // account page. Opening the app on its own tab is the right answer,
             // and that has already happened by the time this is read.
             else -> list.takeIf { it.isNotEmpty() }?.let { playlist(it) }
@@ -145,7 +151,7 @@ object MusicLink {
      *
      * `VL` is the prefix every playlist browse carries — an album's
      * `OLAK5uy_…` share id included, which is the shape a "share this album"
-     * link out of YT Music actually has.
+     * link out of the service actually has.
      */
     private fun playlist(listId: String): LinkRequest.Page? {
         if (listId.isEmpty()) return null
@@ -155,7 +161,7 @@ object MusicLink {
     /**
      * The first http(s) URL in shared text.
      *
-     * Share sheets rarely send the bare link: YT Music sends the song's title
+     * Share sheets rarely send the bare link: the service sends the song's title
      * and a newline before it, other apps wrap it in a sentence.
      */
     private fun firstUrl(text: String): String? =

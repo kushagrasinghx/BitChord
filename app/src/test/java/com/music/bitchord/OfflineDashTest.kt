@@ -43,7 +43,7 @@ class OfflineDashTest {
         assertTrue(OfflineDash.handles("https://im-cf.manifest.tidal.com/1/manifests/AbC.mpd?Expires=1&Signature=x"))
         assertTrue(OfflineDash.handles("https://host/a.MPD"))
         assertFalse(OfflineDash.handles("https://im-cf.manifest.tidal.com/1/manifests/AbC.m3u8?Expires=1"))
-        assertFalse(OfflineDash.handles("https://aac.saavncdn.com/820/abc_320.mp4"))
+        assertFalse(OfflineDash.handles("https://audio.catalogue.invalid/820/abc_320.mp4"))
     }
 
     /**

@@ -34,8 +34,8 @@ data class SourceConfig(
     /** What the user called it. Blank falls back to the server's host, or the kind's own label. */
     val label: String = "",
     val baseUrl: String = "",
-    /** JioSaavn is opt-in because catalogue matches can select the wrong recording. */
-    val enabled: Boolean = kind != SourceKind.JIOSAAVN,
+    /** The catalogue is opt-in because catalogue matches can select the wrong recording. */
+    val enabled: Boolean = kind != SourceKind.CATALOGUE,
 ) {
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
@@ -52,14 +52,14 @@ data class SourceConfig(
 
 /**
  * The user's sources, always tried in the fixed order [SourceKind] declares:
- * their own addons first, then JioSaavn, then YouTube Music.
+ * their own addons first, then YouTube Music.
  *
  * [SourceKind.YOUTUBE] is seeded on first run and cannot be deleted, only
  * disabled — it needs no configuration, so a "remove" would delete something
  * the user could not then re-create by typing anything in, it would just be a
  * switch that hides itself. Addons are entirely optional: with none
- * configured, YouTube is the only active source on a fresh install. JioSaavn
- * is present but off until the user accepts its catalogue-matching risk.
+ * configured, YouTube is the only active source on a fresh install. The
+ * catalogue source is present but off until the user opts in.
  */
 object SourceRegistry {
 
@@ -86,18 +86,18 @@ object SourceRegistry {
         prefs = EncryptedPrefs.open(context, "bitchord_sources", "bitchord_sources_plain")
 
         val stored = prefs.getString(KEY_SOURCES, null)?.let(::decodeStored) ?: emptyList()
-        val jioOptInMigrationDone = prefs.getBoolean(KEY_JIOSAAVN_OPT_IN_V1, false)
-        val after = sourcesForInit(stored, forceJioSaavnOff = !jioOptInMigrationDone)
+        val catalogueOptInMigrationDone = prefs.getBoolean(KEY_CATALOGUE_OPT_IN_V1, false)
+        val after = sourcesForInit(stored, forceCatalogueOff = !catalogueOptInMigrationDone)
 
         // Publish state and the migration marker in one preferences edit. If a
         // process dies after recording the marker but before recording the
         // disabled source, the next launch would otherwise believe the forced
         // opt-out had already happened and silently restore the old on state.
         publish(after, persist = false)
-        if (after != stored || !jioOptInMigrationDone) {
+        if (after != stored || !catalogueOptInMigrationDone) {
             prefs.edit()
                 .putString(KEY_SOURCES, json.encodeToString(ListSerializer(SourceConfig.serializer()), after))
-                .putBoolean(KEY_JIOSAAVN_OPT_IN_V1, true)
+                .putBoolean(KEY_CATALOGUE_OPT_IN_V1, true)
                 .apply()
         }
     }
@@ -105,18 +105,18 @@ object SourceRegistry {
     /**
      * Built-in seeding and one-time source migrations, kept pure for tests.
      *
-     * [forceJioSaavnOff] is true exactly once for every install that first runs
+     * [forceCatalogueOff] is true exactly once for every install that first runs
      * this version, including upgrades whose stored config currently says on.
-     * Once the marker is written, a user who deliberately enables JioSaavn is
-     * left enabled on subsequent launches.
+     * Once the marker is written, a user who deliberately enables the catalogue
+     * is left enabled on subsequent launches.
      */
     internal fun sourcesForInit(
         stored: List<SourceConfig>,
-        forceJioSaavnOff: Boolean,
+        forceCatalogueOff: Boolean,
     ): List<SourceConfig> {
-        // Seeded rather than persisted-on-first-write, so a build adding a new
-        // built-in kind picks it up for existing installs too. SourceConfig's
-        // default is the policy: JioSaavn off, YouTube on.
+        // Seeded rather than persisted-on-first-write, so that a build that
+        // adds a new built-in kind picks it up for existing installs too.
+        // SourceConfig's default is the policy: catalogue off, YouTube on.
         val seeded = stored + BUILT_IN_KINDS
             .filter { kind -> stored.none { it.kind == kind } }
             .map { SourceConfig(kind = it) }
@@ -128,7 +128,7 @@ object SourceRegistry {
             .map { config ->
                 when {
                     config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
-                    config.kind == SourceKind.JIOSAAVN && forceJioSaavnOff -> config.copy(enabled = false)
+                    config.kind == SourceKind.CATALOGUE && forceCatalogueOff -> config.copy(enabled = false)
                     else -> config
                 }
             }
@@ -141,12 +141,26 @@ object SourceRegistry {
      * entry down with it. A strict `List<SourceConfig>` decode fails whole:
      * one bad enum value and the user's real, working module config is
      * silently gone along with it.
+     *
+     * Entries stored under the retired `JIOSAAVN` kind name are migrated to
+     * [SourceKind.CATALOGUE], which is the same source renamed.
      */
     private fun decodeStored(raw: String): List<SourceConfig> {
         val elements = runCatching { json.parseToJsonElement(raw).jsonArray }
             .getOrElse { return emptyList() }
         return elements.mapNotNull { element ->
-            runCatching { json.decodeFromJsonElement(SourceConfig.serializer(), element) }
+            val migrated = (element as? kotlinx.serialization.json.JsonObject)
+                ?.let { obj ->
+                    if ((obj["kind"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "JIOSAAVN") {
+                        kotlinx.serialization.json.JsonObject(
+                            obj.filterKeys { it != "kind" } +
+                                ("kind" to kotlinx.serialization.json.JsonPrimitive("CATALOGUE")),
+                        )
+                    } else {
+                        obj
+                    }
+                } ?: element
+            runCatching { json.decodeFromJsonElement(SourceConfig.serializer(), migrated) }
                 .onFailure { TrackLog.w(TAG, "dropping unreadable stored source: ${it.message}") }
                 .getOrNull()
         }
@@ -156,7 +170,7 @@ object SourceRegistry {
      * The enabled sources, module first and YouTube last, however they're stored.
      *
      * The user's standing choice and nothing else. Both playback and downloads
-     * start here, so disabling JioSaavn or an addon excludes it from both. A
+     * start here, so disabling the catalogue or an addon excludes it from both. A
      * stream is budgeted further by [activeForPlayback]; downloads deliberately
      * apply no connection-quality ceiling — see [SourceResolver.forDownload].
      */
@@ -397,7 +411,7 @@ object SourceRegistry {
         // Same protocol, same implementation — the kinds differ only in rank.
         SourceKind.CUSTOM_MODULE -> ModuleSource(config)
         SourceKind.MODULE -> ModuleSource(config)
-        SourceKind.JIOSAAVN -> JioSaavnSource(config)
+        SourceKind.CATALOGUE -> CatalogueSource(config)
         SourceKind.YOUTUBE -> YouTubeSource(config)
     }
 
@@ -447,11 +461,17 @@ object SourceRegistry {
             .build()
             .toString()
 
-    private val BUILT_IN_KINDS = listOf(SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
+    /**
+     * Kinds the sources screen may not delete. The catalogue is seeded like
+     * YouTube but off by default; an install that holds one could not
+     * re-create it by typing anything in, so a "remove" would just be a
+     * switch that hides itself — the same reason YouTube is listed.
+     */
+    private val BUILT_IN_KINDS = listOf(SourceKind.CATALOGUE, SourceKind.YOUTUBE)
 
     private const val KEY_SOURCES = "sources"
     /** One-shot migration: existing users must explicitly opt in again. */
-    private const val KEY_JIOSAAVN_OPT_IN_V1 = "jiosaavn_opt_in_v1"
+    private const val KEY_CATALOGUE_OPT_IN_V1 = "catalogue_opt_in_v1"
     private const val PREFIX = "src:"
     private const val SEPARATOR = "::"
 }

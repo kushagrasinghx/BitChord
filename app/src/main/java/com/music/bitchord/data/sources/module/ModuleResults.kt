@@ -40,7 +40,7 @@ data class ModuleSearchResponse(
 data class ModuleStreamResponse(
     // A source can answer a valid JSON error payload with `streamUrl: null`.
     // Treat it as an unavailable rendition, not a parser crash that burns the
-    // source-resolution budget before the JioSaavn/YouTube fallback runs.
+    // source-resolution budget before the Catalogue/YouTube fallback runs.
     @SerialName("streamUrl") val streamUrl: String? = null,
     @SerialName("track") val track: ModuleStreamTrack? = null,
 )

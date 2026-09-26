@@ -21,6 +21,7 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaylistPrivacy
+import com.music.bitchord.data.service.ServiceConfig
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -47,14 +48,17 @@ import java.util.Locale
 import androidx.appcompat.app.AppCompatDelegate
 
 /**
- * Minimal Innertube (youtubei) client.
+ * Minimal inner-tube client.
  *
- * WEB_REMIX against music.youtube.com for browse/search/library. It returns
- * the full YT Music shelf layout and honours the signed-in session. Stream
- * URLs are not fetched here; see [InnerTubeXResolver].
+ * The file's web client against the music host for browse/search/library.
+ * It returns the full shelf layout and honours the signed-in session.
+ * Stream URLs are not fetched here; see [InnerTubeXResolver].
  *
- * Authenticated requests are signed with Google's SAPISIDHASH scheme derived
- * from the stored cookie; no long-lived token is ever minted or stored.
+ * Every host, version and user agent below arrives in the imported service
+ * file — see [ServiceConfig]. There are no working values here, only the
+ * shapes of the requests. Authenticated requests are signed with the
+ * SAPISIDHASH scheme derived from the stored cookie; no long-lived token is
+ * ever minted or stored.
  */
 object Innertube {
     internal val currentLanguage: String
@@ -79,18 +83,16 @@ object Innertube {
             }
         }
 
-    private const val MUSIC_BASE = "https://music.youtube.com/youtubei/v1"
-    private const val MUSIC_ORIGIN = "https://music.youtube.com"
-    private const val YOUTUBE_ORIGIN = "https://www.youtube.com"
+    // All service hosts and identities arrive in the imported service file.
+    // Getters (not constants) so a freshly imported file takes effect
+    // without restarting the process. Every one throws
+    // [com.music.bitchord.data.service.ServiceFileRequired] while none is
+    // installed, which is what gates every service-backed path on the file.
+    private val MUSIC_BASE: String get() = ServiceConfig.musicBase()
+    private val MUSIC_ORIGIN: String get() = ServiceConfig.musicOrigin()
+    private val YOUTUBE_ORIGIN: String get() = ServiceConfig.tubeOrigin()
 
-    /**
-     * Fallback WEB_REMIX version, used until [SessionScope] reads the live one
-     * out of the music.youtube.com shell. Only a starting point: the real
-     * version moves every few days, and the one that matters is the one
-     * [webRemixVersion] reports.
-     */
-    private const val WEB_REMIX_VERSION = "1.20250101.01.00"
-    private const val WEB_REMIX_CLIENT_ID = "67"
+    private val WEB_USER_AGENT: String get() = ServiceConfig.webUa()
 
     private const val TAG = "BitChord"
 
@@ -170,7 +172,7 @@ object Innertube {
      * so the id is found by shape rather than by a path that would rot.
      */
     private suspend fun fetchVisitorData(): String? {
-        val body = client.get("https://www.youtube.com/sw.js_data") {
+        val body = client.get(ServiceConfig.swDataUrl()) {
             header("User-Agent", WEB_USER_AGENT)
         }.bodyAsText()
         val payload = Json.parseToJsonElement(body.substringAfter("\n", body.drop(5)))
@@ -338,14 +340,14 @@ object Innertube {
         channelOverride?.authUser ?: session?.authUser ?: "0"
 
     /**
-     * The WEB_REMIX version to claim, live if the shell has been read.
+     * The web client version to claim, live if the shell has been read.
      *
-     * Worth taking from the shell rather than pinning: the stats pings carry it
-     * as `cver`, and a version Google has never shipped is a standing invitation
-     * to be treated as something other than a music client.
+     * Worth taking from the shell rather than pinning: the stats pings carry
+     * it as `cver`, and a version the service has never shipped is a standing
+     * invitation to be treated as something other than a music client.
      */
     private val webRemixVersion: String
-        get() = scope?.clientVersion ?: WEB_REMIX_VERSION
+        get() = scope?.clientVersion ?: ServiceConfig.webVersion()
 
     /**
      * Reads the session scope, once per cookie, before anything that depends on
@@ -384,7 +386,7 @@ object Innertube {
                         "session scope: authUser=${fresh.authUser} " +
                             "pageId=${fresh.pageId ?: "none"} " +
                             "dataSyncId=${if (fresh.dataSyncId != null) "present" else "none"} " +
-                            "cver=${fresh.clientVersion ?: WEB_REMIX_VERSION}",
+                            "cver=${fresh.clientVersion ?: ServiceConfig.webVersion()}",
                     )
                 }
         }
@@ -406,11 +408,16 @@ object Innertube {
      * which is the same as not having asked.
      */
     private suspend fun fetchSessionScope(session: String): SessionScope? {
-        val html = client.get("$MUSIC_ORIGIN/") {
+        val shellUrl = "$MUSIC_ORIGIN/"
+        val html = client.get(shellUrl) {
             header("User-Agent", WEB_USER_AGENT)
             header("Accept-Language", acceptLanguageHeader)
-            header("Cookie", session)
-            sapisidFrom(session)?.let { header("Authorization", sapisidHash(it)) }
+            // The shell carries the account; without the cookie it cannot say
+            // whose. Guarded like every other session send.
+            if (sendAuthTo(shellUrl)) {
+                header("Cookie", session)
+                sapisidFrom(session)?.let { header("Authorization", sapisidHash(it)) }
+            }
         }.bodyAsText()
 
         // The one value that must not be guessed. A shell that says it is
@@ -452,10 +459,6 @@ object Innertube {
     private val CONFIG_SESSION_INDEX = Regex(""""SESSION_INDEX"\s*:\s*"?(\d+)""")
     private val CONFIG_VISITOR_DATA = Regex(""""VISITOR_DATA"\s*:\s*"([^"]+)"""")
     private val CONFIG_CLIENT_VERSION = Regex(""""INNERTUBE_CLIENT_VERSION"\s*:\s*"([^"]+)"""")
-
-    private const val WEB_USER_AGENT =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -577,7 +580,7 @@ object Innertube {
                 header("Accept-Language", acceptLanguageHeader)
                 header("X-Origin", YOUTUBE_ORIGIN)
                 header("Referer", "$YOUTUBE_ORIGIN/")
-                cookie?.let { c ->
+                if (sendAuthTo("$YOUTUBE_ORIGIN/getAccountSwitcherEndpoint")) cookie?.let { c ->
                     header("Cookie", c)
                     header("X-Goog-AuthUser", authUserFor(session))
                     sapisidFrom(c)?.let {
@@ -670,7 +673,7 @@ object Innertube {
      * [signatureTimestamp] is not optional in practice, and that is the bug
      * this whole file was reported for.
      *
-     * WEB_REMIX is a browser identity, and a browser proves it is running
+     * The file's web client is a browser identity, and a browser proves it is running
      * YouTube's current player by quoting that player's timestamp. Without one
      * — or with a stale one — Google does not refuse the request in any way a
      * caller would notice: it answers HTTP 200, `playabilityStatus` `UNPLAYABLE`,
@@ -780,11 +783,11 @@ object Innertube {
         val session = scope
         return client.get(baseUrl) {
             parameter("cpn", cpn)
-            statsHeaders(session)
+            statsHeaders(session, sendAuthTo(baseUrl))
         }.status.value
     }
 
-    /** Shared shape of the s.youtube.com stats pings, including session auth. */
+    /** Shared shape of the stats pings served off the configured hosts, including session auth. */
     private suspend fun pingStats(
         baseUrl: String,
         cpn: String,
@@ -792,38 +795,43 @@ object Innertube {
     ): Int {
         if (cookie != null) ensureSessionScope()
         val session = scope
+        val stats = ServiceConfig.webStats()
         return client.get(baseUrl) {
             parameter("ver", "2")
-            parameter("c", "WEB_REMIX")
+            parameter("c", ServiceConfig.webName())
             parameter("cver", webRemixVersion)
             parameter("cpn", cpn)
             // What the web client says about itself. Cheap, and the pings are
             // weighted by how much they look like a real session.
-            parameter("cplayer", "UNIPLAYER")
-            parameter("cbr", "Chrome")
-            parameter("cbrver", "141.0.0.0")
-            parameter("cos", "Windows")
-            parameter("cosver", "10.0")
+            parameter("cplayer", stats.cplayer)
+            parameter("cbr", stats.cbr)
+            parameter("cbrver", stats.cbrver)
+            parameter("cos", stats.cos)
+            parameter("cosver", stats.cosver)
             parameter("hl", "en_US")
             parameter("cr", "US")
             extras()
-            statsHeaders(session)
+            statsHeaders(session, sendAuthTo(baseUrl))
         }.status.value
     }
 
     /**
      * The three headers the tracking block asks for by name — `USER_AUTH`,
-     * `VISITOR_ID` and `PLUS_PAGE_ID`. Google lists them per ping URL in the
-     * player response; sending fewer is what makes a ping land somewhere other
-     * than the listener's own history.
+     * `VISITOR_ID` and `PLUS_PAGE_ID`. The service lists them per ping URL in
+     * the player response; sending fewer is what makes a ping land somewhere
+     * other than the listener's own history.
+     *
+     * [sendAuth] gates the session half: ping URLs arrive inside the player
+     * response rather than the service file, so a response pointing them at a
+     * host outside the auth guard gets anonymous pings only.
      */
-    private fun HttpRequestBuilder.statsHeaders(session: SessionScope?) {
+    private fun HttpRequestBuilder.statsHeaders(session: SessionScope?, sendAuth: Boolean = true) {
         header("X-Origin", MUSIC_ORIGIN)
         header("Origin", MUSIC_ORIGIN)
         header("Referer", "$MUSIC_ORIGIN/")
         header("User-Agent", WEB_USER_AGENT)
         visitorData?.let { header("X-Goog-Visitor-Id", it) }
-        cookie?.let { c ->
+        if (sendAuth) cookie?.let { c ->
             header("Cookie", c)
             header("X-Goog-AuthUser", authUserFor(session))
             pageIdFor(session)?.let { header("X-Goog-PageId", it) }
@@ -835,7 +843,7 @@ object Innertube {
     //
     // Everything below changes something on the account, so all of it needs
     // the session cookie [postMusic] already signs with. None of it needs a
-    // new credential or a different client — the same WEB_REMIX identity that
+    // new credential or a different client — the same web identity that
     // reads the library is the one allowed to edit it.
 
     /** A write attempted without a session; the caller has a sign-in prompt to show. */
@@ -1092,10 +1100,12 @@ object Innertube {
                 // Stats pings are only honoured for a session Google recognises
                 // as a real client, so identify as one here too — the visitor
                 // id is minted on the first call and reused for the session.
-                header("X-YouTube-Client-Name", WEB_REMIX_CLIENT_ID)
+                header("X-YouTube-Client-Name", ServiceConfig.webId())
                 header("X-YouTube-Client-Version", clientVersion)
                 visitorData?.let { header("X-Goog-Visitor-Id", it) }
-                cookie?.let { c ->
+                // Guarded: the session never leaves for a host outside the
+                // auth guard suffixes, whatever the imported file claims.
+                if (sendAuthTo("$MUSIC_BASE/$endpoint")) cookie?.let { c ->
                     header("Cookie", c)
                     // Which account in the jar, and which brand channel of it.
                     // Both were fixed at "the first one" before — see
@@ -1108,7 +1118,7 @@ object Innertube {
                     buildJsonObject {
                         putJsonObject("context") {
                             putJsonObject("client") {
-                                put("clientName", "WEB_REMIX")
+                                put("clientName", ServiceConfig.webName())
                                 put("clientVersion", clientVersion)
                                 put("hl", currentLanguage)
                                 put("gl", "US")
@@ -1157,7 +1167,7 @@ object Innertube {
                 header("X-Origin", MUSIC_ORIGIN)
                 header("Origin", MUSIC_ORIGIN)
                 header("Referer", "$MUSIC_ORIGIN/")
-                header("X-YouTube-Client-Name", WEB_REMIX_CLIENT_ID)
+                header("X-YouTube-Client-Name", ServiceConfig.webId())
                 header("X-YouTube-Client-Version", clientVersion)
                 visitorData?.let { header("X-Goog-Visitor-Id", it) }
                 // No Cookie / Authorization headers — anonymous request.
@@ -1165,7 +1175,7 @@ object Innertube {
                     buildJsonObject {
                         putJsonObject("context") {
                             putJsonObject("client") {
-                                put("clientName", "WEB_REMIX")
+                                put("clientName", ServiceConfig.webName())
                                 put("clientVersion", clientVersion)
                                 put("hl", "en")
                                 put("gl", "US")
@@ -1226,7 +1236,20 @@ object Innertube {
     private val SAPISID_NAMES =
         listOf("SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID")
 
-    private fun sapisidHash(sapisid: String, origin: String = MUSIC_ORIGIN): String {
+    /**
+     * Whether the session may be attached to a request for [url].
+     *
+     * The cookie and its signature go out ONLY to a host at or under the
+     * auth guard suffixes — see [ServiceConfig.canSendAuth] — no matter what
+     * an imported file claims. A hostile file can redirect anonymous traffic,
+     * but never harvest the login session.
+     */
+    private fun sendAuthTo(url: String): Boolean {
+        val host = url.substringAfter("://").substringBefore("/").substringBefore(":")
+        return ServiceConfig.canSendAuth(host)
+    }
+
+    private fun sapisidHash(sapisid: String, origin: String = ServiceConfig.musicOrigin()): String {
         val timestamp = System.currentTimeMillis() / 1000
         val digest = MessageDigest.getInstance("SHA-1")
             .digest("$timestamp $sapisid $origin".toByteArray())

@@ -538,8 +538,8 @@
     <string name="sources_order_footer">Se una sorgente non ha un brano o non è raggiungibile, BitChord prova la successiva. Le sorgenti sopra YouTube possono sostituire la sua registrazione quando restituiscono una versione migliore.</string>
     <string name="sources_order_header">Sorgenti, provate in quest\'ordine</string>
     <string name="sources_quality_capped">Questa connessione è impostata sotto Alta qualità, quindi gli stream vengono transcodificati per rispettare questo limite. I download non ne risentono.</string>
-    <string name="jiosaavn_mismatch_warning">Potrebbe trovare la versione sbagliata di un brano. Attivalo a tuo rischio.</string>
-    <string name="enable_jiosaavn">Attivare JioSaavn?</string>
+    <string name="catalogue_mismatch_warning">Potrebbe trovare la versione sbagliata di un brano. Attivalo a tuo rischio.</string>
+    <string name="enable_catalogue">Attivare Catalogue?</string>
     <string name="enable_anyway">Attiva comunque</string>
     <string name="sources_subtitle">Da dove proviene l\'audio e l\'ordine usato</string>
     <string name="source_matching">Corrispondenza delle sorgenti</string>

@@ -235,7 +235,7 @@ private fun drawHabits(canvas: Canvas, context: Context, type: Fonts, summary: R
         )
     }
     summary.peakHour?.let {
-        stat(formatHour(context, it), context.getString(R.string.when_you_listen_most))
+        stat(formatHour(context, it), context.getString(R.string.when_you_listen_the_most))
     }
 }
 
@@ -387,7 +387,7 @@ private fun drawHeader(
 ): Float {
     val label = summary.localizedLabel(context)
     val title = if (label.length == 4 && label.all { it.isDigit() }) {
-        "Replay'${label.takeLast(2)}"
+        "Replay ${label.takeLast(2)}"
     } else {
         "Replay · $label"
     }

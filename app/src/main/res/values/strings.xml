@@ -728,22 +728,26 @@
     <string name="replay_minutes_end"> with music.</string>
     <string name="replay_minutes_start">You spent </string>
     <string name="replay_minutes_value">%1$s</string>
-    <string name="replay_mostly_around">, mostly around %1$s.</string>
-    <string name="replay_private_counting">Built privately from your listening history on this device</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s minute</item>
+        <item quantity="other">%1$s minutes</item>
+    </plurals>
+    <string name="replay_mostly_around">%1$s</string>
+    <string name="replay_private_counting">Built privately from your listening history on this device.</string>
     <string name="replay_share_card_description">A polished card with your main listening highlights.</string>
     <string name="replay_share_summary_description">A full picture with songs, artists, albums, genres, and habits.</string>
     <string name="replay_songs_end"> filled your month.</string>
     <string name="replay_songs_start">In total, </string>
-    <string name="replay_summary_start">Your listening had a </string>
+    <string name="replay_summary_start">Your </string>
     <string name="saved">Saved</string>
     <string name="share_my_replay">Share my Replay</string>
     <string name="share_your_replay">Share your Replay</string>
-    <string name="tap_share_for_picture">Tap Share to create a picture</string>
+    <string name="tap_share_for_picture">Tap Share to create a picture.</string>
     <string name="top_album">Top album</string>
     <string name="top_artist">Top artist</string>
     <string name="top_genre">Top genre</string>
     <string name="top_song">Top song</string>
-    <string name="when_you_listen_most">When you listen most</string>
+    <string name="when_you_listen_the_most">When you listen the most</string>
     <string name="your_biggest_day">Your biggest day: %1$s</string>
     <string name="your_listening_experience">Your listening experience</string>
     <string name="your_replay">Your Replay</string>
@@ -752,8 +756,8 @@
         <item quantity="other">%1$s artists</item>
     </plurals>
     <plurals name="replay_play_count">
-        <item quantity="one">%1$s play</item>
-        <item quantity="other">%1$s plays</item>
+        <item quantity="one">%1$s track</item>
+        <item quantity="other">%1$s tracks</item>
     </plurals>
     <plurals name="replay_song_count">
         <item quantity="one">%1$s song</item>

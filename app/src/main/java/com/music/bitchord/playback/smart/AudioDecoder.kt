@@ -100,10 +100,21 @@ object AudioDecoder {
      * requested start, so a little more audio than asked for may come back at
      * the front; the caller is given the real start via the returned offset
      * so frame indices still map to true track times.
+     *
+     * [abort] is polled once per pass of the decode loop; answering true
+     * abandons the decode as if it had failed. A whole-track decode is the
+     * longest single thing analysis does, and it holds tens of megabytes of
+     * PCM while it runs, so the caller that no longer wants the answer wants
+     * it stopped rather than merely ignored.
      */
-    fun decodeRegion(source: MediaDataSource, startSeconds: Double, endSeconds: Double): Pair<Pcm, Double>? {
+    fun decodeRegion(
+        source: MediaDataSource,
+        startSeconds: Double,
+        endSeconds: Double,
+        abort: () -> Boolean = { false },
+    ): Pair<Pcm, Double>? {
         val chunks = ArrayList<FloatArray>()
-        val decoded = decodeRaw(source, startSeconds, endSeconds) { buffer, info, channels ->
+        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels ->
             chunks += toMono(buffer, info, channels)
         } ?: return null
         return Pcm(flatten(chunks), decoded.first) to decoded.second
@@ -121,10 +132,11 @@ object AudioDecoder {
         source: MediaDataSource,
         startSeconds: Double,
         endSeconds: Double,
+        abort: () -> Boolean = { false },
     ): Pair<StereoPcm, Double>? {
         val left = ArrayList<FloatArray>()
         val right = ArrayList<FloatArray>()
-        val decoded = decodeRaw(source, startSeconds, endSeconds) { buffer, info, channels ->
+        val decoded = decodeRaw(source, startSeconds, endSeconds, abort) { buffer, info, channels ->
             toStereo(buffer, info, channels, left, right)
         } ?: return null
         return StereoPcm(flatten(left), flatten(right), decoded.first) to decoded.second
@@ -153,6 +165,7 @@ object AudioDecoder {
         source: MediaDataSource,
         startSeconds: Double,
         endSeconds: Double,
+        abort: () -> Boolean,
         onBuffer: (ByteBuffer, MediaCodec.BufferInfo, Int) -> Unit,
     ): Pair<Double, Double>? {
         if (endSeconds <= startSeconds) return null
@@ -186,6 +199,12 @@ object AudioDecoder {
             var outputDone = false
 
             while (!outputDone) {
+                // Polled at the top of the loop rather than only around the
+                // model passes that follow: everything decoded so far goes with
+                // it, and on a long track that is most of what the analysis
+                // costs in both time and heap. `finally` still tears the codec
+                // and extractor down.
+                if (abort()) return null
                 if (!inputDone) {
                     val inputIndex = codec.dequeueInputBuffer(TIMEOUT_US)
                     if (inputIndex >= 0) {

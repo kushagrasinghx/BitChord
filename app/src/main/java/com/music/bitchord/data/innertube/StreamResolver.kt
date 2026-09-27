@@ -1,7 +1,6 @@
 package com.music.bitchord.data.innertube
 
 import android.os.SystemClock
-import android.util.Log
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.NerdStats
@@ -17,10 +16,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.ConnectionPool
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -43,39 +38,24 @@ import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerMana
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import java.io.IOException
-import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import java.util.Locale
 
 /**
  * Turns a videoId into a URL ExoPlayer can actually stream.
  *
- * Three things make or break this, and the order they are attempted in matters
- * as much as the mechanics of each:
+ *  1. **InnerTubeX first.** Its live-benchmarked client catalog, cipher tiers
+ *     and PoTokens decide which identity asks and unlock what it answers. See
+ *     [InnerTubeXResolver].
  *
- *  1. **Which endpoint asks.** The `youtubei/v1/player` POST is one small JSON
- *     round trip. The watch page — what a full extractor scrape fetches — is
- *     several hundred kilobytes of HTML and is rate-shaped: under load Google
- *     answers its headers immediately and then feeds the body out over tens of
- *     seconds, or simply stops sending and never closes. That shaping is
- *     invisible as an error and reads to a listener as endless buffering, so
- *     the scrape is kept off the hot path entirely — see [newPipeUrl], the
- *     failsafe of last resort.
+ *  2. **NewPipe as the failsafe.** It re-derives everything from the watch
+ *     page, which is several hundred kilobytes of HTML Google rate-shapes under
+ *     load, so it is kept off the hot path and reached only when InnerTubeX
+ *     finds nothing. See [newPipeStream].
  *
- *  2. **Which client asks.** Google turns identities away without notice and
- *     without pattern: the client that works today answers `LOGIN_REQUIRED`
- *     next month. So [CLIENTS] is walked rather than trusted, the one that last
- *     worked is tried first, and one that is refused for a track is stood down
- *     for that track for a while.
- *
- *  3. **Whether the URL is real.** Every googlevideo URL carries an `n`
- *     parameter which, sent as-is, gets the response throttled to a crawl or
- *     refused with 403; it has to be transformed by running YouTube's own
- *     player JavaScript, which is what NewPipe's [YoutubeJavaScriptPlayerManager]
- *     does. That can fail quietly, and a URL can be dead on arrival for reasons
- *     no amount of care predicts — so nothing is handed to the player, or
- *     cached, until a single byte has been fetched from it. See [probe].
+ *  3. **Whether the URL is real.** A URL can be dead on arrival for reasons no
+ *     amount of care predicts, so nothing is handed to the player, or cached,
+ *     until bytes have been fetched from it. See [probe].
  */
 object StreamResolver {
 
@@ -90,40 +70,6 @@ object StreamResolver {
     /** Well-formed, empty, and over the library's fifty-character floor. */
     private const val EMPTY_NEXT_RESPONSE =
         """{"responseContext":{},"contents":{},"currentVideoEndpoint":{},"trackingParams":""}"""
-
-    /**
-     * Player clients in the order they are worth asking, cheapest and most
-     * reliable first — an order taken from what the live endpoint actually
-     * answers, not from what ought to work.
-     *
-     * The four at the top return plain `url` fields, so a stream is one POST
-     * away with no player JavaScript involved at all. [PlayerClient.ANDROID]
-     * below them hands back ciphered formats, costing a download of that
-     * JavaScript and a signature to solve. See each entry in [PlayerClient].
-     *
-     * No web client appears here. `WEB_REMIX` was the tail of this list and
-     * paid for itself in neither reliability nor speed — always ciphered,
-     * usually refused, and reached only on tracks that were already failing,
-     * where the one thing left worth spending is time. [newPipeUrl] is the
-     * last resort instead.
-     *
-     * The gating that decides which of these answers is applied per network,
-     * not globally — an identity refused on one connection is served on
-     * another — which is the whole reason this is a list and why the order is
-     * only a starting guess that [clientOrder] corrects from experience.
-     *
-     * TVHTML5 (Cobalt v7) is first because it works on flagged IPs without
-     * PO Token — the most reliable client as of July 2026.
-     */
-    private val CLIENTS = listOf(
-        PlayerClient.ANDROID_MUSIC,
-        PlayerClient.TVHTML5,
-        PlayerClient.ANDROID_VR,
-        PlayerClient.ANDROID_VR_LEGACY,
-        PlayerClient.IOS,
-        PlayerClient.IOS_RECENT,
-        PlayerClient.ANDROID,
-    )
 
     /** NewPipe needs a Downloader; reuse the app's single OkHttp client. */
     private class OkHttpDownloader : Downloader() {
@@ -326,9 +272,26 @@ object StreamResolver {
         // The container carries no bitrate field, so this is the only place the
         // real figure is ever known.
         NerdStats.onStreamPicked(videoId, stream.kbps)
+        stream.loudnessDb?.let { loudness[videoId] = it }
         remember(videoId, stream.url)
         return stream.url
     }
+
+    /** Per-track loudness, read once and kept for as long as the process runs. */
+    private val loudness = ConcurrentHashMap<String, Double>()
+
+    /**
+     * YouTube's own normalization figure for [videoId], or null when it has
+     * never resolved or never carried one.
+     *
+     * Populated by [resolve] the first time a track's stream is asked for —
+     * which happens for every YouTube-queued track whether or not another
+     * source ends up serving its bytes, since the YouTube walk always runs
+     * alongside a substitute lookup rather than only when one fails. So a
+     * track substituted to JioSaavn or an addon still carries the figure its
+     * YouTube counterpart resolved.
+     */
+    fun loudnessDbFor(videoId: String): Double? = loudness[videoId]
 
     /**
      * A track this app cannot play, for a reason that will read the same in ten
@@ -387,15 +350,13 @@ object StreamResolver {
      * Signing in is the one event that can turn an age-gated track playable,
      * and signing out the one that can turn it back — so both have to clear
      * this, or the listener who signs in specifically to play a track is told
-     * for the next ten minutes that it still cannot be played. The stand-downs
-     * go with it: a client refused while anonymous is owed a fresh hearing now
-     * that there is a session to send.
+     * for the next ten minutes that it still cannot be played. InnerTubeX's
+     * exclusions go with it: a client refused while anonymous is owed a fresh
+     * hearing now that there is a session to send.
      */
     fun onSessionChanged() {
+        InnerTubeXResolver.onSessionChanged()
         unplayable.clear()
-        standDownUntil.clear()
-        refusalsByClient.clear()
-        preferred = null
     }
 
     private const val UNPLAYABLE_TTL_MS = 10 * 60 * 1000L
@@ -461,10 +422,9 @@ object StreamResolver {
     private suspend fun resolveUncached(videoId: String): Stream {
         val resolveStart = SystemClock.elapsedRealtime()
         val stream = try {
-            timed("$videoId playerStream") { playerStream(videoId, ::rankForPlayback) }
-                ?: timed("$videoId authenticatedWebRemixStream") { authenticatedWebRemixStream(videoId, ::rankForPlayback) }
+            timed("$videoId InnerTubeX") { innerTubeXStream(videoId) }
                 ?: run {
-                    TrackLog.w(TAG, "every player client failed for $videoId; falling back to extraction")
+                    TrackLog.w(TAG, "InnerTubeX found no usable stream for $videoId; falling back to extraction")
                     timed("$videoId newPipeStream") { newPipeStream(videoId, ::pickForQuality) }
                 }
         } catch (e: CancellationException) {
@@ -503,8 +463,8 @@ object StreamResolver {
             )
             // Recorded before it is rethrown, so the retries stacked above this
             // — ExoPlayer's, the service's, read-ahead's — are answered from
-            // memory instead of each one walking seven clients and extracting
-            // three times against a refusal that is never going to soften.
+            // memory instead of each one asking InnerTubeX and extracting three
+            // times against a refusal that is never going to soften.
             permanentReason(e)?.let { reason ->
                 rememberUnplayable(videoId, reason)
                 TrackLog.w(TAG, "$videoId is not playable: $reason; not asking again for 10 minutes")
@@ -516,6 +476,44 @@ object StreamResolver {
         return stream
     }
 
+    /**
+     * A probed stream from [InnerTubeXResolver], or null to fall through to extraction.
+     *
+     * A client whose URL fails the probe is skipped and InnerTubeX asked again, up
+     * to [INNERTUBEX_ATTEMPTS] times, since its catalog has further clients behind it.
+     */
+    private suspend fun innerTubeXStream(
+        videoId: String,
+        maxKbps: Int = AppSettings.effectiveAudioQuality.maxKbps,
+        requireM4a: Boolean = false,
+    ): Stream? {
+        val skip = mutableSetOf<String>()
+        repeat(INNERTUBEX_ATTEMPTS) {
+            val found = try {
+                InnerTubeXResolver.extract(videoId, maxKbps, skip, requireM4a)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                TrackLog.w(TAG, "InnerTubeX failed for $videoId: ${e.javaClass.simpleName}: ${e.message}")
+                return null
+            } ?: return null
+            val verdict = timed("$videoId InnerTubeX ${found.profileId} probe") { probe(found.url) }
+            if (verdict == Probe.OK) {
+                TrackLog.d(TAG, "resolved $videoId via InnerTubeX ${found.profileId} @ ${found.kbps}kbps")
+                return Stream(found.url, found.kbps, found.mimeType, found.loudnessDb)
+            }
+            TrackLog.w(TAG, "InnerTubeX ${found.profileId} minted an unusable URL for $videoId: $verdict")
+            skip += found.profileId
+        }
+        return null
+    }
+
+    /** The headers a media fetch for [url] must carry to match whoever minted it. */
+    fun mediaHeadersFor(url: String): Map<String, String> =
+        InnerTubeXResolver.headersFor(url) ?: PlayerClient.forStreamUrl(url).mediaHeaders()
+
+    private const val INNERTUBEX_ATTEMPTS = 3
+
     /** Logs how long [block] took, whatever it returns — a timing probe, not a control flow change. */
     private suspend inline fun <T> timed(label: String, block: suspend () -> T): T {
         val start = SystemClock.elapsedRealtime()
@@ -523,83 +521,11 @@ object StreamResolver {
     }
 
     /**
-     * Tried after [playerStream] and before extraction, and only when there is
-     * a session to send: [PlayerClient.WEB_REMIX] carrying the signed-in
-     * listener's own cookie.
-     *
-     * The anonymous walk in [playerStream] is refused on sight far more often
-     * than not right now — every device client answering "sign in to confirm
-     * you're not a bot" to a request that, honestly, isn't signed in. A real
-     * session cookie on a browser-shaped client is the one case that isn't an
-     * anonymous device pretending otherwise, which is why it is asked at all,
-     * rather than left at the reputation an earlier cookie-less attempt earned
-     * it — the one that got it dropped from [CLIENTS] entirely.
-     *
-     * It is asked *after* that walk rather than ahead of it because of what it
-     * costs when it doesn't work. WEB_REMIX is a web client, so its formats
-     * come back ciphered without exception, so this is the one path that has to
-     * solve a signature on every single track — and a signature that cannot be
-     * solved is not a cheap no. Ahead of the walk that made every track pay for
-     * the most expensive failure available before anything cheaper was tried;
-     * behind it, the clients that answer in one round trip get their say first
-     * and this is reached only on tracks that were already failing. See
-     * [jsPlayerMutex] for what the expensive failure actually was.
-     *
-     * Anything short of a working URL — no cookie, a refusal, a format that
-     * won't unlock, a probe that fails — falls through to null rather than
-     * throwing, so a bad guess here never costs more than the one round trip.
-     */
-    private suspend fun authenticatedWebRemixStream(
-        videoId: String,
-        select: (JsonObject) -> List<Audio>,
-    ): Stream? {
-        if (Innertube.cookie == null) return null
-        // Every format this client returns is ciphered, so with the solver
-        // broken there is nothing here but a round trip and a log line. The
-        // signed-in device clients in [playerStream] are the route that works.
-        if (signatureSolverBroken) return null
-        return try {
-            timed("$videoId WEB_REMIX ensureVisitorData") { Innertube.ensureVisitorData() }
-            val timestamp = timed("$videoId WEB_REMIX getSignatureTimestamp") {
-                signatureTimestamp(videoId)
-            }
-            val response = timed("$videoId WEB_REMIX player()") {
-                Innertube.player(videoId, PlayerClient.WEB_REMIX, timestamp, authenticated = true)
-            }
-            val candidates = select(response)
-            if (candidates.isEmpty()) return null
-            var format: Audio? = null
-            var url: String? = null
-            timed("$videoId WEB_REMIX streamUrl") {
-                for (candidate in candidates) {
-                    val unlocked = streamUrl(videoId, candidate)
-                        ?.let { patchClientVersion(it, PlayerClient.WEB_REMIX.clientVersion) }
-                    if (unlocked != null) {
-                        format = candidate
-                        url = unlocked
-                        break
-                    }
-                }
-            }
-            val picked = format ?: return null
-            val playable = url ?: return null
-            if (timed("$videoId WEB_REMIX probe") { probe(playable) } != Probe.OK) return null
-            TrackLog.d(TAG, "resolved $videoId via authenticated WEB_REMIX @ ${picked.kbps}kbps")
-            Stream(playable, picked.kbps, picked.mimeType)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            TrackLog.d(TAG, "authenticated WEB_REMIX failed for $videoId: ${e.message}")
-            null
-        }
-    }
-
-    /**
      * A resolved stream: the URL, and what the format behind it turned out to
      * be. Playback only ever needs the URL; a download needs the rest of it to
      * name the file and declare its type.
      */
-    class Stream(val url: String, val kbps: Int, val mimeType: String) {
+    class Stream(val url: String, val kbps: Int, val mimeType: String, val loudnessDb: Double? = null) {
 
         /**
          * The container these bytes are actually in, which is not always what
@@ -615,10 +541,10 @@ object StreamResolver {
          * perfectly good download ends up refusing to open in half the players
          * on the device.
          *
-         * Downloads no longer reach the WebM branch — [resolveForDownload]
-         * takes MP4 or nothing — but playback still hands Opus around, and a
-         * file an older build already wrote is still a `.webm` this app has to
-         * be able to describe.
+         * App-private downloads can keep the WebM rendition, while exported
+         * downloads require MP4. Playback also hands Opus around, and a file an
+         * older build already wrote is still a `.webm` this app has to be able
+         * to describe.
          */
         val downloadExtension: String
             get() = when {
@@ -633,30 +559,30 @@ object StreamResolver {
 
     /**
      * As [resolve], but for a file being kept rather than a stream being heard:
-     * the best AAC the *download* setting allows, and no connection has a say.
+     * the best format the *download* setting allows, and no connection has a
+     * say. Opus-in-WebM is preferred for app-private downloads; exported files
+     * require AAC-in-MP4 because Android's Music collection rejects WebM.
      *
-     * The format is not a preference here, it is the only option. Every
-     * adaptive audio format YouTube offers is either AAC in MP4 or Opus (or
-     * Vorbis) in WebM, and Android's media store will not mint a row in the
-     * audio collection for `audio/webm` — measured on-device as
+     * Every adaptive audio format YouTube offers is either AAC in MP4 or Opus
+     * (or Vorbis) in WebM. Android's media store will not mint an audio row for
+     * `audio/webm` — measured on-device as
      * `IllegalArgumentException: Unsupported MIME type audio/webm` out of
-     * `ContentResolver.insert`, thrown before a single byte had been fetched.
-     * So every download this app offered failed, and Opus being the better
-     * codec of the two never got to matter.
+     * `ContentResolver.insert`, thrown before a single byte has been fetched.
+     * App-private storage has no such restriction, so it keeps Opus; an export
+     * asks for MP4 from the start instead of discovering the restriction when
+     * it creates the destination.
      *
-     * Which is why there is no "best available" fallback below any more. A
-     * walk that ends by taking whatever the last client offered ends by
-     * taking WebM, and a WebM the store refuses is not a worse download, it
-     * is no download — so running out of AAC is a failure with a sentence
-     * attached rather than something to work around. It is not a common one:
-     * the AAC ladder is on essentially every track, rather more reliably than
-     * Opus was.
+     * There is no "best available" fallback below. A walk that takes another
+     * container can no longer fulfil the destination already chosen: WebM
+     * cannot be exported through the Music collection, and silently replacing
+     * a requested private Opus download with AAC changes its codec. Running out
+     * of the required ladder is therefore a failure with a sentence attached.
      *
-     * MP4 is still demanded across *every* client before any of them is
-     * allowed to give up, because a per-client walk cannot tell a client that
-     * has no MP4 from a client that has been refused the track. Player
-     * responses are shared between the passes, so the second costs the probes
-     * again but not the round trips.
+     * The container is asked of InnerTubeX up front rather than filtered out
+     * of whatever it picks, because it answers with one format per ask: MP4
+     * when the destination needs it, its best Opus otherwise. It has no
+     * bitrate ceiling of its own, so a rung over [maxKbps] sends the download
+     * on to extraction for a lower one, and is kept should extraction fail.
      *
      * Nothing here touches [recent]. That cache exists to keep ExoPlayer's
      * re-opens off the network, and its entries are picked under the *playback*
@@ -665,23 +591,10 @@ object StreamResolver {
      * bitrate playback happened to settle for. Both directions are wrong, and
      * they are wrong independently of what [maxKbps] says.
      *
-     * The whole thing is attempted twice, for the case where a client is turned
-     * away with "Sign in to confirm you're not a bot": [playerStream] mints a
-     * fresh visitor id and retries that one client, but `mintedFreshVisitor` is
-     * scoped to a single walk, so a bot check late in the list burns the retry
-     * and the new id benefits only the *next* resolve. The second walk is what
-     * turns that into one download that works. It is worth knowing what it
-     * cannot do: a client whose URL failed to probe was stood down by that
-     * failure and is skipped on the way round again, so the second attempt is
-     * the same walk minus its refusals, not a clean one. Bot checks it can fix;
-     * refusals it cannot.
-     *
-     * Which is why extraction sits behind both. When every client is refusing
-     * — the observed state, with the VR clients bot-checked and iOS minting
-     * URLs that 403 — [resolve] still gets audio, because it falls through to
-     * NewPipe and re-derives the URL itself. A download reaching the same wall
-     * has to do the same thing or it fails while the track it is refusing to
-     * save is audibly playing.
+     * Extraction sits behind InnerTubeX for the same reason it does in
+     * [resolve]: a download reaching a wall playback climbs over has to climb
+     * it too, or it fails while the track it is refusing to save is audibly
+     * playing.
      *
      * @param maxKbps the ceiling from
      *   [DownloadQuality][com.music.bitchord.data.settings.DownloadQuality].
@@ -690,17 +603,20 @@ object StreamResolver {
      *   (see [Downloader.fetch][com.music.bitchord.download.Downloader.fetch]),
      *   must not splice two different renditions into one file.
      */
-    suspend fun resolveForDownload(videoId: String, maxKbps: Int): Stream {
-        val stream = downloadStream(videoId, maxKbps)
-        // Belt and braces on the one invariant the media store enforces for us,
-        // and enforces badly: everything in [downloadStream] selects for MP4,
-        // and this is where a format that somehow slipped through says so in a
-        // sentence rather than three frames away as an insert failure.
-        check(stream.downloadExtension == "m4a") { "Can't save ${stream.mimeType} — try again" }
+    suspend fun resolveForDownload(
+        videoId: String,
+        maxKbps: Int,
+        requireM4a: Boolean = false,
+    ): Stream {
+        val stream = downloadStream(videoId, maxKbps, requireM4a)
+        val allowed = if (requireM4a) setOf("m4a") else setOf("m4a", "webm")
+        check(stream.downloadExtension in allowed) {
+            "Can't save ${stream.mimeType} — try again"
+        }
         return stream
     }
 
-    private suspend fun downloadStream(videoId: String, maxKbps: Int): Stream =
+    private suspend fun downloadStream(videoId: String, maxKbps: Int, requireM4a: Boolean): Stream =
         withContext(TrackLog.about(videoId)) {
             init
 
@@ -711,347 +627,43 @@ object StreamResolver {
             // while an MP4 that won't probe is a bad afternoon on Google's side.
             var offered = false
 
-            repeat(DOWNLOAD_ATTEMPTS) { attempt ->
-                if (attempt > 0) delay(DOWNLOAD_RETRY_MS)
-                // Fresh each time. Responses are only cached once a client has
-                // answered, and re-deriving a URL from a cached response produces
-                // the same URL that just failed to probe — so carrying the map
-                // across attempts would make every attempt after the first a
-                // no-op.
-                val responses = mutableMapOf<PlayerClient, JsonObject>()
-                playerStream(
-                    videoId,
-                    { response -> pickAac(response, maxKbps).also { if (it.isNotEmpty()) offered = true } },
-                    responses,
-                )?.let { return@withContext it }
+            // InnerTubeX hands back its best rung of the container asked for, and
+            // has no ceiling of its own. Within the setting's ceiling it is the
+            // answer; above it (best Opus over Standard's 128kbps) extraction
+            // below can pick the lower rung, and this is kept as the fallback.
+            val found = innerTubeXStream(videoId, maxKbps, requireM4a)
+                ?.takeIf { if (requireM4a) it.downloadExtension == "m4a" else it.downloadExtension == "webm" }
+            if (found != null) {
+                offered = true
+                if (found.kbps <= maxKbps) return@withContext found
+                TrackLog.d(TAG, "InnerTubeX's ${found.kbps}kbps is over the ${maxKbps}kbps download ceiling for $videoId")
             }
 
-            // Not "try again later" — every client being refused at once is a state
-            // that lasts hours, and it is precisely the state [resolve] extracts its
-            // way out of. Still asking for MP4, because this is still a download:
-            // the failsafe is a different route to the bytes, not a licence to
-            // fetch a container that cannot then be saved.
-            TrackLog.w(TAG, "no client minted a usable MP4 URL for $videoId; extracting")
+            // The failsafe changes how the URL is found, not which container the
+            // destination can accept.
+            val format = if (requireM4a) "MP4" else "Opus"
+            if (found == null) TrackLog.w(TAG, "InnerTubeX found no usable $format for $videoId; extracting")
             runCatching {
                 newPipeStream(videoId) { candidates ->
-                    // Capped the same way [pickAac] is, off the same setting, or
-                    // the failsafe would quietly hand back a rendition the user
-                    // said they didn't want to keep.
-                    underCeiling(candidates.filter { it.second.isM4a }, maxKbps)
+                    // Capped the same way as the player-response selection, off
+                    // the same setting, or the failsafe would quietly hand back
+                    // a rendition the user said they didn't want to keep.
+                    val matching = candidates.filter {
+                        if (requireM4a) it.second.isM4a else it.second.isWebmOpus
+                    }
+                    underCeiling(matching, maxKbps)
                         ?.also { offered = true }
                 }
             }.onSuccess { return@withContext it }
-                .onFailure { TrackLog.w(TAG, "extraction found no MP4 for $videoId: ${it.message}") }
+                .onFailure { TrackLog.w(TAG, "extraction found no $format for $videoId: ${it.message}") }
 
+            // A rung above the ceiling beats no download at all; extraction does the same.
+            found?.let { return@withContext it }
             if (offered) error("Couldn't reach a downloadable copy just now — try again")
             error("No downloadable audio for this track")
         }
 
-    /**
-     * Walks [CLIENTS] until one produces a URL that actually serves audio.
-     *
-     * Every step is allowed to fail without taking the attempt with it: a
-     * client can be refused the track, hand back formats none of which [select]
-     * accepts or none of which can be unciphered, or mint a URL that turns out
-     * to be dead. Only running out of clients is a failure.
-     *
-     * [responses] memoises the player response per client for the caller that
-     * walks twice — see [resolveForDownload]. A client that is asked again
-     * inside one walk is a bug, not a cost, so the default is a fresh map.
-     *
-     * @return the validated stream, or null to fall through to [newPipeStream].
-     */
-    private suspend fun playerStream(
-        videoId: String,
-        select: (JsonObject) -> List<Audio>,
-        responses: MutableMap<PlayerClient, JsonObject> = mutableMapOf(),
-    ): Stream? {
-        // Before anything asks. Without one, the good clients refuse outright
-        // and the rest hand back URLs that only *look* like they work — see
-        // [Innertube.ensureVisitorData].
-        timed("$videoId ensureVisitorData") { Innertube.ensureVisitorData() }
-
-        var timestamp: Int? = null
-        var mintedFreshVisitor = false
-        // One signed-in retry per client per walk. Without the bound, a client
-        // that answers the age gate with the same age gate signed in would be
-        // asked twice for every walk, and there are seven of them.
-        val triedSignedIn = mutableSetOf<PlayerClient>()
-
-        for (client in clientOrder()) {
-            if (isStoodDown(videoId, client)) continue
-            val clientStart = SystemClock.elapsedRealtime()
-            try {
-                // Only fetched once, and only if a client that needs it is
-                // reached — it costs a download of YouTube's player JavaScript.
-                if (client.needsSignatureTimestamp && timestamp == null) {
-                    timestamp = timed("$videoId getSignatureTimestamp") {
-                        signatureTimestamp(videoId)
-                    } ?: continue
-                }
-
-                val response = responses[client] ?: try {
-                    timed("$videoId ${client.clientName} player()") { Innertube.player(videoId, client, timestamp) }
-                } catch (e: Innertube.UnplayableException) {
-                    when {
-                        // The fix for the reported bug, and the only one that
-                        // makes an age-restricted track actually play.
-                        //
-                        // The refusal here is "Sign in to confirm your age" (or,
-                        // from the iOS and Android clients, "This video may be
-                        // inappropriate for some users"), and it is a statement
-                        // about the *request*, not the track: the same client
-                        // asked again carrying the listener's session is
-                        // answered OK. Worth doing on these clients in
-                        // particular because they return plain `url` fields — so
-                        // this route never touches YouTube's player JavaScript,
-                        // which is the thing that is currently broken. Before
-                        // this, the only path with a hope of an age-gated track
-                        // was [authenticatedWebRemixStream], whose formats are
-                        // ciphered without exception, so a track YouTube was
-                        // perfectly willing to serve failed on the signature
-                        // solve instead. See [onSignatureSolverBroken].
-                        e.isAgeGate && Innertube.cookie != null && !triedSignedIn.contains(client) -> {
-                            triedSignedIn.add(client)
-                            TrackLog.d(
-                                TAG,
-                                "${client.clientName} wants an age check for $videoId; asking again signed in",
-                            )
-                            timed("$videoId ${client.clientName} player() signed in") {
-                                Innertube.player(videoId, client, timestamp, authenticated = true)
-                            }
-                        }
-                        // A visitor id can be burned while the session around it
-                        // is fine, and the only symptom is being called a bot.
-                        // Worth one fresh id and one more try, once per resolve.
-                        e.looksLikeBotCheck && !mintedFreshVisitor -> {
-                            mintedFreshVisitor = true
-                            TrackLog.d(TAG, "bot check from ${client.clientName}; minting a fresh visitor id")
-                            timed("$videoId ensureVisitorData(refresh)") { Innertube.ensureVisitorData(refresh = true) }
-                            timed("$videoId ${client.clientName} player() retry") {
-                                Innertube.player(videoId, client, timestamp)
-                            }
-                        }
-                        else -> throw e
-                    }
-                }
-                responses[client] = response
-
-                // Answered, but with nothing this app can use. Logged because
-                // the two ways that happens are worth telling apart and the
-                // timings alone cannot: a client that offers no acceptable
-                // format never reaches [streamUrl], so both cases look
-                // identical from outside — a `player()` line and then silence.
-                val candidates = select(response)
-                if (candidates.isEmpty()) {
-                    TrackLog.d(TAG, "${client.clientName} offered no usable format for $videoId")
-                    refused(videoId, client)
-                    continue
-                }
-                // Down the ladder rather than one shot at the top of it.
-                //
-                // [select] used to return a single format, and a format that
-                // would not unlock ended the client's turn — which conflates two
-                // different things: a client being refused the track, and the
-                // one format that happened to win on bitrate being the one whose
-                // URL could not be unlocked. A response is routinely a mix, some
-                // entries with a plain `url` and some ciphered, and ranking by
-                // bitrate alone is blind to which is which — so a broken
-                // signature solver threw away whole clients that were offering a
-                // perfectly serviceable unciphered rung one step down.
-                var format: Audio? = null
-                var url: String? = null
-                timed("$videoId ${client.clientName} streamUrl") {
-                    for (candidate in candidates) {
-                        val unlocked = streamUrl(videoId, candidate)
-                            ?.let { patchClientVersion(it, client.clientVersion) }
-                        if (unlocked != null) {
-                            format = candidate
-                            url = unlocked
-                            break
-                        }
-                    }
-                }
-                val picked = format
-                val playable = url
-                if (picked == null || playable == null) {
-                    TrackLog.d(
-                        TAG,
-                        "${client.clientName} offered ${candidates.size} format(s) for $videoId but none " +
-                            "could be unlocked (${candidates.joinToString { "${it.mimeType} @ ${it.kbps}kbps" }})",
-                    )
-                    refused(videoId, client)
-                    continue
-                }
-
-                val verdict = timed("$videoId ${client.clientName} probe") { probe(playable) }
-                TrackLog.d(TAG, "TIMING $videoId ${client.clientName} total: ${SystemClock.elapsedRealtime() - clientStart}ms")
-                when (verdict) {
-                    Probe.OK -> {
-                        TrackLog.d(TAG, "resolved $videoId via ${client.clientName} @ ${picked.kbps}kbps")
-                        served(client)
-                        preferred = client
-                        return Stream(playable, picked.kbps, picked.mimeType)
-                    }
-                    // The client itself is being refused this track; don't
-                    // spend another round trip on it for a while.
-                    Probe.REFUSED -> {
-                        standDown(videoId, client)
-                        refused(videoId, client)
-                    }
-                    // Nobody answered, so this says nothing about the client —
-                    // deliberately not counted as a refusal, or a bad minute on
-                    // the connection would stand down clients that are fine.
-                    Probe.UNREACHABLE -> Unit
-                }
-                // Which format was rejected, not just that one was: the same
-                // client can mint a good URL for one itag and a dead one for
-                // another, so without the format this line cannot tell a track
-                // being refused from a codec being refused.
-                TrackLog.w(
-                    TAG,
-                    "${client.clientName} minted an unusable URL for $videoId: " +
-                        "$verdict for ${picked.mimeType} @ ${picked.kbps}kbps",
-                )
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // A client turned away with "Please sign in" or "confirm you're
-                // not a bot" is not being told something about this track. It is
-                // being told something about this app's session, and the answer
-                // will be the same for the next track and the one after that —
-                // which is exactly what the logs show: the same five clients
-                // refusing, every track, for a whole session, while the walk
-                // asks all of them again each time.
-                //
-                // That is worth more than the two seconds it spends. Each pass
-                // is roughly ten requests, several of them minting a fresh
-                // visitor id, and churning identities at that rate is itself
-                // the behaviour Google throttles — measured here as every
-                // request in a resolve going four to twenty times slower for a
-                // stretch, which is the difference between a track starting in
-                // three seconds and in twenty. Standing a refused client down
-                // for everything, not just for one video, cuts both the wait
-                // and the volume that provokes the throttling.
-                //
-                // A phrase match is the right test only when it matches, and it
-                // is one sentence of Google's wording away from not. On this
-                // emulator TVHTML5 is turned away with "The page needs to be
-                // reloaded." every track — the same refusal, worded so as to
-                // contain none of "bot", "unusual traffic" or "sign in" — and so
-                // was asked again for every track of the session. Any refusal
-                // therefore also counts toward [refused], which needs no
-                // vocabulary because it waits for the repetition instead.
-                if (e is Innertube.UnplayableException) {
-                    if (e.looksLikeBotCheck) standDownEverywhere(client) else refused(videoId, client)
-                }
-                TrackLog.w(TAG, "${client.clientName} failed for $videoId: ${e.message}")
-            }
-        }
-        return null
-    }
-
-    /**
-     * [CLIENTS], led by whichever one last worked.
-     *
-     * Google's decisions apply to the whole app for as long as they last, not
-     * to one track, so the client that served the previous song is overwhelmingly
-     * likely to serve this one — and starting there is what keeps the common
-     * case at a single round trip.
-     */
-    private fun clientOrder(): List<PlayerClient> {
-        val first = preferred ?: return CLIENTS
-        return listOf(first) + CLIENTS.filterNot { it == first }
-    }
-
-    @Volatile
-    private var preferred: PlayerClient? = null
-
     // ---- Format selection ---------------------------------------------------
-
-    /** One audio entry of a player response, before its URL has been unlocked. */
-    private class Audio(
-        val url: String?,
-        val signatureCipher: String?,
-        val kbps: Int,
-        val mimeType: String,
-    ) {
-        /**
-         * YouTube's Opus is always carried in WebM and its AAC always in MP4 —
-         * there is no Opus-in-MP4 on this endpoint — so the container the mime
-         * type names is enough to tell the two ladders apart, and the container
-         * is the thing a download actually cares about.
-         */
-        val isAac: Boolean get() = "mp4" in mimeType.lowercase(Locale.ROOT)
-    }
-
-    private fun audioFormats(response: JsonObject): List<Audio> =
-        response["streamingData"]?.jsonObject
-            ?.get("adaptiveFormats")?.jsonArray
-            ?.map { it.jsonObject }
-            ?.filter { it.str("mimeType")?.startsWith("audio/") == true }
-            ?.map {
-                Audio(
-                    url = it.str("url"),
-                    signatureCipher = it.str("signatureCipher") ?: it.str("cipher"),
-                    kbps = ((it.str("bitrate")?.toLongOrNull() ?: 0L) / 1000).toInt(),
-                    mimeType = it.str("mimeType").orEmpty(),
-                )
-            }
-            ?.filter { it.url != null || it.signatureCipher != null }
-            .orEmpty()
-
-    /**
-     * What playback wants, best first: the formats the connection's ceiling
-     * allows, in the order they are worth trying.
-     *
-     * A list rather than a single pick because unlocking can fail per format —
-     * see [playerStream] and [streamUrl].
-     */
-    private fun rankForPlayback(response: JsonObject): List<Audio> =
-        rankByQuality(audioFormats(response), AppSettings.effectiveAudioQuality.maxKbps)
-
-    /**
-     * [candidates] in the order they are worth attempting: the highest at or
-     * under [maxKbps] first and the rest of the ladder descending from it, then
-     * anything above the ceiling ascending — because a rung over budget still
-     * beats no audio at all, and the cheapest such rung is the least wrong.
-     *
-     * Unciphered formats are preferred within a bitrate tie, and moved ahead of
-     * ciphered ones outright once the signature solver has been found broken:
-     * a ciphered format is then not merely more expensive, it is unplayable, and
-     * ordering it first would spend the client's turn on a certainty. See
-     * [onSignatureSolverBroken].
-     */
-    private fun rankByQuality(candidates: List<Audio>, maxKbps: Int): List<Audio> {
-        val order = compareByDescending<Audio> { it.url != null }
-        val (withinBudget, overBudget) = candidates.partition { it.kbps <= maxKbps }
-        val ranked = withinBudget.sortedWith(compareByDescending<Audio> { it.kbps }.then(order)) +
-            overBudget.sortedWith(compareBy<Audio> { it.kbps }.then(order))
-        return if (signatureSolverBroken) ranked.sortedWith(order) else ranked
-    }
-
-    /**
-     * What a download wants: the best AAC at or under the download setting's
-     * own ceiling.
-     *
-     * MP4 rather than the better codec because it is the only container the
-     * media store will accept for the audio collection — see
-     * [resolveForDownload].
-     *
-     * The ceiling comes in as an argument rather than being read here, and it is
-     * a different setting from the one [rankForPlayback] reads. The quality
-     * ceilings budget a *stream* — bytes spent again on every replay of a track
-     * being listened to — and a file saved to the device is the opposite case:
-     * paid for once, kept, played from disk forever after. Capping a permanent
-     * artefact at whichever network happened to be in hand would bake a
-     * temporary decision into it, so a download is capped by a decision made
-     * about downloads, or not at all.
-     */
-    private fun pickAac(response: JsonObject, maxKbps: Int): List<Audio> =
-        rankByQuality(audioFormats(response).filter { it.isAac }, maxKbps)
-
-    private fun JsonObject.str(key: String): String? = this[key]?.jsonPrimitive?.content
 
     /**
      * Highest stream at or under the ceiling set for the connection in use; if
@@ -1073,162 +685,18 @@ object StreamResolver {
             ?.second
     }
 
-    // ---- Unlocking ----------------------------------------------------------
-
-    /** The playable URL behind a format, or null if it can't be unlocked. */
-    private suspend fun streamUrl(videoId: String, format: Audio): String? {
-        val direct = format.url
-        if (direct != null) return deobfuscate(videoId, direct)
-
-        val cipher = format.signatureCipher ?: return null
-        // Asked before the library is, because the library's answer is a cached
-        // exception and its cost is a log line per format per walk rather than
-        // any real work. See [signatureSolverBroken].
-        if (signatureSolverBroken) return null
-        val params = cipher.split("&")
-            .mapNotNull { part ->
-                val i = part.indexOf('=').takeIf { it > 0 } ?: return@mapNotNull null
-                URLDecoder.decode(part.substring(0, i), "UTF-8") to
-                    URLDecoder.decode(part.substring(i + 1), "UTF-8")
-            }
-            .toMap()
-
-        val base = params["url"] ?: return null
-        val signature = params["s"] ?: return null
-        // Which query parameter the solved signature belongs in; YouTube has
-        // changed the name before, so it travels alongside rather than assumed.
-        val into = params["sp"] ?: "signature"
-        val solved = runCatching {
-            jsPlayerManager { YoutubeJavaScriptPlayerManager.deobfuscateSignature(videoId, signature) }
-        }.getOrElse {
-            TrackLog.w(TAG, "signature cipher failed: ${it.message}")
-            if (it.isUnparseablePlayer()) onSignatureSolverBroken(it)
-            return null
-        }
-        val separator = if ("?" in base) "&" else "?"
-        return deobfuscate(videoId, "$base$separator$into=$solved")
-    }
-
-    /**
-     * Whether NewPipe cannot read the current `base.js` at all, as opposed to
-     * having failed to solve one particular signature.
-     *
-     * The wording is the only thing that distinguishes them, which is
-     * unsatisfying and still worth acting on: "Could not parse deobfuscation
-     * function" is thrown before this app's input is looked at, so it says
-     * nothing about the track and everything about the pair of (this extractor
-     * release, whatever player YouTube is currently serving).
-     *
-     * Matched narrowly on purpose. A false positive here costs every ciphered
-     * format for the rest of the process — the ANDROID client and WEB_REMIX
-     * both — so a broad "could not parse" would trade one track's failure for a
-     * session's, which is the wrong way round. Every player-JS parse failure
-     * NewPipe raises names the function or the script it could not read.
-     */
-    private fun Throwable.isUnparseablePlayer(): Boolean {
-        val text = generateSequence(this) { it.cause?.takeIf { c -> c !== it } }
-            .mapNotNull { it.message }
-            .joinToString(" ")
-            .lowercase(Locale.ROOT)
-        return "deobfuscation function" in text ||
-            "player js" in text ||
-            "player javascript" in text ||
-            "javascript base url" in text
-    }
-
-    /**
-     * NewPipe cannot solve signatures against the player YouTube is currently
-     * serving, so nothing that depends on solving one is worth attempting again
-     * this process.
-     *
-     * This is the actual root cause of the report, and the reason it looks like
-     * an age-restriction bug when it isn't. Ordinary tracks never reach a
-     * signature at all: the device clients at the top of [CLIENTS] hand back
-     * plain `url` fields, so a broken solver is invisible on everything that
-     * plays. An age-restricted track is the one case where every unciphered
-     * client is refused and the *only* remaining route —
-     * [authenticatedWebRemixStream] — is ciphered without exception, so the
-     * broken solver is fatal exactly there and nowhere else. Hence "other songs
-     * played fine", and hence clearing caches and restarting not helping: the
-     * parse failure is deterministic, and NewPipe caches even the failed parse's
-     * exception (see [jsPlayerMutex]).
-     *
-     * Recorded as a flag rather than acted on, because there is nothing to do
-     * about it in this file beyond not paying for it repeatedly. What makes the
-     * track play regardless is [playerStream]'s authenticated retry, which gets
-     * an *unciphered* URL out of a device client and never touches this path.
-     * Bumping NewPipeExtractor is not the fix: no release through v0.26.5
-     * addresses this parse failure, and the last upstream fix in this area
-     * shipped in 2025.
-     */
-    private fun onSignatureSolverBroken(cause: Throwable) {
-        if (signatureSolverBroken) return
-        signatureSolverBroken = true
-        TrackLog.w(
-            TAG,
-            "this NewPipe release cannot read YouTube's current player JavaScript " +
-                "(${cause.message}); ciphered formats are unavailable for the rest of this session — " +
-                "signed-in device clients are the only route to an age-restricted track",
-        )
-    }
-
-    @Volatile
-    private var signatureSolverBroken = false
-
-    /**
-     * Transform the `n` parameter when present. If deobfuscation itself fails
-     * we still return the original URL — a throttled stream beats no stream,
-     * and [probe] gets the final say on whether it plays at all.
-     */
-    private suspend fun deobfuscate(videoId: String, url: String): String {
-        val needsWork = url.toHttpUrlOrNull()?.queryParameter("n")?.isNotBlank() == true
-        if (!needsWork) return url
-        return runCatching {
-            jsPlayerManager { YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(videoId, url) }
-        }.getOrElse {
-            TrackLog.w(TAG, "n-param deobfuscation failed: ${it.message}")
-            url
-        }
-    }
+    // ---- Player JavaScript ----------------------------------------------------
 
     /**
      * Guards every call into [YoutubeJavaScriptPlayerManager].
      *
-     * Its player-JS cache — the parsed code, the deobfuscation function, and
-     * even a *failed* parse's exception — lives in static fields with no
-     * synchronization, shared by the whole process. This app resolves more
-     * than one track at once by design (a track playing while its successor
-     * pre-caches — see [AudioCache][com.music.bitchord.playback.AudioCache]),
-     * so two resolves can enter these calls together; the library was never
-     * written for that, and serializing access is what keeps concurrent
-     * resolves from corrupting that shared state.
-     *
-     * A failure here is passed straight out, and deliberately so. An earlier
-     * version answered one by calling [clearAllCaches] and running the block
-     * again, on the reasoning that the library caches a *failed* parse's
-     * exception and replays it forever, so one bad parse would otherwise be
-     * permanent for the process. Measured, that cure was far worse than the
-     * disease, for two reasons that only show up on a device:
-     *
-     *  - The failure this app actually sees — "Could not parse deobfuscation
-     *    function" against a `base.js` this NewPipe release doesn't understand
-     *    — is deterministic. Re-fetching the script and parsing it again cannot
-     *    end differently, so the retry only ever bought a second failure, at
-     *    5s to 55s a time, holding this mutex while every concurrent resolve
-     *    queued behind it.
-     *  - [clearAllCaches] is all-or-nothing. It throws away the parsed player
-     *    JS that the *working* paths depend on — the `n` parameter transform
-     *    that [newPipeStream] runs for every format it extracts — along with
-     *    the one broken function. So the price of the retry was charged twice:
-     *    once here, and again on the fallback that was about to succeed, which
-     *    went from 2.7s warm to 49.8s against the cache this had just emptied.
-     *
-     * Left alone, the cached exception makes the failure free — it is what
-     * turns a broken signature solve into the ~0ms no it should always have
-     * been, and what lets the walk move on to something that works. The cost
-     * of not clearing is that a parse which failed for a reason that has since
-     * passed stays failed until the process restarts; that is a real loss, and
-     * a much smaller one than a fifty-second track.
+     * Its player-JS cache, including a *failed* parse's exception, lives in
+     * static fields with no synchronization, shared by the whole process, and
+     * this app resolves more than one track at once by design. A failure is
+     * passed straight out rather than answered with `clearAllCaches` and a
+     * retry: measured, that retry could only fail again and threw away the
+     * parsed player the NewPipe fallback depends on, taking it from 2.7s to
+     * 49.8s.
      */
     private val jsPlayerMutex = Mutex()
 
@@ -1262,16 +730,6 @@ object StreamResolver {
     @Volatile
     private var cachedSignatureTimestamp: Int? = null
 
-    /**
-     * Align the URL's `cver` with the client that actually asked.
-     *
-     * The player response fills it in from the request, but a signature or `n`
-     * transform can be solved against player JavaScript of a different vintage,
-     * and googlevideo answers a version it doesn't expect with a 403.
-     */
-    private fun patchClientVersion(url: String, clientVersion: String): String =
-        if ("cver=" in url) url.replace(Regex("cver=[^&]+"), "cver=$clientVersion") else url
-
     // ---- Validation ---------------------------------------------------------
 
     private enum class Probe {
@@ -1297,8 +755,9 @@ object StreamResolver {
      * one. A URL minted for a session Google has reservations about serves
      * small ranges to anybody — enough to pass a small probe — and then refuses
      * the multi-megabyte ranges actual listening is made of with a 403.
-     * [PROBE_RANGE_BYTES] matches the chunk size the player and read-ahead
-     * fetch with, so a grudging URL fails here instead of on the playback path.
+     * The range starts past [AUTH_BOUNDARY_BYTES] when the file is that long:
+     * some clients' URLs serve the first megabyte and 403 everything after
+     * it, so a probe of the opening passes and playback dies ~50s in.
      * Sixteen kilobytes of the answer still have to actually arrive, so a
      * response that stalls after its headers is a failure too.
      *
@@ -1307,11 +766,12 @@ object StreamResolver {
      * rather than a more favourable version of it.
      */
     private fun probe(url: String): Probe {
+        val length = url.toHttpUrlOrNull()?.queryParameter("clen")?.toLongOrNull()
+        val start = if (length != null && length > AUTH_BOUNDARY_BYTES + PROBE_READ_BYTES) AUTH_BOUNDARY_BYTES else 0L
+        val end = minOf(start + PlayerClient.rangeBytesFor(url), length ?: Long.MAX_VALUE) - 1
         val builder = okhttp3.Request.Builder().url(url)
-            .header("Range", "bytes=0-${PROBE_RANGE_BYTES - 1}")
-        PlayerClient.forStreamUrl(url).mediaHeaders().forEach { (name, value) ->
-            builder.header(name, value)
-        }
+            .header("Range", "bytes=$start-$end")
+        mediaHeadersFor(url).forEach { (name, value) -> builder.header(name, value) }
         return try {
             prober.newCall(builder.build()).execute().use { response ->
                 when {
@@ -1353,162 +813,35 @@ object StreamResolver {
 
     private const val PROBE_TIMEOUT_SECONDS = 6L
 
-    /**
-     * How much the probe asks for, in one range.
-     *
-     * Has to match what the real fetch asks for ([ChunkedDataSource] and
-     * [AudioCache] both fetch two-megabyte ranges), or a URL that grudges real
-     * listening-sized requests — while still serving token ones — sails through
-     * the probe and dies on the playback path instead.
-     */
-    private const val PROBE_RANGE_BYTES = 2L * 1024 * 1024
+    /** Where googlevideo stops authorising some clients' URLs (InnerTubeX: "CDN 403 after 1 MiB"). */
+    private const val AUTH_BOUNDARY_BYTES = 1024L * 1024
 
     /** How much of the answer must actually arrive, to catch a stalled body. */
     private const val PROBE_READ_BYTES = 16L * 1024
 
-    // ---- Clients stood down -------------------------------------------------
-
-    /**
-     * Clients refused a given track, and until when.
-     *
-     * A refusal is rarely about the track alone — it usually means Google has
-     * stopped answering that identity — but it is recorded per track because
-     * that is the granularity it can be observed at. Keyed the same way it is
-     * looked up, so a stale entry costs one retry rather than a lasting hole.
-     */
-    private val standDownUntil = ConcurrentHashMap<String, Long>()
-
-    private const val STAND_DOWN_MS = 10 * 60 * 1000L
-
-    private fun key(videoId: String, client: PlayerClient) =
-        "$videoId|${client.clientName}@${client.clientVersion}"
-
-    private fun standDown(videoId: String, client: PlayerClient) {
-        standDownUntil[key(videoId, client)] = SystemClock.elapsedRealtime() + STAND_DOWN_MS
-    }
-
-    private fun isStoodDown(videoId: String, client: PlayerClient): Boolean =
-        isStoodDown(key(videoId, client)) || isStoodDown(key(client))
-
-    private fun isStoodDown(k: String): Boolean {
-        val until = standDownUntil[k] ?: return false
-        if (until > SystemClock.elapsedRealtime()) return true
-        standDownUntil.remove(k)
-        return false
-    }
-
-    /**
-     * Which tracks each client has been refused since it last served one.
-     *
-     * [standDownEverywhere] is the right answer for a client that has stopped
-     * being served, and reading the refusal is the hard part: Google says no in
-     * whatever words it likes, and only some of them are recognisable. So this
-     * does not try to read it. A client asked for one track and refused has
-     * told us about that track; a client asked for three different tracks and
-     * refused all three, without serving anything in between, has told us about
-     * itself — whatever the wording. Videos rather than a count because one
-     * track can put the same client through this twice (see [resolveForDownload],
-     * which walks for AAC and then for anything), and two refusals of the same
-     * track are one piece of evidence.
-     */
-    private val refusalsByClient = ConcurrentHashMap<String, MutableSet<String>>()
-
-    /**
-     * How much evidence is enough. Low, because the cost of being wrong is
-     * bounded by [STAND_DOWN_MS] and the cost of being slow is paid on every
-     * track: three tracks of the walk, then the rest of the ten minutes going
-     * straight to what works.
-     */
-    private const val REFUSALS_BEFORE_STANDING_DOWN = 3
-
-    /** A client answered about [videoId], and the answer was no use. */
-    private fun refused(videoId: String, client: PlayerClient) {
-        val refusedTracks = refusalsByClient.computeIfAbsent(key(client)) {
-            ConcurrentHashMap.newKeySet<String>()
-        }
-        refusedTracks.add(videoId)
-        if (refusedTracks.size >= REFUSALS_BEFORE_STANDING_DOWN) {
-            // Cleared as it escalates, so that when the stand-down expires the
-            // client is owed a fresh [REFUSALS_BEFORE_STANDING_DOWN] tracks
-            // rather than being stood down again by the first one.
-            refusalsByClient.remove(key(client))
-            standDownEverywhere(client)
-        }
-    }
-
-    /**
-     * A client served a track, so what came before it was about those tracks
-     * rather than about the client.
-     */
-    private fun served(client: PlayerClient) {
-        refusalsByClient.remove(key(client))
-    }
-
-    /**
-     * A client refused the session rather than the track — see [playerStream].
-     *
-     * Shares [standDownUntil] and its expiry with the per-track case, under a
-     * key naming no video. The expiry is the whole reason this is safe to do
-     * app-wide: Google's decisions here last hours but not forever, so one
-     * track every [STAND_DOWN_MS] pays for a full walk and finds out whether
-     * the client is being served again, while the rest go straight to what
-     * works.
-     */
-    private fun standDownEverywhere(client: PlayerClient) {
-        val k = key(client)
-        if (!isStoodDown(k)) {
-            TrackLog.d(TAG, "${client.clientName} is refusing this session; standing it down app-wide")
-        }
-        standDownUntil[k] = SystemClock.elapsedRealtime() + STAND_DOWN_MS
-        // The walk starts from whichever client last worked; a client that is
-        // now being skipped everywhere must not be that one.
-        if (preferred == client) preferred = null
-    }
-
-    private fun key(client: PlayerClient) = "*|${client.clientName}@${client.clientVersion}"
-
     /**
      * A URL that [probe] cleared has been refused while actually playing.
      *
-     * Everything above assumes a URL that served bytes once will keep serving
-     * them, and mostly that holds. When it doesn't, nothing here would ever
-     * find out: [probe] runs before playback and not again, so a client that
-     * goes bad mid-session stays [preferred], and [recent] keeps handing back
-     * the same dead URL for the rest of its TTL. Every following track then
-     * fails the same way, and the app can only be talked out of it by being
-     * restarted — which is the one symptom users actually report.
-     *
-     * So the refusal is fed back: forget the URL, stand the client down for
-     * that track, and give up the preference so the next resolve starts from
-     * the top of [CLIENTS] rather than from the client that just failed.
+     * [probe] runs before playback and not again, so without this [recent]
+     * would keep handing back the same dead URL for the rest of its TTL and
+     * every replay would fail the same way. So the refusal is fed back: forget
+     * the URL, and when InnerTubeX minted it, skip that client for the track.
      *
      * Called from the playback path — see
      * [ChunkedDataSource][com.music.bitchord.playback.ChunkedDataSource].
      */
     fun onPlaybackRefused(url: String, responseCode: Int) {
         if (responseCode !in REFUSAL_CODES) return
-        // Only googlevideo's URLs say anything about a [PlayerClient]. Anything
-        // else — a module's stream URL, a downloaded file — carries no `c`
-        // parameter, and [PlayerClient.forStreamUrl] answers IOS for a URL it
-        // can't read rather than nothing. So without this, a Tidal URL
-        // answering 404 stands down the client that mints most of YouTube's,
-        // and the next YouTube track pays for a failure on a different server.
+        // Only googlevideo's URLs say anything about the client that minted
+        // them. A module's stream URL answering 404 is that server's business,
+        // and must not bench a YouTube client.
         if (url.toHttpUrlOrNull()?.host?.endsWith("googlevideo.com") != true) return
-        val client = PlayerClient.forStreamUrl(url)
-        // Keyed by videoId, and the fetch only knows the googlevideo URL it was
-        // handed; the map is a latency cache of a few dozen entries, so finding
-        // the way back costs nothing worth measuring.
-        recent.entries.firstOrNull { it.value.url == url }?.key?.let { videoId ->
-            recent.remove(videoId)
-            standDown(videoId, client)
-        }
-        // Independent of that lookup on purpose: standing down the preference
-        // is what breaks the loop, and it must still happen if the URL has
-        // already aged out of the cache.
-        if (preferred == client) {
-            TrackLog.w(TAG, "${client.clientName} refused a URL it had already served; standing it down")
-            preferred = null
-        }
+        val videoId = InnerTubeXResolver.onRefused(url)
+            // The map is a latency cache of a few dozen entries, so finding the
+            // way back from a URL costs nothing worth measuring.
+            ?: recent.entries.firstOrNull { it.value.url == url }?.key
+            ?: return
+        recent.remove(videoId)
     }
 
     // ---- Failsafe -----------------------------------------------------------
@@ -1621,22 +954,6 @@ object StreamResolver {
         is PrivateContentException -> "This track is private"
         is AccountTerminatedException -> "The channel behind this track was terminated"
         is SoundCloudGoPlusContentException -> "This track needs SoundCloud Go+"
-        is Innertube.UnplayableException ->
-            when {
-                // An age gate is only permanent once the session that could get
-                // past it has been tried and refused. Signed out it is a
-                // sentence with an action attached, and [resolve] must not cache
-                // it in a way that survives the listener taking that action —
-                // hence [onSessionChanged].
-                e.isAgeGate ->
-                    if (Innertube.cookie == null) {
-                        "This track is age-restricted. Sign in to YouTube to play it."
-                    } else {
-                        null
-                    }
-                e.isPermanent -> e.message
-                else -> null
-            }
         // ExoPlayer and the coroutine machinery both wrap freely, and the
         // classification has to survive being wrapped or it never fires: the
         // failure that reaches [resolveUncached] arrives as whatever the last
@@ -1698,11 +1015,7 @@ object StreamResolver {
             )
             // stream.content is already playable, not raw: YoutubeStreamExtractor
             // resolves the signature cipher and the `n` parameter itself while
-            // building audioStreams, through the same YoutubeJavaScriptPlayerManager
-            // this file also calls directly. Running it through deobfuscate() again
-            // was a second, redundant trip through that same machinery on every
-            // fallback — real latency (and a second chance to hit whatever's
-            // currently failing it) spent solving something already solved.
+            // building audioStreams, so it is handed on as-is.
             Stream(
                 url = stream.content,
                 kbps = stream.averageBitrate,
@@ -1735,6 +1048,9 @@ object StreamResolver {
      */
     private val AudioStream.isM4a: Boolean
         get() = format == MediaFormat.M4A
+
+    private val AudioStream.isWebmOpus: Boolean
+        get() = format == MediaFormat.WEBMA_OPUS
 
     // ---- Cache --------------------------------------------------------------
 
@@ -1769,12 +1085,6 @@ object StreamResolver {
 
     /** Enough for the queue in hand; this is a latency cache, not a store. */
     private const val MAX_REMEMBERED = 32
-
-    /** See [resolveForDownload]: one walk to burn a stale visitor id, one to use its replacement. */
-    private const val DOWNLOAD_ATTEMPTS = 2
-
-    /** Long enough for a freshly minted visitor id to be worth anything, short enough not to be felt. */
-    private const val DOWNLOAD_RETRY_MS = 500L
 
     private fun remember(videoId: String, url: String) {
         if (recent.size >= MAX_REMEMBERED) {

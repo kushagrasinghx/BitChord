@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The 4×1 widget: a capsule with the cover in a circle at its left, and the
+  track over Like, previous, play, next and Shuffle beside it.
+
+  The capsule is wrap_content and centred rather than filling the cell. A
+  one-row cell is anywhere from ~60dp to over 100dp tall depending on the
+  launcher, and a capsule stretched to the taller end stops reading as one.
+  Its height is the cover plus an even 7dp all round, so the text column is
+  sized to fit inside the cover's 64dp: a 19dp title over a 38dp button row.
+
+  The title sits directly on the button row, with no gap: the glyphs are
+  padded inside their 38dp squares, so the air between the two lines comes
+  from the buttons themselves, and any margin on top made the capsule look
+  loose below the buttons and tight above the title.
+  The column's 4dp top margin evens out the ink: each glyph leaves ~11dp of
+  its button empty below it, the title's ink starts ~3dp into its line, so a
+  column centred by its boxes sat high. In a centre_vertical LinearLayout a
+  margin moves the child by its full amount, not half.
+
+  The body is the cover itself, blurred to colour and darkened a little, the way
+  the player's lyrics and queue stand on it. RemoteViews can't blur, so it is a
+  bitmap MediaWidgetArt.pill bakes at the capsule's exact size; widget_pill_bg
+  shows it. Until it arrives, the translucent capsule stands in.
+
+  The buttons are fixed squares spread by equal spacers, not weighted cells.
+  Weighted, each button was a fifth of the row wide — the ripple became an oval,
+  the first glyph sat well in from where the title starts and the last well in
+  from the capsule's edge. As squares the row runs flush from the title's left
+  edge to the capsule's right padding.
+  The spacers are empty FrameLayouts because a RemoteViews refuses to inflate
+  a plain View — the launcher shows "Couldn't add widget" instead.
+
+  Each glyph gets its own padding because the drawables don't share an optical
+  size: the heart and shuffle fill most of their 24-unit box, the transport
+  glyphs barely half of it. Equal padding made the heart look large and
+  previous/next look small; these numbers make them read as one set.
+
+  The root is transparent and not clickable, so a tap beside the capsule falls
+  through to the home screen; widget_pill is what opens the app.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <FrameLayout
+        android:id="@+id/widget_pill"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/widget_pill_height"
+        android:layout_gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/widget_pill_bg"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/widget_pill_background"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingLeft="7dp"
+            android:paddingRight="12dp">
+
+            <!--
+              The bitmap arrives already cut to a circle — see MediaWidgetPill. The
+              oval background is only what shows before it does.
+            -->
+            <ImageView
+                android:id="@+id/widget_art"
+                android:layout_width="@dimen/widget_pill_art"
+                android:layout_height="@dimen/widget_pill_art"
+                android:background="@drawable/widget_pill_art_placeholder"
+                android:contentDescription="@string/widget_artwork"
+                android:scaleType="fitXY" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="6dp"
+                android:layout_marginTop="4dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <!--
+                  Inset by the heart's own inset inside its button (9dp of padding
+                  plus the glyph's side bearing), so the text starts exactly above
+                  the heart rather than to the left of it.
+                -->
+                <TextView
+                    android:id="@+id/widget_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/sf_pro_display_semibold"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="16sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/widget_button_pill"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:id="@+id/widget_like"
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:background="@drawable/widget_transport_button"
+                        android:contentDescription="@string/like"
+                        android:padding="9dp"
+                        android:src="@drawable/ic_widget_heart" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:id="@+id/widget_previous"
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:background="@drawable/widget_transport_button"
+                        android:contentDescription="@string/widget_previous"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_widget_previous" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:id="@+id/widget_toggle"
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:background="@drawable/widget_transport_button"
+                        android:contentDescription="@string/widget_play"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_widget_play" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:id="@+id/widget_next"
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:background="@drawable/widget_transport_button"
+                        android:contentDescription="@string/widget_next"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_widget_next" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:id="@+id/widget_shuffle"
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:background="@drawable/widget_transport_button"
+                        android:contentDescription="@string/shuffle_off"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_widget_shuffle" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>

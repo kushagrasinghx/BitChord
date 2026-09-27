@@ -108,12 +108,36 @@ object Http {
     }
     // ---- End temporary instrumentation ----------------------------------
 
+    /**
+     * Adds the WebDAV Basic credential to requests aimed at the configured
+     * server, so both PROPFIND listings and ExoPlayer's media fetches (which
+     * share this client via OkHttpDataSource) authenticate the same way.
+     *
+     * Read off [com.music.bitchord.data.webdav.WebDavAuth] rather than prefs
+     * so the network layer never touches storage: AppSettings publishes here.
+     */
+    private val webDavInterceptor = okhttp3.Interceptor { chain ->
+        val request = chain.request()
+        if (request.header("Authorization") == null &&
+            com.music.bitchord.data.webdav.WebDavAuth.shouldAuthorize(request.url.host)
+        ) {
+            val header = com.music.bitchord.data.webdav.WebDavAuth.authHeader
+            if (!header.isNullOrBlank()) {
+                return@Interceptor chain.proceed(
+                    request.newBuilder().header("Authorization", header).build(),
+                )
+            }
+        }
+        chain.proceed(request)
+    }
+
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .dispatcher(Dispatcher().apply { maxRequestsPerHost = 16 })
         .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES))
+        .addInterceptor(webDavInterceptor)
         .apply { if (USAGE_LOGGING_ENABLED) addNetworkInterceptor(usageInterceptor) }
         .build()
 }

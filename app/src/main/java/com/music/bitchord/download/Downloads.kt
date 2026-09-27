@@ -3,16 +3,17 @@ package com.music.bitchord.download
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
-import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
+import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
@@ -30,8 +31,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
-import java.io.File
 import java.io.OutputStream
+import java.io.File
 import java.util.Locale
 
 /** Where a track is between "not on this device" and "on it". */
@@ -356,27 +357,45 @@ object Downloads {
      */
     fun rememberCollection(target: DownloadTarget, songs: List<Song>) {
         if (songs.isEmpty()) return
-        val existing = _collections.value[target.id]
         val ids = songs.map { it.videoId }.distinct()
-        val record = SavedCollection(
-            id = target.id,
-            title = target.title,
-            subtitle = target.subtitle,
-            thumbnailUrl = target.thumbnailUrl ?: existing?.thumbnailUrl,
-            playlist = target.playlist,
-            // A release fetched in pages can be downloaded twice from two
-            // different depths of the same page, so the two asks are merged
-            // rather than the second replacing the first — but the new order
-            // leads, since it is the one just seen on screen.
-            videoIds = (ids + (existing?.videoIds ?: emptyList())).distinct(),
-        )
-        recordCollections(_collections.value + (target.id to record))
+        recordCollections { current ->
+            val existing = current[target.id]
+            val record = SavedCollection(
+                id = target.id,
+                title = target.title,
+                subtitle = target.subtitle,
+                // Once the remote cover has been cached, do not replace it with
+                // the YouTube URL when the same collection is downloaded again.
+                thumbnailUrl = existing?.thumbnailUrl?.takeIf(::isLocalArtwork)
+                    ?: target.thumbnailUrl
+                    ?: existing?.thumbnailUrl,
+                playlist = target.playlist,
+                // A release fetched in pages can be downloaded twice from two
+                // different depths of the same page, so the two asks are merged
+                // rather than the second replacing the first — but the new order
+                // leads, since it is the one just seen on screen.
+                videoIds = (ids + (existing?.videoIds ?: emptyList())).distinct(),
+            )
+            current + (target.id to record)
+        }
     }
+
+    /** Replace a collection's remote artwork URL with its durable local copy. */
+    fun rememberCollectionArtwork(id: String, thumbnailUrl: String) {
+        recordCollections { current ->
+            val existing = current[id] ?: return@recordCollections current
+            if (existing.thumbnailUrl == thumbnailUrl) current
+            else current + (id to existing.copy(thumbnailUrl = thumbnailUrl))
+        }
+    }
+
+    private fun isLocalArtwork(url: String): Boolean =
+        url.startsWith("file:") || url.startsWith("content:")
 
     /** Drop a release from the record without touching the files under it. */
     fun forgetCollection(id: String) {
         if (id !in _collections.value) return
-        recordCollections(_collections.value - id)
+        recordCollections { it - id }
     }
 
     /**
@@ -487,14 +506,19 @@ object Downloads {
             .sortedBy { it.title.lowercase(Locale.ROOT) }
     }
 
-    private fun recordCollections(map: Map<String, SavedCollection>) {
-        _collections.value = map
-        if (::prefs.isInitialized) {
-            prefs.edit()
-                .putString(KEY_SAVED_COLLECTIONS, json.encodeToString(collectionSerializer, map))
-                .apply()
+    private fun recordCollections(update: (Map<String, SavedCollection>) -> Map<String, SavedCollection>) {
+        synchronized(collectionLock) {
+            val map = update(_collections.value)
+            _collections.value = map
+            if (::prefs.isInitialized) {
+                prefs.edit()
+                    .putString(KEY_SAVED_COLLECTIONS, json.encodeToString(collectionSerializer, map))
+                    .apply()
+            }
         }
     }
+
+    private val collectionLock = Any()
 
     /**
      * Record one file under every id it could be asked about.
@@ -505,8 +529,34 @@ object Downloads {
      * still know it is already on the device. A stale id costs nothing: the
      * verification in [savedUri] prunes whichever one stops resolving.
      */
-    private fun remember(asked: Song, fetched: Song, uri: Uri) {
+    private fun remember(
+        asked: Song,
+        fetched: Song,
+        uri: Uri,
+        downloadFormat: String? = null,
+        artworkUri: String? = null,
+    ) {
         val ids = setOf(asked.videoId, fetched.videoId)
+        // MediaStore supplies this for exported downloads, but app-private and
+        // legacy file:// downloads never pass through that index. Keep the
+        // creation time in our own record so "Date added" remains stable if a
+        // file is subsequently retagged or otherwise modified. An adopted file
+        // predating this field falls back to its last-modified time.
+        val fileModifiedMillis = uri.takeIf { it.scheme == "file" }
+            ?.path
+            ?.let(::File)
+            ?.lastModified()
+            ?.takeIf { it > 0 }
+        val existingAdded = ids.firstNotNullOfOrNull { _savedMetadata.value[it]?.dateAddedSeconds }
+        val dateAddedSeconds = resolvedDownloadDates(existingAdded, fileModifiedMillis).first
+            ?: System.currentTimeMillis() / 1_000
+        // HLS packages cannot carry MP4 tags. Point the app's own metadata at
+        // the cover saved beside their playlist so Downloads remains fully
+        // offline even though another player cannot open that package.
+        val savedArtwork = uri.takeIf { it.scheme == "file" && it.lastPathSegment == "playlist.m3u8" }
+            ?.path?.let(::File)?.parentFile
+            ?.listFiles()?.firstOrNull { it.nameWithoutExtension == "cover" }
+            ?.let(Uri::fromFile)?.toString()
         // Either row may be the one that knew the release: a music video is
         // swapped for the catalogue track before this, and it is the catalogue
         // row that usually carries the album — but a search hit tapped directly
@@ -517,19 +567,23 @@ object Downloads {
             videoId = asked.videoId,
             title = asked.title,
             artist = asked.artist,
-            thumbnailUrl = asked.thumbnailUrl,
+            thumbnailUrl = savedArtwork ?: artworkUri ?: asked.thumbnailUrl,
             durationText = asked.durationText,
             albumName = album,
             uri = uri.toString(),
+            downloadFormat = downloadFormat,
+            dateAddedSeconds = dateAddedSeconds,
         )
         val metaFetched = SavedSongMetadata(
             videoId = fetched.videoId,
             title = fetched.title,
             artist = fetched.artist,
-            thumbnailUrl = fetched.thumbnailUrl,
+            thumbnailUrl = savedArtwork ?: artworkUri ?: fetched.thumbnailUrl,
             durationText = fetched.durationText,
             albumName = album,
             uri = uri.toString(),
+            downloadFormat = downloadFormat,
+            dateAddedSeconds = dateAddedSeconds,
         )
         record(
             saved = { it + ids.associateWith { id -> uri.toString() } },
@@ -571,29 +625,126 @@ object Downloads {
         val metaMap = _savedMetadata.value
         val result = mutableListOf<Song>()
         val seenUris = mutableSetOf<String>()
+        val migratedAddedByUri = mutableMapOf<String, Long>()
+        val migratedFormatByUri = mutableMapOf<String, String>()
 
-        for ((videoId, meta) in metaMap) {
+        for ((_, meta) in metaMap) {
+            // A downloaded music video and the catalogue track it resolved to
+            // are deliberately recorded as two ids for one file. Verify and
+            // materialise that file once, not once per alias.
+            if (!seenUris.add(meta.uri)) continue
             val uri = meta.uri.toUri()
             if (DownloadStore.exists(context, uri)) {
-                if (seenUris.add(meta.uri)) {
-                    result.add(
-                        Song(
-                            videoId = meta.videoId,
-                            title = meta.title,
-                            artist = meta.artist,
-                            thumbnailUrl = meta.thumbnailUrl,
-                            durationText = meta.durationText,
-                            albumName = meta.albumName,
-                            localUri = meta.uri,
-                        )
-                    )
+                val fileModifiedMillis = uri.takeIf { it.scheme == "file" }
+                    ?.path
+                    ?.let(::File)
+                    ?.lastModified()
+                    ?.takeIf { it > 0 }
+                val (dateAddedSeconds, dateModifiedSeconds) = resolvedDownloadDates(
+                    persistedAddedSeconds = meta.dateAddedSeconds,
+                    fileModifiedMillis = fileModifiedMillis,
+                )
+                if (meta.dateAddedSeconds == null && dateAddedSeconds != null) {
+                    migratedAddedByUri[meta.uri] = dateAddedSeconds
                 }
+                val downloadFormat = meta.downloadFormat
+                    ?: legacyYoutubeDownloadBadge(context, uri)?.also {
+                        migratedFormatByUri[meta.uri] = it
+                    }
+                result.add(
+                    Song(
+                        videoId = meta.videoId,
+                        title = meta.title,
+                        artist = meta.artist,
+                        thumbnailUrl = meta.thumbnailUrl,
+                        durationText = meta.durationText,
+                        albumName = meta.albumName,
+                        localUri = meta.uri,
+                        downloadFormat = downloadFormat,
+                        localDateAddedSeconds = dateAddedSeconds,
+                        localDateModifiedSeconds = dateModifiedSeconds,
+                    )
+                )
             } else {
-                forget(videoId)
+                // Clear every id for the shared file. Leaving its second alias
+                // behind would make a later menu claim the missing download
+                // still exists.
+                metaMap.filterValues { it.uri == meta.uri }.keys.forEach(::forget)
             }
+        }
+        if (migratedAddedByUri.isNotEmpty() || migratedFormatByUri.isNotEmpty()) {
+            record(
+                saved = { it },
+                meta = { current ->
+                    current.mapValues { (_, saved) ->
+                        saved.copy(
+                            dateAddedSeconds = saved.dateAddedSeconds
+                                ?: migratedAddedByUri[saved.uri],
+                            downloadFormat = saved.downloadFormat
+                                ?: migratedFormatByUri[saved.uri],
+                        )
+                    }
+                },
+            )
         }
         result
     }
+
+    /**
+     * Returns the available files for one downloaded collection, in its saved
+     * running order.
+     *
+     * Opening one downloaded playlist used to call [getDownloadedSongs] and
+     * then build every saved collection merely to discard all but this one.
+     * That makes the cost of opening a ten-track playlist proportional to the
+     * listener's entire Downloads folder, including a ContentResolver open for
+     * every recorded id.  The collection record already says exactly which
+     * files can belong here, so only those files need to be verified.
+     */
+    suspend fun getCollectionSongs(context: Context, collectionId: String): List<Song> =
+        withContext(Dispatchers.IO) {
+            val record = _collections.value[collectionId] ?: return@withContext emptyList()
+            val metadata = _savedMetadata.value
+            val saved = _saved.value
+            val metadataByUri = metadata.values.associateBy { it.uri }
+            val seenUris = HashSet<String>()
+
+            record.videoIds.mapNotNull { videoId ->
+                val uriString = saved[videoId] ?: metadata[videoId]?.uri ?: return@mapNotNull null
+                if (!seenUris.add(uriString)) return@mapNotNull null
+                val uri = uriString.toUri()
+                if (!DownloadStore.exists(context, uri)) {
+                    // Both a video id and its catalogue replacement can name
+                    // this file. Prune every alias now that the one disk check
+                    // has established that the shared file is gone.
+                    saved.filterValues { it == uriString }.keys.forEach(::forget)
+                    return@mapNotNull null
+                }
+
+                val meta = metadata[videoId] ?: metadataByUri[uriString] ?: return@mapNotNull null
+                val fileModifiedMillis = uri.takeIf { it.scheme == "file" }
+                    ?.path
+                    ?.let(::File)
+                    ?.lastModified()
+                    ?.takeIf { it > 0 }
+                val (dateAddedSeconds, dateModifiedSeconds) = resolvedDownloadDates(
+                    persistedAddedSeconds = meta.dateAddedSeconds,
+                    fileModifiedMillis = fileModifiedMillis,
+                )
+                Song(
+                    videoId = videoId,
+                    title = meta.title,
+                    artist = meta.artist,
+                    thumbnailUrl = meta.thumbnailUrl,
+                    durationText = meta.durationText,
+                    albumName = meta.albumName,
+                    localUri = uriString,
+                    downloadFormat = meta.downloadFormat ?: legacyYoutubeDownloadBadge(context, uri),
+                    localDateAddedSeconds = dateAddedSeconds,
+                    localDateModifiedSeconds = dateModifiedSeconds,
+                )
+            }
+        }
 
     private fun String.toUri(): Uri = Uri.parse(this)
 
@@ -697,7 +848,12 @@ object Downloads {
      * Everything that has to be known before a byte can be asked for, and
      * nothing that touches the destination.
      *
-     * Split out of [run] so it can be done *ahead* of time — see [peekNext].
+     * Split out of [run] so it *can* be done ahead of time. Nothing does yet —
+     * [DownloadService] still calls it inline, and the overlap that used to be
+     * the point of the split is bought by running four workers instead. Kept
+     * apart anyway, because the split is what makes the expensive half
+     * separately measurable and separately cancellable.
+     *
      * On a lossless queue this is the expensive half by a wide margin: a module
      * search fans out across a whole index and then a stream endpoint is
      * opened, tens of seconds against the few the transfer itself takes on a
@@ -710,11 +866,10 @@ object Downloads {
      * before its turn — and a preparation is not a download.
      */
     internal suspend fun prepare(context: Context, song: Song): Prepared = withContext(Dispatchers.IO) {
-        // A music-video entry is swapped for the catalogue track behind it,
-        // the same way queueing one is. It matters more here: the video's
-        // title is where "(Official Video)" lives, and that would be baked
-        // into a filename this app never gets to correct.
-        val track = runCatching { YtMusicRepository.resolveAudio(song) }.getOrDefault(song)
+        // Downloads preserve the exact item the listener picked. Catalogue
+        // matching is a manual playback action and must not silently change a
+        // download or its filename.
+        val track = song
         // Read once, here, for the whole of this track. Both routes below
         // and the re-resolve inside [Downloader.fetch] have to agree on
         // which rung they are fetching, and re-reading the setting per call
@@ -785,6 +940,7 @@ object Downloads {
 
         var pending: DownloadStore.Pending? = null
         var lyrics: Deferred<LyricsTag.Embeddable?>? = null
+        var artwork: Deferred<MediaTagger.Artwork?>? = null
         try {
             coroutineScope {
                 // Started before the transfer rather than after it, so four lyric
@@ -800,8 +956,11 @@ object Downloads {
                 // cancellation, and that contract is load-bearing here: this is a
                 // plain child of the scope, so a failure inside it would cancel the
                 // download it was only meant to decorate.
-                if (MediaTagger.carriesTags(route.extension)) {
+                // HLS has no tag container, but its private offline package has
+                // sidecars for exactly the same lyrics and full-resolution cover.
+                if (route.taggable && (route.offlineHls != null || MediaTagger.carriesTags(route.extension))) {
                     lyrics = async { LyricsTag.forTrack(track) }
+                    artwork = async { MediaTagger.artworkFor(context, track) }
                 }
 
                 val name = DownloadStore.fileNameFor(track, route.extension)
@@ -811,6 +970,41 @@ object Downloads {
                     remember(song, track, alreadyThere)
                     DownloadSession.done(id)
                     clear(id)
+                    return@coroutineScope
+                }
+
+                val manifest = route.offlineHls
+                if (manifest != null) {
+                    val onSegment: (Long, Long) -> Unit = { written, total ->
+                        val fraction = written.toFloat() / total
+                        _active.update { it + (id to DownloadState.Running(fraction)) }
+                        DownloadSession.running(id, fraction)
+                    }
+                    val savedUri = if (manifest.dash) {
+                        OfflineDash.save(
+                            context = context,
+                            id = id,
+                            url = manifest.url,
+                            headers = manifest.headers,
+                            onProgress = onSegment,
+                            lyrics = lyrics?.await(),
+                            artwork = artwork?.await(),
+                        )
+                    } else {
+                        OfflineHls.save(
+                            context = context,
+                            id = id,
+                            url = manifest.url,
+                            headers = manifest.headers,
+                            onProgress = onSegment,
+                            lyrics = lyrics?.await(),
+                            artwork = artwork?.await(),
+                        )
+                    }
+                    remember(song, track, savedUri, route.downloadFormat)
+                    DownloadSession.done(id)
+                    clear(id)
+                    Log.d(TAG, "saved offline ${if (manifest.dash) "DASH" else "HLS"} package for $name")
                     return@coroutineScope
                 }
 
@@ -824,10 +1018,14 @@ object Downloads {
                     }
                 }
                 val words = lyrics?.await()
+                val cover = artwork?.await()
+                // Publish only after metadata is part of the file. This keeps
+                // concurrent album workers from exposing untagged tracks.
+                MediaTagger.embed(context, destination.tagUri, track, route.extension, words, cover)
+                val artworkUri = MediaTagger.persistArtwork(context, track.thumbnailUrl, cover)
                 val savedUri = destination.commit()
                 pending = null
-                MediaTagger.embed(context, savedUri, track, route.extension, words)
-                remember(song, track, savedUri)
+                remember(song, track, savedUri, route.downloadFormat, artworkUri)
                 DownloadSession.done(id)
                 clear(id)
                 Log.d(TAG, "saved $name")
@@ -842,6 +1040,7 @@ object Downloads {
             // so an unwaited job would hold the whole queue up for the length of
             // a lyrics search per already-downloaded track.
             lyrics?.cancel()
+            artwork?.cancel()
         }
     }
 
@@ -860,7 +1059,22 @@ object Downloads {
         val mimeType: String,
         /** For the log line, so a download's provenance is on the record. */
         val describe: String,
+        /** Short premium-rendition badge shown only in BitChord's Downloads list. */
+        val downloadFormat: String? = null,
+        val taggable: Boolean = true,
+        val offlineHls: Manifest? = null,
         val write: suspend (OutputStream, (written: Long, total: Long) -> Unit) -> Unit,
+    )
+
+    /**
+     * A stream that arrived as an index rather than as audio, and which of the
+     * two index formats it is. Both are saved into the same offline package —
+     * see [OfflineDash] — so [dash] only decides who does the parsing.
+     */
+    internal class Manifest(
+        val url: String,
+        val headers: Map<String, String>,
+        val dash: Boolean = false,
     )
 
     /**
@@ -877,22 +1091,46 @@ object Downloads {
      */
     private suspend fun routeFor(track: Song, quality: DownloadQuality): Route {
         fromSources(track, quality)?.let { (stream, storable) ->
+            // A manifest is an index, not audio. Whichever kind it is, fetching
+            // it as a file writes the index into something named `.flac` —
+            // which is exactly what a `.mpd` did until [OfflineDash] existed:
+            // a 2.7 KB download that reported success and could never play.
+            // Read off the URL rather than off `stream.format`, which describes
+            // the audio inside and says nothing about the envelope.
+            val dash = OfflineDash.handles(stream.url)
+            val hls = stream.url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
+            val packaged = hls || dash
+            // A package is only useful inside BitChord. When the user
+            // explicitly exports files for another player, decline it here and
+            // let the ordinary portable-file fallback resolve instead.
+            if (packaged && AppSettings.exportDownloads.value) return@let
             return Route(
-                extension = storable.extension,
-                mimeType = storable.mimeType,
+                // DASH is saved *as* HLS — see [OfflineDash] for why — so both
+                // kinds land as the same package and are named for what was
+                // written rather than for what was fetched.
+                extension = if (packaged) "m3u8" else storable.extension,
+                mimeType = if (packaged) "application/vnd.apple.mpegurl" else storable.mimeType,
                 describe = stream.format.summary,
+                downloadFormat = stream.format.downloadBadge(),
+                taggable = true,
+                offlineHls = Manifest(stream.url, stream.headers, dash = dash).takeIf { packaged },
                 write = { sink, onProgress ->
                     Downloader.fetchDirect(stream.url, stream.headers, sink, onProgress)
                 },
             )
         }
-        val stream = StreamResolver.resolveForDownload(track.videoId, quality.maxKbps)
+        // MediaStore.Audio refuses audio/webm on affected Android versions.
+        // Keep Opus for app-private downloads, but pin exported downloads to
+        // AAC-in-MP4 for both the initial resolve and any mid-transfer retry.
+        val requireM4a = AppSettings.exportDownloads.value
+        val stream = StreamResolver.resolveForDownload(track.videoId, quality.maxKbps, requireM4a)
         return Route(
             extension = stream.downloadExtension,
             mimeType = stream.downloadMimeType,
             describe = "${stream.kbps}kbps ${stream.mimeType}",
+            downloadFormat = youtubeDownloadBadge(stream.downloadExtension, stream.kbps),
             write = { sink, onProgress ->
-                Downloader.fetch(track.videoId, stream, quality.maxKbps, sink, onProgress)
+                Downloader.fetch(track.videoId, stream, quality.maxKbps, requireM4a, sink, onProgress)
             },
         )
     }
@@ -927,6 +1165,13 @@ object Downloads {
         track: Song,
         quality: DownloadQuality,
     ): Pair<SourceStream, DownloadStore.Storable>? {
+        // Wrapped so the two ways this can come back empty stay apart in the
+        // log. `withTimeoutOrNull` collapses them into one null, and the
+        // difference is the whole diagnosis: "no enabled source holds this
+        // recording" is a fact about the track, and "the clock ran out" is a
+        // fact about [SOURCE_LOOKUP_MS] — which is what silently sent a whole
+        // Lossless queue to YouTube's AAC while the log said nothing at all.
+        var timedOut = true
         val stream = withTimeoutOrNull(SOURCE_LOOKUP_MS) {
             try {
                 SourceResolver.forDownload(
@@ -938,8 +1183,18 @@ object Downloads {
             } catch (e: Exception) {
                 Log.w(TAG, "source lookup failed for ${track.videoId}: ${e.message}")
                 null
+            }.also { timedOut = false }
+        }
+        if (stream == null) {
+            if (timedOut) {
+                Log.w(
+                    TAG,
+                    "source lookup for ${track.videoId} ran past ${SOURCE_LOOKUP_MS}ms; " +
+                        "downloading it from YouTube instead of ${quality.label}",
+                )
             }
-        } ?: return null
+            return null
+        }
 
         val storable = DownloadStore.storable(stream.format.codec)
         if (storable == null) {
@@ -981,18 +1236,39 @@ object Downloads {
      * How long the source lookup may hold a download up before it goes to
      * YouTube regardless.
      *
-     * Matched to `PlaybackService.SUBSTITUTE_TIMEOUT_MS`, which bounds the same
-     * search on the playback side. Generous, because nothing is waiting on the
-     * first note here and a found FLAC is worth some patience — but finite,
-     * because the alternative is the queue stalled per track on modules that
-     * simply do not have it.
+     * **This has to clear `ModuleSource.SEARCH_PATIENT_MS`, and for a long time
+     * it didn't.** It was 20s against a patient window of 25s, which made the
+     * arithmetic decide the outcome: [SourceResolver.forDownload] asks every
+     * source with `waitForAll = true`, that flag buys each module the full 25s
+     * patient window, and this timeout fired five seconds before the window it
+     * was waiting on could even close. Every track whose modules were not
+     * unusually quick came back null — not "no source has it", but "nobody was
+     * asked for long enough" — and null here means YouTube. So a Lossless
+     * setting reliably produced YouTube's AAC, and it looked like a bulk-only
+     * fault because it *was* one: a single download runs with the engines to
+     * itself and lands inside 20s, while four workers sharing three interpreter
+     * engines per module (`QuickJsExecutor.ENGINES_PER_MODULE`) do not.
+     *
+     * Sized off what it actually bounds, therefore, rather than off the playback
+     * timeout it used to be matched to. One patient search is 25s, the matcher
+     * offers up to two queries (`TrackMatcher.queries`), and [streamBest] may
+     * then open up to `STREAM_ATTEMPTS` stream endpoints on the winner. Sixty
+     * seconds covers a slow-but-working index; it is still finite, because the
+     * alternative is the queue stalled per track on modules that simply do not
+     * have the recording.
+     *
+     * The comparison with playback is no longer the right one and is worth
+     * stating plainly: `PlaybackService.SUBSTITUTE_TIMEOUT_MS` is short because
+     * a listener is staring at a paused player. Nothing is waiting here, the
+     * answer becomes a permanent file, and re-fetching it later costs the whole
+     * download again.
      *
      * It bounds the lossy half of that lookup too, which is why
      * [SourceResolver.forDownload] runs both halves at once rather than in
      * turn: a fast source queued behind a slow one would spend this budget
      * waiting for a module and never be asked.
      */
-    private const val SOURCE_LOOKUP_MS = 20_000L
+    private const val SOURCE_LOOKUP_MS = 60_000L
 
     /**
      * The extensions a file in Music can carry that say, on their own, that a
@@ -1040,7 +1316,62 @@ internal data class SavedSongMetadata(
      */
     val albumName: String? = null,
     val uri: String,
+    val downloadFormat: String? = null,
+    /** Stable creation time for downloads that MediaStore does not index. */
+    val dateAddedSeconds: Long? = null,
 )
+
+/**
+ * Dates for a downloaded file-backed row.
+ *
+ * Old metadata has no persisted creation time, so the file timestamp is the
+ * only honest migration value. From then on the persisted value stays fixed,
+ * while modified time continues to follow the file on disk.
+ */
+internal fun resolvedDownloadDates(
+    persistedAddedSeconds: Long?,
+    fileModifiedMillis: Long?,
+): Pair<Long?, Long?> {
+    val modifiedSeconds = fileModifiedMillis?.takeIf { it > 0 }?.div(1_000)
+    return (persistedAddedSeconds ?: modifiedSeconds) to modifiedSeconds
+}
+
+/** Premium source labels used in BitChord's Downloads list. */
+private fun StreamFormat.downloadBadge(): String? = when {
+    isDolbyAtmos -> "DOLBY"
+    codec.equals("flac", ignoreCase = true) || codec.equals("x-flac", ignoreCase = true) -> "FLAC"
+    else -> null
+}
+
+/**
+ * YouTube does not expose a named quality tier once the resolved file has been
+ * saved, so retain the concrete codec/container choice and bitrate alongside
+ * the download. This is display metadata only: the bytes are still the exact
+ * WebM/Opus or MP4/AAC rendition returned by YouTube.
+ */
+internal fun youtubeDownloadBadge(extension: String, kbps: Int): String? {
+    if (kbps <= 0) return null
+    val codec = if (extension.equals("m4a", ignoreCase = true)) "AAC" else "OPUS"
+    return "$codec · $kbps kbps"
+}
+
+/** Recover display metadata for private YouTube downloads made before it was persisted. */
+private fun legacyYoutubeDownloadBadge(context: Context, uri: Uri): String? {
+    if (!uri.lastPathSegment.orEmpty().substringBefore('?').endsWith(".webm", ignoreCase = true)) {
+        return null
+    }
+    val bitsPerSecond = runCatching {
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(context, uri)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toLongOrNull()
+        } finally {
+            retriever.release()
+        }
+    }.getOrNull() ?: return null
+    val kbps = ((bitsPerSecond + 500L) / 1_000L).toInt()
+    return youtubeDownloadBadge("webm", kbps)
+}
 
 /**
  * What a batch download was asked for as a whole.

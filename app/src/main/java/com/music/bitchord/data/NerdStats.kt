@@ -2,17 +2,22 @@ package com.music.bitchord.data
 
 import com.music.bitchord.data.sources.StreamFormat
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * What the audio decoder is actually being fed, for "stats for nerds".
  *
- * Every figure here is measured rather than inferred. Codec, sample rate and
- * channel count come from the `Format` the audio renderer was configured with —
- * the decoder's own view of the stream. Bitrate is the one a container usually
- * withholds, so it falls back to the bitrate of the stream the resolver
- * genuinely chose for that track. Anything the player hasn't reported stays
- * null and is left out of the display instead of being guessed at.
+ * Every figure here is measured rather than inferred, and every label derived
+ * from them — "High Quality", "Lossless", "Hi-Res Lossless" — is decided on
+ * the measurements alone. Codec, sample rate, channel count and depth come
+ * from the `Format` the audio renderer was configured with, topped up from the
+ * stream's own header where its container left them blank; see
+ * `PlaybackService.measure`. Bitrate is the one a container usually withholds,
+ * so a lossless stream reports what its samples decode to and a lossy one
+ * falls back to the bitrate of the stream the resolver genuinely chose for
+ * that track. Anything the player hasn't reported stays null and is left out
+ * of the display instead of being guessed at.
  *
  * [claimed] is the one figure here that is *not* measured, and is kept apart
  * from the rest for that reason: it is what a source said it was about to send.
@@ -32,6 +37,8 @@ object NerdStats {
         val bitDepth: Int? = null,
         /** What the source said it would serve, when it came from one that says. */
         val claimed: StreamFormat? = null,
+        /** Authoritative source/provider that supplied this stream. */
+        val sourceName: String? = null,
     ) {
         /**
          * Whether what arrived is measurably worse than what was promised.
@@ -63,17 +70,22 @@ object NerdStats {
          * onto YouTube's Opus and the badge went on reading "Lossless" over
          * it, because the claim outlived the stream that made it.
          *
-         * So the decoder gets the last word whenever it has said anything.
-         * The claim is only consulted before the renderer has been
-         * configured — the gap between a source answering and the first audio
-         * frame — where it is the only evidence there is, and where a wrong
-         * answer lasts a second rather than a song.
+         * So the decoder gets the only word. The claim used to stand in
+         * before the renderer had been configured, on the grounds that a
+         * wrong answer there lasts a second rather than a song; it no longer
+         * does. A second of a badge that turns out to be wrong is still a
+         * badge that was wrong, [current] is nulled across a track change so
+         * that gap shows nothing rather than the previous track's figures,
+         * and "measured or not stated" is a rule that can be read off the
+         * screen — "measured, except briefly, when it is whatever the module
+         * said" is not.
          */
         val isLossless: Boolean
-            get() = when {
-                mimeType != null -> isLosslessMime(mimeType)
-                else -> claimed?.isLossless == true
-            }
+            get() = isLosslessMime(mimeType)
+
+        /** Dolby Atmos decoded as E-AC-3 JOC; deliberately distinct from lossless. */
+        val isDolbyAtmos: Boolean
+            get() = isDolbyAtmosMime(mimeType)
 
         /**
          * Whether this is better than CD quality — the line Tidal, Qobuz and
@@ -98,10 +110,27 @@ object NerdStats {
          * lossless anywhere, because it isn't.
          *
          * Decided on the bitrate rather than on which source served it: a
-         * 256kbps stream is a 256kbps stream wherever it came from.
+         * 256kbps stream is a 256kbps stream wherever it came from — and on
+         * [bitrateKbps] rather than on [claimed], for the reason [isLossless]
+         * gives at length. A module that offers a LOSSLESS tier and then
+         * serves SoundCloud at 128kbps is the ordinary case here, not the
+         * exotic one.
          */
         val isHiQuality: Boolean
-            get() = !isLossless && (bitrateKbps ?: claimed?.kbps ?: 0) >= HI_QUALITY_KBPS
+            get() = !isLossless && (bitrateKbps ?: 0) >= HI_QUALITY_KBPS
+
+        /**
+         * Whether this is a medium quality stream (e.g. YouTube Opus ~160kbps, AAC 128-192kbps).
+         * Sits strictly between low-quality (<= 80kbps) and high-quality (>= 256kbps).
+         */
+        val isMediumQuality: Boolean
+            get() = !isLossless && (bitrateKbps ?: 0) in (LOW_QUALITY_MAX_KBPS + 1) until HI_QUALITY_KBPS
+
+        /**
+         * Whether this is a low quality stream (e.g. YouTube Opus 50-70kbps).
+         */
+        val isLowQuality: Boolean
+            get() = !isLossless && (bitrateKbps ?: 0) in 1..LOW_QUALITY_MAX_KBPS
     }
 
     /**
@@ -126,6 +155,14 @@ object NerdStats {
     fun isLosslessMime(mimeType: String?): Boolean =
         mimeType != null && LOSSLESS_CODEC_SUFFIXES.any { mimeType.endsWith(it) }
 
+    fun isDolbyAtmosMime(mimeType: String?): Boolean =
+        mimeType != null && (mimeType.endsWith("eac3-joc") || mimeType.endsWith("eac3"))
+
+    /**
+     * The upper bound in kbps for a low-bitrate / data-saver lossy stream.
+     */
+    const val LOW_QUALITY_MAX_KBPS = 80
+
     /**
      * The bitrate a lossy stream has to reach to be worth calling out.
      *
@@ -133,7 +170,24 @@ object NerdStats {
      * around 160, does not — which is the distinction the label exists to
      * draw.
      */
-    private const val HI_QUALITY_KBPS = 256
+    const val HI_QUALITY_KBPS = 256
+
+    fun codecLabel(mimeType: String?): String? {
+        if (mimeType == null) return null
+        return when {
+            mimeType.endsWith("flac", ignoreCase = true) -> "FLAC"
+            mimeType.endsWith("opus", ignoreCase = true) -> "Opus"
+            mimeType.endsWith("mp4a-latm", ignoreCase = true) || mimeType.endsWith("aac", ignoreCase = true) -> "AAC"
+            mimeType.endsWith("mpeg", ignoreCase = true) || mimeType.endsWith("mp3", ignoreCase = true) -> "MP3"
+            mimeType.endsWith("alac", ignoreCase = true) -> "ALAC"
+            mimeType.endsWith("raw", ignoreCase = true) -> "PCM"
+            mimeType.endsWith("vorbis", ignoreCase = true) -> "Vorbis"
+            mimeType.endsWith("eac3-joc", ignoreCase = true) -> "E-AC-3 JOC"
+            mimeType.endsWith("eac3", ignoreCase = true) -> "E-AC-3"
+            mimeType.contains("/") -> mimeType.substringAfterLast("/").uppercase()
+            else -> mimeType.uppercase()
+        }
+    }
 
     val current = MutableStateFlow<Snapshot?>(null)
 
@@ -150,11 +204,20 @@ object NerdStats {
     val racingLossless = MutableStateFlow<Set<String>>(emptySet())
 
     fun onLosslessRaceStart(videoId: String) {
-        racingLossless.value += videoId
+        // Upgrade lookups also run for read-ahead items, so two loader threads
+        // can arrive here together. Assigning `value += videoId` is a
+        // read/modify/write sequence: both threads can read the same old set and
+        // the last assignment then erases the other track's marker. That left
+        // the audible track upgrading in the background while Now Playing fell
+        // through to its plain "High quality" label. StateFlow.update retries
+        // the transform atomically when another writer wins that race.
+        racingLossless.update { it + videoId }
     }
 
     fun onLosslessRaceEnd(videoId: String) {
-        racingLossless.value -= videoId
+        // Atomic for the same reason as start: completing one read-ahead lookup
+        // must not discard a concurrently-started lookup for another track.
+        racingLossless.update { it - videoId }
     }
 
     /**
@@ -169,18 +232,45 @@ object NerdStats {
     /** As [picked], for the richer format a non-YouTube source can state. */
     private val declared = ConcurrentHashMap<String, StreamFormat>()
 
-    fun onStreamPicked(videoId: String, kbps: Int) {
-        if (kbps <= 0) return
-        // Enough for the queue in hand; this is a lookup, not a store.
-        if (picked.size >= MAX_REMEMBERED) picked.clear()
-        picked[videoId] = kbps
+    /** Authoritative source name that supplied the stream, keyed by media/track id. */
+    private val sources = ConcurrentHashMap<String, String>()
+
+    fun onStreamPicked(videoId: String, kbps: Int, source: String? = null) {
+        if (kbps > 0) {
+            // Enough for the queue in hand; this is a lookup, not a store.
+            if (picked.size >= MAX_REMEMBERED) picked.clear()
+            picked[videoId] = kbps
+        }
+        if (!source.isNullOrBlank()) {
+            if (sources.size >= MAX_REMEMBERED) sources.clear()
+            sources[videoId] = source
+        }
     }
 
     /** Recorded as a source hands over a stream, keyed by that source's own track id. */
-    fun onSourceStream(trackId: String?, format: StreamFormat) {
+    fun onSourceStream(trackId: String?, format: StreamFormat, source: String? = null) {
         if (trackId.isNullOrBlank()) return
         if (declared.size >= MAX_REMEMBERED) declared.clear()
         declared[trackId] = format
+        if (!source.isNullOrBlank()) {
+            if (sources.size >= MAX_REMEMBERED) sources.clear()
+            sources[trackId] = source
+        }
+    }
+
+    fun recordSource(mediaId: String?, source: String?) {
+        if (mediaId.isNullOrBlank() || source.isNullOrBlank()) return
+        if (sources.size >= MAX_REMEMBERED) sources.clear()
+        sources[mediaId] = source
+    }
+
+    fun exactSourceFor(mediaId: String?): String? = mediaId?.let { sources[it] }
+
+    fun sourceFor(mediaId: String?): String? {
+        val key = mediaId ?: return null
+        return sources[key]
+            ?: com.music.bitchord.data.sources.SourceRegistry.parseTrackKey(key)
+                ?.second?.let { sources[it] }
     }
 
     fun pickedBitrateKbps(videoId: String?): Int? = videoId?.let { picked[it] }
@@ -196,7 +286,10 @@ object NerdStats {
      * FLAC swap leaves the "Lossless" badge lit over plain Opus.
      */
     fun clearDeclared(trackId: String?) {
-        if (trackId != null) declared.remove(trackId)
+        if (trackId != null) {
+            declared.remove(trackId)
+            sources.remove(trackId)
+        }
     }
 
     /**
@@ -247,6 +340,7 @@ object NerdStats {
         racingLossless.value = emptySet()
         picked.clear()
         declared.clear()
+        sources.clear()
     }
 
     private const val MAX_REMEMBERED = 64

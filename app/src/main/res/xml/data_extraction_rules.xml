@@ -1,19 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Backup and device-transfer rules for Android 12 and newer; see
+   backup_rules.xml for why these files are excluded.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="bitchord_auth.xml" />
+        <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
+        <exclude domain="sharedpref" path="bitchord_sources.xml" />
+        <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="bitchord_auth.xml" />
+        <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
+        <exclude domain="sharedpref" path="bitchord_sources.xml" />
+        <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
     </device-transfer>
-    -->
 </data-extraction-rules>

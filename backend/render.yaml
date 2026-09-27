@@ -1,0 +1,40 @@
+# Render blueprint for BitChord Listen Together (Go backend)
+#
+# Deploy this service manually on Render Dashboard (Recommended):
+# - New -> Web Service, connect repo
+# - Root Directory: backend
+# - Runtime: Go
+# - Build Command: go build -o server .
+# - Start Command: ./server
+# - Health Check Path: /healthz
+# - Plan: Free
+# - Region: Singapore (or closest to you)
+# - Instances: 1 (Parties live in memory, so keep to 1 instance)
+
+services:
+  - type: web
+    name: bitchord-listen-together
+    runtime: go
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: go build -o server .
+    startCommand: ./server
+    healthCheckPath: /healthz
+    numInstances: 1
+    envVars:
+      - key: JAM_MAX_MEMBERS
+        value: "5"
+      - key: JAM_STATE_HEARTBEAT_MS
+        value: "5000"
+      - key: JAM_MAX_UPCOMING_QUEUE
+        value: "25"
+      - key: JAM_MAX_PARTIES
+        value: "50"
+      - key: JAM_CREATE_RATE_PER_MINUTE
+        value: "2"
+      - key: JAM_CONNECTION_IDLE_MS
+        value: "900000"
+      # Render terminates TLS and supplies the real client IP in X-Forwarded-For.
+      - key: JAM_TRUST_PROXY
+        value: "true"

@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -37,7 +39,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import java.util.Locale
@@ -50,16 +51,25 @@ val SUPPORTED_LANGUAGES = listOf(
     AppLanguage("es", R.string.spanish),
     AppLanguage("fr", R.string.french),
     AppLanguage("de", R.string.german),
+    AppLanguage("pl", R.string.polish),
     AppLanguage("pt", R.string.portuguese),
     AppLanguage("id", R.string.indonesian),
     AppLanguage("hi", R.string.hindi),
     AppLanguage("ja", R.string.japanese),
     AppLanguage("ru", R.string.russian),
     AppLanguage("zh", R.string.chinese),
+    AppLanguage("he", R.string.hebrew),
+    AppLanguage("it", R.string.italian),
+    AppLanguage("tr", R.string.turkish),
+    AppLanguage("th", R.string.thai),
+    AppLanguage("vi", R.string.vietnamese),
 )
 
 fun languageDisplayNameRes(languageTag: String): Int =
     SUPPORTED_LANGUAGES.firstOrNull { it.tag == languageTag }?.nameRes ?: R.string.english
+
+/** How much of the screen the list may take before it scrolls inside the card. */
+private val LANGUAGE_LIST_MAX_HEIGHT = 340.dp
 
 /**
  * Same frosted iOS alert as [LyricsSourcesDialog], but single-select rather
@@ -98,7 +108,7 @@ fun AppLanguageDialog(
                     if (reduceDynamicBlur) {
                         Modifier.background(MaterialTheme.colorScheme.surface)
                     } else {
-                        Modifier.hazeEffect(
+                        Modifier.optimizedHazeEffect(
                             state = hazeState,
                             style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
                         )
@@ -139,18 +149,24 @@ fun AppLanguageDialog(
                 )
             }
 
-            SUPPORTED_LANGUAGES.forEach { language ->
-                AlertRule()
-                LanguageRow(
-                    language = language,
-                    selected = language.tag == currentLanguage,
-                    onClick = {
-                        AppCompatDelegate.setApplicationLocales(
-                            LocaleListCompat.forLanguageTags(language.tag),
-                        )
-                        onDismiss()
-                    },
-                )
+            // Capped and scrolled rather than laid out at full height, same as
+            // [TranslationLanguageDialog] — sixteen rows is short enough not
+            // to need that dialog's filter field, but still taller than the
+            // card should get to stay centred on a phone.
+            LazyColumn(modifier = Modifier.heightIn(max = LANGUAGE_LIST_MAX_HEIGHT)) {
+                items(SUPPORTED_LANGUAGES, key = { it.tag }) { language ->
+                    AlertRule()
+                    LanguageRow(
+                        language = language,
+                        selected = language.tag == currentLanguage,
+                        onClick = {
+                            AppCompatDelegate.setApplicationLocales(
+                                LocaleListCompat.forLanguageTags(language.tag),
+                            )
+                            onDismiss()
+                        },
+                    )
+                }
             }
         }
     }

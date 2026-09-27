@@ -9,6 +9,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.TrackAnalysisState
@@ -19,6 +20,7 @@ import com.music.bitchord.playback.smart.TransitionStyle
 import com.music.bitchord.playback.smart.TransitionTrackInfo
 import com.music.bitchord.playback.smart.planTransition
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -145,6 +147,30 @@ class CrossfadeController(
      * Only feeds the stats line — nothing about a transition waits on it.
      */
     private val analysisRunningFor: (MediaItem) -> Boolean = { false },
+    /**
+     * The track about to be loaded onto the standby player, announced at the
+     * moment [begin] arms rather than at the handoff.
+     *
+     * The timing is the entire point. Anything keyed to the *incoming* track
+     * that lives on the standby player's audio path has to be set before that
+     * player renders a frame, and the handoff happens after the incoming track
+     * is already audible. Loudness normalization is the case that motivated
+     * it: the standby's processor has to be told which song it is about to
+     * level, or it spends the first half of the blend applying the outgoing
+     * track's gain to the incoming one.
+     */
+    private val onArmIncoming: (MediaItem) -> Unit = {},
+    /**
+     * True while the service is mid-swap between two versions/cuts of the
+     * current track. That swap fades across the same active/standby pair
+     * this controller does, so the two must never run at once — arming a
+     * transition here would tear the standby player away from the version
+     * swap that already owns it, and the other direction is guarded
+     * symmetrically where the swap starts. Checked once at the top of
+     * [considerAutoTransition] rather than the pieces inside it, since
+     * [Phase.IDLE] is the only phase that can still be preempted for free.
+     */
+    private val versionSwapActive: () -> Boolean = { false },
 ) {
 
     private enum class Phase {
@@ -160,6 +186,14 @@ class CrossfadeController(
 
         /** Incoming track rising on one player, outgoing falling on the other. */
         FADING,
+
+        /**
+         * The sleep timer is due at this track's end: the outgoing track is
+         * being faded to silence on its own, over the same span an ordinary
+         * transition would have used, but nothing is being loaded to follow
+         * it. See [beginSleepFadeOut].
+         */
+        SLEEP_FADE,
 
         /** Something interrupted the fade; the outgoing track is being ramped away. */
         BAILING,
@@ -197,6 +231,7 @@ class CrossfadeController(
 
     /** Which player this class's own listener is currently attached to. */
     private var listeningTo: ExoPlayer? = null
+    private var tickerJob: Job? = null
 
     /** Length of the transition in flight, in ms. Fixed when it begins. */
     private var fadeMs = 0L
@@ -264,6 +299,26 @@ class CrossfadeController(
     private var fadeStartedAt = 0L
     private var bailStartedAt = 0L
     private var armDeadline = 0L
+
+    /** Length of the fade-out driven by [Phase.SLEEP_FADE], in ms. Fixed when it begins. */
+    private var sleepFadeMs = 0L
+
+    /**
+     * Where the outgoing track was when [beginSleepFadeOut] started, in its
+     * own position ms. Progress is measured from here rather than off a
+     * clock, for the same reason [driveFade] measures off the incoming
+     * track's position: a pause should park the fade-out where it stands,
+     * not keep counting down underneath a silent, stopped player.
+     */
+    private var sleepFadeStartPositionMs = 0L
+
+    /**
+     * The outgoing track's own volume when [beginSleepFadeOut] started, so a
+     * fade-out that begins mid-ramp (rare, but a plan can be replanned right up
+     * to the moment it arms) scales from where the volume actually is rather
+     * than assuming it started at full.
+     */
+    private var sleepFadeStartGain = 1f
 
     /**
      * When the last transition finished, from [SystemClock.elapsedRealtime], or
@@ -358,7 +413,8 @@ class CrossfadeController(
 
     fun start() {
         listenTo(active())
-        scope.launch {
+        tickerJob?.cancel()
+        tickerJob = scope.launch {
             while (isActive) {
                 tick()
                 delay(
@@ -366,6 +422,7 @@ class CrossfadeController(
                         Phase.IDLE -> IDLE_STEP_MS
                         Phase.ARMING -> ARM_STEP_MS
                         Phase.FADING -> FADE_STEP_MS
+                        Phase.SLEEP_FADE -> FADE_STEP_MS
                         Phase.BAILING -> BAIL_STEP_MS
                     },
                 )
@@ -374,6 +431,8 @@ class CrossfadeController(
     }
 
     fun release() {
+        tickerJob?.cancel()
+        tickerJob = null
         listeningTo?.removeListener(listener)
         listeningTo = null
         active().volume = 1f
@@ -427,6 +486,7 @@ class CrossfadeController(
             Phase.IDLE -> considerAutoTransition()
             Phase.ARMING -> driveArming()
             Phase.FADING -> driveFade()
+            Phase.SLEEP_FADE -> driveSleepFade()
             Phase.BAILING -> driveBail()
         }
     }
@@ -435,6 +495,35 @@ class CrossfadeController(
     private fun considerAutoTransition() {
         val player = active()
         if (!player.isPlaying) return
+        // Not while a version swap owns the standby player — see
+        // [versionSwapActive]. Nothing to clean up on the way out unlike the
+        // party case below: a version swap is a between-tracks affair on the
+        // same item, so the transition window and mix flag it would have
+        // armed still describe the next track correctly once the swap lets go.
+        if (versionSwapActive()) return
+        // Not while listening together. A blend starts the next track early, by
+        // a length this device decides for itself from its own copy of the
+        // audio — so in a party every member would begin the next song at a
+        // different moment, and each would then be dragged back by a correcting
+        // seek. The transition a party shares is the plain one: whoever reaches
+        // the end first publishes the change and everybody moves together. See
+        // [PartySync].
+        //
+        // The analysis behind it stops too, including a pass already running —
+        // see [com.music.bitchord.playback.smart.TrackAnalyzer], which reads
+        // the party for itself. Nothing here asks for one while this returns,
+        // but a request made a tick before the party started would otherwise
+        // run to completion: a whole-track decode and two model passes, spent
+        // on a transition that cannot happen.
+        if (ListenTogether.state.value.inParty) {
+            // Left behind by the last pair planned before the party started.
+            // The marker describes a transition that is no longer going to
+            // happen, and the flag a mix that is no longer running; both would
+            // otherwise sit on screen for as long as the party lasts.
+            AppSettings.smartTransitionWindow.value = null
+            AppSettings.smartMixInProgress.value = false
+            return
+        }
         // Nothing to transition *into*, so any analysis state left over from the
         // previous pair is stale — the last track of a queue should not still be
         // claiming both songs are measured.
@@ -483,6 +572,15 @@ class CrossfadeController(
         if (fade <= 0L) return
 
         val remaining = duration - player.currentPosition
+        if (SleepTimer.afterTrack.value) {
+            // The sleep timer is due when this track ends. There is no next
+            // track to arm a crossfade into, so run the same fade-out this
+            // pair would otherwise have used against silence instead — see
+            // [beginSleepFadeOut]. No arm-lead margin: nothing is buffering.
+            if (remaining > fade) return
+            beginSleepFadeOut(fade)
+            return
+        }
         // Arm early: the standby has to open the incoming track and buffer to
         // its cue point, and that work has to be finished by the time the fade
         // is due rather than started then.
@@ -512,6 +610,14 @@ class CrossfadeController(
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val nextItem = player.getMediaItemAt(nextIndex)
+        // Even a manual catalogue match is still video-origin. AutoMix's
+        // analysis and cueing are deliberately never applied to either side
+        // of a transition involving a video row.
+        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) {
+            AppSettings.smartTransitionWindow.value = null
+            AppSettings.smartMixInProgress.value = false
+            return
+        }
         val nextDuration = nextItemDurationMs(nextIndex, nextItem)
 
         requestAnalysisAround(player, duration)
@@ -606,6 +712,14 @@ class CrossfadeController(
 
         val transitionStartMs = (plan.transitionStart * 1000).roundToLong()
         val remaining = transitionStartMs - player.currentPosition
+        if (SleepTimer.afterTrack.value) {
+            // Automix would start blending into the next track here; the sleep
+            // timer means there is no next track, so run the same fade-out
+            // against silence instead — see [beginSleepFadeOut].
+            if (remaining > 0L) return
+            beginSleepFadeOut(fade)
+            return
+        }
         // Same arm-ahead margin as the standard path, just measured against
         // the plan's own start rather than a fixed offset from track end —
         // an analyzed mix-out anchor can place that start well before the
@@ -645,6 +759,7 @@ class CrossfadeController(
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val nextItem = player.getMediaItemAt(nextIndex)
+        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) return
         requestAnalysis(currentItem, duration)
         requestAnalysis(nextItem, nextItemDurationMs(nextIndex, nextItem))
     }
@@ -809,6 +924,10 @@ class CrossfadeController(
         // fight each other. Undone in [finish].
         into.setPlaybackSpeed((AppSettings.playbackSpeed.value * incomingPlaybackRate).toFloat())
         into.volume = 0f
+        // Before `setMediaItems`, so the standby's per-player audio state is
+        // right for the incoming track from its very first decoded frame
+        // rather than from the handoff, which is half a blend too late.
+        items.getOrNull(nextIndex)?.let(onArmIncoming)
         into.setMediaItems(items, nextIndex, incomingCueTimeMs)
         // Buffers without sounding. Started for real in [startFade].
         into.playWhenReady = false
@@ -980,6 +1099,64 @@ class CrossfadeController(
             out.playbackState == Player.STATE_IDLE ||
             settingSwitchedOff
         if (done) finish()
+    }
+
+    /**
+     * Starts [Phase.SLEEP_FADE]: the track playing right now is faded to
+     * silence on its own, over `fade` ms — the same span a real transition
+     * into the next track would have spent on this side of the blend — and
+     * then paused.
+     *
+     * Deliberately not [begin] with a no-op standby. [begin] loads the queue
+     * onto the idle player and starts it silently so it is ready to take over
+     * at the handoff; none of that should happen here; there is no handoff
+     * coming, and preparing a second decoder just to throw it away the moment
+     * the fade ends wastes exactly the work this exists to skip.
+     */
+    private fun beginSleepFadeOut(fade: Long) {
+        val out = active()
+        sleepFadeMs = fade.coerceAtLeast(1L)
+        sleepFadeStartPositionMs = out.currentPosition
+        sleepFadeStartGain = out.volume
+        outgoing = out
+        incoming = null
+        handedOff = false
+        Log.d(TAG, "sleep timer due: fading out over ${fade}ms instead of transitioning")
+        phase = Phase.SLEEP_FADE
+    }
+
+    /**
+     * The fade-out proper. Mirrors [driveFade]'s curve on the outgoing side —
+     * same [fallGain], same position-driven progress — but there is no
+     * incoming track to weigh it against, so the span is simply [sleepFadeMs].
+     */
+    private fun driveSleepFade() {
+        val out = outgoing ?: return finishSleepFade()
+        // The listener turned the timer off mid-fade — nothing left to do but
+        // hand the track back at full volume and let ordinary transition
+        // logic resume next tick.
+        if (!SleepTimer.afterTrack.value) {
+            out.volume = 1f
+            outgoing = null
+            phase = Phase.IDLE
+            return
+        }
+        val elapsed = (out.currentPosition - sleepFadeStartPositionMs).coerceAtLeast(0L)
+        val progress = (elapsed.toFloat() / sleepFadeMs).coerceIn(0f, 1f)
+        out.volume = sleepFadeStartGain * fallGain(progress)
+        val done = progress >= 1f ||
+            out.playbackState == Player.STATE_ENDED ||
+            out.playbackState == Player.STATE_IDLE
+        if (done) finishSleepFade()
+    }
+
+    /** Pauses the track the fade-out was run on and retires the timer that asked for it. */
+    private fun finishSleepFade() {
+        outgoing?.pause()
+        outgoing?.volume = 1f
+        SleepTimer.cancel()
+        outgoing = null
+        phase = Phase.IDLE
     }
 
     /** Ramps the outgoing track away rather than cutting it, so an interruption has no click in it. */

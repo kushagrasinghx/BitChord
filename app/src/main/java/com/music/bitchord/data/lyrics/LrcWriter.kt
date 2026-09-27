@@ -26,6 +26,10 @@ package com.music.bitchord.data.lyrics
  */
 internal fun List<LyricLine>.toLrc(): String {
     if (isEmpty()) return ""
+    // Plain unsynced lyrics have no timestamps — emit clean text rows
+    if (none { it.timeMs > 0L }) {
+        return joinToString("\n") { it.flattened() }
+    }
     // Sorted here rather than assumed: the providers each sort their own output,
     // but this is one line of insurance against a file whose stamps run
     // backwards — which every reader renders as lyrics that jump about.
@@ -73,6 +77,9 @@ internal fun List<LyricLine>.toEnhancedLrc(): String {
     return sortedBy { it.timeMs }.joinToString("\n") { line -> stamp(line.timeMs) + line.enhancedBody() }
 }
 
+/** Marker that survives round-trip through file tags and signals RTL (End) alignment. */
+private const val ALIGNMENT_MARKER = "<R>"
+
 /**
  * One line as stamped word runs, or its plain text when it has none.
  *
@@ -87,6 +94,8 @@ private fun LyricLine.enhancedBody(): String {
     val runs = timedRuns()
     if (runs.isEmpty()) return flattened()
     val out = StringBuilder()
+    // Emit an RTL marker so the offline reader can restore vocal alignment.
+    if (alignment == LyricAlignment.End) out.append(ALIGNMENT_MARKER)
     // Clamped to run forwards. A background vocal legitimately starts partway
     // through the lead it answers, so concatenating the two can hand us a stamp
     // earlier than the one before it — and a reader taking each run's end from

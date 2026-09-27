@@ -156,12 +156,17 @@ OnsetEnvelopes OnsetEnvelope(
   result.low.assign(frame_count, 0);
   std::vector<double> previous(frame_size / 2, 0);
   std::vector<std::complex<double>> spectrum(frame_size);
+  // The Hann shape depends on the fixed FFT size, not on the frame. Reuse it
+  // instead of recomputing its cosine values for every structural frame.
+  std::vector<double> window(frame_size);
+  for (size_t index = 0; index < frame_size; ++index) {
+    window[index] = 0.5 - 0.5 * std::cos(2.0 * kPi * index / (frame_size - 1));
+  }
 
   for (size_t frame = 0; frame < frame_count; ++frame) {
     const size_t start = frame * hop_size;
     for (size_t index = 0; index < frame_size; ++index) {
-      const double window = 0.5 - 0.5 * std::cos(2.0 * kPi * index / (frame_size - 1));
-      spectrum[index] = std::complex<double>(samples[start + index] * window, 0);
+      spectrum[index] = std::complex<double>(samples[start + index] * window[index], 0);
     }
     Fft(spectrum);
 

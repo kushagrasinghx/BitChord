@@ -63,15 +63,15 @@ internal object LyricsTag {
         }
         if (sources.isEmpty()) return null
 
-        // Three of the four sources match on the track's length, and LRCLIB
-        // *ranks* on it. Asking without one is worse than not asking: the fuzzy
-        // fallback would return the closest hit to zero seconds, which is the
-        // shortest edit in the database rather than the one being downloaded,
-        // and its timings would be wrong for the whole file.
+        // Album and playlist rows do not always carry a duration. That must not
+        // make bulk downloads the one path that never saves lyrics: the title,
+        // artist and album still give the providers a useful match, whereas a
+        // track played once gets its duration backfilled by the player and
+        // would otherwise appear to be the only downloadable one with words.
+        // Providers that need a runtime treat zero as unknown.
         val durationMs = track.durationMillis()
         if (durationMs <= 0L) {
-            Log.d(TAG, "no duration for ${track.videoId}; skipping lyrics")
-            return null
+            Log.d(TAG, "no duration for ${track.videoId}; looking up lyrics by title and artist")
         }
 
         val found = try {
@@ -148,6 +148,16 @@ internal object LyricsTag {
      * waits out whichever HTTP call is in flight (its own timeouts, not this
      * one) before it moves on. The same is true of the lossless search this
      * sits beside — see `Downloads.SOURCE_LOOKUP_MS`.
+     *
+     * Widened from fifteen seconds, which was sized on the assumption in the
+     * paragraph above — that the transfer has usually been paying for this
+     * already by the time anyone waits on it. On a bulk download that
+     * assumption doesn't hold twice over: four workers are racing four lyric
+     * providers apiece over one connection, and a lossless transfer that lands
+     * in a few seconds gives the lookup almost none of the head start it was
+     * budgeted. Tracks were finishing with the lookup still outstanding, which
+     * from outside is a queue that saved lyrics for some songs and not others.
+     * Whatever this costs is paid once; the file is kept.
      */
-    private const val LOOKUP_MS = 15_000L
+    private const val LOOKUP_MS = 30_000L
 }

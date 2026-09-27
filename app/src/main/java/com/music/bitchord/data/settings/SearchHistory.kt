@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import com.music.bitchord.data.model.SearchHistoryEntity
 
 /**
  * What's been searched for lately, kept on this device only.
@@ -27,12 +27,12 @@ object SearchHistory {
 
     private lateinit var prefs: SharedPreferences
     private val json = Json
-    private val serializer = ListSerializer(String.serializer())
+    private val serializer = ListSerializer(SearchHistoryEntity.serializer())
 
-    private val _recent = MutableStateFlow<List<String>>(emptyList())
+    private val _recent = MutableStateFlow<List<SearchHistoryEntity>>(emptyList())
 
     /** Most recent first. */
-    val recent: StateFlow<List<String>> = _recent.asStateFlow()
+    val recent: StateFlow<List<SearchHistoryEntity>> = _recent.asStateFlow()
 
     fun init(context: Context) {
         prefs = context.getSharedPreferences("bitchord_settings", Context.MODE_PRIVATE)
@@ -53,21 +53,22 @@ object SearchHistory {
         }.getOrDefault(emptyList())
     }
 
-    /** Records [query], or moves it back to the top if it's already there. */
-    fun record(query: String) {
-        val term = query.trim()
-        if (term.isEmpty()) return
-        val deduped = _recent.value.filterNot { it.equals(term, ignoreCase = true) }
-        save((listOf(term) + deduped).take(MAX_ENTRIES))
+    /**
+     * Records [entity], or moves it back to the top if it's already there.
+     * Matching is by id so re-tapping an existing entity updates its timestamp.
+     */
+    fun record(entity: SearchHistoryEntity) {
+        val deduped = _recent.value.filterNot { it.id.equals(entity.id, ignoreCase = true) }
+        save((listOf(entity) + deduped).take(MAX_ENTRIES))
     }
 
-    fun remove(query: String) {
-        save(_recent.value.filterNot { it.equals(query, ignoreCase = true) })
+    fun remove(id: String) {
+        save(_recent.value.filterNot { it.id.equals(id, ignoreCase = true) })
     }
 
     fun clear() = save(emptyList())
 
-    private fun save(value: List<String>) {
+    private fun save(value: List<SearchHistoryEntity>) {
         _recent.value = value
         prefs.edit().putString(KEY_HISTORY, json.encodeToString(serializer, value)).apply()
     }

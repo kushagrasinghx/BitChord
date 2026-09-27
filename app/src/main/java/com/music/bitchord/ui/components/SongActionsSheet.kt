@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.components
 
+import com.music.bitchord.R
+
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,16 +12,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BugReport
@@ -31,11 +37,16 @@ import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -52,9 +63,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,10 +78,12 @@ import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.webdav.WebDavUploads
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.SleepTimer
 import com.music.bitchord.ui.components.thumbnailBorder
+import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlinx.coroutines.delay
@@ -109,7 +125,15 @@ fun SongActionsSheet(
     likeStatus: LikeStatus,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
+    onStartRadio: () -> Unit,
     onDownload: () -> Unit,
+    /**
+     * Copies this track to the WebDAV server. Null hides the row — the caller
+     * passes one only for a readable device file while a server is
+     * configured. Uploading while another upload of the same track runs just
+     * re-runs it; the conflict dialog keeps that idempotent.
+     */
+    onUploadToWebDav: (() -> Unit)? = null,
     onToggleLike: () -> Unit,
     onToggleDislike: () -> Unit,
     onAddToPlaylist: () -> Unit,
@@ -118,12 +142,40 @@ fun SongActionsSheet(
     modifier: Modifier = Modifier,
     onRemoveFromPlaylist: (() -> Unit)? = null,
     showSleepTimer: Boolean = false,
+    /**
+     * Sends the playing track back to YouTube's own upload, and keeps it there.
+     * Offered for any player item that has one behind it — a substituted copy
+     * can be the wrong recording from the first second, not only after a
+     * visible upgrade. See
+     * [com.music.bitchord.playback.hasYouTubeOriginal].
+     */
+    onRollbackToOriginal: (() -> Unit)? = null,
+    /**
+     * The way back from a revert: available only for a player item the listener
+     * has pinned to YouTube's own upload, where nothing will go looking for a
+     * better copy again until they ask.
+     * See [com.music.bitchord.playback.OriginalVersion].
+     */
+    onUpgradeQuality: (() -> Unit)? = null,
+    /** Keeps the upgrade row visible but untappable while its lookup is running. */
+    upgradeQualityInProgress: Boolean = false,
+    /**
+     * Switches the playing track between its video and audio-only cuts. Null
+     * hides the row — offered only from the player, and only once an
+     * alternate cut is known to exist. See
+     * [com.music.bitchord.playback.PlaybackService.smoothSwapCurrentTrackVersion].
+     */
+    onToggleAudioVersion: (() -> Unit)? = null,
+    /** Which cut is playing now, so the row can offer the other one. */
+    isAudioVersion: Boolean = false,
     onShare: (() -> Unit)? = null,
     /**
      * Copies what the app logged while starting this track. Null everywhere
      * except the player, where "this track" means something.
      */
     onCopyLog: (() -> Unit)? = null,
+    /** Opens the timing control offered only by the main player's menu. */
+    onLyricsOffset: (() -> Unit)? = null,
     /**
      * True while a lookup for this track's album/artist ids is still in
      * flight, so it isn't yet known whether "Open album" and "Open artist"
@@ -154,31 +206,80 @@ fun SongActionsSheet(
         SheetTrackHeader(song, subtitleColor = palette.onBackgroundVariant)
         HorizontalDivider(thickness = 0.5.dp, color = palette.divider)
 
+        // Leads the list whenever it's available: which recording is playing
+        // is the one question that has to be answered before any of the rows
+        // below mean anything — there is no point rating, queueing or
+        // downloading the wrong version of a song.
+        //
+        // The two are never both present — one is offered for a track playing
+        // a substituted copy, the other for a track held on YouTube's own —
+        // and between them they are the whole of the choice, which is why they
+        // sit in the same place under the same divider.
+        if (onRollbackToOriginal != null || onUpgradeQuality != null || onToggleAudioVersion != null) {
+            (onRollbackToOriginal ?: onUpgradeQuality)?.let {
+                ActionRow(
+                    icon = if (onRollbackToOriginal != null) {
+                        Icons.AutoMirrored.Rounded.Undo
+                    } else {
+                        Icons.Rounded.HighQuality
+                    },
+                    label = stringResource(
+                        if (onRollbackToOriginal != null) {
+                            R.string.revert_to_original
+                        } else {
+                            R.string.upgrade_quality
+                        },
+                    ),
+                    accent = palette.accent,
+                    enabled = onRollbackToOriginal != null || !upgradeQualityInProgress,
+                    onClick = it,
+                )
+            }
+            // Which recording, not which quality — a different question from
+            // the row above, so it sits right under it rather than merged
+            // into it, but still ahead of the divider both share.
+            onToggleAudioVersion?.let {
+                ActionRow(
+                    icon = if (isAudioVersion) Icons.Rounded.Videocam else BitChordIcons.MusicNote,
+                    label = stringResource(
+                        if (isAudioVersion) R.string.convert_to_video else R.string.convert_to_audio,
+                    ),
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 6.dp),
+                thickness = 0.5.dp,
+                color = palette.divider,
+            )
+        }
+
         if (signedIn && !isOffline) {
             ActionRow(
                 icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                label = if (liked) "Remove from Liked Music" else "Like",
+                label = if (liked) stringResource(R.string.remove_from_liked) else stringResource(R.string.like),
                 tint = if (liked) palette.accent else null,
                 accent = palette.accent,
                 onClick = onToggleLike,
             )
             ActionRow(
                 icon = if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt,
-                label = if (disliked) "Undo dislike" else "Dislike",
+                label = if (disliked) stringResource(R.string.undo_dislike) else stringResource(R.string.dislike),
                 tint = if (disliked) palette.accent else null,
                 accent = palette.accent,
                 onClick = onToggleDislike,
             )
             ActionRow(
                 icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                label = "Add to playlist",
+                label = stringResource(R.string.add_to_playlist),
                 accent = palette.accent,
                 onClick = onAddToPlaylist,
             )
             onRemoveFromPlaylist?.let {
                 ActionRow(
                     icon = Icons.Rounded.PlaylistRemove,
-                    label = "Remove from this playlist",
+                    label = stringResource(R.string.remove_from_playlist),
                     accent = palette.accent,
                     onClick = it,
                 )
@@ -191,44 +292,75 @@ fun SongActionsSheet(
         }
 
         DownloadRow(song, palette, isOffline, onDownload)
+        WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
+        ActionRow(
+            icon = Icons.Rounded.Radio,
+            label = stringResource(R.string.start_radio),
+            accent = palette.accent,
+            onClick = onStartRadio,
+        )
         ActionRow(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-            label = "Play next",
+            label = stringResource(R.string.play_next),
             accent = palette.accent,
             onClick = onPlayNext,
         )
         ActionRow(
             icon = Icons.AutoMirrored.Rounded.QueueMusic,
-            label = "Add to queue",
+            label = stringResource(R.string.add_to_queue),
             accent = palette.accent,
             onClick = onAddToQueue,
         )
         when (val id = song.albumId) {
-            null -> if (resolvingLinks) LoadingActionRow(Icons.Rounded.Album, "Open album", palette)
-            else -> ActionRow(Icons.Rounded.Album, "Open album", accent = palette.accent) { onOpenAlbum(id) }
+            null -> if (resolvingLinks) {
+                LoadingActionRow(Icons.Rounded.Album, stringResource(R.string.open_album), palette)
+            }
+            else -> ActionRow(
+                Icons.Rounded.Album,
+                stringResource(R.string.open_album),
+                accent = palette.accent,
+            ) { onOpenAlbum(id) }
         }
         when (val id = song.artistId) {
-            null -> if (resolvingLinks) LoadingActionRow(Icons.Rounded.Person, "Open artist", palette)
-            else -> ActionRow(Icons.Rounded.Person, "Open artist", accent = palette.accent) { onOpenArtist(id) }
+            null -> if (resolvingLinks) {
+                LoadingActionRow(Icons.Rounded.Person, stringResource(R.string.open_artist), palette)
+            }
+            else -> ActionRow(
+                Icons.Rounded.Person,
+                stringResource(R.string.open_artist),
+                accent = palette.accent,
+            ) { onOpenArtist(id) }
         }
         if (showSleepTimer) {
             ActionRow(
                 icon = Icons.Rounded.Bedtime,
-                label = "Sleep timer",
+                label = stringResource(R.string.sleep_timer),
                 value = sleepTimerStatus(),
                 accent = palette.accent,
             ) { pickingSleepTimer = true }
         }
+        // Deliberately outside the online-only block below. Local files and
+        // completed downloads use the same player lyric clock (including
+        // embedded synced lyrics), so they need this control just as much as
+        // streamed songs do.
+        onLyricsOffset?.let {
+            ActionRow(
+                icon = Icons.Rounded.Tune,
+                label = stringResource(R.string.lyrics_offset),
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
         if (!isOffline) {
             onShare?.let {
-                ActionRow(Icons.Rounded.Share, "Share", accent = palette.accent, onClick = it)
+                ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
             }
         }
         // Last, and only from the player: it is about the track playing right
         // now rather than about the song as a thing in a library, and it is
         // the one row here nobody reaches for by accident.
         onCopyLog?.let {
-            ActionRow(Icons.Rounded.BugReport, "Copy Log", accent = palette.accent, onClick = it)
+            ActionRow(Icons.Rounded.BugReport, stringResource(R.string.copy_log), accent = palette.accent, onClick = it)
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -242,6 +374,12 @@ fun SongActionsSheet(
  * `ModalBottomSheet`'s because the host has to pass a transparent container for
  * the wash to be visible at all — and a transparent container has nothing left
  * to clip or to hang a handle on.
+ *
+ * The row list is capped to a fraction of the screen and scrolls internally.
+ * Left unbounded, a track with every optional row present — playlist removal,
+ * revert, share, the log — runs past the bottom of the screen with no way to
+ * reach what's cut off: a plain Column neither scrolls nor shrinks, so the
+ * sheet just grows past the window and sits there stuck at full height.
  */
 @Composable
 private fun TintedSheet(
@@ -250,6 +388,7 @@ private fun TintedSheet(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val maxHeight = LocalConfiguration.current.screenHeightDp.dp * 0.85f
     Box(
         modifier
             .fillMaxWidth()
@@ -264,10 +403,12 @@ private fun TintedSheet(
             washFraction = 0.75f,
             artPx = ROW_ART_PX,
         )
-        Column(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().heightIn(max = maxHeight)) {
             // Drawn rather than taken from BottomSheetDefaults, whose handle
             // carries 22dp of padding on each side — half a row's worth of
-            // nothing between the grip and the track it is about.
+            // nothing between the grip and the track it is about. Kept outside
+            // the scrolling rows below so it stays put as a grab target rather
+            // than travelling with the list.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -281,7 +422,12 @@ private fun TintedSheet(
                         .background(palette.onBackground.copy(alpha = 0.35f)),
                 )
             }
-            content()
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                content = content,
+            )
         }
     }
 }
@@ -333,14 +479,14 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
     when (val state = active[song.videoId]) {
         is DownloadState.Queued -> ActionRow(
             icon = Icons.Rounded.Downloading,
-            label = "Queued",
-            value = "Cancel",
+            label = stringResource(R.string.queued),
+            value = stringResource(R.string.cancel),
             accent = palette.accent,
         ) { Downloads.cancel(song.videoId) }
 
         is DownloadState.Running -> ActionRow(
             icon = Icons.Rounded.Downloading,
-            label = "Downloading",
+            label = stringResource(R.string.download_notification_title),
             // Indeterminate until the first response names a length; a
             // stuck "0%" reads as broken where a bare label reads as starting.
             value = if (state.fraction > 0f) "${(state.fraction * 100).toInt()}%" else null,
@@ -351,7 +497,7 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
         is DownloadState.Failed -> ActionRow(
             icon = Icons.Rounded.ErrorOutline,
             label = state.reason,
-            value = "Retry",
+            value = stringResource(R.string.retry),
             // Not the artwork's colour: a failure has to stay legible as a
             // failure whatever the sleeve happens to be tinted.
             tint = MaterialTheme.colorScheme.error,
@@ -362,19 +508,65 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
         null -> if (file != null) {
             ActionRow(
                 icon = Icons.Rounded.DownloadDone,
-                label = "Saved to Downloads",
-                value = "Delete",
+                label = stringResource(R.string.saved_to_downloads),
+                value = stringResource(R.string.delete),
                 tint = palette.accent,
                 accent = palette.accent,
             ) { scope.launch { Downloads.delete(context, song.videoId) } }
         } else if (!isOffline) {
             ActionRow(
                 icon = Icons.Rounded.Download,
-                label = "Download",
+                label = stringResource(R.string.download),
                 accent = palette.accent,
                 onClick = onDownload,
             )
         }
+    }
+}
+
+/**
+ * Sends a device file to the WebDAV server. Sits beside the download row
+ * because it is the same idea in the other direction — and like that row it
+ * reads its state where it is drawn rather than threading it through the
+ * sheet's signature.
+ *
+ * Shown only for readable local files. A track already on the server, or a
+ * stream with no bytes on this device, has nothing to send up.
+ */
+@Composable
+private fun WebDavUploadRow(
+    song: Song,
+    palette: ArtworkPalette,
+    isOffline: Boolean,
+    onUpload: (() -> Unit)?,
+) {
+    onUpload ?: return
+    if (!isOffline || !WebDavUploads.isUploadable(song)) return
+    val active by WebDavUploads.active.collectAsStateWithLifecycle()
+    when (val state = active[song.videoId]) {
+        is WebDavUploads.TrackState.Running -> ActionRow(
+            icon = Icons.Rounded.FileUpload,
+            label = stringResource(R.string.upload_to_webdav),
+            value = "${(state.fraction * 100).toInt()}%",
+            tint = palette.accent,
+            accent = palette.accent,
+            // In flight already; there is no cancel, so the row only reports.
+            onClick = {},
+        )
+        is WebDavUploads.TrackState.Failed -> ActionRow(
+            icon = Icons.Rounded.FileUpload,
+            label = state.reason,
+            value = stringResource(R.string.try_again),
+            tint = MaterialTheme.colorScheme.error,
+            accent = MaterialTheme.colorScheme.error,
+            onClick = onUpload,
+        )
+        else -> ActionRow(
+            icon = Icons.Rounded.FileUpload,
+            label = stringResource(R.string.upload_to_webdav),
+            accent = palette.accent,
+            onClick = onUpload,
+        )
     }
 }
 
@@ -395,21 +587,21 @@ private fun SleepTimerPicker(palette: ArtworkPalette, onBack: () -> Unit) {
             IconButton(onClick = onBack) {
                 Icon(
                     Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back),
                     tint = MaterialTheme.colorScheme.onBackground,
                 )
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = "Sleep timer",
+                    text = stringResource(R.string.sleep_timer),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
                     text = when {
-                        countdown != null -> "$countdown until playback pauses"
-                        afterTrack -> "Pausing when this song ends"
-                        else -> "Pause playback after a while"
+                        countdown != null -> stringResource(R.string.pause_countdown, countdown)
+                        afterTrack -> stringResource(R.string.pause_after_song)
+                        else -> stringResource(R.string.pause_after_a_while)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -420,13 +612,21 @@ private fun SleepTimerPicker(palette: ArtworkPalette, onBack: () -> Unit) {
 
         // Finishing the song is the one people reach for at the end of a
         // listen, so it leads rather than sitting under the durations.
-        SleepOption(label = "After this song", selected = afterTrack, accent = palette.accent) {
+        SleepOption(
+            label = stringResource(R.string.after_this_song),
+            selected = afterTrack,
+            accent = palette.accent,
+        ) {
             SleepTimer.startAfterTrack()
             onBack()
         }
         SleepTimer.PRESETS.forEach { minutes ->
             SleepOption(
-                label = if (minutes == 60) "1 hour" else "$minutes minutes",
+                label = if (minutes == 60) {
+                    stringResource(R.string.one_hour)
+                } else {
+                    pluralStringResource(R.plurals.minute_count, minutes, minutes)
+                },
                 selected = minutes == chosen,
                 accent = palette.accent,
             ) {
@@ -435,7 +635,7 @@ private fun SleepTimerPicker(palette: ArtworkPalette, onBack: () -> Unit) {
             }
         }
         if (chosen != null || afterTrack) {
-            ActionRow(Icons.Rounded.Close, "Turn off timer", accent = palette.accent) {
+            ActionRow(Icons.Rounded.Close, stringResource(R.string.turn_off_timer), accent = palette.accent) {
                 SleepTimer.cancel()
                 onBack()
             }
@@ -467,7 +667,7 @@ private fun SleepOption(
         if (selected) {
             Icon(
                 Icons.Rounded.Check,
-                contentDescription = "Running",
+                contentDescription = stringResource(R.string.running),
                 tint = accent,
                 modifier = Modifier.size(22.dp),
             )
@@ -479,7 +679,7 @@ private fun SleepOption(
 @Composable
 private fun sleepTimerStatus(): String? {
     val afterTrack by SleepTimer.afterTrack.collectAsStateWithLifecycle()
-    return sleepTimerCountdown() ?: "After this song".takeIf { afterTrack }
+    return sleepTimerCountdown() ?: stringResource(R.string.after_this_song).takeIf { afterTrack }
 }
 
 /** Live "m:ss" until the sleep timer fires, or null when none is running. */
@@ -517,26 +717,31 @@ internal fun ActionRow(
     value: String? = null,
     tint: Color? = null,
     accent: Color = MaterialTheme.colorScheme.primary,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 22.dp, vertical = 15.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = tint ?: MaterialTheme.colorScheme.onBackground,
+            tint = (tint ?: MaterialTheme.colorScheme.onBackground).copy(
+                alpha = if (enabled) 1f else 0.4f,
+            ),
             modifier = Modifier.size(22.dp),
         )
         Spacer(Modifier.width(18.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
+            color = MaterialTheme.colorScheme.onBackground.copy(
+                alpha = if (enabled) 1f else 0.4f,
+            ),
             modifier = Modifier.weight(1f),
         )
         if (value != null) {
@@ -544,7 +749,7 @@ internal fun ActionRow(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = accent,
+                color = accent.copy(alpha = if (enabled) 1f else 0.4f),
                 maxLines = 1,
             )
         }
@@ -618,12 +823,10 @@ internal fun SheetTrackHeader(
         )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = song.title,
+            ExplicitSongTitle(
+                song = song,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = song.artist,

@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -51,8 +52,8 @@ import java.util.Locale
  * any of them leads anywhere. A card is a thing people already know how to read:
  * it holds one fact, it has a *front* you look at rather than a list you scan,
  * and a row of them says "there are four of these" without a heading saying so.
- * Tapping one opens the story it summarises, which is the other half of why it
- * is a card — a card is an object, and objects can be picked up.
+ * Tapping one opens Replay at the chart it summarises, which is the other half
+ * of why it is a card — a card is an object, and objects can be picked up.
  *
  * ## Why it is built like a real one
  *
@@ -91,7 +92,7 @@ fun ReplayCreditCard(
     value: String,
     detail: String?,
     artworkUrl: String?,
-    /** Whose card it is. Empty falls back to [DEFAULT_HOLDER]. */
+    /** Whose card it is. Empty falls back to the localized listener label. */
     holder: String,
     /** `MM/YY`, or null when there is nothing to date it from. */
     memberSince: String?,
@@ -135,7 +136,7 @@ fun ReplayCreditCard(
             // a card and an advert.
             Row(verticalAlignment = Alignment.Top) {
                 Text(
-                    text = "YOUR LISTENING\nEXPERIENCE",
+                    text = stringResource(R.string.your_listening_experience).uppercase(Locale.getDefault()),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.W700,
                     letterSpacing = 1.4.sp,
@@ -181,7 +182,8 @@ fun ReplayCreditCard(
             Row(verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     Embossed(
-                        text = holder.ifBlank { DEFAULT_HOLDER }.uppercase(Locale.ROOT),
+                        text = holder.ifBlank { stringResource(R.string.default_replay_holder) }
+                            .uppercase(Locale.getDefault()),
                         size = 13.sp,
                     )
                     if (detail != null) {
@@ -198,7 +200,7 @@ fun ReplayCreditCard(
                     Spacer(Modifier.width(10.dp))
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "MEMBER\nSINCE",
+                            text = stringResource(R.string.member_since).uppercase(Locale.getDefault()),
                             style = MaterialTheme.typography.labelSmall,
                             fontSize = 7.sp,
                             lineHeight = 8.sp,
@@ -305,7 +307,6 @@ private val EmbossShadow = Shadow(
 private val CardShape = RoundedCornerShape(20.dp)
 
 /** Whose card it is when there is no signed-in account to name. */
-const val DEFAULT_HOLDER = "BITCHORD LISTENER"
 
 /** 85.6mm × 54mm, which is what makes the shape read as a card. */
 private const val CARD_RATIO = 1.586f

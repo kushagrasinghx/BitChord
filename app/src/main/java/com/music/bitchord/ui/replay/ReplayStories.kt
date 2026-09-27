@@ -45,6 +45,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
@@ -141,7 +143,7 @@ fun ReplayStories(
     val scope = rememberCoroutineScope()
     var held by remember { mutableStateOf(false) }
     val progress = remember { Animatable(0f) }
-    val current by remember { derivedStateOf { pagerState.currentPage } }
+    val current by remember { derivedStateOf { pagerState.settledPage } }
 
     /**
      * Where a tap sends the story.
@@ -177,7 +179,11 @@ fun ReplayStories(
     LaunchedEffect(current) { progress.snapTo(0f) }
     LaunchedEffect(current, held, paused) {
         if (held || paused) return@LaunchedEffect
-        if (current >= pages.lastIndex) return@LaunchedEffect
+        // On the final slide: animate progress to 1f and hold — do NOT auto-advance.
+        if (current == pages.lastIndex) {
+            progress.animateTo(1f, tween(PAGE_MILLIS.toInt(), easing = LinearEasing))
+            return@LaunchedEffect
+        }
         // Resumed from where the hold left it rather than restarted, so letting
         // go doesn't hand back a card that was nearly finished.
         val remaining = ((1f - progress.value) * PAGE_MILLIS).toInt().coerceAtLeast(0)
@@ -331,7 +337,7 @@ private fun Stage(
         }
 
         StoryChrome(
-            label = summary.label,
+            label = summary.localizedLabel(LocalContext.current),
             count = pages.size,
             current = current,
             progress = progress.value,
@@ -360,7 +366,7 @@ private fun StoryChrome(
         Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) {
             Icon(
                 imageVector = Icons.Rounded.Close,
-                contentDescription = "Close Replay",
+                contentDescription = stringResource(R.string.close_replay),
                 tint = Color.White,
                 modifier = Modifier
                     .size(30.dp)
@@ -449,7 +455,7 @@ private fun StoryPage(
     ) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             Column(Modifier.fillMaxSize()) {
-                val headline = summary.storyHeadline(page)
+                val headline = summary.storyHeadline(LocalContext.current, page)
                 when (page) {
                     ReplayStoryPage.INTRO -> Intro(summary, headline)
                     ReplayStoryPage.MINUTES -> Minutes(summary, headline)
@@ -482,7 +488,7 @@ private fun StoryPage(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.IosShare,
-                    contentDescription = "Share my Replay",
+                    contentDescription = stringResource(R.string.share_my_replay),
                     tint = Color.White,
                     modifier = Modifier.size(20.dp),
                 )
@@ -528,7 +534,7 @@ private fun ColumnScope.Intro(summary: ReplaySummary, headline: List<HeadlineRun
     ArtworkCollage(summary)
     Spacer(Modifier.weight(1f))
     Text(
-        text = "Counted here on your phone. Nothing was sent anywhere to work it out.",
+        text = stringResource(R.string.replay_private_counting),
         style = MaterialTheme.typography.bodyMedium,
         color = Color.White.copy(alpha = 0.5f),
     )
@@ -536,6 +542,7 @@ private fun ColumnScope.Intro(summary: ReplaySummary, headline: List<HeadlineRun
 
 @Composable
 private fun ColumnScope.Minutes(summary: ReplaySummary, headline: List<HeadlineRun>) {
+    val context = LocalContext.current
     Headline(headline)
     Spacer(Modifier.weight(1f))
     ArtworkCollage(summary)
@@ -547,13 +554,20 @@ private fun ColumnScope.Minutes(summary: ReplaySummary, headline: List<HeadlineR
         // only figure worth restating.
         text = buildString {
             if (summary.hours >= 1) {
-                append("That's ${grouped(summary.hours)} hours across ")
+                append(context.getString(R.string.replay_hours_across, grouped(summary.hours)))
             } else {
-                append("Across ")
+                append(context.getString(R.string.replay_across))
             }
-            append(countOf(summary.totalPlays, "play"))
+            append(context.resources.getQuantityString(
+                R.plurals.replay_play_count,
+                summary.totalPlays,
+                grouped(summary.totalPlays.toLong()),
+            ))
             append(".")
-            summary.peakHour?.let { append(" Mostly around ${formatHour(it)}.") }
+            summary.peakHour?.let {
+                append(" ")
+                append(context.getString(R.string.replay_mostly_around, formatHour(context, it)))
+            }
         },
         style = MaterialTheme.typography.bodyLarge,
         color = Color.White.copy(alpha = 0.62f),
@@ -574,6 +588,7 @@ private fun ColumnScope.Leaderboard(
     rows: List<ReplayRow>,
     circular: Boolean,
 ) {
+    val context = LocalContext.current
     val lead = rows.firstOrNull() ?: return
     val shape = if (circular) CircleShape else RoundedCornerShape(10.dp)
     Headline(headline)
@@ -603,7 +618,11 @@ private fun ColumnScope.Leaderboard(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "${formatListening(lead.ms)} · ${countOf(lead.plays, "play")}",
+                text = "${formatListening(context, lead.ms)} · " + context.resources.getQuantityString(
+                    R.plurals.replay_play_count,
+                    lead.plays,
+                    grouped(lead.plays.toLong()),
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.55f),
             )
@@ -628,7 +647,7 @@ private fun ColumnScope.Leaderboard(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = formatListening(row.ms),
+                text = formatListening(context, row.ms),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.5f),
             )
@@ -638,6 +657,7 @@ private fun ColumnScope.Leaderboard(
 
 @Composable
 private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRun>) {
+    val context = LocalContext.current
     val rows = summary.genreRows(STORY_ROWS)
     val lead = rows.firstOrNull() ?: return
     Headline(headline)
@@ -653,7 +673,7 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
         overflow = TextOverflow.Ellipsis,
     )
     Text(
-        text = formatListening(lead.ms),
+        text = formatListening(context, lead.ms),
         style = MaterialTheme.typography.titleMedium,
         color = Color.White.copy(alpha = 0.6f),
     )
@@ -672,7 +692,7 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = formatListening(row.ms),
+                text = formatListening(context, row.ms),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.45f),
             )
@@ -683,15 +703,21 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
 
 @Composable
 private fun ColumnScope.Habits(summary: ReplaySummary, headline: List<HeadlineRun>) {
+    val context = LocalContext.current
     Headline(headline)
     Spacer(Modifier.weight(1f))
     if (summary.distinctAlbums > 0) {
-        BigStat(grouped(summary.distinctAlbums.toLong()), "different albums")
+        BigStat(grouped(summary.distinctAlbums.toLong()), stringResource(R.string.different_albums))
     }
     summary.busiestDay?.let {
-        BigStat(formatDay(it), "your biggest day — ${formatListening(summary.busiestDayMs)}")
+        BigStat(
+            formatDay(context, it),
+            stringResource(R.string.your_biggest_day, formatListening(context, summary.busiestDayMs)),
+        )
     }
-    summary.peakHour?.let { BigStat(formatHour(it), "when you listen most") }
+    summary.peakHour?.let {
+        BigStat(formatHour(context, it), stringResource(R.string.when_you_listen_most))
+    }
     Spacer(Modifier.height(8.dp))
 }
 
@@ -716,14 +742,14 @@ private fun BigStat(value: String, label: String) {
 private fun ColumnScope.Recap(summary: ReplaySummary, headline: List<HeadlineRun>) {
     Headline(headline)
     Spacer(Modifier.height(20.dp))
-    RecapLine("Minutes", formatMinutes(summary.totalMs))
-    summary.songs.firstOrNull()?.let { RecapLine("Top song", it.song.title) }
-    summary.artists.firstOrNull()?.let { RecapLine("Top artist", it.title) }
-    summary.albums.firstOrNull()?.let { RecapLine("Top album", it.title) }
-    summary.genres.firstOrNull()?.let { RecapLine("Top genre", it.title) }
+    RecapLine(stringResource(R.string.minutes), formatMinutes(summary.totalMs))
+    summary.songs.firstOrNull()?.let { RecapLine(stringResource(R.string.top_song), it.song.title) }
+    summary.artists.firstOrNull()?.let { RecapLine(stringResource(R.string.top_artist), it.title) }
+    summary.albums.firstOrNull()?.let { RecapLine(stringResource(R.string.top_album), it.title) }
+    summary.genres.firstOrNull()?.let { RecapLine(stringResource(R.string.top_genre), it.title) }
     Spacer(Modifier.weight(1f))
     Text(
-        text = "Tap share to turn all of this into one picture.",
+        text = stringResource(R.string.tap_share_for_picture),
         style = MaterialTheme.typography.bodyLarge,
         color = Color.White.copy(alpha = 0.55f),
     )
@@ -882,7 +908,7 @@ private const val STORY_ROWS = 5
 private const val STORY_ASPECT = 9f / 16f
 
 /** How long a card holds before moving on, unless a finger is on the screen. */
-private const val PAGE_MILLIS = 6_000f
+private const val PAGE_MILLIS = 14_000f
 
 /** The share of the width that means "back" — the left edge, as everywhere else. */
 private const val BACK_ZONE = 0.32f

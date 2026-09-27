@@ -1,43 +1,50 @@
 package com.music.bitchord.data.lyrics
 
+import com.music.bitchord.data.Http
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.Request
 import java.text.SimpleDateFormat
 import java.util.Base64
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import kotlin.math.abs
 
-/**
- * Line-synced lyrics from Musixmatch's own web client API.
- *
- * There is no public key for this: the web player signs every request with an
- * HMAC over the URL and the day's date, using a secret that has been baked
- * into that same web player's JavaScript — and, by extension, into every
- * independent Musixmatch client that has reimplemented the scheme from
- * reading it, which is where this one comes from too. A session token from
- * `token.get` rides alongside it and is cached until the service itself
- * rejects it.
- */
+/** Rich word timing, with line-synced fallback, from Musixmatch's web API. */
 object Musixmatch {
 
     private const val BASE = "https://apic.musixmatch.com/ws/1.1"
+    private const val APP_ID = "mobile-app-v1.0"
+    private const val SEARCH_PAGE = "https://www.musixmatch.com/search"
+    private const val BROWSER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
-    // The signing secret Musixmatch's web client bakes into its own bundle —
-    // see the file note above for where this comes from.
-    private const val SIGNING_SECRET = "RJDefUswhwjkZDeM"
+    // Used only if the public page serving the rotating key is briefly unavailable.
+    private const val FALLBACK_SIGNING_SECRET = "f09016176ba43a1cfd1031fbd6b3d26c"
 
     private val tokenMutex = Mutex()
+    private val cachedSecret = AtomicReference<String?>(null)
     private val cachedToken = AtomicReference<String?>(null)
+    private val processGuid = UUID.randomUUID().toString()
+
+    private val client by lazy {
+        Http.client.newBuilder()
+            .callTimeout(8, TimeUnit.SECONDS)
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .build()
+    }
 
     suspend fun lyrics(
         title: String,
@@ -46,8 +53,19 @@ object Musixmatch {
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
         val seconds = (durationMs / 1000).toInt()
         val track = bestTrack(title, artist, seconds) ?: return@withContext null
-        val subtitle = if (track.hasSubtitles == 1) fetchSubtitle(track.trackId) else null
-        val lrc = subtitle?.let(::subtitleToLrc)?.takeIf { it.isNotBlank() } ?: return@withContext null
+
+        // The subtitle endpoint is line-timed by design. Prefer the separate rich-sync
+        // tier so tracks that have syllable data do not get flattened on ingestion.
+        if (track.hasRichSync != 0) {
+            val rich = fetchRichSync(track.trackId)
+                ?.let(::parseRichSyncBody)
+                ?.takeIf { lines -> lines.any { it.isWordSynced } }
+            if (rich != null) return@withContext rich
+        }
+
+        val subtitle = if (track.hasSubtitles != 0) fetchSubtitle(track.trackId) else null
+        val lrc = subtitle?.let(::subtitleToLrc)?.takeIf { it.isNotBlank() }
+            ?: return@withContext null
         LrcLib.parseLrc(lrc).takeIf { it.isNotEmpty() }
     }
 
@@ -83,7 +101,8 @@ object Musixmatch {
     private suspend fun searchTrack(title: String, artist: String): List<Track>? {
         val response = signedGet { token ->
             "$BASE/track.search".toHttpUrl().newBuilder()
-                .addQueryParameter("app_id", "web-desktop-app-v1.0")
+                .addQueryParameter("app_id", APP_ID)
+                .addQueryParameter("format", "json")
                 .addQueryParameter("q_track", title)
                 .addQueryParameter("q_artist", artist)
                 .addQueryParameter("f_has_lyrics", "1")
@@ -103,7 +122,8 @@ object Musixmatch {
     private suspend fun fetchSubtitle(trackId: Long): String? {
         val response = signedGet { token ->
             "$BASE/track.subtitle.get".toHttpUrl().newBuilder()
-                .addQueryParameter("app_id", "web-desktop-app-v1.0")
+                .addQueryParameter("app_id", APP_ID)
+                .addQueryParameter("format", "json")
                 .addQueryParameter("track_id", trackId.toString())
                 .addQueryParameter("subtitle_format", "mxm")
                 .addQueryParameter("usertoken", token)
@@ -114,14 +134,90 @@ object Musixmatch {
         }.getOrNull()?.message?.body?.subtitle?.subtitleBody
     }
 
-    /** Musixmatch's `mxm` subtitle JSON — a list of `{text, time:{total}}` — turned into LRC. */
+    private suspend fun fetchRichSync(trackId: Long): String? {
+        val response = signedGet { token ->
+            "$BASE/track.richsync.get".toHttpUrl().newBuilder()
+                .addQueryParameter("app_id", APP_ID)
+                .addQueryParameter("format", "json")
+                .addQueryParameter("track_id", trackId.toString())
+                .addQueryParameter("usertoken", token)
+                .build()
+        } ?: return null
+        return runCatching {
+            lyricsJson.decodeFromString<Envelope<RichSyncBody>>(response)
+        }.getOrNull()?.message?.body?.richsync?.richsyncBody
+    }
+
+    /**
+     * Decodes rich-sync offsets without flattening them through line LRC.
+     * Source order is retained because punctuation and syllable fragments may share a stamp.
+     */
+    internal fun parseRichSyncBody(body: String): List<LyricLine> {
+        val entries = runCatching {
+            lyricsJson.decodeFromString<List<RichSyncEntry>>(body)
+        }.getOrNull() ?: return emptyList()
+
+        return entries.mapNotNull { entry ->
+            val lineStart = secondsToMs(entry.startSeconds)
+            val lineEnd = maxOf(lineStart, secondsToMs(entry.endSeconds))
+            val words = ArrayList<LyricWord>()
+            val current = StringBuilder()
+            var currentStart = lineStart
+            var currentEnd = lineStart
+            var previousStart = lineStart
+
+            fun flush() {
+                val text = current.toString().trim()
+                current.setLength(0)
+                if (text.isNotEmpty()) {
+                    words += LyricWord(currentStart, maxOf(currentStart, currentEnd), text)
+                }
+            }
+
+            entry.fragments.forEachIndexed { index, fragment ->
+                val raw = fragment.text
+                if (raw.isEmpty()) return@forEachIndexed
+                val start = maxOf(
+                    lineStart,
+                    previousStart,
+                    secondsToMs(entry.startSeconds + fragment.offsetSeconds),
+                )
+                val next = entry.fragments.getOrNull(index + 1)?.let {
+                    secondsToMs(entry.startSeconds + it.offsetSeconds)
+                } ?: lineEnd
+                val end = maxOf(start, minOf(lineEnd, next))
+                previousStart = start
+
+                if (raw.first().isWhitespace()) flush()
+                val content = raw.trim()
+                if (content.isNotEmpty()) {
+                    if (current.isEmpty()) currentStart = start
+                    current.append(content)
+                    currentEnd = end
+                }
+                if (raw.last().isWhitespace()) flush()
+            }
+            flush()
+
+            val text = entry.text.trim().ifEmpty { words.joinToString(" ") { it.text } }
+            if (text.isEmpty()) return@mapNotNull null
+            LyricLine(
+                timeMs = minOf(lineStart, words.firstOrNull()?.startMs ?: lineStart),
+                text = text,
+                words = words,
+                sungUntilMs = lineEnd.takeIf { it > lineStart },
+            )
+        }.sortedBy { it.timeMs }.withInstrumentalGaps()
+    }
+
+    /** Musixmatch's `mxm` subtitle JSON, converted only for the line-sync fallback. */
     private fun subtitleToLrc(subtitleBody: String): String {
         val lines = runCatching { lyricsJson.decodeFromString<List<SubtitleLine>>(subtitleBody) }
             .getOrNull() ?: return ""
         return buildString {
             for (line in lines) {
                 if (line.text.isBlank()) continue
-                val totalMs = (line.time.total * 1000).toLong()
+                val totalMs = secondsToMs(line.time.total)
                 val minutes = totalMs / 1000 / 60
                 val seconds = (totalMs / 1000) % 60
                 val millis = totalMs % 1000
@@ -132,52 +228,89 @@ object Musixmatch {
         }.trim()
     }
 
-    /** Signs and issues [buildUrl]; on an auth failure, drops the token and retries once. */
+    private fun secondsToMs(seconds: Double): Long = (seconds * 1_000.0).toLong()
+
+    /** Signs and issues [buildUrl]; an auth failure refreshes both moving credentials once. */
     private suspend fun signedGet(buildUrl: (token: String) -> okhttp3.HttpUrl): String? {
-        val token = getToken() ?: return null
-        val first = lyricsGet(sign(buildUrl(token).toString()))
+        val secret = getSecret()
+        val token = getToken(secret) ?: return null
+        val first = apiGet(sign(buildUrl(token).toString(), secret))
         if (first != null && !looksUnauthorized(first)) return first
 
         cachedToken.set(null)
-        val fresh = getToken() ?: return null
-        return lyricsGet(sign(buildUrl(fresh).toString()))
+        cachedSecret.set(null)
+        val freshSecret = getSecret()
+        val freshToken = getToken(freshSecret) ?: return null
+        return apiGet(sign(buildUrl(freshToken).toString(), freshSecret))
     }
 
-    /** Musixmatch answers an expired token with HTTP 200 and a header status code, not a 401. */
+    /** Musixmatch reports an expired token inside a successful HTTP response. */
     private fun looksUnauthorized(body: String): Boolean =
         runCatching { lyricsJson.decodeFromString<Envelope<kotlinx.serialization.json.JsonElement>>(body) }
             .getOrNull()?.message?.header?.statusCode?.let { it == 401 || it == 402 } ?: false
 
-    /**
-     * A short critical section around one network call — cheap insurance
-     * against every source in the race minting its own token the first time
-     * this object is touched.
-     */
-    private suspend fun getToken(): String? = cachedToken.get() ?: tokenMutex.withLock {
-        cachedToken.get() ?: fetchToken()?.also { cachedToken.set(it) }
+    private suspend fun getToken(secret: String): String? = cachedToken.get() ?: tokenMutex.withLock {
+        cachedToken.get() ?: fetchToken(secret)?.also(cachedToken::set)
     }
 
-    private fun fetchToken(): String? {
+    private fun fetchToken(secret: String): String? {
         val url = "$BASE/token.get".toHttpUrl().newBuilder()
-            .addQueryParameter("app_id", "web-desktop-app-v1.0")
+            .addQueryParameter("app_id", APP_ID)
+            .addQueryParameter("guid", processGuid)
+            .addQueryParameter("format", "json")
             .build()
-        val body = lyricsGet(sign(url.toString())) ?: return null
+        val body = apiGet(sign(url.toString(), secret)) ?: return null
         return runCatching {
             lyricsJson.decodeFromString<Envelope<TokenBody>>(body)
         }.getOrNull()?.message?.body?.userToken
     }
 
-    /** Musixmatch's web client signs `<url><UTC yyyyMMdd>` with HMAC-SHA256, base64-encoded. */
-    private fun sign(url: String): String {
+    /** Reads the rotating signing key from the JavaScript linked by the current web client. */
+    private fun getSecret(): String = cachedSecret.get() ?: runCatching {
+        val page = browserGet(SEARCH_PAGE, "text/html,application/xhtml+xml")
+            ?: error("search page unavailable")
+        val script = APP_SCRIPT.find(page)?.groupValues?.get(1)
+            ?: error("application script not found")
+        val scriptUrl = SEARCH_PAGE.toHttpUrl().resolve(script)?.toString()
+            ?: error("invalid application script URL")
+        val javascript = browserGet(scriptUrl, "*/*") ?: error("application script unavailable")
+        val encoded = ENCODED_SECRET.find(javascript)?.groupValues?.get(1)
+            ?: error("signing key not found")
+        String(Base64.getDecoder().decode(encoded.reversed()), Charsets.UTF_8)
+            .takeIf { it.isNotBlank() }
+            ?: error("empty signing key")
+    }.getOrElse { FALLBACK_SIGNING_SECRET }.also(cachedSecret::set)
+
+    /** Signs `<url><UTC yyyyMMdd>` with HMAC-SHA256, matching the current web client. */
+    private fun sign(url: String, secret: String): String {
+        val normalized = url.replace("%20", "+").replace(" ", "+")
         val date = SimpleDateFormat("yyyyMMdd", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }.format(Date())
         val mac = Mac.getInstance("HmacSHA256")
-        mac.init(SecretKeySpec(SIGNING_SECRET.toByteArray(Charsets.UTF_8), "HmacSHA256"))
-        val raw = mac.doFinal("$url$date".toByteArray(Charsets.UTF_8))
+        mac.init(SecretKeySpec(secret.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+        val raw = mac.doFinal("$normalized$date".toByteArray(Charsets.UTF_8))
         val signature = Base64.getEncoder().encodeToString(raw)
-        return "$url&signature=${java.net.URLEncoder.encode(signature, "UTF-8")}&signature_protocol=sha256"
+        return "$normalized&signature=${java.net.URLEncoder.encode(signature, "UTF-8")}" +
+            "&signature_protocol=sha256"
     }
+
+    private fun apiGet(url: String): String? = request(url, "application/json, text/plain, */*")
+
+    private fun browserGet(url: String, accept: String): String? =
+        request(url, accept, cookie = "mxm_bab=AB")
+
+    private fun request(url: String, accept: String, cookie: String? = null): String? = runCatching {
+        val request = Request.Builder().url(url)
+            .header("User-Agent", BROWSER_AGENT)
+            .header("Accept", accept)
+            .header("Accept-Language", "en-US,en;q=0.9")
+            .apply { if (cookie != null) header("Cookie", cookie) }
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (response.isSuccessful) response.body?.string() else null
+        }
+    }.getOrNull()
 
     @Serializable
     private data class Envelope<T>(val message: Message<T>)
@@ -192,7 +325,9 @@ object Musixmatch {
     private data class TokenBody(@SerialName("user_token") val userToken: String)
 
     @Serializable
-    private data class TrackSearchBody(@SerialName("track_list") val trackList: List<TrackWrapper> = emptyList())
+    private data class TrackSearchBody(
+        @SerialName("track_list") val trackList: List<TrackWrapper> = emptyList(),
+    )
 
     @Serializable
     private data class TrackWrapper(val track: Track)
@@ -203,7 +338,8 @@ object Musixmatch {
         @SerialName("track_name") val trackName: String,
         @SerialName("artist_name") val artistName: String = "",
         @SerialName("track_length") val trackLength: Int? = null,
-        @SerialName("has_subtitles") val hasSubtitles: Int = 0,
+        @SerialName("has_subtitles") val hasSubtitles: Int? = null,
+        @SerialName("has_richsync") val hasRichSync: Int? = null,
     )
 
     @Serializable
@@ -217,4 +353,30 @@ object Musixmatch {
 
     @Serializable
     private data class SubtitleTime(val total: Double)
+
+    @Serializable
+    private data class RichSyncBody(val richsync: RichSync? = null)
+
+    @Serializable
+    private data class RichSync(@SerialName("richsync_body") val richsyncBody: String? = null)
+
+    @Serializable
+    private data class RichSyncEntry(
+        @SerialName("ts") val startSeconds: Double,
+        @SerialName("te") val endSeconds: Double,
+        @SerialName("l") val fragments: List<RichSyncFragment> = emptyList(),
+        @SerialName("x") val text: String = "",
+    )
+
+    @Serializable
+    private data class RichSyncFragment(
+        @SerialName("c") val text: String,
+        @SerialName("o") val offsetSeconds: Double,
+    )
+
+    private val APP_SCRIPT = Regex(
+        """src=["']([^"']*/_next/static/chunks/pages/_app-[^"']+\.js)["']""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val ENCODED_SECRET = Regex("""from\(\s*["']([^"']+)["']\s*\.split""")
 }

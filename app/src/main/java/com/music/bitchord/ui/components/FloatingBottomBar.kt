@@ -52,7 +52,6 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.math.abs
@@ -69,8 +68,11 @@ data class BottomTab(
  * Tighter than the 8 it was, which shows up as a selection indicator reaching
  * closer to the edge on all four sides rather than floating in the middle of a
  * wide margin.
+ *
+ * Shared with [GlassNavBar], which is meant to measure the same as this bar
+ * rather than merely near it.
  */
-private val PILL_INSET = 6.dp
+internal val PILL_INSET = 6.dp
 
 /**
  * Each tab's own vertical padding, and the counterweight to [PILL_INSET].
@@ -82,7 +84,10 @@ private val PILL_INSET = 6.dp
  * numbers are a pair: change one and the bar's height moves unless the other
  * moves against it.
  */
-private val TAB_VERTICAL_PADDING = 9.dp
+internal val TAB_VERTICAL_PADDING = 9.dp
+
+/** The gap between a tab's glyph and its label, in both bars. */
+internal val TAB_ICON_LABEL_GAP = 2.dp
 
 /**
  * The spring the selection indicator and the tab glyphs both travel on.
@@ -96,7 +101,7 @@ private val TAB_VERTICAL_PADDING = 9.dp
  * Stiffness 320 puts the whole movement at roughly a third of a second, quick
  * enough that the tap and the arrival feel like one event.
  */
-private val GlassSpring = spring<Float>(dampingRatio = 0.72f, stiffness = 320f)
+internal val GlassSpring = spring<Float>(dampingRatio = 0.72f, stiffness = 320f)
 
 /**
  * How far the indicator elongates along its travel, at full stride.
@@ -112,7 +117,7 @@ private val GlassSpring = spring<Float>(dampingRatio = 0.72f, stiffness = 320f)
  * Sixteen percent is enough to be felt and not enough to be caught at: past
  * about a fifth the pill starts reading as a stretched image of itself.
  */
-private const val STRETCH = 0.16f
+internal const val STRETCH = 0.16f
 
 /**
  * How much of the stretch is taken back out of the indicator's height.
@@ -123,7 +128,7 @@ private const val STRETCH = 0.16f
  * than drawn. Half keeps the sense of something with a volume to redistribute
  * while leaving the glyph its ground.
  */
-private const val SQUASH = 0.5f
+internal const val SQUASH = 0.5f
 
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -137,8 +142,9 @@ fun FloatingBottomBar(
     val pillShape = RoundedCornerShape(percent = 50)
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val useGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
-    // The liquid settle is exactly the motion "reduce animation" promises to
+    // The glass settle is exactly the motion "reduce animation" promises to
     // drop — snapping both the indicator's travel and the glyph's pop to
     // their target leaves the tap itself instant rather than eased.
     val glassSpec: AnimationSpec<Float> = if (reduceAnimation) snap() else GlassSpring
@@ -197,14 +203,16 @@ fun FloatingBottomBar(
             .then(
                 if (reduceDynamicBlur) {
                     Modifier.background(container)
+                } else if (useGlass) {
+                    Modifier.liquidGlass(shape = pillShape)
                 } else {
-                    Modifier.hazeEffect(
+                    Modifier.optimizedHazeEffect(
                         state = hazeState,
                         style = HazeMaterials.regular(container),
                     )
                 },
             )
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), pillShape)
+            .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, pillShape)
             .padding(horizontal = PILL_INSET, vertical = PILL_INSET),
     ) {
         if (tabWidthPx > 0f) {
@@ -276,11 +284,20 @@ fun FloatingBottomBar(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // A real glass pill samples whatever artwork is behind it, not the
+            // theme's surface color, so a fixed onSurfaceVariant gray can lose
+            // contrast against it. Glass mode reads luminance off the surface
+            // color instead and picks pure black or white, same as the tint
+            // Echo's floating nav bar uses for its own liquid glass.
+            val glassTint = glassContentColor()
+            val adaptiveTint = if (useGlass) glassTint else null
             tabs.forEachIndexed { index, tab ->
                 BottomBarItem(
                     tab = tab,
                     selected = index == selectedIndex,
                     glassSpec = glassSpec,
+                    selectedTint = adaptiveTint,
+                    unselectedTint = adaptiveTint?.copy(alpha = 0.65f),
                     onClick = { onTabSelected(index) },
                     modifier = Modifier.weight(1f),
                 )
@@ -296,6 +313,9 @@ private fun BottomBarItem(
     glassSpec: AnimationSpec<Float>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Overrides the theme's primary/onSurfaceVariant tint — see the glass branch above. */
+    selectedTint: Color? = null,
+    unselectedTint: Color? = null,
 ) {
     // The same spring the indicator rides, so the glyph arriving and the glass
     // arriving are one movement rather than two that nearly agree.
@@ -307,9 +327,9 @@ private fun BottomBarItem(
     val haptics = rememberHaptics()
     val tint by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
+            selectedTint ?: MaterialTheme.colorScheme.primary
         } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+            unselectedTint ?: MaterialTheme.colorScheme.onSurfaceVariant
         },
         animationSpec = tween(200),
         label = "tabTint",
@@ -339,7 +359,7 @@ private fun BottomBarItem(
                     scaleY = scale
                 },
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(TAB_ICON_LABEL_GAP))
         Text(
             text = tab.label,
             style = MaterialTheme.typography.labelSmall,

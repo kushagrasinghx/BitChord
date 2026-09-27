@@ -227,6 +227,24 @@ class DownloadSessionTest {
     }
 
     @Test
+    fun `a cached collection cover is retained when the release is downloaded again`() {
+        val target = DownloadTarget(
+            id = "VLPL1",
+            title = "Late night drive",
+            thumbnailUrl = "https://example/cover.jpg",
+            playlist = true,
+        )
+        Downloads.rememberCollection(target, listOf(onDisk("a")))
+        Downloads.rememberCollectionArtwork("VLPL1", "file:///data/user/0/app/files/download-artwork/cover.jpg")
+        Downloads.rememberCollection(target, listOf(onDisk("a"), onDisk("b")))
+
+        assertEquals(
+            "file:///data/user/0/app/files/download-artwork/cover.jpg",
+            Downloads.collections.value.getValue("VLPL1").thumbnailUrl,
+        )
+    }
+
+    @Test
     fun `an empty ask records nothing`() {
         Downloads.rememberCollection(DownloadTarget(id = "MPREb1", title = "Motion"), emptyList())
         assertTrue(Downloads.collections.value.isEmpty())

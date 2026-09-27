@@ -44,20 +44,46 @@ object FlacTagger {
         /** The A2 form, under a name of this app's own — see [WORD_LYRICS_FIELD]. */
         wordLyrics: String? = null,
     ): ByteArray = runCatching {
-        rewrite(bytes, title, artist, album, lyrics, cover, coverMime, wordLyrics)
+        val done = header(bytes, title, artist, album, lyrics, cover, coverMime, wordLyrics)
+            ?: return@runCatching bytes
+        val out = ByteArrayOutputStream(done.metadata.size + (bytes.size - done.audioStart))
+        out.write(done.metadata)
+        // The frames, verbatim.
+        out.write(bytes, done.audioStart, bytes.size - done.audioStart)
+        out.toByteArray()
     }.getOrDefault(bytes)
 
-    private fun rewrite(
-        bytes: ByteArray,
+    /**
+     * The finished metadata region to put in front of this file's frames, and
+     * where those frames begin in the original.
+     *
+     * The whole reason this is separate from [tag]: everything a FLAC rewrite
+     * has to *think* about lives in the first few hundred kilobytes of the file,
+     * and everything after that is a byte-for-byte copy. Handing a caller those
+     * two answers lets it stream the copy rather than hold three versions of a
+     * 40MB track in memory to perform it — see [MediaTagger.tagFlacStreaming].
+     */
+    class Rewrite(val metadata: ByteArray, val audioStart: Int)
+
+    /**
+     * @param head the start of the file. It only has to be long enough to
+     *   contain the whole metadata block chain; null comes back if it isn't, so
+     *   a caller that guessed a prefix too short can tell that apart from a file
+     *   this doesn't recognise only by trying again with more of it.
+     * @return null when there is nothing to write, or nothing here recognises
+     *   the shape — in both cases the file is to be left exactly as it is.
+     */
+    fun header(
+        head: ByteArray,
         title: String,
         artist: String,
         album: String?,
         lyrics: String?,
         cover: ByteArray?,
         coverMime: String,
-        wordLyrics: String?,
-    ): ByteArray {
-        if (!bytes.regionMatches(0, MAGIC)) return bytes
+        wordLyrics: String? = null,
+    ): Rewrite? {
+        if (!head.regionMatches(0, MAGIC)) return null
 
         // The block chain. Each header is one byte of flags — bit 7 marks the
         // last block, bits 0-6 are the type — and three big-endian bytes of
@@ -65,20 +91,20 @@ object FlacTagger {
         val blocks = mutableListOf<Block>()
         var offset = MAGIC.size
         while (true) {
-            if (offset + BLOCK_HEADER > bytes.size) return bytes
-            val flags = bytes[offset].toInt() and 0xFF
-            val length = ((bytes[offset + 1].toInt() and 0xFF) shl 16) or
-                ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
-                (bytes[offset + 3].toInt() and 0xFF)
+            if (offset + BLOCK_HEADER > head.size) return null
+            val flags = head[offset].toInt() and 0xFF
+            val length = ((head[offset + 1].toInt() and 0xFF) shl 16) or
+                ((head[offset + 2].toInt() and 0xFF) shl 8) or
+                (head[offset + 3].toInt() and 0xFF)
             val start = offset + BLOCK_HEADER
-            if (start + length > bytes.size) return bytes
+            if (start + length > head.size) return null
             blocks += Block(flags and 0x7F, start, length)
             offset = start + length
             if (flags and 0x80 != 0) break
         }
         // Required to be first by the format itself; a file that doesn't have it
         // there is not one to guess at.
-        if (blocks.firstOrNull()?.type != TYPE_STREAMINFO) return bytes
+        if (blocks.firstOrNull()?.type != TYPE_STREAMINFO) return null
 
         val additions = listOfNotNull(
             vorbisComment(title, artist, album, lyrics, wordLyrics)?.let { TYPE_VORBIS_COMMENT to it },
@@ -89,12 +115,12 @@ object FlacTagger {
             // 16MB — `LyricsTag` caps what it hands over at a small fraction of
             // it — and losing the cover is a better outcome than losing the tags.
             .filter { it.second.size <= MAX_BLOCK_BYTES }
-        if (additions.isEmpty()) return bytes
+        if (additions.isEmpty()) return null
 
         val chain = blocks.filterNot { it.type in REPLACED }
-            .map { it.type to bytes.copyOfRange(it.start, it.start + it.length) } + additions
+            .map { it.type to head.copyOfRange(it.start, it.start + it.length) } + additions
 
-        val out = ByteArrayOutputStream(bytes.size + additions.sumOf { it.second.size } + 64)
+        val out = ByteArrayOutputStream(offset + additions.sumOf { it.second.size } + 64)
         out.write(MAGIC)
         chain.forEachIndexed { index, (type, payload) ->
             out.write(if (index == chain.lastIndex) type or 0x80 else type)
@@ -103,10 +129,9 @@ object FlacTagger {
             out.write(payload.size and 0xFF)
             out.write(payload)
         }
-        // The frames, verbatim. [offset] is one past the last metadata block,
-        // which is where they start.
-        out.write(bytes, offset, bytes.size - offset)
-        return out.toByteArray()
+        // [offset] is one past the last metadata block, which is where the
+        // frames start.
+        return Rewrite(out.toByteArray(), offset)
     }
 
     /**

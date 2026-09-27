@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.View
 import android.widget.RemoteViews
 import com.music.bitchord.MainActivity
@@ -19,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
 
 /**
@@ -63,8 +65,14 @@ abstract class MediaWidget : AppWidgetProvider() {
         renderAsync(context, intArrayOf(id))
     }
 
+    /** A widget that has been dragged off the home screen has no last cover. */
+    override fun onDeleted(context: Context, ids: IntArray) {
+        for (id in ids) lastArt.remove(id)
+    }
+
     override fun onDisabled(context: Context) {
         MediaWidgetArt.clear()
+        lastArt.clear()
     }
 
     /**
@@ -72,7 +80,7 @@ abstract class MediaWidget : AppWidgetProvider() {
      *
      * [goAsync] is what makes that legal — artwork may have to come off disk or
      * out of the network, and returning from `onUpdate` first would let the
-     * process be killed mid-render. The timeout is well inside the window a
+     * process be killed mid-render. The deadline is well inside the window a
      * broadcast gets; past it the widget keeps whatever it last drew, which is
      * a better outcome than an ANR.
      */
@@ -82,7 +90,7 @@ abstract class MediaWidget : AppWidgetProvider() {
         val fallback = fallbackWidthDp
         scope.launch {
             try {
-                withTimeoutOrNull(RENDER_TIMEOUT_MS) { render(app, ids, fallback) }
+                render(app, ids, fallback, SystemClock.elapsedRealtime() + BROADCAST_BUDGET_MS)
             } finally {
                 runCatching { pending.finish() }
             }
@@ -110,7 +118,7 @@ abstract class MediaWidget : AppWidgetProvider() {
         const val WIDE_LAYOUT_MIN_DP = 215
 
         /**
-         * Redraws every placed widget of either kind.
+         * Redraws every placed widget of any kind, the 4×1 included.
          *
          * Called by
          * [PlaybackService][com.music.bitchord.playback.PlaybackService] whenever
@@ -121,47 +129,94 @@ abstract class MediaWidget : AppWidgetProvider() {
          */
         fun refresh(context: Context) {
             val app = context.applicationContext
+            MediaWidgetPill.refresh(app)
             scope.launch {
-                withTimeoutOrNull(RENDER_TIMEOUT_MS) {
-                    val manager =
-                        runCatching { AppWidgetManager.getInstance(app) }.getOrNull() ?: return@withTimeoutOrNull
-                    for ((provider, fallbackWidthDp) in PROVIDERS) {
-                        val ids = runCatching {
-                            manager.getAppWidgetIds(ComponentName(app, provider))
-                        }.getOrNull()
-                        if (ids == null || ids.isEmpty()) continue
-                        render(app, ids, fallbackWidthDp)
-                    }
+                val manager = runCatching { AppWidgetManager.getInstance(app) }.getOrNull() ?: return@launch
+                for ((provider, fallbackWidthDp) in PROVIDERS) {
+                    val ids = runCatching {
+                        manager.getAppWidgetIds(ComponentName(app, provider))
+                    }.getOrNull()
+                    if (ids == null || ids.isEmpty()) continue
+                    // No deadline: nothing is being held open here. This is the
+                    // hot path — it runs on every track change, play and pause —
+                    // so it is also the one where starving the second widget of
+                    // its render would be noticed most.
+                    render(app, ids, fallbackWidthDp, deadline = null)
                 }
             }
         }
 
-        private suspend fun render(context: Context, ids: IntArray, fallbackWidthDp: Int) {
+        /**
+         * Redraws [ids], each within its own [RENDER_TIMEOUT_MS].
+         *
+         * Per widget rather than across all of them, because these renders are
+         * mostly network waits and one slow cover used to spend the whole budget
+         * — leaving every widget after it in the list unrendered. [deadline], for
+         * the [goAsync] path only, caps the total: the broadcast has a window it
+         * must finish inside, and a per-widget timeout can outrun it.
+         */
+        private suspend fun render(
+            context: Context,
+            ids: IntArray,
+            fallbackWidthDp: Int,
+            deadline: Long?,
+        ) {
             val manager = runCatching { AppWidgetManager.getInstance(context) }.getOrNull() ?: return
             val snapshot = MediaWidgetSnapshot.load(context)
             // Keyed on the artwork rather than the track: two tracks off one
             // album are one picture, so moving through an album redraws nothing.
             val key = snapshot.artworkUrl ?: KEY_NO_ARTWORK
             for (id in ids) {
-                val size = measure(context, manager, id, fallbackWidthDp)
-                val cached = MediaWidgetArt.peek(key, size.widthPx, size.heightPx, size.bandPx)
-                if (cached == null) {
-                    // The picture still has to be drawn, and that can mean a
-                    // network fetch. Push the transport now so a tap is answered
-                    // in a frame; the artwork catches up below.
-                    manager.push(id, views(context, snapshot, size, art = null))
+                val budget = when (deadline) {
+                    null -> RENDER_TIMEOUT_MS
+                    else -> minOf(RENDER_TIMEOUT_MS, deadline - SystemClock.elapsedRealtime())
                 }
-                val art = cached ?: MediaWidgetArt.render(
-                    context = context,
-                    artworkUrl = snapshot.artworkUrl,
-                    widthPx = size.widthPx,
-                    heightPx = size.heightPx,
-                    bandPx = size.bandPx,
-                    key = key,
-                    cornerRadiusPx = size.cornerRadiusPx,
-                )
-                manager.push(id, views(context, snapshot, size, art))
+                // Out of time. The widgets left keep what they are already
+                // showing, which is the same thing they would keep if their
+                // render had timed out.
+                if (budget <= 0L) return
+                withTimeoutOrNull(budget) { render(context, manager, id, snapshot, key, fallbackWidthDp) }
             }
+        }
+
+        private suspend fun render(
+            context: Context,
+            manager: AppWidgetManager,
+            id: Int,
+            snapshot: MediaWidgetSnapshot,
+            key: String,
+            fallbackWidthDp: Int,
+        ) {
+            val size = measure(context, manager, id, fallbackWidthDp)
+            val cached = MediaWidgetArt.peek(key, size.widthPx, size.heightPx, size.bandPx)
+            if (cached == null) {
+                // The picture still has to be drawn, and that can mean a network
+                // fetch. Push the transport now so a tap is answered in a frame;
+                // the artwork catches up below.
+                //
+                // With the cover this widget last drew, not with nothing. A
+                // RemoteViews replaces the whole tree, so leaving widget_art
+                // unset does not leave it alone — it clears it, and the layout's
+                // placeholder background shows through. That is only correct if
+                // the render below then succeeds; when it fails, or times out, or
+                // never gets a turn, the wipe is all that happens and the widget
+                // sits on a gradient until something else refreshes it. Holding
+                // the old cover for the fraction of a second the new one takes is
+                // the smaller wrong: it is briefly the wrong picture rather than
+                // durably no picture.
+                manager.push(id, views(context, snapshot, size, lastArt[id]))
+            }
+            val art = cached ?: MediaWidgetArt.render(
+                context = context,
+                artworkUrl = snapshot.artworkUrl,
+                widthPx = size.widthPx,
+                heightPx = size.heightPx,
+                bandPx = size.bandPx,
+                key = key,
+                cornerRadiusPx = size.cornerRadiusPx,
+            )
+            lastArt[id] = art
+            manager.push(id, views(context, snapshot, size, art))
         }
 
         // ---- views ----
@@ -374,8 +429,26 @@ abstract class MediaWidget : AppWidgetProvider() {
          */
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-        /** Comfortably inside the window a broadcast is allowed to stay open. */
+        /** How long any one widget's artwork may take before it is given up on. */
         private const val RENDER_TIMEOUT_MS = 8_000L
+
+        /**
+         * How long all of a broadcast's widgets together may take. Comfortably
+         * inside the window a broadcast is allowed to stay open, which
+         * [RENDER_TIMEOUT_MS] on its own no longer promises now that it is spent
+         * per widget rather than across them.
+         */
+        private const val BROADCAST_BUDGET_MS = 8_000L
+
+        /**
+         * The cover each widget is currently showing.
+         *
+         * Kept so a render that fails has something truthful to fall back on —
+         * see the push in [render]. Held strongly, which is the same thing the
+         * launcher is already doing with these bitmaps for as long as the widget
+         * is on screen, and dropped when the widget is.
+         */
+        private val lastArt = ConcurrentHashMap<Int, Bitmap>()
 
         private const val MAX_BITMAP_PX = 1_200f
 

@@ -32,4 +32,9 @@
     <dimen name="widget_button_wide">44dp</dimen>
     <dimen name="widget_glyph_compact">22dp</dimen>
     <dimen name="widget_glyph_wide">24dp</dimen>
+
+    <!-- The 4×1 capsule: its height, round cover, and its row of five buttons. -->
+    <dimen name="widget_pill_height">78dp</dimen>
+    <dimen name="widget_pill_art">64dp</dimen>
+    <dimen name="widget_button_pill">38dp</dimen>
 </resources>

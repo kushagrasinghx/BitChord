@@ -5,12 +5,16 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
+import com.music.bitchord.playback.ACTION_TOGGLE_FAVORITE
+import com.music.bitchord.playback.ACTION_TOGGLE_SHUFFLE
 import com.music.bitchord.playback.PlaybackService
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -24,12 +28,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * restricted, and a `MediaController` binds. Same handshake the app itself uses,
  * from [rememberMediaController][com.music.bitchord.playback.rememberMediaController].
  *
- * It also means **play works with the app dead**, with nothing extra plumbed in:
- * the bind creates [PlaybackService], whose `onCreate` already restores the last
- * queue, so by the time the controller connects there is something to play. The
- * one thing that restore deliberately leaves undone is `prepare()` — it exists so
- * a cold app can *show* where you left off without pulling a stream for a track
- * nobody has asked for yet — so that is done here, at the point somebody has.
+ * Binding also creates [PlaybackService] when needed; its bounded persisted
+ * queue is restored before the controller connects, so widget playback works
+ * after process death without serializing the full live queue on progress ticks.
  */
 class MediaWidgetActions : BroadcastReceiver() {
 
@@ -72,8 +73,7 @@ class MediaWidgetActions : BroadcastReceiver() {
     }
 
     private fun MediaController.execute(action: String) {
-        // Nothing restored and nothing queued: the buttons have nothing to act on.
-        // Reachable if the persisted snapshot outlived the queue behind it.
+        // No live or restored queue means the buttons have nothing to control.
         if (mediaItemCount == 0) return
         when (action) {
             ACTION_TOGGLE -> if (playWhenReady) {
@@ -97,13 +97,22 @@ class MediaWidgetActions : BroadcastReceiver() {
                 seekToPreviousMediaItem()
                 prepareIfIdle()
             }
+            // The same session commands the notification's Favorite and Shuffle
+            // send, so the service does the work — optimistic like with a
+            // YouTube write behind it, shuffle as one queue transaction — and
+            // republishes the widget state when it has.
+            ACTION_LIKE -> sendCustomCommand(
+                SessionCommand(ACTION_TOGGLE_FAVORITE, Bundle.EMPTY),
+                Bundle.EMPTY,
+            )
+            ACTION_SHUFFLE -> sendCustomCommand(
+                SessionCommand(ACTION_TOGGLE_SHUFFLE, Bundle.EMPTY),
+                Bundle.EMPTY,
+            )
         }
     }
 
-    /**
-     * The restored queue is left idle on purpose (see the class comment), and an
-     * idle player ignores everything until it is prepared.
-     */
+    /** An idle player ignores transport commands until it is prepared. */
     private fun MediaController.prepareIfIdle() {
         if (playbackState == Player.STATE_IDLE) prepare()
     }
@@ -113,11 +122,13 @@ class MediaWidgetActions : BroadcastReceiver() {
         const val ACTION_TOGGLE = "com.music.bitchord.widget.TOGGLE"
         const val ACTION_NEXT = "com.music.bitchord.widget.NEXT"
         const val ACTION_PREVIOUS = "com.music.bitchord.widget.PREVIOUS"
+        const val ACTION_LIKE = "com.music.bitchord.widget.LIKE"
+        const val ACTION_SHUFFLE = "com.music.bitchord.widget.SHUFFLE"
 
         fun pendingIntent(context: Context, action: String): PendingIntent =
             PendingIntent.getBroadcast(
                 context,
-                // Distinct per action, so the three buttons cannot collapse into
+                // Distinct per action, so the buttons cannot collapse into
                 // one PendingIntent — extras are ignored when they are compared,
                 // and only the request code and the action tell them apart.
                 REQUEST_BASE + ACTIONS.indexOf(action),
@@ -125,7 +136,8 @@ class MediaWidgetActions : BroadcastReceiver() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
-        private val ACTIONS = listOf(ACTION_TOGGLE, ACTION_NEXT, ACTION_PREVIOUS)
+        private val ACTIONS =
+            listOf(ACTION_TOGGLE, ACTION_NEXT, ACTION_PREVIOUS, ACTION_LIKE, ACTION_SHUFFLE)
 
         private const val REQUEST_BASE = 100
 

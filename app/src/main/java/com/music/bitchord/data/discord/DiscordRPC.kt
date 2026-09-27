@@ -24,7 +24,8 @@ import java.util.Locale
  *   Listening to BitChord          <- activityName, or the app's own name
  *   ┌────┐  Song title             <- details
  *   │art │  Artist                 <- state
- *   └────┘  ▁▁▁▁▁▁ 1:04 / 3:47     <- from the timestamps
+ *   └────┘  Hi-Res Lossless · FLAC · 4608 kbps · 24-bit · 96 kHz
+ *           ▁▁▁▁▁▁ 1:04 / 3:47     <- from the timestamps
  *   [ Listen on YouTube Music ]    <- button 1
  *   [ Visit BitChord           ]   <- button 2
  * ```
@@ -65,6 +66,7 @@ class DiscordRPC(
         button2Visible: Boolean = true,
         activityType: String = "listening",
         activityName: String = "",
+        audioQuality: String? = null,
     ) = runCatching {
         val currentTime = System.currentTimeMillis()
 
@@ -113,9 +115,20 @@ class DiscordRPC(
             // Asked for at a size Discord's own card actually draws — the row
             // thumbnail our lists use is 160px and reads soft blown up to the
             // 96dp sleeve in a presence card.
-            largeImage = song.artworkAt(ART_PX)?.let { RpcImage.ExternalImage(it) },
+            //
+            // Never left null: an activity without a large_image falls back to
+            // the icon of whichever application [APPLICATION_ID] points at, and
+            // that icon isn't ours to set. A track with no artwork — or with
+            // artwork Discord can't reach, which is anything that isn't an http
+            // URL — gets our own launcher icon instead.
+            largeImage = RpcImage.ExternalImage(
+                song.artworkAt(ART_PX)?.takeIf { it.startsWith("http") } ?: FALLBACK_ART_URL,
+            ),
             smallImage = null,
-            largeText = song.albumName,
+            // The card's optional third information line. Kept absent for
+            // ordinary lossy streams so Discord only calls attention to a
+            // measured premium format.
+            largeText = audioQuality,
             smallText = null,
             buttons = if (buttonsList.isNotEmpty()) buttonsList else null,
             type = type,
@@ -161,6 +174,16 @@ class DiscordRPC(
 
         /** Discord draws the sleeve at roughly 96dp; 480px covers it on any density. */
         private const val ART_PX = 480
+
+        /**
+         * The sleeve drawn for a track with no usable artwork.
+         *
+         * Has to be a URL Discord's mirroring endpoint can fetch, so it points
+         * at the launcher icon in the repo rather than the copy bundled in the
+         * APK — a `res/` drawable has no address the presence can carry.
+         */
+        private const val FALLBACK_ART_URL =
+            "https://raw.githubusercontent.com/kushagrasinghx/BitChord/main/app/src/main/ic_launcher-playstore.png"
 
         fun watchUrl(song: Song): String =
             "https://music.youtube.com/watch?v=${song.videoId}"

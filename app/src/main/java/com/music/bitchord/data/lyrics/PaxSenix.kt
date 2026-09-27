@@ -4,161 +4,343 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerialName
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.abs
 
-/**
- * Word-timed lyrics via [lyrics.paxsenix.org](https://lyrics.paxsenix.org), a
- * public proxy in front of Apple Music's own catalogue and lyrics — a second,
- * independent route to the same Apple TTML [BetterLyrics] carries, useful
- * exactly when that one's host is the one having a bad day.
- *
- * Apple's own search wants a bearer token, which its web player mints from a
- * token embedded in its own JS bundle — there is no key to request, only that
- * bundle to read, so this scrapes it the same way the player itself does at
- * load time, and keeps it until Apple says no.
- */
+/** Public Apple lyrics plus optional authenticated Spotify and Musixmatch routes. */
 object PaxSenix {
-
-    private const val PROXY = "https://lyrics.paxsenix.org"
+    private const val API = "https://api.paxsenix.org"
+    private const val PUBLIC_PROXY = "https://lyrics.paxsenix.org"
     private const val APPLE_SEARCH = "https://amp-api.music.apple.com/v1/catalog/us/search"
-    private const val DURATION_TOLERANCE_SECONDS = 10
+    private const val MINIMUM_MATCH_SCORE = 10
 
     private val tokenMutex = Mutex()
-    private val cachedToken = AtomicReference<String?>(null)
+    private val cachedAppleToken = AtomicReference<String?>(null)
 
+    @Volatile
+    private var apiKey: String = ""
+
+    fun setApiKey(value: String) {
+        apiKey = normalizePaxSenixApiKey(value)
+    }
+
+    /** The original keyless Apple Music provider used by the existing source id. */
     suspend fun lyrics(
         title: String,
         artist: String,
         durationMs: Long,
         album: String? = null,
     ): List<LyricLine>? = withContext(Dispatchers.IO) {
-        val seconds = (durationMs / 1000).toInt()
-        val query = listOfNotNull(title.cleaned(), artist.cleaned().takeIf { it.isNotBlank() })
-            .joinToString(" ")
-        val results = search(query) ?: return@withContext null
-        val best = results
-            .filter { track ->
-                val trackSeconds = track.durationSeconds
-                seconds <= 0 || trackSeconds == null || abs(trackSeconds - seconds) <= DURATION_TOLERANCE_SECONDS
-            }
-            .maxByOrNull { score(it, title, artist) }
+        val id = searchPublicAppleTrackId(title, artist, durationMs)
             ?: return@withContext null
-
-        fetchLyrics(best.id)
-    }
-
-    private fun score(track: AppleTrack, title: String, artist: String): Double {
-        val name = track.attributes.name.trim().lowercase()
-        val targetTitle = title.trim().lowercase()
-        val artistName = track.attributes.artistName.trim().lowercase()
-        val targetArtist = artist.trim().lowercase()
-        var score = 0.0
-        score += when {
-            name == targetTitle -> 80.0
-            name.contains(targetTitle) || targetTitle.contains(name) -> 40.0
-            else -> 0.0
-        }
-        if (artistName.contains(targetArtist) || targetArtist.contains(artistName)) score += 40.0
-        return score
-    }
-
-    private fun String.cleaned(): String = replace(
-        Regex(
-            """\s*[(\[](official|video|audio|lyrics?|visualizer|hd|hq|4k|remaster\w*|live|version|""" +
-                """feat\.?|ft\.?)[^)\]]*[)\]]""",
-            RegexOption.IGNORE_CASE,
-        ),
-        "",
-    ).trim()
-
-    private suspend fun search(query: String): List<AppleTrack>? {
-        val token = getToken() ?: return null
-        val body = get(
-            "$APPLE_SEARCH?term=${java.net.URLEncoder.encode(query, "UTF-8")}&types=songs&limit=10&l=en-US",
-            bearer = token,
-        ) ?: return null
-        val response = runCatching { lyricsJson.decodeFromString<AppleSearchResponse>(body) }.getOrNull()
-        return response?.results?.songs?.data
-    }
-
-    private fun fetchLyrics(appleId: String): List<LyricLine>? {
-        val url = "$PROXY/apple-music/lyrics".toHttpUrl().newBuilder()
-            .addQueryParameter("id", appleId)
+        val url = publicUrl("apple-music/lyrics")
+            .addQueryParameter("id", id)
+            .addQueryParameter("ttml", "true")
             .build()
-        val body = lyricsGet(url.toString()) ?: return null
-        val response = runCatching { lyricsJson.decodeFromString<LyricsResponse>(body) }.getOrNull()
+        lyricsGet(url.toString())
+            ?.let(::parseResponse)
+    }
+
+    suspend fun spotifyLyrics(
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        val id = searchTrackId("spotify/search", title, artist, durationMs)
+        id?.let {
+            apiBody(apiUrl("lyrics/spotify").addQueryParameter("id", it).build())
+                ?.let(::parseResponse)
+        } ?: genericAuthenticatedLyrics(title, artist, durationMs)
+    }
+
+    suspend fun musixmatchLyrics(
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): List<LyricLine>? = withContext(Dispatchers.IO) {
+        val query: HttpUrl.Builder.() -> Unit = {
+            addQueryParameter("t", title)
+            addQueryParameter("a", artist)
+            addQueryParameter("d", (durationMs / 1000).toString())
+        }
+        apiBody(apiUrl("lyrics/musixmatch").apply(query).build())
+            ?.let(::parseResponse)
+            ?: genericAuthenticatedLyrics(title, artist, durationMs)
+    }
+
+    private suspend fun searchPublicAppleTrackId(
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): String? {
+        val token = appleToken() ?: return null
+        val url = APPLE_SEARCH.toHttpUrl().newBuilder()
+            .addQueryParameter("term", "$title $artist")
+            .addQueryParameter("types", "songs")
+            .addQueryParameter("limit", "10")
+            .addQueryParameter("l", "en-US")
+            .build()
+        val root = lyricsGetAuthorized(url.toString(), token)
+            ?.let { runCatching { lyricsJson.parseToJsonElement(it) }.getOrNull() }
             ?: return null
-
-        response.ttmlContent?.takeIf { it.isNotBlank() }?.let { ttml ->
-            TtmlLyrics.parse(ttml).takeIf { it.isNotEmpty() }?.let { return it }
-        }
-        response.elrcMultiPerson?.takeIf { it.isNotBlank() }?.let { elrc ->
-            EnhancedLrc.parse(elrc).takeIf { it.isNotEmpty() }?.let { return it }
-        }
-        response.elrc?.takeIf { it.isNotBlank() }?.let { elrc ->
-            EnhancedLrc.parse(elrc).takeIf { it.isNotEmpty() }?.let { return it }
-        }
-        return null
+        return bestCandidate(root, title, artist, durationMs)?.id
     }
 
-    /** [PROXY] itself needs no auth; only the Apple Music catalogue search does. */
-    private fun get(url: String, bearer: String? = null): String? = if (bearer == null) {
-        lyricsGet(url)
-    } else {
-        lyricsGetAuthorized(url, bearer)
+    private suspend fun appleToken(): String? = cachedAppleToken.get() ?: tokenMutex.withLock {
+        cachedAppleToken.get() ?: scrapeAppleToken()?.also(cachedAppleToken::set)
     }
 
-    private suspend fun getToken(): String? = cachedToken.get() ?: tokenMutex.withLock {
-        cachedToken.get() ?: scrapeToken()?.also { cachedToken.set(it) }
+    private fun scrapeAppleToken(): String? {
+        val page = lyricsGet("https://music.apple.com/us/new") ?: return null
+        val scriptPath = APPLE_INDEX_SCRIPT.find(page)?.value ?: return null
+        val script = lyricsGet("https://music.apple.com$scriptPath") ?: return null
+        return APPLE_TOKEN.find(script)?.value
+    }
+
+    private fun searchTrackId(
+        path: String,
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): String? {
+        val query: HttpUrl.Builder.() -> Unit = {
+            addQueryParameter("q", "$title $artist")
+        }
+        val root = apiBody(apiUrl(path).apply(query).build())
+            ?.let { runCatching { lyricsJson.parseToJsonElement(it) }.getOrNull() }
+            ?: return null
+        return bestCandidate(root, title, artist, durationMs)?.id
+    }
+
+    private fun genericAuthenticatedLyrics(
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): List<LyricLine>? {
+        val url = apiUrl("lyrics/lrcget")
+            .addQueryParameter("q", "$title $artist")
+            .build()
+        return apiBody(url)?.let { parseLrcGet(it, title, artist, durationMs) }
     }
 
     /**
-     * Apple's web player carries its own bearer token inside one of its JS
-     * bundles rather than minting it per session, so getting one is a matter
-     * of reading the same file the player itself loads: the home page names
-     * its main script, and the token sits in that script as a complete JWT —
-     * three dot-separated segments, not just the leading fragment a looser
-     * match would stop at.
+     * The general endpoint returns search candidates, not lyric lines. Parsing
+     * its array as one document concatenates every candidate and makes each
+     * song's timestamps restart at zero, which appears as repeated lines that
+     * cannot stay in sync. Select one recording before parsing its lyrics.
      */
-    private fun scrapeToken(): String? {
-        val home = lyricsGet("https://music.apple.com/us/new") ?: return null
-        val scriptPath = INDEX_JS.find(home)?.value ?: return null
-        val script = lyricsGet("https://music.apple.com$scriptPath") ?: return null
-        return TOKEN.find(script)?.value
+    internal fun parseLrcGet(
+        raw: String,
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): List<LyricLine>? {
+        val root = runCatching { lyricsJson.parseToJsonElement(raw) }.getOrNull()
+            ?: return null
+        val payload = (root as? JsonObject)?.get("lyrics")
+        val documents = (payload as? JsonArray).orEmpty()
+        if (documents.isEmpty()) return parseResponse(raw)
+
+        return documents.mapNotNull { document ->
+            val lines = parseResponse(document.toString()) ?: return@mapNotNull null
+            val metadataScore = (document as? JsonObject)
+                ?.lyricCandidateScore(title, artist, durationMs) ?: 0
+            ParsedDocument(lines, metadataScore, durationDistance(lines, durationMs))
+        }.maxWithOrNull(
+            compareBy<ParsedDocument> { it.metadataScore }
+                .thenBy { -it.durationDistanceMs }
+                .thenBy { document -> document.lines.count { it.timeMs > 0L } }
+                .thenBy { document -> document.lines.count { it.isWordSynced } },
+        )?.lines
     }
 
-    private val INDEX_JS = Regex("""/assets/index~[^"]+\.js""")
-    private val TOKEN = Regex("""eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+""")
-
-    @Serializable
-    private data class AppleSearchResponse(val results: Results = Results())
-
-    @Serializable
-    private data class Results(val songs: Songs? = null)
-
-    @Serializable
-    private data class Songs(val data: List<AppleTrack> = emptyList())
-
-    @Serializable
-    private data class AppleTrack(val id: String, val attributes: Attributes) {
-        val durationSeconds: Int? get() = attributes.durationInMillis?.let { (it / 1000).toInt() }
+    private fun durationDistance(lines: List<LyricLine>, durationMs: Long): Long {
+        if (durationMs <= 0L) return 0L
+        val lastTimestamp = lines.maxOfOrNull { line ->
+            maxOf(
+                line.timeMs,
+                line.sungUntilMs ?: 0L,
+                line.words.maxOfOrNull(LyricWord::endMs) ?: 0L,
+            )
+        } ?: return Long.MAX_VALUE
+        return abs(lastTimestamp - durationMs)
     }
 
-    @Serializable
-    private data class Attributes(
-        val name: String,
-        val artistName: String,
-        @SerialName("durationInMillis") val durationInMillis: Long? = null,
+    private fun JsonObject.lyricCandidateScore(
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): Int {
+        val details = this["attributes"] as? JsonObject ?: this
+        val candidate = Candidate(
+            id = firstString(ID_KEYS) ?: "",
+            title = details.firstString(TITLE_KEYS).orEmpty(),
+            artist = details.firstString(ARTIST_KEYS) ?: details.artistNames().orEmpty(),
+            durationMs = details.firstLong(DURATION_KEYS).toDurationMs(),
+        )
+        return candidate.score(title, artist, durationMs)
+    }
+
+    private fun bestCandidate(
+        root: JsonElement,
+        title: String,
+        artist: String,
+        durationMs: Long,
+    ): Candidate? {
+        val candidates = buildList { root.collectCandidates(this) }
+        return candidates.map { it to it.score(title, artist, durationMs) }
+            .maxByOrNull { it.second }
+            ?.takeIf { it.second >= MINIMUM_MATCH_SCORE }
+            ?.first
+    }
+
+    private fun parseResponse(raw: String): List<LyricLine>? =
+        parseTimedApple(raw) ?: ProviderLyrics.parse(raw)
+
+    /** Preserve word timestamps when PaxSenix returns its structured Apple payload. */
+    internal fun parseTimedApple(raw: String): List<LyricLine>? {
+        val root = runCatching { lyricsJson.parseToJsonElement(raw) }.getOrNull() ?: return null
+        val content = root.findTimedContent() ?: return null
+        val rows = content.mapNotNull { it as? JsonObject }
+        val lines = rows.mapIndexedNotNull { index, row ->
+            val start = row.long("timestamp") ?: return@mapIndexedNotNull null
+            val wordRows = row["text"] as? JsonArray ?: return@mapIndexedNotNull null
+            val texts = wordRows.mapNotNull { (it as? JsonObject)?.string("text") }
+            if (texts.isEmpty()) return@mapIndexedNotNull null
+            val nextLine = rows.getOrNull(index + 1)?.long("timestamp")
+            val timed = wordRows.mapIndexedNotNull { wordIndex, element ->
+                val word = element as? JsonObject ?: return@mapIndexedNotNull null
+                val text = word.string("text")?.trim()?.takeIf(String::isNotEmpty)
+                    ?: return@mapIndexedNotNull null
+                val wordStart = word.long("timestamp") ?: return@mapIndexedNotNull null
+                val wordEnd = (wordRows.getOrNull(wordIndex + 1) as? JsonObject)?.long("timestamp")
+                    ?: nextLine ?: wordStart + 800
+                LyricWord(wordStart, wordEnd.coerceAtLeast(wordStart), text)
+            }
+            LyricLine(
+                timeMs = minOf(start, timed.firstOrNull()?.startMs ?: start),
+                text = texts.joinToString(" ") { it.trim() },
+                words = timed.takeIf { it.size == texts.size }.orEmpty(),
+                sungUntilMs = nextLine,
+            )
+        }
+        return lines.withInstrumentalGaps().takeIf { it.any { line -> line.text.isNotBlank() } }
+    }
+
+    private fun JsonElement.findTimedContent(): JsonArray? = when (this) {
+        is JsonObject -> {
+            (this["content"] as? JsonArray)?.takeIf { array ->
+                array.any { (it as? JsonObject)?.get("timestamp") != null }
+            } ?: values.firstNotNullOfOrNull { it.findTimedContent() }
+        }
+        is JsonArray -> firstNotNullOfOrNull { it.findTimedContent() }
+        else -> null
+    }
+
+    private fun JsonElement.collectCandidates(into: MutableList<Candidate>) {
+        when (this) {
+            is JsonArray -> forEach { it.collectCandidates(into) }
+            is JsonObject -> {
+                toCandidate()?.let(into::add)
+                values.forEach { it.collectCandidates(into) }
+            }
+            else -> Unit
+        }
+    }
+
+    private fun JsonObject.toCandidate(): Candidate? {
+        val details = this["attributes"] as? JsonObject ?: this
+        val id = firstString(ID_KEYS) ?: details.firstString(ID_KEYS) ?: return null
+        val title = details.firstString(TITLE_KEYS) ?: return null
+        val artist = details.firstString(ARTIST_KEYS) ?: details.artistNames().orEmpty()
+        return Candidate(id, title, artist, details.firstLong(DURATION_KEYS).toDurationMs())
+    }
+
+    private fun JsonObject.artistNames(): String? = when (val artists = this["artists"] ?: this["artist"]) {
+        is JsonPrimitive -> artists.contentOrNull
+        is JsonObject -> artists.firstString(listOf("name", "artistName", "title"))
+        is JsonArray -> artists.mapNotNull {
+            when (it) {
+                is JsonPrimitive -> it.contentOrNull
+                is JsonObject -> it.firstString(listOf("name", "artistName", "title"))
+                else -> null
+            }
+        }.joinToString(", ").takeIf(String::isNotEmpty)
+        else -> null
+    }
+
+    private fun JsonObject.firstString(keys: List<String>): String? =
+        keys.firstNotNullOfOrNull { string(it)?.trim()?.takeIf(String::isNotEmpty) }
+
+    private fun JsonObject.firstLong(keys: List<String>): Long? =
+        keys.firstNotNullOfOrNull { key -> (this[key] as? JsonPrimitive)?.longOrNull }
+
+    private fun JsonObject.string(key: String): String? =
+        (this[key] as? JsonPrimitive)?.contentOrNull
+
+    private fun JsonObject.long(key: String): Long? =
+        (this[key] as? JsonPrimitive)?.longOrNull
+
+    private fun Long?.toDurationMs(): Long = when {
+        this == null || this <= 0 -> 0
+        this < 10_000 -> this * 1000
+        else -> this
+    }
+
+    private fun Candidate.score(wantedTitle: String, wantedArtist: String, wantedDuration: Long): Int {
+        var score = textScore(title, wantedTitle, 20, 10) + textScore(artist, wantedArtist, 15, 5)
+        if (wantedDuration > 0 && durationMs > 0) score += when {
+            abs(durationMs - wantedDuration) < 3_000 -> 10
+            abs(durationMs - wantedDuration) < 10_000 -> 5
+            else -> 0
+        }
+        return score
+    }
+
+    private fun textScore(candidate: String, wanted: String, exact: Int, partial: Int): Int = when {
+        candidate.isBlank() || wanted.isBlank() -> 0
+        candidate.equals(wanted, ignoreCase = true) -> exact
+        candidate.contains(wanted, ignoreCase = true) || wanted.contains(candidate, ignoreCase = true) -> partial
+        else -> 0
+    }
+
+    private fun apiUrl(path: String) = "$API/$path".toHttpUrl().newBuilder()
+
+    private fun publicUrl(path: String) = "$PUBLIC_PROXY/$path".toHttpUrl().newBuilder()
+
+    private fun apiBody(url: HttpUrl): String? = apiKey.takeIf(String::isNotBlank)?.let { key ->
+        lyricsGetBearer(url.toString(), key)
+    }
+
+    private data class Candidate(val id: String, val title: String, val artist: String, val durationMs: Long)
+    private data class ParsedDocument(
+        val lines: List<LyricLine>,
+        val metadataScore: Int,
+        val durationDistanceMs: Long,
     )
 
-    @Serializable
-    private data class LyricsResponse(
-        val ttmlContent: String? = null,
-        val elrc: String? = null,
-        val elrcMultiPerson: String? = null,
-    )
+    private val ID_KEYS = listOf("id", "trackId", "track_id", "realId")
+    private val TITLE_KEYS = listOf("name", "title", "trackName", "track_name")
+    private val ARTIST_KEYS = listOf("artistName", "artist_name")
+    private val DURATION_KEYS = listOf("durationInMillis", "durationMs", "duration_ms", "duration")
+
+    private val APPLE_INDEX_SCRIPT = Regex("""/assets/index~[^\"]+\.js""")
+    private val APPLE_TOKEN = Regex("""eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+""")
+}
+
+internal fun normalizePaxSenixApiKey(value: String): String {
+    val trimmed = value.trim()
+    return if (trimmed.startsWith("Bearer ", ignoreCase = true)) {
+        trimmed.substringAfter(' ').trim()
+    } else {
+        trimmed
+    }
 }

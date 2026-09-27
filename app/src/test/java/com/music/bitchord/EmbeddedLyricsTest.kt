@@ -12,6 +12,8 @@ import com.music.bitchord.download.WebmTagger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.io.File
+import kotlin.io.path.createTempDirectory
 
 /**
  * The reader and the three taggers have to agree, and nothing else checks that
@@ -162,6 +164,60 @@ class EmbeddedLyricsTest {
     @Test
     fun `something that is none of the three containers is not guessed at`() {
         assertNull(EmbeddedLyrics.fromBytes(ByteArray(512) { it.toByte() }))
+    }
+
+    // ---- Offline packages ---------------------------------------------------
+
+    /**
+     * The one download with no container to read: an HLS or DASH package is a
+     * playlist over a directory of segments, so its lyrics are written beside
+     * it. They were written and never read for as long as offline packages have
+     * existed — a downloaded Tidal track showed no lyrics offline and went to
+     * the network for them online, which looks like a lyrics bug rather than a
+     * download one and so stayed hidden.
+     */
+    @Test
+    fun `a package's lyrics come from the sidecar beside its playlist`() {
+        val root = packageDir("lyrics.lrc" to lrc)
+        assertEquals(lrc, EmbeddedLyrics.sidecar(File(root, "playlist.m3u8").path))
+    }
+
+    /** The A2 form is what the writers save, and it has to survive the trip whole. */
+    @Test
+    fun `word timings survive a sidecar too`() {
+        val words = listOf(
+            LyricLine(
+                timeMs = 1_000L,
+                text = "two words",
+                words = listOf(
+                    LyricWord(1_000L, 1_400L, "two"),
+                    LyricWord(1_400L, 2_000L, "words"),
+                ),
+            ),
+        )
+        val root = packageDir("lyrics.lrc" to words.toEnhancedLrc())
+        val read = LrcLib.parseLrc(requireNotNull(EmbeddedLyrics.sidecar(File(root, "playlist.m3u8").path)))
+        assertEquals(listOf("two", "words"), read.single().words.map { it.text })
+        assertEquals(listOf(1_000L, 1_400L), read.single().words.map { it.startMs })
+    }
+
+    @Test
+    fun `a package with no lyrics, and an ordinary file, are left to the container reader`() {
+        // Saved without lyrics — the empty file the writer leaves behind must
+        // not read as "there are lyrics, they are blank".
+        assertNull(EmbeddedLyrics.sidecar(File(packageDir("lyrics.lrc" to "  \n"), "playlist.m3u8").path))
+        assertNull(EmbeddedLyrics.sidecar(File(packageDir(), "playlist.m3u8").path))
+        // A downloaded .flac has no sidecar and never should be given one.
+        assertNull(EmbeddedLyrics.sidecar(File(packageDir("lyrics.lrc" to lrc), "song.flac").path))
+        assertNull(EmbeddedLyrics.sidecar(null))
+    }
+
+    /** A package directory holding a playlist plus whatever [files] the case needs. */
+    private fun packageDir(vararg files: Pair<String, String>): File {
+        val root = createTempDirectory("offline").toFile().also(File::deleteOnExit)
+        File(root, "playlist.m3u8").writeText("#EXTM3U\n#EXT-X-ENDLIST\n")
+        files.forEach { (name, text) -> File(root, name).writeText(text) }
+        return root
     }
 
     // ---- Minimal containers, just enough shape for each tagger to accept ----

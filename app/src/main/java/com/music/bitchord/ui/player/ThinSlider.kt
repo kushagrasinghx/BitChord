@@ -1,17 +1,20 @@
 package com.music.bitchord.ui.player
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -19,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,10 +34,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 
 /**
  * Apple Music's scrubber: a hairline capsule with no thumb knob, which
@@ -48,11 +54,18 @@ fun ThinSlider(
     modifier: Modifier = Modifier,
     onValueChangeFinished: (() -> Unit)? = null,
     /**
-     * Sends a sheen travelling along the played portion for as long as it is
-     * true. Reserved for a transition that genuinely mixed — see
-     * [com.music.bitchord.data.settings.AppSettings.smartMixInProgress].
+     * Sends a travelling sheen across the whole bar — played *and* unplayed,
+     * the bar's full thickness — for as long as it is true.
+     *
+     * The wait a version switch spends fetching and measuring the other cut is
+     * a wait with no measurable fraction to draw, and a stock indeterminate
+     * line sat on the scrubber like a second, uglier bar beside the one the
+     * listener is already watching. The sheen claims the bar itself instead:
+     * no extra chrome, no slot of its own, nothing shifting under it on the
+     * frame the eye lands — just motion along the bar, pointing the way the
+     * music is going.
      */
-    mixing: Boolean = false,
+    loading: Boolean = false,
     /**
      * Span of the track, as fractions of its duration, that the next Automix
      * transition is planned to occupy. Drawn as a brighter stretch of the
@@ -74,6 +87,35 @@ fun ThinSlider(
             stiffness = Spring.StiffnessMediumLow,
         ),
         label = "sliderHeight",
+    )
+    // The sheen gets a minimum beat even when the switch resolves instantly —
+    // a cached offset can land in a few hundred milliseconds — so its entry,
+    // its sweep and its hand-over to the progress bar always play out as one
+    // continuous morph, whenever the wait happened to start and stop. A flip
+    // back to loading during the hold cancels it and the sheen simply stays,
+    // so rapid toggling never blinks the bar out mid-morph.
+    var shownLoading by remember { mutableStateOf(loading) }
+    var sheenStart by remember { mutableStateOf(System.nanoTime()) }
+    LaunchedEffect(loading) {
+        if (loading) {
+            sheenStart = System.nanoTime()
+            shownLoading = true
+        } else {
+            val remaining = LOADING_MIN_MS - (System.nanoTime() - sheenStart) / 1_000_000L
+            if (remaining > 0) delay(remaining)
+            shownLoading = false
+        }
+    }
+    // The played fill doesn't blink out when a switch starts, nor snap back
+    // when it lands: it retracts to nothing as the sheen takes the bar over,
+    // and slides back in when the wait is over — the loading bar *becoming*
+    // the progress bar, rather than one vanishing and the other appearing on
+    // the same frame. Keyed to the latched state and eased on the same curve
+    // and length as the sheen's own transitions, so the two never drift apart.
+    val fillFactor by animateFloatAsState(
+        targetValue = if (shownLoading) 0f else 1f,
+        animationSpec = tween(durationMillis = MORPH_MS, easing = FastOutSlowInEasing),
+        label = "fillFactor",
     )
 
     Box(
@@ -132,59 +174,86 @@ fun ThinSlider(
                     )
                 }
             }
-            val filled = size.width * value.coerceIn(0f, 1f)
-            if (filled > 0f && !mixing) {
+            // Scaled by [fillFactor]: retracted to nothing while the sheen
+            // runs (two white signals on one bar would read as progress
+            // fighting the wait) and slid back in when the switch lands. The
+            // capsule's minimum width rides the same factor, so the nub at
+            // zero progress retires with the fill instead of sitting as a
+            // dot under the sheen.
+            val filled = size.width * value.coerceIn(0f, 1f) * fillFactor
+            if (filled > 0f) {
                 drawRoundRect(
                     color = activeColor,
-                    size = Size(filled.coerceAtLeast(size.height), size.height),
+                    size = Size(
+                        filled.coerceAtLeast(size.height * fillFactor).coerceAtMost(size.width),
+                        size.height,
+                    ),
                     cornerRadius = radius,
                 )
             }
         }
-        // Composed only while mixing, rather than drawn conditionally inside the
-        // Canvas above: an infinite transition keeps requesting frames for as
-        // long as it exists, so the cheap way to stop it costing anything is for
-        // it not to exist. AnimatedVisibility keeps it alive through the exit
-        // fade, so the sheen dies away with the transition instead of vanishing
-        // on the frame the mix ends.
+        // Composed only while switching, rather than drawn inside the Canvas
+        // above: the sheen runs an infinite animation for as long as it
+        // exists, so the cheap way to stop it costing anything is for it not
+        // to exist. AnimatedVisibility keeps it through the fade, so the bar
+        // settles back into an ordinary scrubber instead of blinking out on
+        // the frame the switch lands.
         AnimatedVisibility(
-            visible = mixing,
-            enter = fadeIn(tween(durationMillis = 420)),
-            exit = fadeOut(tween(durationMillis = 520)),
+            visible = shownLoading,
+            // Grown out of the bar's own left end — where the progress fill
+            // begins — instead of slid in from a third of its own width: the
+            // capsule is full-bleed, so that slide started past the screen
+            // edge and flew in from outside the display. Same duration and
+            // curve as the fill's retraction, so the swap reads as one morph.
+            enter = fadeIn(tween(durationMillis = MORPH_MS, easing = FastOutSlowInEasing)) +
+                scaleIn(
+                    animationSpec = tween(durationMillis = MORPH_MS, easing = FastOutSlowInEasing),
+                    initialScale = 0f,
+                    transformOrigin = TransformOrigin(0f, 0.5f),
+                ),
+            exit = fadeOut(tween(durationMillis = MORPH_MS, easing = FastOutSlowInEasing)),
         ) {
-            MixSheen(height = height)
+            MixSheen(height = height, color = activeColor)
         }
     }
 }
 
+private const val SHEEN_BAND_FRACTION = 0.34f
+
+/** Length of one morph step — entry, fill retraction, fill return, exit — all on the same curve. */
+private const val MORPH_MS = 450
+
+/** Shortest time the sheen stays up, so even an instant switch still plays its morph. */
+private const val LOADING_MIN_MS = 600L
+
 /**
- * A single soft highlight travelling the length of the bar, over and over,
- * while two tracks are being mixed.
+ * A highlight sweeping the bar's full thickness — played *and* unplayed
+ * alike — about once a second, at the progress fill's own brightness.
  *
- * Drawn as a moving gradient rather than an opacity pulse because a pulse reads
- * as "loading" — the thing every shimmer in every app means — and this is the
- * opposite claim: not that the app is waiting, but that it is doing something.
- * Motion along the bar also points the same way the music is going.
+ * Loading has no measurable fraction to draw, so an indeterminate indicator
+ * has to draw *something*: the usual choice is a thin line claiming a
+ * sliver of the scrubber's height, which reads as a second, lesser bar
+ * growing out of the first. This band instead takes the whole thickness the
+ * scrubber already occupies and moves along it, so the wait looks like the
+ * bar itself moving rather than an alien element parked on top — no gap, no
+ * slot, no shifting of the controls below it.
  *
- * Sweeps the **whole** bar rather than the played portion, which the first
- * version did and which made it invisible twice over. A transition happens in
- * the opening seconds of the incoming track, so the played portion is then a
- * few percent of the width — a highlight travelling across that is a flicker at
- * the far left. And the played portion is already white at 0.92 alpha, so white
- * at 0.55 over it resolves to 0.96: the same hue, four percent brighter. The
- * unplayed track sits at 0.26, and that is where a white band actually reads.
+ * One pass a second rather than the old two: any faster and the band is a
+ * strobe the eye tracks instead of a wait it can ignore. The pass reverses
+ * at each edge rather than restarting from the far one.
  */
 @Composable
-private fun MixSheen(height: Dp) {
+private fun MixSheen(height: Dp, color: Color) {
     val transition = rememberInfiniteTransition(label = "mixSheen")
     val phase by transition.animateFloat(
-        initialValue = 0f,
+        initialValue = -SHEEN_BAND_FRACTION,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            // Long enough to read as a sweep rather than a flicker, and slow
-            // enough not to compete with the music for attention.
-            animation = tween(durationMillis = 500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
+            animation = tween(durationMillis = 1000, easing = LinearEasing),
+            // Reverses rather than restarting: a restart teleports the band
+            // back to the far edge every second, which is a hitch the eye
+            // catches each time. Ping-pong has no edge to fall off.
+            repeatMode = RepeatMode.Reverse,
         ),
         label = "mixSheenPhase",
     )
@@ -193,24 +262,23 @@ private fun MixSheen(height: Dp) {
             .fillMaxWidth()
             .height(height),
     ) {
-        val band = size.width * BAND_FRACTION
-        // Travels from fully off the left edge to fully off the right, so the
-        // highlight enters and leaves rather than materialising mid-bar.
-        val centre = -band + (size.width + band * 2f) * phase
+        val band = size.width * SHEEN_BAND_FRACTION
+        val x = phase * size.width
         drawRoundRect(
-            brush = Brush.linearGradient(
+            brush = Brush.horizontalGradient(
                 colorStops = arrayOf(
                     0f to Color.Transparent,
-                    0.5f to Color.White.copy(alpha = 0.95f),
+                    0.5f to color,
                     1f to Color.Transparent,
                 ),
-                start = Offset(centre - band / 2f, 0f),
-                end = Offset(centre + band / 2f, 0f),
+                startX = x,
+                endX = x + band,
             ),
+            size = Size(size.width, size.height),
+            // The band is clipped to the same capsule the track is drawn
+            // with: a plain rect bared square corners wherever the sweep
+            // crossed the rounded ends.
             cornerRadius = CornerRadius(size.height / 2f),
         )
     }
 }
-
-/** Width of the travelling highlight, as a fraction of the whole bar. */
-private const val BAND_FRACTION = 0.7f

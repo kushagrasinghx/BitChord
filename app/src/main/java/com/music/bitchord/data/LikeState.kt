@@ -20,6 +20,19 @@ object LikeState {
         _overrides.value += (videoId to status)
     }
 
+    /**
+     * Records a rating read off a track's own menu, but only when the menu
+     * actually states one. A missing like button or an absent rating (null)
+     * must never overwrite what this session already knows — kept null
+     * rather than INDIFFERENT so the two stay distinct — and an explicit
+     * override already made this session always wins.
+     */
+    fun rememberStated(videoId: String, stated: LikeStatus?) {
+        if (stated != null && stated != LikeStatus.INDIFFERENT && videoId !in _overrides.value) {
+            set(videoId, stated)
+        }
+    }
+
     /** Seeds only ratings not already changed explicitly during this session. */
     fun seedLiked(videoIds: Set<String>) {
         if (videoIds.isEmpty()) return

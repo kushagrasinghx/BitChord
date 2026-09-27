@@ -234,6 +234,10 @@ fun rememberArtworkColors(imageUrl: String?, canvasFrame: Bitmap? = null): MeshP
 
     LaunchedEffect(canvasFrame) {
         val frame = canvasFrame ?: return@LaunchedEffect
+        // Reject near-black frames (first read after surface recreation, before
+        // ExoPlayer decodes real content).  A dark sleeve will still exceed the
+        // threshold because compression noise pushes mean luminance above ~12.
+        if (isLikelyBlackFrame(frame)) return@LaunchedEffect
         val colors = withContext(Dispatchers.Default) { paletteOf(frame) }
         palette = MeshPalette(colors)
     }

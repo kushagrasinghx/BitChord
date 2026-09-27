@@ -32,6 +32,17 @@ import java.io.InputStream
  * Never throws. A file that isn't one of the three containers, or is one and
  * has no lyrics in it, is a null — the caller falls back to the network, which
  * is exactly what it did before this existed.
+ *
+ * ### Offline packages
+ *
+ * One kind of download has no container to have been written into: an HLS or
+ * DASH stream is saved as a directory of fMP4 segments behind a playlist, and
+ * its `localUri` points at that playlist. `OfflineHls` and `OfflineDash` write
+ * the lyrics beside it as a `lyrics.lrc` sidecar for exactly that reason — so
+ * [sidecar] is tried first, and a package's lyrics come back the same shape as
+ * a tagged file's. Without it those tracks fetched their lyrics from the
+ * network on every play and showed none at all offline, which is the failure
+ * this whole object exists to prevent.
  */
 object EmbeddedLyrics {
 
@@ -66,9 +77,36 @@ object EmbeddedLyrics {
                 ?.withBackgroundVocals()
         }
 
-    /** The raw LRC text in the file, preferring this app's word-timed field. */
+    /** The raw LRC text for the file, preferring this app's word-timed field. */
     private fun read(context: Context, uri: Uri): String? =
-        open(context, uri)?.use { fromBytes(it.readAtMost(MAX_TAG_BYTES)) }
+        sidecar(uri.path.takeIf { uri.scheme == "file" })
+            ?: open(context, uri)?.use { fromBytes(it.readAtMost(MAX_TAG_BYTES)) }
+
+    /**
+     * The `lyrics.lrc` written next to the offline package playlist at [path].
+     *
+     * Recognised by the playlist rather than by the directory it sits in: the
+     * package lives under a path this module has no business knowing, and a
+     * local `.m3u8` is only ever one of these packages — nothing else in the
+     * app saves a playlist to disk. What the sidecar holds is the enhanced A2
+     * form where the download found one, which is why it is preferred over a
+     * container search rather than used as a fallback to it.
+     *
+     * Takes the path rather than the `Uri` it came out of so the pairing with
+     * the writers can be tested on a real directory, without a device.
+     */
+    internal fun sidecar(path: String?): String? {
+        val playlist = path?.let(::File)?.takeIf { it.name.endsWith(".m3u8", ignoreCase = true) }
+            ?: return null
+        val file = File(playlist.parentFile ?: return null, "lyrics.lrc")
+        // Bounded for the same reason [MAX_TAG_BYTES] is: this is read into a
+        // string, and the size on disk is the only thing that says how big one.
+        if (!file.isFile || file.length() !in 1..MAX_TAG_BYTES.toLong()) return null
+        return runCatching { file.readText() }
+            .onFailure { Log.d(TAG, "could not read $file: ${it.message}") }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+    }
 
     /**
      * The raw LRC text in [head], whichever of the three containers it is.

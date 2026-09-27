@@ -1,0 +1,68 @@
+name: Update Contributors
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'
+
+permissions:
+  contents: write
+
+jobs:
+  update-contributors:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Update contributor list in MAINTAINERS.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          python -c "
+          import json, os, re, subprocess
+
+          repo = os.environ['REPO']
+          res = subprocess.run(
+              ['gh', 'api', f'repos/{repo}/contributors', '--paginate', '--slurp'],
+              capture_output=True,
+              text=True,
+              check=True
+          )
+          pages = json.loads(res.stdout)
+          users = []
+          for page in pages:
+              for c in page:
+                  login = c.get('login', '')
+                  if c.get('type') == 'User' and not login.endswith('[bot]'):
+                      users.append(login)
+
+          contributor_lines = [f'- [@{u}](https://github.com/{u})' for u in users]
+          new_section = '\n'.join(contributor_lines)
+
+          with open('MAINTAINERS.md', 'r', encoding='utf-8') as f:
+              content = f.read()
+
+          pattern = re.compile(r'(<!-- BEGIN CONTRIBUTORS -->\n)(.*?)(<!-- END CONTRIBUTORS -->)', re.DOTALL)
+          updated = pattern.sub(lambda m: m.group(1) + new_section + '\n' + m.group(3), content)
+
+          with open('MAINTAINERS.md', 'w', encoding='utf-8') as f:
+              f.write(updated)
+          "
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet MAINTAINERS.md; then
+            git add MAINTAINERS.md
+            git commit -m "chore: update contributors in MAINTAINERS.md [skip ci]"
+            git push
+          fi

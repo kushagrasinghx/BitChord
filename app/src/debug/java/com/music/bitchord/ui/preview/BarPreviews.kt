@@ -31,6 +31,7 @@ import com.music.bitchord.ui.components.FloatingBottomBar
 import com.music.bitchord.ui.components.FrostedTopBar
 import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.TopFadeBlur
+import com.music.bitchord.ui.components.TopBarBlur
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.BitChordTheme
 import dev.chrisbanes.haze.HazeState
@@ -49,10 +50,10 @@ import dev.chrisbanes.haze.hazeSource
  * [BottomFadeScrim] is a plain shader over a rect, so what the preview draws is
  * exactly what the device draws — the gradient can be judged here.
  *
- * [TopFadeBlur] cannot. Haze blurs by way of RenderEffect against a real
- * window, and the preview renderer has none, so the fade comes out as a flat
- * pane or as nothing at all. These previews are the place to settle the bar's
- * layout, type, colour and the scrim; the blur ramp itself has to be read on a
+ * [TopFadeBlur] and [TopBarBlur] cannot. Haze blurs by way of RenderEffect
+ * against a real window, and the preview renderer has none, so the effect comes
+ * out as a flat pane or as nothing at all. These previews are the place to
+ * settle the bar's layout, type and colour; the blur itself has to be read on a
  * device — `./gradlew :app:installDevDebug`.
  */
 
@@ -116,7 +117,7 @@ private val PreviewTabs = listOf(
 
 /**
  * The whole chrome stack in the order [com.music.bitchord.MainActivity] draws
- * it: feed, top fade, bar, bottom scrim, pill.
+ * it: feed, bounded top blur, bar, bottom scrim, pill.
  */
 @Composable
 private fun ChromeStack(scrolled: Boolean, withMiniPlayer: Boolean) {
@@ -128,12 +129,8 @@ private fun ChromeStack(scrolled: Boolean, withMiniPlayer: Boolean) {
     ) {
         MockFeed(Modifier.hazeSource(hazeState))
 
-        TopFadeBlur(
+        TopBarBlur(
             hazeState = hazeState,
-            pageColor = MaterialTheme.colorScheme.background,
-            // The blur does not render here, but the scrim over it does — so
-            // this artboard is where the wash's weight can actually be judged.
-            scrimColor = MaterialTheme.colorScheme.background,
             modifier = Modifier.align(Alignment.TopCenter),
         )
         FrostedTopBar(
@@ -164,6 +161,7 @@ private fun ChromeStack(scrolled: Boolean, withMiniPlayer: Boolean) {
                     hazeState = hazeState,
                     onPlayPause = {},
                     onNext = {},
+                    onPrevious = {},
                     onExpand = {},
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -229,7 +227,7 @@ private fun MiniPlayerPreview() {
                 isPlaying = true,
                 isLoading = false,
                 hazeState = haze,
-                onPlayPause = {}, onNext = {}, onExpand = {},
+                onPlayPause = {}, onNext = {}, onPrevious = {}, onExpand = {},
                 modifier = Modifier.fillMaxWidth(),
             )
             MiniPlayer(
@@ -237,7 +235,7 @@ private fun MiniPlayerPreview() {
                 isPlaying = false,
                 isLoading = false,
                 hazeState = haze,
-                onPlayPause = {}, onNext = {}, onExpand = {},
+                onPlayPause = {}, onNext = {}, onPrevious = {}, onExpand = {},
                 modifier = Modifier.fillMaxWidth(),
             )
             MiniPlayer(
@@ -245,7 +243,7 @@ private fun MiniPlayerPreview() {
                 isPlaying = false,
                 isLoading = true,
                 hazeState = haze,
-                onPlayPause = {}, onNext = {}, onExpand = {},
+                onPlayPause = {}, onNext = {}, onPrevious = {}, onExpand = {},
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -285,10 +283,9 @@ private fun ScrimRampPreview() {
 /**
  * The bar's two backdrops side by side.
  *
- * Left is the shipping case — no backdrop, the fade behind it carries the
- * legibility. Right is Reduce dynamic blur, where the bar fills itself solid
- * and takes the hairline. The blur behind the left one does not render here;
- * what is being compared is the bar's own paint.
+ * The regular blurred state and Reduce dynamic blur share this exact footprint
+ * and hairline. Haze does not render in Preview, so these samples concentrate
+ * on the bar's own paint and layout.
  */
 @Preview(name = "Top bar · backdrops", device = "id:pixel_8", showBackground = true)
 @Composable

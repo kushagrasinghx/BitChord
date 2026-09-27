@@ -1,8 +1,11 @@
 package com.music.bitchord.ui.components
 
+import com.music.bitchord.R
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,10 +26,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,7 +45,6 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
@@ -105,6 +110,53 @@ private val ROW_PADDING_HORIZONTAL = 12.dp
  */
 private val ART_CORNER = 8.dp
 
+/** Distance that makes a horizontal drag an intentional track change. */
+private val TRACK_SWIPE_THRESHOLD = 72.dp
+
+/**
+ * Shared gesture for both mini-player materials. A left swipe advances through
+ * the queue; a right swipe goes back, matching the full player's artwork
+ * gesture. Waiting until drag end prevents one long gesture from skipping more
+ * than one item.
+ */
+@Composable
+internal fun Modifier.miniPlayerTrackSwipe(
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    /** Listening in a party whose host holds the controls. Swipes say so instead of skipping. */
+    locked: Boolean = false,
+    onBlocked: () -> Unit = {},
+): Modifier {
+    // Playback state updates can recompose the bar while a finger is down.
+    // Keep the gesture coroutine alive through those updates while still
+    // dispatching to the latest controller callbacks when the drag finishes.
+    val currentOnNext by rememberUpdatedState(onNext)
+    val currentOnPrevious by rememberUpdatedState(onPrevious)
+    val currentLocked by rememberUpdatedState(locked)
+    val currentOnBlocked by rememberUpdatedState(onBlocked)
+    return pointerInput(Unit) {
+        val threshold = TRACK_SWIPE_THRESHOLD.toPx()
+        var totalDrag = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { totalDrag = 0f },
+            onDragCancel = { totalDrag = 0f },
+            onDragEnd = {
+                val crossed = totalDrag <= -threshold || totalDrag >= threshold
+                when {
+                    currentLocked -> if (crossed) currentOnBlocked()
+                    totalDrag <= -threshold -> currentOnNext()
+                    totalDrag >= threshold -> currentOnPrevious()
+                }
+                totalDrag = 0f
+            },
+            onHorizontalDrag = { change, amount ->
+                change.consume()
+                totalDrag += amount
+            },
+        )
+    }
+}
+
 /** Frosted mini player that rides just above the floating tab bar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -115,7 +167,11 @@ fun MiniPlayer(
     hazeState: HazeState,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
+    onPrevious: () -> Unit,
     onExpand: () -> Unit,
+    /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
+    controlsLocked: Boolean = false,
+    onBlockedControl: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -133,14 +189,29 @@ fun MiniPlayer(
                 if (reduceDynamicBlur) {
                     Modifier.background(MaterialTheme.colorScheme.surface)
                 } else {
-                    Modifier.hazeEffect(state = hazeState, style = HazeMaterials.thin(MaterialTheme.colorScheme.surface))
+                    Modifier.optimizedHazeEffect(
+                        state = hazeState,
+                        style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
+                    )
                 },
             )
             .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
             // Deliberately silent: the whole bar is the target, so it catches
             // stray taps meant for the page behind it, and the sheet rising is
             // its own confirmation. The glyphs on it still buzz.
-            .clickable(onClick = onExpand),
+            .clickable(onClick = onExpand)
+            .miniPlayerTrackSwipe(
+                onNext = {
+                    haptics.play(Haptic.SkipNext)
+                    onNext()
+                },
+                onPrevious = {
+                    haptics.play(Haptic.SkipPrevious)
+                    onPrevious()
+                },
+                locked = controlsLocked,
+                onBlocked = onBlockedControl,
+            ),
     ) {
         Row(
             modifier = Modifier
@@ -152,7 +223,7 @@ fun MiniPlayer(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             AsyncImage(
-                model = song.artworkAt(ROW_ART_PX),
+                model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
                 contentDescription = null,
                 modifier = Modifier
                     .size(40.dp)
@@ -162,12 +233,10 @@ fun MiniPlayer(
             )
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    text = song.title,
+                ExplicitSongTitle(
+                    song = song,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = song.artist,
@@ -195,24 +264,28 @@ fun MiniPlayer(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
                         tint = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.size(GLYPH_SIZE),
                     )
                 }
             }
             Spacer(Modifier.width(TRANSPORT_GAP))
+            // Faded and inert rather than removed while the host holds the
+            // controls, so the bar keeps its shape — see [controlsLocked].
             IconButton(
                 onClick = {
                     haptics.play(Haptic.SkipNext)
                     onNext()
                 },
+                enabled = !controlsLocked,
                 modifier = Modifier.size(GLYPH_SLOT),
             ) {
                 Icon(
                     Icons.Rounded.SkipNext,
-                    contentDescription = "Next",
-                    tint = MaterialTheme.colorScheme.onBackground,
+                    contentDescription = stringResource(R.string.widget_next),
+                    tint = MaterialTheme.colorScheme.onBackground
+                        .copy(alpha = if (controlsLocked) 0.3f else 1f),
                     modifier = Modifier.size(GLYPH_SIZE),
                 )
             }

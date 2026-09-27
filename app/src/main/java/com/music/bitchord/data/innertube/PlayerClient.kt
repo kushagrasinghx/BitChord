@@ -1,58 +1,39 @@
 package com.music.bitchord.data.innertube
 
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
 import java.util.Locale
 
 /**
- * One client identity for the `player` endpoint.
+ * The identity a googlevideo URL says minted it, as far as its media fetch
+ * has to repeat it.
  *
- * YouTube hands out stream URLs per client, and which clients are answered
- * changes without notice: an identity that returns `OK` today answers
- * `LOGIN_REQUIRED` next month, and one that is merely *old* is refused with a
- * bare HTTP 400 before playability is even considered. So this is a list to
- * walk rather than a constant — see [StreamResolver].
- *
- * Three things travel together and must not be separated:
- *
- *  - **[userAgent]**, which the media fetch has to repeat. googlevideo bakes
- *    the client into the URL as `c=`/`cver=` and compares it against the
- *    headers of the request that comes back for the bytes.
- *  - **[origin]**, sent only by the browser-shaped clients, and pointing at
- *    the host that client actually runs on. Native app clients send none, and
- *    sending one anyway is as wrong as omitting it from a web client.
- *  - **[needsSignatureTimestamp]**, which decides whether the player request
- *    has to carry a timestamp lifted from YouTube's player JavaScript. The
- *    clients that need it are the ones that answer with ciphered formats.
- *
- * The versions here are load-bearing and were checked against the live
- * endpoint rather than copied from anywhere; see each one's note.
+ * googlevideo bakes the client into the URL as `c=`/`cver=` and compares it
+ * against the headers of the request that comes back for the bytes, so the
+ * fetch has to be dressed as that client. URLs InnerTubeX mints carry their
+ * own headers (see [InnerTubeXResolver.headersFor]); this covers the rest,
+ * chiefly the NewPipe failsafe's, which picks a client of its own choosing.
  */
 data class PlayerClient(
     val clientName: String,
     val clientVersion: String,
-    val clientId: String,
     val userAgent: String,
-    val osName: String? = null,
-    val osVersion: String? = null,
-    val deviceMake: String? = null,
-    val deviceModel: String? = null,
-    val androidSdkVersion: String? = null,
-    /** The host this client runs on, for browser-shaped clients only. */
+    /**
+     * The host this client runs on, for browser-shaped clients only. Native app
+     * clients send none, and sending one anyway is as wrong as omitting it from
+     * a web client.
+     */
     val origin: String? = null,
-    /** Ciphered formats can't be unlocked without one. */
-    val needsSignatureTimestamp: Boolean = false,
 ) {
     val referer: String? get() = origin?.let { "$it/" }
-
-    /** Browser-shaped clients are served from their own host; app clients from YouTube proper. */
-    val usesMusicHost: Boolean get() = origin == MUSIC_ORIGIN
 
     /**
      * Headers the *media* request must carry for a URL this client minted.
      *
-     * The stream fetch is a separate request from the one that produced the
-     * URL, and googlevideo treats a mismatch between the two as reason enough
-     * to throttle the response to a crawl or refuse it with 403.
+     * googlevideo treats a mismatch between the request that produced the URL
+     * and the one fetching it as reason enough to throttle the response to a
+     * crawl or refuse it with 403.
      */
     fun mediaHeaders(): Map<String, String> = buildMap {
         put("User-Agent", userAgent)
@@ -68,159 +49,61 @@ data class PlayerClient(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
 
-        /**
-         * iPhone YouTube, and the one that carries the session in practice: it
-         * is answered without a login, without a proof of origin token and
-         * without a signature timestamp, and it returns plain `url` fields —
-         * so a stream is one POST away with no player JavaScript in the path.
-         *
-         * The version is the whole ballgame. Anything Google considers stale is
-         * refused with an HTTP 400 before playability is looked at, which is
-         * not a "try the next format" failure but a "this identity is dead"
-         * one. These are current as of July 2026.
-         */
-        val IOS = PlayerClient(
+        private val IOS = PlayerClient(
             clientName = "IOS",
             clientVersion = "21.26.4",
-            clientId = "5",
             userAgent = "com.google.ios.youtube/21.26.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)",
-            osName = "iPhone",
-            osVersion = "18.3.2.22D82",
-            deviceMake = "Apple",
-            deviceModel = "iPhone16,2",
         )
 
-        /** A newer build of the same app: refused on a different schedule. */
-        val IOS_RECENT = IOS.copy(
+        private val IOS_RECENT = IOS.copy(
             clientVersion = "21.29.1",
             userAgent = "com.google.ios.youtube/21.29.1 (iPhone16,2; U; CPU iOS 18_5 like Mac OS X;)",
-            osVersion = "18.5.22F70",
         )
 
-        /**
-         * The phone YouTube app. Answers `OK` where the others are turned away,
-         * but every format comes back ciphered — so reaching it costs a
-         * download of YouTube's player JavaScript and a signature to solve.
-         * Worth it as a fallback; not worth it first.
-         */
-        val ANDROID = PlayerClient(
+        private val ANDROID = PlayerClient(
             clientName = "ANDROID",
             clientVersion = "21.26.364",
-            clientId = "3",
             userAgent = "com.google.android.youtube/21.26.364 " +
                 "(Linux; U; Android 15; en_US; Pixel 9 Pro; Build/AP4A.250205.002; Cronet/132.0.6834.79) gzip",
-            osName = "Android",
-            osVersion = "15",
-            deviceMake = "Google",
-            deviceModel = "Pixel 9 Pro",
-            androidSdkVersion = "35",
-            needsSignatureTimestamp = true,
         )
 
-        /**
-         * YouTube Music Android app. Returns plain URLs without ciphering.
-         * As of mid-2026, this client is not subject to the po_token
-         * enforcement that blocks stream fetches from other clients —
-         * the only known client that still serves HTTPS streams freely.
-         */
-        val ANDROID_MUSIC = PlayerClient(
+        private val ANDROID_MUSIC = PlayerClient(
             clientName = "ANDROID_MUSIC",
             clientVersion = "8.39.42",
-            clientId = "21",
             userAgent = "com.google.android.apps.youtube.music/8.39.42 " +
                 "(Linux; U; Android 15; en_US; Pixel 9 Pro; Build/AP4A.250205.002) gzip",
-            osName = "Android",
-            osVersion = "15",
-            deviceMake = "Google",
-            deviceModel = "Pixel 9 Pro",
-            androidSdkVersion = "35",
         )
 
-        /**
-         * The Quest's YouTube app, and the first thing to try: unciphered,
-         * login-free, no proof-of-origin token and no signature timestamp, so
-         * a stream is one POST away with no player JavaScript in the path.
-         *
-         * Worth knowing when this list is next revisited: whether it is
-         * answered depends on the *network the request leaves from*, not on
-         * the app or the account. It serves a phone on mobile data or home
-         * wifi while answering the same request from a datacentre or a
-         * hard-used address with `LOGIN_REQUIRED` / "Sign in to confirm you're
-         * not a bot". A check run from anywhere but the device is measuring
-         * the wrong thing.
-         *
-         * Version MUST be ≤1.65.10 — versions >1.65 trigger SABR-only
-         * streaming (no HTTPS URLs returned).
-         */
-        val ANDROID_VR = PlayerClient(
+        private val ANDROID_VR = PlayerClient(
             clientName = "ANDROID_VR",
             clientVersion = "1.65.10",
-            clientId = "28",
             userAgent = "com.google.android.apps.youtube.vr.oculus/1.65.10 " +
                 "(Linux; U; Android 12L; eureka-user Build/SQ3A.220605.009.A1) gzip",
-            osName = "Android",
-            osVersion = "12L",
-            deviceMake = "Oculus",
-            deviceModel = "Quest 3",
-            androidSdkVersion = "32",
         )
 
-        /** An older build of the same app; refused on a different schedule. */
-        val ANDROID_VR_LEGACY = ANDROID_VR.copy(
+        private val ANDROID_VR_LEGACY = ANDROID_VR.copy(
             clientVersion = "1.43.32",
             userAgent = "com.google.android.apps.youtube.vr.oculus/1.43.32 " +
                 "(Linux; U; Android 12; en_US; Quest 3; Build/SQ3A.220605.009.A1; Cronet/107.0.5284.2)",
         )
 
-        /**
-         * Identities we never mint with, but may still have to fetch for:
-         * [forStreamUrl] dresses a URL however that URL says it was made, and
-         * the extraction failsafe picks its own client without asking.
-         *
-         * [WEB_REMIX] sits here rather than in [StreamResolver]'s walk on
-         * purpose. As a source of streams it earned its keep only in theory:
-         * every format it returns is ciphered, so reaching it costs a download
-         * of YouTube's player JavaScript and a signature to solve, and after
-         * all that it is refused far more often than not. What it did reliably
-         * do was sit at the end of the list absorbing the time budget of tracks
-         * that were already failing. The failsafe below is the better last
-         * resort. Kept here so a URL minted elsewhere that names it can still
-         * be dressed correctly.
-         */
-        /**
-         * The browser identity music.youtube.com itself runs as. Not part of
-         * [StreamResolver]'s anonymous walk — sent bare, it is ciphered and
-         * refused about as often as it works. Worth reaching for on its own,
-         * ahead of anything else, when there is a signed-in session to send
-         * with it: a session cookie is what a browser-shaped client is
-         * supposed to carry, and Google answers a plausible one very
-         * differently to a device client with none at all.
-         */
-        val WEB_REMIX = PlayerClient(
+        private val WEB_REMIX = PlayerClient(
             clientName = "WEB_REMIX",
             clientVersion = "1.20260707.12.00",
-            clientId = "67",
             userAgent = WEB_USER_AGENT,
             origin = MUSIC_ORIGIN,
-            needsSignatureTimestamp = true,
         )
 
         private val WEB = PlayerClient(
             clientName = "WEB",
             clientVersion = "2.20260708.00.00",
-            clientId = "1",
             userAgent = WEB_USER_AGENT,
             origin = YOUTUBE_ORIGIN,
         )
 
-        /**
-         * TV Cobalt v7 — the most reliable client for flagged IPs. No PO Token
-         * needed, no login required. Uses cookie-based auth when available.
-         */
-        val TVHTML5 = PlayerClient(
+        private val TVHTML5 = PlayerClient(
             clientName = "TVHTML5",
             clientVersion = "7.20260707.07.00",
-            clientId = "7",
             userAgent = "Mozilla/5.0(SMART-TV; Linux; Tizen 4.0.0.2) AppleWebkit/605.1.15 " +
                 "(KHTML, like Gecko) SamsungBrowser/9.2 TV Safari/605.1.15",
             origin = YOUTUBE_ORIGIN,
@@ -228,12 +111,11 @@ data class PlayerClient(
 
         /**
          * The client a googlevideo URL says minted it, so the media fetch can
-         * be dressed as that client whatever produced the URL — including the
-         * extraction failsafe, which picks a client of its own choosing.
+         * be dressed as that client whatever produced the URL.
          *
-         * Falls back to [IOS] when the URL names a client we don't model: it is
-         * what mints most of them here, and being approximately right beats
-         * sending a smart TV's headers for a URL an iPhone asked for.
+         * Falls back to [IOS] when the URL names a client we don't model: being
+         * approximately right beats sending a smart TV's headers for a URL an
+         * iPhone asked for.
          */
         fun forStreamUrl(url: String): PlayerClient {
             val parsed = url.toHttpUrlOrNull() ?: return IOS
@@ -249,8 +131,31 @@ data class PlayerClient(
                 name.startsWith("TVHTML5") -> TVHTML5
                 name == "WEB_REMIX" -> WEB_REMIX
                 name.startsWith("WEB") || name == "MWEB" -> WEB
+                name == "VISIONOS" -> visionOs(version)
                 else -> IOS
             }
         }
+
+        /** NewPipe's extraction mints with this; its agent is read from NewPipe so the two can't drift. */
+        private fun visionOs(version: String?) = PlayerClient(
+            clientName = "VISIONOS",
+            clientVersion = version ?: "1.02",
+            userAgent = YoutubeParsingHelper.getVisionOsUserAgent(NewPipe.getPreferredLocalization()),
+        )
+
+        /** Largest single range googlevideo reliably serves for [url]'s client; mirrors InnerTubeX's `mediaRangeChunkSize`. */
+        fun rangeBytesFor(url: String): Long {
+            val parsed = url.toHttpUrlOrNull() ?: return Long.MAX_VALUE
+            if (!parsed.host.endsWith("googlevideo.com")) return Long.MAX_VALUE
+            val name = parsed.queryParameter("c")?.uppercase(Locale.ROOT)
+            return if (name == "ANDROID_VR" || name?.startsWith("TVHTML5_SIMPLY") == true) {
+                NARROW_RANGE_BYTES
+            } else {
+                RANGE_BYTES
+            }
+        }
+
+        private const val RANGE_BYTES = 1024L * 1024
+        private const val NARROW_RANGE_BYTES = 512L * 1024
     }
 }

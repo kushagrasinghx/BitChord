@@ -15,6 +15,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import dev.chrisbanes.haze.ExperimentalHazeApi
+import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
@@ -25,16 +27,22 @@ import dev.chrisbanes.haze.materials.HazeMaterials
  * The run the fade needs below the bar to get from full blur to none without
  * the eye finding where it got there.
  *
- * Shortened from 120: the page's first heading sits a fixed distance down the
- * screen, well inside this run, and over 120dp the ramp still had something
- * like a tenth of its blur left there — enough to leave a heavy 30sp title
- * looking soft before it had been scrolled anywhere. The tail is what hides the
- * layer's end, so it cannot simply be cut; 88 is as short as it goes before the
- * ramp starts to be findable. The rest of the clearance is bought by starting
- * the page's content lower — the two are tuned against each other, and neither
- * fixes it alone.
+ * Shortened from 120, then from 88: the blur is meant to belong to the top of
+ * the screen, and at 88 the strip came to 167dp on a 1080p phone — over a fifth
+ * of the display held under a blur that was only ever there to carry a 52dp
+ * bar. It reads as a hazy band the page scrolls through rather than as glass
+ * behind the bar.
+ *
+ * Shortening it is safe in the direction that used to be the problem. The
+ * gradient is eased across the whole strip rather than across this run alone,
+ * so a shorter strip decays to nothing *sooner in absolute distance*: the first
+ * heading, which sits a fixed distance down the screen, ends up with less blur
+ * behind it than before rather than more. What it costs is intensity over the
+ * bar's own glyphs, which is why this cannot keep going — the tail still has to
+ * reach nothing before the layer ends, or the layer's end is the edge the whole
+ * fade exists to hide.
  */
-private val FADE_RUN = 88.dp
+private val FADE_RUN = 32.dp
 
 /**
  * How much blur the fade reaches at its outer edge — short of all of it.
@@ -60,19 +68,21 @@ private const val SCRIM_PEAK = 0.42f
 private const val SCRIM_STOPS = 12
 
 /**
- * The glass behind every top bar: full blur along the top edge, ramping to
- * nothing on the way down.
+ * The glass behind artwork-led top bars: full blur along the top edge, ramping
+ * to nothing on the way down.
  *
  * A bar carrying a uniform pane is a rectangle sitting on the page, and its
  * bottom edge is a line drawn across whatever scrolls under it. That reads
  * worst on a detail page, whose artwork runs up under the status bar, but it
- * is the same hard edge on a feed — so the fade is what every page gets, and
- * [FrostedTopBar] paints no backdrop of its own anywhere.
+ * is the same hard edge on a feed. Ordinary pages now deliberately accept that
+ * bounded pane and use [TopBarBlur]. Artwork-led pages, including Replay, now
+ * use their own full-bleed background with no status-bar effect layered over
+ * it, so this progressive variant is no longer mounted by the app chrome.
  *
  * Fading out instead leaves the title and back arrow something to be legible
  * against and the page nothing to be interrupted by.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
+@OptIn(ExperimentalHazeMaterialsApi::class, ExperimentalHazeApi::class)
 @Composable
 fun TopFadeBlur(
     hazeState: HazeState,
@@ -104,13 +114,12 @@ fun TopFadeBlur(
     if (reduceDynamicBlur) return
 
     val height = topBarHeight() + FADE_RUN
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
             .hazeEffect(
-                state = hazeState,
+                    state = hazeState,
                 // Keyed to the colour of the page underneath, not the theme's.
                 //
                 // Both halves of this material are flat colour: the style's
@@ -127,10 +136,20 @@ fun TopFadeBlur(
                 // the artwork: the exact artefact this was added to remove.
                 style = HazeMaterials.ultraThin(pageColor),
             ) {
-                // Cubic rather than haze's quadratic, and eased out rather than
-                // in: the ramp falls away quickly under the bar and then spends
-                // the rest of its run near nothing, which is what hides where
-                // the layer ends. The mirror of the bottom fade's arrival.
+                // Sampled at a third, and upscaled back. This strip is
+                // 1080x501 on a 1080p phone and was the single most expensive
+                // thing drawn on a feed: a full-resolution progressive blur,
+                // re-run every frame of every scroll, measured at ~5ms of GPU
+                // time per frame against a 8.3ms budget at 120Hz. A blur is
+                // low-frequency by definition — a third of the pixels carries
+                // the same result once the ramp has been applied, and it is
+                // the same trade the liquid glass surfaces already make.
+                inputScale = HazeInputScale.Fixed(0.33f)
+                // This is intentionally the progressive Haze effect used by the
+                // original top treatment. The mask-based optimization changes
+                // the visual result on device and loses the soft blur shown in
+                // the header reference. Reduce dynamic blur still exits before
+                // this layer is composed.
                 progressive = HazeProgressive.verticalGradient(
                     easing = EaseOutCubic,
                     startIntensity = PEAK,
@@ -159,5 +178,38 @@ fun TopFadeBlur(
             .fillMaxWidth()
             .height(height)
             .background(scrim),
+    )
+}
+
+/**
+ * The uniform glass used by ordinary top bars.
+ *
+ * Unlike [TopFadeBlur], this occupies only the status-bar inset and the 52dp
+ * bar itself. Its material is deliberately identical to [FloatingBottomBar]'s
+ * non-liquid-glass surface: the same regular Haze material, the same surface
+ * colour and the same reduced-resolution sampling supplied by
+ * [optimizedHazeEffect]. [FrostedTopBar] draws the hairline at its lower edge.
+ *
+ * Replay and artwork detail pages draw neither component and let their own
+ * full-bleed background show through unchanged.
+ */
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+fun TopBarBlur(
+    hazeState: HazeState,
+    modifier: Modifier = Modifier,
+) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    // FrostedTopBar supplies the solid surface when dynamic blur is reduced.
+    if (reduceDynamicBlur) return
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(topBarHeight())
+            .optimizedHazeEffect(
+                state = hazeState,
+                style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
+            ),
     )
 }

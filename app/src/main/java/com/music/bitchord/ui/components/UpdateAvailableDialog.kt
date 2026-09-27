@@ -39,7 +39,6 @@ import com.music.bitchord.R
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.settings.AppSettings
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
@@ -62,7 +61,7 @@ private val NOTES_MAX_HEIGHT = 220.dp
 
 /**
  * Once-per-launch nudge that a newer build is on GitHub Releases — the top
- * bar's [Icons.Rounded.SystemUpdate][androidx.compose.material.icons.rounded.SystemUpdate]
+ * bar's [Icons.Rounded.Upgrade][androidx.compose.material.icons.rounded.Upgrade]
  * icon is the quiet, always-there version of this; this is the one-time,
  * hard-to-miss version shown the moment the check comes back.
  *
@@ -119,7 +118,10 @@ fun UpdateAvailableDialog(
                     if (reduceDynamicBlur) {
                         Modifier.background(MaterialTheme.colorScheme.surface)
                     } else {
-                        Modifier.hazeEffect(state = hazeState, style = HazeMaterials.regular(MaterialTheme.colorScheme.surface))
+                        Modifier.optimizedHazeEffect(
+                            state = hazeState,
+                            style = HazeMaterials.regular(MaterialTheme.colorScheme.surface),
+                        )
                     },
                 )
                 // Swallows the tap before it reaches the scrim behind, so
@@ -266,6 +268,11 @@ fun UpdateAvailableDialog(
  * Full-bleed action row. Tinted rather than filled, so the two read as equals
  * in weight and only the font differentiates the default action — the alert's
  * whole point is that neither choice is a trap.
+ *
+ * [destructive] is the one exception to that: an action that deletes something
+ * is red in this lineage, because the point there *is* to break the symmetry.
+ * It stays a plain row rather than a filled button, so it reads as a warning
+ * and not as the thing to press.
  */
 @Composable
 internal fun AlertAction(
@@ -273,6 +280,7 @@ internal fun AlertAction(
     emphasised: Boolean,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    destructive: Boolean = false,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -298,7 +306,8 @@ internal fun AlertAction(
                 fontSize = 17.sp,
                 fontWeight = if (emphasised) FontWeight.W600 else FontWeight.W400,
             ),
-            color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else 0.4f),
+            color = (if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                .copy(alpha = if (enabled) 1f else 0.4f),
         )
     }
 }

@@ -7,6 +7,10 @@ import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.download.DownloadStore
+import com.music.bitchord.download.SavedSongMetadata
+import com.music.bitchord.download.resolvedDownloadDates
+import com.music.bitchord.download.youtubeDownloadBadge
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -33,6 +37,37 @@ class DownloadStoreTest {
 
     private fun song(title: String, artist: String, videoId: String = "abc123") =
         Song(videoId = videoId, title = title, artist = artist, thumbnailUrl = null)
+
+    @Test
+    fun `old download metadata remains readable without an added date`() {
+        val old = Json.decodeFromString<SavedSongMetadata>(
+            """{"videoId":"abc","title":"Song","artist":"Artist","uri":"file:///song.webm"}""",
+        )
+
+        assertNull(old.dateAddedSeconds)
+    }
+
+    @Test
+    fun `existing downloads use file time when no creation time was recorded`() {
+        val (added, modified) = resolvedDownloadDates(
+            persistedAddedSeconds = null,
+            fileModifiedMillis = 1_725_000_123_999,
+        )
+
+        assertEquals(1_725_000_123L, added)
+        assertEquals(1_725_000_123L, modified)
+    }
+
+    @Test
+    fun `persisted creation time survives later file modifications`() {
+        val (added, modified) = resolvedDownloadDates(
+            persistedAddedSeconds = 1_700_000_000,
+            fileModifiedMillis = 1_725_000_123_999,
+        )
+
+        assertEquals(1_700_000_000L, added)
+        assertEquals(1_725_000_123L, modified)
+    }
 
     // ---- What Android will store -------------------------------------------
 
@@ -71,6 +106,13 @@ class DownloadStoreTest {
         assertNull(DownloadStore.storable("opus"))
         assertNull(DownloadStore.storable("webm"))
         assertNull(DownloadStore.storable("dsf"))
+    }
+
+    @Test
+    fun `youtube downloads retain their codec and resolved bitrate`() {
+        assertEquals("OPUS · 160 kbps", youtubeDownloadBadge("webm", 160))
+        assertEquals("AAC · 128 kbps", youtubeDownloadBadge("m4a", 128))
+        assertNull(youtubeDownloadBadge("webm", 0))
     }
 
     // ---- What the file is called -------------------------------------------

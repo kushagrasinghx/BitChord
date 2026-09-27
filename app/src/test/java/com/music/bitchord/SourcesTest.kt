@@ -1,9 +1,15 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.NerdStats
+import com.music.bitchord.data.jiosaavn.RawSongItem
+import com.music.bitchord.data.jiosaavn.prioritizeExplicit
+import com.music.bitchord.data.jiosaavn.selectBestSaavnStream
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.ModuleSource
 import com.music.bitchord.data.sources.MusicSource
+import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
@@ -82,6 +88,40 @@ class SourcesTest {
         assertEquals("Unknown format", StreamFormat().summary)
     }
 
+    @Test
+    fun `Dolby Atmos is a distinct premium codec`() {
+        val atmos = StreamFormat(codec = "eac3-joc")
+        assertTrue(atmos.isDolbyAtmos)
+        assertEquals(false, atmos.isLossless)
+        assertEquals("Dolby Atmos", atmos.summary)
+        assertTrue(SourceResolver.worthSwapping(atmos, StreamFormat(codec = "aac", kbps = 332)))
+    }
+
+    /**
+     * ...and premium only where it is allowed to play. E-AC-3 ships with the
+     * vendor image, not with Android, and a module that answers every request
+     * with its Atmos master — the Tidal one does — hands a device without that
+     * decoder a stream that cannot be selected, let alone played. Refusing it
+     * at the source is what sends the track to somebody who can serve it;
+     * nothing downstream gets a second chance to notice.
+     *
+     * The listener's own switch enters by the same door, because refusing for
+     * taste and refusing for hardware have to leave the resolver in the same
+     * state — anything else is a second code path for the rarer case.
+     */
+    @Test
+    fun `an Atmos rendition is refused when it is not allowed to play`() {
+        val atmos = StreamFormat(codec = "eac3-joc")
+        assertTrue(ModuleSource.unplayable(atmos, atmosAllowed = false))
+        assertFalse(ModuleSource.unplayable(atmos, atmosAllowed = true))
+
+        // Nothing else is affected either way: a FLAC is a FLAC on every phone,
+        // and an undescribed stream is still worth handing to the decoder.
+        val flac = StreamFormat(codec = "flac", bitDepth = 16, sampleRateHz = 44_100)
+        assertFalse(ModuleSource.unplayable(flac, atmosAllowed = false))
+        assertFalse(ModuleSource.unplayable(StreamFormat(), atmosAllowed = false))
+    }
+
     /**
      * The badge tiers. "Hi-Quality" exists to separate a module's 320kbps
      * stream from YouTube's 160kbps Opus, which the screen otherwise renders
@@ -103,20 +143,72 @@ class SourcesTest {
         assertFalse(flac.isHiQuality)
     }
 
-    /** With no measured bitrate, what the source said it was sending will do. */
+    /**
+     * A tier is earned by the stream, never by the offer. A module that
+     * advertises LOSSLESS and then serves a 128kbps SoundCloud transcode is
+     * the ordinary case, so nothing in [claimed] promotes a badge on its own.
+     */
     @Test
-    fun `falls back to the declared bitrate for the quality tier`() {
-        val claimed = NerdStats.Snapshot(
+    fun `the declared format never earns a quality tier by itself`() {
+        val claimedHiQuality = NerdStats.Snapshot(
             mimeType = "audio/mp4a-latm",
             bitrateKbps = null,
             sampleRateHz = 44_100,
             channels = 2,
             claimed = StreamFormat(codec = "aac", kbps = 320),
         )
-        assertTrue(claimed.isHiQuality)
+        assertFalse(claimedHiQuality.isHiQuality)
+
+        val claimedLossless = NerdStats.Snapshot(
+            mimeType = "audio/opus",
+            bitrateKbps = 128,
+            sampleRateHz = 48_000,
+            channels = 2,
+            claimed = StreamFormat(codec = "flac", sampleRateHz = 96_000, bitDepth = 24),
+        )
+        assertFalse(claimedLossless.isLossless)
+        assertFalse(claimedLossless.isHiRes)
 
         val silent = NerdStats.Snapshot(mimeType = "audio/mp4a-latm", bitrateKbps = null, sampleRateHz = null, channels = null)
         assertFalse(silent.isHiQuality)
+    }
+
+    /**
+     * Hi-Res is drawn off the measured depth and rate, which for a FLAC in MP4
+     * only exist because the stream's own STREAMINFO was read — the container
+     * states the rate as zero. See `PlaybackService.measure`.
+     */
+    @Test
+    fun `hi-res is decided on measured depth and rate`() {
+        val cd = NerdStats.Snapshot(
+            mimeType = "audio/flac",
+            bitrateKbps = 1411,
+            sampleRateHz = 44_100,
+            channels = 2,
+            bitDepth = 16,
+        )
+        assertTrue(cd.isLossless)
+        assertFalse(cd.isHiRes)
+
+        val hiRes = NerdStats.Snapshot(
+            mimeType = "audio/flac",
+            bitrateKbps = 4608,
+            sampleRateHz = 96_000,
+            channels = 2,
+            bitDepth = 24,
+        )
+        assertTrue(hiRes.isHiRes)
+
+        // Nothing measured yet: no badge, however loud the claim.
+        val unmeasured = NerdStats.Snapshot(
+            mimeType = null,
+            bitrateKbps = null,
+            sampleRateHz = null,
+            channels = null,
+            claimed = StreamFormat(codec = "flac", sampleRateHz = 192_000, bitDepth = 24),
+        )
+        assertFalse(unmeasured.isLossless)
+        assertFalse(unmeasured.isHiRes)
     }
 
     // ---- Cross-source matching ---------------------------------------------
@@ -375,6 +467,295 @@ class SourcesTest {
     }
 
     /**
+     * JioSaavn currently lists these as the same title and artist even though
+     * they are different recordings. The requested release must beat the row
+     * whose runtime happens to be closer.
+     */
+    @Test
+    fun `uses the album to separate duplicate JioSaavn recordings`() {
+        val target = TrackMatcher.Target(
+            "Brown Rang",
+            "Yo Yo Honey Singh",
+            durationSec = 175,
+            album = "International Villager",
+        )
+        val wanted = song("Brown Rang", "Yo Yo Honey Singh", duration = "2:59")
+            .copy(albumName = "International Villager")
+        val wrongButCloser = song("Brown Rang", "Yo Yo Honey Singh", duration = "2:54")
+            .copy(albumName = "Chaar Ikke")
+
+        assertEquals(wanted, TrackMatcher.best(listOf(wrongButCloser, wanted), target))
+    }
+
+    @Test
+    fun `detects conflicting releases when the requested album is unknown`() {
+        val target = TrackMatcher.Target("Brown Rang", "Yo Yo Honey Singh", durationSec = 175)
+        val internationalVillager = song("Brown Rang", "Yo Yo Honey Singh", "2:59")
+            .copy(albumName = "International Villager")
+        val chaarIkke = song("Brown Rang", "Yo Yo Honey Singh", "2:54")
+            .copy(albumName = "Chaar Ikke")
+
+        assertTrue(
+            TrackMatcher.hasConflictingAlbums(
+                listOf(internationalVillager, chaarIkke),
+                target,
+            ),
+        )
+        assertFalse(
+            TrackMatcher.hasConflictingAlbums(
+                listOf(
+                    internationalVillager,
+                    internationalVillager.copy(albumName = "International Villager (Deluxe Edition)"),
+                ),
+                target,
+            ),
+        )
+        assertFalse(
+            TrackMatcher.hasConflictingAlbums(
+                listOf(internationalVillager, chaarIkke),
+                target.copy(album = "International Villager"),
+            ),
+        )
+    }
+
+    @Test
+    fun `uses the uniquely fullest credit to resolve a JioSaavn release collision`() {
+        val target = TrackMatcher.Target("Ek Dil Ek Jaan", "Shivam Pathak", durationSec = 220)
+        val original = song(
+            "Ek Dil Ek Jaan",
+            "Shivam Pathak, Mujtaba Aziz Naza, Kunal Pandit, Farhan Sabri",
+            "3:40",
+        ).copy(albumName = "Padmaavat")
+        val compilation = song("Ek Dil Ek Jaan", "Shivam Pathak", "3:39")
+            .copy(albumName = "Top 20 - Romantic Songs 2018")
+        val fromCompilation = song(
+            "Ek Dil Ek Jaan (From Padmaavat)",
+            "Shivam Pathak, Sanjay Leela Bhansali, A.M. Turaz",
+            "3:39",
+        ).copy(albumName = "Bollywood Magic Mix")
+
+        assertEquals(
+            original,
+            TrackMatcher.uniquelyMostCreditedCloseMatch(
+                listOf(original, compilation, fromCompilation),
+                target,
+            ),
+        )
+    }
+
+    @Test
+    fun `retains JioSaavn refusal when conflicting releases tie on credit coverage`() {
+        val target = TrackMatcher.Target("Mere Bina", "Pritam, Nikhil D'Souza", durationSec = 290)
+        val first = song("Mere Bina", "Pritam, Nikhil D'Souza", "4:49").copy(albumName = "Crook")
+        val second = song("Mere Bina", "Pritam, Nikhil D'Souza", "4:51").copy(albumName = "Sad Love Hits")
+
+        assertNull(TrackMatcher.uniquelyMostCreditedCloseMatch(listOf(first, second), target))
+    }
+
+    @Test
+    fun `target keeps the queued album identity`() {
+        val queued = song("Brown Rang", "Yo Yo Honey Singh", "2:59")
+            .copy(albumName = "International Villager")
+        assertEquals("International Villager", TrackMatcher.targetOf(queued).album)
+    }
+
+    @Test
+    fun `JioSaavn prioritizes the uncensored duplicate`() {
+        val clean = RawSongItem(id = "clean", title = "Starboy", explicitContent = "0")
+        val explicit = RawSongItem(id = "explicit", title = "Starboy", explicitContent = "1")
+        val anotherClean = RawSongItem(id = "clean-2", title = "Starboy", explicitContent = "0")
+
+        assertEquals(
+            listOf("explicit", "clean", "clean-2"),
+            prioritizeExplicit(listOf(clean, explicit, anotherClean)).map { it.id },
+        )
+    }
+
+    @Test
+    fun `JioSaavn accepts textual explicit flags defensively`() {
+        assertTrue(RawSongItem(explicitContent = "true").isExplicit)
+        assertFalse(RawSongItem(explicitContent = "false").isExplicit)
+        assertFalse(RawSongItem(explicitContent = "").isExplicit)
+    }
+
+    @Test
+    fun `JioSaavn is off by default on a fresh install`() {
+        assertFalse(SourceConfig(kind = SourceKind.JIOSAAVN).enabled)
+        val sources = SourceRegistry.sourcesForInit(emptyList(), forceJioSaavnOff = true)
+
+        assertFalse(sources.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+        assertTrue(sources.single { it.kind == SourceKind.YOUTUBE }.enabled)
+    }
+
+    @Test
+    fun `the opt-in migration disables JioSaavn once for existing installs`() {
+        val previouslyEnabled = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = true)
+
+        val migrated = SourceRegistry.sourcesForInit(
+            listOf(previouslyEnabled),
+            forceJioSaavnOff = true,
+        )
+        assertFalse(migrated.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+
+        val userEnabledAgain = migrated.map {
+            if (it.kind == SourceKind.JIOSAAVN) it.copy(enabled = true) else it
+        }
+        val nextLaunch = SourceRegistry.sourcesForInit(
+            userEnabledAgain,
+            forceJioSaavnOff = false,
+        )
+        assertTrue(nextLaunch.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+    }
+
+    @Test
+    fun `disabled JioSaavn and addons are excluded from the source list used by downloads`() {
+        val disabledJio = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = false)
+        val disabledAddon = SourceConfig(
+            kind = SourceKind.ADDON,
+            baseUrl = "https://disabled.example",
+            enabled = false,
+        )
+        val enabledAddon = SourceConfig(
+            kind = SourceKind.ADDON,
+            baseUrl = "https://enabled.example",
+            enabled = true,
+        )
+        val youtube = SourceConfig(kind = SourceKind.YOUTUBE)
+
+        val enabled = SourceRegistry.enabledConfigs(
+            listOf(disabledJio, disabledAddon, enabledAddon, youtube),
+        )
+
+        assertEquals(listOf(enabledAddon.id, youtube.id), enabled.map { it.id })
+    }
+
+    @Test
+    fun `JioSaavn upgrades a parameterized 96kbps CDN URL without losing its query`() {
+        val url = "https://aac.saavncdn.com/871/song_96.mp4?Expires=123&Signature=abc"
+
+        val selected = selectBestSaavnStream(url, supports320 = true)!!
+
+        assertEquals(
+            "https://aac.saavncdn.com/871/song_320.mp4?Expires=123&Signature=abc",
+            selected.url,
+        )
+        assertEquals(320, selected.kbps)
+    }
+
+    @Test
+    fun `JioSaavn never calls an unrecognised unchanged URL 320kbps`() {
+        val url = "https://aac.saavncdn.com/871/song.mp4?token=abc"
+
+        val selected = selectBestSaavnStream(url, supports320 = true)!!
+
+        assertEquals(url, selected.url)
+        assertNull(selected.kbps)
+    }
+
+    @Test
+    fun `explicit YouTube track cannot match the censored JioSaavn edition`() {
+        val target = TrackMatcher.Target(
+            "Starboy",
+            "The Weeknd",
+            durationSec = 230,
+            album = "Starboy",
+            isExplicit = true,
+        )
+        val clean = song("Starboy", "The Weeknd", "3:50")
+            .copy(albumName = "Starboy", isExplicit = false)
+        val uncensored = clean.copy(videoId = "uncensored", isExplicit = true)
+
+        assertEquals(uncensored, TrackMatcher.best(listOf(clean, uncensored), target))
+        assertNull(TrackMatcher.score(clean, target))
+    }
+
+    @Test
+    fun `unknown YouTube explicit state does not reject the credited JioSaavn track`() {
+        val target = TrackMatcher.Target(
+            "For A Reason",
+            "Karan Aujla, IKKY",
+            durationSec = 180,
+            isExplicit = null,
+        )
+        val wanted = song(
+            "For A Reason",
+            "Karan Aujla, IKKY, Ikwinder Sahota, Milan D'Agostini",
+            "3:00",
+        ).copy(videoId = "vLSaC03b", albumName = "P-POP CULTURE", isExplicit = true)
+        val remix = song("For A Reason", "Aye Manny", "3:00")
+            .copy(videoId = "sN24LH3L", albumName = "For A Reason (Remix)", isExplicit = false)
+
+        assertEquals(wanted, TrackMatcher.best(listOf(remix, wanted), target))
+        assertEquals(listOf(wanted), TrackMatcher.ranked(listOf(remix, wanted), target))
+    }
+
+    @Test
+    fun `missing YouTube badge does not reject explicit I Really Do`() {
+        val target = TrackMatcher.Target(
+            "I Really Do...",
+            "Karan Aujla",
+            durationSec = 193,
+            isExplicit = null,
+        )
+        val wanted = song(
+            "I Really Do...",
+            "Karan Aujla, IKKY, Ikwinder Sahota, Jamal Europe",
+            "3:13",
+        ).copy(videoId = "1vja2Ptl", albumName = "P-POP CULTURE", isExplicit = true)
+        val otherSong = song("I Really Do...", "Arjun Viraat, Shefali Alvares", "3:02")
+            .copy(videoId = "WeCT149y", albumName = "I Really Do...", isExplicit = false)
+
+        assertEquals(wanted, TrackMatcher.best(listOf(otherSong, wanted), target))
+    }
+
+    @Test
+    fun `unlabelled music video timing cannot make another artist the Brown Rang match`() {
+        val target = TrackMatcher.Target(
+            "Brown Rang",
+            "Yo Yo Honey Singh",
+            durationSec = 211,
+            // This is the phone's real failure: YouTube presented the official
+            // video as a song row, so the explicit video flag was false.
+            isVideo = false,
+        )
+        val wantedAudio = song("Brown Rang", "Yo Yo Honey Singh", "2:59")
+            .copy(videoId = "vj2tW1iy", albumName = "International Villager")
+        val wrongExactRuntime = song("Brown Rang", "Lovely, Jais Rikhi, Love Sagar", "3:30")
+            .copy(videoId = "UgOpg53G", albumName = "Brown Rang")
+
+        assertEquals(wantedAudio, TrackMatcher.best(listOf(wrongExactRuntime, wantedAudio), target))
+        assertEquals(
+            listOf(wantedAudio),
+            TrackMatcher.ranked(listOf(wrongExactRuntime, wantedAudio), target),
+        )
+        assertFalse(TrackMatcher.hasConflictingAlbums(listOf(wantedAudio), target))
+    }
+
+    @Test
+    fun `manual video audio switch accepts the official song despite a long visual intro`() {
+        val target = TrackMatcher.Target(
+            "Big Dawgs",
+            "Hanumankind, Kalmi",
+            // A visual short film can be much longer than its song release.
+            durationSec = 391,
+            isVideo = true,
+        )
+        val officialAudio = song("Big Dawgs", "Hanumankind, Kalmi", "3:11")
+            .copy(videoId = "official-audio")
+        val sameTitleCover = song("Big Dawgs", "Unrelated Cover Artist", "6:31")
+            .copy(videoId = "cover")
+
+        // The ordinary source matcher is right to refuse a multi-minute gap;
+        // the explicit video-to-audio action is allowed to use YTM's official
+        // song row after title, version and artist all agree.
+        assertNull(TrackMatcher.best(listOf(officialAudio, sameTitleCover), target))
+        assertEquals(
+            officialAudio,
+            TrackMatcher.bestOfficialAudioForVideo(listOf(sameTitleCover, officialAudio), target),
+        )
+    }
+
+    /**
      * A declared tier is a reason to prefer one copy of a recording over
      * another. It is not a reason to play a different recording — the DJ edit
      * on a compilation carries the right title and the right artist, and only
@@ -410,6 +791,59 @@ class SourcesTest {
             listOf(lossless, plain),
             SourceResolver.preferred(listOf(plain, lossless), target, wantsLossless = true),
         )
+    }
+
+    /**
+     * The case this whole path exists for, and the one it shipped wrong.
+     *
+     * Tidal publishes the immersive mix as its own row — same recording, same
+     * runtime, different id — and files it under `audioQuality: LOW`. Scored
+     * on that label the Atmos mix sorts *below* every stereo row, so
+     * [SourceResolver.streamBest] opens the lossless stereo row, gets a
+     * perfectly good FLAC and returns; the immersive row is never even asked
+     * for. No `?atmos=` hint can rescue that — the mix is not a rendition of
+     * the row being asked about.
+     */
+    @Test
+    fun `prefers the immersive row over a lossless one when Atmos is wanted`() {
+        DeviceCodecs.forced = true
+        AppSettings.dolbyAtmos.value = true
+        try {
+            val target = TrackMatcher.Target("Gehra Hua", "Shashwat Sachdev", durationSec = 362)
+            val stereo = song("Gehra Hua", "Shashwat Sachdev", duration = "6:02")
+                .copy(sourceQuality = ModuleSource.LOSSLESS)
+            val atmos = song("Gehra Hua", "Shashwat Sachdev", duration = "6:02")
+                .copy(sourceQuality = ModuleSource.DOLBY)
+
+            assertEquals(
+                listOf(atmos, stereo),
+                SourceResolver.preferred(listOf(stereo, atmos), target, wantsLossless = true),
+            )
+        } finally {
+            DeviceCodecs.forced = null
+        }
+    }
+
+    /** Switched off, the immersive row is just a row and lossless decides again. */
+    @Test
+    fun `ignores the immersive row when the Atmos setting is off`() {
+        DeviceCodecs.forced = true
+        AppSettings.dolbyAtmos.value = false
+        try {
+            val target = TrackMatcher.Target("Gehra Hua", "Shashwat Sachdev", durationSec = 362)
+            val stereo = song("Gehra Hua", "Shashwat Sachdev", duration = "6:02")
+                .copy(sourceQuality = ModuleSource.LOSSLESS)
+            val atmos = song("Gehra Hua", "Shashwat Sachdev", duration = "6:02")
+                .copy(sourceQuality = ModuleSource.DOLBY)
+
+            assertEquals(
+                listOf(stereo, atmos),
+                SourceResolver.preferred(listOf(stereo, atmos), target, wantsLossless = true),
+            )
+        } finally {
+            DeviceCodecs.forced = null
+            AppSettings.dolbyAtmos.value = true
+        }
     }
 
     // ---- Deciding whether an upgrade is worth the seam -----------------------
@@ -511,6 +945,55 @@ class SourcesTest {
             SourceResolver.isBetter(
                 StreamFormat(codec = "mp4", kbps = 320),
                 StreamFormat(codec = "flac"),
+            ),
+        )
+    }
+
+    /**
+     * Immersive outranks bit-exact, and the order of the two tests inside
+     * [SourceResolver.isBetter] is the whole of it.
+     *
+     * An Atmos stream is E-AC-3 and so answers `isLossless == false`. With the
+     * lossless test first, a FLAC won there and the Atmos test below it could
+     * never run — which meant a track offered as both played as the FLAC
+     * whatever the setting said, and an upgrade pass would cut a FLAC in over
+     * an Atmos stream already playing.
+     */
+    @Test
+    fun `ranks an immersive mix above a lossless copy`() {
+        assertTrue(
+            SourceResolver.isBetter(
+                StreamFormat(codec = "eac3-joc", sampleRateHz = 48000),
+                StreamFormat(codec = "flac", bitDepth = 24, sampleRateHz = 96000),
+            ),
+        )
+        assertFalse(
+            SourceResolver.isBetter(
+                StreamFormat(codec = "flac", bitDepth = 24, sampleRateHz = 96000),
+                StreamFormat(codec = "eac3-joc", sampleRateHz = 48000),
+            ),
+        )
+    }
+
+    /**
+     * And the same answer mid-playback: a FLAC arriving over a playing Atmos
+     * stream is a better copy of a mix the listener did not choose, which is a
+     * downgrade dressed as an upgrade — and one that costs a seam in the audio
+     * to deliver.
+     */
+    @Test
+    fun `never swaps away from an immersive mix that is already playing`() {
+        assertFalse(
+            SourceResolver.worthSwapping(
+                StreamFormat(codec = "flac", bitDepth = 24),
+                StreamFormat(codec = "eac3-joc"),
+            ),
+        )
+        // The reverse still swaps: immersive is what was asked for.
+        assertTrue(
+            SourceResolver.worthSwapping(
+                StreamFormat(codec = "eac3-joc"),
+                StreamFormat(codec = "flac", bitDepth = 24),
             ),
         )
     }
@@ -641,6 +1124,7 @@ class SourcesTest {
         private val answerAfterMs: Long,
         private val format: StreamFormat?,
         override val kind: SourceKind = SourceKind.JIOSAAVN,
+        private val candidates: List<Song>? = null,
     ) : MusicSource {
         override val configId = displayName
         var asked = false
@@ -650,7 +1134,12 @@ class SourcesTest {
 
         override suspend fun health() = SourceHealth.Ok()
 
-        override suspend fun search(query: String, limit: Int, waitForAll: Boolean): List<Song> {
+        override suspend fun search(
+            query: String,
+            limit: Int,
+            waitForAll: Boolean,
+            request: StreamRequest?,
+        ): List<Song> {
             asked = true
             try {
                 delay(answerAfterMs)
@@ -659,7 +1148,7 @@ class SourcesTest {
                 throw e
             }
             if (format == null) return emptyList()
-            return listOf(
+            return candidates ?: listOf(
                 Song(
                     videoId = "$displayName-1",
                     title = RACE_TITLE,
@@ -675,6 +1164,24 @@ class SourcesTest {
     }
 
     private fun raceTarget() = TrackMatcher.Target(RACE_TITLE, RACE_ARTIST, durationSec = 120)
+
+    @Test
+    fun `JioSaavn substitution refuses conflicting albums without a target album`() = runBlocking {
+        val source = FakeSource(
+            displayName = "JioSaavn",
+            answerAfterMs = 0,
+            format = StreamFormat("mp4", kbps = 320),
+            candidates = listOf(
+                song("Brown Rang", "Yo Yo Honey Singh", "2:59")
+                    .copy(videoId = "international-villager", albumName = "International Villager"),
+                song("Brown Rang", "Yo Yo Honey Singh", "2:54")
+                    .copy(videoId = "chaar-ikke", albumName = "Chaar Ikke"),
+            ),
+        )
+        val target = TrackMatcher.Target("Brown Rang", "Yo Yo Honey Singh", durationSec = 175)
+
+        assertNull(SourceResolver.bestAcross(listOf(source), target, StreamRequest.Best))
+    }
 
     /**
      * The '9:45' case itself, as a race rather than a queue.
@@ -757,33 +1264,47 @@ class SourcesTest {
     }
 
     /**
-     * The 'Bounce' case: a source whose answer is *refused* must not hold up one
-     * whose answer is taken.
-     *
-     * This is the upgrade path's shape — [SourceResolver.upgradeFor] passes a
-     * predicate that drops anything [SourceResolver.worthSwapping] rejects — and
-     * it went wrong differently from the '9:45' case. Nothing was skipped here:
-     * the slow module was asked, answered 128kbps, and was correctly refused.
-     * The cost was that it was asked *first and alone*, so the 320kbps answer
-     * that did get taken waited 12.65s behind a stream nobody wanted.
+     * The background upgrade is deliberately patient. Its source searches have
+     * already been given their full budget, so it must not cancel a slower FLAC
+     * merely because JioSaavn's valid 320kbps answer arrived first.
      */
     @Test
-    fun `a refused answer from a slow source does not hold up an accepted one`() = runBlocking {
+    fun `patient upgrade chooses the better later answer`() = runBlocking {
         val playing = StreamFormat(codec = "opus", kbps = 141)
-        val slowRefused = FakeSource("Ricky's Addon", answerAfterMs = 2_000, format = StreamFormat("mp3", kbps = 128))
-        val quickTaken = FakeSource("JioSaavn", answerAfterMs = 5, format = StreamFormat("mp4", kbps = 320))
-        val elapsed = measureTimeMillis {
-            val (source, stream) = SourceResolver.bestAcross(
-                listOf(slowRefused, quickTaken),
-                raceTarget(),
+        val slowLossless = FakeSource("Ricky's Addon", answerAfterMs = 200, format = StreamFormat("flac"))
+        val quickLossy = FakeSource("JioSaavn", answerAfterMs = 5, format = StreamFormat("mp4", kbps = 320))
+        val (source, stream) = SourceResolver.bestAcross(
+            listOf(slowLossless, quickLossy),
+            raceTarget(),
+            StreamRequest.Lossless,
+            waitForAll = true,
+            strictLength = true,
+        ) { _, candidate -> SourceResolver.worthSwapping(candidate.format, playing) }!!
+        assertEquals("Ricky's Addon", source.displayName)
+        assertEquals("flac", stream.format.codec)
+        assertFalse("the patient lookup cancelled the later source", slowLossless.cancelled)
+    }
+
+    @Test
+    fun `upgrade refuses same title and runtime from a different artist`() = runBlocking {
+        val wrongMexico = FakeSource(
+            displayName = "Ricky's Addon",
+            answerAfterMs = 0,
+            format = StreamFormat("flac"),
+            candidates = listOf(song("Mexico", "CAKE", "3:26")),
+        )
+        val target = TrackMatcher.Target("Mexico", "Karan Aujla", durationSec = 207)
+
+        assertNull(
+            SourceResolver.bestAcross(
+                listOf(wrongMexico),
+                target,
                 StreamRequest.Lossless,
                 waitForAll = true,
                 strictLength = true,
-            ) { _, candidate -> SourceResolver.worthSwapping(candidate.format, playing) }!!
-            assertEquals("JioSaavn", source.displayName)
-            assertEquals(320, stream.format.kbps)
-        }
-        assertTrue("took ${elapsed}ms — it waited for the refused answer", elapsed < 1_000)
+                requireSharedArtist = true,
+            ),
+        )
     }
 
     /**

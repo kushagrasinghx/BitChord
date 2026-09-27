@@ -1,7 +1,6 @@
 package com.music.bitchord.widget
 
 import android.content.Context
-import com.music.bitchord.playback.LastPlayed
 
 /**
  * Everything a home-screen widget needs to know about playback.
@@ -35,6 +34,10 @@ internal data class MediaWidgetSnapshot(
     val isPlaying: Boolean,
     val hasPrevious: Boolean,
     val hasNext: Boolean,
+    /** Whether the track is liked. Drawn by the 4×1 widget's heart. */
+    val isLiked: Boolean = false,
+    /** Whether shuffle is on. Drawn by the 4×1 widget's Shuffle. */
+    val shuffleEnabled: Boolean = false,
 ) {
     /** Whether there is a track to draw at all. */
     val hasTrack: Boolean get() = mediaId != null
@@ -60,23 +63,12 @@ internal data class MediaWidgetSnapshot(
                 .putBoolean(KEY_PLAYING, snapshot.isPlaying)
                 .putBoolean(KEY_HAS_PREVIOUS, snapshot.hasPrevious)
                 .putBoolean(KEY_HAS_NEXT, snapshot.hasNext)
+                .putBoolean(KEY_LIKED, snapshot.isLiked)
+                .putBoolean(KEY_SHUFFLE, snapshot.shuffleEnabled)
                 .apply()
         }
 
-        /**
-         * The last published state, or — if nothing has been published yet — the
-         * track the app would resume on.
-         *
-         * The fallback is what a widget placed before the service has ever run
-         * shows. Without it, someone who has been using the app for months adds
-         * the widget and gets an empty placeholder until the next time they press
-         * play, which reads as a broken widget rather than an empty one.
-         * [LastPlayed] is already initialised for every entry point into the
-         * process by
-         * [BitChordApplication.onCreate][com.music.bitchord.BitChordApplication],
-         * receivers included, but it is guarded anyway: this is the path that
-         * runs when the app is at its least alive.
-         */
+        /** The last state published by the live playback service. */
         fun load(context: Context): MediaWidgetSnapshot {
             val prefs = prefs(context)
             val mediaId = prefs.getString(KEY_MEDIA_ID, null)
@@ -89,25 +81,11 @@ internal data class MediaWidgetSnapshot(
                     isPlaying = prefs.getBoolean(KEY_PLAYING, false),
                     hasPrevious = prefs.getBoolean(KEY_HAS_PREVIOUS, false),
                     hasNext = prefs.getBoolean(KEY_HAS_NEXT, false),
+                    isLiked = prefs.getBoolean(KEY_LIKED, false),
+                    shuffleEnabled = prefs.getBoolean(KEY_SHUFFLE, false),
                 )
             }
-            return fromLastPlayed() ?: EMPTY
-        }
-
-        private fun fromLastPlayed(): MediaWidgetSnapshot? {
-            val resume = runCatching { LastPlayed.load() }.getOrNull() ?: return null
-            val song = resume.songs.getOrNull(resume.index) ?: return null
-            return MediaWidgetSnapshot(
-                mediaId = song.videoId,
-                title = song.title,
-                artist = song.artist,
-                artworkUrl = song.thumbnailUrl,
-                // Never true off a resume point: nothing is playing until the
-                // widget's own play button starts it.
-                isPlaying = false,
-                hasPrevious = resume.index > 0,
-                hasNext = resume.index < resume.songs.lastIndex,
-            )
+            return EMPTY
         }
 
         private fun prefs(context: Context) =
@@ -120,5 +98,7 @@ internal data class MediaWidgetSnapshot(
         private const val KEY_PLAYING = "playing"
         private const val KEY_HAS_PREVIOUS = "has_previous"
         private const val KEY_HAS_NEXT = "has_next"
+        private const val KEY_LIKED = "liked"
+        private const val KEY_SHUFFLE = "shuffle"
     }
 }

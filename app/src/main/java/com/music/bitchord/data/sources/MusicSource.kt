@@ -33,9 +33,13 @@ data class StreamFormat(
     val isLossless: Boolean?
         get() = codec?.let { it in LOSSLESS_CODECS }
 
+    /** Dolby Atmos carried in E-AC-3 JOC. This is immersive, but not lossless. */
+    val isDolbyAtmos: Boolean
+        get() = codec in DOLBY_ATMOS_CODECS
+
     /** "24-bit · 192 kHz", "FLAC", "320 kbps" — whichever parts are known. */
     val summary: String
-        get() = listOfNotNull(
+        get() = if (isDolbyAtmos) "Dolby Atmos" else listOfNotNull(
             codec?.uppercase(Locale.ROOT),
             bitDepth?.let { "$it-bit" },
             sampleRateHz?.let { "${"%.1f".format(Locale.ROOT, it / 1000f).removeSuffix(".0")} kHz" },
@@ -44,6 +48,7 @@ data class StreamFormat(
 
     private companion object {
         val LOSSLESS_CODECS = setOf("flac", "alac", "wav", "aiff", "ape", "wv", "dsf", "dff")
+        val DOLBY_ATMOS_CODECS = setOf("eac3-joc", "ec3-joc", "dolby-atmos")
     }
 }
 
@@ -84,6 +89,18 @@ data class SourceStream(
      * against the runtime being played.
      */
     val durationSec: Int? = null,
+    /**
+     * Which [MusicSource.configId] this came from, when the caller knows.
+     *
+     * Set by [SourceResolver] once a source has actually answered — never by a
+     * source itself, since it has no reason to know its own id. Kept so a
+     * second look during playback (see
+     * [QualityUpgrade][com.music.bitchord.playback.QualityUpgrade]) can leave
+     * the source already serving the track out of the search: asking it again
+     * for the same recording at the same tier is deterministic and only ever
+     * reproduces the stream already playing.
+     */
+    val sourceConfigId: String? = null,
 )
 
 /**
@@ -163,8 +180,21 @@ interface MusicSource {
      *   a straggler costs more than the rows it would have added; true for the
      *   background pass that runs *during* playback and can afford the slow
      *   catalogue that turns out to be the one holding the FLAC.
+     * @param request the stream this search is being made on behalf of, when it
+     *   is being made on behalf of one. A catalogue that describes its rows by
+     *   tier — most of them do, in the `audioQuality` a row advertises —
+     *   answers a different question at each one, and a search made to find
+     *   something to play at 128kbps should not be ranked on FLAC rows the
+     *   caller is never going to ask for. Null is a search nobody is about to
+     *   stream from: the user typing in the search box, where the best the
+     *   catalogue has is exactly what should be shown.
      */
-    suspend fun search(query: String, limit: Int = 25, waitForAll: Boolean = false): List<Song>
+    suspend fun search(
+        query: String,
+        limit: Int = 25,
+        waitForAll: Boolean = false,
+        request: StreamRequest? = null,
+    ): List<Song>
 
     /**
      * @param trackId this source's own id for the track, as issued by [search].

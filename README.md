@@ -18,12 +18,13 @@
 
 <br/>
 
-[**Highlights**](#-key-features) · [**Top Navigation Bar**](#-unified-pill-top-navigation-bar) · [**Flowing Lyrics**](#-cinematic-cover-flow--flowing-lyrics) · [**Live Canvas**](#-live-video-canvas--spatial-audio) · [**Settings & Themes**](#-apple-tv-settings--custom-themes) · [**Typography**](#-custom-typography-suite) · [**Google Sign-In**](#-1-tap-google-sign-in) · [**Remote Guide**](#-remote-controls--key-bindings) · [**Credits**](#-credits--authors)
+[**Highlights**](#-key-features) · [**Top Navigation Bar**](#-top-navigation-bar) · [**Flowing Lyrics**](#-cinematic-cover-flow--flowing-lyrics) · [**Live Canvas**](#-live-video-canvas--spatial-audio) · [**Settings & Themes**](#-apple-tv-settings--custom-themes) · [**Remote Guide**](#-remote-controls--key-bindings) · [**Credits**](#-credits--authors)
 
 </div>
 
 > [!NOTE]
-> **BitChord TV 1.0.0** is an independent open-source client engineered exclusively for television screens and home theaters. It delivers bit-exact lossless audio, live motion video artwork, synchronized syllable lyrics, and 120Hz remote navigation.
+> **BitChord TV** is an open-source client engineered exclusively for television screens and home theaters, based on the original BitChord by Kushagra Singh (`@kushagrasinghx`). It delivers bit-exact lossless audio, live motion video artwork, synchronized syllable lyrics, and 120Hz remote navigation.
+
 
 ---
 
@@ -38,13 +39,13 @@
 ```
 
 - 🏎️ **120Hz / 60Hz Ultra-Smooth Engine**: Hardware-accelerated drawing with a strict **8.33ms frame budget** on 120Hz TV panels and zero CPU layout re-measurements.
-- 🎵 **1:1 Unified Apple Music Pill Navigation**: Continuous frosted glass pill housing `Listen Now`, `Browse`, `Videos`, `Radio`, `Library`, `Now Playing`, and an embedded `Search` (`🔍`) icon.
+- 🎵 **Apple Music Clean Navigation**: Top navigation with `Home`, `Library`, `Now Playing`, and Settings.
 - 🎤 **Apple-Physics Spring Scrolling Lyrics**: Dynamic vertical glide with VSYNC progressive syllable highlighting, background vocals, and continuous blur/scale depth.
 - 🎬 **Multi-Provider Live Video Canvas**: Seamless looping video covers resolved from Apple Music Editorial Video, Tidal Video Covers, Spotify Canvas, and Community Index.
 - 🎧 **3D Spatial Audio Virtualizer**: Hardware-accelerated soundstage widening with 1000mB stereo expander.
 - 🖤 **True OLED Pure Black & Pure White Modes**: Infinite contrast with 100% pixel shutoff on OLED displays, or high-contrast crisp Pure White light mode.
-- 🔤 **Real Bundled Typography Suite**: Instant switching between **Apple SF Pro Display**, **Google Sans**, **Arial Classic**, and **Minecraft Pixel**.
 - 📱 **Fast 1-Tap Google Sign-In**: Login directly on TV via Web Dialog or tap on your phone to link your YouTube Music account automatically.
+- 🌐 **Latest BitChord Features**: Pluggable source modules, bit-exact lossless streaming, gapless crossfade, Automix DJ transitions, innerTubeX resolver, local audio & USB storage, Discord Rich Presence, and Last.fm/ListenBrainz scrobbling.
 
 ---
 
@@ -177,6 +178,7 @@ cd bitchordTV
 
 ## 👨‍💻 Credits & Authors
 
-- **Lead Architecture & TV Engineering**: **Nithyanantha** (`Nyxcore`)
+- **BitChord Original Creator & Lead Developer**: **Kushagra Singh** ([@kushagrasinghx](https://github.com/kushagrasinghx))
+- **TV Platform Lead & Architecture**: **Nithyanantha / Nimalanrao** ([@nimalanrao](https://github.com/nimalanrao))
 - **Version**: `1.0.0` (Build `100`)
 - **License**: GNU General Public License v3.0 (GPLv3)

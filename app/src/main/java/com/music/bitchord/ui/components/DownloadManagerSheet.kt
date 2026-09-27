@@ -1,6 +1,11 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -20,9 +25,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DownloadDone
-import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +48,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,7 +82,6 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 @Composable
 fun TopBarDownloadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val session by DownloadSession.state.collectAsStateWithLifecycle()
-    if (!session.visible) return
 
     val haptics = rememberHaptics()
     // Animated, because the fraction lands in steps — one track at a time, plus
@@ -97,41 +102,70 @@ fun TopBarDownloadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         label = "downloadRingTint",
     )
 
-    IconButton(
-        onClick = {
-            haptics.play(Haptic.Select)
-            onClick()
-        },
+    AnimatedVisibility(
+        visible = session.visible,
         modifier = modifier,
+        // Open the slot first; the glyph arrives as the pill approaches its
+        // new width. Siblings move with the expanding slot and make room rather
+        // than jumping directly to their final positions.
+        enter = expandHorizontally(
+            animationSpec = tween(260),
+            expandFrom = Alignment.End,
+        ) + fadeIn(
+            animationSpec = tween(durationMillis = 160, delayMillis = 100),
+        ),
+        exit = fadeOut(
+            animationSpec = tween(120),
+        ) + shrinkHorizontally(
+            animationSpec = tween(durationMillis = 220, delayMillis = 60),
+            shrinkTowards = Alignment.End,
+        ),
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            if (session.busy) {
-                CircularProgressIndicator(
-                    // Never quite zero: a ring pinned at nothing reads as
-                    // stalled where the first sliver reads as starting.
-                    progress = { progress.coerceAtLeast(0.02f) },
-                    modifier = Modifier.size(RING_SIZE),
-                    color = tint,
-                    trackColor = tint.copy(alpha = 0.22f),
-                    strokeWidth = 2.dp,
-                    strokeCap = StrokeCap.Round,
-                    gapSize = 0.dp,
+        IconButton(
+            onClick = {
+                haptics.play(Haptic.Select)
+                onClick()
+            },
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (session.busy) {
+                    CircularProgressIndicator(
+                        // Never quite zero: a ring pinned at nothing reads as
+                        // stalled where the first sliver reads as starting.
+                        progress = { progress.coerceAtLeast(0.02f) },
+                        modifier = Modifier.size(RING_SIZE),
+                        color = tint,
+                        trackColor = tint.copy(alpha = 0.22f),
+                        strokeWidth = 2.dp,
+                        strokeCap = StrokeCap.Round,
+                        gapSize = 0.dp,
+                    )
+                }
+                Icon(
+                    imageVector = when {
+                        failed -> Icons.Rounded.ErrorOutline
+                        // A bare arrow inside the ring, not the tray-and-arrow: the
+                        // ring is already saying "downloading", and a second glyph
+                        // that says it too is detail nobody can resolve at 15dp.
+                        session.busy -> Icons.Rounded.ArrowDownward
+                        else -> Icons.Rounded.DownloadDone
+                    },
+                    contentDescription = when {
+                        session.busy -> stringResource(
+                            R.string.downloads_progress,
+                            (session.fraction * 100).toInt(),
+                        )
+                        failed -> pluralStringResource(
+                            R.plurals.downloads_failed_count,
+                            session.failed,
+                            session.failed,
+                        )
+                        else -> stringResource(R.string.downloads_finished)
+                    },
+                    tint = tint,
+                    modifier = Modifier.size(if (session.busy) GLYPH_IN_RING else GLYPH_SIZE),
                 )
             }
-            Icon(
-                imageVector = when {
-                    failed -> Icons.Rounded.ErrorOutline
-                    session.busy -> Icons.Rounded.Downloading
-                    else -> Icons.Rounded.DownloadDone
-                },
-                contentDescription = when {
-                    session.busy -> "Downloads · ${(session.fraction * 100).toInt()}%"
-                    failed -> "Downloads · ${session.failed} failed"
-                    else -> "Downloads · finished"
-                },
-                tint = tint,
-                modifier = Modifier.size(if (session.busy) GLYPH_IN_RING else GLYPH_SIZE),
-            )
         }
     }
 }
@@ -303,12 +337,10 @@ private fun DownloadManagerRow(
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = item.song.title,
+            ExplicitSongTitle(
+                song = item.song,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 // The release is worth naming where there is one: in a list of
@@ -317,7 +349,7 @@ private fun DownloadManagerRow(
                 text = listOfNotNull(
                     item.song.artist.takeIf { it.isNotBlank() },
                     item.from?.takeIf { it.isNotBlank() && it != item.song.artist },
-                ).joinToString(" · ").ifBlank { "Unknown artist" },
+                ).joinToString(" · ").ifBlank { stringResource(R.string.unknown_artist) },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -325,7 +357,7 @@ private fun DownloadManagerRow(
             )
             Spacer(Modifier.height(4.dp))
             when (progress) {
-                is DownloadProgress.Queued -> RowStatus("Queued")
+                is DownloadProgress.Queued -> RowStatus(stringResource(R.string.queued))
                 is DownloadProgress.Running -> {
                     LinearProgressIndicator(
                         // Indeterminate until the first response names a
@@ -343,13 +375,13 @@ private fun DownloadManagerRow(
                     Spacer(Modifier.height(3.dp))
                     RowStatus(
                         if (progress.fraction > 0f) {
-                            "Downloading · ${(progress.fraction * 100).toInt()}%"
+                            stringResource(R.string.downloading_progress, (progress.fraction * 100).toInt())
                         } else {
-                            "Starting"
+                            stringResource(R.string.starting)
                         },
                     )
                 }
-                is DownloadProgress.Done -> RowStatus("Saved to Music/BitChord")
+                is DownloadProgress.Done -> RowStatus(stringResource(R.string.saved_to_bitchord_folder))
                 is DownloadProgress.Failed ->
                     RowStatus(progress.reason, MaterialTheme.colorScheme.error)
             }
@@ -359,8 +391,8 @@ private fun DownloadManagerRow(
         // track can be stopped, a failed one can be asked for again, and a
         // finished one needs nothing at all.
         when {
-            failed != null -> RowAction(Icons.Rounded.Refresh, "Retry", onRetry)
-            !progress.settled -> RowAction(Icons.Rounded.Close, "Cancel", onCancel)
+            failed != null -> RowAction(Icons.Rounded.Refresh, stringResource(R.string.retry), onRetry)
+            !progress.settled -> RowAction(Icons.Rounded.Close, stringResource(R.string.cancel), onCancel)
             else -> Spacer(Modifier.width(36.dp))
         }
     }
@@ -406,17 +438,23 @@ private fun RowAction(
  * bar, and what a percentage cannot say is that thirty-nine of forty arrived and
  * one did not, which is the only outcome anybody needs to act on.
  */
+@Composable
 private fun DownloadSession.State.summary(): String {
-    val parts = buildList {
-        if (waiting > 0) add("$waiting waiting")
-        if (finished > 0) add("$finished done")
-        if (failed > 0) add("$failed failed")
-    }
+    val waitingText = if (waiting > 0) {
+        pluralStringResource(R.plurals.download_waiting_count, waiting, waiting)
+    } else null
+    val finishedText = if (finished > 0) {
+        pluralStringResource(R.plurals.download_done_count, finished, finished)
+    } else null
+    val failedText = if (failed > 0) {
+        pluralStringResource(R.plurals.download_failed_count, failed, failed)
+    } else null
+    val parts = listOfNotNull(waitingText, finishedText, failedText)
     return when {
-        parts.isEmpty() -> "Nothing downloading"
+        parts.isEmpty() -> stringResource(R.string.nothing_downloading)
         busy -> parts.joinToString(" · ")
         failed > 0 -> parts.joinToString(" · ")
-        else -> "All $finished ${if (finished == 1) "song" else "songs"} downloaded"
+        else -> pluralStringResource(R.plurals.all_songs_downloaded, finished, finished)
     }
 }
 

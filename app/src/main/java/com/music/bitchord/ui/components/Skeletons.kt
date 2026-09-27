@@ -173,6 +173,64 @@ private fun HeroShelfSkeleton() {
     }
 }
 
+/** Reserved at the top of Play while Recents loads, matching its saved layout. */
+fun LazyListScope.recentlyPlayedSkeleton(listLayout: Boolean) {
+    item(key = "skeleton:recently-played") {
+        Column(Modifier.padding(bottom = 26.dp)) {
+            RecentsHeaderSkeleton()
+            if (listLayout) {
+                BoxWithConstraints {
+                    val columnWidth = trackColumnWidth(maxWidth)
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        userScrollEnabled = false,
+                    ) {
+                        item {
+                            Column(Modifier.width(columnWidth)) {
+                                repeat(4) { index -> CompactSongRowSkeleton(index) }
+                            }
+                        }
+                    }
+                }
+            } else {
+                BoxWithConstraints {
+                    val cardWidth = heroCardWidth(maxWidth)
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        userScrollEnabled = false,
+                    ) {
+                        items(2) {
+                            ShimmerBox(
+                                modifier = Modifier.width(cardWidth).aspectRatio(HERO_CARD_RATIO),
+                                shape = RoundedCornerShape(18.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Recents heading plus the adjacent list/grid toggle placeholder. */
+@Composable
+private fun RecentsHeaderSkeleton() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PAGE_GUTTER, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.weight(1f)) {
+            SkeletonLine(fraction = TitleWidths.first() * 0.7f, height = 18.dp)
+        }
+        Spacer(Modifier.width(8.dp))
+        ShimmerBox(Modifier.size(32.dp), CircleShape)
+    }
+}
+
 /** The compact carousel of square cards used by every shelf below the first. */
 @Composable
 fun ShelfSkeleton(index: Int = 0, cardWidth: Dp = SHELF_CARD_WIDTH, cardCorner: Dp = 12.dp) {
@@ -200,10 +258,16 @@ fun ShelfSkeleton(index: Int = 0, cardWidth: Dp = SHELF_CARD_WIDTH, cardCorner: 
 }
 
 /** Home and Explore while the first page of shelves is still loading. */
-fun LazyListScope.feedSkeleton(shelves: Int = 3) {
-    item(key = "skeleton:hero") { HeroShelfSkeleton() }
-    items(shelves - 1, key = { "skeleton:shelf:$it" }) { index ->
-        ShelfSkeleton(index = index + 1)
+fun LazyListScope.feedSkeleton(shelves: Int = 3, firstIsHero: Boolean = true) {
+    if (firstIsHero) {
+        item(key = "skeleton:hero") { HeroShelfSkeleton() }
+        items(shelves - 1, key = { "skeleton:shelf:$it" }) { index ->
+            ShelfSkeleton(index = index + 1)
+        }
+    } else {
+        items(shelves, key = { "skeleton:shelf:$it" }) { index ->
+            ShelfSkeleton(index = index)
+        }
     }
 }
 
@@ -253,15 +317,19 @@ fun LazyListScope.detailSkeleton(isArtist: Boolean) {
         item(key = "skeleton:detail:top") {
             Column(Modifier.graphicsLayer { alpha = 0.4f }) {
                 SectionHeaderSkeleton()
-                // Top songs page four at a time, in columns 88% of the width.
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    userScrollEnabled = false,
-                ) {
-                    item {
-                        Column(Modifier.fillParentMaxWidth(0.88f)) {
-                            repeat(4) { index -> CompactSongRowSkeleton(index) }
+                // Top songs page four at a time — see [trackColumnWidth] for how
+                // wide a page lands.
+                BoxWithConstraints {
+                    val columnWidth = trackColumnWidth(maxWidth)
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        userScrollEnabled = false,
+                    ) {
+                        item {
+                            Column(Modifier.width(columnWidth)) {
+                                repeat(4) { index -> CompactSongRowSkeleton(index) }
+                            }
                         }
                     }
                 }

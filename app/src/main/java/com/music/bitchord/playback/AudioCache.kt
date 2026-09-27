@@ -5,6 +5,7 @@ import android.media.MediaDataSource
 import android.net.Uri
 import android.os.SystemClock
 import com.music.bitchord.data.TrackLog
+import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
@@ -20,6 +21,7 @@ import androidx.media3.datasource.cache.SimpleCache
 import java.io.IOException
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
@@ -200,6 +202,20 @@ object AudioCache {
             evictor,
             StandaloneDatabaseProvider(context),
         )
+        // Builds before album/explicit/video-aware and credit-aware matching
+        // may have cached a completely different recording under a YouTube
+        // track's `#alt` key.
+        // Those bytes otherwise outlive the matcher fix: playback serves them
+        // without resolving, then refuses the correct 320kbps replacement as
+        // no quality gain. Drop only the substitution-capable entries once;
+        // ordinary YouTube cache entries remain warm.
+        val state = context.getSharedPreferences(CACHE_STATE_PREFS, Context.MODE_PRIVATE)
+        if (state.getInt(KEY_MATCHING_SCHEMA, 0) < MATCHING_SCHEMA) {
+            val stale = cache.keys.filter { it.endsWith(ALT_SUFFIX) }
+            stale.forEach { runCatching { cache.removeResource(it) } }
+            state.edit().putInt(KEY_MATCHING_SCHEMA, MATCHING_SCHEMA).apply()
+            TrackLog.d(TAG, "invalidated ${stale.size} source cache entries after matcher upgrade")
+        }
         // A SimpleCache can only be opened once per process, so the ceiling
         // moves by mutating this evictor rather than reopening the cache —
         // see [DynamicLruCacheEvictor].
@@ -214,6 +230,17 @@ object AudioCache {
     /** Drops everything on disk. The listener asked; no grace period. */
     fun clear(onComplete: () -> Unit = {}) {
         cancel()
+        // The bookkeeping describes bytes that are about to stop existing: a
+        // one-round-per-track claim over an entry that just got deleted starts
+        // nothing on the next switch until the wait's settle pass evicts it,
+        // a remembered `want` is a size for a file that is gone, and the key
+        // memo lists keys with nothing behind them. Cleared with the disk so
+        // the first switch after a wipe asks for its head from a clean slate —
+        // [discardBadRendition] clears one track's claim for the same reason.
+        analysisHeads.clear()
+        analysisHeadsInFlight.clear()
+        analysisHeadWant.clear()
+        renditionKeys.clear()
         scope.launch {
             cache.keys.toList().forEach { cache.removeResource(it) }
             withContext(Dispatchers.Main) { onComplete() }
@@ -353,7 +380,7 @@ object AudioCache {
                 val rendition = QualityUpgrade.cacheTag(spec.uri)
                 when {
                     rendition != null -> "$videoId#$rendition"
-                    SourceResolver.canSubstituteForYouTube() -> "$videoId#alt"
+                    SourceResolver.canSubstituteForYouTube() -> "$videoId#alt${atmosKeySuffix()}"
                     else -> videoId
                 }
             }
@@ -365,11 +392,41 @@ object AudioCache {
             ?: spec.uri.takeIf { it.authority == "source" }?.let { uri ->
                 val source = uri.getQueryParameter("s")
                 val track = uri.getQueryParameter("t")
-                if (source != null && track != null) "$source|$track" else null
+                if (source != null && track != null) {
+                    val base = "$source|$track"
+                    QualityUpgrade.cacheTag(uri)?.let { "$base#$it" } ?: base
+                } else {
+                    null
+                }
             }
             ?: spec.key
             ?: spec.uri.toString()
     }
+
+    /**
+     * Splits the `#alt` bucket in two along whatever this process currently
+     * believes about Dolby Atmos, so a listener who turns the setting off
+     * cannot be handed an Atmos file back out of the cache.
+     *
+     * Without this, `#alt` names one entry regardless of which rendition of
+     * "not YouTube" ended up in it, and [CacheDataSource] answers from that
+     * entry without ever calling the resolver — see the class doc. A track
+     * first played with Atmos on writes an Atmos file under `#alt`; turning
+     * the setting off changes nothing about that file, so the very next play
+     * of the same track reads it straight off disk, atmosAllowed check and
+     * all, because the check lives in [ModuleSource.unplayable] and that code
+     * never runs. The suffix means "atmos off" resolves and caches under a
+     * key the "atmos on" file was never written to, so the setting actually
+     * takes effect on replay; flipping back on reads the original file again
+     * rather than re-fetching it.
+     */
+    private fun atmosKeySuffix(): String =
+        if (DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value) "" else "-noatmos"
+
+    private const val CACHE_STATE_PREFS = "audio_cache_state"
+    private const val KEY_MATCHING_SCHEMA = "matching_schema"
+    private const val MATCHING_SCHEMA = 2
+    private const val ALT_SUFFIX = "#alt"
 
     /**
      * Wraps [upstream] so everything played is written to disk on the way
@@ -514,6 +571,14 @@ object AudioCache {
         val substitutable = SourceResolver.canSubstituteForYouTube()
         job = videoIds.firstOrNull()?.let { next ->
             val target = upcoming.firstOrNull { it.mediaId == next }?.target
+            // A track the listener reverted plays from its own `#original`
+            // rendition — see [OriginalVersion] — while read-ahead builds its
+            // spec from an id alone and so writes under the plain key. Every
+            // byte of that would land in an entry playback is never going to
+            // read, and pinning a substitute for it would pin a source it is
+            // never going to use. The URL half below is still worth having: a
+            // reverted track resolves through YouTube, which is what it warms.
+            val pinnedToYouTube = OriginalVersion.isPinned(next)
             scope.launch {
                 // With substitution on, the *bytes* half above used to be
                 // switched off outright, and the paragraph explaining why is
@@ -534,7 +599,7 @@ object AudioCache {
                 // leaves nothing pinned, and this falls through to the same
                 // URL-only warm-up it did before — YouTube resolves the track at
                 // playback time as usual.
-                val warmed = if (substitutable && target != null) {
+                val warmed = if (substitutable && target != null && !pinnedToYouTube) {
                     runCatching { SourceResolver.prefetchSubstitute(target) }
                         .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $next: ${it.message}", about = next) }
                         .getOrNull()
@@ -545,7 +610,7 @@ object AudioCache {
                 // Safe to fill for the same reason in both cases: either nothing
                 // outranks YouTube and read-ahead is the only writer, or a
                 // source has been pinned and every writer now resolves to it.
-                val cacheBytes = !substitutable || warmed != null
+                val cacheBytes = (!substitutable || warmed != null) && !pinnedToYouTube
                 if (cacheBytes) {
                     launch(TrackLog.about(next)) {
                         delay(PREFETCH_DELAY_MS)
@@ -706,6 +771,13 @@ object AudioCache {
     private val analysisHeadsInFlight = ConcurrentHashMap.newKeySet<String>()
 
     /**
+     * How many bytes each track's last round asked for — the only way for
+     * [awaitAnalysisHead] to tell a finished head from one the round left
+     * part-written. See [alignmentHeadComplete].
+     */
+    private val analysisHeadWant = ConcurrentHashMap<String, Long>()
+
+    /**
      * Pulls [uri]'s recording onto disk under the plain YouTube key, so Smart
      * Fade has something to measure; sized by [analysisHeadSize].
      *
@@ -761,9 +833,140 @@ object AudioCache {
      *
      * A no-op for anything that isn't a YouTube-backed track.
      */
+    /**
+     * Enough of a YouTube Opus head to decode the opening window
+     * [com.music.bitchord.playback.smart.VersionAudioAligner] measures.
+     */
+    const val MIN_ALIGNMENT_PREFIX_BYTES = 800L * 1024
+
+    /**
+     * How many passes [awaitAnalysisHead] may start at a head. One is the
+     * normal case; the rest exist for a round that ends part-written, which is
+     * the failure worth spending a fetch on again.
+     */
+    private const val MAX_ALIGNMENT_HEAD_ROUNDS = 3
+
+    /**
+     * Gap kept before a retry claims the track again. Claiming and registering
+     * the claim are two statements in [requestAnalysisHead]; without a gap, a
+     * wait that looked between them could take the claim away and set off a
+     * second fetch alongside the one it was trying to join.
+     */
+    private const val HEAD_ROUND_SETTLE_MS = 500L
+
+    /**
+     * Pulls the analysis head for [uri] if needed and waits until enough of
+     * the opening is on disk to align two versions of a track.
+     *
+     * "Enough" is the whole opening a round asked for, or
+     * [MIN_ALIGNMENT_PREFIX_BYTES] for a head that was grown elsewhere. What it
+     * deliberately does *not* accept is part of a round that gave up halfway —
+     * a head that decodes for a handful of seconds caps how far the two cuts
+     * may be slid against each other, so a thirty-second difference comes back
+     * as an eight-second search reporting whatever noise it found. Handing
+     * that over as a measurement is how a swap ends up landing near the wrong
+     * second while looking like it worked, so the wait pulls again instead.
+     *
+     * @return whether the opening is fully on disk, `false` once no further
+     *   round can improve on it — the deadline passed, or
+     *   [MAX_ALIGNMENT_HEAD_ROUNDS] rounds all came up short.
+     */
+    suspend fun awaitAnalysisHead(uri: Uri, timeoutMs: Long = 20_000L): Boolean {
+        if (!::cache.isInitialized) return false
+        val videoId = uri.getQueryParameter("v") ?: return false
+        if (alignmentHeadComplete(videoId)) return true
+        val opus = Uri.parse(AutomixAnalysisSource.opusUri(videoId))
+        // A previous round that wrote nothing would otherwise block retries
+        // for the rest of the session.
+        if (videoId !in analysisHeadsInFlight) {
+            analysisHeads.remove(videoId)
+        }
+        requestAnalysisHead(opus)
+        var rounds = 1
+        var askedAt = SystemClock.elapsedRealtime()
+        val deadline = askedAt + timeoutMs
+        while (SystemClock.elapsedRealtime() < deadline) {
+            if (alignmentHeadComplete(videoId)) return true
+            if (videoId !in analysisHeadsInFlight) {
+                if (rounds >= MAX_ALIGNMENT_HEAD_ROUNDS) return alignmentHeadComplete(videoId)
+                val now = SystemClock.elapsedRealtime()
+                if (now - askedAt >= HEAD_ROUND_SETTLE_MS) {
+                    // A round that got as far as its lock probe — the few
+                    // dozen kilobytes written before the stream underneath
+                    // them was refused — used to count as bytes on disk and
+                    // block every later attempt, so the wait sat out the
+                    // whole deadline against a head that was never going to
+                    // grow and the switch went ahead unaligned. Below
+                    // [MIN_ALIGNMENT_PREFIX_BYTES] there is nothing here a
+                    // measurement can act on, so the round may try again, and
+                    // each retry runs [clearPartialHead] first — which is what
+                    // keeps a part-written entry from splicing two encodings.
+                    // [MAX_ALIGNMENT_HEAD_ROUNDS] still bounds how often.
+                    if (alignmentPrefixBytes(videoId) < MIN_ALIGNMENT_PREFIX_BYTES) {
+                        analysisHeads.remove(videoId)
+                        requestAnalysisHead(opus)
+                        rounds++
+                    }
+                    askedAt = now
+                }
+            }
+            delay(40)
+        }
+        return alignmentHeadComplete(videoId)
+    }
+
+    /**
+     * Whether [videoId]'s opening is as complete as it is ever going to be:
+     * past [MIN_ALIGNMENT_PREFIX_BYTES], or as much as the round asked for once
+     * that round has stopped writing.
+     *
+     * [analysisHeadWant] is what was actually asked for, recorded when it was
+     * asked, because the wait cannot otherwise tell "finished" from "stopped
+     * early" — both look like bytes on disk.
+     */
+    private fun alignmentHeadComplete(videoId: String): Boolean {
+        val held = alignmentPrefixBytes(videoId)
+        if (held >= MIN_ALIGNMENT_PREFIX_BYTES) return true
+        val want = analysisHeadWant[videoId] ?: return false
+        if (videoId in analysisHeadsInFlight) return false
+        return held >= want
+    }
+
+    /**
+     * The figure [VersionAudioAligner] opens by: the largest same-source
+     * (non-`#alt`) copy when it is big enough to measure, and the largest copy
+     * of any kind otherwise. A substitute can be a different cut of the same
+     * song, so it is only worth waiting on when nothing else is on disk — and
+     * asking the same question here as there is what makes "ready" mean
+     * "openable with exactly these bytes".
+     */
+    private fun alignmentPrefixBytes(videoId: String): Long {
+        val watch = Uri.parse("bitchord://watch?v=$videoId")
+        val opus = Uri.parse(AutomixAnalysisSource.opusUri(videoId))
+        val renditions = renditionsOf(watch)
+        val sameSource = renditions
+            .filter { !it.key.endsWith("#alt") }
+            .maxOfOrNull { it.cachedPrefix } ?: 0L
+        if (sameSource >= MIN_ALIGNMENT_PREFIX_BYTES) return sameSource
+        return maxOf(
+            cachedPrefixBytes(opus),
+            cachedPrefixBytes(watch),
+            renditions.maxOfOrNull { it.cachedPrefix } ?: 0L,
+        )
+    }
+
     fun requestAnalysisHead(uri: Uri) {
-        if (!::cache.isInitialized) return
-        if (upstreamFactory == null) return
+        // Each of these gates used to stop a head dead with nothing in the
+        // log to show for it: an unwired cache or upstream looked from the
+        // outside exactly like a network that refuses everything.
+        if (!::cache.isInitialized) {
+            TrackLog.w(TAG, "analysis head for $uri not started: cache is not initialised")
+            return
+        }
+        if (upstreamFactory == null) {
+            TrackLog.w(TAG, "analysis head for $uri not started: no upstream yet")
+            return
+        }
         val videoId = uri.getQueryParameter("v") ?: return
         // One round per track per session, and it is sized correctly up front
         // rather than grown into. See [analysisHeadSize] for why growing it was
@@ -775,17 +978,67 @@ object AudioCache {
         if (!analysisHeadsInFlight.add(videoId)) return
         scope.launch {
             try {
-                val total = runCatching { StreamResolver.contentLength(videoId) }.getOrNull() ?: 0L
+                val total = runCatching { StreamResolver.contentLength(videoId) }
+                    .onFailure {
+                        TrackLog.w(TAG, "contentLength failed for $videoId: ${it.message}", videoId)
+                    }
+                    .getOrNull() ?: 0L
                 val want = analysisHeadSize(total)
-                if (!clearPartialHead(videoId, want)) return@launch
+                analysisHeadWant[videoId] = want
+                TrackLog.w(
+                    TAG,
+                    "analysis head round for $videoId: total=$total want=$want " +
+                        "held=${alignmentPrefixBytes(videoId)}",
+                    videoId,
+                )
+                if (!clearPartialHead(videoId, want)) {
+                    TrackLog.w(TAG, "analysis head round for $videoId skipped: partial is held elsewhere", videoId)
+                    return@launch
+                }
                 fetch(
                     cacheKey = videoId,
-                    uri = Uri.parse("bitchord://watch?v=$videoId"),
+                    // Do not inherit a JioSaavn/lossless StreamChoice from
+                    // playback. The base key is reserved for the lightweight
+                    // YouTube Opus copy used by Automix analysis.
+                    uri = Uri.parse(AutomixAnalysisSource.opusUri(videoId)),
                     position = 0,
                     length = want,
                     pinKey = true,
                 )
+                if (alignmentPrefixBytes(videoId) < MIN_ALIGNMENT_PREFIX_BYTES) {
+                    // The plain Opus copy would not come: on the networks where
+                    // its googlevideo resolve fails it never does, while
+                    // playback of the very same track is unbothered because it
+                    // reads whichever source the substitution chose — which is
+                    // also exactly what the direction that *works* measures
+                    // against. So when the pinned copy comes up short, pull
+                    // that copy instead: alignment opens the fullest copy on
+                    // disk anyway, and a failed head here otherwise costs the
+                    // whole switch its smart align while the swap goes ahead
+                    // regardless.
+                    pull(
+                        videoId,
+                        Uri.parse("bitchord://watch?v=$videoId"),
+                        0,
+                        want,
+                        /* pinKey = */ false,
+                    )
+                }
                 if (total > 0) recordContentLength(videoId, total)
+                val held = alignmentPrefixBytes(videoId)
+                if (held < MIN_ALIGNMENT_PREFIX_BYTES) {
+                    // The one line that says *this* fetch failed, as opposed to
+                    // the read-ahead chatter around it: every cause below
+                    // already logs its own message at debug, but nothing said
+                    // where a round ended or what it had to work with.
+                    TrackLog.w(
+                        TAG,
+                        "analysis head for $videoId came up short: " +
+                            "held=$held want=$want total=$total " +
+                            "(cause in the read-ahead lines around this one)",
+                        videoId,
+                    )
+                }
             } finally {
                 analysisHeadsInFlight.remove(videoId)
             }
@@ -989,7 +1242,21 @@ object AudioCache {
             if (now - at < RENDITION_KEYS_TTL_MS) return keys
         }
         val keys = cache.keys.filter { it == videoId || it.startsWith("$videoId#") }
-        renditionKeys[videoId] = now to keys
+        // An empty answer is never remembered. The head round asks this
+        // question a moment before it starts writing — to log `held=` — and
+        // a five-second "no keys" memo taken then hides the very bytes it is
+        // about to write from [renditionsOf], while [alignmentPrefixBytes]'s
+        // direct reads see them the moment they land and open the gate. The
+        // aligner, which goes only through this list, would then measure an
+        // empty disk for the rest of the memo's life: the switch fails, the
+        // retap five seconds later succeeds, and the wait in between is this
+        // entry. Cold is the one state where the list is guaranteed to change
+        // next, so cold is the one state that cannot be cached.
+        if (keys.isNotEmpty()) {
+            renditionKeys[videoId] = now to keys
+        } else {
+            renditionKeys.remove(videoId)
+        }
         return keys
     }
 

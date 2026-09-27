@@ -13,6 +13,7 @@ import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.graphics.SurfaceTexture
 import android.os.Build
+import android.util.Log
 import android.view.TextureView
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -52,7 +53,11 @@ import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasCache
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 import java.util.Locale
+
+private const val TAG = "CanvasArtworkPlayer"
 
 /**
  * How long a clip gets to paint itself onto a surface it was just handed back
@@ -61,6 +66,12 @@ import java.util.Locale
  * coming back does not sit there as a hole for the length of a glance.
  */
 private const val REPAINT_TIMEOUT_MS = 700L
+
+/** How a clip fills the bounds supplied by its caller. */
+enum class CanvasContentMode {
+    CROP,
+    FIT_PORTRAIT,
+}
 
 /**
  * The looping video that plays over a track's cover art, sized to fill and
@@ -82,21 +93,46 @@ fun CanvasArtworkPlayer(
     canvas: CanvasArtwork,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
+    contentMode: CanvasContentMode = CanvasContentMode.CROP,
+    /** Align a contained portrait clip to the top; other callers retain centered FIT. */
+    alignPortraitTop: Boolean = false,
+    /** The decoded video's display aspect, or zero until Media3 knows it. */
+    onAspectRatioChanged: (Float) -> Unit = {},
+    /** The full player bounds required before a portrait hero may reveal its first frame. */
+    portraitRevealBounds: IntSize = IntSize.Zero,
+    /** Fades a full-player portrait clip away as the existing sleeve collapses. */
+    presentationAlpha: () -> Float = { 1f },
     /** Fires once the clip has an actual frame on screen, and again if it drops back to none. */
     onRenderedChanged: (Boolean) -> Unit = {},
     /** A single frame off the playing clip, for callers that want to re-tint around it. */
     onFrameCaptured: (Bitmap) -> Unit = {},
     /**
      * Keep calling [onFrameCaptured] every so many milliseconds instead of
-     * only once — for a caller re-tinting its backdrop off a
-     * [CanvasSource.SPOTIFY][com.music.bitchord.data.canvas.CanvasSource.SPOTIFY]
-     * clip, which is worth following as it plays rather than settling on
-     * whatever colours its opening frame happened to have. Null everywhere
-     * else: re-reading a texture off the GPU costs a frame stall, and for the
-     * other three sources there is nothing about a clip's own colour that its
-     * first frame doesn't already say.
+     * only once — for a caller re-tinting its backdrop off a playing clip,
+     * which is worth following as it plays rather than settling on whatever
+     * colours its opening frame happened to have. That holds for every
+     * source, not just
+     * [CanvasSource.SPOTIFY][com.music.bitchord.data.canvas.CanvasSource.SPOTIFY]:
+     * a clip is a clip, and one that pans or cuts changes colour under its own
+     * still sleeve exactly the same way regardless of who published it. Null
+     * when a caller has nothing worth re-tinting off a moving colour at all —
+     * re-reading a texture off the GPU costs a frame stall, so this stays
+     * opt-in rather than always-on.
      */
     refreshFrameEveryMs: Long? = null,
+    /**
+     * The longest edge of the bitmap [onFrameCaptured] is handed.
+     *
+     * This is the whole cost of following a clip. `getBitmap()` with no
+     * arguments hands back a copy at the view's own size — full-bleed, so most
+     * of a phone screen, five or six megabytes read back off the GPU and
+     * allocated afresh on every call. Nobody wants that resolution: the one
+     * caller there is averages the frame down to a handful of colours. Asking
+     * for a small copy instead makes the readback scale during the blit, which
+     * is what turns a refresh from something worth doing every few seconds into
+     * something affordable several times a second.
+     */
+    frameCapturePx: Int = FRAME_CAPTURE_PX,
     /**
      * How much of whatever is behind the clip it is currently hiding: 0 while
      * nothing is drawn, ramping to 1 as the first frame fades in, and back down
@@ -117,6 +153,18 @@ fun CanvasArtworkPlayer(
      * this is a parameter here rather than a mask the caller could draw.
      */
     bottomFade: Float = 0f,
+    /** Optional end of the fade in view pixels; defaults to the view's bottom edge. */
+    bottomFadeEndPx: Float? = null,
+    /**
+     * Halts decoding for the length of a caller-driven transition — the sleeve
+     * collapsing into the queue or lyrics panel and back — rather than only at
+     * the two ends of it. That collapse is driven by the same clock as this
+     * clip's own fade, and a decoder left running through it competes with the
+     * slide for the same frame budget; the stutter that produced this flag was
+     * the decode, not the animation. The clip keeps its last frame on screen
+     * while paused, so there is nothing to fade back in once it lifts.
+     */
+    pausedForTransition: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -136,6 +184,11 @@ fun CanvasArtworkPlayer(
     // off screen. Not bumped for the first surface of all, which arrives with
     // nothing needing doing to it. See the repaint effect below.
     var surfaceGeneration by remember(canvas) { mutableIntStateOf(0) }
+    val currentContentMode by rememberUpdatedState(contentMode)
+    val currentAlignPortraitTop by rememberUpdatedState(alignPortraitTop)
+    val currentPortraitRevealBounds by rememberUpdatedState(portraitRevealBounds)
+    val currentPresentationAlpha by rememberUpdatedState(presentationAlpha)
+    val reportAspect by rememberUpdatedState(onAspectRatioChanged)
 
     val player = remember {
         ExoPlayer.Builder(context)
@@ -159,16 +212,15 @@ fun CanvasArtworkPlayer(
 
     DisposableEffect(player) {
         val listener = object : Player.Listener {
-            override fun onRenderedFirstFrame() {
-                rendered = true
-                frameTick++
-            }
-
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 val width = videoSize.width * videoSize.pixelWidthHeightRatio
-                if (width > 0f && videoSize.height > 0) {
-                    clipAspect = width / videoSize.height
-                }
+                val aspect = if (width.isFinite() && width > 0f && videoSize.height > 0) {
+                    width / videoSize.height
+                } else 0f
+                if (aspect != clipAspect) rendered = false
+                clipAspect = aspect
+                reportAspect(aspect)
+                textureView?.applyContentTransform(clipAspect, currentContentMode, currentAlignPortraitTop)
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -193,6 +245,7 @@ fun CanvasArtworkPlayer(
     LaunchedEffect(url) {
         rendered = false
         clipAspect = 0f
+        reportAspect(0f)
         val item = MediaItem.Builder().setUri(url)
         mimeTypeOf(url)?.let { item.setMimeType(it) }
         player.setMediaItem(item.build())
@@ -209,44 +262,49 @@ fun CanvasArtworkPlayer(
     // looked at, not of one left open behind a locked screen.
     //
     // Held inside this component rather than asked of each caller, so no call
-    // site can forget it. Pausing keeps the last frame on the surface and the
-    // player prepared, so coming back resumes rather than reloads.
+    // site can forget it. The player now runs continuously in the foreground
+    // regardless of playback state, so coming back from background always has
+    // a surface ready and `onRenderedFirstFrame()` fires naturally.
     val foreground = rememberIsForeground()
-    LaunchedEffect(isPlaying, foreground) { player.playWhenReady = isPlaying && foreground }
-
-    // Repaint a paused clip onto a surface it has just been given back.
-    //
-    // A TextureView's SurfaceTexture does not survive the app going off screen:
-    // it is torn down with the activity's hardware layer and a brand new, empty
-    // one is handed over on the way back. A clip that is playing fills it on the
-    // next frame and nobody notices. A paused one has no next frame — the
-    // decoder is parked, `setOutputSurface` does not redraw what was already
-    // released to the old surface, and the view sits there transparent.
-    //
-    // Which reads as a hole rather than as a still sleeve, because by then the
-    // still art underneath has been faded out from under the clip (see
-    // [onCoverChanged]). So: seek to where we already are, which is the one
-    // thing that makes a paused player render, and if no frame arrives from it
-    // give up and drop back to the still art rather than leaving the hole.
-    LaunchedEffect(surfaceGeneration) {
-        if (surfaceGeneration == 0) return@LaunchedEffect
-        // Playback repaints on its own, and prepare() paints the first frame.
-        if (player.playWhenReady || player.playbackState == Player.STATE_IDLE) return@LaunchedEffect
-        val before = frameTick
-        player.seekTo(player.currentPosition)
-        delay(REPAINT_TIMEOUT_MS)
-        if (frameTick == before) rendered = false
+    LaunchedEffect(foreground, pausedForTransition) {
+        player.playWhenReady = foreground && !pausedForTransition
     }
 
+    // Repaint onto a surface that has just been handed back. A TextureView's
+    // SurfaceTexture does not survive every background/layout transition, and
+    // ExoPlayer's old "first frame rendered" callback says nothing about the
+    // replacement surface. Keep the still artwork visible while waiting, ask
+    // the decoder to paint at its current position, and only hand back to the
+    // clip when onSurfaceTextureUpdated confirms real pixels below.
+    LaunchedEffect(surfaceGeneration) {
+        if (surfaceGeneration == 0) return@LaunchedEffect
+        rendered = false
+        val before = frameTick
+        if (player.playbackState != Player.STATE_IDLE) {
+            player.seekTo(player.currentPosition)
+        }
+        delay(REPAINT_TIMEOUT_MS)
+        if (frameTick == before) {
+            rendered = false
+        }
+    }
+
+    val reportRendered by rememberUpdatedState(onRenderedChanged)
     LaunchedEffect(rendered) {
-        onRenderedChanged(rendered)
+        reportRendered(rendered)
         if (!rendered) return@LaunchedEffect
         // Let the surface actually paint the frame that just triggered this
         // before reading it back — grabbing it the instant the callback fires
         // can still catch the previous, empty buffer.
         withFrameMillis { }
         val view = textureView ?: return@LaunchedEffect
-        runCatching { view.getBitmap() }.getOrNull()?.let(onFrameCaptured)
+        val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
+        if (bitmap != null) {
+            Log.d(TAG, "frame captured after rendered=true, size=${bitmap.width}x${bitmap.height}")
+            onFrameCaptured(bitmap)
+        } else {
+            Log.w(TAG, "frame capture returned null after rendered=true")
+        }
     }
 
     // The opt-in follow-up to the capture above, for a caller that asked for
@@ -254,13 +312,20 @@ fun CanvasArtworkPlayer(
     // folded into the one above: that one is keyed on [rendered] so it fires
     // again on every fade-in, and this one only needs to start once a fade-in
     // has actually happened and then keep going for as long as it holds.
-    LaunchedEffect(rendered, refreshFrameEveryMs) {
+    LaunchedEffect(rendered, refreshFrameEveryMs, frameCapturePx, clipAspect, contentMode, alignPortraitTop) {
         val interval = refreshFrameEveryMs ?: return@LaunchedEffect
+        Log.d(TAG, "periodic frame refresh started, interval=$interval")
         if (!rendered) return@LaunchedEffect
         while (isActive) {
             delay(interval)
             val view = textureView ?: continue
-            runCatching { view.getBitmap() }.getOrNull()?.let(onFrameCaptured)
+            val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
+            if (bitmap != null) {
+                Log.d(TAG, "periodic frame captured, size=${bitmap.width}x${bitmap.height}")
+                onFrameCaptured(bitmap)
+            } else {
+                Log.w(TAG, "periodic frame capture returned null")
+            }
         }
     }
 
@@ -275,8 +340,18 @@ fun CanvasArtworkPlayer(
     // it is. Zeroed on the way out, or a caller would be left holding something
     // hidden behind a clip that is no longer mounted.
     val reportCover by rememberUpdatedState(onCoverChanged)
-    LaunchedEffect(Unit) { snapshotFlow { alpha }.collect { reportCover(it) } }
-    DisposableEffect(Unit) { onDispose { reportCover(0f) } }
+    LaunchedEffect(Unit) {
+        snapshotFlow { alpha * currentPresentationAlpha() }.collect { reportCover(it) }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            // The parent owns the still/canvas handoff. Never leave it holding
+            // a Success from a player or TextureView that no longer exists.
+            reportRendered(false)
+            reportCover(0f)
+            reportAspect(0f)
+        }
+    }
 
     AndroidView(
         factory = { viewContext ->
@@ -315,6 +390,7 @@ fun CanvasArtworkPlayer(
                         // The first surface needs nothing: prepare() paints it.
                         if (!replacing) return
                         replacing = false
+                        Log.d(TAG, "surface recreated (gen $surfaceGeneration), waiting for frame")
                         surfaceGeneration++
                     }
 
@@ -324,15 +400,46 @@ fun CanvasArtworkPlayer(
                         height: Int,
                     ) {
                         delegate?.onSurfaceTextureSizeChanged(surface, width, height)
+                        if (currentContentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect in 0f..1f) {
+                            rendered = false
+                        }
                     }
 
                     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                         replacing = true
+                        Log.d(TAG, "surface destroyed, rendered=$rendered")
+                        // The old buffer is gone now, not when/if ExoPlayer
+                        // later reports another first frame. Restore the still
+                        // artwork immediately so an empty replacement surface
+                        // can never become the only visible artwork layer.
+                        rendered = false
                         return delegate?.onSurfaceTextureDestroyed(surface) ?: true
                     }
 
                     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
                         delegate?.onSurfaceTextureUpdated(surface)
+                        // This callback is the proof that the current
+                        // TextureView, rather than some previously destroyed
+                        // surface, contains a drawable video buffer.
+                        // In portrait-fit mode the frame is not handed to the
+                        // still artwork until its aspect and transform are ready.
+                        if (!rendered) {
+                            val transformed = textureView?.applyContentTransform(
+                                clipAspect, currentContentMode, currentAlignPortraitTop,
+                            ) == true
+                            val portrait = currentContentMode == CanvasContentMode.FIT_PORTRAIT &&
+                                clipAspect > 0f && clipAspect < 1f
+                            val expected = currentPortraitRevealBounds
+                            val view = textureView
+                            val layoutReady = !portrait ||
+                                (expected != IntSize.Zero && view?.width == expected.width &&
+                                    view?.height == expected.height)
+                            if ((currentContentMode == CanvasContentMode.CROP || transformed) && layoutReady) {
+                                rendered = true
+                                frameTick++
+                                Log.d(TAG, "first frame on surface (tick $frameTick, gen $surfaceGeneration)")
+                            }
+                        }
                     }
                 }
             }
@@ -352,12 +459,20 @@ fun CanvasArtworkPlayer(
             val view = frame.getChildAt(0) as TextureView
             // Set on the view itself. A Compose alpha layer over a TextureView
             // is not reliably composited, and this is the same fade either way.
-            view.alpha = alpha
-            view.centerCrop(bounds, clipAspect)
+            view.alpha = if (contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect <= 0f) {
+                0f
+            } else {
+                // Called here, in the view's update, so a fade driven by the
+                // player's collapse re-runs this block rather than
+                // recomposing the player around it.
+                alpha * presentationAlpha()
+            }
+            view.applyContentTransform(clipAspect, contentMode, alignPortraitTop)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                view.setBottomFade(bottomFade, bounds)
+                view.setBottomFade(bottomFade, bounds, bottomFadeEndPx)
             } else {
                 frame.fadeFraction = bottomFade
+                frame.fadeEndPx = bottomFadeEndPx
             }
         },
         modifier = modifier.onSizeChanged { bounds = it },
@@ -365,24 +480,99 @@ fun CanvasArtworkPlayer(
 }
 
 /**
- * A TextureView stretches its content to whatever bounds it was given, which
- * turns a 9:16 clip in a square sleeve into a smeared one. Undo that with a
- * transform: scale the axis that came up short until the clip covers the view
- * at its true aspect, and let the overflow fall outside the clip.
+ * A frame off the clip, no bigger than [maxPx] on its longest edge — see
+ * [CanvasArtworkPlayer]'s `frameCapturePx`.
+ *
+ * The aspect is kept rather than squared off. Nothing downstream draws this,
+ * but everything downstream *averages* it, and squashing one axis would quietly
+ * reweight which part of the frame each average is mostly made of.
+ *
+ * Null whenever the view has no frame to give — it is laid out but not yet
+ * measured, or its surface has gone. A caller that gets null should keep what
+ * it already had; the next tick will have one.
  */
-private fun TextureView.centerCrop(bounds: IntSize, clipAspect: Float) {
-    if (bounds.width == 0 || bounds.height == 0 || clipAspect <= 0f) return
+private fun TextureView.captureAt(
+    maxPx: Int,
+    clipAspect: Float,
+    contentMode: CanvasContentMode,
+    alignPortraitTop: Boolean,
+): Bitmap? {
+    val viewWidth = width
+    val viewHeight = height
+    if (viewWidth <= 0 || viewHeight <= 0) return null
+    val scale = maxPx.toFloat() / maxOf(viewWidth, viewHeight)
+    return runCatching {
+        // TextureView.getBitmap copies its texture layer, before the view's
+        // RenderEffect; the pre-31 mask is on the parent frame instead.
+        // Neither display-only fade is baked into the mesh's sampled frame.
+        val frame = if (scale >= 1f) {
+            getBitmap()
+        } else {
+            getBitmap(
+                (viewWidth * scale).roundToInt().coerceAtLeast(1),
+                (viewHeight * scale).roundToInt().coerceAtLeast(1),
+            )
+        } ?: return null
+        if (contentMode != CanvasContentMode.FIT_PORTRAIT || clipAspect >= 1f || clipAspect <= 0f) {
+            return frame
+        }
+
+        // getBitmap includes the view's transform. Read back only at the small
+        // requested size, then exclude the transparent contain margins before
+        // handing pixels to the mesh or legacy palette (both average RGB).
+        val viewAspect = viewWidth.toFloat() / viewHeight
+        val contentWidth = if (clipAspect < viewAspect) frame.height * clipAspect else frame.width.toFloat()
+        val contentHeight = if (clipAspect < viewAspect) frame.height.toFloat() else frame.width / clipAspect
+        val left = ceil((frame.width - contentWidth) / 2f).toInt().coerceIn(0, frame.width - 1)
+        val top = if (alignPortraitTop) 0 else
+            ceil((frame.height - contentHeight) / 2f).toInt().coerceIn(0, frame.height - 1)
+        val right = (frame.width - left).coerceAtLeast(left + 1)
+        val bottom = if (alignPortraitTop) contentHeight.toInt().coerceIn(1, frame.height) else
+            (frame.height - top).coerceAtLeast(top + 1)
+        Bitmap.createBitmap(frame, left, top, right - left, bottom - top)
+    }.getOrNull()
+}
+
+/**
+ * Big enough that averaging it is stable, small enough that reading it back off
+ * the GPU is not an event. Every consumer reduces this to a handful of colours.
+ */
+private const val FRAME_CAPTURE_PX = 128
+
+/**
+ * A TextureView stretches its content to its own bounds. Compensate with a
+ * transform: cover by default, or contain for a portrait clip when the hero
+ * explicitly requests it. An unknown size clears the old transform.
+ */
+private fun TextureView.applyContentTransform(
+    clipAspect: Float,
+    contentMode: CanvasContentMode,
+    alignPortraitTop: Boolean,
+): Boolean {
+    val bounds = IntSize(width, height)
+    if (bounds.width <= 0 || bounds.height <= 0 || !clipAspect.isFinite() || clipAspect <= 0f) {
+        setTransform(Matrix())
+        return false
+    }
     val viewAspect = bounds.width.toFloat() / bounds.height
     val pivotX = bounds.width / 2f
-    val pivotY = bounds.height / 2f
+    val pivotY = if (alignPortraitTop && contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect < 1f) {
+        0f
+    } else bounds.height / 2f
     val matrix = Matrix().apply {
-        if (clipAspect > viewAspect) {
+        val fit = contentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect < 1f
+        if (fit && clipAspect > viewAspect) {
+            setScale(1f, viewAspect / clipAspect, pivotX, pivotY)
+        } else if (fit) {
+            setScale(clipAspect / viewAspect, 1f, pivotX, pivotY)
+        } else if (clipAspect > viewAspect) {
             setScale(clipAspect / viewAspect, 1f, pivotX, pivotY)
         } else {
             setScale(1f, viewAspect / clipAspect, pivotX, pivotY)
         }
     }
     setTransform(matrix)
+    return true
 }
 
 /**
@@ -398,17 +588,17 @@ private fun TextureView.centerCrop(bounds: IntSize, clipAspect: Float) {
  * the older way, with a saveLayer and a Porter-Duff mask.
  */
 @RequiresApi(Build.VERSION_CODES.S)
-private fun TextureView.setBottomFade(fraction: Float, bounds: IntSize) {
-    val height = bounds.height
-    if (fraction <= 0.001f || height == 0) {
+private fun TextureView.setBottomFade(fraction: Float, bounds: IntSize, endPx: Float?) {
+    val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
+    if (fraction <= 0.001f || endY <= 0f) {
         setRenderEffect(null)
         return
     }
     val gradient = LinearGradient(
         0f,
-        height * (1f - fraction.coerceAtMost(1f)),
+        endY * (1f - fraction.coerceAtMost(1f)),
         0f,
-        height.toFloat(),
+        endY,
         android.graphics.Color.BLACK,
         android.graphics.Color.TRANSPARENT,
         Shader.TileMode.CLAMP,
@@ -452,6 +642,14 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
             gradient = null
             invalidate()
         }
+    /** Optional video bottom in this frame's pixels; null retains the historical view bottom. */
+    var fadeEndPx: Float? = null
+        set(value) {
+            if (value == field) return
+            field = value
+            gradient = null
+            invalidate()
+        }
 
     private val maskPaint = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
@@ -466,15 +664,16 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
 
     override fun dispatchDraw(canvas: Canvas) {
         val fade = fadeFraction
-        if (fade <= 0.001f || height == 0) {
+        val endY = fadeEndPx?.coerceIn(0f, height.toFloat()) ?: height.toFloat()
+        if (fade <= 0.001f || endY <= 0f) {
             super.dispatchDraw(canvas)
             return
         }
         val shader = gradient?.takeIf { gradientHeight == height } ?: LinearGradient(
             0f,
-            height * (1f - fade),
+            endY * (1f - fade),
             0f,
-            height.toFloat(),
+            endY,
             android.graphics.Color.BLACK,
             android.graphics.Color.TRANSPARENT,
             Shader.TileMode.CLAMP,

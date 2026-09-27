@@ -1,13 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older that API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Auto-backup rules for Android 11 and older; data_extraction_rules.xml
+   replaces these from Android 12.
+
+   The encrypted stores are excluded because their keysets are wrapped by an
+   Android Keystore key that never leaves the device: restored anywhere, they
+   can't be decrypted (see EncryptedPrefs). Their plain fallbacks are excluded
+   because they hold the same credentials in cleartext.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="bitchord_auth.xml" />
+    <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
+    <exclude domain="sharedpref" path="bitchord_sources.xml" />
+    <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
 </full-backup-content>

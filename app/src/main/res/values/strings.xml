@@ -432,7 +432,6 @@
     <string name="instrumental">Instrumental</string>
     <string name="pause">Pause</string>
     <string name="lyrics_by">Lyrics by %1$s</string>
-    <string name="change_lyrics_provider">Change</string>
     <string name="choose_lyrics_provider">Choose lyrics provider</string>
     <string name="lyrics_provider_current">Current provider</string>
     <string name="lyrics_provider_found">Lyrics found · Tap to use</string>
@@ -441,6 +440,16 @@
     <string name="lyrics_provider_not_fetched">Tap to fetch</string>
     <string name="no_lyrics_found">No lyrics found</string>
     <string name="lyrics_saved_with_download">Lyrics saved with this download</string>
+    <string name="lyrics_share_pick_limit">Card is full</string>
+    <string name="lyrics_pick_count">%1$d lines · %2$d/%3$d</string>
+    <string name="lyrics_share_title">Share lyrics</string>
+    <string name="lyrics_share_description">The lines you picked, laid out on a card with the cover.</string>
+    <string name="share_your_lyrics">Share your lyrics</string>
+    <string name="your_lyrics_card">Your lyrics card</string>
+    <plurals name="lyrics_lines_picked">
+        <item quantity="one">%1$d line picked</item>
+        <item quantity="other">%1$d lines picked</item>
+    </plurals>
     <string name="shuffle_on">Shuffle on</string>
     <string name="shuffle_off">Shuffle off</string>
     <string name="repeat_one">Repeat one</string>
@@ -734,6 +743,7 @@
     <string name="replay_songs_start">In total, </string>
     <string name="replay_summary_start">Your listening had a </string>
     <string name="saved">Saved</string>
+    <string name="saved_bang">Saved!</string>
     <string name="share_my_replay">Share my Replay</string>
     <string name="share_your_replay">Share your Replay</string>
     <string name="tap_share_for_picture">Tap Share to create a picture</string>

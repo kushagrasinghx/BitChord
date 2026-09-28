@@ -105,8 +105,8 @@ fun SourcesScreen(
     onEditWebDav: () -> Unit,
     /** As [onEditWebDav], for the SMB share editor. */
     onEditSmb: () -> Unit,
-    /** Opens the full-window warning before JioSaavn is opted into. */
-    onConfirmJioSaavn: () -> Unit,
+    /** Opens the full-window warning before the catalogue source is opted into. */
+    onConfirmCatalogue: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -201,7 +201,7 @@ fun SourcesScreen(
             // The addons are split out from the rest because they are the only
             // rows whose order is the *user's*. Everything else ranks by kind,
             // which is fixed in [SourceKind] and not something a drag should be
-            // able to argue with — a gesture that let JioSaavn be dragged above
+            // able to argue with — a gesture that let Catalogue be dragged above
             // an addon would be offering a choice the resolver does not
             // actually honour.
             //
@@ -228,7 +228,7 @@ fun SourcesScreen(
                         onMetered = metered == true,
                         ceiling = ceiling,
                         // Anything the user configured is theirs to edit or
-                        // delete. JioSaavn and YouTube have no address to
+                        // delete. Catalogue and YouTube have no address to
                         // change, so a tap on them would open an empty editor.
                         onClick = if (config.kind.needsServer) ({ onEditSource(config) }) else null,
                         // YouTube gets no switch at all — see
@@ -237,8 +237,8 @@ fun SourcesScreen(
                             null
                         } else {
                             ({ enabled ->
-                                if (config.kind == SourceKind.JIOSAAVN && enabled && !config.enabled) {
-                                    onConfirmJioSaavn()
+                                if (config.kind == SourceKind.CATALOGUE && enabled && !config.enabled) {
+                                    onConfirmCatalogue()
                                 } else {
                                     SourceRegistry.setEnabled(config.id, enabled)
                                 }
@@ -684,7 +684,7 @@ private fun SourceRow(
                 SourceKind.ADDON -> Icons.Rounded.Extension
                 SourceKind.CUSTOM_MODULE -> Icons.Rounded.Extension
                 SourceKind.MODULE -> Icons.Rounded.Extension
-                SourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq // or some other icon
+                SourceKind.CATALOGUE -> Icons.Rounded.GraphicEq // or some other icon
                 SourceKind.YOUTUBE -> Icons.Rounded.PlayCircle
             },
             contentDescription = null,
@@ -774,7 +774,7 @@ private fun AudioQuality.localizedLabel(): String = stringResource(
 @Composable
 private fun SourceConfig.statusLine(health: SourceHealth?): String = when {
     !isComplete -> stringResource(R.string.source_setup_required)
-    kind == SourceKind.JIOSAAVN -> stringResource(R.string.jiosaavn_mismatch_warning)
+    kind == SourceKind.CATALOGUE -> stringResource(R.string.catalogue_mismatch_warning)
     health is SourceHealth.Ok -> listOfNotNull(
         health.detail,
         kind.labels.take(3).joinToString(" · "),

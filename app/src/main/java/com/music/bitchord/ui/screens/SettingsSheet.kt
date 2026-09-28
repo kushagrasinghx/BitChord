@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -56,6 +57,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.MotionPhotosOff
@@ -145,6 +147,7 @@ import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
+import com.music.bitchord.data.service.ServiceConfig
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
@@ -178,6 +181,13 @@ fun SettingsScreen(
     onSpotifyCanvasAuth: () -> Unit,
     onAppLanguage: () -> Unit,
     contentPadding: PaddingValues,
+    /** Latest service file outcome, reported on the row that acted. */
+    serviceFileStatus: String?,
+    onServiceFileStatus: (String) -> Unit,
+    onOpenServiceUrlDialog: () -> Unit,
+    onConfirmClearServiceFile: () -> Unit,
+    serviceFileTesting: Boolean,
+    onTestServiceFile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -276,6 +286,7 @@ fun SettingsScreen(
     var exportStatus by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf<String?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
+    val serviceFile by ServiceConfig.state.collectAsStateWithLifecycle()
     var showPerformanceWarning by remember { mutableStateOf(false) }
     var showPerformanceConfirmation by remember { mutableStateOf(false) }
     val backupScope = rememberCoroutineScope()
@@ -335,6 +346,56 @@ fun SettingsScreen(
             )
         }
     }
+    // Service files arrive the same way backups do: a document the user
+    // downloaded themselves and picks. Nothing is fetched automatically —
+    // that is the point of the file living outside the app.
+    val serviceFilePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { source ->
+        if (source == null) return@rememberLauncherForActivityResult
+        backupScope.launch {
+            val fingerprint = ServiceConfig.importUri(context, source).fold(
+                onSuccess = { summary ->
+                    onServiceFileStatus(
+                        context.getString(R.string.service_file_imported, summary.fingerprint),
+                    )
+                    summary.fingerprint
+                },
+                onFailure = {
+                    onServiceFileStatus(
+                        context.getString(
+                            R.string.service_file_import_failed,
+                            it.message ?: context.getString(R.string.unknown_error),
+                        ),
+                    )
+                    null
+                },
+            )
+            // A fresh install is reachability-checked immediately, so the row
+            // never claims a file works that the network just refused.
+            if (fingerprint != null) {
+                ServiceConfig.probe().fold(
+                    onSuccess = { code ->
+                        onServiceFileStatus(
+                            context.getString(
+                                R.string.service_file_imported_tested,
+                                fingerprint, code,
+                            ),
+                        )
+                    },
+                    onFailure = { e ->
+                        onServiceFileStatus(
+                            context.getString(
+                                R.string.service_file_imported_unreachable,
+                                fingerprint,
+                                e.message ?: context.getString(R.string.unknown_error),
+                            ),
+                        )
+                    },
+                )
+            }
+        }
+    }
     var showListenBrainzTokenDialog by remember { mutableStateOf(false) }
     var showLastfmLoginDialog by remember { mutableStateOf(false) }
     val scrobbleScope = rememberCoroutineScope()
@@ -365,9 +426,12 @@ fun SettingsScreen(
         }
     }
 
+    // Overlays below (pickers, alerts) sit as siblings above the scroll, so
+    // a fillMaxSize scrim covers the page and the haze samples it.
+    Box(modifier = modifier.fillMaxSize()) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = Modifier
+            .fillMaxSize()
             .verticalScroll(scrollState)
             .padding(contentPadding),
     ) {
@@ -412,6 +476,66 @@ fun SettingsScreen(
                     } ?: stringResource(R.string.listen_together_subtitle),
                     badge = party.members.size.takeIf { party.inParty && it > 1 }?.toString(),
                     onClick = onListenTogether,
+                )
+            }
+        }
+
+        // The service file: endpoints and client identities the streaming
+        // service needs, kept out of the app and imported by the listener.
+        // First group after the account because nothing service-backed —
+        // search, library, sign-in, playback — works without it.
+        SearchableSettingsGroup(search, header = stringResource(R.string.service_file)) {
+            val serviceFileTitle = stringResource(R.string.service_file)
+            row(serviceFileTitle, "service", "endpoints", "import", "config") {
+                val active = serviceFile
+                SettingsRow(
+                    icon = Icons.Rounded.Dns,
+                    title = serviceFileTitle,
+                    subtitle = serviceFileStatus ?: if (active != null) {
+                        stringResource(
+                            R.string.service_file_ready,
+                            active.fingerprint,
+                            active.file.playerClients.size,
+                        )
+                    } else {
+                        stringResource(R.string.service_file_missing_subtitle)
+                    },
+                    onClick = { serviceFilePicker.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                )
+            }
+            // Same file, fetched once from a link the listener trusts — a raw
+            // file in their own repo, a gist, any https URL. Downloaded on
+            // tap only, validated exactly like a picked file, never re-fetched.
+            val serviceLinkTitle = stringResource(R.string.service_file_import_link)
+            row(serviceLinkTitle, "service", "link", "url", "download") {
+                SettingsRow(
+                    icon = Icons.Rounded.Link,
+                    title = serviceLinkTitle,
+                    subtitle = stringResource(R.string.service_file_url_hint),
+                    onClick = onOpenServiceUrlDialog,
+                )
+            }
+            val testTitle = stringResource(R.string.service_file_test)
+            row(testTitle, "service", "connection", "reachability") {
+                SettingsRow(
+                    icon = Icons.Rounded.Cloud,
+                    title = testTitle,
+                    subtitle = if (serviceFileTesting) {
+                        stringResource(R.string.service_file_testing)
+                    } else {
+                        stringResource(R.string.service_file_subtitle)
+                    },
+                    enabled = serviceFile != null && !serviceFileTesting,
+                    onClick = onTestServiceFile,
+                )
+            }
+            val clearTitle = stringResource(R.string.service_file_clear)
+            row(clearTitle, "service", "remove", "delete") {
+                SettingsRow(
+                    icon = Icons.Rounded.DeleteSweep,
+                    title = clearTitle,
+                    enabled = serviceFile != null,
+                    onClick = onConfirmClearServiceFile,
                 )
             }
         }
@@ -1356,6 +1480,7 @@ fun SettingsScreen(
         // The version line is the page's colophon, not a setting: it belongs to
         // the whole list, so it goes when the list is narrowed to a few rows.
         if (searchQuery.isBlank()) {
+        val legalFooter = stringResource(R.string.legal_footer)
         Text(
             text = buildAnnotatedString {
                 append("bitchord $version  ")
@@ -1380,7 +1505,8 @@ fun SettingsScreen(
                 withLink(LinkAnnotation.Url("https://bitchord.kushagrasingh.in/", linkStyles)) {
                     append("Website")
                 }
-                append("\n~YouTube Music & Listen Together Backend")
+                append("\n")
+                append(legalFooter)
             },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1405,7 +1531,7 @@ fun SettingsScreen(
                 },
                 // Writes the one ceiling that was being edited and nothing
                 // else. There used to be a `SourceRegistry.applyQualityPreset`
-                // call here that flipped the module and JioSaavn switches to
+                // call here that flipped the module and Catalogue switches to
                 // match — which meant budgeting *mobile data* switched those
                 // sources off while sitting on Wi-Fi, and coming back to Wi-Fi
                 // never switched them on again. Which sources a rung consults
@@ -1477,6 +1603,11 @@ fun SettingsScreen(
             },
         )
     }
+
+    // The service popups (link import, remove confirm) render beside the
+    // lyrics dialog at the activity level, where the frost samples — see
+    // MainActivity's service dialogs. This screen keeps only their rows.
+
 
     if (showPerformanceWarning) {
         AlertDialog(
@@ -1636,6 +1767,7 @@ fun SettingsScreen(
             },
         )
     }
+    } // root Box: overlays above cover the page
 
 }
 

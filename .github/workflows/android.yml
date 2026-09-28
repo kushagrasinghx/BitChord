@@ -3,6 +3,39 @@ name: Android CI
 on: [push, pull_request]
 
 jobs:
+  # The repo ships no service endpoints, client identities, or link hosts —
+  # those arrive in a user-imported service file. This gate fails the build
+  # if a quoted corp URL literal creeps back into app code. Allowed: the
+  # auth guard suffixes in ServiceConfig.kt (bare suffixes, no URLs) and the
+  # manifest's link-routing hosts.
+  service-literal-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Reject shipped service literals
+      run: |
+        # Excluded: BotGuard PoToken mechanism endpoints (inseparable from the
+        # proof-of-origin flow, carry no client identities or keys) and the
+        # lyrics transliteration helper (unauthenticated public utility).
+        if grep -rn '"https\?://[^"]*\(youtube\.com\|youtu\.be\|googlevideo\.com\|google\.com\)' app/src/main --include='*.kt' | grep -v 'data/service/ServiceConfig.kt' | grep -v 'data/innertube/potoken/' | grep -v 'data/lyrics/LyricsTranslation.kt'; then
+          echo "Quoted service URL literals do not belong in app code; put them in the service file."
+          exit 1
+        fi
+        if grep -rn '"[^"]*accounts\.google\.com[^"]*"\|"[^"]*ServiceLogin[^"]*"' app/src/main --include='*.kt'; then
+          echo "Login endpoint literals do not belong in app code; put them in the service file."
+          exit 1
+        fi
+        # SourceRegistry.kt is excluded: it holds the one-time JIOSAAVN ->
+        # CATALOGUE stored-config migration, which is the documented way that
+        # old name leaves the tree. Remove the exclusion when the shim goes.
+        if grep -rni 'jiosaavn\|saavncdn\|api\.php' app/src/main --include='*.kt' | grep -v 'data/sources/SourceRegistry.kt'; then
+          echo "Catalogue provider literals do not belong in app code; put them in the service file."
+          exit 1
+        fi
+
   build-dev-debug:
     if: github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest

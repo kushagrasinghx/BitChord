@@ -15,40 +15,35 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.service.ServiceConfig
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 
-private const val MUSIC_ORIGIN = "https://music.youtube.com"
-
-private const val LOGIN_URL =
-    "https://accounts.google.com/ServiceLogin" +
-        "?ltmpl=music&service=youtube&passive=true" +
-    "&continue=https%3A%2F%2Fmusic.youtube.com%2F"
-
 private const val TAG = "BitChord"
 
 /**
- * In-app Google sign-in for YouTube Music, and the way to change which channel
+ * In-app sign-in for the streaming service, and the way to change which channel
  * it listens as.
  *
- * [WebSessionMode.SIGN_IN] loads the standard Google web login with
- * `continue=music.youtube.com`. The user authenticates directly against
- * accounts.google.com (2FA, passkeys etc. all work — it's the real page). When
- * Google redirects back to music.youtube.com the listener confirms the profile
- * shown by the live page. This deliberately leaves a multiple-channel account
- * enough time to choose its Personal or Brand identity before anything is
- * saved. The browser's local Google cookies are cleared on the way in without
- * visiting Google's logout endpoint, so adding an account cannot invalidate a
- * previously saved session.
+ * [WebSessionMode.SIGN_IN] loads the standard web login from the imported
+ * service file. The user authenticates directly against the real login page
+ * (2FA, passkeys etc. all work — it's the real page). When the service
+ * redirects back to the login origin the listener confirms the profile shown
+ * by the live page. This deliberately leaves a multiple-channel account
+ * enough time to choose its identity before anything is saved. The browser's
+ * local cookies are cleared on the way in without visiting any logout
+ * endpoint, so adding an account cannot invalidate a previously saved
+ * session — see [BrowserSession.clearLoginCookies].
  *
- * [WebSessionMode.SWITCH_CHANNEL] keeps those cookies and opens YouTube Music
- * itself, so the listener can use the avatar menu's own Accounts list — the one
- * screen that authoritatively knows which channels exist and which is which.
- * Nothing is taken automatically there: the session is read when they say so,
- * by raising [captureRequest].
+ * [WebSessionMode.SWITCH_CHANNEL] keeps those cookies (or installs the saved
+ * snapshot for [initialCookie]) and opens the service itself, so the listener
+ * can use the avatar menu's own Accounts list — the one screen that
+ * authoritatively knows which channels exist and which is which. Nothing is
+ * taken automatically there: the session is read when they say so, by raising
+ * [captureRequest].
  *
  * Either way what is read is the page's own `ytcfg`, not a guess made later
  * from a server-side fetch. The credential itself never passes through app code.
@@ -68,8 +63,10 @@ fun YtMusicLoginScreen(
     captureRequest: Int = 0,
     /** Told when a capture was asked for and there was no session to take. */
     onCaptureUnavailable: () -> Unit = {},
-    /** True once a signed-in YouTube Music page is available for confirmation. */
+    /** True once a signed-in service page is available for confirmation. */
     onPageReady: (Boolean) -> Unit = {},
+    loginOrigin: String = ServiceConfig.loginOrigin(),
+    loginUrl: String = ServiceConfig.loginUrl(),
 ) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     val currentOnCaptured by rememberUpdatedState(onCaptured)
@@ -80,35 +77,36 @@ fun YtMusicLoginScreen(
         if (captureRequest == 0) return@LaunchedEffect
         val view = webView
         if (view == null) currentOnUnavailable()
-        else captureFrom(view, currentOnCaptured, currentOnUnavailable)
+        else captureFrom(view, loginOrigin, currentOnCaptured, currentOnUnavailable)
     }
 
     AndroidView(
         modifier = modifier.fillMaxSize(),
         factory = { context ->
-            // Clearing the local jar is enough to show a fresh Google login.
-            // Never visit accounts.google.com/Logout here: that invalidates a
-            // previously saved account on Google's server, so adding account B
+            // Clearing the local jar is enough to show a fresh login.
+            // Never visit a logout endpoint here: that invalidates a
+            // previously saved account on the server, so adding account B
             // silently breaks account A.
-            if (mode == WebSessionMode.SIGN_IN) BrowserSession.clearGoogleCookies()
-            else initialCookie?.let(BrowserSession::installGoogleCookies)
+            if (mode == WebSessionMode.SIGN_IN) BrowserSession.clearLoginCookies()
+            else initialCookie?.let(BrowserSession::installLoginCookies)
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
 
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        // Reaching the Music origin only enables confirmation.
-                        // A multi-channel login can still be waiting for the
-                        // listener to choose an identity on this very page.
-                        // Capturing automatically here is the race that used to
-                        // create a fake "Personal" profile and close too soon.
-                        currentOnPageReady(url?.startsWith(MUSIC_ORIGIN) == true)
+                        // Reaching the service origin only enables
+                        // confirmation. A multi-channel login can still be
+                        // waiting for the listener to choose an identity on
+                        // this very page. Capturing automatically here is the
+                        // race that used to create a fake profile and close
+                        // too soon.
+                        currentOnPageReady(url?.startsWith(loginOrigin) == true)
                     }
                 }
 
                 webView = this
-                loadUrl(if (mode == WebSessionMode.SIGN_IN) LOGIN_URL else "$MUSIC_ORIGIN/")
+                loadUrl(if (mode == WebSessionMode.SIGN_IN) loginUrl else "$loginOrigin/")
             }
         },
     )
@@ -117,17 +115,18 @@ fun YtMusicLoginScreen(
 /**
  * Takes the session from [view], if it is holding one.
  *
- * @return whether there was one to take. False means the cookie jar has no
- *   signing secret in it yet — the page is mid-login, or is not a YouTube page
- *   at all — and the caller should leave the screen open rather than saving
- *   something that cannot sign a request. See [AuthStore.hasApiSid].
+ * Calls [onUnavailable] when the cookie jar has no signing secret in it yet —
+ * the page is mid-login, or is not a service page at all — and the caller
+ * should leave the screen open rather than saving something that cannot sign
+ * a request. See [AuthStore.hasApiSid].
  */
 private fun captureFrom(
     view: WebView,
+    loginOrigin: String,
     onCaptured: (CapturedSession) -> Unit,
     onUnavailable: () -> Unit,
 ) {
-    val cookies = CookieManager.getInstance().getCookie(MUSIC_ORIGIN)
+    val cookies = CookieManager.getInstance().getCookie(loginOrigin)
     if (cookies == null || !AuthStore.hasApiSid(cookies)) {
         onUnavailable()
         return

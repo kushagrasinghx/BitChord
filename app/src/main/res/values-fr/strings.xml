@@ -491,8 +491,8 @@
     <string name="sources_order_footer">Si une source n\'a pas un titre ou est inaccessible, BitChord essaie la suivante. Les sources situées au-dessus de YouTube peuvent remplacer son enregistrement lorsqu\'elles renvoient une meilleure version.</string>
     <string name="sources_order_header">Sources, testées dans cet ordre</string>
     <string name="sources_quality_capped">Cette connexion est réglée en dessous de la qualité Élevée, les flux sont donc transcodés pour respecter cette limite. Les téléchargements ne sont pas concernés.</string>
-    <string name="jiosaavn_mismatch_warning">Peut trouver la mauvaise version d\'un titre. Active-le à tes risques et périls.</string>
-    <string name="enable_jiosaavn">Activer JioSaavn ?</string>
+    <string name="catalogue_mismatch_warning">Peut trouver la mauvaise version d\'un titre. Active-le à tes risques et périls.</string>
+    <string name="enable_catalogue">Activer Catalogue ?</string>
     <string name="enable_anyway">Activer quand même</string>
     <string name="sources_subtitle">D\'où vient l\'audio et l\'ordre utilisé</string>
     <string name="source_matching">Correspondance des sources</string>

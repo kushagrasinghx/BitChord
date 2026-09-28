@@ -22,6 +22,7 @@ import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnerTubeXResolver
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
+import com.music.bitchord.data.service.ServiceConfig
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.data.sources.SourceRegistry
@@ -80,6 +81,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // Service endpoints and client identities supplied by the listener's
+        // imported service file. Empty until one is imported — every
+        // service-backed path reports that instead of failing obscurely.
+        ServiceConfig.init(this)
         // Restores a party this device is still a member of, so a process death
         // mid-session is something the rest of the party never sees. The socket
         // and the clock offset are not restored — both are re-established on

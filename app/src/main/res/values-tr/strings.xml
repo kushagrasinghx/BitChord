@@ -520,8 +520,8 @@
     <string name="sources_order_footer">Bir kaynakta parça yoksa veya ulaşılamıyorsa BitChord bir sonrakini dener. YouTube üzerindeki kaynaklar daha iyi bir sürüm döndürdüklerinde onun kaydının yerini alabilir.</string>
     <string name="sources_order_header">Kaynaklar, bu sırayla denenir</string>
     <string name="sources_quality_capped">Bu bağlantı Yüksek kalitenin altına ayarlandığından, akışlar bu sınıra uyacak şekilde yeniden kodlanır. İndirmeler etkilenmez.</string>
-    <string name="jiosaavn_mismatch_warning">Bir şarkının yanlış sürümünü eşleştirebilir. Riski sana ait olmak üzere etkinleştir.</string>
-    <string name="enable_jiosaavn">JioSaavn etkinleştirilsin mi?</string>
+    <string name="catalogue_mismatch_warning">Bir şarkının yanlış sürümünü eşleştirebilir. Riski sana ait olmak üzere etkinleştir.</string>
+    <string name="enable_catalogue">Catalogue etkinleştirilsin mi?</string>
     <string name="enable_anyway">Yine de etkinleştir</string>
     <string name="sources_subtitle">Sesin nereden geldiği ve kullanılan sıra</string>
     <string name="source_matching">Kaynak eşleştirme</string>

@@ -36,8 +36,8 @@ class StreamChoiceTest {
 
     @Test
     fun `a remembered choice is handed back`() {
-        StreamChoice.remember("track-1", stream("aac.saavncdn.com"), substituted = true)
-        assertEquals("https://aac.saavncdn.com/track.mp4", StreamChoice.of("track-1")?.url)
+        StreamChoice.remember("track-1", stream("audio.catalogue.invalid"), substituted = true)
+        assertEquals("https://audio.catalogue.invalid/track.mp4", StreamChoice.of("track-1")?.url)
     }
 
     @Test
@@ -48,7 +48,7 @@ class StreamChoiceTest {
     /** Only the substituted ones, so the recovery path can tell them apart. */
     @Test
     fun `remembers whether the copy came from a substitute`() {
-        StreamChoice.remember("track-3", stream("aac.saavncdn.com"), substituted = true)
+        StreamChoice.remember("track-3", stream("audio.catalogue.invalid"), substituted = true)
         StreamChoice.remember("track-4", stream("googlevideo.com"), substituted = false)
         assertEquals(true, StreamChoice.isSubstitute("track-3"))
         assertEquals(false, StreamChoice.isSubstitute("track-4"))
@@ -88,7 +88,7 @@ class StreamChoiceTest {
     /** Releasing a track lets the next resolve decide afresh. */
     @Test
     fun `forgetting a choice reopens the question`() {
-        StreamChoice.remember("track-5", stream("aac.saavncdn.com"), substituted = true)
+        StreamChoice.remember("track-5", stream("audio.catalogue.invalid"), substituted = true)
         StreamChoice.forget("track-5")
         assertNull(StreamChoice.of("track-5"))
     }

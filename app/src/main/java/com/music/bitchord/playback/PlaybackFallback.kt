@@ -8,7 +8,7 @@ import androidx.media3.common.MediaItem
  * already been selected.
  *
  * A normal retry is deliberately free to resolve again, which is useful for a
- * transient YouTube URL and exactly wrong for an addon/JioSaavn failure: the
+ * transient YouTube URL and exactly wrong for an addon/Catalogue failure: the
  * same deterministic catalogue lookup wins again and hands the player the same
  * broken stream. A failed alternative therefore becomes an explicit YouTube
  * request for the rest of this playback.

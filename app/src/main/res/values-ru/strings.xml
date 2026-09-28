@@ -509,8 +509,8 @@
     <string name="sources_order_footer">Если у источника нет трека или он недоступен, BitChord пробует следующий. Источники выше YouTube могут заменить его запись, если предоставляют более качественную версию.</string>
     <string name="sources_order_header">Источники, пробуются в этом порядке</string>
     <string name="sources_quality_capped">Это соединение установлено ниже высокого качества, поэтому потоки перекодируются под это ограничение. На загрузки это не влияет.</string>
-    <string name="jiosaavn_mismatch_warning">Может подобрать не ту версию песни. Включайте на свой страх и риск.</string>
-    <string name="enable_jiosaavn">Включить JioSaavn?</string>
+    <string name="catalogue_mismatch_warning">Может подобрать не ту версию песни. Включайте на свой страх и риск.</string>
+    <string name="enable_catalogue">Включить Catalogue?</string>
     <string name="enable_anyway">Всё равно включить</string>
     <string name="sources_subtitle">Откуда поступает аудио и в каком порядке</string>
     <string name="source_matching">Сопоставление источников</string>

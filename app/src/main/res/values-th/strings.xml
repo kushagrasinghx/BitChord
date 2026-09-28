@@ -505,8 +505,8 @@
     <string name="sources_order_footer">หากแหล่งข้อมูลหนึ่งไม่มีแทร็กหรือเชื่อมต่อไม่ได้ BitChord จะลองแหล่งถัดไป แหล่งข้อมูลที่อยู่เหนือ YouTube สามารถแทนที่การบันทึกของ YouTube ได้เมื่อให้เวอร์ชันที่ดีกว่า</string>
     <string name="sources_order_header">แหล่งข้อมูล เรียงตามลำดับที่ลอง</string>
     <string name="sources_quality_capped">การเชื่อมต่อนี้ตั้งไว้ต่ำกว่าคุณภาพสูง สตรีมจึงถูกแปลงให้พอดีกับขีดจำกัดนั้น การดาวน์โหลดไม่ได้รับผลกระทบ</string>
-    <string name="jiosaavn_mismatch_warning">อาจจับคู่กับเพลงผิดเวอร์ชัน เปิดใช้โดยยอมรับความเสี่ยงเอง</string>
-    <string name="enable_jiosaavn">เปิดใช้ JioSaavn หรือไม่</string>
+    <string name="catalogue_mismatch_warning">อาจจับคู่กับเพลงผิดเวอร์ชัน เปิดใช้โดยยอมรับความเสี่ยงเอง</string>
+    <string name="enable_catalogue">เปิดใช้ Catalogue หรือไม่</string>
     <string name="enable_anyway">เปิดใช้ต่อไป</string>
     <string name="sources_subtitle">เสียงมาจากที่ใดและลำดับที่ใช้</string>
     <string name="source_matching">การจับคู่แหล่งที่มา</string>

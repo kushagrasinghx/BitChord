@@ -787,7 +787,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     }
 
     /**
-     * Source-backed playback URIs (JioSaavn, module/lossless, etc.) carry the
+     * Source-backed playback URIs (Catalogue, module/lossless, etc.) carry the
      * same title/artist/runtime matching hints as a YouTube item. Resolve that
      * identity once, then keep playback on its original URI while analysis
      * fills and reads the separately pinned YouTube Opus entry.

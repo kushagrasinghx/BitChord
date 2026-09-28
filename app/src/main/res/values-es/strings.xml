@@ -503,8 +503,8 @@
     <string name="sources_order_footer">Si una fuente no tiene una canción o no responde, BitChord prueba la siguiente. Las fuentes situadas antes de YouTube pueden reemplazar su grabación si devuelven una versión mejor.</string>
     <string name="sources_order_header">Fuentes, en orden de prioridad</string>
     <string name="sources_quality_capped">Esta conexión está configurada por debajo de calidad Alta, así que el audio se transcodifica para respetar ese límite. Las descargas no cambian.</string>
-    <string name="jiosaavn_mismatch_warning">Puede elegir la versión equivocada de una canción. Actívalo bajo tu propio riesgo.</string>
-    <string name="enable_jiosaavn">¿Activar JioSaavn?</string>
+    <string name="catalogue_mismatch_warning">Puede elegir la versión equivocada de una canción. Actívalo bajo tu propio riesgo.</string>
+    <string name="enable_catalogue">¿Activar Catalogue?</string>
     <string name="enable_anyway">Activar de todos modos</string>
     <string name="sources_subtitle">Origen del audio y orden de prioridad</string>
     <string name="source_matching">Coincidencia de fuentes</string>

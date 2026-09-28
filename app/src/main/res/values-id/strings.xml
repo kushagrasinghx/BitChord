@@ -476,8 +476,8 @@
     <string name="sources_order_footer">Jika suatu sumber tidak memiliki trek atau tidak dapat dijangkau, BitChord mencoba sumber berikutnya. Sumber di atas YouTube dapat menggantikan rekamannya saat menghasilkan versi yang lebih baik.</string>
     <string name="sources_order_header">Sumber, dicoba dalam urutan ini</string>
     <string name="sources_quality_capped">Koneksi ini diatur di bawah Kualitas tinggi, sehingga stream ditranskode agar sesuai dengan batas tersebut. Unduhan tidak terpengaruh.</string>
-    <string name="jiosaavn_mismatch_warning">Bisa mencocokkan versi lagu yang salah. Aktifkan dengan risiko sendiri.</string>
-    <string name="enable_jiosaavn">Aktifkan JioSaavn?</string>
+    <string name="catalogue_mismatch_warning">Bisa mencocokkan versi lagu yang salah. Aktifkan dengan risiko sendiri.</string>
+    <string name="enable_catalogue">Aktifkan Catalogue?</string>
     <string name="enable_anyway">Tetap aktifkan</string>
     <string name="sources_subtitle">Dari mana audio berasal dan urutan yang digunakan</string>
     <string name="source_matching">Pencocokan sumber</string>

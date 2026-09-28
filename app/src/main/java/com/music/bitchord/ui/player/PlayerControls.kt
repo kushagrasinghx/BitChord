@@ -1344,7 +1344,7 @@ private fun LosslessOrStats(
         (stillRacing && nerdStats?.isLossless != true) ||
             (isLoading && losslessRequested && nerdStats == null) -> LosslessLabel(
             // What is already true, ahead of what is still being looked for.
-            // A race running over JioSaavn's 320kbps AAC and one running over
+            // A race running over Catalogue's 320kbps AAC and one running over
             // YouTube's 160kbps Opus were both drawn as a bare "Upgrading
             // Quality", which reads as "this is not good yet" — wrong on the
             // first, where the track is already at the top of what lossy gets
@@ -1356,7 +1356,7 @@ private fun LosslessOrStats(
             // source won, for the reason that property already gives: a
             // 320kbps stream is a 320kbps stream wherever it came from. It is
             // read off the stream rather than off what the module offered, so
-            // a JioSaavn AAC qualifies once its container has stated its rate;
+            // a Catalogue AAC qualifies once its container has stated its rate;
             // YouTube's Opus sits under the threshold and keeps the plain
             // label it had.
             text = if (nerdStats?.isHiQuality == true) {

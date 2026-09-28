@@ -997,7 +997,7 @@ object AudioCache {
                 }
                 fetch(
                     cacheKey = videoId,
-                    // Do not inherit a JioSaavn/lossless StreamChoice from
+                    // Do not inherit a Catalogue/lossless StreamChoice from
                     // playback. The base key is reserved for the lightweight
                     // YouTube Opus copy used by Automix analysis.
                     uri = Uri.parse(AutomixAnalysisSource.opusUri(videoId)),

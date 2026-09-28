@@ -3,7 +3,7 @@ package com.music.bitchord.playback.smart
 /**
  * Keeps Automix analysis on the canonical YouTube Opus rendition.
  *
- * Playback may deliberately use a source substitute (including JioSaavn), but
+ * Playback may deliberately use a source substitute (including Catalogue), but
  * its cache entry is not interchangeable with the YouTube recording that the
  * analysis fetcher owns. The plain video id is the cache key pinned to that
  * YouTube copy; suffixed keys (`#alt`, `#hifi`, ...) belong to substitutes or
@@ -21,7 +21,7 @@ internal object AutomixAnalysisSource {
      * A normal `watch?v=` URI is allowed to reuse the source race already
      * pinned for audible playback. That is exactly the wrong thing for
      * Automix: its independently cached copy must always be YouTube Opus,
-     * even while playback is JioSaavn or a lossless upgrade.
+     * even while playback is Catalogue or a lossless upgrade.
      */
     fun opusUri(videoId: String): String = "bitchord://watch?v=$videoId&$OPUS_QUERY_PARAMETER=1"
 

@@ -55,6 +55,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material.icons.Icons
@@ -66,6 +70,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Upgrade
+import androidx.compose.material3.Button
 import com.music.bitchord.data.listentogether.ServerConnectionState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -98,13 +103,17 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -135,6 +144,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
+import com.music.bitchord.data.service.ServiceConfig
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
@@ -223,8 +233,11 @@ import com.music.bitchord.ui.components.TopBarDownloadButton
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.components.topBarContentPadding
 import com.music.bitchord.ui.components.AppLanguageDialog
+import com.music.bitchord.ui.components.AlertAction
+import com.music.bitchord.ui.components.AlertRule
 import com.music.bitchord.ui.components.TranslationLanguageDialog
 import com.music.bitchord.ui.components.LyricsSourcesDialog
+import com.music.bitchord.ui.components.ServiceAlert
 import com.music.bitchord.ui.components.ServerEditorHost
 import com.music.bitchord.ui.components.UpdateAvailableDialog
 import com.music.bitchord.ui.components.WebDavConflictAlert
@@ -442,6 +455,10 @@ private fun BitChordApp(
      */
     var webSession by remember { mutableStateOf<WebSessionMode?>(null) }
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    // Gating for the sign-in browser: without an installed service file
+    // there are no endpoints to sign into, so the dialog explains that
+    // instead of opening a WebView to nowhere.
+    val serviceFile by ServiceConfig.state.collectAsStateWithLifecycle()
     // Replay: the page, the stories over it, and the share sheet over those.
     // Three states rather than one enum because they stack — the stories are
     // opened from the page and the share sheet from either, and closing one
@@ -466,7 +483,7 @@ private fun BitChordApp(
     // background at all. Hosting it here also puts the scrim over the tab bar
     // and the mini player, like every other alert in the app.
     var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
-    var confirmJioSaavn by remember { mutableStateOf(false) }
+    var confirmCatalogue by remember { mutableStateOf(false) }
     var editingPartyServer by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
     // A Library shelf's "Show all" — the shelf it was opened from, so its own
@@ -475,6 +492,15 @@ private fun BitChordApp(
     var detailActiveShelf by remember { mutableStateOf<HomeShelf?>(null) }
     var librarySortMenuOpen by remember { mutableStateOf(false) }
     var showLyricsSources by remember { mutableStateOf(false) }
+    // Service file dialogs live here, beside the lyrics dialog, rather than
+    // in Settings: the frost samples correctly at this level, while the same
+    // card nested in the settings scroll comes out as a flat tint with no
+    // blur. Settings keeps only the rows that open them.
+    var showServiceUrlDialog by remember { mutableStateOf(false) }
+    var serviceUrlLoading by remember { mutableStateOf(false) }
+    var confirmClearServiceFile by remember { mutableStateOf(false) }
+    var serviceFileStatus by remember { mutableStateOf<String?>(null) }
+    var serviceFileTesting by remember { mutableStateOf(false) }
     var showAppLanguage by remember { mutableStateOf(false) }
     var showTranslationLanguage by remember { mutableStateOf(false) }
     var showAccountSelector by remember { mutableStateOf(false) }
@@ -2183,7 +2209,7 @@ private fun BitChordApp(
                         context.startActivity(
                             Intent(
                                 Intent.ACTION_VIEW,
-                                Uri.parse("https://music.youtube.com/watch?v=$id"),
+                                Uri.parse(ServiceConfig.watchUrl(id)),
                             ),
                         )
                     }
@@ -2481,7 +2507,7 @@ private fun BitChordApp(
                             onEditSource = { editingSource = it },
                             onEditWebDav = { showWebDavEditor = true },
                             onEditSmb = { showSmbEditor = true },
-                            onConfirmJioSaavn = { confirmJioSaavn = true },
+                            onConfirmCatalogue = { confirmCatalogue = true },
                         )
                     } else if (key == "listen_together") {
                         ListenTogetherScreen(
@@ -2526,6 +2552,28 @@ private fun BitChordApp(
                             onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                             onAppLanguage = { showAppLanguage = true },
                             contentPadding = listPadding,
+                            serviceFileStatus = serviceFileStatus,
+                            onServiceFileStatus = { serviceFileStatus = it },
+                            onOpenServiceUrlDialog = { showServiceUrlDialog = true },
+                            onConfirmClearServiceFile = { confirmClearServiceFile = true },
+                            serviceFileTesting = serviceFileTesting,
+                            onTestServiceFile = {
+                                serviceFileTesting = true
+                                scope.launch {
+                                    serviceFileStatus = ServiceConfig.probe().fold(
+                                        onSuccess = { code ->
+                                            context.getString(R.string.service_file_test_ok, code)
+                                        },
+                                        onFailure = {
+                                            context.getString(
+                                                R.string.service_file_test_failed,
+                                                it.message ?: context.getString(R.string.unknown_error),
+                                            )
+                                        },
+                                    )
+                                    serviceFileTesting = false
+                                }
+                            },
                         )
                     } else if (page != null && page.browseId.isDeviceFolder()) {
                         // Local Music and Downloads — both the tabbed Songs / Artists /
@@ -3387,7 +3435,7 @@ private fun BitChordApp(
             val share: () -> Unit = {
                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=${song.videoId}")
+                    putExtra(Intent.EXTRA_TEXT, ServiceConfig.watchUrl(song.videoId))
                 }
                 context.startActivity(Intent.createChooser(sendIntent, song.title))
                 songActions = null
@@ -3833,7 +3881,7 @@ private fun BitChordApp(
                                 },
                         )
                     }.takeIf { remote },
-                    // The same link a share off YouTube Music's own overflow
+                    // The same link a share off the service's own overflow
                     // gives — built from the browse id rather than fetched,
                     // since nothing about it depends on the tracks or the
                     // account. Left off an artist card (Share there is a
@@ -3844,9 +3892,9 @@ private fun BitChordApp(
                         ?.let { id ->
                             {
                                 val url = if (target.type == BrowseType.PLAYLIST) {
-                                    "https://music.youtube.com/playlist?list=${id.removePrefix("VL")}"
+                                    ServiceConfig.playlistUrl(id)
                                 } else {
-                                    "https://music.youtube.com/browse/$id"
+                                    ServiceConfig.browseUrl(id)
                                 }
                                 val sendIntent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
@@ -3895,7 +3943,7 @@ private fun BitChordApp(
             }
         }
 
-        // ---- Google sign-in (full screen WebView) ----
+        // ---- Sign-in (full screen WebView) ----
         webSession?.let { mode ->
             BackHandler { webSession = null }
             // Raised by "Use this channel", read by the browser as "take the
@@ -3907,6 +3955,41 @@ private fun BitChordApp(
             var pageReady by remember(mode) { mutableStateOf(false) }
             var confirmingProfile by remember(mode) { mutableStateOf(false) }
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                if (serviceFile == null) {
+                    // No endpoints, no browser: the file comes first and the
+                    // sign-in second. One tap carries them to Settings.
+                    Column(
+                        Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.service_file_required_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.service_file_required_text),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { webSession = null }) {
+                                Text(stringResource(R.string.close))
+                            }
+                            Button(onClick = {
+                                webSession = null
+                                showSettings = true
+                            }) {
+                                Text(stringResource(R.string.service_file_open_settings))
+                            }
+                        }
+                    }
+                } else {
                 Column(Modifier.fillMaxSize()) {
                     Row(
                         Modifier
@@ -3931,7 +4014,16 @@ private fun BitChordApp(
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onBackground,
                             )
-                            if (pageReady) {
+                            // Sign-in always names its terms; channel switching
+                            // only narrates once the live page is confirmable.
+                            if (mode == WebSessionMode.SIGN_IN) {
+                                Text(
+                                    text = stringResource(R.string.sign_in_compliance_footer),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 3,
+                                )
+                            } else if (pageReady) {
                                 Text(
                                     text = if (captureFailed) {
                                          stringResource(R.string.profile_unavailable)
@@ -3981,6 +4073,7 @@ private fun BitChordApp(
                         },
                     )
                 }
+                }
             }
         }
 
@@ -4024,6 +4117,201 @@ private fun BitChordApp(
             LyricsSourcesDialog(
                 hazeState = hazeState,
                 onDismiss = { showLyricsSources = false },
+            )
+        }
+
+        // Service file popups live here, beside the lyrics dialog, rather
+        // than in Settings: the frost samples correctly at this level, while
+        // the same card nested in the settings scroll comes out flat.
+        if (showServiceUrlDialog) {
+            var urlInput by remember { mutableStateOf("") }
+            var urlError by remember { mutableStateOf<String?>(null) }
+            // Shared by the Done key and the Import action so both take the
+            // same path. An install reports to Settings and is
+            // reachability-checked immediately, so the row never claims a
+            // file works that the network just refused; a failure stays on
+            // the card with its reason.
+            fun submitUrl() {
+                val url = urlInput.trim()
+                if (url.isBlank() || serviceUrlLoading) return
+                serviceUrlLoading = true
+                urlError = null
+                scope.launch {
+                    ServiceConfig.importUrl(url).fold(
+                        onSuccess = { summary ->
+                            serviceFileStatus = context.getString(
+                                R.string.service_file_imported, summary.fingerprint,
+                            )
+                            showServiceUrlDialog = false
+                            ServiceConfig.probe().fold(
+                                onSuccess = { code ->
+                                    serviceFileStatus = context.getString(
+                                        R.string.service_file_imported_tested,
+                                        summary.fingerprint, code,
+                                    )
+                                },
+                                onFailure = { e ->
+                                    serviceFileStatus = context.getString(
+                                        R.string.service_file_imported_unreachable,
+                                        summary.fingerprint,
+                                        e.message ?: context.getString(R.string.unknown_error),
+                                    )
+                                },
+                            )
+                            serviceUrlLoading = false
+                        },
+                        onFailure = {
+                            urlError = it.message ?: context.getString(R.string.unknown_error)
+                            serviceUrlLoading = false
+                        },
+                    )
+                }
+            }
+            ServiceAlert(
+                hazeState = hazeState,
+                onDismiss = { if (!serviceUrlLoading) showServiceUrlDialog = false },
+                header = {
+                    Text(
+                        text = stringResource(R.string.service_file_url_title),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.W600,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(R.string.service_file_subtitle),
+                        modifier = Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 17.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    // The link field, alert-styled: a rounded well rather than
+                    // a Material outline, same 17sp as the actions beneath it.
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .fillMaxWidth()
+                            .background(
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                RoundedCornerShape(10.dp),
+                            )
+                            .padding(horizontal = 10.dp, vertical = 9.dp),
+                    ) {
+                        if (urlInput.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.service_file_url_hint),
+                                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                maxLines = 1,
+                            )
+                        }
+                        BasicTextField(
+                            value = urlInput,
+                            onValueChange = { urlInput = it; urlError = null },
+                            enabled = !serviceUrlLoading,
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 17.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Uri,
+                                imeAction = ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = { submitUrl() },
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    val error = urlError
+                    if (error != null) {
+                        Text(
+                            text = error,
+                            modifier = Modifier.padding(top = 6.dp),
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                },
+                actions = {
+                    AlertRule()
+                    if (serviceUrlLoading) {
+                        AlertAction(
+                            label = stringResource(R.string.service_file_downloading),
+                            emphasised = true,
+                            enabled = false,
+                            onClick = {},
+                        )
+                    } else {
+                        AlertAction(
+                            label = stringResource(R.string.service_file_import),
+                            emphasised = true,
+                            enabled = urlInput.isNotBlank(),
+                            onClick = { submitUrl() },
+                        )
+                        AlertRule()
+                        AlertAction(
+                            label = stringResource(R.string.cancel),
+                            emphasised = false,
+                            onClick = { showServiceUrlDialog = false },
+                        )
+                    }
+                },
+            )
+        }
+
+        if (confirmClearServiceFile) {
+            ServiceAlert(
+                hazeState = hazeState,
+                onDismiss = { confirmClearServiceFile = false },
+                header = {
+                    Text(
+                        text = stringResource(R.string.service_file_clear_title),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.W600,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(R.string.service_file_clear_warning),
+                        modifier = Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 17.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                },
+                actions = {
+                    AlertRule()
+                    AlertAction(
+                        label = stringResource(R.string.service_file_clear),
+                        emphasised = false,
+                        destructive = true,
+                        onClick = {
+                            ServiceConfig.clear()
+                            serviceFileStatus = context.getString(R.string.service_file_cleared)
+                            confirmClearServiceFile = false
+                        },
+                    )
+                    AlertRule()
+                    AlertAction(
+                        label = stringResource(R.string.cancel),
+                        emphasised = false,
+                        onClick = { confirmClearServiceFile = false },
+                    )
+                },
             )
         }
 
@@ -4347,19 +4635,19 @@ private fun BitChordApp(
             )
         }
 
-        if (confirmJioSaavn) {
+        if (confirmCatalogue) {
             ConfirmationAlert(
                 hazeState = hazeState,
-                title = stringResource(R.string.enable_jiosaavn),
-                description = stringResource(R.string.jiosaavn_mismatch_warning),
+                title = stringResource(R.string.enable_catalogue),
+                description = stringResource(R.string.catalogue_mismatch_warning),
                 confirmLabel = stringResource(R.string.enable_anyway),
                 onConfirm = {
                     SourceRegistry.configs.value
-                        .firstOrNull { it.kind == SourceKind.JIOSAAVN }
+                        .firstOrNull { it.kind == SourceKind.CATALOGUE }
                         ?.let { SourceRegistry.setEnabled(it.id, true) }
-                    confirmJioSaavn = false
+                    confirmCatalogue = false
                 },
-                onDismiss = { confirmJioSaavn = false },
+                onDismiss = { confirmCatalogue = false },
             )
         }
 

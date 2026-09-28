@@ -1,22 +1,29 @@
 package com.music.bitchord.data.sources
 
 import com.music.bitchord.data.TrackLog
-import com.music.bitchord.data.jiosaavn.JioSaavnService
-import com.music.bitchord.data.jiosaavn.prioritizeExplicit
+import com.music.bitchord.data.catalogue.CatalogueService
+import com.music.bitchord.data.catalogue.prioritizeExplicit
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.service.ServiceConfig
 
 private const val TAG = "BitChord"
 
-class JioSaavnSource(
+class CatalogueSource(
     override val config: SourceConfig,
 ) : MusicSource, SourceRegistry.ConfigBacked {
 
     override val configId: String get() = config.id
-    override val kind: SourceKind get() = SourceKind.JIOSAAVN
-    override val displayName: String get() = config.label.ifBlank { SourceKind.JIOSAAVN.label }
+    override val kind: SourceKind get() = SourceKind.CATALOGUE
+    override val displayName: String get() = config.label.ifBlank { SourceKind.CATALOGUE.label }
 
-    /** Always Ok since the API endpoints don't need authentication to search. */
-    override suspend fun health(): SourceHealth = SourceHealth.Ok()
+    /**
+     * Ok only while the service file carries the catalogue block — without
+     * it there is no endpoint to be healthy against.
+     */
+    override suspend fun health(): SourceHealth = runCatching {
+        ServiceConfig.catalogue()
+        SourceHealth.Ok()
+    }.getOrDefault(SourceHealth.Rejected("Catalogue not configured — the service file carries no catalogue section"))
 
     /** [waitForAll] and [request] are moot: one endpoint, one catalogue, no tiers to ask at. */
     override suspend fun search(
@@ -25,9 +32,9 @@ class JioSaavnSource(
         waitForAll: Boolean,
         request: StreamRequest?,
     ): List<Song> {
-        TrackLog.d(TAG, "▶ JioSaavn searchSongs() query=\"$query\" limit=$limit")
-        val results = prioritizeExplicit(JioSaavnService.searchSongs(query))
-        TrackLog.d(TAG, "  ✓ JioSaavn returned ${results.size} tracks" + results.take(5)
+        TrackLog.d(TAG, "▶ Catalogue searchSongs() query=\"$query\" limit=$limit")
+        val results = prioritizeExplicit(CatalogueService.searchSongs(query))
+        TrackLog.d(TAG, "  ✓ Catalogue returned ${results.size} tracks" + results.take(5)
             .joinToString(prefix = ": ", separator = "; ") { "'${it.title}' by '${
                 it.moreInfo.artistMap.primaryArtists.joinToString(", ") { a -> a.name }
             }' ${it.moreInfo.duration}s id=${it.id} album='${it.moreInfo.album}' " +
@@ -35,7 +42,7 @@ class JioSaavnSource(
         return results.take(limit).map { raw ->
             val primaryArtists = raw.moreInfo.artistMap.primaryArtists.joinToString(", ") { it.name }
             val artistName = primaryArtists.ifBlank { "Unknown Artist" }
-            
+
             // Generate higher quality thumbnail link (e.g. 500x500)
             val thumbnail = raw.image
                 .replace(Regex("150x150|50x50"), "500x500")
@@ -45,14 +52,14 @@ class JioSaavnSource(
                 videoId = SourceRegistry.trackKey(config.id, raw.id),
                 title = raw.title,
                 artist = artistName,
-                // Keep the release identity JioSaavn already gave us. Its
+                // Keep the release identity the catalogue already gave us. Its
                 // catalogue contains different recordings under the same
                 // title and artist (notably the two "Brown Rang" rows), so
                 // dropping this left duration to choose between them.
                 albumName = raw.moreInfo.album.ifBlank { null },
                 thumbnailUrl = thumbnail,
-                // JioSaavn provides duration in seconds, but Song expects durationText ("M:SS")
-                // Alternatively, Song.durationMillis() will parse durationText. Let's just 
+                // The catalogue provides duration in seconds, but Song expects durationText ("M:SS")
+                // Alternatively, Song.durationMillis() will parse durationText. Let's just
                 // format it since BitChord uses string duration.
                 durationText = raw.moreInfo.duration.toIntOrNull()?.let { seconds ->
                     val m = seconds / 60
@@ -66,10 +73,10 @@ class JioSaavnSource(
     }
 
     override suspend fun stream(trackId: String, request: StreamRequest): SourceStream? {
-        TrackLog.d(TAG, "▶ JioSaavn getStreamUrl() trackId=$trackId request=$request")
-        val stream = JioSaavnService.getStreamUrl(trackId)
+        TrackLog.d(TAG, "▶ Catalogue getStreamUrl() trackId=$trackId request=$request")
+        val stream = CatalogueService.getStreamUrl(trackId)
         if (stream == null || stream.url.isBlank()) {
-            TrackLog.w(TAG, "  ✗ JioSaavn had no stream URL for $trackId")
+            TrackLog.w(TAG, "  ✗ Catalogue had no stream URL for $trackId")
             return null
         }
         // A rendition this thin is worse than the YouTube stream it would be
@@ -81,15 +88,15 @@ class JioSaavnSource(
         if (stream.kbps != null && stream.kbps <= MIN_USABLE_KBPS) {
             TrackLog.w(
                 TAG,
-                "  ✗ JioSaavn only offered ${stream.kbps}kbps for $trackId; not worth playing",
+                "  ✗ Catalogue only offered ${stream.kbps}kbps for $trackId; not worth playing",
             )
             return null
         }
-        TrackLog.d(TAG, "  ✓ JioSaavn ${stream.kbps ?: "?"}kbps ${stream.url.take(96)}")
+        TrackLog.d(TAG, "  ✓ Catalogue ${stream.kbps ?: "?"}kbps ${stream.url.take(96)}")
         return SourceStream(
             url = stream.url,
             // The rate the URL will really serve, not a flat 320 — see
-            // [JioSaavnService.bestStream]. `mp4` is the container; the codec
+            // [CatalogueService.bestStream]. `mp4` is the container; the codec
             // inside is AAC, which the decoder reports for itself.
             format = StreamFormat(codec = "mp4", kbps = stream.kbps),
         )
@@ -99,7 +106,7 @@ class JioSaavnSource(
         /**
          * The lowest rendition worth taking over YouTube.
          *
-         * JioSaavn files a track at 48, 96, 160 or 320. The first two are below
+         * The catalogue files a track at 48, 96, 160 or 320. The first two are below
          * what YouTube already serves, so taking one is a downgrade dressed as
          * an upgrade.
          */

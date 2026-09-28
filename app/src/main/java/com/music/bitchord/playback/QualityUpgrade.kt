@@ -93,8 +93,8 @@ object QualityUpgrade {
     /**
      * A second pass to make after a worthwhile lossy upgrade.  The first pass
      * intentionally takes the first source that beats Opus so playback improves
-     * quickly; with lossless requested, JioSaavn can be that answer while a
-     * slower FLAC source is still searching. Once JioSaavn is playing, ask
+     * quickly; with lossless requested, Catalogue can be that answer while a
+     * slower FLAC source is still searching. Once Catalogue is playing, ask
      * again with its bitrate as the floor: it is then rejected as unchanged and
      * the slower lossless source gets a chance to win. Dolby Atmos is final too:
      * it is lossy by codec definition, but it is the completed immersive tier,

@@ -20,8 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
  * actually tells them apart is which other sources are allowed to answer
  * *before* YouTube gets asked. That part is [permits], and the rungs read:
  *
- * - [LOSSLESS] — the user's own addons and JioSaavn both asked.
- * - [HIGH] — the addons skipped, JioSaavn asked.
+ * - [LOSSLESS] — the user's own addons and catalogue both asked.
+ * - [HIGH] — the addons skipped, catalogue asked.
  * - [MEDIUM] and [LOW] — both skipped; YouTube's own Opus ladder is all there
  *   is, capped at [maxKbps].
  *
@@ -36,8 +36,8 @@ enum class AudioQuality(
 ) {
     LOW(64, "Low", "~64 kbps · smallest download", "29 MB/hr"),
     MEDIUM(Int.MAX_VALUE, "Medium", "Best available · ~171 kbps Opus", "77 MB/hr"),
-    HIGH(Int.MAX_VALUE, "High", "JioSaavn up to 320kbps, YouTube fallback", "144 MB/hr"),
-    LOSSLESS(Int.MAX_VALUE, "Lossless", "Your addons + JioSaavn, bit-exact where available", "300+ MB/hr"),
+    HIGH(Int.MAX_VALUE, "High", "Catalogue up to 320kbps, YouTube fallback", "144 MB/hr"),
+    LOSSLESS(Int.MAX_VALUE, "Lossless", "Your addons + catalogue, bit-exact where available", "300+ MB/hr"),
     ;
 
     /**
@@ -46,7 +46,7 @@ enum class AudioQuality(
      * Asked per stream rather than written into
      * [SourceConfig.enabled][com.music.bitchord.data.sources.SourceConfig.enabled],
      * which is what this used to do — an `applyQualityPreset` call flipped the
-     * module and JioSaavn switches the moment a rung was picked. Two things
+     * module and catalogue switches the moment a rung was picked. Two things
      * were wrong with that and both were reported together: picking a rung for
      * *mobile data* turned the sources off while sitting on Wi-Fi, and nothing
      * turned them back on when the connection changed, so a Wi-Fi ceiling of
@@ -63,7 +63,7 @@ enum class AudioQuality(
         // No lossless answer is wanted here, and a source that can serve one is
         // the slow half of the list: an addon fronting several catalogues walks
         // all of them before it answers, which is seconds spent to land on a
-        // transcode JioSaavn already has at 320.
+        // transcode the catalogue already has at 320.
         HIGH -> !kind.canServeLossless
         MEDIUM, LOW -> kind == SourceKind.YOUTUBE
     }

@@ -247,7 +247,7 @@ object TrackMatcher {
      * Whether otherwise valid rows describe more than one release while the
      * requested track gives us no release with which to choose between them.
      *
-     * JioSaavn has catalogue collisions where title and artist are identical
+     * Catalogue has catalogue collisions where title and artist are identical
      * but the audio is not. Picking the runtime-nearest row is unsafe there:
      * a different recording can be only a second nearer than the wanted one.
      * The caller uses this as a conservative source miss and leaves the track
@@ -269,7 +269,7 @@ object TrackMatcher {
     }
 
     /**
-     * Resolves a JioSaavn release collision only when one candidate is plainly
+     * Resolves a Catalogue release collision only when one candidate is plainly
      * more specifically credited than every other close-duration candidate.
      *
      * A film's original release often names the complete vocal ensemble while

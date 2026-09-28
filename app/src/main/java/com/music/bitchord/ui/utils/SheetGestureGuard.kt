@@ -2,13 +2,19 @@ package com.music.bitchord.ui.utils
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.unit.Velocity
 
 /**
  * Stops a resting [androidx.compose.material3.ModalBottomSheet] from stealing a
@@ -55,3 +61,31 @@ fun Modifier.guardSheetFromContentTouches(sheetState: SheetState): Modifier =
             }
         }
     }
+
+/**
+ * Keeps every drag that starts inside an overlay — a drawer or dialog drawn
+ * over the player — from reaching the sheet the player lives in. Goes on the
+ * overlay's full-screen root.
+ *
+ * Two routes leak otherwise. A scrollable inside the overlay hands whatever it
+ * can't use (a pull down while already at the top) up the nested-scroll chain,
+ * where the sheet's own connection takes it and moves the player. And a drag
+ * that nothing inside claims — on the scrim, or a row with no scroll of its
+ * own — reaches the sheet's draggable as an unconsumed drag. The connection
+ * swallows the first; consuming every move past touch slop stops the second,
+ * while taps, which never cross the slop, still reach the scrim's dismiss.
+ */
+fun Modifier.containSheetGestures(): Modifier =
+    nestedScroll(SwallowNestedScroll).pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val start = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
+                ?: return@awaitEachGesture
+            drag(start.id) { it.consume() }
+        }
+    }
+
+private object SwallowNestedScroll : NestedScrollConnection {
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource) = available
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity) = available
+}

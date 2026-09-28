@@ -10,10 +10,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,17 +40,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.optimizedHazeEffect
+import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -120,25 +122,49 @@ internal fun PlayerDrawer(
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
 
+    // The drawer's rows scroll, and that scroll takes the finger before the
+    // drag detector below ever sees it. So a pull down past the top of the
+    // list moves the drawer itself — the way a sheet with a list in it
+    // behaves — and pushing back up returns it before the list scrolls again.
+    // Everything left over is kept here rather than handed on to the player's
+    // sheet, which would otherwise be dragged down along with the drawer.
+    val dismissOnRelease: () -> Unit = {
+        if (height > 0 && drag > height * DISMISS_DRAG_FRACTION) onDismiss() else drag = 0f
+    }
+    val drawerScroll = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (drag <= 0f || available.y >= 0f) return Offset.Zero
+                val used = available.y.coerceAtLeast(-drag)
+                drag += used
+                return Offset(0f, used)
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput && available.y > 0f) drag += available.y
+                return available
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (drag <= 0f) return Velocity.Zero
+                dismissOnRelease()
+                return available
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity) = available
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
+            .containSheetGestures()
             .background(SCRIM_COLOR.copy(alpha = SCRIM_COLOR.alpha * scrimAlpha))
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
                 onClick = onDismiss,
-            )
-            // Consume vertical drags on the scrim so the parent ModalBottomSheet
-            // doesn't dismiss the whole player when the drawer is open.
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    verticalDrag(down.id) { change: PointerInputChange ->
-                        change.consume()
-                    }
-                }
-            },
+            ),
         contentAlignment = Alignment.BottomCenter,
     ) {
         AnimatedVisibility(
@@ -179,15 +205,10 @@ internal fun PlayerDrawer(
                 // Dragged down to dismiss, like every other sheet in the app.
                 // Upward drag is clamped to zero rather than followed: there is
                 // nothing above the drawer to reveal.
+                .nestedScroll(drawerScroll)
                 .pointerInput(height) {
                     detectVerticalDragGestures(
-                        onDragEnd = {
-                            if (height > 0 && drag > height * DISMISS_DRAG_FRACTION) {
-                                onDismiss()
-                            } else {
-                                drag = 0f
-                            }
-                        },
+                        onDragEnd = dismissOnRelease,
                         onDragCancel = { drag = 0f },
                     ) { _, delta ->
                         drag = (drag + delta).coerceAtLeast(0f)

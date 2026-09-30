@@ -155,6 +155,30 @@ object LocalMediaRepository {
             }
         }.onFailure { Log.w(TAG, "Failed scanning Music/BitChord directory: ${it.message}") }
 
+        AppSettings.downloadFolderUri.value.takeIf { it.isNotBlank() }?.let { tree ->
+            runCatching {
+                val treeUri = Uri.parse(tree)
+                val treeId = DocumentsContract.getTreeDocumentId(treeUri)
+                val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, treeId)
+                context.contentResolver.query(
+                    children,
+                    arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                    null,
+                    null,
+                    null,
+                )?.use { cursor ->
+                    val idColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                    val nameColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    while (cursor.moveToNext()) {
+                        val name = cursor.getString(nameColumn) ?: continue
+                        if (!isAudioFileName(name)) continue
+                        val uri = DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(idColumn)).toString()
+                        if (uri !in knownUris) extraSongs.add(buildSongFromUri(context, uri, name))
+                    }
+                }
+            }.onFailure { Log.w(TAG, "Failed scanning selected download directory: ${it.message}") }
+        }
+
         val filled = appDownloads.map { song ->
             val uri = song.localUri ?: return@map song
             val tags = scanned[uri] ?: return@map song

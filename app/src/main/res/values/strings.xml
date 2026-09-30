@@ -176,6 +176,11 @@
     <string name="widget_pill_description">The track with Like, Shuffle and playback controls, in a single row.</string>
     <string name="widget_preview_pill">Song title - Artist</string>
     <string name="download_quality">Download quality</string>
+    <string name="download_location">Download location</string>
+    <string name="download_location_music">Music/BitChord</string>
+    <string name="download_location_sd_card">Selected SD-card folder</string>
+    <string name="download_location_unavailable">Selected folder unavailable — choose it again</string>
+    <string name="download_location_reset">Use Music/BitChord</string>
     <string name="download_wifi_only">Download over Wi-Fi only</string>
     <string name="convert_to_audio">Convert to audio</string>
     <string name="convert_to_video">Convert to video</string>

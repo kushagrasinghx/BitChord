@@ -136,6 +136,27 @@ class DownloadStoreTest {
         assertEquals("xyz789.m4a", DownloadStore.fileNameFor(song("", "", "xyz789"), "m4a"))
     }
 
+    @Test
+    fun `download location switches between existing and selected storage backends`() {
+        assertEquals(
+            DownloadStore.Destination.MEDIA_STORE,
+            DownloadStore.destinationFor(exportDownloads = true, treeUri = "", sdkInt = 29),
+        )
+        assertEquals(
+            DownloadStore.Destination.SAF_TREE,
+            DownloadStore.destinationFor(exportDownloads = true, treeUri = "content://tree/sd", sdkInt = 26),
+        )
+        assertEquals(
+            DownloadStore.Destination.PRIVATE,
+            DownloadStore.destinationFor(exportDownloads = false, treeUri = "content://tree/sd", sdkInt = 36),
+        )
+    }
+
+    @Test
+    fun `SAF writes use a hidden provisional name before the final name`() {
+        assertEquals(".Arijit Singh - Kesariya.flac.part", DownloadStore.provisionalName("Arijit Singh - Kesariya.flac"))
+    }
+
     // ---- What quality is kept ----------------------------------------------
 
     /**

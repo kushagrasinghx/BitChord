@@ -144,6 +144,7 @@ import com.music.bitchord.R
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
+import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
@@ -220,6 +221,7 @@ fun SettingsScreen(
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
+    val downloadFolderUri by AppSettings.downloadFolderUri.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
@@ -285,6 +287,24 @@ fun SettingsScreen(
     ) {
         showPerformanceConfirmation = true
     }
+    val downloadFolderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { folder ->
+        if (folder == null) return@rememberLauncherForActivityResult
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        runCatching { context.contentResolver.takePersistableUriPermission(folder, flags) }
+            .onSuccess {
+                val previous = AppSettings.downloadFolderUri.value
+                if (previous.isNotBlank() && previous != folder.toString() &&
+                    previous != AppSettings.localMusicFolderUri.value
+                ) {
+                    runCatching { context.contentResolver.releasePersistableUriPermission(Uri.parse(previous), flags) }
+                }
+                AppSettings.setDownloadFolderUri(folder.toString())
+                AppSettings.setExportDownloads(true)
+            }
+    }
+
     val localMusicFolderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { folder ->
@@ -528,6 +548,43 @@ fun SettingsScreen(
                     onCheckedChange = AppSettings::setExportDownloads,
                     subtitle = "Music/BitChord".takeIf { exportDownloads },
                 )
+            }
+            if (exportDownloads) {
+                val downloadLocationTitle = stringResource(R.string.download_location)
+                val selectedDownloadFolder = downloadFolderUri.takeIf { it.isNotBlank() }
+                val available = selectedDownloadFolder?.let { DownloadStore.selectedFolderAvailable(context, it) } == true
+                row(downloadLocationTitle, "folder", "sd card", divided = selectedDownloadFolder == null) {
+                    SettingsRow(
+                        icon = Icons.Rounded.Folder,
+                        title = downloadLocationTitle,
+                        subtitle = when {
+                            selectedDownloadFolder == null -> stringResource(R.string.download_location_music)
+                            available -> LocalMediaRepository.selectedFolderLabel(selectedDownloadFolder)
+                                ?: stringResource(R.string.download_location_sd_card)
+                            else -> stringResource(R.string.download_location_unavailable)
+                        },
+                        onClick = { downloadFolderPicker.launch(null) },
+                    )
+                }
+                if (selectedDownloadFolder != null) {
+                    val resetTitle = stringResource(R.string.download_location_reset)
+                    row(resetTitle, "music folder", "reset") {
+                        SettingsRow(
+                            icon = Icons.Rounded.Folder,
+                            title = resetTitle,
+                            subtitle = stringResource(R.string.download_location_music),
+                            onClick = {
+                                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                if (selectedDownloadFolder != AppSettings.localMusicFolderUri.value) {
+                                    runCatching {
+                                        context.contentResolver.releasePersistableUriPermission(Uri.parse(selectedDownloadFolder), flags)
+                                    }
+                                }
+                                AppSettings.setDownloadFolderUri("")
+                            },
+                        )
+                    }
+                }
             }
         }
 

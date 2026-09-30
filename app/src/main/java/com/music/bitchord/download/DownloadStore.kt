@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.DocumentsContract
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.settings.AppSettings
 import androidx.annotation.RequiresApi
@@ -45,8 +46,11 @@ import java.util.Locale
  *    which is the same guarantee `IS_PENDING` gives for free above, and the
  *    media scanner is told afterwards or the file stays invisible to everything
  *    that reads the index rather than the disk.
+ *  - **A selected SAF tree** uses a hidden `.part` document. It is renamed only
+ *    after bytes and tags are complete, so it does not depend on a MediaStore
+ *    scan or on a hard-coded removable-volume path.
  *
- * Neither side writes tags — this class only ever copies the bytes the server
+ * Neither backend writes tags — this class only ever copies the bytes the server
  * on the other end sent. [MediaTagger] rewrites the finished file afterwards to
  * add them; the filename below is what every downloaded track carries
  * regardless of whether that rewrite finds a layout it recognises.
@@ -74,6 +78,16 @@ object DownloadStore {
      * costs a `NewApi` error on the release build.
      */
     fun needsLegacyPermission(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+
+    internal enum class Destination { PRIVATE, SAF_TREE, MEDIA_STORE, LEGACY_FILE }
+
+    /** Pure location choice, kept separate so preference changes cannot split the write flow. */
+    internal fun destinationFor(exportDownloads: Boolean, treeUri: String, sdkInt: Int): Destination = when {
+        !exportDownloads -> Destination.PRIVATE
+        treeUri.isNotBlank() -> Destination.SAF_TREE
+        sdkInt >= Build.VERSION_CODES.Q -> Destination.MEDIA_STORE
+        else -> Destination.LEGACY_FILE
+    }
 
     // ---- Naming -------------------------------------------------------------
 
@@ -110,6 +124,9 @@ object DownloadStore {
 
     /** Long enough for anything real, short of the 255-byte filename ceiling. */
     private const val MAX_STEM_CHARS = 120
+
+    /** Hidden provisional name used by the SAF backend until the write and tags are complete. */
+    internal fun provisionalName(name: String): String = ".$name.part"
 
     /** What a file of some codec is called and what the store is told it is. */
     class Storable(val extension: String, val mimeType: String)
@@ -151,6 +168,8 @@ object DownloadStore {
     fun existing(context: Context, name: String): Uri? =
         if (!AppSettings.exportDownloads.value) {
             privateFile(context, name).takeIf { it.exists() }?.let(Uri::fromFile)
+        } else if (AppSettings.downloadFolderUri.value.isNotBlank()) {
+            documentEntry(context, AppSettings.downloadFolderUri.value, name)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             mediaStoreEntry(context, name)
         } else {
@@ -174,6 +193,42 @@ object DownloadStore {
         }
     }.onFailure { Log.w(TAG, "media store lookup failed for $name: ${it.message}") }.getOrNull()
 
+    private fun documentEntry(context: Context, tree: String, name: String): Uri? = runCatching {
+        val treeUri = Uri.parse(tree)
+        val documentId = DocumentsContract.getTreeDocumentId(treeUri)
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, documentId)
+        context.contentResolver.query(
+            children,
+            arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameColumn = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            while (cursor.moveToNext()) {
+                if (cursor.getString(nameColumn) == name) {
+                    return@use DocumentsContract.buildDocumentUriUsingTree(treeUri, cursor.getString(idColumn))
+                }
+            }
+            null
+        }
+    }.onFailure { Log.w(TAG, "SAF lookup failed for $name: ${it.message}") }.getOrNull()
+
+    /** True when the persisted user-selected download directory can still be opened. */
+    fun selectedFolderAvailable(context: Context, tree: String = AppSettings.downloadFolderUri.value): Boolean =
+        tree.isNotBlank() && runCatching {
+            val treeUri = Uri.parse(tree)
+            val documentId = DocumentsContract.getTreeDocumentId(treeUri)
+            context.contentResolver.query(
+                DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId),
+                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+                null,
+                null,
+                null,
+            )?.use { it.moveToFirst() } == true
+        }.getOrDefault(false)
+
     /**
      * Whether [uri] still names a file that is there.
      *
@@ -196,6 +251,8 @@ object DownloadStore {
                     file.parentFile?.deleteRecursively() == true
                 } else file.delete()
             } == true
+        } else if (DocumentsContract.isDocumentUri(context, uri)) {
+            DocumentsContract.deleteDocument(context.contentResolver, uri)
         } else {
             context.contentResolver.delete(uri, null, null) > 0
         }
@@ -218,6 +275,8 @@ object DownloadStore {
         private val part: File?,
         /** Set on the legacy path only: what [part] is renamed to. */
         private val target: File?,
+        /** A SAF provisional document which is renamed once metadata is complete. */
+        private val safPart: Boolean = false,
     ) {
         /** The bytes being built, whether this is a MediaStore row or a legacy `.part` file. */
         val tagUri: Uri get() = part?.let(Uri::fromFile) ?: uri
@@ -241,6 +300,10 @@ object DownloadStore {
                 )
                 return Uri.fromFile(target)
             }
+            if (safPart) {
+                return DocumentsContract.renameDocument(context.contentResolver, uri, name)
+                    ?: error("Could not finish writing $name")
+            }
             context.contentResolver.update(
                 uri,
                 ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) },
@@ -252,7 +315,10 @@ object DownloadStore {
 
         fun abort() {
             part?.delete()
-            if (part == null) runCatching { context.contentResolver.delete(uri, null, null) }
+            if (part == null) runCatching {
+                if (safPart) DocumentsContract.deleteDocument(context.contentResolver, uri)
+                else context.contentResolver.delete(uri, null, null)
+            }
         }
     }
 
@@ -271,6 +337,20 @@ object DownloadStore {
             val part = File(folder, ".$name.part")
             part.delete()
             return Pending(context, Uri.fromFile(target), name, part = part, target = target)
+        }
+        if (AppSettings.downloadFolderUri.value.isNotBlank()) {
+            val tree = Uri.parse(AppSettings.downloadFolderUri.value)
+            if (!selectedFolderAvailable(context, tree.toString())) {
+                error("Selected download folder is unavailable. Choose it again in Settings.")
+            }
+            val root = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+            val provisional = provisionalName(name)
+            documentEntry(context, tree.toString(), provisional)?.let {
+                DocumentsContract.deleteDocument(context.contentResolver, it)
+            }
+            val uri = DocumentsContract.createDocument(context.contentResolver, root, mimeType, provisional)
+                ?: error("Could not create $name in the selected download folder")
+            return Pending(context, uri, name, part = null, target = null, safPart = true)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val values = ContentValues().apply {

@@ -452,6 +452,11 @@
     <string name="enable_anyway">फिर भी चालू करें</string>
     <string name="sources_subtitle">ऑडियो कहां से आता है और किस क्रम में इस्तेमाल होता है</string>
     <string name="source_matching">स्रोत मिलान</string>
+    <string name="show_in_library">लाइब्रेरी में दिखाएँ</string>
+    <string name="remote_library_visibility_subtitle">इस स्रोत को लाइब्रेरी में दिखाएँ। छिपाने पर इसके कनेक्शन की जानकारी सेव रहेगी।</string>
+    <string name="local_library_visibility_subtitle">लाइब्रेरी में लोकल संगीत का फ़ोल्डर दिखाएँ।</string>
+    <string name="keep_library_cached">लाइब्रेरी का कैश रखें</string>
+    <string name="keep_library_cached_subtitle">प्लेलिस्ट के नाम, कवर और गानों की सूचियाँ सेव करें ताकि वे तुरंत खुलें और ऑफ़लाइन भी उपलब्ध रहें। ऑनलाइन होने पर बैकग्राउंड में अपडेट करें।</string>
     <string name="upgrade_length_slack">ट्रैक लंबाई की छूट</string>
     <string name="upgrade_length_slack_subtitle">बदले जाने वाले स्ट्रीम के लिए अवधि का अधिकतम अंतर</string>
     <string name="upgrade_length_slack_footer">ज़्यादा छूट से ज़्यादा स्रोत मिलान स्वीकार होते हैं; कम छूट ज़्यादा सख़्त है। डिफ़ॉल्ट 3 सेकंड है।</string>

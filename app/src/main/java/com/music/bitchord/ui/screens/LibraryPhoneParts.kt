@@ -38,6 +38,9 @@ import com.music.bitchord.ui.replay.ReplayStoryPage
  */
 @Composable
 fun libraryDeviceItems(downloadedPlaylists: List<SavedCollection>): List<ShelfItem> {
+    val showLocalMusicInLibrary by AppSettings.showLocalMusicInLibrary.collectAsStateWithLifecycle()
+    val showWebDavInLibrary by AppSettings.showWebDavInLibrary.collectAsStateWithLifecycle()
+    val showSmbInLibrary by AppSettings.showSmbInLibrary.collectAsStateWithLifecycle()
     val webdavConfigured by AppSettings.webdavUrl.collectAsStateWithLifecycle()
     val smbHost by AppSettings.smbHost.collectAsStateWithLifecycle()
     val smbShare by AppSettings.smbShare.collectAsStateWithLifecycle()
@@ -62,9 +65,15 @@ fun libraryDeviceItems(downloadedPlaylists: List<SavedCollection>): List<ShelfIt
             },
             com.music.bitchord.data.smb.SmbConfig.BROWSE_ID,
         ),
-    )
+    ).filter { (_, _, browseId) ->
+        when (browseId) {
+            com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID -> showWebDavInLibrary
+            com.music.bitchord.data.smb.SmbConfig.BROWSE_ID -> showSmbInLibrary
+            else -> true
+        }
+    }
     val downloadedPlaylist = stringResource(R.string.downloaded_playlist)
-    return listOf(
+    return listOfNotNull(
         ShelfItem(
             title = stringResource(R.string.downloads),
             subtitle = stringResource(R.string.downloaded_songs),
@@ -78,7 +87,7 @@ fun libraryDeviceItems(downloadedPlaylists: List<SavedCollection>): List<ShelfIt
             thumbnailUrl = null,
             videoId = null,
             browseId = "local:all",
-        ),
+        ).takeIf { showLocalMusicInLibrary },
     ) + remotes.map { (title, subtitle, browseId) ->
         ShelfItem(
             title = title,

@@ -452,6 +452,11 @@
     <string name="enable_anyway">Trotzdem aktivieren</string>
     <string name="sources_subtitle">Woher Audio stammt und in welcher Reihenfolge</string>
     <string name="source_matching">Quellenabgleich</string>
+    <string name="show_in_library">In Bibliothek anzeigen</string>
+    <string name="remote_library_visibility_subtitle">Diese Quelle in der Bibliothek anzeigen. Beim Ausblenden bleibt die Verbindung gespeichert.</string>
+    <string name="local_library_visibility_subtitle">Den Ordner „Lokale Musik“ in der Bibliothek anzeigen.</string>
+    <string name="keep_library_cached">Bibliothek im Cache behalten</string>
+    <string name="keep_library_cached_subtitle">Playlistnamen, Cover und Titellisten zum sofortigen Öffnen und für den Offlinezugriff speichern. Bei Internetverbindung im Hintergrund aktualisieren.</string>
     <string name="upgrade_length_slack">Toleranz der Titellänge</string>
     <string name="upgrade_length_slack_subtitle">Maximal erlaubte Längenabweichung für einen Ersatz-Stream</string>
     <string name="upgrade_length_slack_footer">Eine größere Toleranz akzeptiert mehr Treffer aus Quellen, eine kleinere ist strenger. Standard sind 3 Sekunden.</string>

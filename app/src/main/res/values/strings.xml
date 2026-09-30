@@ -599,6 +599,11 @@
     <string name="enable_anyway">Enable anyway</string>
     <string name="sources_subtitle">Where audio comes from and the order used</string>
     <string name="source_matching">Source matching</string>
+    <string name="show_in_library">Show in Library</string>
+    <string name="remote_library_visibility_subtitle">Show this source in Library. Hiding it keeps its connection saved.</string>
+    <string name="local_library_visibility_subtitle">Show the Local Music folder in Library.</string>
+    <string name="keep_library_cached">Keep library cached</string>
+    <string name="keep_library_cached_subtitle">Save playlist names, artwork and track lists for instant opening and offline access. Refresh quietly when online.</string>
     <string name="upgrade_length_slack">Track length tolerance</string>
     <string name="upgrade_length_slack_subtitle">Maximum duration difference allowed for a replacement stream</string>
     <string name="upgrade_length_slack_footer">A larger tolerance accepts more source matches; a smaller tolerance is stricter. The default is 3 seconds.</string>

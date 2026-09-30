@@ -232,7 +232,7 @@ fun libraryGrid(available: Dp): LibraryGridSpec {
  * One track row, used by search, library and detail pages.
  *
  * Swiping it either way queues the track or plays it next, per
- * [AppSettings.swipeToPlayNext] — the row springs back rather than
+ * [AppUiHost.swipeToPlayNext] — the row springs back rather than
  * dismissing, since nothing is being removed. Long-press opens the actions
  * menu.
  */
@@ -443,8 +443,18 @@ private fun SongRowContent(
     activeTint: Color = MaterialTheme.colorScheme.primary,
     selected: Boolean = false,
 ) {
+    val isOnline = AppUi.host.isOnline()
+    val saved = AppUi.host.downloadedIds()
+    // Source-prefixed ids belong to device or remote-file catalogues; their
+    // reachability does not follow the internet connection used by YouTube.
+    val requiresConnection = !isOnline && song.localUri == null &&
+        ':' !in song.videoId && song.videoId !in saved
     val titleColor by animateColorAsState(
-        targetValue = if (isCurrent) activeTint else MaterialTheme.colorScheme.onBackground,
+        targetValue = when {
+            isCurrent -> activeTint
+            requiresConnection -> subtitleColor
+            else -> MaterialTheme.colorScheme.onBackground
+        },
         label = "song row title",
     )
     val activeBackground by animateColorAsState(
@@ -502,6 +512,7 @@ private fun SongRowContent(
                 text = listOfNotNull(
                     song.artist.takeIf { it.isNotBlank() },
                     song.downloadFormat,
+                    stringResource(Res.string.library_available_online).takeIf { requiresConnection },
                 ).joinToString(" · "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = subtitleColor,

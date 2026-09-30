@@ -177,7 +177,12 @@ object Downloads {
      */
     fun enqueue(context: Context, song: Song, from: String? = null) {
         val id = song.videoId
-        if (!AppSettings.downloadsAllowedNow) {
+        val refusal = when {
+            !AppSettings.isOnline.value -> OFFLINE_REFUSAL
+            !AppSettings.downloadsAllowedNow -> WIFI_ONLY_REFUSAL
+            else -> null
+        }
+        if (refusal != null) {
             // Distinct from the duplicate-tap no-op below: nothing is in flight
             // here to leave alone, and a refusal nobody is told about reads as a
             // dead button. A download already queued or running started on a
@@ -185,7 +190,7 @@ object Downloads {
             val inFlight = _active.value[id]
             if (inFlight !is DownloadState.Queued && inFlight !is DownloadState.Running) {
                 DownloadSession.queued(song, from)
-                fail(id, WIFI_ONLY_REFUSAL)
+                fail(id, refusal)
             }
             return
         }
@@ -380,6 +385,32 @@ object Downloads {
         }
     }
 
+    /**
+     * Update a downloaded release after an account rename or a complete online
+     * refresh. A refresh replaces membership and order, while a download tap
+     * still merges partial pages through [rememberCollection].
+     */
+    fun updateCollectionMetadata(
+        collectionId: String,
+        title: String,
+        subtitle: String,
+        thumbnailUrl: String? = null,
+        videoIds: List<String>? = null,
+    ) {
+        recordCollections { current ->
+            val existing = current[collectionId] ?: return@recordCollections current
+            val updated = existing.copy(
+                title = title,
+                subtitle = subtitle,
+                thumbnailUrl = existing.thumbnailUrl?.takeIf(::isLocalArtwork)
+                    ?: thumbnailUrl
+                    ?: existing.thumbnailUrl,
+                videoIds = videoIds ?: existing.videoIds,
+            )
+            if (updated == existing) current else current + (collectionId to updated)
+        }
+    }
+
     /** Replace a collection's remote artwork URL with its durable local copy. */
     fun rememberCollectionArtwork(id: String, thumbnailUrl: String) {
         recordCollections { current ->
@@ -509,6 +540,7 @@ object Downloads {
     private fun recordCollections(update: (Map<String, SavedCollection>) -> Map<String, SavedCollection>) {
         synchronized(collectionLock) {
             val map = update(_collections.value)
+            if (map == _collections.value) return
             _collections.value = map
             if (::prefs.isInitialized) {
                 prefs.edit()
@@ -688,6 +720,16 @@ object Downloads {
             )
         }
         result
+    }
+
+    /**
+     * An immediate view of a downloaded playlist from its persisted records.
+     * No filesystem or MediaStore reads occur here; [getCollectionSongs]
+     * verifies the files in the background after this has been displayed.
+     */
+    fun collectionSnapshot(collectionId: String): List<Song> {
+        val record = _collections.value[collectionId] ?: return emptyList()
+        return savedCollectionSnapshot(record, _savedMetadata.value, _saved.value)
     }
 
     /**
@@ -1291,6 +1333,7 @@ object Downloads {
      * that show it as a toast so the two cannot drift apart.
      */
     internal const val WIFI_ONLY_REFUSAL = "Downloads are set to Wi-Fi only"
+    internal const val OFFLINE_REFUSAL = "Offline"
 
     /** Dropped when the sheet is reopened; a failure is worth showing once. */
     fun dismissFailure(videoId: String) {
@@ -1320,6 +1363,32 @@ internal data class SavedSongMetadata(
     /** Stable creation time for downloads that MediaStore does not index. */
     val dateAddedSeconds: Long? = null,
 )
+
+/** Materialize saved metadata without Android framework or filesystem calls. */
+internal fun savedCollectionSnapshot(
+    record: SavedCollection,
+    metadata: Map<String, SavedSongMetadata>,
+    saved: Map<String, String>,
+): List<Song> {
+    val metadataByUri = metadata.values.associateBy { it.uri }
+    val seenUris = HashSet<String>()
+    return record.videoIds.mapNotNull { videoId ->
+        val uri = saved[videoId] ?: metadata[videoId]?.uri ?: return@mapNotNull null
+        val meta = metadata[videoId] ?: metadataByUri[uri] ?: return@mapNotNull null
+        if (!seenUris.add(uri)) return@mapNotNull null
+        Song(
+            videoId = videoId,
+            title = meta.title,
+            artist = meta.artist,
+            thumbnailUrl = meta.thumbnailUrl,
+            durationText = meta.durationText,
+            albumName = meta.albumName,
+            localUri = uri,
+            downloadFormat = meta.downloadFormat,
+            localDateAddedSeconds = meta.dateAddedSeconds,
+        )
+    }
+}
 
 /**
  * Dates for a downloaded file-backed row.

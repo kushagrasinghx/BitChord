@@ -211,6 +211,9 @@ object AppSettings {
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
 
+    /** Internet access validated by Android, including Wi-Fi without a working uplink. */
+    val isOnline = MutableStateFlow(false)
+
     // `losslessAudio` used to live here, behind a "Prefer lossless" switch on
     // the Sources screen. It is gone: sources are asked for their best and each
     // degrades on its own terms, so the switch's only real effect was to ask a
@@ -546,6 +549,14 @@ object AppSettings {
     /** Empty means every MediaStore folder; otherwise this is a persisted SAF tree URI. */
     val localMusicFolderUri = MutableStateFlow("")
 
+    /** Library shortcuts can be hidden without changing the source's configuration. */
+    val showLocalMusicInLibrary = MutableStateFlow(true)
+    val showWebDavInLibrary = MutableStateFlow(true)
+    val showSmbInLibrary = MutableStateFlow(true)
+
+    /** Keep account library metadata and playlist contents between visits and app restarts. */
+    val cacheLibrary = MutableStateFlow(true)
+
     // ── WebDAV ────────────────────────────────────────────────────────────
 
     /**
@@ -872,6 +883,10 @@ object AppSettings {
             ?: LibrarySort.DEFAULT
         detailSongSorts.value = readDetailSongSorts()
         localMusicFolderUri.value = prefs.getString(KEY_LOCAL_MUSIC_FOLDER_URI, "").orEmpty()
+        showLocalMusicInLibrary.value = prefs.getBoolean(KEY_SHOW_LOCAL_MUSIC_IN_LIBRARY, true)
+        showWebDavInLibrary.value = prefs.getBoolean(KEY_SHOW_WEBDAV_IN_LIBRARY, true)
+        showSmbInLibrary.value = prefs.getBoolean(KEY_SHOW_SMB_IN_LIBRARY, true)
+        cacheLibrary.value = prefs.getBoolean(KEY_CACHE_LIBRARY, true)
         webdavUrl.value = prefs.getString(KEY_WEBDAV_URL, "").orEmpty()
         webdavUsername.value = prefs.getString(KEY_WEBDAV_USERNAME, "").orEmpty()
         webdavPassword.value = authStore.webdavPassword.orEmpty()
@@ -991,6 +1006,10 @@ object AppSettings {
             meteredConnection.value = runCatching {
                 if (manager.activeNetwork == null) null else manager.isActiveNetworkMetered
             }.getOrNull()
+            isOnline.value = runCatching {
+                manager.getNetworkCapabilities(manager.activeNetwork)
+                    ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+            }.getOrDefault(false)
         }
         refresh()
         runCatching {
@@ -1634,6 +1653,26 @@ object AppSettings {
         prefs.edit().putString(KEY_LOCAL_MUSIC_FOLDER_URI, value).apply()
     }
 
+    fun setShowLocalMusicInLibrary(value: Boolean) {
+        showLocalMusicInLibrary.value = value
+        prefs.edit().putBoolean(KEY_SHOW_LOCAL_MUSIC_IN_LIBRARY, value).apply()
+    }
+
+    fun setShowWebDavInLibrary(value: Boolean) {
+        showWebDavInLibrary.value = value
+        prefs.edit().putBoolean(KEY_SHOW_WEBDAV_IN_LIBRARY, value).apply()
+    }
+
+    fun setShowSmbInLibrary(value: Boolean) {
+        showSmbInLibrary.value = value
+        prefs.edit().putBoolean(KEY_SHOW_SMB_IN_LIBRARY, value).apply()
+    }
+
+    fun setCacheLibrary(value: Boolean) {
+        cacheLibrary.value = value
+        prefs.edit().putBoolean(KEY_CACHE_LIBRARY, value).apply()
+    }
+
     fun setWebDavUrl(value: String) {
         val normalized = value.trim().trimEnd('/')
         webdavUrl.value = normalized
@@ -1946,6 +1985,10 @@ object AppSettings {
     private const val KEY_DOWNLOADED_MUSIC_VIEW_TYPE = "downloaded_music_view_type"
     private const val KEY_HOME_RECENTS_VIEW_TYPE = "home_recents_view_type"
     private const val KEY_LOCAL_MUSIC_FOLDER_URI = "local_music_folder_uri"
+    private const val KEY_SHOW_LOCAL_MUSIC_IN_LIBRARY = "show_local_music_in_library"
+    private const val KEY_SHOW_WEBDAV_IN_LIBRARY = "show_webdav_in_library"
+    private const val KEY_SHOW_SMB_IN_LIBRARY = "show_smb_in_library"
+    private const val KEY_CACHE_LIBRARY = "cache_library"
     private const val KEY_WEBDAV_URL = "webdav_url"
     private const val KEY_WEBDAV_USERNAME = "webdav_username"
     private const val KEY_SMB_HOST = "smb_host"

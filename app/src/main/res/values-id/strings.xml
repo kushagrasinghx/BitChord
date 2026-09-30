@@ -438,6 +438,11 @@
     <string name="enable_anyway">Tetap aktifkan</string>
     <string name="sources_subtitle">Dari mana audio berasal dan urutan yang digunakan</string>
     <string name="source_matching">Pencocokan sumber</string>
+    <string name="show_in_library">Tampilkan di Perpustakaan</string>
+    <string name="remote_library_visibility_subtitle">Tampilkan sumber ini di Perpustakaan. Menyembunyikannya tetap menyimpan pengaturan koneksinya.</string>
+    <string name="local_library_visibility_subtitle">Tampilkan folder Musik Lokal di Perpustakaan.</string>
+    <string name="keep_library_cached">Simpan cache perpustakaan</string>
+    <string name="keep_library_cached_subtitle">Simpan nama playlist, sampul, dan daftar lagu agar dapat langsung dibuka dan diakses secara offline. Perbarui di latar belakang saat online.</string>
     <string name="upgrade_length_slack">Toleransi durasi lagu</string>
     <string name="upgrade_length_slack_subtitle">Selisih durasi maksimum yang diizinkan untuk stream pengganti</string>
     <string name="upgrade_length_slack_footer">Toleransi lebih besar menerima lebih banyak kecocokan sumber; toleransi lebih kecil lebih ketat. Bawaannya 3 detik.</string>

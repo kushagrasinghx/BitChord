@@ -1,5 +1,6 @@
 package com.music.bitchord.data
 
+import kotlinx.serialization.Serializable
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
@@ -470,8 +471,9 @@ object YtMusicRepository {
      * YouTube Music has no single "my library" feed: Liked Music is the `LM`
      * auto-playlist, the songs added to the library are a separate feed, and
      * every saved collection has its own browse id. They're fetched in
-     * parallel and a feed that fails or is simply empty (a fresh account has
-     * no saved albums) is dropped rather than failing the whole page.
+     * parallel. Failed feeds are identified separately from empty feeds so
+     * the caller can retain their previous snapshots. An initial load still
+     * shows successful feeds; a failure of every feed fails the whole page.
      */
     suspend fun library(): Result<LibraryPage> = call("library") {
         coroutineScope {
@@ -481,29 +483,45 @@ object YtMusicRepository {
             // background, so a liked track past the first page still reads as
             // liked without holding this page open behind the whole list —
             // see [syncLikedMusic] and MainViewModel's fetchLibrary.
-            val liked = async { browseSongs(LIKED_MUSIC).getOrNull() }
-            val added = async { runCatching { songsPaged(LIBRARY_SONGS) }.getOrDefault(emptyList()) }
-            val shelves = LIBRARY_FEEDS
+            val liked = async { browseSongs(LIKED_MUSIC) }
+            val added = async {
+                runCatching { songsPaged(LIBRARY_SONGS, strict = true) }
+                    .onFailure { if (it is CancellationException) throw it }
+            }
+            val shelfResults = LIBRARY_FEEDS
                 .map { (title, browseId) ->
                     async {
-                        HomeShelf(title, runCatching { libraryItemsPaged(browseId) }.getOrDefault(emptyList()))
+                        title to runCatching { libraryItemsPaged(browseId) }
+                            .onFailure { if (it is CancellationException) throw it }
                     }
                 }
                 .awaitAll()
-                .filter { it.items.isNotEmpty() }
 
-            val likedPage = liked.await()
+            val likedResult = liked.await()
+            val addedResult = added.await()
+            val failures = linkedMapOf<String, Throwable>()
+            likedResult.exceptionOrNull()?.let { failures["liked"] = it }
+            addedResult.exceptionOrNull()?.let { failures["songs"] = it }
+            shelfResults.forEach { (title, result) ->
+                result.exceptionOrNull()?.let { failures[title] = it }
+            }
+            if (failures.size == LIBRARY_FEEDS.size + 2) throw failures.values.first()
+
+            val likedPage = likedResult.getOrNull()
             val likedSongs = likedPage?.songs.orEmpty()
             val likedIds = likedSongs.mapTo(HashSet()) { it.videoId }
-            LikeState.seedLiked(likedIds)
+            if (likedResult.isSuccess) LikeState.seedLiked(likedIds)
             LibraryPage(
                 likedSongs = likedSongs,
                 // Thumbs-up'd tracks are also in the library feed; only what
                 // the "Liked Music" list doesn't already cover is worth a
                 // second section.
-                librarySongs = added.await().filterNot { it.videoId in likedIds },
-                shelves = shelves,
+                librarySongs = addedResult.getOrDefault(emptyList()).filterNot { it.videoId in likedIds },
+                shelves = shelfResults.mapNotNull { (title, result) ->
+                    result.getOrNull()?.takeIf { it.isNotEmpty() }?.let { HomeShelf(title, it) }
+                },
                 likedContinuation = likedPage?.continuation,
+                failedFeeds = failures.keys.toSet(),
             )
         }
     }
@@ -569,6 +587,7 @@ object YtMusicRepository {
      * it — null once there is nothing more. [suggested] is only ever
      * non-empty for a playlist page — see [InnertubeParser.parsePlaylistShelf].
      */
+    @Serializable
     data class SongPage(
         val songs: List<Song>,
         val continuation: String?,
@@ -704,12 +723,14 @@ object YtMusicRepository {
      * a long list otherwise arrives silently truncated. Capped at
      * [MAX_PAGES] so a runaway feed can't hold the UI open forever, and a
      * failed page keeps whatever was already collected.
+     * Strict library loads instead follow every page and propagate failure,
+     * so an incomplete list cannot replace the last successful snapshot.
      *
      * Holds its caller until the last page lands, so it belongs behind things
      * nobody is watching — the library sync, an artist's back catalogue. For
      * anything a screen is waiting on, use [browseSongs] and [moreSongs].
      */
-    private suspend fun songsPaged(browseId: String): List<Song> {
+    private suspend fun songsPaged(browseId: String, strict: Boolean = false): List<Song> {
         val out = LinkedHashMap<String, Song>()
         var response = Innertube.browse(browseId)
         if (browseId.startsWith("MPREb")) {
@@ -718,6 +739,7 @@ object YtMusicRepository {
             }
         }
         var page = 1
+        val tokens = HashSet<String>()
         while (true) {
             // Same shelf-scoping as pageOf: a playlist (Liked Music and the
             // Library Songs auto-playlist included) is read from its own
@@ -725,8 +747,13 @@ object YtMusicRepository {
             val shelf = InnertubeParser.parsePlaylistShelf(response)
             (shelf?.songs ?: InnertubeParser.collectSongsDeep(response)).forEach { out[it.videoId] = it }
             val token = shelf?.continuation ?: InnertubeParser.continuationToken(response)
-            if (token == null || page++ >= MAX_PAGES) break
-            response = runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
+            if (token == null || (!strict && page++ >= MAX_PAGES)) break
+            response = if (strict) {
+                check(tokens.add(token)) { "Library song continuation repeated" }
+                Innertube.browseContinuation(token)
+            } else {
+                runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
+            }
         }
         return out.values.toList()
     }
@@ -736,14 +763,18 @@ object YtMusicRepository {
      *
      * The library shelves are capped by YouTube's first page just like search:
      * playlists, albums and artists often stop at about twenty-five rows unless
-     * their feed continuation is followed. These are background library loads,
-     * so collecting the full bounded set before publishing is preferable to a
-     * shelf that looks complete and silently is not.
+     * their feed continuation is followed. Strict library loads require the
+     * complete feed; other callers retain the bounded best-effort behavior.
      */
-    private suspend fun itemsPaged(browseId: String, params: String? = null): List<ShelfItem> {
+    private suspend fun itemsPaged(
+        browseId: String,
+        params: String? = null,
+        strict: Boolean = false,
+    ): List<ShelfItem> {
         val out = LinkedHashMap<String, ShelfItem>()
         var response = Innertube.browse(browseId, params)
         var page = 1
+        val tokens = HashSet<String>()
         while (true) {
             val parsed = InnertubeParser.parseLibraryItemPage(response)
             parsed.items.forEach { item ->
@@ -751,13 +782,18 @@ object YtMusicRepository {
                 out.putIfAbsent(key, item)
             }
             val token = parsed.continuation ?: break
-            if (page++ >= MAX_PAGES) break
-            response = runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
+            if (!strict && page++ >= MAX_PAGES) break
+            response = if (strict) {
+                check(tokens.add(token)) { "Library item continuation repeated" }
+                Innertube.browseContinuation(token)
+            } else {
+                runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break
+            }
         }
         return out.values.toList()
     }
 
-    private suspend fun libraryItemsPaged(browseId: String): List<ShelfItem> = itemsPaged(browseId, null)
+    private suspend fun libraryItemsPaged(browseId: String): List<ShelfItem> = itemsPaged(browseId, strict = true)
 
     const val MAX_PAGES = 10
 

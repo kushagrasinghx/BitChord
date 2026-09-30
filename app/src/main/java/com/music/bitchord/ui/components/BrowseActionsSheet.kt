@@ -42,6 +42,7 @@ import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -198,11 +199,12 @@ fun BrowseActionsSheet(
             // whatever the state — this is where a release is asked for now that
             // its page's header spends that spot on the search, and a menu that
             // can't say "already on the device" leaves the question open. The
-            // tap is left live in every state: [Downloads.enqueue] leaves a
-            // track that is saved, queued or running alone.
+            // Existing files and in-flight downloads retain their status when
+            // connectivity is lost; starting another download needs a connection.
             val active by Downloads.active.collectAsStateWithLifecycle()
             val requested by Downloads.requested.collectAsStateWithLifecycle()
             val saved by Downloads.saved.collectAsStateWithLifecycle()
+            val isOnline by AppSettings.isOnline.collectAsStateWithLifecycle()
             // Only the tracks *this release* asked for — two releases can share
             // a track, and reading the whole queue would show this release
             // waiting on a download some other one started. Failed entries stay
@@ -229,8 +231,10 @@ fun BrowseActionsSheet(
                 value = when {
                     waiting -> stringResource(R.string.downloading)
                     downloaded -> stringResource(R.string.downloaded)
+                    !isOnline -> stringResource(R.string.library_download_offline)
                     else -> null
                 },
+                enabled = isOnline,
                 onClick = download,
             )
         }

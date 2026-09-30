@@ -1,5 +1,7 @@
 package com.music.bitchord.data.model
 
+import kotlinx.serialization.Serializable
+
 /** Tier of an item in the playback queue. */
 enum class QueueTier {
     /** Explicitly queued by user ("Play Next", "Add to Queue", or preserved user queue). */
@@ -11,6 +13,7 @@ enum class QueueTier {
 }
 
 /** A playable YouTube Music track. */
+@Serializable
 data class Song(
     val videoId: String,
     val title: String,
@@ -301,6 +304,7 @@ enum class SearchFilter(val label: String, val params: String?) {
 }
 
 /** A card in a home-feed carousel: either a track (videoId) or an album/playlist (browseId). */
+@Serializable
 data class ShelfItem(
     val title: String,
     val subtitle: String,
@@ -346,6 +350,7 @@ data class AccountChannel(
     val key: String get() = pageId ?: dataSyncId ?: name
 }
 
+@Serializable
 data class HomeShelf(
     val title: String,
     val items: List<ShelfItem>,
@@ -381,6 +386,7 @@ data class MoodGenre(
  * Music playlist, the tracks explicitly added to the library, and a shelf per
  * saved collection (playlists, albums, artists, subscriptions, podcasts).
  */
+@Serializable
 data class LibraryPage(
     val likedSongs: List<Song>,
     val librarySongs: List<Song>,
@@ -392,6 +398,8 @@ data class LibraryPage(
      * [com.music.bitchord.data.LikeState]; never stored as page state.
      */
     val likedContinuation: String? = null,
+    /** Failed feed keys: "liked", "songs", or the shelf title. Their last snapshot can be retained. */
+    val failedFeeds: Set<String> = emptySet(),
 ) {
     val isEmpty: Boolean
         get() = likedSongs.isEmpty() && librarySongs.isEmpty() && shelves.isEmpty()
@@ -447,6 +455,7 @@ data class DetailPage(
  * playlist, and liking the browse id does nothing at all. So the id has to be
  * read off the page rather than derived from what was asked for.
  */
+@Serializable
 data class LibraryState(
     val playlistId: String,
     val saved: Boolean,
@@ -509,6 +518,7 @@ enum class PlaylistPrivacy(val label: String, val apiValue: String) {
  * takes; [browseId] is the same playlist addressed as a page. Keeping both
  * spares every caller from remembering which prefix each side wants.
  */
+@Serializable
 data class UserPlaylist(
     val playlistId: String,
     val title: String,

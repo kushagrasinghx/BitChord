@@ -414,6 +414,11 @@
     <string name="enable_anyway">Włącz mimo to</string>
     <string name="sources_subtitle">Skąd pochodzi dźwięk i używana kolejność</string>
     <string name="source_matching">Dopasowanie źródeł</string>
+    <string name="show_in_library">Pokaż w bibliotece</string>
+    <string name="remote_library_visibility_subtitle">Pokaż to źródło w bibliotece. Ukrycie zachowuje zapisane ustawienia połączenia.</string>
+    <string name="local_library_visibility_subtitle">Pokaż folder Muzyka lokalna w bibliotece.</string>
+    <string name="keep_library_cached">Zachowuj bibliotekę w pamięci podręcznej</string>
+    <string name="keep_library_cached_subtitle">Zapisuj nazwy playlist, okładki i listy utworów, aby otwierać je od razu i korzystać z nich offline. Aktualizuj w tle, gdy jest dostępne połączenie.</string>
     <string name="upgrade_length_slack">Tolerancja długości utworu</string>
     <string name="upgrade_length_slack_subtitle">Maksymalna dozwolona różnica długości dla strumienia zastępczego</string>
     <string name="upgrade_length_slack_footer">Większa tolerancja akceptuje więcej dopasowań ze źródeł; mniejsza jest bardziej rygorystyczna. Domyślnie 3 sekundy.</string>

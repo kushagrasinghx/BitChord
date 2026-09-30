@@ -108,6 +108,7 @@ import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.isSameTrackAs
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.components.ArtworkWash
 import com.music.bitchord.ui.components.DownloadedBadge
 import com.music.bitchord.ui.components.ExplicitSongTitle
@@ -393,7 +394,12 @@ fun DetailScreen(
                         artHeight = artHeight,
                         trackCount = songs.size,
                         songs = songs,
-                        onPlay = { onSongClick(songs, 0) },
+                        onPlay = play@{
+                            val index = songs.indices.firstOrNull { index -> AppSettings.isOnline.value ||
+                                songs[index].localUri != null || ':' in songs[index].videoId || songs[index].videoId in Downloads.saved.value }
+                                ?: return@play
+                            onSongClick(songs, index)
+                        },
                         onShuffle = { onShuffle(songs) },
                         searching = searching,
                         onSearch = {
@@ -441,7 +447,12 @@ fun DetailScreen(
                 item(key = "actions") {
                     ActionRow(
                         palette = palette,
-                        onPlay = { onSongClick(songs, 0) },
+                        onPlay = play@{
+                            val index = songs.indices.firstOrNull { index -> AppSettings.isOnline.value ||
+                                songs[index].localUri != null || ':' in songs[index].videoId || songs[index].videoId in Downloads.saved.value }
+                                ?: return@play
+                            onSongClick(songs, index)
+                        },
                         onShuffle = { onShuffle(songs) },
                         subscription = page.subscription?.takeIf { onToggleSubscription != null },
                         onToggleSubscription = onToggleSubscription,

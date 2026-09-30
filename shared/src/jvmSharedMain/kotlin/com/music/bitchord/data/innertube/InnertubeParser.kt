@@ -1,5 +1,6 @@
 package com.music.bitchord.data.innertube
 
+import kotlinx.serialization.Serializable
 import com.music.bitchord.auth.normalizeDataSyncId
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
@@ -895,6 +896,7 @@ object InnertubeParser {
     }
 
     /** How an album or playlist page bills itself, off its own header. */
+    @Serializable
     data class BrowseHeader(
         val title: String,
         /** The line under it — "Album • Artist • 2024", or a playlist's blurb. */

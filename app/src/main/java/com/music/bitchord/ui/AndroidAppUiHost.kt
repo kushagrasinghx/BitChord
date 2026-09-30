@@ -16,6 +16,12 @@ object AndroidAppUiHost : AppUiHost {
     override val librarySort = AppSettings.librarySort
 
     @Composable
+    override fun isOnline(): Boolean {
+        val online by AppSettings.isOnline.collectAsStateWithLifecycle()
+        return online
+    }
+
+    @Composable
     override fun downloadedIds(): Set<String> {
         val saved by Downloads.saved.collectAsStateWithLifecycle()
         return saved.keys

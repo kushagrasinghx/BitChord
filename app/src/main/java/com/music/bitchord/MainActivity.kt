@@ -66,6 +66,8 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Upgrade
+import com.music.bitchord.data.playlistPlayback
+import com.music.bitchord.data.LibraryCache
 import com.music.bitchord.data.listentogether.ServerConnectionState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -705,7 +707,9 @@ private fun BitChordApp(
     // `local:playlist:` prefix; a release still reachable by its real id (an
     // album's own page, a search hit) is looked up directly under that instead.
     val downloadIdFor: (String?) -> String? = { id ->
-        id?.let { Downloads.recordIdOf(it) ?: it }?.takeIf { it in savedCollections }
+        id?.let { requested -> savedCollections.keys.firstOrNull { key ->
+            LibraryCache.canonicalPlaylistId(key) == LibraryCache.canonicalPlaylistId(requested)
+        } }
     }
     LaunchedEffect(savedDownloads, savedCollections, detail?.browseId) {
         val openPage = detail ?: return@LaunchedEffect
@@ -719,7 +723,8 @@ private fun BitChordApp(
         // the same disk work twice on every open, which was especially visible
         // for large download libraries and slow content providers.
         if (openPage.songs !is UiState.Loading &&
-            (open == "local:downloads" || Downloads.recordIdOf(open) != null)
+            (open == "local:downloads" || Downloads.recordIdOf(open) != null ||
+                (openPage.type == BrowseType.PLAYLIST && downloadIdFor(open) != null))
         ) {
             viewModel.reloadLocalDetail(open)
         }
@@ -1126,11 +1131,15 @@ private fun BitChordApp(
         }
     }
 
-    val playFrom: (List<Song>, Int, QueueSource) -> Unit = { songs, index, source ->
+    val playFrom: (List<Song>, Int, QueueSource) -> Unit = { requestedSongs, requestedIndex, source ->
         playRequestGeneration++
         activeRadioSeed = null
         scope.launch {
             if (refusedByHost()) return@launch
+            val playable = playlistPlayback(requestedSongs, requestedIndex, AppSettings.isOnline.value, Downloads.saved.value)
+                ?: return@launch
+            val songs = playable.songs
+            val index = playable.index
             val c = controller ?: return@launch
             val currentTimeline = player.queue.takeIf { it.size == c.mediaItemCount }
                 ?: (0 until c.mediaItemCount).map { c.getMediaItemAt(it).toSong() }
@@ -1833,7 +1842,7 @@ private fun BitChordApp(
         // after this check for the connection to have changed under it. This is
         // the one place that knows the tap was for forty tracks and can say so
         // once, rather than leaving forty identical failed rows to be read.
-        val blocked = songs.isNotEmpty() && !AppSettings.downloadsAllowedNow
+        val blocked = songs.isNotEmpty() && (!AppSettings.isOnline.value || !AppSettings.downloadsAllowedNow)
         if (songs.isNotEmpty() && !blocked) {
             val needsStorage = AppSettings.exportDownloads.value && DownloadStore.needsLegacyPermission() &&
                 ContextCompat.checkSelfPermission(
@@ -1869,6 +1878,7 @@ private fun BitChordApp(
         // nothing on disk for it to group.
         if (from != null && !blocked) {
             Downloads.rememberCollection(from, requested)
+            viewModel.rememberDownloadedPlaylist(from)
             // A collection cover is not part of any audio file. Cache the
             // header image separately so its Downloads card still has artwork
             // with no connection, then atomically replace the remote URL in
@@ -1887,7 +1897,7 @@ private fun BitChordApp(
             // long message. So this one is said whatever the count.
             blocked -> Toast.makeText(
                 context,
-                context.getString(R.string.wifi_only_download_refusal),
+                context.getString(if (AppSettings.isOnline.value) R.string.wifi_only_download_refusal else R.string.library_download_offline),
                 Toast.LENGTH_LONG,
             ).show()
             requested.size > 1 -> {
@@ -2599,11 +2609,13 @@ private fun BitChordApp(
                             },
                             onSongLongPress = openSongMenu,
                             onSongSwipe = onSongSwipe,
-                            onShuffle = { songs ->
+                            onShuffle = shuffle@{ songs ->
                                 QueueShuffle.enableForNextQueue()
                                 playFrom(
                                     songs,
-                                    songs.indices.random(),
+                                    songs.indices.filter { index -> AppSettings.isOnline.value ||
+                                        songs[index].localUri != null || songs[index].videoId in Downloads.saved.value }
+                                        .randomOrNull() ?: return@shuffle,
                                     QueueSource(page.title, PlaybackSourceType.BROWSE, page.browseId),
                                 )
                             },
@@ -2663,14 +2675,16 @@ private fun BitChordApp(
                             },
                             onSongLongPress = { openSongMenu(withAlbum(it)) },
                             onSongSwipe = onSongSwipe,
-                            onShuffle = { songs ->
+                            onShuffle = shuffle@{ songs ->
                                 // Shuffle goes on first so the queue is built shuffled
                                 // as it is set — the random pick here only decides
                                 // which track leads it.
                                 QueueShuffle.enableForNextQueue()
                                 playFrom(
                                     songs,
-                                    songs.indices.random(),
+                                    songs.indices.filter { index -> AppSettings.isOnline.value ||
+                                        songs[index].localUri != null || ':' in songs[index].videoId || songs[index].videoId in Downloads.saved.value }
+                                        .randomOrNull() ?: return@shuffle,
                                     QueueSource(page.title, PlaybackSourceType.BROWSE, page.browseId),
                                 )
                             },
@@ -3819,13 +3833,21 @@ private fun BitChordApp(
                     target = target.copy(playlist = playlist),
                     onPlayNext = act(playSongsNext),
                     onAddToQueue = act(addSongsToQueue),
-                    onPlay = act { songs -> play(songs, 0) }.takeIf { target.fromCard },
-                    onShuffle = act { songs ->
+                    onPlay = act play@{ songs ->
+                        val index = songs.indices.firstOrNull { index -> AppSettings.isOnline.value ||
+                            songs[index].localUri != null || ':' in songs[index].videoId || songs[index].videoId in Downloads.saved.value }
+                            ?: return@play
+                        play(songs, index)
+                    }.takeIf { target.fromCard },
+                    onShuffle = act shuffle@{ songs ->
                         // As on a release page: shuffle goes on before the queue
                         // is built, so it is built shuffled rather than played
                         // out of order.
                         QueueShuffle.enableForNextQueue()
-                        play(songs, songs.indices.random())
+                        val index = songs.indices.filter { index -> AppSettings.isOnline.value ||
+                            songs[index].localUri != null || ':' in songs[index].videoId || songs[index].videoId in Downloads.saved.value }
+                            .randomOrNull() ?: return@shuffle
+                        play(songs, index)
                     }.takeIf { target.fromCard },
                     onOpen = target.browseId
                         ?.takeIf { target.fromCard }

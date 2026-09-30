@@ -417,6 +417,11 @@
     <string name="enable_anyway">להפעיל בכל זאת</string>
     <string name="sources_subtitle">מאיפה מגיע האודיו והסדר שבו נעשה שימוש</string>
     <string name="source_matching">התאמת מקורות</string>
+    <string name="show_in_library">הצגה בספרייה</string>
+    <string name="remote_library_visibility_subtitle">הצגת המקור הזה בספרייה. הסתרתו שומרת את הגדרות החיבור.</string>
+    <string name="local_library_visibility_subtitle">הצגת תיקיית המוזיקה המקומית בספרייה.</string>
+    <string name="keep_library_cached">שמירת הספרייה במטמון</string>
+    <string name="keep_library_cached_subtitle">שמירת שמות פלייליסטים, עטיפות ורשימות שירים לפתיחה מיידית ולגישה ללא חיבור. עדכון ברקע כשיש חיבור לרשת.</string>
     <string name="upgrade_length_slack">סבילות אורך רצועה</string>
     <string name="upgrade_length_slack_subtitle">הפרש המשך המרבי המותר לזרם חלופי</string>
     <string name="upgrade_length_slack_footer">סבילות גדולה יותר מקבלת יותר התאמות ממקורות; סבילות קטנה יותר מחמירה יותר. ברירת המחדל היא 3 שניות.</string>

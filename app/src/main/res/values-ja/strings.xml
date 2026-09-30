@@ -438,6 +438,11 @@
     <string name="enable_anyway">有効にする</string>
     <string name="sources_subtitle">音声の取得元と使用する順序</string>
     <string name="source_matching">ソースの照合</string>
+    <string name="show_in_library">ライブラリに表示</string>
+    <string name="remote_library_visibility_subtitle">このソースをライブラリに表示します。非表示にしても接続設定は保存されます。</string>
+    <string name="local_library_visibility_subtitle">ローカルの音楽フォルダをライブラリに表示します。</string>
+    <string name="keep_library_cached">ライブラリをキャッシュする</string>
+    <string name="keep_library_cached_subtitle">プレイリスト名、アートワーク、曲一覧を保存し、すぐに開いたりオフラインでアクセスしたりできます。オンライン時にバックグラウンドで更新します。</string>
     <string name="upgrade_length_slack">曲の長さの許容差</string>
     <string name="upgrade_length_slack_subtitle">差し替えストリームで許容する長さの最大差</string>
     <string name="upgrade_length_slack_footer">許容差を大きくするとソースの一致が増え、小さくすると厳しくなります。既定値は3秒です。</string>

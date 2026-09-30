@@ -499,6 +499,11 @@
     <string name="enable_anyway">Attiva comunque</string>
     <string name="sources_subtitle">Da dove proviene l\'audio e l\'ordine usato</string>
     <string name="source_matching">Corrispondenza delle sorgenti</string>
+    <string name="show_in_library">Mostra nella libreria</string>
+    <string name="remote_library_visibility_subtitle">Mostra questa sorgente nella libreria. Nasconderla mantiene salvata la connessione.</string>
+    <string name="local_library_visibility_subtitle">Mostra la cartella Musica locale nella libreria.</string>
+    <string name="keep_library_cached">Mantieni la libreria nella cache</string>
+    <string name="keep_library_cached_subtitle">Salva nomi delle playlist, copertine ed elenchi dei brani per aprirli subito e consultarli offline. Aggiorna in background quando sei online.</string>
     <string name="upgrade_length_slack">Tolleranza sulla durata</string>
     <string name="upgrade_length_slack_subtitle">Differenza di durata massima consentita per uno stream sostitutivo</string>
     <string name="upgrade_length_slack_footer">Una tolleranza più ampia accetta più corrispondenze; una più stretta è più severa. Il valore predefinito è 3 secondi.</string>

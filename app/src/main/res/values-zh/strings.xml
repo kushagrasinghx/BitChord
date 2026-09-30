@@ -438,6 +438,11 @@
     <string name="enable_anyway">仍然启用</string>
     <string name="sources_subtitle">音频的来源及使用顺序</string>
     <string name="source_matching">来源匹配</string>
+    <string name="show_in_library">在资料库中显示</string>
+    <string name="remote_library_visibility_subtitle">在资料库中显示此来源。隐藏后仍会保留连接设置。</string>
+    <string name="local_library_visibility_subtitle">在资料库中显示本地音乐文件夹。</string>
+    <string name="keep_library_cached">保留资料库缓存</string>
+    <string name="keep_library_cached_subtitle">保存播放列表名称、封面和曲目列表，以便即时打开和离线访问。联网时在后台更新。</string>
     <string name="upgrade_length_slack">曲目时长容差</string>
     <string name="upgrade_length_slack_subtitle">替换音频流允许的最大时长差</string>
     <string name="upgrade_length_slack_footer">容差越大，接受的来源匹配越多；容差越小则越严格。默认为 3 秒。</string>

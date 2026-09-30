@@ -481,6 +481,11 @@
     <string name="enable_anyway">Yine de etkinleştir</string>
     <string name="sources_subtitle">Sesin nereden geldiği ve kullanılan sıra</string>
     <string name="source_matching">Kaynak eşleştirme</string>
+    <string name="show_in_library">Kitaplıkta göster</string>
+    <string name="remote_library_visibility_subtitle">Bu kaynağı kitaplıkta göster. Gizlemek, kayıtlı bağlantı ayarlarını korur.</string>
+    <string name="local_library_visibility_subtitle">Yerel Müzik klasörünü kitaplıkta göster.</string>
+    <string name="keep_library_cached">Kitaplığı önbellekte tut</string>
+    <string name="keep_library_cached_subtitle">Anında açmak ve çevrimdışı erişmek için çalma listesi adlarını, kapakları ve parça listelerini kaydet. Çevrimiçi olduğunda arka planda güncelle.</string>
     <string name="upgrade_length_slack">Parça süresi toleransı</string>
     <string name="upgrade_length_slack_subtitle">Yedek akış için izin verilen en fazla süre farkı</string>
     <string name="upgrade_length_slack_footer">Daha büyük tolerans daha fazla kaynak eşleşmesi kabul eder; daha küçük tolerans daha katıdır. Varsayılan 3 saniyedir.</string>

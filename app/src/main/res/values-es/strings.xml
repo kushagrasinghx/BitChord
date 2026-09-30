@@ -465,6 +465,11 @@
     <string name="enable_anyway">Activar de todos modos</string>
     <string name="sources_subtitle">Origen del audio y orden de prioridad</string>
     <string name="source_matching">Coincidencia de fuentes</string>
+    <string name="show_in_library">Mostrar en la biblioteca</string>
+    <string name="remote_library_visibility_subtitle">Mostrar esta fuente en la biblioteca. Al ocultarla, su conexión sigue guardada.</string>
+    <string name="local_library_visibility_subtitle">Mostrar la carpeta Música local en la biblioteca.</string>
+    <string name="keep_library_cached">Mantener la biblioteca en caché</string>
+    <string name="keep_library_cached_subtitle">Guardar nombres de listas, carátulas y canciones para abrirlas al instante y acceder sin conexión. Actualizar en segundo plano cuando haya conexión.</string>
     <string name="upgrade_length_slack">Tolerancia de duración</string>
     <string name="upgrade_length_slack_subtitle">Diferencia máxima de duración permitida para un stream de reemplazo</string>
     <string name="upgrade_length_slack_footer">Una tolerancia mayor acepta más coincidencias de fuentes; una menor es más estricta. El valor predeterminado es 3 segundos.</string>

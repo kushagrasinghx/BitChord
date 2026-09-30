@@ -466,6 +466,11 @@
     <string name="enable_anyway">เปิดใช้ต่อไป</string>
     <string name="sources_subtitle">เสียงมาจากที่ใดและลำดับที่ใช้</string>
     <string name="source_matching">การจับคู่แหล่งที่มา</string>
+    <string name="show_in_library">แสดงในคลังเพลง</string>
+    <string name="remote_library_visibility_subtitle">แสดงแหล่งเพลงนี้ในคลังเพลง การซ่อนจะยังคงบันทึกการตั้งค่าการเชื่อมต่อไว้</string>
+    <string name="local_library_visibility_subtitle">แสดงโฟลเดอร์เพลงในเครื่องในคลังเพลง</string>
+    <string name="keep_library_cached">เก็บแคชคลังเพลงไว้</string>
+    <string name="keep_library_cached_subtitle">บันทึกชื่อเพลย์ลิสต์ ปก และรายการเพลงเพื่อเปิดได้ทันทีและเข้าถึงแบบออฟไลน์ อัปเดตเบื้องหลังเมื่อออนไลน์</string>
     <string name="upgrade_length_slack">ค่าคลาดเคลื่อนของความยาวแทร็ก</string>
     <string name="upgrade_length_slack_subtitle">ความต่างของความยาวสูงสุดที่ยอมรับสำหรับสตรีมทดแทน</string>
     <string name="upgrade_length_slack_footer">ค่าคลาดเคลื่อนที่มากขึ้นจะยอมรับการจับคู่ได้มากขึ้น ค่าที่น้อยลงจะเข้มงวดกว่า ค่าเริ่มต้นคือ 3 วินาที</string>

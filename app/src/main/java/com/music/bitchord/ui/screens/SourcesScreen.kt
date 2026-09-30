@@ -123,6 +123,10 @@ fun SourcesScreen(
     val smbShare by AppSettings.smbShare.collectAsStateWithLifecycle()
     val smbUsername by AppSettings.smbUsername.collectAsStateWithLifecycle()
     val smbPassword by AppSettings.smbPassword.collectAsStateWithLifecycle()
+    val showWebDavInLibrary by AppSettings.showWebDavInLibrary.collectAsStateWithLifecycle()
+    val showSmbInLibrary by AppSettings.showSmbInLibrary.collectAsStateWithLifecycle()
+    val showLocalMusicInLibrary by AppSettings.showLocalMusicInLibrary.collectAsStateWithLifecycle()
+    val cacheLibrary by AppSettings.cacheLibrary.collectAsStateWithLifecycle()
 
     /** Last known reachability per source, filled in as the probes come back. */
     val health = remember { mutableStateMapOf<String, SourceHealth>() }
@@ -288,6 +292,8 @@ fun SourcesScreen(
             disconnectTitle = stringResource(R.string.webdav_disconnect),
             configured = webdavUrl.isNotBlank(),
             testFailedRes = R.string.webdav_test_failed,
+            showInLibrary = showWebDavInLibrary,
+            onShowInLibraryChange = AppSettings::setShowWebDavInLibrary,
             onEdit = onEditWebDav,
             onTest = {
                 WebDavRepository.testConnection(webdavUrl, webdavUsername, webdavPassword)
@@ -313,6 +319,8 @@ fun SourcesScreen(
             disconnectTitle = stringResource(R.string.smb_disconnect),
             configured = smbHost.isNotBlank() && smbShare.isNotBlank(),
             testFailedRes = R.string.smb_test_failed,
+            showInLibrary = showSmbInLibrary,
+            onShowInLibraryChange = AppSettings::setShowSmbInLibrary,
             onEdit = onEditSmb,
             onTest = {
                 SmbRepository.testConnection(
@@ -325,6 +333,44 @@ fun SourcesScreen(
             },
             onDisconnect = { AppSettings.clearSmb() },
         )
+
+        SettingsGroup(header = stringResource(R.string.local_music)) {
+            SettingsRow(
+                icon = Icons.Rounded.Storage,
+                title = stringResource(R.string.show_in_library),
+                subtitle = stringResource(R.string.local_library_visibility_subtitle),
+                onClick = { AppSettings.setShowLocalMusicInLibrary(!showLocalMusicInLibrary) },
+                trailing = {
+                    Switch(
+                        checked = showLocalMusicInLibrary,
+                        onCheckedChange = AppSettings::setShowLocalMusicInLibrary,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+            )
+        }
+
+        SettingsGroup(header = stringResource(R.string.library)) {
+            SettingsRow(
+                icon = Icons.Rounded.Cloud,
+                title = stringResource(R.string.keep_library_cached),
+                subtitle = stringResource(R.string.keep_library_cached_subtitle),
+                onClick = { AppSettings.setCacheLibrary(!cacheLibrary) },
+                trailing = {
+                    Switch(
+                        checked = cacheLibrary,
+                        onCheckedChange = AppSettings::setCacheLibrary,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            checkedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                },
+            )
+        }
 
         SettingsGroup(
             header = stringResource(R.string.source_matching),
@@ -369,6 +415,8 @@ private fun RemoteLibrarySection(
     disconnectTitle: String,
     configured: Boolean,
     testFailedRes: Int,
+    showInLibrary: Boolean,
+    onShowInLibraryChange: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onTest: suspend () -> Result<Unit>,
     onDisconnect: () -> Unit,
@@ -379,6 +427,12 @@ private fun RemoteLibrarySection(
     var testResult by remember { mutableStateOf<String?>(null) }
     SettingsGroup(header = title, footer = description) {
         SettingsRow(icon = icon, title = title, subtitle = subtitle, onClick = onEdit)
+        SettingsSubRow(
+            title = stringResource(R.string.show_in_library),
+            checked = showInLibrary,
+            onCheckedChange = onShowInLibraryChange,
+            subtitle = stringResource(R.string.remote_library_visibility_subtitle),
+        )
         if (configured) {
             RowDivider()
             SettingsRow(

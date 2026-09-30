@@ -28,6 +28,13 @@ interface AppUiHost {
     /** How a Library "Show all" grid is ordered. */
     val librarySort: StateFlow<LibrarySort>
 
+    /**
+     * Whether internet-backed tracks can be fetched. Hosts without connection
+     * reporting retain their existing track presentation.
+     */
+    @Composable
+    fun isOnline(): Boolean = true
+
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable
     fun downloadedIds(): Set<String>

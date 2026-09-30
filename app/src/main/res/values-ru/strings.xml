@@ -471,6 +471,11 @@
     <string name="enable_anyway">Всё равно включить</string>
     <string name="sources_subtitle">Откуда поступает аудио и в каком порядке</string>
     <string name="source_matching">Сопоставление источников</string>
+    <string name="show_in_library">Показывать в библиотеке</string>
+    <string name="remote_library_visibility_subtitle">Показывать этот источник в библиотеке. При скрытии настройки подключения сохраняются.</string>
+    <string name="local_library_visibility_subtitle">Показывать папку локальной музыки в библиотеке.</string>
+    <string name="keep_library_cached">Сохранять библиотеку в кэше</string>
+    <string name="keep_library_cached_subtitle">Сохранять названия плейлистов, обложки и списки треков для мгновенного открытия и доступа офлайн. Обновлять в фоне при подключении к сети.</string>
     <string name="upgrade_length_slack">Допуск по длительности</string>
     <string name="upgrade_length_slack_subtitle">Максимальная разница в длительности для замещающего потока</string>
     <string name="upgrade_length_slack_footer">Больший допуск принимает больше совпадений из источников; меньший — строже. По умолчанию 3 секунды.</string>

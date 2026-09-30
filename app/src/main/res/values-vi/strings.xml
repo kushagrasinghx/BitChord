@@ -479,6 +479,11 @@
     <string name="sources_quality_capped">Kết nối này được đặt dưới chất lượng Cao, vì vậy luồng phát sẽ được chuyển mã để phù hợp giới hạn đó. Việc tải xuống không bị ảnh hưởng.</string>
     <string name="sources_subtitle">Nguồn cung cấp âm thanh và thứ tự ưu tiên</string>
     <string name="source_matching">Khớp nguồn</string>
+    <string name="show_in_library">Hiển thị trong thư viện</string>
+    <string name="remote_library_visibility_subtitle">Hiển thị nguồn này trong thư viện. Khi ẩn, cài đặt kết nối vẫn được lưu.</string>
+    <string name="local_library_visibility_subtitle">Hiển thị thư mục Nhạc trên thiết bị trong thư viện.</string>
+    <string name="keep_library_cached">Giữ bộ nhớ đệm thư viện</string>
+    <string name="keep_library_cached_subtitle">Lưu tên danh sách phát, ảnh bìa và danh sách bài hát để mở ngay và truy cập ngoại tuyến. Cập nhật trong nền khi có kết nối mạng.</string>
     <string name="upgrade_length_slack">Dung sai độ dài bản nhạc</string>
     <string name="upgrade_length_slack_subtitle">Chênh lệch thời lượng tối đa cho phép của luồng thay thế</string>
     <string name="upgrade_length_slack_footer">Dung sai lớn hơn chấp nhận nhiều kết quả khớp hơn; dung sai nhỏ hơn sẽ chặt chẽ hơn. Mặc định là 3 giây.</string>

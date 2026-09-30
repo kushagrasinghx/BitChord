@@ -78,6 +78,7 @@ import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.webdav.WebDavUploads
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
@@ -195,7 +196,7 @@ fun SongActionsSheet(
     val disliked = likeStatus == LikeStatus.DISLIKE
     // A local file or a finished download has no YouTube identity behind it to
     // rate, save, queue into a playlist, fetch again, or share a link for.
-    val isOffline = song.localUri != null
+    val isDeviceTrack = song.localUri != null
 
     TintedSheet(palette = palette, imageUrl = song.thumbnailUrl, modifier = modifier) {
         if (pickingSleepTimer) {
@@ -255,7 +256,7 @@ fun SongActionsSheet(
             )
         }
 
-        if (signedIn && !isOffline) {
+        if (signedIn && !isDeviceTrack) {
             ActionRow(
                 icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 label = if (liked) stringResource(R.string.remove_from_liked) else stringResource(R.string.like),
@@ -291,8 +292,8 @@ fun SongActionsSheet(
             )
         }
 
-        DownloadRow(song, palette, isOffline, onDownload)
-        WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
+        DownloadRow(song, palette, isDeviceTrack, onDownload)
+        WebDavUploadRow(song, palette, isDeviceTrack, onUploadToWebDav)
         ActionRow(
             icon = Icons.Rounded.Radio,
             label = stringResource(R.string.start_radio),
@@ -351,7 +352,7 @@ fun SongActionsSheet(
                 onClick = it,
             )
         }
-        if (!isOffline) {
+        if (!isDeviceTrack) {
             onShare?.let {
                 ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
             }
@@ -450,11 +451,12 @@ private val SHEET_SHAPE = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
  * arrangement the sleep timer row already uses.
  */
 @Composable
-private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean, onDownload: () -> Unit) {
+private fun DownloadRow(song: Song, palette: ArtworkPalette, isDeviceTrack: Boolean, onDownload: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val active by Downloads.active.collectAsStateWithLifecycle()
     val saved by Downloads.saved.collectAsStateWithLifecycle()
+    val isOnline by AppSettings.isOnline.collectAsStateWithLifecycle()
 
     // The record is a claim about a folder the user manages themselves, so it
     // is checked against the disk rather than trusted — re-checked whenever the
@@ -497,11 +499,12 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
         is DownloadState.Failed -> ActionRow(
             icon = Icons.Rounded.ErrorOutline,
             label = state.reason,
-            value = stringResource(R.string.retry),
+            value = stringResource(if (isOnline) R.string.retry else R.string.library_download_offline),
             // Not the artwork's colour: a failure has to stay legible as a
             // failure whatever the sleeve happens to be tinted.
             tint = MaterialTheme.colorScheme.error,
             accent = MaterialTheme.colorScheme.error,
+            enabled = isOnline,
             onClick = onDownload,
         )
 
@@ -513,11 +516,13 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
                 tint = palette.accent,
                 accent = palette.accent,
             ) { scope.launch { Downloads.delete(context, song.videoId) } }
-        } else if (!isOffline) {
+        } else if (!isDeviceTrack) {
             ActionRow(
                 icon = Icons.Rounded.Download,
                 label = stringResource(R.string.download),
+                value = if (isOnline) null else stringResource(R.string.library_download_offline),
                 accent = palette.accent,
+                enabled = isOnline,
                 onClick = onDownload,
             )
         }
@@ -537,11 +542,11 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
 private fun WebDavUploadRow(
     song: Song,
     palette: ArtworkPalette,
-    isOffline: Boolean,
+    isDeviceTrack: Boolean,
     onUpload: (() -> Unit)?,
 ) {
     onUpload ?: return
-    if (!isOffline || !WebDavUploads.isUploadable(song)) return
+    if (!isDeviceTrack || !WebDavUploads.isUploadable(song)) return
     val active by WebDavUploads.active.collectAsStateWithLifecycle()
     when (val state = active[song.videoId]) {
         is WebDavUploads.TrackState.Running -> ActionRow(

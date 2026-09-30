@@ -5,9 +5,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.pointerInput
 
 /**
@@ -22,19 +20,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 private const val TAP_SLOP_FACTOR = 2.5f
 
 /**
- * Intercept a lower-half tap before a lyric row can seek; leave real drags to
- * the list.
+ * Reveal the controls from an unhandled lower-half tap.
  *
- * Runs on [PointerEventPass.Initial], which is what makes the disambiguation
- * possible at all: this sees each event before the list does, and while the
- * finger is still inside [TAP_SLOP_FACTOR] it *consumes* the movement, so the
- * list never reaches its own slop and never takes the gesture away. Past that
- * distance the consuming stops, the deltas flow through, and what is left is an
- * ordinary scroll that began a few pixels late.
- *
- * The dead zone that costs only exists while [enabled] — that is, only while
- * the controls are away and a tap has something to do. With them on screen this
- * detector is absent entirely and the list scrolls off its own slop as usual.
+ * Lyric rows get first refusal: this observes the final pointer pass and only
+ * reveals when no row claimed the tap. It never consumes, so scrolling keeps
+ * the platform's normal touch slop.
  */
 @Composable
 internal fun Modifier.revealLyricsControlsOnTap(
@@ -49,30 +39,27 @@ internal fun Modifier.revealLyricsControlsOnTap(
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             if (down.position.y < size.height / 2f) return@awaitEachGesture
             var dragged = false
+            var claimed = down.isConsumed
             do {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val event = awaitPointerEvent(PointerEventPass.Final)
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                claimed = claimed || change.isConsumed
                 if ((change.position - down.position).getDistance() > tapSlop ||
                     event.changes.size > 1
                 ) {
                     dragged = true
-                } else if (change.positionChange() != Offset.Zero) {
-                    // Still a tap as far as this is concerned, so hold the list
-                    // still rather than let it read the wobble as the start of a
-                    // scroll it would then own.
-                    change.consume()
                 }
                 if (!change.pressed) {
-                    if (!dragged) {
-                        change.consume()
-                        currentOnReveal.value()
-                    }
+                    if (shouldRevealLyricsControls(dragged, claimed)) currentOnReveal.value()
                     break
                 }
             } while (true)
         }
     }
 }
+
+internal fun shouldRevealLyricsControls(dragged: Boolean, claimed: Boolean): Boolean =
+    !dragged && !claimed
 
 /**
  * Toggle Spotify Canvas controls from an unhandled video tap.

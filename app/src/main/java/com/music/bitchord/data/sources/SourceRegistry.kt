@@ -36,6 +36,8 @@ data class SourceConfig(
     val baseUrl: String = "",
     /** JioSaavn is opt-in because catalogue matches can select the wrong recording. */
     val enabled: Boolean = kind != SourceKind.JIOSAAVN,
+    val username: String = "",
+    val password: String = "",
 ) {
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
@@ -247,7 +249,6 @@ object SourceRegistry {
      * see [SourcesScreen][com.music.bitchord.ui.screens.SourcesScreen].
      */
     fun setEnabled(configId: String, enabled: Boolean) {
-        if (!enabled && config(configId)?.kind == SourceKind.YOUTUBE) return
         publish(configs.value.map { if (it.id == configId) it.copy(enabled = enabled) else it })
     }
 
@@ -321,7 +322,7 @@ object SourceRegistry {
      * its on/off state; a new source gets a fresh config.
      */
     suspend fun identify(url: String, existing: SourceConfig? = null): Result<SourceConfig> {
-        val detected = SourceFormats.identify(url).getOrElse { return Result.failure(it) }
+        val detected = SourceFormats.identify(url, existing?.username, existing?.password).getOrElse { return Result.failure(it) }
         return when (detected) {
             is DetectedFormat.Addon -> Result.success(
                 (existing ?: SourceConfig(kind = SourceKind.ADDON)).copy(
@@ -337,6 +338,13 @@ object SourceRegistry {
                     // document, where an addon's manifest only points at one.
                     baseUrl = detected.url,
                     label = existing?.label.orEmpty(),
+                ),
+            )
+            is DetectedFormat.OpenSubsonic -> Result.success(
+                (existing ?: SourceConfig(kind = SourceKind.OPENSUBSONIC)).copy(
+                    kind = SourceKind.OPENSUBSONIC,
+                    baseUrl = detected.url,
+                    label = existing?.label?.takeIf { it.isNotBlank() } ?: detected.url.toHttpUrlOrNull()?.host ?: "OpenSubsonic",
                 ),
             )
             is DetectedFormat.Unsupported -> Result.failure(AddonException(detected.reason))
@@ -399,6 +407,7 @@ object SourceRegistry {
         SourceKind.MODULE -> ModuleSource(config)
         SourceKind.JIOSAAVN -> JioSaavnSource(config)
         SourceKind.YOUTUBE -> YouTubeSource(config)
+        SourceKind.OPENSUBSONIC -> com.music.bitchord.data.opensubsonic.OpenSubsonicSource(config)
     }
 
     /**

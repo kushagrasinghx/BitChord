@@ -231,19 +231,8 @@ fun SourcesScreen(
                         // delete. JioSaavn and YouTube have no address to
                         // change, so a tap on them would open an empty editor.
                         onClick = if (config.kind.needsServer) ({ onEditSource(config) }) else null,
-                        // YouTube gets no switch at all — see
-                        // [SourceRegistry.setEnabled] for why one would be a lie.
-                        onToggle = if (config.kind == SourceKind.YOUTUBE) {
-                            null
-                        } else {
-                            ({ enabled ->
-                                if (config.kind == SourceKind.JIOSAAVN && enabled && !config.enabled) {
-                                    onConfirmJioSaavn()
-                                } else {
-                                    SourceRegistry.setEnabled(config.id, enabled)
-                                }
-                            })
-                        },
+                        // All sources can be toggled now.
+                        onToggle = { SourceRegistry.setEnabled(config.id, it) },
                         handle = handle,
                     )
                 }
@@ -686,6 +675,7 @@ private fun SourceRow(
                 SourceKind.MODULE -> Icons.Rounded.Extension
                 SourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq // or some other icon
                 SourceKind.YOUTUBE -> Icons.Rounded.PlayCircle
+                SourceKind.OPENSUBSONIC -> Icons.Rounded.GraphicEq
             },
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onBackground,
@@ -806,6 +796,9 @@ internal fun SourceEditorAlert(
 ) {
     val isNew = SourceRegistry.config(config.id) == null
     var baseUrl by remember { mutableStateOf(config.baseUrl) }
+    var label by remember { mutableStateOf(config.label) }
+    var username by remember { mutableStateOf(config.username) }
+    var password by remember { mutableStateOf(config.password) }
     var busy by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var statusIsGood by remember { mutableStateOf(false) }
@@ -826,17 +819,22 @@ internal fun SourceEditorAlert(
         busy = true
         status = null
         scope.launch {
+            val configToTest = config.takeUnless { isNew }?.copy(username = username.trim(), password = password, label = label.trim())
+                ?: SourceConfig(kind = SourceKind.ADDON, username = username.trim(), password = password, label = label.trim())
             val identified = withContext(Dispatchers.IO) {
-                runCatching { SourceRegistry.identify(baseUrl.trim(), config.takeUnless { isNew }) }
+                runCatching { SourceRegistry.identify(baseUrl.trim(), configToTest) }
                     .getOrElse { Result.failure(it) }
             }
-            val found = identified.getOrNull()
+            var found = identified.getOrNull()
             if (found == null) {
                 statusIsGood = false
                 status = identified.exceptionOrNull()?.message ?: unreadable
                 busy = false
                 return@launch
             }
+            
+            // Ensure username and password are saved on the resulting config
+            found = found.copy(username = username.trim(), password = password, label = label.trim())
 
             // Already here? Checked against the *identified* base rather than
             // the typed text, so an addon's root and its manifest.json are
@@ -897,6 +895,12 @@ internal fun SourceEditorAlert(
         // would report "Connected" over a URL nobody has tried.
         onUrlChange = { baseUrl = it; status = null },
         urlPlaceholder = "https://my-addon.example.com",
+        nameValue = label,
+        onNameChange = { label = it; status = null },
+        usernameValue = username,
+        onUsernameChange = { username = it; status = null },
+        passwordValue = password,
+        onPasswordChange = { password = it; status = null },
         status = status,
         statusIsGood = statusIsGood,
         testing = busy,

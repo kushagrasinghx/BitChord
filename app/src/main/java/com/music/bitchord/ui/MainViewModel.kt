@@ -94,6 +94,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _signedIn = MutableStateFlow(authStore.isSignedIn)
     val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()
 
+
+
+    private val _activeHomeTab = MutableStateFlow(HOME_TAB_UNIFIED)
+    val activeHomeTab: StateFlow<String> = _activeHomeTab.asStateFlow()
+
     private val _home = MutableStateFlow<UiState<List<HomeShelf>>>(UiState.Loading)
     val home: StateFlow<UiState<List<HomeShelf>>> = _home.asStateFlow()
 
@@ -1406,6 +1411,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_detailStack.value.isNotEmpty()) _detailStack.value = emptyList()
     }
 
+    fun setHomeTab(tabId: String) {
+        if (_activeHomeTab.value == tabId) return
+        _activeHomeTab.value = tabId
+        loadHome()
+    }
+
     fun loadHome() {
         val identity = listenerKey()
         val generation = homeLoadGeneration.incrementAndGet()
@@ -1414,6 +1425,39 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         homeSeenTitles.clear()
         _homeLoadingMore.value = false
         _homeRecentlyPlayedLoading.value = _signedIn.value
+        
+        val currentTab = _activeHomeTab.value
+        if (currentTab != HOME_TAB_UNIFIED) {
+            _homeRecentlyPlayedLoading.value = false
+            _homePendingShelves.value = 1
+            viewModelScope.launch {
+                try {
+                    val source = SourceRegistry.instance(currentTab)
+                    if (source != null) {
+                        val shelves = source.homeFeed()
+                        if (isCurrentHomeLoad(identity, generation)) {
+                            publishHomeShelves(shelves)
+                            if (shelves.isEmpty()) {
+                                _home.value = UiState.Error("No home feed available for this source.")
+                            }
+                        }
+                    } else {
+                        if (isCurrentHomeLoad(identity, generation)) {
+                            _home.value = UiState.Error("Source not found.")
+                        }
+                    }
+                } catch (e: Exception) {
+                    if (isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
+                        _home.value = UiState.Error(e.message ?: "Unknown error")
+                    }
+                } finally {
+                    homeShelfRequestSettled(identity, generation)
+                }
+            }
+            return
+        }
+
+        // Unified tab logic (YouTube)
         // The core feed plus one browse per supplement. Recently played is left
         // out: it has its own skeleton at the head of the page rather than the
         // one at the tail.
@@ -1492,8 +1536,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
     }
 
-    /** Refreshes the core feed without blanking the current Play page first. */
     private suspend fun refreshHome(identity: String?) = coroutineScope {
+        val currentTab = _activeHomeTab.value
+        if (currentTab != HOME_TAB_UNIFIED) {
+            val source = SourceRegistry.instance(currentTab)
+            if (source != null) {
+                try {
+                    val shelves = source.homeFeed()
+                    if (identity == listenerKey()) {
+                        homeSeenTitles.clear()
+                        homeContinuation = null
+                        if (shelves.isNotEmpty()) {
+                            _home.value = UiState.Success(shelves)
+                        } else {
+                            _home.value = UiState.Error("No home feed available for this source.")
+                        }
+                    }
+                } catch (e: Exception) {
+                    if (identity == listenerKey()) _home.value = UiState.Error(e.message ?: "Unknown error")
+                }
+            }
+            return@coroutineScope
+        }
+
         val recent = if (_signedIn.value) async { YtMusicRepository.homeRecentlyPlayed() } else null
         YtMusicRepository.home().onSuccess { feed ->
             if (identity != listenerKey()) return@onSuccess
@@ -2066,6 +2131,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        const val HOME_TAB_UNIFIED = "unified"
+
         /**
          * How long a keystroke waits before the typeahead is asked about it.
          *
@@ -2250,6 +2317,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         val songs = LocalMediaRepository.getLocalMusic(context)
                         if (songs.isEmpty()) UiState.Error(text(R.string.no_local_audio_found))
                         else UiState.Success(songs)
+                    }
+                }
+                browseId.startsWith("bitchord://source") -> {
+                    val uri = android.net.Uri.parse(browseId)
+                    val sourceId = uri.getQueryParameter("s") ?: ""
+                    val albumId = uri.getQueryParameter("a")
+                    val playlistId = uri.getQueryParameter("p")
+                    val source = com.music.bitchord.data.sources.SourceRegistry.instance(sourceId)
+                    if (source != null) {
+                        try {
+                            val songs = if (albumId != null) {
+                                source.albumDetails(albumId)
+                            } else if (playlistId != null) {
+                                source.playlistDetails(playlistId)
+                            } else {
+                                emptyList()
+                            }
+                            if (songs.isEmpty()) UiState.Error(text(R.string.no_tracks_here))
+                            else {
+                                // Extract album cover from the first track if not passed in via `thumbnailUrl` or `artwork`
+                                val cover = thumbnailUrl ?: artwork ?: songs.firstOrNull()?.thumbnailUrl
+                                UiState.Success(songs.withArtwork(cover))
+                            }
+                        } catch (e: Exception) {
+                            UiState.Error(e.message ?: "Unknown error")
+                        }
+                    } else {
+                        UiState.Error("Source not found")
                     }
                 }
                 resolved == BrowseType.ARTIST -> {

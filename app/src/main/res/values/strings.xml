@@ -119,6 +119,13 @@
     <string name="testing">Testing…</string>
     <string name="connected">Connected</string>
     <string name="account_integrations">Account &amp; integrations</string>
+    <string name="spotify">Spotify</string>
+    <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
+    <string name="spotify_sign_in">Sign in with Spotify</string>
+    <string name="spotify_disconnect">Disconnect</string>
+    <string name="spotify_empty_playlists">No playlists on this account</string>
+    <string name="spotify_empty_tracks">This playlist has no tracks</string>
+    <string name="spotify_track_unavailable">Couldn\'t find that song on YouTube Music</string>
     <string name="account_scrobbling">Account &amp; scrobbling</string>
     <string name="rich_presence">Rich presence</string>
     <string name="scrobbling">Scrobbling</string>

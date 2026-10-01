@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +43,7 @@ fun AccountAndScrobblingScreen(
     onOpenListenBrainzLogin: () -> Unit,
     onOpenLastfmLogin: () -> Unit,
     onOpenDiscord: () -> Unit,
+    onOpenSpotify: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -60,6 +62,7 @@ fun AccountAndScrobblingScreen(
     val discordToken by AppSettings.discordToken.collectAsStateWithLifecycle()
     val discordUsername by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val discordRpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
+    val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -91,6 +94,20 @@ fun AccountAndScrobblingScreen(
             SettingsGroup {
                 DestructiveRow(label = stringResource(R.string.sign_out), onClick = onSignOut)
             }
+        }
+
+        SettingsGroup(
+            header = stringResource(R.string.spotify),
+            footer = stringResource(R.string.spotify_connect_subtitle),
+        ) {
+            SettingsRow(
+                icon = Icons.Rounded.LibraryMusic,
+                title = stringResource(R.string.spotify),
+                subtitle = stringResource(
+                    if (spotifyConnected.isNotBlank()) R.string.connected else R.string.tap_to_connect,
+                ),
+                onClick = onOpenSpotify,
+            )
         }
 
         SettingsGroup(

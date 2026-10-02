@@ -196,6 +196,8 @@ import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.playback.setQueueDragActive
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.ui.HomeItemLocation
+import com.music.bitchord.ui.HomeRecommendationTarget
 import com.music.bitchord.ui.components.BottomFadeScrim
 import com.music.bitchord.ui.components.BottomTab
 import com.music.bitchord.ui.components.FLOATING_BAR_MAX_WIDTH
@@ -217,6 +219,7 @@ import com.music.bitchord.ui.components.ListenBrainzTokenAlert
 import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.QueueActionNotice
 import com.music.bitchord.ui.components.QueueActionNoticeHost
+import com.music.bitchord.ui.components.RecommendationFeedbackNoticeHost
 import com.music.bitchord.ui.components.TopBarAccountButton
 import com.music.bitchord.ui.components.TopBarBlur
 import com.music.bitchord.ui.components.TopBarDownloadButton
@@ -271,6 +274,11 @@ internal fun shouldSkipAfterDislike(
     currentVideoId: String?,
 ): Boolean = previousStatus != LikeStatus.DISLIKE && targetVideoId == currentVideoId
 
+
+private data class SongActionTarget(
+    val song: Song,
+    val homeRecommendation: HomeRecommendationTarget? = null,
+)
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -497,7 +505,7 @@ private fun BitChordApp(
     var showDiscord by remember { mutableStateOf(false) }
     var showDiscordLogin by remember { mutableStateOf(false) }
     var discordDialog by remember { mutableStateOf<DiscordDialog?>(null) }
-    var songActions by remember { mutableStateOf<Song?>(null) }
+    var songActions by remember { mutableStateOf<SongActionTarget?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
     /**
      * Whether the track menu that is up was opened from the player.
@@ -513,7 +521,7 @@ private fun BitChordApp(
     /** Holding a row anywhere but the player — the menu without the player's rows. */
     val openSongMenu: (Song) -> Unit = { song ->
         menuFromPlayer = false
-        songActions = song
+        songActions = SongActionTarget(song)
     }
     // Whether the player's album/artist lookup (below, for the current track)
     // is still in flight — read by the long-press sheet so it can show a
@@ -560,6 +568,13 @@ private fun BitChordApp(
     val homeState by viewModel.home.collectAsStateWithLifecycle()
     val homeLoadingMore by viewModel.homeLoadingMore.collectAsStateWithLifecycle()
     val homeRecentlyPlayedLoading by viewModel.homeRecentlyPlayedLoading.collectAsStateWithLifecycle()
+    val recommendationFeedbackNotice by
+        viewModel.recommendationFeedbackNotice.collectAsStateWithLifecycle()
+    LaunchedEffect(recommendationFeedbackNotice?.id) {
+        val shown = recommendationFeedbackNotice ?: return@LaunchedEffect
+        delay(5_000)
+        viewModel.dismissRecommendationFeedbackNotice(shown.id)
+    }
 
     // The top bar's icon is the quiet, always-there nudge; this is the
     // once-per-launch popup version of the same news. `updateDialogShown`
@@ -1650,9 +1665,31 @@ private fun BitChordApp(
      * below, so a card that plays a song offers the track menu and a card that
      * opens a page offers the album / playlist one.
      */
-    val onShelfLongPress: (ShelfItem) -> Unit = { item ->
+    val onShelfLongPress: (ShelfItem, Int, Int) -> Unit = { item, shelfIndex, itemIndex ->
+        val recommendation = item.dontRecommendArtist?.let {
+            val shelfTitle = (homeState as? UiState.Success)?.data
+                ?.getOrNull(shelfIndex)?.title ?: return@let null
+            HomeRecommendationTarget(HomeItemLocation(shelfIndex, itemIndex, shelfTitle), item)
+        }
         val song = shelfSong(item)
-        if (song != null) openSongMenu(song) else onBrowseLongPress(item)
+        if (song != null) {
+            menuFromPlayer = false
+            songActions = SongActionTarget(song, recommendation)
+        } else {
+            val id = item.browseId
+            val type = id?.let { viewModel.browseTypeOf(it) }
+            if (id != null && (type != BrowseType.ARTIST || recommendation != null)) {
+                browseActions = BrowseTarget(
+                    browseId = id,
+                    title = item.title,
+                    subtitle = item.subtitle,
+                    thumbnailUrl = item.thumbnailUrl,
+                    type = type ?: BrowseType.OTHER,
+                    downloadId = downloadIdFor(id),
+                    homeRecommendation = recommendation,
+                )
+            }
+        }
     }
 
     /**
@@ -1970,8 +2007,8 @@ private fun BitChordApp(
     // stuck without album/artist rows even after the ids come in. Keep it in
     // sync while it's showing this track.
     LaunchedEffect(playerSong) {
-        if (playerSong != null && songActions?.videoId == playerSong.videoId) {
-            songActions = playerSong
+        if (playerSong != null && songActions?.song?.videoId == playerSong.videoId) {
+            songActions = songActions?.copy(song = playerSong)
         }
     }
 
@@ -2113,7 +2150,7 @@ private fun BitChordApp(
             // ids have been resolved.
             onOpenMenu = {
                 menuFromPlayer = true
-                songActions = song
+                songActions = SongActionTarget(song)
             },
             onOpenAlbum = { id ->
                 showNowPlaying = false
@@ -2395,7 +2432,7 @@ private fun BitChordApp(
                             onSongClick = { songs, index ->
                                 playFrom(songs, index, QueueSource(historyLabel, PlaybackSourceType.HISTORY))
                             },
-                            onSongLongPress = { songActions = it },
+                            onSongLongPress = { songActions = SongActionTarget(it) },
                             onSongSwipe = onSongSwipe,
                             onRetry = viewModel::loadHistory,
                             contentPadding = listPadding,
@@ -3235,6 +3272,10 @@ private fun BitChordApp(
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
                         .fillMaxWidth(),
                 ) {
+                    RecommendationFeedbackNoticeHost(
+                        notice = recommendationFeedbackNotice,
+                        onAction = viewModel::undoRecommendationFeedback,
+                    )
                     QueueActionNoticeHost(queueNotice)
                     // Liquid glass replaces the two stacked bars with the single
                     // component they are stacked to imitate: the now playing
@@ -3271,6 +3312,10 @@ private fun BitChordApp(
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
+                    RecommendationFeedbackNoticeHost(
+                        notice = recommendationFeedbackNotice,
+                        onAction = viewModel::undoRecommendationFeedback,
+                    )
                     QueueActionNoticeHost(queueNotice)
                     player.song?.let { song ->
                         MiniPlayer(
@@ -3379,7 +3424,8 @@ private fun BitChordApp(
 
         // ---- Album / playlist detail ----
         // ---- Long-press track actions ----
-        songActions?.let { song ->
+        songActions?.let { actionTarget ->
+            val song = actionTarget.song
             // Set by whoever opened it — see [menuFromPlayer]. It cannot be
             // read off the player's own visibility any more, because on a
             // tablet the player is visible whatever the menu was opened from.
@@ -3677,6 +3723,14 @@ private fun BitChordApp(
                     } else {
                         null
                     },
+                    dontRecommendArtistLabel = actionTarget.homeRecommendation
+                        ?.item?.dontRecommendArtist?.label,
+                    onDontRecommendArtist = actionTarget.homeRecommendation?.let { target ->
+                        {
+                            songActions = null
+                            viewModel.sendDontRecommendArtist(target)
+                        }
+                    },
                 )
             }
         }
@@ -3786,16 +3840,17 @@ private fun BitChordApp(
                 BrowseActionsSheet(
                     // The live answer, not the one the target was built with.
                     target = target.copy(playlist = playlist),
-                    onPlayNext = act(playSongsNext),
-                    onAddToQueue = act(addSongsToQueue),
-                    onPlay = act { songs -> play(songs, 0) }.takeIf { target.fromCard },
+                    onPlayNext = act(playSongsNext).takeIf { target.type != BrowseType.ARTIST },
+                    onAddToQueue = act(addSongsToQueue).takeIf { target.type != BrowseType.ARTIST },
+                    onPlay = act { songs -> play(songs, 0) }
+                        .takeIf { target.fromCard && target.type != BrowseType.ARTIST },
                     onShuffle = act { songs ->
                         // As on a release page: shuffle goes on before the queue
                         // is built, so it is built shuffled rather than played
                         // out of order.
                         QueueShuffle.enableForNextQueue()
                         play(songs, songs.indices.random())
-                    }.takeIf { target.fromCard },
+                    }.takeIf { target.fromCard && target.type != BrowseType.ARTIST },
                     onOpen = target.browseId
                         ?.takeIf { target.fromCard }
                         ?.let { id ->
@@ -3832,7 +3887,7 @@ private fun BitChordApp(
                                     )
                                 },
                         )
-                    }.takeIf { remote },
+                    }.takeIf { remote && target.type != BrowseType.ARTIST },
                     // The same link a share off YouTube Music's own overflow
                     // gives — built from the browse id rather than fetched,
                     // since nothing about it depends on the tracks or the
@@ -3889,6 +3944,14 @@ private fun BitChordApp(
                         {
                             browseActions = null
                             scope.launch { Downloads.deleteCollection(context, id) }
+                        }
+                    },
+                    dontRecommendArtistLabel = target.homeRecommendation
+                        ?.item?.dontRecommendArtist?.label,
+                    onDontRecommendArtist = target.homeRecommendation?.let { recommendation ->
+                        {
+                            browseActions = null
+                            viewModel.sendDontRecommendArtist(recommendation)
                         }
                     },
                 )

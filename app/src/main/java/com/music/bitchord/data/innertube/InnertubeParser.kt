@@ -11,6 +11,7 @@ import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.MoodGenre
 import com.music.bitchord.data.model.MoodGenreSection
+import com.music.bitchord.data.model.RecommendationFeedbackAction
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
@@ -265,8 +266,10 @@ object InnertubeParser {
         // way to a dead-end page, so the shelf is dropped outright.
         if (VIDEO_WORD.containsMatchIn(title)) return null
         val items = carousel.a("contents").orEmpty().mapNotNull { item ->
-            parseTwoRowItem(item.o("musicTwoRowItemRenderer"))
-                ?: parseResponsiveListItem(item.o("musicResponsiveListItemRenderer"))
+            val twoRow = item.o("musicTwoRowItemRenderer")
+            val responsive = item.o("musicResponsiveListItemRenderer")
+            val parsed = parseTwoRowItem(twoRow)
+                ?: parseResponsiveListItem(responsive)
                     ?.takeUnless { it.isVideo }
                     ?.let { song ->
                         ShelfItem(song.title, song.artist, song.thumbnailUrl, song.videoId, null)
@@ -274,7 +277,8 @@ object InnertubeParser {
                 // A chart row with nothing to play — "Top artists" lists the
                 // artist alone, no track — falls through parseResponsiveListItem
                 // (it demands a videoId) and used to drop the whole shelf.
-                ?: parseArtistRow(item.o("musicResponsiveListItemRenderer"))
+                ?: parseArtistRow(responsive)
+            parsed?.copy(dontRecommendArtist = parseDontRecommendArtist(twoRow ?: responsive))
         }
         return if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items, strapline)
     }
@@ -282,11 +286,50 @@ object InnertubeParser {
     private fun plainShelf(shelf: JsonObject): HomeShelf? {
         val title = shelf.o("title").runs()
         if (VIDEO_WORD.containsMatchIn(title)) return null
-        val items = shelf.a("contents").orEmpty().mapNotNull {
-            parseResponsiveListItem(it.o("musicResponsiveListItemRenderer"))
-        }.filterNot { it.isVideo }
-            .map { ShelfItem(it.title, it.artist, it.thumbnailUrl, it.videoId, null) }
+        val items = shelf.a("contents").orEmpty().mapNotNull { item ->
+            val renderer = item.o("musicResponsiveListItemRenderer")
+            parseResponsiveListItem(renderer)
+                ?.takeUnless { it.isVideo }
+                ?.let { song ->
+                    ShelfItem(
+                        song.title,
+                        song.artist,
+                        song.thumbnailUrl,
+                        song.videoId,
+                        null,
+                        parseDontRecommendArtist(renderer),
+                    )
+                }
+        }
         return if (items.isEmpty()) null else HomeShelf(title.ifBlank { "For you" }, items)
+    }
+
+    /**
+     * Extracts only the native Home action identified by the observed
+     * `REMOVE_CIRCLE` menu icon. Other feedback entries deliberately remain
+     * opaque and are ignored even when they use the same endpoint shape.
+     */
+    private fun parseDontRecommendArtist(renderer: JsonObject?): RecommendationFeedbackAction? {
+        val menuItems = renderer.o("menu").o("menuRenderer").a("items").orEmpty()
+        val item = menuItems.firstNotNullOfOrNull { menuItem ->
+            menuItem.o("menuServiceItemRenderer")
+                ?.takeIf { it.o("icon").s("iconType") == "REMOVE_CIRCLE" }
+        } ?: return null
+        val label = item.o("text").runs().takeIf(String::isNotBlank) ?: return null
+        val feedback = item.o("serviceEndpoint").o("feedbackEndpoint") ?: return null
+        val forwardToken = feedback.s("feedbackToken")?.takeIf(String::isNotBlank) ?: return null
+        val notification = feedback.a("actions").orEmpty().firstNotNullOfOrNull { action ->
+            action.o("openPopupAction").o("popup").o("notificationActionRenderer")
+        }
+        val undoButton = notification.o("actionButton").o("buttonRenderer")
+        return RecommendationFeedbackAction(
+            label = label,
+            forwardToken = forwardToken,
+            undoToken = undoButton.o("command").o("feedbackEndpoint").s("feedbackToken")
+                ?.takeIf(String::isNotBlank),
+            confirmationText = notification.o("responseText").runs().takeIf(String::isNotBlank),
+            undoLabel = undoButton.o("text").runs().takeIf(String::isNotBlank),
+        )
     }
 
     /**

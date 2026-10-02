@@ -579,6 +579,11 @@
     <string name="replay_minutes_end"> con la musica.</string>
     <string name="replay_minutes_start">Hai passato </string>
     <string name="replay_minutes_value">%1$s</string>
+    <string name="when_you_listen_the_most">Quando ascolti di più</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s minuto</item>
+        <item quantity="other">%1$s minuti</item>
+    </plurals>
     <string name="replay_mostly_around">, soprattutto verso le %1$s.</string>
     <string name="replay_private_counting">Creato privatamente dalla tua cronologia di ascolto su questo dispositivo</string>
     <string name="replay_share_card_description">Una scheda curata con i tuoi principali momenti di ascolto.</string>

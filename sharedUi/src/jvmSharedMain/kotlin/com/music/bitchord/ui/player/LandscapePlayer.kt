@@ -383,7 +383,8 @@ internal fun LandscapeCredits(
     onToggleLike: () -> Unit,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
-    onOpenArtist: (String) -> Unit,
+    /** Null browse id for anyone but the lead credit — see [NowPlayingScreen]. */
+    onOpenArtist: (browseId: String?, name: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -408,14 +409,17 @@ internal fun LandscapeCredits(
                     modifier = Modifier.opensPage(song.albumId, onOpenAlbum),
                 )
                 Spacer(Modifier.height(2.dp))
-                MarqueeText(
+                ArtistCreditsMarquee(
                     text = song.artist,
+                    credits = remember(song.artist, song.artists, song.artistId) {
+                        artistCredits(song.artist, song.artists, song.artistId)
+                    },
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.W500),
                     color = Color.White.copy(alpha = 0.55f),
                     // A title that's also scrolling gets to go first — starting
                     // together reads as clutter, so the artist waits a beat.
                     startDelayMillis = if (titleOverflowing) MARQUEE_ARTIST_STAGGER_MS else 0L,
-                    modifier = Modifier.opensPage(song.artistId, onOpenArtist),
+                    onOpenArtist = onOpenArtist,
                 )
             }
         }

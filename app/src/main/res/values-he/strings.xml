@@ -496,6 +496,11 @@
     <string name="replay_minutes_end"> עם מוזיקה.</string>
     <string name="replay_minutes_start">בילית </string>
     <string name="replay_minutes_value">%1$s</string>
+    <string name="when_you_listen_the_most">כשאתה מקשיב הכי הרבה</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s דקה</item>
+        <item quantity="other">%1$s דקות</item>
+    </plurals>
     <string name="replay_mostly_around">, רובם סביב %1$s.</string>
     <string name="replay_private_counting">נבנה באופן פרטי מההיסטוריה המקומית שלך</string>
     <string name="replay_share_card_description">כרטיס מלוטש עם דגשי ההאזנה העיקריים שלך.</string>

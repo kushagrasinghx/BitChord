@@ -561,6 +561,11 @@
     <string name="replay_minutes_end"> geçirdin.</string>
     <string name="replay_minutes_start">Müzikle </string>
     <string name="replay_minutes_value">%1$s</string>
+    <string name="when_you_listen_the_most">En çok dinlediğinde</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s dakika</item>
+        <item quantity="other">%1$s dakika</item>
+    </plurals>
     <string name="replay_mostly_around">, çoğunlukla %1$s civarında.</string>
     <string name="replay_private_counting">Bu cihazdaki dinleme geçmişinden gizlice oluşturuldu</string>
     <string name="replay_share_card_description">Ana dinleme öne çıkanlarını içeren şık bir kart.</string>

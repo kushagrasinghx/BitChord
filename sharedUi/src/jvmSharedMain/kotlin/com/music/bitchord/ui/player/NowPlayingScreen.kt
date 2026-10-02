@@ -637,7 +637,12 @@ fun NowPlayingScreen(
     onClearQueue: () -> Unit,
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
-    onOpenArtist: (String) -> Unit,
+    /**
+     * Opens an artist's page. [browseId] is null for anyone but the lead credit:
+     * a track carries a channel id for its main artist and nothing for the rest,
+     * so the host resolves those by [name].
+     */
+    onOpenArtist: (browseId: String?, name: String) -> Unit,
     /** Return to the queue-level page named by the caption above the player. */
     onOpenPlaybackSource: () -> Unit,
     /**
@@ -2980,8 +2985,11 @@ fun NowPlayingScreen(
                                     // lead anywhere; the rest stay plain text.
                                     modifier = Modifier.opensPage(song.albumId, onOpenAlbum),
                                 )
-                                MarqueeText(
+                                ArtistCreditsMarquee(
                                     text = song.artist,
+                                    credits = remember(song.artist, song.artists, song.artistId) {
+                                        artistCredits(song.artist, song.artists, song.artistId)
+                                    },
                                     style = MaterialTheme.typography.titleLarge.copy(
                                         fontWeight = FontWeight.W500,
                                         fontSize = 20.sp,
@@ -2992,7 +3000,7 @@ fun NowPlayingScreen(
                                     // starting together reads as clutter, so the artist
                                     // waits a beat before it joins in.
                                     startDelayMillis = if (titleOverflowing) MARQUEE_ARTIST_STAGGER_MS else 0L,
-                                    modifier = Modifier.opensPage(song.artistId, onOpenArtist),
+                                    onOpenArtist = onOpenArtist,
                                 )
                             }
                         }

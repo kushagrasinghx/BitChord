@@ -554,6 +554,11 @@
     <string name="replay_minutes_end"> cho âm nhạc.</string>
     <string name="replay_minutes_start">Bạn đã dành </string>
     <string name="replay_minutes_value">%1$s</string>
+    <string name="when_you_listen_the_most">Khi bạn nghe nhiều nhất</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s phút</item>
+        <item quantity="other">%1$s phút</item>
+    </plurals>
     <string name="replay_mostly_around">, chủ yếu vào khoảng %1$s.</string>
     <string name="replay_private_counting">Được tạo riêng tư từ lịch sử nghe nhạc trên thiết bị này</string>
     <string name="replay_share_card_description">Một tấm thẻ tinh tế với những điểm nổi bật trong gu nghe nhạc của bạn.</string>

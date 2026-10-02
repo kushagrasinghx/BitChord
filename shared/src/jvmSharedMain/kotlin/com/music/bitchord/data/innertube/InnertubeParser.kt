@@ -3,7 +3,10 @@ package com.music.bitchord.data.innertube
 import com.music.bitchord.auth.normalizeDataSyncId
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
+import com.music.bitchord.data.model.ArtistNameIndex
 import com.music.bitchord.data.model.ArtistPage
+import com.music.bitchord.data.model.ArtistRef
+import com.music.bitchord.data.model.completeArtistCredits
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeShelf
@@ -671,6 +674,7 @@ object InnertubeParser {
             thumbnailUrl = thumbnails.best(),
             durationText = duration,
             artistId = credits.artistId ?: fallback.artistId,
+            artists = completeArtistCredits(artist.orEmpty(), credits.artists.ifEmpty { fallback.artists }),
             albumId = credits.albumId ?: fallback.albumId,
             albumName = credits.albumName ?: fallback.albumName,
             // Only playlist rows carry one; on an album or a search hit this
@@ -720,6 +724,7 @@ object InnertubeParser {
             thumbnailUrl = thumbnails.best(),
             durationText = duration,
             artistId = credits.artistId,
+            artists = completeArtistCredits(artist.orEmpty(), credits.artists),
             albumId = credits.albumId,
             albumName = credits.albumName,
             isVideo = rowType == "video" || thumbnails.isNotSquare(),
@@ -821,26 +826,52 @@ object InnertubeParser {
     private data class Credits(
         val artistId: String? = null,
         val artistName: String? = null,
+        /** Every credited artist, not just the lead — see [Song.artists]. */
+        val artists: List<ArtistRef> = emptyList(),
         val albumId: String? = null,
         val albumName: String? = null,
     )
 
+    /**
+     * The artist and album a run list links out to, and every credited artist.
+     *
+     * A byline states one navigation endpoint per artist, so a collaboration
+     * arrives here as several runs rather than as one run with a longer name.
+     * Taking the first and dropping the rest is what left every credit after
+     * the lead unopenable: there was no id for it, and a name is not an
+     * identity, so searching for one finds whoever else answers to it.
+     *
+     * Only the first ARTIST and ALBUM run become [artistId] and [albumId],
+     * because that is what the rest of the app treats as *the* artist and *the*
+     * album. Every ARTIST run is kept in [artists], in the order written.
+     *
+     * Every link read here is also handed to [ArtistNameIndex], because YouTube
+     * is not consistent about which credited artists it links — see that class
+     * for the rows that come back with one name linked and the next not.
+     */
     private fun creditsOf(runs: List<JsonElement>): Credits {
         var credits = Credits()
+        val artists = mutableListOf<ArtistRef>()
         runs.forEach { run ->
             val browse = run.o("navigationEndpoint").o("browseEndpoint")
             val id = browse.s("browseId") ?: return@forEach
             val pageType = browse.o("browseEndpointContextSupportedConfigs")
                 .o("browseEndpointContextMusicConfig").s("pageType").orEmpty()
-            credits = when {
-                "ARTIST" in pageType && credits.artistId == null ->
-                    credits.copy(artistId = id, artistName = run.s("text"))
-                "ALBUM" in pageType && credits.albumId == null ->
-                    credits.copy(albumId = id, albumName = run.s("text"))
-                else -> credits
+            if ("ARTIST" !in pageType && "ALBUM" !in pageType) return@forEach
+            val name = run.s("text").orEmpty()
+            if ("ARTIST" in pageType) {
+                if (name.isNotBlank()) {
+                    artists += ArtistRef(name = name, browseId = id)
+                }
+                if (credits.artistId == null) {
+                    credits = credits.copy(artistId = id, artistName = name)
+                }
+            } else if (credits.albumId == null) {
+                credits = credits.copy(albumId = id, albumName = name)
             }
         }
-        return credits
+        ArtistNameIndex.record(artists)
+        return if (artists.isEmpty()) credits else credits.copy(artists = artists)
     }
 
     /**
@@ -1098,6 +1129,7 @@ object InnertubeParser {
                 thumbnailUrl = renderer.o("thumbnail").a("thumbnails").best(),
                 durationText = renderer.o("lengthText").runs().takeIf { it.isNotBlank() },
                 artistId = credits.artistId,
+                artists = completeArtistCredits(artist.orEmpty(), credits.artists),
                 albumId = credits.albumId,
                 albumName = credits.albumName,
                 // A catalogue track is credited "Artist • Album • Year"; the

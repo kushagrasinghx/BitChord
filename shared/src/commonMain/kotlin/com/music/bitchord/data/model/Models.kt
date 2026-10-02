@@ -10,6 +10,17 @@ enum class QueueTier {
     AUTOPLAY,
 }
 
+/**
+ * One credited artist, as YouTube Music itself states them.
+ *
+ * @property browseId The artist's own channel, so their page is the one that
+ * opens. Null for the rare run that names an artist without linking one.
+ */
+data class ArtistRef(
+    val name: String,
+    val browseId: String? = null,
+)
+
 /** A playable YouTube Music track. */
 data class Song(
     val videoId: String,
@@ -19,6 +30,19 @@ data class Song(
     val durationText: String? = null,
     /** Browse ids lifted from the row, used by the long-press actions. */
     val artistId: String? = null,
+    /**
+     * Every credited artist, each with their own channel, where the row said so.
+     *
+     * [artistId] is the lead's and nothing else, which is why a collaboration
+     * could only ever be opened at its first name. A track's byline carries one
+     * navigation endpoint per artist, so the rest of them are here rather than
+     * left in the response — and because a name is not an identity, this is the
+     * only thing that can open the right page for the second and third credit.
+     *
+     * Empty on rows that state no per-artist links, which is most home cards
+     * and anything read before its watch-queue entry has been looked up.
+     */
+    val artists: List<ArtistRef> = emptyList(),
     val albumId: String? = null,
     /** Names the album page header, which [albumId] alone can't. */
     val albumName: String? = null,
@@ -107,6 +131,7 @@ data class Song(
         thumbnailUrl: String?,
         durationText: String? = null,
         artistId: String? = null,
+        artists: List<ArtistRef> = emptyList(),
         albumId: String? = null,
         albumName: String? = null,
         isVideo: Boolean = false,
@@ -131,6 +156,7 @@ data class Song(
         thumbnailUrl = thumbnailUrl,
         durationText = durationText,
         artistId = artistId,
+        artists = artists,
         albumId = albumId,
         albumName = albumName,
         isVideo = isVideo,

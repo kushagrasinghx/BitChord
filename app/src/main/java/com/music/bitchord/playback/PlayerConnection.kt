@@ -23,6 +23,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
+import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueTier
@@ -155,6 +156,31 @@ fun MediaController.swapToVersion(targetSong: Song) {
     )
 }
 
+/**
+ * The credited artists, read back out of the two parallel lists they travel in.
+ *
+ * A `Song` is a data class and a `MediaItem`'s extras are a `Bundle`, which
+ * holds scalars and collections of them — so the credits cross as their names
+ * and their ids side by side rather than as the list itself. A blank id is a
+ * name YouTube stated without a channel behind it, which is kept so the credit
+ * still reads; it simply has no page to open.
+ *
+ * Shorter of the two lists wins, and they are written together, so a bundle
+ * that has been through something which dropped one of them yields what is left
+ * rather than a list of names with no ids or ids with no names.
+ */
+private fun Bundle.artistsFromBundle(): List<ArtistRef> {
+    val names = getStringArrayList(ARTISTS_NAMES).orEmpty()
+    val ids = getStringArrayList(ARTISTS_IDS).orEmpty()
+    if (names.isEmpty() || ids.isEmpty()) return emptyList()
+    return names.indices.map { index ->
+        ArtistRef(name = names[index], browseId = ids.getOrNull(index)?.ifBlank { null })
+    }
+}
+
+private const val ARTISTS_NAMES = "artistNames"
+private const val ARTISTS_IDS = "artistIds"
+
 fun Song.toSongBundle(): Bundle = bundleOf(
     "videoId" to videoId,
     "title" to title,
@@ -177,7 +203,12 @@ fun Song.toSongBundle(): Bundle = bundleOf(
     "playbackSourceType" to playbackSourceType?.name,
     "playbackSourceId" to playbackSourceId,
     "isExplicit" to (isExplicit ?: false),
-)
+    // `bundleOf` has no overload for a list of strings, so the two halves of
+    // the credits go in afterwards.
+).apply {
+    putStringArrayList(ARTISTS_NAMES, ArrayList(artists.map { it.name }))
+    putStringArrayList(ARTISTS_IDS, ArrayList(artists.map { it.browseId.orEmpty() }))
+}
 
 fun songFromBundle(b: Bundle): Song = Song(
     videoId = b.getString("videoId").orEmpty(),
@@ -186,6 +217,7 @@ fun songFromBundle(b: Bundle): Song = Song(
     thumbnailUrl = b.getString("thumbnailUrl"),
     durationText = b.getString("durationText"),
     artistId = b.getString("artistId"),
+    artists = b.artistsFromBundle(),
     albumId = b.getString("albumId"),
     albumName = b.getString("albumName"),
     isVideo = b.getBoolean("isVideo"),
@@ -344,6 +376,7 @@ fun MediaItem.toSong() = Song(
     thumbnailUrl = mediaMetadata.artworkUri?.toString(),
     durationText = mediaMetadata.extras?.getString(EXTRA_DURATION),
     artistId = mediaMetadata.extras?.getString(EXTRA_ARTIST_ID),
+    artists = mediaMetadata.extras?.artistsFromBundle() ?: emptyList(),
     albumId = mediaMetadata.extras?.getString(EXTRA_ALBUM_ID),
     albumName = mediaMetadata.albumTitle?.toString(),
     isExplicit = mediaMetadata.extras?.takeIf { it.containsKey(EXTRA_EXPLICIT) }

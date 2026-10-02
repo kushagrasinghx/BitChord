@@ -497,6 +497,11 @@
     <string name="replay_minutes_end"> ouvindo música.</string>
     <string name="replay_minutes_start">Você passou </string>
     <string name="replay_minutes_value">%1$s</string>
+    <string name="when_you_listen_the_most">Quando você mais ouve</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s minuto</item>
+        <item quantity="other">%1$s minutos</item>
+    </plurals>
     <string name="replay_mostly_around">, a maior parte por volta das %1$s.</string>
     <string name="replay_private_counting">Construído de forma privada usando seu histórico local</string>
     <string name="replay_share_card_description">Um cartão polido com seus destaques.</string>

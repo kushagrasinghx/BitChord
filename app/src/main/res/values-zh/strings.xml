@@ -517,6 +517,11 @@
     <string name="replay_minutes_end"> 的时间聆听音乐。</string>
     <string name="replay_minutes_start">你花了 </string>
     <string name="replay_minutes_value">%1$s</string>
+    <string name="when_you_listen_the_most">听得最多的时候</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s 分钟</item>
+        <item quantity="other">%1$s 分钟</item>
+    </plurals>
     <string name="replay_mostly_around">，主要集中在%1$s左右。</string>
     <string name="replay_private_counting">根据你在此设备上的收听记录私密生成</string>
     <string name="replay_share_card_description">一张精美的卡片，展示你的主要收听亮点。</string>

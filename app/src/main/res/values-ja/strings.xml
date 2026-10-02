@@ -517,6 +517,11 @@
     <string name="replay_minutes_end">です。</string>
     <string name="replay_minutes_start">音楽と過ごした時間は</string>
     <string name="replay_minutes_value">%1$s</string>
+    <string name="when_you_listen_the_most">最も聴くのは</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s分</item>
+        <item quantity="other">%1$s分</item>
+    </plurals>
     <string name="replay_mostly_around">、主に%1$s頃でした。</string>
     <string name="replay_private_counting">このデバイス内の再生履歴から非公開で集計されています</string>
     <string name="replay_share_card_description">主な再生ハイライトをまとめた、洗練されたカードです。</string>

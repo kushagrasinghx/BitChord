@@ -493,6 +493,13 @@
     <string name="replay_minutes_end"> przy muzyce.</string>
     <string name="replay_minutes_start">Spędziłeś </string>
     <string name="replay_minutes_value">%1$s</string>
+    <string name="when_you_listen_the_most">Kiedy słuchasz najwięcej</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s minuta</item>
+        <item quantity="few">%1$s minuty</item>
+        <item quantity="many">%1$s minut</item>
+        <item quantity="other">%1$s minuty</item>
+    </plurals>
     <string name="replay_mostly_around">, w większości wokół %1$s.</string>
     <string name="replay_private_counting">Zbudowane prywatnie na podstawie historii lokalnej</string>
     <string name="replay_share_card_description">Dopracowana karta z głównymi wydarzeniami muzycznymi.</string>

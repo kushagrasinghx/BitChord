@@ -5,7 +5,10 @@ import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
+import com.music.bitchord.data.model.isExactArtistMatch
+import com.music.bitchord.data.model.normalizedArtistName
 import com.music.bitchord.data.model.ArtistPage
+import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeFeed
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.LibraryPage
@@ -549,6 +552,32 @@ object YtMusicRepository {
      */
     suspend fun radio(videoId: String): Result<List<Song>> = call("radio:$videoId") {
         InnertubeParser.parseWatchQueue(Innertube.next(videoId))
+    }
+
+    /**
+     * The page of the artist called exactly [name], or null when there is none.
+     *
+     * YouTube does not link every credited artist. On a real two-artist track
+     * the byline and even the album header linked only the first name, so
+     * there is no channel behind the second name anywhere in the response. A
+     * name is all that is left, and the first search hit for one is not it: ask
+     * for `2115` and the results are White 2115, Bedoes 2115, Blacha 2115 and
+     * Kuqe 2115, four different people.
+     *
+     * So a hit is accepted only when its own title is the name asked for. That
+     * one rule is the whole of the safety here: `Monday Waxie` finds its page,
+     * and `2115` finds nothing and opens nothing rather than somebody else.
+     * Asking for `Mate` can land on either of two artists of that name, which
+     * is the honest answer to an ambiguous question rather than a wrong one.
+     */
+    suspend fun findArtistPageId(name: String): Result<String?> = call("artistByName:$name") {
+        if (normalizedArtistName(name).isEmpty()) return@call null
+        val filter = SearchFilter.ARTISTS
+        InnertubeParser.parseSearchPage(Innertube.search(name, filter.params)).rows
+            .filterIsInstance<SearchResult.Browse>()
+            .map { it.item }
+            .firstOrNull { it.type == BrowseType.ARTIST && isExactArtistMatch(it.title, name) }
+            ?.browseId
     }
 
     /**

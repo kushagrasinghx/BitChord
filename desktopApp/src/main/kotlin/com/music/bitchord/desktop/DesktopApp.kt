@@ -2915,6 +2915,11 @@ fun BitChordDesktopApp() {
                             ?.let { extra ->
                                 current.copy(
                                     artistId = current.artistId ?: extra.artistId,
+                                    // Same as on the phone: the watch-queue lookup
+                                    // is what carries a channel per credited
+                                    // artist, so it is what makes every name in
+                                    // the credit line openable.
+                                    artists = current.artists.ifEmpty { extra.artists },
                                     albumId = current.albumId ?: extra.albumId,
                                     albumName = current.albumName ?: extra.albumName,
                                 )
@@ -2980,9 +2985,22 @@ fun BitChordDesktopApp() {
                                 overlays.nowPlaying = false
                                 openAlbum(id)
                             },
-                            onOpenArtist = { id ->
+                            // The lead credit carries the track's own channel
+                            // id and opens straight away; anyone else on the
+                            // line has no id, so the page is found from the
+                            // name — and only when the answer is that name
+                            // exactly, so a fragment like "2115" opens nothing
+                            // rather than White 2115.
+                            onOpenArtist = { id, name ->
                                 overlays.nowPlaying = false
-                                openArtist(id, current.artist)
+                                if (id != null) {
+                                    openArtist(id, name)
+                                } else {
+                                    scope.launch {
+                                        YtMusicRepository.findArtistPageId(name).getOrNull()
+                                            ?.let { found -> openArtist(found, name) }
+                                    }
+                                }
                             },
                             onOpenPlaybackSource = {
                                 val id = playerSong.playbackSourceId
@@ -3655,6 +3673,12 @@ fun BitChordDesktopApp() {
                                 emptyList()
                             },
                             typeaheadResults = if (searchTyping && query.isNotBlank()) searchTypeahead else emptyList(),
+                            // Upstream gave SearchScreen these two for the playing
+                            // indicator and did not update this call site, so
+                            // desktopApp stopped compiling on v1.7.1 — their CI
+                            // builds only the Go backend and never saw it.
+                            currentSong = playback.song,
+                            isPlaying = playback.isPlaying,
                             onSubmit = ::search,
                             onSuggestionClick = ::runSearch,
                             onHistoryClick = { entity ->

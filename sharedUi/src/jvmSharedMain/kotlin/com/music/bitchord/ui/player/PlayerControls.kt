@@ -5,6 +5,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.draw.drawWithContent
+import com.music.bitchord.data.model.ArtistCredit
+import com.music.bitchord.data.model.CreditSegment
+import com.music.bitchord.data.model.creditSegments
 import com.music.bitchord.sharedui.resources.*
 
 import org.jetbrains.compose.resources.DrawableResource
@@ -1159,8 +1162,17 @@ internal fun Modifier.opensPage(browseId: String?, onOpen: (String) -> Unit): Mo
     if (browseId == null) {
         this
     } else {
-        clip(RoundedCornerShape(6.dp)).clickable { onOpen(browseId) }
+        clip(LinkPressShape).clickable { onOpen(browseId) }
     }
+
+/**
+ * The press shape of anything in the player that links somewhere.
+ *
+ * Shared with [opensPage] so a credited name inside the artist line and a whole
+ * title row above it answer a finger the same way, rather than one drawing a
+ * rounded ripple and the other a square one.
+ */
+private val LinkPressShape = RoundedCornerShape(6.dp)
 
 /** How fast the title/artist marquee crawls — unhurried, not a ticker. */
 private const val MARQUEE_DP_PER_SEC = 26f
@@ -1288,6 +1300,144 @@ private fun MarqueeLine(text: String, style: TextStyle, color: Color) {
         softWrap = false,
         overflow = TextOverflow.Clip,
     )
+}
+
+/**
+ * The artist line: [MarqueeText] again, with every credited name in it tappable.
+ *
+ * ## Why not a scrolling row of links
+ *
+ * It was tried, and it is the obvious thing to reach for. It cannot be made to
+ * work: a scroll state has to mutate to move the text, and every mutation
+ * cancels whatever the finger was doing. With the crawl advancing the row every
+ * frame, a tap that landed was a tap on whatever name the crawl had moved a name
+ * into the finger's place — tapping "Blacha 2115" opened "Bedoes 2115". The
+ * crawl also ran a scroll mutation per frame, which is what stopped a drag from
+ * ever holding the row still.
+ *
+ * [MarqueeText] has neither problem, because it never scrolls anything. It
+ * measures the string, draws it twice, and slides the pair with an
+ * `Animatable` — no scroll state, no pointer interaction, and a tap lands on the
+ * name that is under it. So this is that component, unchanged in every respect
+ * that can be seen: same measurement, same clip, same two copies with the same
+ * gap, same travel, same pace, same rest, same stagger, same ellipsis-free
+ * clipping.
+ *
+ * The only difference is inside the copies, where the single line of text is now
+ * the stretches [creditSegments] cut it into. The stretches are laid out back to
+ * back with no gap of their own, so the line measures and draws the same; only
+ * the stretches that are credited carry a tap target, and a credit with no
+ * channel behind it carries none.
+ */
+@Composable
+internal fun ArtistCreditsMarquee(
+    /** The credit line as the source spelled it — this is what gets drawn. */
+    text: String,
+    credits: List<ArtistCredit>,
+    style: TextStyle,
+    color: Color,
+    onOpenArtist: (browseId: String?, name: String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    startDelayMillis: Long = 0L,
+) {
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val segments = remember(text, credits) { creditSegments(text, credits) }
+
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (!enabled) {
+            CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
+            return@Row
+        }
+        BoxWithConstraints(Modifier.weight(1f, fill = false).clipToBounds()) {
+            val maxWidthPx = constraints.maxWidth
+            // Measured as one string, exactly as the single-line version measured
+            // it, so the line starts crawling at the same moment and travels the
+            // same distance.
+            val layout = remember(text, style, maxWidthPx) {
+                textMeasurer.measure(text = text, style = style, maxLines = 1, softWrap = false)
+            }
+            val overflowing = layout.size.width > maxWidthPx
+            val travelPx = if (overflowing) {
+                layout.size.width + with(density) { MARQUEE_GAP.roundToPx() }
+            } else {
+                0
+            }
+
+            val offsetX = remember { Animatable(0f) }
+            LaunchedEffect(text, travelPx, startDelayMillis) {
+                offsetX.snapTo(0f)
+                if (travelPx <= 0) return@LaunchedEffect
+                val pxPerMs = with(density) { MARQUEE_DP_PER_SEC.dp.toPx() } / 1000f
+                val scrollMs = (travelPx / pxPerMs).roundToInt().coerceAtLeast(400)
+                delay(startDelayMillis)
+                while (true) {
+                    offsetX.animateTo(-travelPx.toFloat(), tween(scrollMs, easing = LinearEasing))
+                    // Invisible, for the reason the single-line version's is: the
+                    // trailing copy has arrived where the leading one started.
+                    offsetX.snapTo(0f)
+                    delay(MARQUEE_REST_MS)
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .wrapContentWidth(align = Alignment.Start, unbounded = true)
+                    .offset { IntOffset(offsetX.value.roundToInt(), 0) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
+                if (overflowing) {
+                    Spacer(Modifier.width(MARQUEE_GAP))
+                    CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One copy of the credit line: its stretches laid end to end, each credited one
+ * tappable.
+ *
+ * No padding and no gap around a name, because any air of the project's own
+ * would be air the single-line version never had — a name's tap target is its
+ * glyphs, which is what the title above it does too.
+ */
+@Composable
+private fun CreditLine(
+    segments: List<CreditSegment>,
+    style: TextStyle,
+    color: Color,
+    onOpenArtist: (browseId: String?, name: String) -> Unit,
+) {
+    segments.forEach { segment ->
+        val credit = segment.credit
+        Text(
+            text = segment.text,
+            style = style,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+            modifier = if (credit == null) {
+                Modifier
+            } else {
+                Modifier
+                    // The same shape a whole linked row presses with, so a name
+                    // answers a finger the way the title above it does.
+                    .clip(LinkPressShape)
+                    // Tappable even with no channel behind it. YouTube links the
+                    // credited artists inconsistently — the same album leaves
+                    // one name linked and another not — so a name without an id
+                    // is a name the reader still expects to be able to open, and
+                    // the host resolves it by asking for that exact name and
+                    // opening only what answers to it exactly.
+                    .clickable { onOpenArtist(credit.browseId, credit.name) }
+            },
+        )
+    }
 }
 
 /** The small "E" pill for explicit tracks, kept outside the scrolling text. */

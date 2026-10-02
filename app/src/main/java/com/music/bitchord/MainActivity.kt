@@ -2216,17 +2216,45 @@ private fun BitChordApp(
                     BrowseType.ALBUM,
                 )
             },
-            onOpenArtist = { id ->
+            // A credit with a channel id opens that channel straight away.
+            // YouTube does not give one to every credited artist - on a two-artist
+            // track it linked only the first, and neither the byline nor the
+            // album header had the second - so the rest go by name, through a
+            // lookup that opens a page only when the answer is that name
+            // exactly. Otherwise nothing opens, which beats opening a stranger.
+            //
+            // No artwork: this track's cover isn't the artist's
+            // picture, and the page fills its own in once loaded.
+            onOpenArtist = { id, name ->
                 showNowPlaying = false
-                // No artwork: this track's cover isn't the artist's
-                // picture, and the page fills its own in once loaded.
-                viewModel.openDetail(
-                    id,
-                    song.artist,
-                    context.getString(R.string.artist),
-                    null,
-                    BrowseType.ARTIST,
-                )
+                if (id != null) {
+                    viewModel.openDetail(
+                        id,
+                        name,
+                        context.getString(R.string.artist),
+                        null,
+                        BrowseType.ARTIST,
+                    )
+                } else {
+                    scope.launch {
+                        val found = YtMusicRepository.findArtistPageId(name).getOrNull()
+                        if (found != null) {
+                            viewModel.openDetail(
+                                found,
+                                name,
+                                context.getString(R.string.artist),
+                                null,
+                                BrowseType.ARTIST,
+                            )
+                        } else {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.couldnt_find, name),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    }
+                }
             },
             onOpenPlaybackSource = openSource@{
                 val sourceType = displayedSong.playbackSourceType ?: PlaybackSourceType.QUEUE

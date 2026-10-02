@@ -103,7 +103,15 @@ suspend fun loadAutoplayTracks(
 ): Result<List<Song>> {
     val seed = youtubeSeedFor(seedSong) ?: return Result.success(emptyList())
     val related = YtMusicRepository.radio(seed).getOrElse { return Result.failure(it) }
-    val extra = QueueBuilder.extend(existing, related, limit)
+    val extra = QueueBuilder.extend(
+        existing = existing,
+        candidates = related,
+        limit = limit,
+        // The seed's own name, and every name already in the queue this batch is
+        // topping up: whatever the station comes back with, it is not going to
+        // be the song the listener is hearing under a second artist.
+        excludedTitles = (existing.map { it.title } + seedSong.title).toSet(),
+    )
     if (extra.isEmpty()) return Result.success(emptyList())
 
     return Result.success(extra.map {

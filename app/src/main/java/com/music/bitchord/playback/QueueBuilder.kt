@@ -30,11 +30,26 @@ object QueueBuilder {
      * The subset of [candidates] worth appending after [existing]: nothing
      * already queued, nothing repeated, at most [limit] tracks.
      */
-    fun extend(existing: List<Song>, candidates: List<Song>, limit: Int): List<Song> {
+    fun extend(
+        existing: List<Song>,
+        candidates: List<Song>,
+        limit: Int,
+        /**
+         * Titles — raw, as they read on screen — that must not turn up in this
+         * batch or be handed back under a second name. AutoPlay passes the seed
+         * and the queue it is topping up, because a radio answers a song with
+         * its own title far too readily: a cover, a slowed cut, a re-upload
+         * billed to somebody else. They are different ids by different artists,
+         * so [isSameRecording] is right to call them different recordings, and
+         * the listener who just heard "A" still does not want "A" again.
+         */
+        excludedTitles: Set<String> = emptySet(),
+    ): List<Song> {
         val taken = existing.toMutableList()
         val perArtist = mutableMapOf<String, Int>()
         val seedArtists = existing.lastOrNull()?.artist?.let(::artistSet).orEmpty()
         val out = mutableListOf<Song>()
+        val titles = excludedTitles.mapNotNullTo(mutableSetOf()) { baseTitle(it).ifEmpty { null } }
 
         // A mix pairs all but every track with its own music-video upload —
         // the same recording under a different id, titled far enough apart
@@ -47,6 +62,9 @@ object QueueBuilder {
         for (candidate in ordered) {
             if (out.size >= limit) break
             if (taken.any { isSameRecording(it, candidate) }) continue
+
+            val title = baseTitle(candidate.title)
+            if (title.isNotEmpty() && title in titles) continue
 
             val artists = artistSet(candidate.artist)
             val key = artists.minOrNull()
@@ -63,6 +81,7 @@ object QueueBuilder {
 
             taken += candidate
             out += candidate
+            if (title.isNotEmpty()) titles += title
         }
         return out
     }
@@ -87,16 +106,36 @@ object QueueBuilder {
      * `Kesariya (From "Brahmastra") | Official Video` and `Kesariya` are one
      * recording as far as a queue is concerned. Remix and cover markers are
      * deliberately left in — those really are different tracks.
+     *
+     * Han text is folded to one script first ([HanVariants]): a mainland release
+     * billed in Simplified characters and the Taiwanese one of the same track
+     * billed in Traditional are one recording, and no other rule here can see
+     * that.
      */
-    internal fun normalisedTitle(raw: String): String = raw.lowercase(Locale.ROOT)
+    internal fun normalisedTitle(raw: String): String = HanVariants.fold(raw)
+        .lowercase(Locale.ROOT)
         .substringBefore(" | ")
         .replace(NOISE, " ")
         .replace(PUNCTUATION, " ")
         .replace(SPACES, " ")
         .trim()
 
+    /**
+     * [normalisedTitle] with every qualifier taken off, so `A`, `A (Live)` and
+     * `A (Slowed + Reverb)` all answer to `a`. Han text is folded here too, so a
+     * name written either way round is one name.
+     *
+     * [normalisedTitle] keeps those markers on purpose: a remix is a different
+     * recording worth queueing in its own right. This is the blunter comparison
+     * AutoPlay needs, where the question is not whether two entries are the same
+     * recording but whether the station is about to hand back the name the
+     * listener is already hearing.
+     */
+    internal fun baseTitle(raw: String): String = normalisedTitle(raw.replace(BRACKETED, " "))
+
     /** The cast behind a credit, split out so billing order stops mattering. */
-    internal fun artistSet(raw: String): Set<String> = raw.lowercase(Locale.ROOT)
+    internal fun artistSet(raw: String): Set<String> = HanVariants.fold(raw)
+        .lowercase(Locale.ROOT)
         .replace(TOPIC, " ")
         .split(",", "&", "·", "•", ";", " feat", " ft.", " ft ", " x ", " with ")
         .map { it.replace(PUNCTUATION, " ").replace(SPACES, " ").trim() }
@@ -111,6 +150,8 @@ object QueueBuilder {
         RegexOption.IGNORE_CASE,
     )
     private val TOPIC = Regex("""\s*-\s*topic\b""", RegexOption.IGNORE_CASE)
+    /** Every `(...)` / `[...]` group, qualifier or not — see [baseTitle]. */
+    private val BRACKETED = Regex("""[(\[][^)\]]*[)\]]""")
     private val PUNCTUATION = Regex("""[^\p{L}\p{N}]+""")
     private val SPACES = Regex("""\s+""")
 }

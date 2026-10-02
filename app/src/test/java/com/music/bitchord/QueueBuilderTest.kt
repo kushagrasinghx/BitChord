@@ -124,6 +124,70 @@ class QueueBuilderTest {
     }
 
     @Test
+    fun `autoplay drops the name it is already playing`() {
+        val seed = song("seed", "A", "Someone")
+        val extra = QueueBuilder.extend(
+            existing = listOf(seed),
+            candidates = listOf(
+                song("v1", "A", "A Cover Band"),
+                song("v2", "A (Slowed + Reverb)", "Another Uploader"),
+                song("v3", "B", "Someone Else"),
+            ),
+            limit = 10,
+            excludedTitles = setOf(seed.title),
+        )
+        assertEquals(listOf("v3"), extra.map { it.videoId })
+    }
+
+    @Test
+    fun `one batch never queues the same name twice`() {
+        val extra = QueueBuilder.extend(
+            existing = emptyList(),
+            candidates = listOf(
+                song("v1", "Perfect", "Ed Sheeran"),
+                song("v2", "Perfect", "One Direction"),
+                song("v3", "Perfect (Live)", "Somebody"),
+                song("v4", "Shape of You", "Ed Sheeran"),
+            ),
+            limit = 10,
+        )
+        assertEquals(listOf("v1", "v4"), extra.map { it.videoId })
+    }
+
+    @Test
+    fun `a traditional upload is the same recording as its simplified one`() {
+        assertTrue(
+            QueueBuilder.isSameRecording(
+                song("aaa", "理性与任性之间", "李荣浩"),
+                song("bbb", "理性與任性之間", "李榮浩"),
+            ),
+        )
+    }
+
+    @Test
+    fun `autoplay drops a same-name track written in the other script`() {
+        val seed = song("seed", "理性与任性之间", "李荣浩")
+        val extra = QueueBuilder.extend(
+            existing = listOf(seed),
+            candidates = listOf(
+                song("v1", "理性與任性之間", "另一个上传者"),
+                song("v2", "老街", "李荣浩"),
+            ),
+            limit = 10,
+            excludedTitles = setOf(seed.title),
+        )
+        assertEquals(listOf("v2"), extra.map { it.videoId })
+    }
+
+    @Test
+    fun `a name is compared without its qualifiers`() {
+        assertEquals("a", QueueBuilder.baseTitle("A (Official Video)"))
+        assertEquals("a", QueueBuilder.baseTitle("A (Slowed + Reverb)"))
+        assertEquals("kesariya", QueueBuilder.baseTitle("Kesariya (From \"Brahmastra\")"))
+        assertEquals("", QueueBuilder.baseTitle("(Instrumental)"))
+    }
+
+    @Test
     fun `extend honours the limit`() {
         val candidates = (1..10).map { song("v$it", "Song $it", "Artist $it") }
         assertEquals(3, QueueBuilder.extend(emptyList(), candidates, limit = 3).size)

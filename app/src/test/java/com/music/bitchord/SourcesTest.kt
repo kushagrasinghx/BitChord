@@ -245,6 +245,25 @@ class SourcesTest {
         )
     }
 
+    @Test
+    fun `matches CJK titles across punctuation and spacing differences`() {
+        assertTrue(
+            matches(
+                song("夜に駆ける", "YOASOBI", duration = "4:20"),
+                title = "夜 に 駆ける！",
+                artist = "YOASOBI",
+                durationSec = 261,
+            ),
+        )
+        assertTrue(matches(song("좋은 날", "IU"), "좋은날", "IU"))
+    }
+
+    @Test
+    fun `keeps substring matching strict for short Unicode titles`() {
+        assertFalse(matches(song("愛情", "Artist"), "愛", "Artist"))
+        assertFalse(matches(song("봄날", "Artist"), "봄", "Artist"))
+    }
+
     /**
      * The one that sent this back for a rewrite. YouTube files the track under
      * the film it is from and credits the lead singer; the module holds the

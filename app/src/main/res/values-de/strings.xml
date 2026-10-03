@@ -93,8 +93,6 @@
     <string name="rich_presence">Rich Presence</string>
     <string name="scrobbling">Scrobbling</string>
     <string name="now_playing">Wird wiedergegeben</string>
-    <string name="next_in_queue">Als Nächstes in der Warteschlange</string>
-    <string name="next_from">Als Nächstes aus: %1$s</string>
     <string name="selected">Ausgewählt</string>
     <string name="password">Passwort</string>
     <string name="username">Benutzername</string>
@@ -269,22 +267,9 @@
     <string name="always_on">Immer an</string>
     <string name="api_token">API-Token</string>
     <string name="audio_quality_connection">Bei %1$s</string>
-    <string name="autoplay">AutoPlay</string>
     <string name="back_in_future_version">Kommt in einer zukünftigen Version zurück</string>
     <string name="buttons">Schaltflächen</string>
     <string name="clear_name">Namen löschen</string>
-    <string name="close_lyrics">Songtexte schließen</string>
-    <string name="translate_lyrics">Songtext übersetzen</string>
-    <string name="romanize_lyrics">Songtext romanisieren</string>
-    <string name="show_original_lyrics">Originaltext anzeigen</string>
-    <string name="translating_lyrics_to">Wird ins %1$s übersetzt…</string>
-    <string name="lyrics_translated_to">Ins %1$s übersetzt</string>
-    <string name="romanizing_lyrics">Songtext wird romanisiert…</string>
-    <string name="lyrics_romanized">Romanisierte Aussprache</string>
-    <string name="lyrics_already_romanized">Dieser Songtext verwendet bereits lateinische Schrift</string>
-    <string name="lyrics_romanization_unavailable">Für diesen Songtext ist keine Romanisierung verfügbar</string>
-    <string name="lyrics_already_in_language">Dieser Songtext ist bereits auf %1$s</string>
-    <string name="lyrics_translation_unavailable">Die Übersetzung ist derzeit nicht verfügbar</string>
     <string name="connect_account_first">Verbinde zuerst ein Konto</string>
     <string name="connected_presence_off">Verbunden, Presence aus</string>
     <string name="copy_log">Protokoll kopieren</string>
@@ -319,36 +304,11 @@
     <string name="enter_token_to_enable">Token eingeben, um zu aktivieren</string>
     <string name="first_button">Erste Schaltfläche</string>
     <string name="got_it">Verstanden</string>
-    <string name="high_quality">Hohe Qualität</string>
-    <string name="instrumental">Instrumental</string>
     <string name="pause">Pause</string>
-    <string name="lyrics_by">Songtexte von %1$s</string>
-    <string name="change_lyrics_provider">Ändern</string>
-    <string name="choose_lyrics_provider">Songtext-Anbieter wählen</string>
-    <string name="lyrics_provider_current">Aktueller Anbieter</string>
-    <string name="lyrics_provider_found">Songtext gefunden · Zum Verwenden tippen</string>
-    <string name="lyrics_provider_not_found">Kein Songtext gefunden</string>
-    <string name="lyrics_provider_fetching">Songtext wird geladen…</string>
-    <string name="lyrics_provider_not_fetched">Zum Laden tippen</string>
-    <string name="no_lyrics_found">Keine Songtexte gefunden</string>
-    <string name="lyrics_saved_with_download">Songtexte mit diesem Download gespeichert</string>
     <string name="shuffle_on">Zufallswiedergabe an</string>
     <string name="shuffle_off">Zufallswiedergabe aus</string>
-    <string name="repeat_one">Einzeltitel wiederholen</string>
-    <string name="repeat_all">Alle wiederholen</string>
-    <string name="repeat_off">Wiederholung aus</string>
-    <string name="autoplay_on">AutoPlay an</string>
-    <string name="autoplay_off">AutoPlay aus</string>
-    <string name="autoplay_queue_description">Ähnliche Musik, ausgewählt, um als Nächstes zu spielen</string>
-    <string name="autoplay_empty_description">Ähnliche Musik spielt danach automatisch weiter</string>
-    <string name="high_quality_upgrading">Hohe Qualität, wird hochgestuft</string>
-    <string name="upgrading_quality">Qualität wird hochgestuft</string>
-    <string name="hi_res_lossless">Hi-Res Lossless</string>
-    <string name="bit_depth">%1$d-Bit</string>
     <string name="mono">Mono</string>
     <string name="stereo">Stereo</string>
-    <string name="channel_count">%1$d Kan.</string>
-    <string name="downgraded_from">↓ von %1$s</string>
     <string name="history">Verlauf</string>
     <string name="sources">Quellen</string>
     <string name="wifi">WLAN</string>
@@ -432,7 +392,6 @@
     <string name="listenbrainz_token">ListenBrainz-Token</string>
     <string name="listenbrainz_token_description">Füge deinen ListenBrainz-Benutzer-Token ein, um Scrobbling zu aktivieren.</string>
     <string name="listening_history">Hörverlauf</string>
-    <string name="lyrics_not_available">Songtexte nicht verfügbar</string>
     <string name="lyrics_sources_order">Die Quellen werden in dieser Reihenfolge ausprobiert. Ziehe, um sie neu anzuordnen. Die erste Quelle mit Songtexten gewinnt, sofern nicht Silben-Songtexte priorisiert werden.</string>
     <string name="max_delay">Maximale Verzögerung</string>
     <string name="max_delay_subtitle">Maximale Scrobble-Verzögerung in Sekunden</string>
@@ -440,7 +399,6 @@
     <string name="min_song_duration_subtitle">Kürzere Songs werden nicht gescrobbelt</string>
     <string name="monthly_listeners">%1$s monatliche Hörer</string>
     <string name="name">Name</string>
-    <string name="no_lyrics_for_track">Keine Songtexte für diesen Titel</string>
     <string name="no_playlists_yet">Noch keine Playlists. Nutze die Zeile oben, um eine zu erstellen.</string>
     <string name="no_tracks_here">Keine Titel hier</string>
     <string name="not_connected">Nicht verbunden</string>
@@ -462,7 +420,6 @@
     <string name="remove">Entfernen</string>
     <string name="remove_from_liked">Aus „Gefällt mir“-Musik entfernen</string>
     <string name="remove_from_playlist">Aus dieser Playlist entfernen</string>
-    <string name="remove_from_queue">Aus der Warteschlange entfernen</string>
     <string name="rename_playlist">Playlist umbenennen</string>
     <string name="reset_to_default">Auf Standard zurücksetzen</string>
     <string name="rich_presence_footer">Zeige, was du gerade hörst, auf deinem Discord-Profil.</string>
@@ -522,7 +479,6 @@
     <string name="token">Token</string>
     <string name="turn_off_timer">Timer ausschalten</string>
     <string name="undo_dislike">„Nicht gefällt mir“ rückgängig machen</string>
-    <string name="up_next">Als Nächstes</string>
     <string name="verb_competing">Tritt an in</string>
     <string name="verb_listening">Hört</string>
     <string name="verb_playing">Spielt</string>
@@ -541,6 +497,10 @@
     <string name="hour_pm">%1$d Uhr nachm.</string>
     <string name="hours_minutes_short">%1$dh %2$dm</string>
     <string name="listen_most_around">Du hörst am meisten gegen %1$s.</string>
+    <string name="lyrics_share_title">Songtext teilen</string>
+    <string name="lyrics_share_description">Die Zeilen, die du ausgewählt hast, auf einer Karte mit dem Cover.</string>
+    <string name="lyrics_share_story">Als Story formatieren</string>
+    <string name="lyrics_share_story_revert">Zurück zur Karte</string>
     <string name="listening_shape">Dein Hörmuster</string>
     <string name="member_since">Mitglied seit</string>
     <string name="member_since_value">Mitglied seit %1$s</string>
@@ -572,6 +532,10 @@
     <string name="replay_minutes_end"> mit Musik verbracht.</string>
     <string name="replay_minutes_start">Du hast </string>
     <string name="replay_minutes_value">%1$s</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s Minute</item>
+        <item quantity="other">%1$s Minuten</item>
+    </plurals>
     <string name="replay_mostly_around">, meist gegen %1$s.</string>
     <string name="replay_private_counting">Privat aus deinem Hörverlauf auf diesem Gerät erstellt</string>
     <string name="replay_share_card_description">Eine übersichtliche Karte mit deinen wichtigsten Höhepunkten.</string>
@@ -580,16 +544,19 @@
     <string name="replay_songs_start">Insgesamt füllten </string>
     <string name="replay_summary_start">Dein Hörverhalten hatte </string>
     <string name="saved">Gespeichert</string>
+    <string name="saved_bang">Gespeichert!</string>
     <string name="share_my_replay">Mein Replay teilen</string>
+    <string name="share_your_lyrics">Textkarte senden</string>
     <string name="share_your_replay">Dein Replay teilen</string>
     <string name="tap_share_for_picture">Tippe auf Teilen, um ein Bild zu erstellen</string>
     <string name="top_album">Top-Album</string>
     <string name="top_artist">Top-Künstler</string>
     <string name="top_genre">Top-Genre</string>
     <string name="top_song">Top-Song</string>
-    <string name="when_you_listen_most">Wann du am meisten hörst</string>
+    <string name="when_you_listen_the_most">Wann du am meisten hörst</string>
     <string name="your_biggest_day">Dein größter Tag: %1$s</string>
     <string name="your_listening_experience">Dein Hörerlebnis</string>
+    <string name="your_lyrics_card">Deine Textkarte</string>
     <string name="your_replay">Dein Replay</string>
     <plurals name="replay_artist_count">
         <item quantity="one">%1$s Künstler</item>
@@ -653,11 +620,6 @@
     <string name="delete_playlist_confirmation">„%1$s“ löschen? Erneut tippen, um zu bestätigen.</string>
     <string name="delete_download_confirmation">„%1$s“ von diesem Gerät entfernen? Erneut tippen, um zu bestätigen.</string>
     <string name="running">Läuft</string>
-    <string name="automix_analysis_status">Automix · dieser Song: %1$s · nächster: %2$s</string>
-    <string name="analysis_complete">analysiert</string>
-    <string name="analysis_refining">analysiert, wird verfeinert…</string>
-    <string name="analysis_in_progress">wird analysiert…</string>
-    <string name="waiting">wartet</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">nicht geladen</string>
     <string name="version_cut_fetching">wird geladen</string>
@@ -665,6 +627,8 @@
     <string name="version_cut_aligned">ausgerichtet</string>
     <string name="automix_enabled_subtitle">Timing und Überblendung jedes Übergangs werden direkt aus den Titeln bestimmt. Schalte dies aus, wenn das Telefon heiß wird oder die Wiedergabe stockt.</string>
     <string name="automix_disabled_subtitle">Timing und Überblendung von Übergängen erfolgen automatisch, ohne Regler. Die Leistung kann auf langsameren Geräten variieren.</string>
+    <string name="advanced_automix">Erweiterter Automix</string>
+    <string name="advanced_automix_subtitle">Mischt wie ein DJ: hält die Beats synchron, setzt jeden Übergang auf den Beat und schneidet zwischen Songs, die nicht zusammenpassen. Keine zusätzliche Verarbeitung.</string>
     <string name="no_lyrics_sources_enabled">Keine. Songtexte werden nicht abgerufen.</string>
     <string name="song_cache_large_subtitle">Behält bis zu %1$s heruntergeladenes Audio auf dem Speicher. Das kann einen spürbaren Teil deines freien Speicherplatzes beanspruchen.</string>
     <string name="song_cache_limit_subtitle">Behält heruntergeladenes Audio auf dem Speicher für sofortiges Springen und Wiederholen</string>
@@ -691,34 +655,6 @@
     <string name="this_month">Dieser Monat</string>
     <string name="this_year">Dieses Jahr</string>
     <string name="all_time">Gesamt</string>
-    <string-array name="lyrics_intro_lines">
-        <item>Der Beat setzt ein</item>
-        <item>Der Song startet</item>
-        <item>Aufwärmen</item>
-        <item>Stimmung wird gesetzt</item>
-        <item>Erst der Bass, dann die Worte</item>
-        <item>Warte ab</item>
-        <item>Spür den Aufbau</item>
-        <item>Erstmal nur der Groove</item>
-        <item>Der Hook ist unterwegs</item>
-        <item>Lass es wirken</item>
-        <item>Gesang, dein Einsatz</item>
-        <item>Die ersten Töne sind da</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>Songtexte werden geholt</item>
-        <item>Die Worte werden gesucht</item>
-        <item>Strophen werden geladen</item>
-        <item>Songtexte laden</item>
-        <item>Textblatt wird geprüft</item>
-        <item>Songbuch wird durchsucht</item>
-        <item>Songtexte werden sortiert</item>
-        <item>Die Worte sind unterwegs</item>
-        <item>Archive werden durchsucht</item>
-        <item>Die richtigen Worte werden gesucht</item>
-        <item>Songtexte nehmen Form an</item>
-        <item>Fast gefunden</item>
-    </string-array>
 
     <!-- Listen together -->
     <string name="listen_together">Gemeinsam hören</string>
@@ -774,7 +710,6 @@
     <string name="listen_together_you">Du</string>
     <string name="listen_together_host">Host</string>
     <string name="listen_together_away">Abwesend – ihr Platz bleibt frei</string>
-    <string name="listen_together_manage">Verwalten</string>
     <string name="listen_together_landing_title">Party starten</string>
     <string name="listen_together_landing_subtitle">Weil Musik zusammen besser klingt. Lade Freunde ein, gemeinsam zu hören und in Echtzeit Songs hinzuzufügen – egal, wo sie sind.</string>
     <string name="listen_together_create_action">Party erstellen</string>
@@ -800,10 +735,6 @@
     <string name="listen_together_reconnecting">Neu verbinden…</string>
     <string name="listen_together_syncing_clock">Uhr wird abgeglichen…</string>
     <string name="listen_together_in_sync">Synchron · %1$d ms Umlaufzeit</string>
-    <string name="listen_together_jam">Jam von %1$s</string>
-    <string name="listen_together_jam_unnamed">Gemeinsam hören</string>
-    <string name="listen_together_open">Gemeinsam hören</string>
-    <string name="listen_together_open_count">Gemeinsam hören · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">Party auf eigenem Server beitreten?</string>
     <string name="listen_together_custom_server_dialog_message">Diese Party läuft auf einem externen Server:\n\n%1$s\n\nMöchtest du deinen Party-Server wechseln und der Party %2$s beitreten?</string>
     <string name="listen_together_custom_server_switch_and_join">Wechseln &amp; beitreten</string>
@@ -863,8 +794,6 @@
 
     <string name="automix_mode_performance_subtitle">4 Threads · schnellste Analyse · höherer Akkuverbrauch</string>
 
-    <string name="automix_not_supported_video">Automix wird bei Video-Titeln nicht unterstützt</string>
-    <string name="automix_stopped_in_party">Automix: bei „Gemeinsam hören“ gestoppt</string>
 
     <string name="automix_performance">Automix-Leistung</string>
 
@@ -933,13 +862,13 @@
 
     <string name="personal">Persönlich</string>
 
-    <string name="playing_radio">Spiele %1$s Radio</string>
 
     <string name="playlist_action">Playlist</string>
 
     <string name="prefer_usb_dac">USB-DAC bevorzugen</string>
     <string name="loudness_normalization">Lautstärkenormalisierung</string>
     <string name="loudness_normalization_subtitle">Bringt jeden Titel auf dieselbe Lautheit</string>
+    <string name="loudness_off_on_speaker">Auf dem Handylautsprecher deaktivieren</string>
     <string name="loudness_target">Ziel-Lautheit</string>
     <string name="loudness_target_subtitle">Leiser passt zu Kopfhörern, lauter zum Auto oder Handylautsprecher</string>
     <string name="loudness_target_value">%1$s LUFS</string>
@@ -1078,13 +1007,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="auto_quick_picks">Quick picks</string>
 
@@ -1221,11 +1146,18 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="cast_dialog_title">Cast</string>
+    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
+    <string name="cast_searching">Looking for devices…</string>
+    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
+    <string name="cast_device_connecting">Connecting…</string>
+    <string name="cast_device_connected">Casting</string>
+    <string name="cast_stop">Stop casting</string>
+    <string name="cast_track_unsupported">This track can\'t be cast</string>
+    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
     <string name="audio_pipeline_subtitle">Live-Signalweg vom Decoder bis zur Ausgabe</string>
 
     <string name="pipeline_track_info">Track Info</string>
@@ -1272,9 +1204,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1291,22 +1221,29 @@
 
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
-    <string name="open_lyrics">Lyrics</string>
-
-    <string name="audio_output">Audio output</string>
-
-    <string name="audio_output_playing">Playing here</string>
-
-    <string name="wired_headphones">Wired headphones</string>
-
-    <string name="usb_audio">USB audio</string>
-
-    <string name="hdmi_output">HDMI</string>
-
-    <string name="personal_phone">%1$s’s Phone</string>
-
-    <string name="this_phone">This phone</string>
 
 
 
+
+
+
+
+
+
+
+    <string name="source_needs_lossless_output">Braucht eine verlustfreie Ausgabe · nutze ein Gerät, das Lossless unterstützt</string>
+    <string name="source_needs_lossless_bt_codec">Braucht eine verlustfreie Ausgabe · Bluetooth nutzt %1$s; nutze ein Gerät, das Lossless unterstützt</string>
+    <string name="source_needs_lossless_bt_unknown">Braucht eine verlustfreie Ausgabe · der Bluetooth-Codec ist nicht erkennbar</string>
+    <string name="source_downloads_off">Nur Streaming</string>
+    <string name="lossless_output_permission">Bluetooth-Codec prüfen</string>
+    <string name="lossless_output_permission_detail">Geräte in der Nähe erlauben, damit LDAC- oder LHDC-Kopfhörer Lossless-Addons freischalten</string>
+    <string name="cached_songs">Zwischengespeicherte Songs</string>
+    <string name="cached_songs_subtitle">Songs von YouTube und JioSaavn im Song-Cache</string>
+    <string name="cached_songs_empty">Noch keine zwischengespeicherten Songs. Songs, die du von YouTube oder JioSaavn abspielst, erscheinen hier.</string>
+    <string name="show_cache_folder">Ordner für zwischengespeicherte Songs anzeigen</string>
+    <string name="show_cache_folder_subtitle">Fügt der Mediathek einen Ordner mit den YouTube- und JioSaavn-Songs im Song-Cache hinzu</string>
+    <string name="song_cache_unlimited">Unbegrenzt</string>
+    <string name="song_cache_unlimited_subtitle">Kein Limit. Zwischengespeicherte Audiodaten können wachsen, bis dein Speicher voll ist.</string>
+    <string name="clear_song_cache_title">Song-Cache leeren?</string>
+    <string name="clear_song_cache_warning">Alle zwischengespeicherten Songs werden gelöscht und der Ordner für zwischengespeicherte Songs wird geleert. Beim nächsten Abspielen werden sie erneut gestreamt.</string>
 </resources>

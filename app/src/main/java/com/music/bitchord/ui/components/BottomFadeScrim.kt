@@ -5,11 +5,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -76,7 +74,7 @@ fun BottomFadeScrim(
 ) {
     // The gesture bar sits below the tab pill and wants covering too, so it is
     // added on rather than being part of the fade's own run.
-    val inset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val inset = floatingBarInsets.asPaddingValues().calculateBottomPadding()
     val height by animateDpAsState(
         targetValue = inset + if (withMiniPlayer) FADE_HEIGHT_WITH_MINI_PLAYER else FADE_HEIGHT,
         // Matches the beat the mini player takes to appear, so the floor grows

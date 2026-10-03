@@ -27,7 +27,7 @@ fun discordAudioQualityLine(stats: NerdStats.Snapshot?): String? {
         stats.bitDepth?.takeIf { it > 0 }?.let { add("$it-bit") }
         stats.sampleRateHz?.takeIf { it > 0 }?.let {
             val khz = String.format(Locale.ROOT, "%.1f", it / 1000f).removeSuffix(".0")
-            add("$khz kHz")
+            add(NerdStats.megahertzLabel(it) ?: "$khz kHz")
         }
         stats.channels?.takeIf { it > 0 }?.let {
             add(

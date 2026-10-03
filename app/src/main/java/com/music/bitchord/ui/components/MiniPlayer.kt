@@ -5,7 +5,10 @@ import com.music.bitchord.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,22 +21,27 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
@@ -41,12 +49,16 @@ import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.sharedui.resources.Res as SharedRes
+import com.music.bitchord.sharedui.resources.ic_player_next
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.player.PlayerDock
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
+import org.jetbrains.compose.resources.painterResource
 
 /**
  * The transport buttons' touch target. Material's default 48dp is what a bar
@@ -157,6 +169,66 @@ internal fun Modifier.miniPlayerTrackSwipe(
     }
 }
 
+/**
+ * Pulling the mini player up into the full player, the way the full player is
+ * pulled back down into it: the player follows the finger the whole way, and
+ * on release carries on to whichever end the gesture meant — open for a flick
+ * upwards or for most of the way up, closed for anything less.
+ *
+ * Implemented by the host, which owns the player's sheet.
+ */
+interface MiniPlayerPull {
+    /** The finger moved this far, in pixels — negative is upwards. */
+    fun drag(delta: Float)
+
+    /** The finger lifted, moving this fast in pixels a second. */
+    fun release(velocity: Float)
+}
+
+/**
+ * The upward pull, for both mini-player materials. A vertical drag only, so it
+ * leaves the horizontal track swipe and the tap to expand as they were — each
+ * waits for its own axis to pass the touch slop.
+ */
+@Composable
+internal fun Modifier.miniPlayerPull(pull: MiniPlayerPull?): Modifier {
+    if (pull == null) return this
+    val currentPull by rememberUpdatedState(pull)
+    return draggable(
+        state = rememberDraggableState { delta -> currentPull.drag(delta) },
+        orientation = Orientation.Vertical,
+        onDragStopped = { velocity -> currentPull.release(velocity) },
+    )
+}
+
+/**
+ * The mini player's cover as one end of the player opening and closing — see
+ * [PlayerDock]. Shared by both mini-player materials.
+ *
+ * Reports where it is on being placed, and nothing more: the coordinates are
+ * the same object for as long as the cover is on screen, and the player turns
+ * them into a position only on the frames it is actually flying to them, so a
+ * bar folding and unfolding on every scroll pays nothing for this.
+ *
+ * Stands aside while the player's own artwork is on its way to or from here.
+ * Read at draw, off the sheet's offset — a layer property per frame of the
+ * sheet's travel, never a recomposition of the bar.
+ */
+@Composable
+internal fun Modifier.playerDockArt(dock: PlayerDock?, corner: Dp): Modifier {
+    if (dock == null) return this
+    val placed = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    DisposableEffect(dock) {
+        onDispose { placed[0]?.let(dock::releaseMiniArt) }
+    }
+    return this
+        .onPlaced { coordinates ->
+            placed[0] = coordinates
+            dock.reportMiniArt(coordinates, corner)
+        }
+        .graphicsLayer { alpha = if (dock.coversMiniArt) 0f else 1f }
+}
+
 /** Frosted mini player that rides just above the floating tab bar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -172,6 +244,10 @@ fun MiniPlayer(
     /** @see com.music.bitchord.data.listentogether.ListenTogether.State.controlsLocked */
     controlsLocked: Boolean = false,
     onBlockedControl: () -> Unit = {},
+    /** Where the player's artwork lands when it closes into this bar. */
+    dock: PlayerDock? = null,
+    /** Dragging the bar up into the player. */
+    pull: MiniPlayerPull? = null,
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -183,7 +259,7 @@ fun MiniPlayer(
     val shape = RoundedCornerShape(percent = 50)
     Box(
         modifier = modifier
-            .padding(horizontal = PAGE_GUTTER)
+            .padding(horizontal = BAR_GUTTER)
             .clip(shape)
             .then(
                 if (reduceDynamicBlur) {
@@ -200,6 +276,7 @@ fun MiniPlayer(
             // stray taps meant for the page behind it, and the sheet rising is
             // its own confirmation. The glyphs on it still buzz.
             .clickable(onClick = onExpand)
+            .miniPlayerPull(pull)
             .miniPlayerTrackSwipe(
                 onNext = {
                     haptics.play(Haptic.SkipNext)
@@ -227,6 +304,7 @@ fun MiniPlayer(
                 contentDescription = null,
                 modifier = Modifier
                     .size(40.dp)
+                    .playerDockArt(dock, ART_CORNER)
                     .clip(RoundedCornerShape(ART_CORNER))
                     .thumbnailBorder(RoundedCornerShape(ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
@@ -281,14 +359,33 @@ fun MiniPlayer(
                 enabled = !controlsLocked,
                 modifier = Modifier.size(GLYPH_SLOT),
             ) {
-                Icon(
-                    Icons.Rounded.SkipNext,
-                    contentDescription = stringResource(R.string.widget_next),
+                MiniPlayerNextGlyph(
                     tint = MaterialTheme.colorScheme.onBackground
                         .copy(alpha = if (controlsLocked) 0.3f else 1f),
-                    modifier = Modifier.size(GLYPH_SIZE),
                 )
             }
         }
     }
 }
+
+/**
+ * The full player's skip-forward glyph, at the mini player's scale.
+ *
+ * Sized against the play glyph beside it the way the full player sizes it
+ * against its own play button — about half as wide again and two thirds as
+ * tall — and squashed by the same 0.85, so the two players' next buttons
+ * read as one glyph at two sizes. Shared with the glass bar's docked player.
+ */
+@Composable
+internal fun MiniPlayerNextGlyph(tint: Color) {
+    Icon(
+        painter = painterResource(SharedRes.drawable.ic_player_next),
+        contentDescription = stringResource(R.string.widget_next),
+        tint = tint,
+        modifier = Modifier
+            .size(NEXT_GLYPH_SIZE)
+            .graphicsLayer { scaleY = 0.85f },
+    )
+}
+
+private val NEXT_GLYPH_SIZE = 25.dp

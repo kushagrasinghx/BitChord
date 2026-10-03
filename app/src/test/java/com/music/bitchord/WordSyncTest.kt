@@ -5,6 +5,7 @@ import com.music.bitchord.data.lyrics.EnhancedLrc
 import com.music.bitchord.data.lyrics.GrowingWord
 import com.music.bitchord.data.lyrics.LyricAlignment
 import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricSyllable
 import com.music.bitchord.data.lyrics.LyricWord
 import com.music.bitchord.data.lyrics.LyricsPlus
 import kotlinx.serialization.json.JsonPrimitive
@@ -574,5 +575,93 @@ class WordSyncTest {
         val plain = LyricLine(1_000, "no timings here")
         assertEquals(0f, plain.revealedChars(999), 0.01f)
         assertEquals(15f, plain.revealedChars(1_000), 0.01f)
+    }
+
+    // ---- Syllables and the lift -----------------------------------------------
+
+    @Test
+    fun `ttml keeps each syllable's own timing on the word`() {
+        val enough = TtmlLyrics.parse(ttml).sung()[1].words[1]
+        assertEquals(
+            listOf(LyricSyllable(31_839, 31_996, 0, 1), LyricSyllable(31_996, 32_529, 1, 6)),
+            enough.syllables,
+        )
+        // A word written as one span is its own single syllable.
+        assertTrue(TtmlLyrics.parse(ttml).sung()[1].words[0].syllables.isEmpty())
+    }
+
+    @Test
+    fun `the sweep follows syllables rather than spreading over the word`() {
+        val line = TtmlLyrics.parse(ttml).sung()[1]
+        // "long enough": the word starts at character 5.
+        // Halfway through the 157 ms "e" is half a letter in, not a fifth of
+        // the way through the whole word.
+        assertEquals(5.5f, line.revealedChars(31_917), 0.05f)
+        // Halfway through "nough", the other half of the word.
+        assertEquals(8.5f, line.revealedChars(32_262), 0.05f)
+        assertEquals(listOf(0..3, 5..5, 6..10), line.sweepSpans)
+    }
+
+    @Test
+    fun `lyricsplus keeps each syllable's own timing on the word`() {
+        val line = LyricsPlus.parse(
+            LyricsPlus.Response(
+                type = "Word",
+                lyrics = listOf(
+                    LyricsPlus.Line(
+                        time = 30_189,
+                        duration = 2_340,
+                        text = "long enough",
+                        syllabus = listOf(
+                            LyricsPlus.Syllable(time = 30_189, duration = 341, text = "long "),
+                            LyricsPlus.Syllable(time = 31_839, duration = 157, text = "e"),
+                            LyricsPlus.Syllable(time = 31_996, duration = 533, text = "nough"),
+                        ),
+                    ),
+                ),
+            ),
+        ).sung().single()
+        assertTrue(line.words[0].syllables.isEmpty())
+        assertEquals(
+            listOf(LyricSyllable(31_839, 31_996, 0, 1), LyricSyllable(31_996, 32_529, 1, 6)),
+            line.words[1].syllables,
+        )
+    }
+
+    @Test
+    fun `a pause between two syllables rests on the boundary`() {
+        val word = LyricWord(
+            1_000, 2_000, "hello",
+            listOf(LyricSyllable(1_000, 1_200, 0, 3), LyricSyllable(1_600, 2_000, 3, 5)),
+        )
+        assertEquals(3f, word.charsSungAt(1_400), 0.01f)
+        assertEquals(4f, word.charsSungAt(1_800), 0.01f)
+    }
+
+    @Test
+    fun `stripping brackets moves the syllables with the letters`() {
+        val word = LyricWord(
+            0, 600, "(enough)",
+            listOf(LyricSyllable(0, 100, 0, 2), LyricSyllable(100, 600, 2, 8)),
+        )
+        val stripped = word.withoutChars { it == '(' || it == ')' }!!
+        assertEquals("enough", stripped.text)
+        assertEquals(listOf(LyricSyllable(0, 100, 0, 1), LyricSyllable(100, 600, 1, 6)), stripped.syllables)
+        assertNull(LyricWord(0, 1, "()").withoutChars { it == '(' || it == ')' })
+    }
+
+    @Test
+    fun `a quick word barely lifts and a held one goes all the way up`() {
+        val line = LyricLine(
+            timeMs = 1_000,
+            text = "a hold",
+            words = listOf(LyricWord(1_000, 1_100, "a"), LyricWord(2_000, 3_200, "hold")),
+        )
+        val quickPeak = (1_000L..2_000L step 10).maxOf { line.wordLift(0, it) }
+        val heldPeak = (2_000L..4_000L step 10).maxOf { line.wordLift(1, it) }
+        assertTrue("quick word rose to $quickPeak", quickPeak < 0.3f)
+        assertEquals(1f, heldPeak, 0.01f)
+        // The settle hands over without a step: past the rise, the lift is the fall.
+        assertEquals(line.wordFall(1, 3_400), line.wordLift(1, 3_400), 0.001f)
     }
 }

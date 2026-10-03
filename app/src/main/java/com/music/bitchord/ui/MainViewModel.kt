@@ -29,6 +29,7 @@ import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.HomeShelf
+import com.music.bitchord.data.model.withoutRepeatsOf
 import com.music.bitchord.data.model.LibraryPage
 import com.music.bitchord.data.model.LibraryState
 import com.music.bitchord.data.model.LikeStatus
@@ -48,6 +49,7 @@ import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
 import com.music.bitchord.download.Downloads
 import android.util.LruCache
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -65,6 +67,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -74,18 +77,16 @@ import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
+import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.StreamChoice
+import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
+import com.music.bitchord.ui.screens.matchesSearch
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
-/** What the current track's provider picker already knows without another request. */
-enum class LyricsProviderState {
-    NOT_FETCHED,
-    FETCHING,
-    FOUND,
-    NOT_FOUND,
-}
+/** What the Search tab searches: YouTube Music, or the Local Music folder on this device. */
+enum class SearchSource { YOUTUBE, LIBRARY }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -183,6 +184,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private val _typeaheadResults = MutableStateFlow<List<SearchResult>>(emptyList())
     val typeaheadResults: StateFlow<List<SearchResult>> = _typeaheadResults.asStateFlow()
+
+    /** Where the Search tab looks — see [setSearchSource]. */
+    private val _searchSource = MutableStateFlow(SearchSource.YOUTUBE)
+    val searchSource: StateFlow<SearchSource> = _searchSource.asStateFlow()
+
+    /** Every track in the Local Music folder, read when the Library source is picked. */
+    private val _librarySongs = MutableStateFlow<UiState<List<Song>>>(UiState.Loading)
+
+    /**
+     * The Library source's answer for the current query: the Local Music
+     * folder narrowed by the same match its own filter box uses, so the two
+     * places never disagree about what is on the device. Null while the field
+     * is empty — there is nothing asked yet.
+     */
+    val libraryResults: StateFlow<UiState<List<Song>>?> = combine(_librarySongs, _query) { state, query ->
+        val term = query.trim()
+        when {
+            term.isEmpty() -> null
+            state is UiState.Success -> UiState.Success(state.data.filter { it.matchesSearch(term) })
+            else -> state
+        }
+    }.flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     // The search pipeline's own state. Declared here, above [init], because
     // that is where the collector is started from and a property declared
@@ -526,6 +550,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     private val _detailStack = MutableStateFlow<List<DetailPage>>(emptyList())
     val detailStack: StateFlow<List<DetailPage>> = _detailStack.asStateFlow()
+
+    private val _releaseLibrary = MutableStateFlow<Map<String, LibraryState>>(emptyMap())
+
+    /**
+     * Library state of releases that are only a card on some page — the artist
+     * page's top release — keyed by browse id. They have no page of their own on
+     * the stack to carry it, so it is read off the release and kept here.
+     */
+    val releaseLibrary: StateFlow<Map<String, LibraryState>> = _releaseLibrary.asStateFlow()
+
+    /** Reads whether the release [browseId] is saved, once; a no-op if already known. */
+    fun loadReleaseLibrary(browseId: String) {
+        if (browseId in _releaseLibrary.value) return
+        viewModelScope.launch {
+            YtMusicRepository.releaseLibraryState(browseId).getOrNull()?.let { state ->
+                _releaseLibrary.value += (browseId to state)
+            }
+        }
+    }
+
+    /** Saves the release [browseId] to the library or takes it out, as [toggleLibrary] does for a page. */
+    fun toggleReleaseLibrary(browseId: String) {
+        if (!requireSignIn()) return
+        viewModelScope.launch {
+            val current = _releaseLibrary.value[browseId]
+                ?: YtMusicRepository.releaseLibraryState(browseId).getOrNull()
+                ?: return@launch
+            val target = !current.saved
+            _releaseLibrary.value += (browseId to current.copy(saved = target))
+            if (YtMusicRepository.setSaved(current.playlistId, target).isSuccess) {
+                libraryStale = true
+            } else {
+                _releaseLibrary.value += (browseId to current)
+            }
+        }
+    }
 
 
     /** Set once per launch if GitHub has a release newer than this build. */
@@ -1227,6 +1287,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
+            // Emptied from Settings while the folder sits open underneath.
+            AudioCache.contentsChanged.drop(1).collect {
+                if (_detailStack.value.any { page -> page.browseId == CACHE_FOLDER_BROWSE_ID }) {
+                    reloadLocalDetail(CACHE_FOLDER_BROWSE_ID)
+                }
+            }
+        }
+        viewModelScope.launch {
             AppSettings.webdavUrl.drop(1).collect {
                 reloadRemoteDetail(com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID)
             }
@@ -1488,7 +1556,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             })
             return
         }
-        val added = shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
+        val added = shelves.withoutRepeatsOf(existing)
+            .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
         if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
     }
 
@@ -1499,7 +1568,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (identity != listenerKey()) return@onSuccess
             homeContinuation = feed.continuation
             homeSeenTitles.clear()
-            val shelves = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
+            val shelves = feed.shelves.withoutRepeatsOf(emptyList())
+                .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
             if (shelves.isNotEmpty()) _home.value = UiState.Success(shelves)
         }
         recent?.await()?.onSuccess { shelf ->
@@ -1520,15 +1590,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             YtMusicRepository.moreHome(token).onSuccess { feed ->
                 if (identity == listenerKey()) {
-                    val added = feed.shelves.filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
+                    val existing = (_home.value as? UiState.Success)?.data ?: emptyList()
+                    val added = feed.shelves.withoutRepeatsOf(existing)
+                        .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
                     // A page with nothing new signals the feed has looped back on
                     // itself rather than run dry with a token still attached —
                     // treat it the same as exhausted so scrolling can't spin here.
                     homeContinuation = feed.continuation.takeIf { added.isNotEmpty() }
-                    if (added.isNotEmpty()) {
-                        val existing = (_home.value as? UiState.Success)?.data ?: emptyList()
-                        _home.value = UiState.Success(existing + added)
-                    }
+                    if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
                 }
             }
             if (identity == listenerKey()) _homeLoadingMore.value = false
@@ -1722,6 +1791,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         // Reset the submission gate so typeahead pipelines fire again.
         searchSubmitted = false
+        // The Library source answers from the device on every keystroke (see
+        // [libraryResults]); YouTube's completions have nothing to add to it.
+        if (_searchSource.value == SearchSource.LIBRARY) return
         // While typing, surface text completions — the pipeline already feeds
         // them through [suggestRequests] and publishes results via typeahead.
         suggestRequests.tryEmit(newValue)
@@ -1733,11 +1805,52 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun submitSearch() {
         val q = _query.value.trim()
-        if (q.isEmpty()) return
+        if (q.isEmpty() || _searchSource.value == SearchSource.LIBRARY) return
         searchSubmitted = true
         _suggestions.value = emptyList()
         _typeaheadResults.value = emptyList()
         runSearch()
+    }
+
+    /**
+     * Points the Search tab at YouTube Music or at the Local Music folder.
+     *
+     * The query carries over: whatever is in the field is answered again by
+     * the source just picked, so flipping is a way to compare the two rather
+     * than a reset.
+     */
+    fun setSearchSource(source: SearchSource) {
+        if (_searchSource.value == source) return
+        _searchSource.value = source
+        _suggestions.value = emptyList()
+        _typeaheadResults.value = emptyList()
+        _searchScrollReset.value += 1
+        when (source) {
+            SearchSource.LIBRARY -> loadLibrarySongs()
+            SearchSource.YOUTUBE -> submitSearch()
+        }
+    }
+
+    /**
+     * Reads the Local Music folder for the Library source. Re-read on every
+     * switch to it, so files added since — or a permission granted since —
+     * are in the next answer; the last list stays up meanwhile.
+     */
+    fun loadLibrarySongs() {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            _librarySongs.value = if (!LocalMediaRepository.hasStoragePermission(context)) {
+                UiState.Error(text(R.string.storage_required_read))
+            } else {
+                runCatching { LocalMediaRepository.getLocalMusic(context) }.fold(
+                    onSuccess = { songs ->
+                        if (songs.isEmpty()) UiState.Error(text(R.string.no_local_audio_found))
+                        else UiState.Success(songs)
+                    },
+                    onFailure = { UiState.Error(text(R.string.no_local_audio_found)) },
+                )
+            }
+        }
     }
 
     fun onFilterChange(value: SearchFilter) {
@@ -2089,7 +2202,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
          * Maximum number of live media results shown in the typeahead dropdown.
          * Enough to give variety without making the list unscrollable.
          */
-        const val TYPEAHEAD_MAX_RESULTS = 8
+        const val TYPEAHEAD_MAX_RESULTS = 15
 
         const val SEARCH_CACHE_ENTRIES = 100
 
@@ -2242,6 +2355,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (songs.isEmpty()) UiState.Error("No downloaded tracks")
                     else UiState.Success(songs)
                 }
+                browseId == CACHE_FOLDER_BROWSE_ID -> cachedSongsState()
                 browseId == "local:all" -> {
                     val context = getApplication<Application>()
                     if (!LocalMediaRepository.hasStoragePermission(context)) {
@@ -2351,6 +2465,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (songs.isEmpty()) UiState.Error("No downloaded tracks")
                     else UiState.Success(songs)
                 }
+                browseId == CACHE_FOLDER_BROWSE_ID -> cachedSongsState()
                 browseId == "local:all" -> {
                     if (!LocalMediaRepository.hasStoragePermission(context)) {
                         UiState.Error(text(R.string.storage_required_read))
@@ -2386,6 +2501,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun downloadedPlaylist(browseId: String): List<Song> {
         val id = Downloads.recordIdOf(browseId) ?: return emptyList()
         return Downloads.getCollectionSongs(getApplication(), id)
+    }
+
+    /**
+     * The Cached songs folder: the YouTube and JioSaavn tracks the song cache
+     * is holding, most recently played first. See [AudioCache.cachedSongs].
+     */
+    private suspend fun cachedSongsState(): UiState<List<Song>> {
+        val songs = AudioCache.cachedSongs().map { it.song }
+        return if (songs.isEmpty()) UiState.Error(text(R.string.cached_songs_empty)) else UiState.Success(songs)
     }
 
     /**
@@ -2499,6 +2623,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 browseId == "local:downloads" -> runCatching {
                     Downloads.getDownloadedSongs(context)
                         .ifEmpty { error("No downloaded tracks") }
+                }
+                browseId == CACHE_FOLDER_BROWSE_ID -> runCatching {
+                    AudioCache.cachedSongs().map { it.song }
+                        .ifEmpty { error(text(R.string.cached_songs_empty)) }
                 }
                 browseId == "local:all" -> runCatching {
                     if (!LocalMediaRepository.hasStoragePermission(context)) {

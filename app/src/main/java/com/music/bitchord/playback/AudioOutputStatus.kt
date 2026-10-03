@@ -331,7 +331,8 @@ object AudioOutputStatus {
             } else {
                 current.value.encodings
             },
-            bluetoothTelemetry = result.route.bluetoothTelemetry,
+            bluetoothProfile = if (result.route.kind == AudioRouting.Kind.BLUETOOTH) current.value.bluetoothProfile else null,
+            bluetoothTelemetry = if (result.route.kind == AudioRouting.Kind.BLUETOOTH) result.route.bluetoothTelemetry else null,
             fallbackReason = result.output.fallbackReason,
             fallbackDetail = result.output.fallbackDetail,
             systemMixerRateHz = result.output.systemMixerRateHz,
@@ -345,6 +346,21 @@ object AudioOutputStatus {
             // and left both rows reading "Float32" forever.
         )
         current.value = evaluateActualPath(baseSnapshot)
+    }
+
+    /**
+     * Resets track-specific statistics upon transition to a new track so the previous track's
+     * decoder name, encoding, loudness metrics, and exactness flags do not linger across track boundaries.
+     */
+    fun onTrackTransition() {
+        current.value = current.value.copy(
+            decoderName = null,
+            decoderOutputEncoding = null,
+            outputExact = false,
+            outputExactDetail = null,
+            loudnessGainDb = null,
+            loudnessLufs = null,
+        )
     }
 
     fun publishDecoder(decoderName: String?) {

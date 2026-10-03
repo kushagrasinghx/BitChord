@@ -7,11 +7,13 @@ import android.util.Log
 import com.music.bitchord.auth.EncryptedPrefs
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.DetectedFormat
 import com.music.bitchord.data.sources.addon.SourceFormats
 import com.music.bitchord.data.settings.AudioQuality
+import com.music.bitchord.playback.audio.LosslessOutput
 import kotlinx.coroutines.flow.MutableStateFlow
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.serialization.Serializable
@@ -36,7 +38,28 @@ data class SourceConfig(
     val baseUrl: String = "",
     /** JioSaavn is opt-in because catalogue matches can select the wrong recording. */
     val enabled: Boolean = kind != SourceKind.JIOSAAVN,
+    /**
+     * The addon's `allowDownloads`, as its manifest last said. Stored rather
+     * than asked each time so the answer is there without a request — see
+     * [checkValidLossless] for why that matters.
+     */
+    val allowDownloads: Boolean = true,
+    /**
+     * The addon's `checkValidLossless`, as its manifest last said. Has to be
+     * stored: the promise is that a gated addon is not contacted at all while
+     * no lossless output is connected, and asking it for its manifest would
+     * already break that. Refreshed whenever the manifest is next read.
+     */
+    val checkValidLossless: Boolean = false,
 ) {
+    /** Whether this source is shut out right now because it needs an output that isn't connected. */
+    val awaitsLosslessOutput: Boolean
+        get() = checkValidLossless && !LosslessOutput.capable
+
+    /** The two manifest switches, without the parts of the config the user set. */
+    internal fun withPolicyOf(other: SourceConfig) =
+        copy(allowDownloads = other.allowDownloads, checkValidLossless = other.checkValidLossless)
+
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
         get() = label.ifBlank {
@@ -162,8 +185,42 @@ object SourceRegistry {
      */
     fun active(): List<MusicSource> =
         enabledConfigs(configs.value)
+            // Not in the walk at all while it would be refused anyway: an addon
+            // that asked for a lossless output costs nothing — not even a timed
+            // out search — while there isn't one. See [SourceConfig.checkValidLossless].
+            .filterNot { it.awaitsLosslessOutput }
             .sortedBy { it.kind.rank }
             .mapNotNull { instances[it.id] }
+
+    /**
+     * [active], minus the addons whose manifest said `allowDownloads: 0`. A
+     * download walks this instead, so the next source in line serves it.
+     */
+    fun activeForDownload(): List<MusicSource> =
+        active().filter { config(it.configId)?.allowDownloads != false }
+
+    /**
+     * Records what an addon's manifest said about downloads and lossless
+     * output, if it changed.
+     *
+     * Does not rebuild the source the way an edit does — see [configuredBy] —
+     * because nothing about where it points has changed, and this is called
+     * from inside that source's own requests.
+     */
+    fun updatePolicy(configId: String, allowDownloads: Boolean, checkValidLossless: Boolean) {
+        val current = config(configId) ?: return
+        if (current.allowDownloads == allowDownloads && current.checkValidLossless == checkValidLossless) return
+        TrackLog.d(
+            TAG,
+            "${current.displayName}: manifest now says allowDownloads=$allowDownloads " +
+                "checkValidLossless=$checkValidLossless",
+        )
+        publish(
+            configs.value.map {
+                if (it.id == configId) it.copy(allowDownloads = allowDownloads, checkValidLossless = checkValidLossless) else it
+            },
+        )
+    }
 
     /** The common eligibility gate used by playback and download source walks. */
     internal fun enabledConfigs(configs: List<SourceConfig>): List<SourceConfig> =
@@ -328,6 +385,8 @@ object SourceRegistry {
                     kind = SourceKind.ADDON,
                     baseUrl = detected.baseUrl,
                     label = detected.manifest.displayName,
+                    allowDownloads = detected.manifest.downloadsAllowed,
+                    checkValidLossless = detected.manifest.requiresLosslessOutput,
                 ),
             )
             is DetectedFormat.ModuleIndex -> Result.success(
@@ -404,10 +463,11 @@ object SourceRegistry {
     /**
      * Whether an already-built instance still matches its stored config —
      * false after an edit that changes where it points, which is exactly when
-     * the warm instance must be thrown away.
+     * the warm instance must be thrown away. The manifest switches are left
+     * out: they change no address, and a source reads them live from here.
      */
     private fun MusicSource.configuredBy(config: SourceConfig): Boolean =
-        this is ConfigBacked && this.config == config
+        this is ConfigBacked && this.config.withPolicyOf(config) == config
 
     /** Implemented by sources that carry their [SourceConfig], so [publish] can tell a real edit from a no-op. */
     internal interface ConfigBacked {
@@ -429,13 +489,7 @@ object SourceRegistry {
     fun trackKey(configId: String, trackId: String) = "$PREFIX$configId$SEPARATOR$trackId"
 
     /** The `(configId, trackId)` inside a [trackKey], or null if this is an ordinary YouTube id. */
-    fun parseTrackKey(key: String): Pair<String, String>? {
-        if (!key.startsWith(PREFIX)) return null
-        val body = key.removePrefix(PREFIX)
-        val cut = body.indexOf(SEPARATOR)
-        if (cut <= 0) return null
-        return body.substring(0, cut) to body.substring(cut + SEPARATOR.length)
-    }
+    fun parseTrackKey(key: String): Pair<String, String>? = SourceTrackKeys.parse(key)
 
     /** The playback URI for a source-backed track; [PlaybackService] resolves it at open time. */
     fun trackUri(configId: String, trackId: String): String =

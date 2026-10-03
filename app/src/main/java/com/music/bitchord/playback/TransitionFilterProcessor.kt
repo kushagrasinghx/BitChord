@@ -51,6 +51,58 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     private val highA3 = FloatArray(STAGES)
     private val highK = FloatArray(STAGES)
 
+    /** Whether the integrators hold anything since they were last cleared. */
+    private var filterStateDirty = false
+
+    /**
+     * How far ahead of the speaker this filter is running, in media
+     * microseconds; written by the sink, 0 when it has nothing to say.
+     *
+     * The filter runs where audio is *written*, not where it is heard, and on a
+     * float route the output buffer behind it holds about four seconds — Media3
+     * sizes it for 8x playback once the AudioTrack is doing the speed. A cutoff
+     * set now is therefore heard seconds from now, while a fader set now is
+     * heard at once. [CrossfadeController] reads this to aim each filter at the
+     * point in the blend its audio will actually be played.
+     */
+    @Volatile
+    var leadUs: Long = 0L
+
+    // ---- Echo out ------------------------------------------------------------
+    //
+    // A feedback delay after the filters, for Advanced Automix's echo out: the
+    // outgoing track's last beat keeps repeating, darker and thinner each
+    // time, after its dry signal is gone. Everything here is idle — not one
+    // sample touched — until [setEcho] engages it, and the ring is only ever
+    // allocated at the size a transition actually asks for.
+
+    /** Written by the controller; read once per block on the audio thread. */
+    @Volatile private var echoEngaged = false
+    @Volatile private var echoTargetSend = 0f
+    @Volatile private var echoTargetDry = 1f
+    @Volatile private var echoSeconds = 0f
+
+    /** Bumped for every new echo; the audio thread clears its ring when it sees a new one. */
+    @Volatile private var echoGeneration = 0
+
+    /** A ring allocated off the audio thread, waiting to be adopted by it. */
+    @Volatile private var pendingEchoRing: FloatArray? = null
+
+    /** The format as last configured, readable from the controller's thread for sizing the ring. */
+    @Volatile private var echoFormatRate = 0
+    @Volatile private var echoFormatChannels = 0
+
+    private var echoRing = FloatArray(0)
+    private var echoSeenGeneration = 0
+    private var echoDelayFrames = 0
+    private var echoPosition = 0
+    private var echoSend = 0f
+    private var echoDry = 1f
+    private var echoLow = FloatArray(0)
+    private var echoHigh = FloatArray(0)
+    private var echoLowCoefficient = 0f
+    private var echoHighCoefficient = 0f
+
     /**
      * Aims the filter. [lowPassHz] at or above [OPEN_HZ] and [highPassHz] at or
      * below [OFF_HZ] mean "not filtering", which is the state this returns to
@@ -69,6 +121,40 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
             currentLowPassHz < OPEN_HZ - SETTLED_HZ || currentHighPassHz > OFF_HZ + SETTLED_HZ
 
     /**
+     * Engages the echo out, or moves it: [delaySeconds] between repeats, [send]
+     * how much of the signal is fed into the delay, [dry] how much of it is
+     * passed through. Both glide across the next block rather than stepping.
+     *
+     * A new [delaySeconds] starts a new echo. The ring for it is allocated
+     * here, on the caller's thread, and only when the one already held is too
+     * small — so the audio thread never allocates, and a phone that never
+     * hears an echo out never holds one.
+     */
+    fun setEcho(delaySeconds: Float, send: Float, dry: Float) {
+        if (delaySeconds != echoSeconds || !echoEngaged) {
+            val frames = (delaySeconds.coerceIn(0f, MAX_ECHO_SECONDS) * echoFormatRate).toInt()
+            val needed = frames * echoFormatChannels
+            if (needed > echoRing.size) pendingEchoRing = FloatArray(needed)
+            echoSeconds = delaySeconds
+            echoGeneration++
+        }
+        echoTargetSend = send.coerceIn(0f, 1f)
+        echoTargetDry = dry.coerceIn(0f, 1f)
+        echoEngaged = true
+    }
+
+    /**
+     * Drops the echo and puts the dry signal back. For the end of a
+     * transition, when the track it belonged to is gone or going: a tail
+     * still ringing is cut, not faded.
+     */
+    fun parkEcho() {
+        echoEngaged = false
+        echoTargetSend = 0f
+        echoTargetDry = 1f
+    }
+
+    /**
      * Configures the Float32 DSP engine for [sampleRate] and [channelCount].
      */
     fun configure(sampleRate: Int, channelCount: Int) {
@@ -81,6 +167,16 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         }
         currentLowPassHz = targetLowPassHz
         currentHighPassHz = targetHighPassHz
+        if (echoLow.size != channelCount) {
+            echoLow = FloatArray(channelCount)
+            echoHigh = FloatArray(channelCount)
+        }
+        echoLowCoefficient = onePole(ECHO_LOW_PASS_HZ, sampleRate)
+        echoHighCoefficient = onePole(ECHO_HIGH_PASS_HZ, sampleRate)
+        // A new format invalidates the ring's length in frames.
+        echoFormatRate = sampleRate
+        echoFormatChannels = channelCount
+        echoSeenGeneration = echoGeneration - 1
     }
 
     /**
@@ -90,14 +186,20 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
     fun process(block: AudioBlock) {
         val frameCount = block.frameCount
         if (frameCount == 0 || channelCount < 1 || sampleRate <= 0) return
+        filter(block, frameCount)
+        if (echoEngaged) echo(block, frameCount)
+    }
 
+    private fun filter(block: AudioBlock, frameCount: Int) {
         val targetLow = targetLowPassHz
         val targetHigh = targetHighPassHz
         val parked = targetLow >= OPEN_HZ && targetHigh <= OFF_HZ &&
             currentLowPassHz >= OPEN_HZ - SETTLED_HZ && currentHighPassHz <= OFF_HZ + SETTLED_HZ
         if (parked) {
+            clearStateIfNeeded()
             return
         }
+        filterStateDirty = true
 
         var remaining = frameCount
         var frameOffset = 0
@@ -146,9 +248,13 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         highState.fill(0f)
         currentLowPassHz = targetLowPassHz
         currentHighPassHz = targetHighPassHz
+        // Whatever the ring holds is from before the seek; start it clean.
+        echoSeenGeneration = echoGeneration - 1
     }
 
     override fun onReset() {
+        parkEcho()
+        echoSeenGeneration = echoGeneration - 1
         targetLowPassHz = OPEN_HZ
         targetHighPassHz = OFF_HZ
         lowState = FloatArray(0)
@@ -169,10 +275,12 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
         val parked = targetLow >= OPEN_HZ && targetHigh <= OFF_HZ &&
             currentLowPassHz >= OPEN_HZ - SETTLED_HZ && currentHighPassHz <= OFF_HZ + SETTLED_HZ
         if (parked) {
+            clearStateIfNeeded()
             outputBuffer.put(inputBuffer)
             outputBuffer.flip()
             return
         }
+        filterStateDirty = true
 
         inputBuffer.order(ByteOrder.nativeOrder())
         outputBuffer.order(ByteOrder.nativeOrder())
@@ -199,6 +307,103 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
             remaining -= subBlock
         }
         outputBuffer.flip()
+    }
+
+    /**
+     * Forgets the integrators once the filter parks.
+     *
+     * Parking skips the filter without running it, so whatever the integrators
+     * held when the last transition ended would otherwise sit there until the
+     * next one — minutes later — and be the first thing that transition's
+     * filter output: a step of stale signal at the head of the blend, heard as
+     * a click. Zeroed state is a filter at rest, which is what an unused one is.
+     */
+    private fun clearStateIfNeeded() {
+        if (!filterStateDirty) return
+        lowState.fill(0f)
+        highState.fill(0f)
+        filterStateDirty = false
+    }
+
+    // ---- Echo ----------------------------------------------------------------
+
+    /**
+     * Runs the echo over [block] in place: the input goes out at [echoDry] and
+     * into the ring at [echoSend], and what comes back round is added at
+     * [ECHO_WET] and fed in again at [ECHO_FEEDBACK] through a one-pole
+     * low-pass and high-pass. Those two are what make each repeat darker and
+     * thinner than the last — a tape echo, not a copy machine — and keep the
+     * low end from piling up in the loop.
+     *
+     * One read, one write and two one-pole filters per sample, with the send
+     * and dry gains ramped linearly across the block so a 30ms control tick is
+     * never heard as a step.
+     */
+    private fun echo(block: AudioBlock, frameCount: Int) {
+        if (echoSeenGeneration != echoGeneration) startEcho()
+        val channels = channelCount
+        val delay = echoDelayFrames
+        val ring = echoRing
+        val samples = block.samples
+        val targetSend = echoTargetSend
+        val targetDry = echoTargetDry
+        val sendStep = (targetSend - echoSend) / frameCount
+        val dryStep = (targetDry - echoDry) / frameCount
+        var send = echoSend
+        var dry = echoDry
+        if (delay <= 0) {
+            // No ring to run: honour the dry gain alone, so the track still leaves.
+            for (f in 0 until frameCount) {
+                dry += dryStep
+                val base = f * channels
+                for (c in 0 until channels) samples[base + c] *= dry
+            }
+            echoSend = targetSend
+            echoDry = targetDry
+            return
+        }
+        val lowCoefficient = echoLowCoefficient
+        val highCoefficient = echoHighCoefficient
+        val low = echoLow
+        val high = echoHigh
+        var position = echoPosition
+        for (f in 0 until frameCount) {
+            send += sendStep
+            dry += dryStep
+            val base = f * channels
+            val ringBase = position * channels
+            for (c in 0 until channels) {
+                val input = samples[base + c]
+                val delayed = ring[ringBase + c]
+                val darker = low[c] + lowCoefficient * (delayed - low[c])
+                low[c] = darker
+                val rumble = high[c] + highCoefficient * (darker - high[c])
+                high[c] = rumble
+                ring[ringBase + c] = input * send + (darker - rumble) * ECHO_FEEDBACK
+                samples[base + c] = input * dry + delayed * ECHO_WET
+            }
+            if (++position == delay) position = 0
+        }
+        echoPosition = position
+        echoSend = targetSend
+        echoDry = targetDry
+    }
+
+    /** A new echo, on the audio thread: adopt any ring waiting for it and clear what it will use. */
+    private fun startEcho() {
+        echoSeenGeneration = echoGeneration
+        pendingEchoRing?.let {
+            echoRing = it
+            pendingEchoRing = null
+        }
+        val channels = channelCount.coerceAtLeast(1)
+        echoDelayFrames = (echoSeconds * sampleRate).toInt().coerceIn(0, echoRing.size / channels)
+        echoRing.fill(0f, 0, echoDelayFrames * channels)
+        echoLow.fill(0f)
+        echoHigh.fill(0f)
+        echoPosition = 0
+        echoSend = 0f
+        echoDry = 1f
     }
 
     // ---- Filter ------------------------------------------------------------
@@ -301,6 +506,29 @@ class TransitionFilterProcessor : BaseAudioProcessor() {
 
         /** Keeps `tan` away from its pole at Nyquist. */
         private const val MAX_CUTOFF_FRACTION = 0.45f
+
+        /**
+         * Echo feedback: each repeat at 40% of the one before, so
+         * [com.music.bitchord.playback.smart.ECHO_REPEATS] of them take it to
+         * about -40 dB — the tail the planner reserves room for. Kept short on
+         * purpose: a long run of repeats over the incoming song was heard as
+         * the outgoing one glitching.
+         */
+        private const val ECHO_FEEDBACK = 0.4f
+
+        /** How loud the repeats come back against the dry signal they echo. */
+        private const val ECHO_WET = 0.5f
+
+        /** Corners of the loop's one-pole filters: each repeat loses air above and rumble below. */
+        private const val ECHO_LOW_PASS_HZ = 3_500f
+        private const val ECHO_HIGH_PASS_HZ = 250f
+
+        /** Mirrors [com.music.bitchord.playback.smart.MAX_ECHO_SECONDS]; bounds the ring. */
+        private const val MAX_ECHO_SECONDS = 1f
+
+        /** The coefficient of a one-pole smoother with its corner at [hz]. */
+        private fun onePole(hz: Float, sampleRate: Int): Float =
+            if (sampleRate <= 0) 0f else (1.0 - exp(-2.0 * Math.PI * hz / sampleRate)).toFloat()
     }
 }
 
@@ -319,6 +547,21 @@ interface TransitionFilters {
 
     /** The track fading out — the ghost player. */
     fun outgoing(lowPassHz: Float, highPassHz: Float)
+
+    /**
+     * How far ahead of the speaker each side's filter is running, in that
+     * track's media milliseconds — see [TransitionFilterProcessor.leadUs].
+     * Zero, the default, means "applied as it is heard".
+     */
+    fun incomingLeadMs(): Long = 0L
+    fun outgoingLeadMs(): Long = 0L
+
+    /** Echo out on each side's sink — see [TransitionFilterProcessor.setEcho]. */
+    fun incomingEcho(delaySeconds: Float, send: Float, dry: Float) = Unit
+    fun outgoingEcho(delaySeconds: Float, send: Float, dry: Float) = Unit
+
+    /** Drops any echo on either sink. Called whenever a transition ends, however it ended. */
+    fun parkEchoes() = Unit
 
     /** Parks both. Called whenever a transition ends, however it ended. */
     fun open() {

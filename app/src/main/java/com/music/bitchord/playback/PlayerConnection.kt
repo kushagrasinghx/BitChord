@@ -39,28 +39,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 
-/**
- * The playhead, deliberately kept out of [PlayerState].
- *
- * It moves twice a second; everything else on [PlayerState] moves on a track
- * change. Carried in the same object, the two are one snapshot read — and
- * [rememberPlayerState] returns a value, which makes it non-restartable, which
- * pushes that read up into its *caller's* scope. In this app the caller is the
- * root of the whole UI, so a ticking playhead invalidated the entire tree twice
- * a second: every tab, both floating bars, and the three real-time blurs
- * underneath them, whether or not anything on screen showed a position.
- *
- * Split out and held behind a stable object, the tick is a read of this alone.
- * Whoever draws a scrubber reads it and recomposes; nobody else hears about it.
- * Take care to keep it that way — reading [positionMs] high in the tree and
- * passing the `Long` down puts the invalidation straight back where it was.
- */
-@Stable
-class PlaybackPosition internal constructor() {
-    var positionMs by mutableLongStateOf(0L)
-        internal set
-}
-
 /** Snapshot of playback state, driven by the MediaController. */
 data class PlayerState(
     val song: Song? = null,
@@ -292,7 +270,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
             }
             // Synced here too, so seeking while paused or buffering still moves
             // the scrubber (the poll loop only runs on play).
-            position.positionMs = player.currentPosition.coerceAtLeast(0L)
+            position.report(player.currentPosition.coerceAtLeast(0L))
             state = state.copy(
                 song = item?.toSong(),
                 isPlaying = player.isPlaying,
@@ -320,6 +298,17 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                     queueChanged = true
                 }
             }
+            // Every jump the player makes — a seek, a skip, a repeat starting
+            // over, a stretch of silence skipped — is announced here, ahead of
+            // the `onEvents` that reports where it landed. It is the only thing
+            // the lyrics accept as a reason to go backwards; see PlaybackPosition.
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int,
+            ) {
+                position.seeks++
+            }
             override fun onEvents(p: Player, events: Player.Events) = sync(
                 error = state.error,
                 rebuildQueue = queueChanged.also { queueChanged = false },
@@ -343,7 +332,7 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
     val foreground = rememberIsForeground()
     LaunchedEffect(controller, state.isPlaying, foreground) {
         while (controller != null && state.isPlaying && foreground) {
-            position.positionMs = controller.currentPosition.coerceAtLeast(0L)
+            position.report(controller.currentPosition.coerceAtLeast(0L))
             val duration = controller.duration.coerceAtLeast(0L)
             if (duration != state.durationMs) state = state.copy(durationMs = duration)
             delay(500)
@@ -470,24 +459,6 @@ val MediaItem.isVideoOrigin: Boolean
     get() = mediaMetadata.extras?.getBoolean(EXTRA_VIDEO_ORIGIN) == true ||
         mediaMetadata.extras?.getBoolean(EXTRA_IS_VIDEO) == true
 
-/**
- * Where AutoPlay's section of the queue begins, and so where a track queued by
- * hand belongs — above the mix, below everything the user picked.
- *
- * Read as "the first of AutoPlay's tracks still to come", which is what keeps
- * it below the playing track even when the mix itself is what's playing: the
- * tracks of it already behind you count as played, and the section starts
- * again below the needle. Tracks put in by hand there — "Play next" while the
- * mix runs — stay above it too, for the same reason.
- *
- * The queue panel draws its AutoPlay heading at this same index.
- */
-fun autoplaySectionStart(fromAutoplay: List<Boolean>, currentIndex: Int): Int {
-    val after = (currentIndex + 1).coerceIn(0, fromAutoplay.size)
-    return (after until fromAutoplay.size).firstOrNull { fromAutoplay[it] }
-        ?: fromAutoplay.size
-}
-
 fun MediaController.autoplaySectionStart(): Int = autoplaySectionStart(
     fromAutoplay = (0 until mediaItemCount).map { getMediaItemAt(it).fromAutoplay },
     currentIndex = currentMediaItemIndex,
@@ -509,6 +480,10 @@ fun MediaController.autoplaySectionStart(): Int = autoplaySectionStart(
 private val DIRECT_FILE_URI_EXTENSIONS = setOf(
     "m4a", "m4b", "m4p", "mp4", "aac", "3ga", "3gp", "3gpp",
     "alac", "amr", "awb", "wma", "aif", "aiff", "ac3", "dts",
+    // DSF keeps its tags at the end, so the extractor reads the tail first and
+    // seeks back to the audio; DFF walks every chunk to the end before it
+    // starts, and seeks back the same way.
+    "dsf", "dff",
 )
 
 private fun resolvePlaybackUri(uriString: String, localPath: String?): String {

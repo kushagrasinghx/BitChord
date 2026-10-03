@@ -59,7 +59,24 @@ data class AddonManifest(
      * advertises.
      */
     @SerialName("settings") val settings: List<AddonSetting> = emptyList(),
+    /**
+     * `allowDownloads` — whether the addon lets its streams be saved. `0` keeps
+     * it to playback only: a download skips it and takes the next source.
+     * Absent means allowed. Read through [downloadsAllowed].
+     */
+    @SerialName("allowDownloads") val allowDownloads: JsonElement? = null,
+    /**
+     * `checkValidLossless` — whether the addon is only to be used when the
+     * phone has an output that can carry lossless audio (wired, USB, HDMI, or
+     * Bluetooth on LDAC/LHDC/aptX Lossless). Absent means no such requirement.
+     * Read through [requiresLosslessOutput].
+     */
+    @SerialName("checkValidLossless") val checkValidLossless: JsonElement? = null,
 ) {
+    val downloadsAllowed: Boolean get() = allowDownloads.asFlag() ?: true
+
+    val requiresLosslessOutput: Boolean get() = checkValidLossless.asFlag() ?: false
+
     fun declares(resource: String): Boolean =
         resources.any { it.equals(resource, ignoreCase = true) }
 
@@ -394,6 +411,22 @@ data class AddonStream(
  * and are dropped rather than stringified into something an addon would have
  * to guess at.
  */
+/**
+ * A manifest switch, however the addon wrote it: `1`/`0`, `true`/`false`, or
+ * either as a string. Null — "use the default" — for absent, `null`, or
+ * anything else, so a typo cannot silently flip a policy the wrong way.
+ */
+internal fun JsonElement?.asFlag(): Boolean? {
+    val primitive = this as? JsonPrimitive ?: return null
+    if (primitive is JsonNull) return null
+    primitive.booleanOrNull?.let { return it }
+    return when (primitive.content.trim().lowercase()) {
+        "1", "true", "yes", "on" -> true
+        "0", "false", "no", "off" -> false
+        else -> primitive.content.toDoubleOrNull()?.let { it != 0.0 }
+    }
+}
+
 private fun JsonElement.asQueryValue(): String? {
     if (this is JsonNull) return null
     val primitive = this as? JsonPrimitive ?: return null

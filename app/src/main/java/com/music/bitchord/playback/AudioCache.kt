@@ -20,8 +20,10 @@ import androidx.media3.datasource.cache.ContentMetadataMutations
 import androidx.media3.datasource.cache.SimpleCache
 import java.io.IOException
 import com.music.bitchord.data.innertube.StreamResolver
+import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.DeviceCodecs
+import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
@@ -31,10 +33,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
 
@@ -67,8 +73,8 @@ object AudioCache {
 
     /**
      * The disk budget, straight from [AppSettings] — 512MB by default, roughly
-     * 150 tracks at the highest bitrate offered, adjustable up to 10GB from
-     * Settings. Least-recently-used entries are dropped past it, so it's a
+     * 150 tracks at the highest bitrate offered, adjustable up to 10GB — or
+     * unlimited — from Settings. Least-recently-used entries are dropped past it, so it's a
      * ceiling rather than something the listener has to manage day to day.
      */
     private val evictor = DynamicLruCacheEvictor(AppSettings.DEFAULT_CACHE_LIMIT_BYTES)
@@ -216,6 +222,9 @@ object AudioCache {
             state.edit().putInt(KEY_MATCHING_SCHEMA, MATCHING_SCHEMA).apply()
             TrackLog.d(TAG, "invalidated ${stale.size} source cache entries after matcher upgrade")
         }
+        // Nothing is playing yet, so nothing an addon served is worth keeping —
+        // see [dropForeignEntries].
+        dropForeignEntries(keep = emptySet())
         // A SimpleCache can only be opened once per process, so the ceiling
         // moves by mutating this evictor rather than reopening the cache —
         // see [DynamicLruCacheEvictor].
@@ -242,7 +251,8 @@ object AudioCache {
         analysisHeadWant.clear()
         renditionKeys.clear()
         scope.launch {
-            cache.keys.toList().forEach { cache.removeResource(it) }
+            cache.keys.toList().forEach { runCatching { cache.removeResource(it) } }
+            _contentsChanged.value++
             withContext(Dispatchers.Main) { onComplete() }
         }
     }
@@ -422,6 +432,347 @@ object AudioCache {
      */
     private fun atmosKeySuffix(): String =
         if (DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value) "" else "-noatmos"
+
+    /**
+     * Which kind of server a cache entry's bytes came from, as recorded by
+     * [recordServed].
+     *
+     * Only [YOUTUBE] and [JIOSAAVN] are kept on disk once a track stops
+     * playing — they are what the player reaches first, before any addon
+     * has answered, so they are the copies worth having instantly next time.
+     * Everything else — an addon's or a module's stream, a lossless upgrade
+     * from one of them — is [OTHER]: cached while it plays, so seeking and
+     * Automix's analysis work exactly as before, then dropped by
+     * [dropForeignEntries].
+     *
+     * The origin alone is not what the Cached songs folder shows. An entry is
+     * listed only once the player has actually played the track from it
+     * ([META_PLAYED]) — not for Automix's own YouTube Opus copy
+     * ([META_ANALYSIS]), which is a separate download made for analysis even
+     * while the track plays from JioSaavn or an addon, and not for read-ahead
+     * of a track the queue never reached.
+     */
+    enum class Origin { YOUTUBE, JIOSAAVN, OTHER }
+
+    /** One track in the Cached songs folder. */
+    data class CachedSong(
+        val song: Song,
+        val origin: Origin,
+        /** Bytes on disk across every kept rendition of the track. */
+        val bytes: Long,
+        /** When any of those bytes were last read or written, epoch millis. */
+        val lastUsedMs: Long,
+    )
+
+    private val _contentsChanged = MutableStateFlow(0)
+
+    /** Bumped whenever the cache is emptied, so an open Cached songs folder can re-read itself. */
+    val contentsChanged: StateFlow<Int> = _contentsChanged.asStateFlow()
+
+    /**
+     * What the queue said about the tracks the cache is about to hold.
+     *
+     * The resolver seam [recordServed] runs at only has a DataSpec in hand —
+     * a read-ahead URI is nothing but a video id — so the title and artwork
+     * the folder shows are noted here by the player as tracks are queued
+     * up and become current. Bounded: only tracks near the playhead are ever
+     * being written.
+     */
+    private val notedSongs = ConcurrentHashMap<String, Song>()
+
+    /**
+     * Tracks that have become current this session — the ones playback has
+     * really played. Read by [recordServed] for entries whose first bytes
+     * arrive after the track became current.
+     */
+    private val playedIds = ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * Remembers [songs]' metadata for the cache entries they are about to
+     * fill, and backfills it into any entry already tagged without it.
+     */
+    fun noteSongs(songs: List<Song>) {
+        val playable = songs.filter { it.localUri == null && it.videoId.isNotBlank() }
+        if (playable.isEmpty()) return
+        if (notedSongs.size > MAX_NOTED_SONGS) notedSongs.clear()
+        playable.forEach { notedSongs[it.videoId] = it }
+        if (!::cache.isInitialized) return
+        scope.launch {
+            val keys = cache.keys
+            playable.forEach { song ->
+                val base = cacheKeyBaseOf(song.videoId)
+                keys.filter { it == base || it.startsWith("$base#") }.forEach { key ->
+                    runCatching {
+                        val meta = cache.getContentMetadata(key)
+                        if (meta.get(META_ORIGIN, null as String?) == null) return@runCatching
+                        if (meta.get(META_TITLE, null as String?) != null &&
+                            meta.get(META_ART, null as String?) != null
+                        ) {
+                            return@runCatching
+                        }
+                        cache.applyContentMetadataMutations(
+                            key,
+                            ContentMetadataMutations().also { describe(it, song, null) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * The track [song] just became current, playing from [uri]: marks the
+     * entry the player reads it from as played — see [Origin].
+     *
+     * The key comes from the same [keyFactory] the player's [CacheDataSource]
+     * uses, so it names exactly the rendition playback is reading, never a
+     * sibling copy something else wrote. A track replayed entirely from disk
+     * never reaches [recordServed], so this is also what keeps such a replay
+     * counted. If the entry doesn't exist yet, [recordServed] marks it as its
+     * first bytes arrive.
+     */
+    fun notePlayed(song: Song, uri: Uri?) {
+        if (song.localUri != null || song.videoId.isBlank()) return
+        if (playedIds.size > MAX_NOTED_SONGS) playedIds.clear()
+        playedIds += song.videoId
+        noteSongs(listOf(song))
+        if (!::cache.isInitialized || uri?.scheme != "bitchord") return
+        scope.launch {
+            val key = keyFactory.buildCacheKey(DataSpec(uri))
+            runCatching {
+                val meta = cache.getContentMetadata(key)
+                if (meta.get(META_ORIGIN, null as String?) == null) return@runCatching
+                if (meta.get(META_PLAYED, null as String?) != null) return@runCatching
+                cache.applyContentMetadataMutations(
+                    key,
+                    ContentMetadataMutations().set(META_PLAYED, "1"),
+                )
+            }
+        }
+    }
+
+    /**
+     * Tags the cache entry [spec] is filling with who is serving it.
+     *
+     * Called from the player's resolving data source, the one place where the
+     * `bitchord://` request and the real stream URL it resolved to are both in
+     * hand — see PlaybackService. [CacheDataSource] has already put the cache
+     * key it is writing under into [DataSpec.key], so the tag lands on exactly
+     * the entry being filled, whichever rendition that is.
+     *
+     * Stored in the entry's own content metadata rather than a side table:
+     * it is evicted, discarded and cleared together with the bytes it
+     * describes, and there is nothing to keep in step.
+     */
+    fun recordServed(spec: DataSpec, servedUrl: String) {
+        if (!::cache.isInitialized) return
+        if (spec.uri.scheme != "bitchord") return
+        val mediaId = mediaIdIn(spec.uri) ?: return
+        val key = spec.key ?: keyFactory.buildCacheKey(spec)
+        val origin = originOf(spec.uri, mediaId, servedUrl)
+        val song = notedSongs[mediaId]
+        // Automix's analysis-only read: its own YouTube Opus download, made
+        // whatever the track is actually playing from. Never playback.
+        val analysis = AutomixAnalysisSource.requestsYouTubeOpus(
+            spec.uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
+        )
+        runCatching {
+            val meta = cache.getContentMetadata(key)
+            fun has(name: String) = meta.get(name, null as String?) != null
+            val usedByPlayback = has(META_PLAYBACK) || !analysis
+            val played = has(META_PLAYED) || (!analysis && mediaId in playedIds)
+            val tagged = meta.get(META_ORIGIN, null as String?) == origin.name &&
+                meta.get(META_MEDIA_ID, null as String?) == mediaId &&
+                has(META_PLAYBACK) == usedByPlayback &&
+                (usedByPlayback || has(META_ANALYSIS)) &&
+                has(META_PLAYED) == played
+            // Every re-open — a seek, a continuation fetch — passes through
+            // here. Only write when something would actually change.
+            if (tagged && (song == null || has(META_TITLE))) return
+            cache.applyContentMetadataMutations(
+                key,
+                ContentMetadataMutations().also { mutations ->
+                    mutations.set(META_ORIGIN, origin.name)
+                    mutations.set(META_MEDIA_ID, mediaId)
+                    if (usedByPlayback) mutations.set(META_PLAYBACK, "1") else mutations.set(META_ANALYSIS, "1")
+                    if (played) mutations.set(META_PLAYED, "1")
+                    describe(mutations, song, spec.uri)
+                },
+            )
+        }.onFailure {
+            TrackLog.d(TAG, "could not tag cache entry $key: ${it.message}", about = mediaId)
+        }
+    }
+
+    /**
+     * Whose file [servedUrl] is.
+     *
+     * The host settles it for the two kinds that are kept: YouTube only ever
+     * hands out googlevideo URLs and JioSaavn its own CDN. The source that was
+     * chosen is the fallback, for a JioSaavn URL on a host this doesn't know
+     * — read in the same order the resolver answers in: an upgrade's stream,
+     * then a source-backed track's own source, then the choice already
+     * serving the track. Anything not positively one of the two is [Origin.OTHER].
+     */
+    private fun originOf(uri: Uri, mediaId: String, servedUrl: String): Origin {
+        val host = runCatching { Uri.parse(servedUrl).host }.getOrNull()?.lowercase(Locale.ROOT).orEmpty()
+        if (host.endsWith("googlevideo.com") || host.endsWith("youtube.com")) return Origin.YOUTUBE
+        if (host.endsWith("saavncdn.com") || host.endsWith("jiosaavn.com")) return Origin.JIOSAAVN
+        val upgrade = QualityUpgrade.forcedStream(uri)
+        val configId = when {
+            upgrade != null -> upgrade.sourceConfigId
+            uri.getQueryParameter("s") != null -> uri.getQueryParameter("s")
+            else -> StreamChoice.of(mediaId)?.sourceConfigId
+        }
+        val kind = configId?.let { SourceRegistry.config(it)?.kind }
+        return if (kind == SourceKind.JIOSAAVN) Origin.JIOSAAVN else Origin.OTHER
+    }
+
+    /** Writes what the folder shows about a track into [mutations]. */
+    private fun describe(mutations: ContentMetadataMutations, song: Song?, uri: Uri?) {
+        val title = song?.title?.takeIf { it.isNotBlank() } ?: uri?.getQueryParameter("n")
+        val artist = song?.artist?.takeIf { it.isNotBlank() } ?: uri?.getQueryParameter("a")
+        val album = song?.albumName?.takeIf { it.isNotBlank() } ?: uri?.getQueryParameter("l")
+        val duration = song?.durationText
+            ?: uri?.getQueryParameter("d")?.toIntOrNull()?.let { "%d:%02d".format(Locale.ROOT, it / 60, it % 60) }
+        title?.takeIf { it.isNotBlank() }?.let { mutations.set(META_TITLE, it) }
+        artist?.takeIf { it.isNotBlank() }?.let { mutations.set(META_ARTIST, it) }
+        album?.takeIf { it.isNotBlank() }?.let { mutations.set(META_ALBUM, it) }
+        duration?.takeIf { it.isNotBlank() }?.let { mutations.set(META_DURATION, it) }
+        song?.thumbnailUrl?.takeIf { it.isNotBlank() }?.let { mutations.set(META_ART, it) }
+    }
+
+    /**
+     * Every track the player has played from YouTube or JioSaavn audio that is
+     * still on disk, most recently used first — what the Cached songs folder
+     * lists. Only the entries playback read from count; see [Origin].
+     *
+     * A track owns up to several entries (see [keyFactory]); they are folded
+     * into one row. Spans are checked against the disk rather than trusted:
+     * the system's "Clear cache" deletes the files underneath a running
+     * [SimpleCache], which goes on believing in them until it next reads one.
+     */
+    suspend fun cachedSongs(): List<CachedSong> = withContext(Dispatchers.IO) {
+        if (!::cache.isInitialized) return@withContext emptyList()
+        class Entry(val origin: Origin, val meta: ContentMetadata, val bytes: Long, val touched: Long)
+        val byTrack = LinkedHashMap<String, MutableList<Entry>>()
+        for (key in cache.keys) {
+            val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: continue
+            val origin = meta.get(META_ORIGIN, null as String?)
+                ?.let { runCatching { Origin.valueOf(it) }.getOrNull() }
+                ?: continue
+            if (origin == Origin.OTHER) continue
+            if (meta.get(META_PLAYED, null as String?) == null) continue
+            val mediaId = meta.get(META_MEDIA_ID, null as String?) ?: continue
+            val spans = cache.getCachedSpans(key).filter { it.isCached && it.file?.exists() == true }
+            val bytes = spans.sumOf { it.length }
+            if (bytes <= 0L) continue
+            val touched = spans.maxOf { it.lastTouchTimestamp }
+            byTrack.getOrPut(mediaId) { mutableListOf() } += Entry(origin, meta, bytes, touched)
+        }
+        byTrack.map { (mediaId, entries) ->
+            fun field(name: String): String? =
+                entries.firstNotNullOfOrNull { it.meta.get(name, null as String?)?.takeIf(String::isNotBlank) }
+            val bytes = entries.sumOf { it.bytes }
+            val lastUsed = entries.maxOf { it.touched }
+            val origin = entries.maxBy { it.bytes }.origin
+            val noted = notedSongs[mediaId]
+            val art = field(META_ART) ?: noted?.thumbnailUrl
+                ?: mediaId.takeIf { SourceRegistry.parseTrackKey(it) == null }
+                    ?.let { "https://i.ytimg.com/vi/$it/hqdefault.jpg" }
+            CachedSong(
+                song = Song(
+                    videoId = mediaId,
+                    title = field(META_TITLE) ?: noted?.title?.takeIf(String::isNotBlank) ?: mediaId,
+                    artist = field(META_ARTIST) ?: noted?.artist.orEmpty(),
+                    thumbnailUrl = art,
+                    durationText = field(META_DURATION) ?: noted?.durationText,
+                    albumName = field(META_ALBUM) ?: noted?.albumName,
+                    // The row's second line: where the copy came from and
+                    // what it costs on disk.
+                    downloadFormat = "${origin.label} · ${formatBytes(bytes)}",
+                    localDateAddedSeconds = lastUsed / 1000,
+                ),
+                origin = origin,
+                bytes = bytes,
+                lastUsedMs = lastUsed,
+            )
+        }.sortedByDescending { it.lastUsedMs }
+    }
+
+    /**
+     * Drops every entry an addon or module filled ([Origin.OTHER]), and every
+     * copy Automix downloaded for analysis alone that playback never read,
+     * except the ones belonging to [keep] — the tracks around the playhead,
+     * whose bytes are still being read, seeked through and analysed.
+     *
+     * This is what "only the YouTube and JioSaavn audio that played is cached"
+     * means in practice: the bytes an addon serves pass through the cache so
+     * playback behaves the same as ever, and leave it once the track does.
+     * Analysis results are kept in their own store, so the analysis-only
+     * audio has done its job by then.
+     */
+    fun dropForeignEntries(keep: Set<String>) {
+        if (!::cache.isInitialized) return
+        scope.launch {
+            var dropped = 0
+            cache.keys.toList().forEach { key ->
+                val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: return@forEach
+                val foreign = meta.get(META_ORIGIN, null as String?) == Origin.OTHER.name
+                val analysisOnly = meta.get(META_ANALYSIS, null as String?) != null &&
+                    meta.get(META_PLAYBACK, null as String?) == null &&
+                    meta.get(META_PLAYED, null as String?) == null
+                if (!foreign && !analysisOnly) return@forEach
+                val mediaId = meta.get(META_MEDIA_ID, null as String?)
+                if (mediaId != null && mediaId in keep) return@forEach
+                runCatching { cache.removeResource(key) }
+                    .onSuccess {
+                        dropped++
+                        mediaId?.let { id ->
+                            analysisHeads.remove(id)
+                            analysisHeadWant.remove(id)
+                            renditionKeys.remove(id)
+                        }
+                    }
+                    .onFailure { TrackLog.d(TAG, "unkept cache entry $key still in use: ${it.message}") }
+            }
+            if (dropped > 0) TrackLog.d(TAG, "dropped $dropped addon / analysis-only cache entries")
+        }
+    }
+
+    /** The part of a cache key that names the track, before any `#rendition`; see [keyFactory]. */
+    private fun cacheKeyBaseOf(mediaId: String): String =
+        SourceRegistry.parseTrackKey(mediaId)?.let { (source, track) -> "$source|$track" } ?: mediaId
+
+    private val Origin.label: String
+        get() = when (this) {
+            Origin.YOUTUBE -> SourceKind.YOUTUBE.label
+            Origin.JIOSAAVN -> SourceKind.JIOSAAVN.label
+            Origin.OTHER -> "Addon"
+        }
+
+    private fun formatBytes(bytes: Long): String {
+        val mb = bytes / (1024.0 * 1024.0)
+        return if (mb >= 1024) "%.1f GB".format(Locale.ROOT, mb / 1024) else "%.1f MB".format(Locale.ROOT, mb)
+    }
+
+    private const val META_ORIGIN = "bc_origin"
+    private const val META_MEDIA_ID = "bc_media_id"
+    private const val META_TITLE = "bc_title"
+    private const val META_ARTIST = "bc_artist"
+    private const val META_ALBUM = "bc_album"
+    private const val META_DURATION = "bc_duration"
+    private const val META_ART = "bc_art"
+
+    /** Set once a non-analysis request — the player or its read-ahead — has read this entry. */
+    private const val META_PLAYBACK = "bc_playback"
+
+    /** Set on an entry Automix's analysis-only YouTube Opus fetch filled. */
+    private const val META_ANALYSIS = "bc_analysis"
+
+    /** Set once the player has played the track from this entry. */
+    private const val META_PLAYED = "bc_played"
+    private const val MAX_NOTED_SONGS = 256
 
     private const val CACHE_STATE_PREFS = "audio_cache_state"
     private const val KEY_MATCHING_SCHEMA = "matching_schema"

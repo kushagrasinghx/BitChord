@@ -25,8 +25,12 @@ object LocalMediaRepository {
     private const val TAG = "BitChord"
     private const val MIN_LOCAL_MUSIC_DURATION_MS = 30_000L
 
+    // `mp4` only ever reaches this list as an audio row — MediaStore files a
+    // video .mp4 under Video, not Audio — so it is the audio-only MP4s Dolby
+    // and Apple music downloads come as (AC-4, E-AC-3, ALAC). `dsf`/`dff` are
+    // DSD, which DsdExtractor plays.
     private val localMusicExtensions = setOf(
-        "mp3", "m4a", "flac", "ogg", "opus", "aac", "webm",
+        "mp3", "m4a", "mp4", "flac", "ogg", "opus", "aac", "webm", "dsf", "dff",
     )
 
     private val nonMusicPathSegments = listOf(
@@ -217,7 +221,16 @@ object LocalMediaRepository {
         val selection = if (filterNonMusic) {
             buildString {
                 append("${MediaStore.Audio.Media.IS_MUSIC} != 0")
-                append(" AND ${MediaStore.Audio.Media.DURATION} >= ?")
+                // A duration of 0 or NULL is the scanner failing to read one,
+                // not a short clip — fragmented MP4 (how ALAC downloads often
+                // come) reads as 0, high-rate DSD as NULL — so it is let
+                // through to the extension and path checks rather than
+                // dropped as too short.
+                append(
+                    " AND (${MediaStore.Audio.Media.DURATION} >= ?" +
+                        " OR ${MediaStore.Audio.Media.DURATION} <= 0" +
+                        " OR ${MediaStore.Audio.Media.DURATION} IS NULL)",
+                )
                 append(" AND ${MediaStore.Audio.Media.IS_ALARM} = 0")
                 append(" AND ${MediaStore.Audio.Media.IS_NOTIFICATION} = 0")
                 append(" AND ${MediaStore.Audio.Media.IS_RINGTONE} = 0")
@@ -276,7 +289,7 @@ object LocalMediaRepository {
                     val artist = rawArtist.takeUnless { it.isNullOrBlank() || it == "<unknown>" } ?: "Unknown Artist"
                     val albumName = rawAlbum.takeUnless { it.isNullOrBlank() || it == "<unknown>" }
                     val artworkUrl = if (albumId > 0) ContentUris.withAppendedId(albumArtBaseUri, albumId).toString() else null
-                    val durationText = formatDuration(durationMs)
+                    val durationText = durationMs.takeIf { it > 0 }?.let(::formatDuration)
 
                     songs.add(
                         Song(
@@ -339,7 +352,7 @@ object LocalMediaRepository {
      * of scanner metadata so the same bad rows stay out across Android vendors.
      */
     internal fun isEligibleLocalMusic(durationMs: Long, displayName: String, path: String?): Boolean {
-        if (durationMs < MIN_LOCAL_MUSIC_DURATION_MS) return false
+        if (durationMs in 1 until MIN_LOCAL_MUSIC_DURATION_MS) return false
 
         val fileName = path?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
             ?: displayName

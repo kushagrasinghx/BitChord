@@ -46,4 +46,31 @@ class LocalMediaFilterTest {
             ),
         )
     }
+
+    @Test
+    fun keepsAudioOnlyMp4AndDsd() {
+        for (name in listOf("Song.mp4", "Song.dsf", "Song.dff")) {
+            assertTrue(
+                name,
+                LocalMediaRepository.isEligibleLocalMusic(
+                    durationMs = 180_000,
+                    displayName = name,
+                    path = "/storage/emulated/0/Music/$name",
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun keepsTracksTheScannerCouldNotTime() {
+        // Fragmented-MP4 ALAC scans with duration 0, high-rate DSD with NULL
+        // (read back as 0): an unknown length, not a short clip.
+        assertTrue(
+            LocalMediaRepository.isEligibleLocalMusic(
+                durationMs = 0,
+                displayName = "Starboy.m4a",
+                path = "/storage/emulated/0/Music/Starboy.m4a",
+            ),
+        )
+    }
 }

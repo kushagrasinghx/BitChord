@@ -1,7 +1,9 @@
 # Gradle
 .gradle/
+.vscode/
 /build/
 /app/build/
+/desktopApp/bin/
 build/
 gradle-app.setting
 !gradle-wrapper.jar

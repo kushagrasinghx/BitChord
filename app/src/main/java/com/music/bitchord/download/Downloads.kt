@@ -437,7 +437,7 @@ object Downloads {
 
     /** The release [pageIdFor] built [browseId] from, or null if it didn't. */
     fun recordIdOf(browseId: String): String? =
-        browseId.removePrefix(PLAYLIST_PREFIX).takeIf { it != browseId && it.isNotEmpty() }
+        browseId.removePrefix(PLAYLIST_PREFIX).takeIf { it != browseId && it.isNotEmpty() && !it.startsWith("sp_local_") }
 
     /**
      * The playlists downloaded whole, in name order, without their tracks.

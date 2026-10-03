@@ -141,10 +141,10 @@ fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<H
         " " to false,
         context.replayCount(totalPlays, R.plurals.replay_song_count) to true,
         " " to false,
-        context.getString(R.string.replay_songs_end) to false,
+        (if (period == ReplayPeriod.THIS_WEEK) context.getString(R.string.replay_songs_end_week) else context.getString(R.string.replay_songs_end)) to false,
     )
     ReplayStoryPage.ARTISTS -> runs(
-        context.getString(R.string.replay_artist_start) to false,
+        (if (period == ReplayPeriod.THIS_WEEK) context.getString(R.string.replay_artist_start_week) else context.getString(R.string.replay_artist_start)) to false,
         " " to false,
         context.getString(R.string.replay_artist_focus) to true,
         " " to false,
@@ -177,18 +177,20 @@ fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<H
     ReplayStoryPage.SUMMARY -> runs(
         context.getString(R.string.replay_summary_start) to false,
         " " to false,
-        label to true,
-        " in music." to false,
+        if (period == ReplayPeriod.THIS_WEEK) context.getString(R.string.replay_summary_end_week) to true else label to true,
+        if (period == ReplayPeriod.THIS_WEEK) " in music." to false else " in music." to false,
     )
 }
 
 fun ReplayPeriod.localizedChip(context: Context): String = when (this) {
+    ReplayPeriod.THIS_WEEK -> context.getString(R.string.replay_this_week)
     ReplayPeriod.THIS_MONTH -> context.getString(R.string.this_month)
     ReplayPeriod.THIS_YEAR -> context.getString(R.string.this_year)
     ReplayPeriod.ALL_TIME -> context.getString(R.string.all_time)
 }
 
 fun ReplaySummary.localizedLabel(context: Context): String = when (period) {
+    ReplayPeriod.THIS_WEEK -> "This week"
     ReplayPeriod.THIS_MONTH -> DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
         .format(LocalDate.now())
         .replaceFirstChar { it.titlecase(Locale.getDefault()) }

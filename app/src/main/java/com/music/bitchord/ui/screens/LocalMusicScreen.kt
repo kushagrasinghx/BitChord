@@ -90,17 +90,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.music.bitchord.R
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.R
-import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.isSameTrackAs
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibraryViewType
 import com.music.bitchord.data.settings.LocalMusicSort
 import com.music.bitchord.download.DownloadedCollection
+import com.music.bitchord.ui.components.ArtworkImage
+import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PlayingAccent
 import com.music.bitchord.ui.components.PAGE_GUTTER
@@ -623,10 +624,10 @@ private fun SongGridCard(
                 modifier = Modifier.size(36.dp),
             )
             if (song.thumbnailUrl != null) {
-                AsyncImage(
-                    model = song.thumbnailUrl.artworkAt(CARD_ART_PX),
+                ArtworkImage(
+                    localUri = song.thumbnailUrl,
+                    fallbackUrl = song.thumbnailUrl.artworkAt(CARD_ART_PX),
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -761,10 +762,10 @@ private fun ArtistRow(
                 modifier = Modifier.size(26.dp),
             )
             if (thumbnailUrl != null) {
-                AsyncImage(
-                    model = thumbnailUrl.artworkAt(ROW_ART_PX),
+                ArtworkImage(
+                    localUri = thumbnailUrl,
+                    fallbackUrl = thumbnailUrl.artworkAt(ROW_ART_PX),
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
@@ -828,10 +829,10 @@ private fun ArtistGridCard(
                 modifier = Modifier.size(44.dp),
             )
             if (thumbnailUrl != null) {
-                AsyncImage(
-                    model = thumbnailUrl.artworkAt(CARD_ART_PX),
+                ArtworkImage(
+                    localUri = thumbnailUrl,
+                    fallbackUrl = thumbnailUrl.artworkAt(CARD_ART_PX),
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape)
@@ -1065,10 +1066,10 @@ private fun AlbumGridCard(
             val fetchedArt = rememberRemoteArtworkUrl(entry.songs.firstOrNull())
             val cardArt = entry.thumbnailUrl ?: fetchedArt
             if (cardArt != null) {
-                AsyncImage(
-                    model = cardArt.artworkAt(CARD_ART_PX),
+                ArtworkImage(
+                    localUri = cardArt,
+                    fallbackUrl = cardArt.artworkAt(CARD_ART_PX),
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -1198,10 +1199,10 @@ private fun CollectionArtwork(url: String?, playlist: Boolean, size: Dp) {
             modifier = Modifier.size(size * 0.54f),
         )
         if (url != null) {
-            AsyncImage(
-                model = url.artworkAt(ROW_ART_PX),
+            ArtworkImage(
+                localUri = url,
+                fallbackUrl = url.artworkAt(ROW_ART_PX),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(size)
                     .clip(shape)
@@ -1262,10 +1263,10 @@ private fun DrillDownHeader(
                 modifier = Modifier.size(64.dp),
             )
             artworkUrl?.let { artwork ->
-                AsyncImage(
-                    model = artwork.artworkAt(CARD_ART_PX),
+                ArtworkImage(
+                    localUri = artwork,
+                    fallbackUrl = artwork.artworkAt(CARD_ART_PX),
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

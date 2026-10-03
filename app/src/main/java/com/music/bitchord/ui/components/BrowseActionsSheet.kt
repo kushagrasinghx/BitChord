@@ -47,6 +47,7 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
 
@@ -325,8 +326,9 @@ private fun BrowseSheetHeader(target: BrowseTarget) {
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = target.thumbnailUrl.artworkAt(ROW_ART_PX),
+        ArtworkImage(
+            localUri = target.thumbnailUrl,
+            fallbackUrl = target.thumbnailUrl?.artworkAt(ROW_ART_PX),
             contentDescription = null,
             modifier = Modifier
                 .size(52.dp)

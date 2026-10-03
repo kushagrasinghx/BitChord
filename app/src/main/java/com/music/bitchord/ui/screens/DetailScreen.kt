@@ -124,6 +124,7 @@ import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.isSameTrackAs
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.components.DownloadedBadge
 import com.music.bitchord.ui.components.ExplicitSongTitle
 import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
@@ -1095,7 +1096,8 @@ private fun PageBackground(
     // freeze the bottom of the video into the wrong picture.
     val softenFoot = canvas == null && !reduceDynamicBlur &&
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val art = heroUrl ?: page.thumbnailUrl.artworkAt(HEADER_ART_PX)
+    val artFile = heroUrl
+    val artRemote = page.thumbnailUrl?.artworkAt(HEADER_ART_PX)
 
     Box(modifier.clipToBounds()) {
         Box(
@@ -1104,10 +1106,10 @@ private fun PageBackground(
                 .height(artHeight)
                 .offset { IntOffset(0, listState.headerTop(artHeight.toPx()).roundToInt()) },
         ) {
-            AsyncImage(
-                model = art,
+            ArtworkImage(
+                localUri = artFile,
+                fallbackUrl = artRemote,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .matchParentSize()
                     .background(palette.elevated),
@@ -1130,10 +1132,10 @@ private fun PageBackground(
             // rather than a fade to a flat tint. The same request as the sharp
             // copy, so it is a memory-cache hit and lands on the same frame.
             if (softenFoot) {
-                AsyncImage(
-                    model = art,
+                ArtworkImage(
+                    localUri = artFile,
+                    fallbackUrl = artRemote,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
                         // Offscreen so the mask cuts the blurred result rather
@@ -1597,8 +1599,9 @@ private fun CompactSongRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(48.dp)) {
-            AsyncImage(
-                model = song.artworkAt(ROW_ART_PX),
+            ArtworkImage(
+                localUri = song.thumbnailUrl,
+                fallbackUrl = song.thumbnailUrl?.artworkAt(ROW_ART_PX),
                 contentDescription = null,
                 modifier = Modifier
                     .size(48.dp)
@@ -1656,8 +1659,9 @@ private fun SuggestedSongRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(52.dp)) {
-            AsyncImage(
-                model = song.artworkAt(ROW_ART_PX),
+            ArtworkImage(
+                localUri = song.thumbnailUrl,
+                fallbackUrl = song.thumbnailUrl?.artworkAt(ROW_ART_PX),
                 contentDescription = null,
                 modifier = Modifier
                     .size(52.dp)
@@ -1774,8 +1778,9 @@ private fun TopReleaseCard(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
+        ArtworkImage(
+            localUri = item.thumbnailUrl,
+            fallbackUrl = item.thumbnailUrl?.artworkAt(CARD_ART_PX),
             contentDescription = null,
             modifier = Modifier
                 .size(88.dp)
@@ -1853,8 +1858,9 @@ private fun SectionCard(
         modifier = modifier
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress),
     ) {
-        AsyncImage(
-            model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
+        ArtworkImage(
+            localUri = item.thumbnailUrl,
+            fallbackUrl = item.thumbnailUrl?.artworkAt(CARD_ART_PX),
             contentDescription = null,
             modifier = Modifier
                 .fillMaxWidth()

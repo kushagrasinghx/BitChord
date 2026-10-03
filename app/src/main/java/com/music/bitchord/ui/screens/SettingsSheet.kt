@@ -124,6 +124,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.MessageState
@@ -1809,10 +1810,10 @@ internal fun AccountCard(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (account?.thumbnailUrl != null) {
-            AsyncImage(
-                model = account.thumbnailUrl,
+            ArtworkImage(
+                localUri = account.thumbnailUrl,
+                fallbackUrl = account.thumbnailUrl,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier.size(52.dp).clip(CircleShape).thumbnailBorder(CircleShape),
             )
         } else {

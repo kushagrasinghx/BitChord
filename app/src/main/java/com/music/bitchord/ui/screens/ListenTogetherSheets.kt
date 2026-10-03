@@ -52,6 +52,7 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyPreview
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.components.PillTextField
 import com.music.bitchord.ui.components.QrCode
 
@@ -154,8 +155,9 @@ internal fun GlowingAvatar(
                 ),
         )
         if (url != null) {
-            AsyncImage(
-                model = url,
+            ArtworkImage(
+                localUri = url,
+                fallbackUrl = url,
                 contentDescription = null,
                 modifier = Modifier
                     .size(size)
@@ -397,8 +399,9 @@ private fun StepperButton(label: String, enabled: Boolean, onClick: () -> Unit) 
 @Composable
 private fun PartySheetAvatar(url: String?, size: Dp = 40.dp) {
     if (url != null) {
-        AsyncImage(
-            model = url,
+        ArtworkImage(
+            localUri = url,
+            fallbackUrl = url,
             contentDescription = null,
             modifier = Modifier.size(size).clip(CircleShape),
         )
@@ -502,8 +505,9 @@ internal fun MemberAvatarStack(
                 contentAlignment = Alignment.Center,
             ) {
                 if (avatar != null) {
-                    AsyncImage(
-                        model = avatar,
+                    ArtworkImage(
+                        localUri = avatar,
+                        fallbackUrl = avatar,
                         contentDescription = null,
                         modifier = Modifier.size(faceSize).clip(CircleShape),
                     )

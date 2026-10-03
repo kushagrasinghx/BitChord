@@ -73,6 +73,7 @@ import kotlinx.coroutines.launch
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.ArtworkImage
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -487,10 +488,10 @@ fun TopBarAccountButton(
     ) {
         val photo = account?.thumbnailUrl
         if (photo != null) {
-            AsyncImage(
-                model = photo,
+            ArtworkImage(
+                localUri = photo,
+                fallbackUrl = photo,
                 contentDescription = stringResource(R.string.switch_account),
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(AVATAR_SIZE)
                     .clip(CircleShape)

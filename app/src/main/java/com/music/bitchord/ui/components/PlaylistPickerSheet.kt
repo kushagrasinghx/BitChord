@@ -59,6 +59,7 @@ import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
@@ -165,8 +166,9 @@ private fun PlaylistRow(playlist: UserPlaylist, onClick: () -> Unit) {
             .padding(horizontal = 22.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = playlist.thumbnailUrl.artworkAt(ROW_ART_PX),
+        ArtworkImage(
+            localUri = playlist.thumbnailUrl,
+            fallbackUrl = playlist.thumbnailUrl?.artworkAt(ROW_ART_PX),
             contentDescription = null,
             modifier = Modifier
                 .size(44.dp)

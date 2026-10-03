@@ -60,6 +60,7 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.download.DownloadProgress
 import com.music.bitchord.download.DownloadSession
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 
@@ -298,8 +299,9 @@ private fun DownloadManagerRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(ART_SIZE), contentAlignment = Alignment.Center) {
-            AsyncImage(
-                model = item.song.artworkAt(ROW_ART_PX),
+            ArtworkImage(
+                localUri = item.song.thumbnailUrl,
+                fallbackUrl = item.song.thumbnailUrl?.artworkAt(ROW_ART_PX),
                 contentDescription = null,
                 modifier = Modifier
                     .size(ART_SIZE)

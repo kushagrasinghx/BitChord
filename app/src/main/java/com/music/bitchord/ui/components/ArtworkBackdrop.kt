@@ -20,6 +20,7 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.theme.ArtworkPalette
 
 /**
@@ -65,10 +66,10 @@ fun ArtworkBackdrop(
 
     Box(modifier.background(palette.background)) {
         if (canBlur && imageUrl != null) {
-            AsyncImage(
-                model = imageUrl.artworkAt(artPx),
+            ArtworkImage(
+                localUri = imageUrl,
+                fallbackUrl = imageUrl.artworkAt(artPx),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(washFraction)

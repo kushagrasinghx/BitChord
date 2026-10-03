@@ -84,6 +84,7 @@ import com.music.bitchord.data.webdav.WebDavUploads
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.SleepTimer
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.ArtworkPalette
@@ -912,8 +913,9 @@ internal fun SheetTrackHeader(
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = song.artworkAt(ROW_ART_PX),
+        ArtworkImage(
+            localUri = song.thumbnailUrl,
+            fallbackUrl = song.thumbnailUrl?.artworkAt(ROW_ART_PX),
             contentDescription = null,
             modifier = Modifier
                 .size(52.dp)

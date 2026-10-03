@@ -63,6 +63,7 @@ import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.ArtworkImage
 import com.music.bitchord.ui.components.ChoiceAlert
 import com.music.bitchord.ui.components.DiscordTokenAlert
 import com.music.bitchord.ui.components.TextValueAlert
@@ -451,10 +452,10 @@ private fun DiscordAccountCard(
     ) {
         Box(Modifier.size(52.dp)) {
             if (avatar.isNotEmpty()) {
-                AsyncImage(
-                    model = avatar,
+                ArtworkImage(
+                    localUri = avatar,
+                    fallbackUrl = avatar,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier.size(52.dp).clip(CircleShape).thumbnailBorder(CircleShape),
                 )
             } else {
@@ -597,10 +598,10 @@ private fun RichPresencePreview(
         Row(verticalAlignment = Alignment.Top) {
             val artShape = RoundedCornerShape(6.dp)
             if (song?.thumbnailUrl != null) {
-                AsyncImage(
-                    model = song.artworkAt(CARD_ART_PX),
+                ArtworkImage(
+                    localUri = song.thumbnailUrl,
+                    fallbackUrl = song.artworkAt(CARD_ART_PX),
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
                     modifier = Modifier.size(84.dp).clip(artShape).thumbnailBorder(artShape),
                 )
             } else {

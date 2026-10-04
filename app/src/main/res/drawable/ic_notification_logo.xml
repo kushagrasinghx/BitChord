@@ -1,5 +1,5 @@
 <!--
-  Status-bar / notification variant of the BitChord mark (assets/LogoTransparent.svg).
+  Status-bar / notification variant of the Pexpo mark (assets/LogoTransparent.svg).
 
   Notification small icons are drawn as a silhouette: the system throws away
   every colour and keeps only the alpha channel, so the fill has to be opaque

@@ -1,0 +1,29 @@
+[Unit]
+Description=Pexpo Listen Together server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pexpo
+ExecStart=/opt/pexpo-jam/server
+Restart=always
+RestartSec=2
+
+# Caddy terminates TLS on 443 and forwards X-Forwarded-For; port 8000 stays
+# closed to the internet (only 80/443 are opened by setup.sh).
+Environment=PORT=8000
+Environment=JAM_TRUST_PROXY=true
+Environment=JAM_MAX_MEMBERS=5
+Environment=JAM_STATE_HEARTBEAT_MS=5000
+Environment=JAM_MAX_UPCOMING_QUEUE=25
+Environment=JAM_MAX_PARTIES=200
+Environment=JAM_CREATE_RATE_PER_MINUTE=2
+Environment=JAM_CONNECTION_IDLE_MS=900000
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

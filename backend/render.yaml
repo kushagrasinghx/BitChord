@@ -1,4 +1,4 @@
-# Render blueprint for BitChord Listen Together (Go backend)
+# Render blueprint for Pexpo Listen Together (Go backend)
 #
 # Deploy this service manually on Render Dashboard (Recommended):
 # - New -> Web Service, connect repo
@@ -13,7 +13,7 @@
 
 services:
   - type: web
-    name: bitchord-listen-together
+    name: pexpo-listen-together
     runtime: go
     plan: free
     region: singapore

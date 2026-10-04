@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">Pexpo</string>
     <string name="playback_channel_name">Wird wiedergegeben</string>
     <string name="download_channel_name">Downloads</string>
     <string name="download_channel_description">Songs, die in deinem Musikordner gespeichert werden</string>
@@ -106,10 +106,10 @@
     <string name="dolby_atmos_open_failed">Dolby-Atmos-Einstellungen konnten nicht geöffnet werden</string>
     <string name="update_available">Update verfügbar: v%1$s</string>
     <string name="software_update">Softwareupdate</string>
-    <string name="update_available_body">bitchord %1$s steht zum Download bereit.</string>
-    <string name="update_downloading_body">bitchord %1$s wird heruntergeladen…</string>
-    <string name="update_ready_body">bitchord %1$s ist bereit zur Installation.</string>
-    <string name="update_failed_body">bitchord %1$s konnte nicht heruntergeladen werden.</string>
+    <string name="update_available_body">pexpo %1$s steht zum Download bereit.</string>
+    <string name="update_downloading_body">pexpo %1$s wird heruntergeladen…</string>
+    <string name="update_ready_body">pexpo %1$s ist bereit zur Installation.</string>
+    <string name="update_failed_body">pexpo %1$s konnte nicht heruntergeladen werden.</string>
     <string name="download_now">Jetzt herunterladen</string>
     <string name="install_now">Jetzt installieren</string>
     <string name="later">Später</string>
@@ -137,7 +137,7 @@
     <string name="widget_previous">Zurück</string>
     <string name="widget_artwork">Albumcover</string>
     <string name="widget_nothing_played">Noch nichts wiedergegeben</string>
-    <string name="widget_open_bitchord">BitChord öffnen</string>
+    <string name="widget_open_pexpo">Pexpo öffnen</string>
     <string name="widget_preview_title">Songtitel</string>
     <string name="widget_preview_artist">Künstler</string>
     <string name="widget_pill_label">Wird wiedergegeben 4×1</string>
@@ -164,7 +164,7 @@
     <string name="cancel_all">Alle abbrechen</string>
     <string name="language">Sprache</string>
     <string name="app_language">App-Sprache</string>
-    <string name="app_language_description">Wähle die von BitChord verwendete Sprache.</string>
+    <string name="app_language_description">Wähle die von Pexpo verwendete Sprache.</string>
     <string name="english">Englisch</string>
     <string name="spanish">Spanisch</string>
     <string name="french">Französisch</string>
@@ -251,10 +251,10 @@
     <string name="beta">Beta</string>
     <string name="refresh_rate">Bildwiederholrate</string>
     <string name="high_performance_before_enabling">Vor der Aktivierung</string>
-    <string name="high_performance_battery_warning">Stelle zuerst den Akkuverbrauch von BitChord auf Uneingeschränkt. Höhere Bildwiederholraten verbrauchen mehr Akku, CPU und GPU und können dein Gerät erwärmen.</string>
+    <string name="high_performance_battery_warning">Stelle zuerst den Akkuverbrauch von Pexpo auf Uneingeschränkt. Höhere Bildwiederholraten verbrauchen mehr Akku, CPU und GPU und können dein Gerät erwärmen.</string>
     <string name="open_battery_settings">Akku-Einstellungen öffnen</string>
     <string name="enable_high_performance_title">Hochleistungsmodus aktivieren?</string>
-    <string name="enable_high_performance_confirmation">Aktiviere dies nur, wenn der Akkuverbrauch von BitChord auf Uneingeschränkt gesetzt ist. Android kann die Bildwiederholrate weiterhin einschränken, wenn das Gerät heiß ist oder der Akku schwach ist.</string>
+    <string name="enable_high_performance_confirmation">Aktiviere dies nur, wenn der Akkuverbrauch von Pexpo auf Uneingeschränkt gesetzt ist. Android kann die Bildwiederholrate weiterhin einschränken, wenn das Gerät heiß ist oder der Akku schwach ist.</string>
     <string name="enable">Aktivieren</string>
     <string name="not_yet">Noch nicht</string>
     <string name="activity">Aktivität</string>
@@ -302,7 +302,7 @@
     <string name="discord_presence_footer">Die Karte wird aktualisiert, wenn sich Titel, Position oder Wiedergabestatus ändern. Sie wird geleert, sobald die Wiedergabe stoppt.</string>
     <string name="discord_show_audio_quality">Audioqualität anzeigen</string>
     <string name="discord_show_audio_quality_subtitle">Hi-Res-, Lossless- und Dolby-Angaben auf der Statuskarte</string>
-    <string name="discord_sign_in_footer">Die Anmeldung öffnet Discords Login-Seite. Es wird nichts in BitChord eingegeben.</string>
+    <string name="discord_sign_in_footer">Die Anmeldung öffnet Discords Login-Seite. Es wird nichts in Pexpo eingegeben.</string>
     <string name="discord_token">Discord-Token</string>
     <string name="discord_token_description">Füge deinen Discord-Konto-Token ein. Er bleibt verschlüsselt auf diesem Gerät gespeichert und wird nur an Discord gesendet.</string>
     <string name="discord_token_rejected">Discord hat diesen Token abgelehnt.</string>
@@ -362,7 +362,7 @@
     <string name="downloads_finished">Downloads · fertig</string>
     <string name="downloading_progress">Wird heruntergeladen · %1$d%%</string>
     <string name="starting">Wird gestartet</string>
-    <string name="saved_to_bitchord_folder">In Music/BitChord gespeichert</string>
+    <string name="saved_to_pexpo_folder">In Music/Pexpo gespeichert</string>
     <string name="nothing_downloading">Nichts wird heruntergeladen</string>
     <string name="nothing_to_explore">Gerade nichts zu entdecken</string>
     <string name="no_youtube_music_results">Keine Ergebnisse von YouTube Music</string>
@@ -487,7 +487,7 @@
     <string name="signing_in">Wird angemeldet…</string>
     <string name="sleep_timer">Sleep-Timer</string>
     <string name="sources_no_lossless">Keine aktivierte Quelle kann verlustfreies Audio liefern. Füge ein eigenes Modul hinzu, um verfügbare verlustfreie Dateien ohne Transkodierung abzuspielen.</string>
-    <string name="sources_order_footer">Wenn eine Quelle einen Titel nicht hat oder nicht erreichbar ist, versucht BitChord die nächste. Quellen über YouTube können dessen Aufnahme ersetzen, wenn sie eine bessere Version liefern.</string>
+    <string name="sources_order_footer">Wenn eine Quelle einen Titel nicht hat oder nicht erreichbar ist, versucht Pexpo die nächste. Quellen über YouTube können dessen Aufnahme ersetzen, wenn sie eine bessere Version liefern.</string>
     <string name="sources_order_header">Quellen, in dieser Reihenfolge versucht</string>
     <string name="sources_quality_capped">Diese Verbindung ist unter Hohe Qualität eingestellt, daher werden Streams transkodiert, um dieses Limit einzuhalten. Downloads sind davon nicht betroffen.</string>
     <string name="jiosaavn_mismatch_warning">Kann die falsche Version eines Songs erwischen. Aktivieren auf eigene Gefahr.</string>
@@ -534,7 +534,7 @@
     <string name="biggest_day_note">Dein größter Tag war %1$s mit %2$s Hörzeit.</string>
     <string name="close_replay">Replay schließen</string>
     <string name="couldnt_draw_picture">Das Bild konnte nicht erstellt werden</string>
-    <string name="default_replay_holder">BitChord-Hörer</string>
+    <string name="default_replay_holder">Pexpo-Hörer</string>
     <string name="different_albums">Verschiedene Alben</string>
     <string name="genres_pending">Genres erscheinen, sobald dein Hörverlauf wächst</string>
     <string name="hour_am">%1$d Uhr vorm.</string>
@@ -560,7 +560,7 @@
     <string name="replay_artist_end"> zurück.</string>
     <string name="replay_artist_focus">Ein Künstler</string>
     <string name="replay_artist_start">Den ganzen Monat kehrtest du immer wieder zu </string>
-    <string name="replay_empty_description">Höre etwas mehr, und BitChord verwandelt deinen Verlauf in ein Replay.</string>
+    <string name="replay_empty_description">Höre etwas mehr, und Pexpo verwandelt deinen Verlauf in ein Replay.</string>
     <string name="replay_genre_end"> deinen Sound.</string>
     <string name="replay_genre_focus">Deine Genres</string>
     <string name="replay_genre_start">Zusammen prägten </string>
@@ -618,7 +618,7 @@
     <string name="webdav_subtitle">Musik auf deinem Server</string>
     <string name="webdav_not_configured">Verbinde unter „Quellen“ einen Server</string>
     <string name="webdav_empty">Keine Audiodateien auf dem WebDAV-Server gefunden. Prüfe die URL in den Einstellungen.</string>
-    <string name="webdav_description">Verbinde BitChord mit einem WebDAV-Musikordner – deinem Nextcloud-Musikverzeichnis oder einem beliebigen WebDAV-Server.</string>
+    <string name="webdav_description">Verbinde Pexpo mit einem WebDAV-Musikordner – deinem Nextcloud-Musikverzeichnis oder einem beliebigen WebDAV-Server.</string>
     <string name="webdav_server_url">Server-URL</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">Trennen</string>
@@ -635,7 +635,7 @@
     <string name="smb_subtitle">Musik auf einer Dateifreigabe</string>
     <string name="smb_not_configured">Verbinde unter „Quellen“ eine Freigabe</string>
     <string name="smb_empty">Keine Audiodateien auf der SMB-Freigabe gefunden. Prüfe den Server unter „Quellen“.</string>
-    <string name="smb_description">Verbinde BitChord mit einem freigegebenen Musikordner – einem NAS oder einer Windows-Freigabe per SMB.</string>
+    <string name="smb_description">Verbinde Pexpo mit einem freigegebenen Musikordner – einem NAS oder einer Windows-Freigabe per SMB.</string>
     <string name="smb_server_hint">nas.local or 192.168.1.10:4445</string>
     <string name="smb_share_hint">Freigabename, z. B. Music</string>
     <string name="smb_folder_hint">Ordner (optional)</string>
@@ -687,7 +687,7 @@
     </plurals>
     <string name="no_local_albums">Hier gehört noch nichts zu einem Album oder einer Playlist. Lade ein vollständiges Album oder eine Playlist herunter, dann erscheint es hier.</string>
     <string name="play_your_replay">Dein Replay abspielen</string>
-    <string name="counted_on_device_with_bitchord">Auf diesem Gerät mit BitChord gezählt</string>
+    <string name="counted_on_device_with_pexpo">Auf diesem Gerät mit Pexpo gezählt</string>
     <string name="this_month">Dieser Monat</string>
     <string name="this_year">Dieses Jahr</string>
     <string name="all_time">Gesamt</string>
@@ -766,7 +766,7 @@
     <string name="listen_together_code">Party-Code</string>
     <string name="listen_together_code_footer">Lies ihn vor oder schick ihn. O und I kommen nicht vor, ein „O“ ist also immer eine Null.</string>
     <string name="copy_code">Code kopieren</string>
-    <string name="listen_together_share_text">Hör mit mir auf BitChord – Party-Code %1$s</string>
+    <string name="listen_together_share_text">Hör mit mir auf Pexpo – Party-Code %1$s</string>
     <string name="listen_together_now_playing">Wird wiedergegeben</string>
     <string name="listen_together_nothing_playing">Noch nichts in Wiedergabe</string>
     <string name="listen_together_listening">Hören · %1$d von %2$d</string>
@@ -808,7 +808,7 @@
     <string name="listen_together_custom_server_dialog_message">Diese Party läuft auf einem externen Server:\n\n%1$s\n\nMöchtest du deinen Party-Server wechseln und der Party %2$s beitreten?</string>
     <string name="listen_together_custom_server_switch_and_join">Wechseln &amp; beitreten</string>
     <string name="listen_together_official_server_dialog_title">Zum offiziellen Server wechseln?</string>
-    <string name="listen_together_official_server_dialog_message">Diese Party läuft auf dem offiziellen BitChord-Server.\n\nMöchtest du zurück zum offiziellen Server wechseln und der Party %1$s beitreten?</string>
+    <string name="listen_together_official_server_dialog_message">Diese Party läuft auf dem offiziellen Pexpo-Server.\n\nMöchtest du zurück zum offiziellen Server wechseln und der Party %1$s beitreten?</string>
     <string name="listen_together_switch_failed_stayed_in_party">Party-Beitritt fehlgeschlagen: %1$s. Du bleibst in der Party %2$s.</string>
     <string name="listen_together_switch_failed">Party-Beitritt fehlgeschlagen: %1$s.</string>
     <string name="listen_together_ping">%1$d ms</string>
@@ -845,7 +845,7 @@
 
     <string name="add_addon">Add-on hinzufügen</string>
 
-    <string name="add_addon_detail">Verbinde BitChord mit einem Add-on-Server</string>
+    <string name="add_addon_detail">Verbinde Pexpo mit einem Add-on-Server</string>
 
     <string name="addon_url_description">Füge die URL des Add-ons ein — Stammverzeichnis oder manifest.json.</string>
 
@@ -1055,7 +1055,7 @@
 
     <string name="source_skipped_by_quality">Nicht auf %1$s verwendet · Qualität ist auf %2$s gesetzt</string>
 
-    <string name="source_unrecognised">BitChord konnte diesen Link nicht erkennen</string>
+    <string name="source_unrecognised">Pexpo konnte diesen Link nicht erkennen</string>
 
     <string name="start_radio">Radio starten</string>
 
@@ -1094,7 +1094,7 @@
 
     <string name="auto_login_title">Sign in to YouTube on your phone</string>
 
-    <string name="auto_login_subtitle">Open BitChord on your phone to sign in</string>
+    <string name="auto_login_subtitle">Open Pexpo on your phone to sign in</string>
 
     <string name="auto_empty_recents_title">No recent songs</string>
 
@@ -1130,7 +1130,7 @@
     <string name="smart_version_alignment">Intelligente Audio-Ausrichtung</string>
     <string name="smart_version_alignment_subtitle">Analysiert Wellenformen, um genau die passende Wiedergabestelle zu finden</string>
 
-    <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
+    <string name="equalizer_footer">Shapes the sound inside Pexpo, before it reaches the system.</string>
 
     <string name="equalizer_dynamic">Dynamic</string>
 
@@ -1173,7 +1173,7 @@
 
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>
 
-    <string name="system_equalizer_footer">Runs after BitChord\'s, on the whole audio session. Using both applies both.</string>
+    <string name="system_equalizer_footer">Runs after Pexpo\'s, on the whole audio session. Using both applies both.</string>
 
     <string name="eq_preset_flat">Flat</string>
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-BitChord can translate the currently displayed lyrics into the language selected
+Pexpo can translate the currently displayed lyrics into the language selected
 inside the app. The translation keeps the original lyric timestamps, scroll
 position, line activation and playback-driven highlighting. A compact button in
 the full lyrics view switches between the original and translated versions.
@@ -14,9 +14,9 @@ change Automix, playback transitions, source replacement or audio processing.
 
 1. Open the full lyrics view.
 2. Tap the translation button beside the source credit.
-3. BitChord resolves the active application locale and requests a translation.
+3. Pexpo resolves the active application locale and requests a translation.
 4. If the detected source language matches the app language, the original lyrics
-   remain visible and BitChord explains that no translation is needed.
+   remain visible and Pexpo explains that no translation is needed.
 5. Otherwise, the translated text appears with a short particle transition.
 6. Tap the same button again to return immediately to the original lyrics.
 
@@ -29,11 +29,11 @@ not switch the strip back to the source language.
 
 The destination comes from
 `AppCompatDelegate.getApplicationLocales()`, which is the language explicitly
-selected in BitChord's language dialog. When the application locale list is
-empty, BitChord follows Android's effective configuration locale, matching the
+selected in Pexpo's language dialog. When the application locale list is
+empty, Pexpo follows Android's effective configuration locale, matching the
 app's normal “follow system” behaviour.
 
-The translation therefore follows the language shown by BitChord, not an
+The translation therefore follows the language shown by Pexpo, not an
 unrelated device default. Language tags are normalized to their base language,
 including legacy aliases such as `iw` → `he` and `in` → `id`.
 
@@ -69,7 +69,7 @@ Every translated `LyricLine` retains:
 - the original list position
 
 Exact source-language word boundaries cannot describe a translated sentence
-because word order and word count can change. For word-synced lyrics, BitChord
+because word order and word count can change. For word-synced lyrics, Pexpo
 projects the original character progress onto the translated text. The sweep
 therefore follows the original holds, pauses and pace changes instead of running
 uniformly from start to end. Bloom also uses the source vocal envelope. This is
@@ -92,7 +92,7 @@ recompose, rescale or clip the lyrics list on every frame. Soft halos use two
 circles rather than extra blur layers; particles fade in and out continuously.
 
 The effect only animates draw properties and does not intercept touches.
-Enabling BitChord's **Reduce animations** preference turns it into an immediate
+Enabling Pexpo's **Reduce animations** preference turns it into an immediate
 text swap. Compose's animator respects the platform duration scale. Going into
 the background cancels decoration, and returning or reopening the panel does
 not replay an old toggle. Rapid toggles replace the previous animation.
@@ -124,25 +124,25 @@ settings.
 
 ## Files
 
-- `app/src/main/java/com/music/bitchord/data/lyrics/LyricsTranslation.kt`
+- `app/src/main/java/com/music/pexpo/data/lyrics/LyricsTranslation.kt`
   contains batching, source detection, timing reconstruction and bounded caching.
-- `app/src/main/java/com/music/bitchord/ui/player/NowPlayingScreen.kt`
+- `app/src/main/java/com/music/pexpo/ui/player/NowPlayingScreen.kt`
   contains the toggle, state handling and motion response.
 - `app/src/main/res/values-*/strings.xml` localizes the new UI messages for every
-  language currently offered by BitChord.
+  language currently offered by Pexpo.
 
 ## Manual verification checklist
 
-- Translate English lyrics with BitChord set to Spanish.
+- Translate English lyrics with Pexpo set to Spanish.
 - Translate the same song again and verify the cached response is immediate.
 - Switch back and forth without losing the active line or scroll position.
 - Check held notes, vocal pauses and two-line phrases: the translated sweep
   should follow the source progress without reversing near a line wrap.
 - Toggle repeatedly, close/reopen the panel, and background/restore the app;
   particles should settle completely and old transitions should not replay.
-- Use Spanish lyrics while BitChord is set to Spanish and verify no translation
+- Use Spanish lyrics while Pexpo is set to Spanish and verify no translation
   view is created.
-- Change BitChord to another supported language and verify the new destination.
+- Change Pexpo to another supported language and verify the new destination.
 - Change tracks while a translation is loading and verify no stale text appears.
 - Enable **Reduce animations** and verify the particle transition is skipped.
 - Clear the app cache and verify original lyrics continue to work normally.

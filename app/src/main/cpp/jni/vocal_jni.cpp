@@ -2,11 +2,11 @@
  * Ported from Orchard (https://github.com/SFG5453/Orchard).
  *
  * Copyright (C) 2026 SFG545 (original Orchard implementation)
- * Copyright (C) 2026 Kushagra Singh (BitChord adaptation)
+ * Copyright (C) 2026 Kushagra Singh (Pexpo adaptation)
  *
  * Orchard's original source is licensed under the GNU Affero General Public
  * License, version 3 or later. Per AGPLv3 section 13, this file is combined
- * here into BitChord -- a work licensed under the GNU General Public
+ * here into Pexpo -- a work licensed under the GNU General Public
  * License, version 3 or later -- and remains itself governed by the AGPLv3
  * as part of that combination.
  *
@@ -38,7 +38,7 @@ extern "C" {
 // mirroring the planar layout the front end wants and avoiding a deinterleave
 // on either side of the boundary.
 JNIEXPORT jfloatArray JNICALL
-Java_com_music_bitchord_playback_smart_VocalSpectrogram_nativeCompute(
+Java_com_music_pexpo_playback_smart_VocalSpectrogram_nativeCompute(
     JNIEnv* env,
     jclass /* clazz */,
     jfloatArray left,
@@ -53,8 +53,8 @@ Java_com_music_bitchord_playback_smart_VocalSpectrogram_nativeCompute(
   if (left_count > 0) env->GetFloatArrayRegion(left, 0, left_count, channels[0].data());
   if (right_count > 0) env->GetFloatArrayRegion(right, 0, right_count, channels[1].data());
 
-  const bitchord::smart::VocalSpectrogram spectrogram =
-      bitchord::smart::ComputeVocalSpectrogram(channels, sample_rate);
+  const pexpo::smart::VocalSpectrogram spectrogram =
+      pexpo::smart::ComputeVocalSpectrogram(channels, sample_rate);
 
   const jsize produced = static_cast<jsize>(spectrogram.values.size());
   jfloatArray result = env->NewFloatArray(produced);
@@ -66,27 +66,27 @@ Java_com_music_bitchord_playback_smart_VocalSpectrogram_nativeCompute(
 }
 
 JNIEXPORT jint JNICALL
-Java_com_music_bitchord_playback_smart_VocalSpectrogram_nativeBins(
+Java_com_music_pexpo_playback_smart_VocalSpectrogram_nativeBins(
     JNIEnv* /* env */, jclass /* clazz */) {
-  return static_cast<jint>(bitchord::smart::kVocalSpectrogramBins);
+  return static_cast<jint>(pexpo::smart::kVocalSpectrogramBins);
 }
 
 JNIEXPORT jdouble JNICALL
-Java_com_music_bitchord_playback_smart_VocalSpectrogram_nativeSampleRate(
+Java_com_music_pexpo_playback_smart_VocalSpectrogram_nativeSampleRate(
     JNIEnv* /* env */, jclass /* clazz */) {
-  return bitchord::smart::kVocalSpectrogramSampleRate;
+  return pexpo::smart::kVocalSpectrogramSampleRate;
 }
 
 JNIEXPORT jint JNICALL
-Java_com_music_bitchord_playback_smart_VocalSpectrogram_nativeHop(
+Java_com_music_pexpo_playback_smart_VocalSpectrogram_nativeHop(
     JNIEnv* /* env */, jclass /* clazz */) {
-  return static_cast<jint>(bitchord::smart::kVocalSpectrogramHop);
+  return static_cast<jint>(pexpo::smart::kVocalSpectrogramHop);
 }
 
 JNIEXPORT jint JNICALL
-Java_com_music_bitchord_playback_smart_VocalSpectrogram_nativeFftSize(
+Java_com_music_pexpo_playback_smart_VocalSpectrogram_nativeFftSize(
     JNIEnv* /* env */, jclass /* clazz */) {
-  return static_cast<jint>(bitchord::smart::kVocalSpectrogramFft);
+  return static_cast<jint>(pexpo::smart::kVocalSpectrogramFft);
 }
 
 }  // extern "C"

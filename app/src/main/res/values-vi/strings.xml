@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">Pexpo</string>
     <string name="playback_channel_name">Đang phát</string>
     <string name="download_channel_name">Tải xuống</string>
     <string name="download_channel_description">Các bài hát đang được lưu vào thư mục Nhạc của bạn</string>
@@ -106,10 +106,10 @@
     <string name="dolby_atmos_open_failed">Không thể mở cài đặt Dolby Atmos</string>
     <string name="update_available">Có bản cập nhật mới: v%1$s</string>
     <string name="software_update">Cập nhật phần mềm</string>
-    <string name="update_available_body">BitChord %1$s đã sẵn sàng để tải xuống.</string>
-    <string name="update_downloading_body">Đang tải xuống BitChord %1$s…</string>
-    <string name="update_ready_body">BitChord %1$s đã sẵn sàng để cài đặt.</string>
-    <string name="update_failed_body">Không thể tải xuống BitChord %1$s.</string>
+    <string name="update_available_body">Pexpo %1$s đã sẵn sàng để tải xuống.</string>
+    <string name="update_downloading_body">Đang tải xuống Pexpo %1$s…</string>
+    <string name="update_ready_body">Pexpo %1$s đã sẵn sàng để cài đặt.</string>
+    <string name="update_failed_body">Không thể tải xuống Pexpo %1$s.</string>
     <string name="download_now">Tải ngay</string>
     <string name="install_now">Cài đặt ngay</string>
     <string name="later">Để sau</string>
@@ -129,7 +129,7 @@
     <string name="queue">Hàng đợi</string>
     <string name="next_in_queue">Tiếp theo trong hàng đợi</string>
     <string name="next_from">Tiếp theo từ: %1$s</string>
-    <string name="source_unrecognised">BitChord không nhận dạng được liên kết đó</string>
+    <string name="source_unrecognised">Pexpo không nhận dạng được liên kết đó</string>
     <string name="source_already_added">Đã được thêm dưới tên %1$s</string>
     <string name="source_setup_required">Nhấn để hoàn tất thiết lập</string>
     <string name="source_skipped_by_quality">Không dùng trên %1$s · chất lượng được đặt thành %2$s</string>
@@ -146,7 +146,7 @@
     <string name="widget_previous">Trước</string>
     <string name="widget_artwork">Ảnh bìa album</string>
     <string name="widget_nothing_played">Chưa phát bài nào</string>
-    <string name="widget_open_bitchord">Mở BitChord</string>
+    <string name="widget_open_pexpo">Mở Pexpo</string>
     <string name="widget_preview_title">Tên bài hát</string>
     <string name="widget_preview_artist">Nghệ sĩ</string>
     <string name="widget_pill_label">Đang phát 4×1</string>
@@ -181,7 +181,7 @@
     <string name="cancel_all">Hủy tất cả</string>
     <string name="language">Ngôn ngữ</string>
     <string name="app_language">Ngôn ngữ ứng dụng</string>
-    <string name="app_language_description">Chọn ngôn ngữ sử dụng trong BitChord.</string>
+    <string name="app_language_description">Chọn ngôn ngữ sử dụng trong Pexpo.</string>
     <string name="english">Tiếng Anh</string>
     <string name="spanish">Tiếng Tây Ban Nha</string>
     <string name="french">Tiếng Pháp</string>
@@ -283,10 +283,10 @@
     <string name="beta">Beta</string>
     <string name="refresh_rate">Tần số quét</string>
     <string name="high_performance_before_enabling">Trước khi bật</string>
-    <string name="high_performance_battery_warning">Trước tiên hãy đặt mức sử dụng pin của BitChord thành Không hạn chế. Tần số quét cao hơn sử dụng nhiều pin, CPU và GPU hơn, đồng thời có thể làm thiết bị ấm lên.</string>
+    <string name="high_performance_battery_warning">Trước tiên hãy đặt mức sử dụng pin của Pexpo thành Không hạn chế. Tần số quét cao hơn sử dụng nhiều pin, CPU và GPU hơn, đồng thời có thể làm thiết bị ấm lên.</string>
     <string name="open_battery_settings">Mở cài đặt pin</string>
     <string name="enable_high_performance_title">Bật chế độ hiệu năng cao?</string>
-    <string name="enable_high_performance_confirmation">Chỉ bật nếu mức sử dụng pin của BitChord được đặt thành Không hạn chế. Android vẫn có thể giới hạn tần số quét khi thiết bị nóng hoặc pin yếu.</string>
+    <string name="enable_high_performance_confirmation">Chỉ bật nếu mức sử dụng pin của Pexpo được đặt thành Không hạn chế. Android vẫn có thể giới hạn tần số quét khi thiết bị nóng hoặc pin yếu.</string>
     <string name="enable">Bật</string>
     <string name="not_yet">Chưa bật</string>
     <string name="activity">Hoạt động</string>
@@ -297,7 +297,7 @@
     <string name="activity_playing">Đang phát</string>
     <string name="activity_watching">Đang xem</string>
     <string name="add_addon">Thêm tiện ích mở rộng</string>
-    <string name="add_addon_detail">Trỏ BitChord tới máy chủ tiện ích bạn tự lưu trữ hoặc được chia sẻ liên kết</string>
+    <string name="add_addon_detail">Trỏ Pexpo tới máy chủ tiện ích bạn tự lưu trữ hoặc được chia sẻ liên kết</string>
     <string name="add_to_queue">Thêm vào hàng đợi</string>
     <string name="after_this_song">Sau bài hát này</string>
     <string name="always_on">Luôn bật</string>
@@ -325,7 +325,7 @@
     <string name="discord_presence_footer">Thẻ sẽ cập nhật khi bài hát, vị trí phát hoặc trạng thái phát thay đổi. Thẻ sẽ biến mất khi dừng phát.</string>
     <string name="discord_show_audio_quality">Hiển thị chất lượng âm thanh</string>
     <string name="discord_show_audio_quality_subtitle">Thông số Hi-Res, lossless và Dolby trên thẻ trạng thái</string>
-    <string name="discord_sign_in_footer">Đăng nhập sẽ mở trang đăng nhập của Discord. Không có thông tin nào được nhập vào BitChord.</string>
+    <string name="discord_sign_in_footer">Đăng nhập sẽ mở trang đăng nhập của Discord. Không có thông tin nào được nhập vào Pexpo.</string>
     <string name="discord_token">Token Discord</string>
     <string name="discord_token_description">Dán mã token tài khoản Discord của bạn. Token được mã hóa an toàn trên thiết bị này và chỉ được gửi đến Discord.</string>
     <string name="discord_token_rejected">Discord đã từ chối token đó.</string>
@@ -388,7 +388,7 @@
     <string name="start_radio">Phát radio</string>
     <string name="playing_radio">Đang phát %1$s Radio</string>
     <string name="radio_started">Đã bắt đầu radio %1$s</string>
-    <string name="saved_to_bitchord_folder">Đã lưu vào Music/BitChord</string>
+    <string name="saved_to_pexpo_folder">Đã lưu vào Music/Pexpo</string>
     <string name="nothing_downloading">Không có nội dung đang tải</string>
     <string name="nothing_to_explore">Hiện không có gì để khám phá</string>
     <string name="no_youtube_music_results">Không có kết quả nào từ YouTube Music</string>
@@ -457,7 +457,7 @@
     <string name="max_delay_subtitle">Độ trễ scrobble tối đa tính bằng giây</string>
     <string name="min_song_duration">Thời lượng bài hát tối thiểu</string>
     <string name="min_song_duration_subtitle">Các bài hát ngắn hơn sẽ không được scrobble</string>
-    <string name="addon_url_description">Dán URL của tiện ích mở rộng — đường dẫn gốc hoặc manifest.json. BitChord sẽ đọc các mục có thể tìm kiếm và phát, sau đó yêu cầu bản nhạc qua giao thức HTTP tiêu chuẩn.</string>
+    <string name="addon_url_description">Dán URL của tiện ích mở rộng — đường dẫn gốc hoặc manifest.json. Pexpo sẽ đọc các mục có thể tìm kiếm và phát, sau đó yêu cầu bản nhạc qua giao thức HTTP tiêu chuẩn.</string>
     <string name="monthly_listeners">%1$s người nghe hàng tháng</string>
     <string name="name">Tên</string>
     <string name="no_lyrics_for_track">Không có lời cho bài hát này</string>
@@ -507,7 +507,7 @@
     <string name="signing_in">Đang đăng nhập…</string>
     <string name="sleep_timer">Hẹn giờ tắt</string>
     <string name="sources_no_lossless">Không có nguồn nào được bật có thể cung cấp âm thanh Lossless. Hãy thêm tiện ích mở rộng để phát các tệp Lossless mà không cần chuyển mã.</string>
-    <string name="sources_order_footer">Nếu một nguồn không có bản nhạc hoặc không thể kết nối, BitChord sẽ thử nguồn tiếp theo. Các nguồn nằm trên YouTube có thể thay thế bản ghi âm của YouTube khi tìm được phiên bản tốt hơn.</string>
+    <string name="sources_order_footer">Nếu một nguồn không có bản nhạc hoặc không thể kết nối, Pexpo sẽ thử nguồn tiếp theo. Các nguồn nằm trên YouTube có thể thay thế bản ghi âm của YouTube khi tìm được phiên bản tốt hơn.</string>
     <string name="sources_order_header">Các nguồn nhạc, được thử theo thứ tự này</string>
     <string name="sources_quality_capped">Kết nối này được đặt dưới chất lượng Cao, vì vậy luồng phát sẽ được chuyển mã để phù hợp giới hạn đó. Việc tải xuống không bị ảnh hưởng.</string>
     <string name="sources_subtitle">Nguồn cung cấp âm thanh và thứ tự ưu tiên</string>
@@ -546,7 +546,7 @@
     <string name="biggest_day_note">Ngày bạn nghe nhiều nhất là %1$s với %2$s thời gian nghe.</string>
     <string name="close_replay">Đóng Replay</string>
     <string name="couldnt_draw_picture">Không thể tạo hình ảnh</string>
-    <string name="default_replay_holder">Người nghe BitChord</string>
+    <string name="default_replay_holder">Người nghe Pexpo</string>
     <string name="different_albums">Album khác nhau</string>
     <string name="genres_pending">Các thể loại sẽ xuất hiện khi lịch sử nghe nhạc của bạn nhiều hơn</string>
     <string name="hour_am">%1$d SA</string>
@@ -572,7 +572,7 @@
     <string name="replay_artist_end"> liên tục quay trở lại.</string>
     <string name="replay_artist_focus">Một nghệ sĩ</string>
     <string name="replay_artist_start">Suốt cả tháng, </string>
-    <string name="replay_empty_description">Hãy nghe thêm một chút và BitChord sẽ biến lịch sử nghe của bạn thành bản tóm tắt Replay.</string>
+    <string name="replay_empty_description">Hãy nghe thêm một chút và Pexpo sẽ biến lịch sử nghe của bạn thành bản tóm tắt Replay.</string>
     <string name="replay_genre_end"> đã định hình gu âm nhạc của bạn.</string>
     <string name="replay_genre_focus">Thể loại của bạn</string>
     <string name="replay_genre_start">Cùng nhau, </string>
@@ -602,7 +602,7 @@
     <string name="when_you_listen_most">Thời điểm bạn nghe nhiều nhất</string>
     <string name="your_biggest_day">Ngày nghe nhiều nhất: %1$s</string>
     <string name="your_listening_experience">Trải nghiệm nghe nhạc của bạn</string>
-    <string name="your_replay">BitChord Replay của bạn</string>
+    <string name="your_replay">Pexpo Replay của bạn</string>
     <plurals name="replay_artist_count">
         <item quantity="other">%1$s nghệ sĩ</item>
     </plurals>
@@ -632,7 +632,7 @@
     <string name="webdav_subtitle">Nhạc trên máy chủ của bạn</string>
     <string name="webdav_not_configured">Kết nối máy chủ trong mục Nguồn</string>
     <string name="webdav_empty">Không tìm thấy tệp âm thanh nào trên máy chủ WebDAV. Kiểm tra URL trong Cài đặt.</string>
-    <string name="webdav_description">Trỏ BitChord tới thư mục nhạc WebDAV — thư mục Music trên Nextcloud của bạn hoặc bất kỳ máy chủ nào hỗ trợ WebDAV.</string>
+    <string name="webdav_description">Trỏ Pexpo tới thư mục nhạc WebDAV — thư mục Music trên Nextcloud của bạn hoặc bất kỳ máy chủ nào hỗ trợ WebDAV.</string>
     <string name="webdav_server_url">URL máy chủ</string>
     <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
     <string name="webdav_disconnect">Ngắt kết nối</string>
@@ -649,7 +649,7 @@
     <string name="smb_subtitle">Nhạc trên thư mục chia sẻ</string>
     <string name="smb_not_configured">Kết nối thư mục chia sẻ trong mục Nguồn</string>
     <string name="smb_empty">Không tìm thấy tệp âm thanh nào trên thư mục chia sẻ SMB. Kiểm tra máy chủ trong mục Nguồn.</string>
-    <string name="smb_description">Trỏ BitChord tới thư mục nhạc chia sẻ — NAS hoặc máy Windows hỗ trợ SMB.</string>
+    <string name="smb_description">Trỏ Pexpo tới thư mục nhạc chia sẻ — NAS hoặc máy Windows hỗ trợ SMB.</string>
     <string name="smb_server_hint">nas.local hoặc 192.168.1.10:4445</string>
     <string name="smb_share_hint">Tên share, ví dụ Music</string>
     <string name="smb_folder_hint">Thư mục trong share, ví dụ media/music (không bắt buộc)</string>
@@ -703,7 +703,7 @@
     </plurals>
     <string name="no_local_albums">Chưa có mục nào ở đây thuộc về một album hoặc danh sách phát. Tải xuống toàn bộ album hoặc danh sách phát và nội dung sẽ xuất hiện ở đây.</string>
     <string name="play_your_replay">Phát Replay của bạn</string>
-    <string name="counted_on_device_with_bitchord">Được thống kê trên thiết bị này bằng BitChord</string>
+    <string name="counted_on_device_with_pexpo">Được thống kê trên thiết bị này bằng Pexpo</string>
     <string name="this_month">Tháng này</string>
     <string name="this_year">Năm nay</string>
     <string name="all_time">Tất cả thời gian</string>
@@ -828,7 +828,7 @@
 
     <string name="auto_login_title">Sign in to YouTube on your phone</string>
 
-    <string name="auto_login_subtitle">Open BitChord on your phone to sign in</string>
+    <string name="auto_login_subtitle">Open Pexpo on your phone to sign in</string>
 
     <string name="auto_empty_recents_title">No recent songs</string>
 
@@ -868,7 +868,7 @@
 
     <string name="smart_version_alignment_subtitle">Analyze audio waveforms to match the exact corresponding playback moment</string>
 
-    <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
+    <string name="equalizer_footer">Shapes the sound inside Pexpo, before it reaches the system.</string>
 
     <string name="equalizer_dynamic">Dynamic</string>
 
@@ -911,7 +911,7 @@
 
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>
 
-    <string name="system_equalizer_footer">Runs after BitChord\'s, on the whole audio session. Using both applies both.</string>
+    <string name="system_equalizer_footer">Runs after Pexpo\'s, on the whole audio session. Using both applies both.</string>
 
     <string name="eq_preset_flat">Flat</string>
 
@@ -1122,7 +1122,7 @@
 
     <string name="copy_code">Copy code</string>
 
-    <string name="listen_together_share_text">Listen with me on BitChord — party code %1$s</string>
+    <string name="listen_together_share_text">Listen with me on Pexpo — party code %1$s</string>
 
     <string name="listen_together_now_playing">Now playing</string>
 
@@ -1201,7 +1201,7 @@
     <string name="listen_together_custom_server_dialog_message">This party is hosted on an external server:\n\n%1$s\n\nDo you want to switch your party server and join party %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">Switch &amp; Join</string>
     <string name="listen_together_official_server_dialog_title">Switch to official server?</string>
-    <string name="listen_together_official_server_dialog_message">This party is hosted on the official BitChord server.\n\nDo you want to switch back to the official server and join party %1$s?</string>
+    <string name="listen_together_official_server_dialog_message">This party is hosted on the official Pexpo server.\n\nDo you want to switch back to the official server and join party %1$s?</string>
     <string name="listen_together_switch_failed_stayed_in_party">Couldn’t join party: %1$s. Remaining in party %2$s.</string>
     <string name="listen_together_switch_failed">Couldn’t join party: %1$s.</string>
     <string name="listen_together_open_count">Listening together · %1$d</string>

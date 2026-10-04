@@ -7,6 +7,6 @@
 # Wildcards rather than a recorded profile: recording one needs a macrobenchmark
 # run on an API 33+ or rooted device. This is a superset of any recorded journey
 # for our own code; the libraries' own profiles cover theirs.
-HSPLcom/music/bitchord/**->**(**)**
+HSPLcom/music/pexpo/**->**(**)**
 HSPLcom/my/kizzy/**->**(**)**
-Lcom/music/bitchord/**;
+Lcom/music/pexpo/**;

@@ -1,6 +1,6 @@
 # Additional Documentation
 
-Additional BitChord project and development information will be maintained here.
+Additional Pexpo project and development information will be maintained here.
 
 ## Project
 - [Listen Together Server Documentation](backend/README.md): Architecture, synchronization protocol, and deployment instructions for the party server.

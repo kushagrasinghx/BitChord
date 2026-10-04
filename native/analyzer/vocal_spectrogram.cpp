@@ -3,11 +3,11 @@
  * front end this file is adapted from almost unchanged.
  *
  * Copyright (C) 2026 SFG545 (original Orchard implementation)
- * Copyright (C) 2026 Kushagra Singh (BitChord adaptation)
+ * Copyright (C) 2026 Kushagra Singh (Pexpo adaptation)
  *
  * Orchard's original source is licensed under the GNU Affero General Public
  * License, version 3 or later. Per AGPLv3 section 13, this file is combined
- * here into BitChord -- a work licensed under the GNU General Public
+ * here into Pexpo -- a work licensed under the GNU General Public
  * License, version 3 or later -- and remains itself governed by the AGPLv3
  * as part of that combination.
  *
@@ -26,7 +26,7 @@
 #include <complex>
 #include <vector>
 
-namespace bitchord::smart {
+namespace pexpo::smart {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
@@ -134,4 +134,4 @@ VocalSpectrogram ComputeVocalSpectrogram(
   return result;
 }
 
-}  // namespace bitchord::smart
+}  // namespace pexpo::smart

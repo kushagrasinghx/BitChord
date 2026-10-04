@@ -9,8 +9,8 @@
    because they hold the same credentials in cleartext.
 -->
 <full-backup-content>
-    <exclude domain="sharedpref" path="bitchord_auth.xml" />
-    <exclude domain="sharedpref" path="bitchord_auth_plain.xml" />
-    <exclude domain="sharedpref" path="bitchord_sources.xml" />
-    <exclude domain="sharedpref" path="bitchord_sources_plain.xml" />
+    <exclude domain="sharedpref" path="pexpo_auth.xml" />
+    <exclude domain="sharedpref" path="pexpo_auth_plain.xml" />
+    <exclude domain="sharedpref" path="pexpo_sources.xml" />
+    <exclude domain="sharedpref" path="pexpo_sources_plain.xml" />
 </full-backup-content>

@@ -2,14 +2,14 @@
 # One-shot installer for the Listen Together server on an Oracle Cloud
 # (or any Ubuntu 22.04/24.04) VM. Safe to re-run: it rebuilds and restarts.
 #
-#   sudo DOMAIN=jam.bitchord.kushagrasingh.in bash deploy/setup.sh
+#   sudo DOMAIN=jam.pexpo.kushagrasingh.in bash deploy/setup.sh
 #
 # Run it from the backend/ directory of a checkout on the VM. The DNS A record
 # for $DOMAIN must already point at this VM, or Caddy cannot get a certificate.
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
-DOMAIN="${DOMAIN:?set DOMAIN, e.g. DOMAIN=jam.bitchord.kushagrasingh.in}"
+DOMAIN="${DOMAIN:?set DOMAIN, e.g. DOMAIN=jam.pexpo.kushagrasingh.in}"
 GO_VERSION="${GO_VERSION:-1.27.0}"
 BACKEND_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -32,19 +32,19 @@ if ! /usr/local/go/bin/go version 2>/dev/null | grep -q "go$GO_VERSION"; then
 fi
 
 echo "== build"
-id bitchord >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin bitchord
-install -d -o bitchord -g bitchord /opt/bitchord-jam
-(cd "$BACKEND_DIR" && /usr/local/go/bin/go build -o /opt/bitchord-jam/server .)
-chown bitchord:bitchord /opt/bitchord-jam/server
+id pexpo >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin pexpo
+install -d -o pexpo -g pexpo /opt/pexpo-jam
+(cd "$BACKEND_DIR" && /usr/local/go/bin/go build -o /opt/pexpo-jam/server .)
+chown pexpo:pexpo /opt/pexpo-jam/server
 
 echo "== service"
-install -m 644 "$BACKEND_DIR/deploy/bitchord-jam.service" /etc/systemd/system/bitchord-jam.service
+install -m 644 "$BACKEND_DIR/deploy/pexpo-jam.service" /etc/systemd/system/pexpo-jam.service
 systemctl daemon-reload
-systemctl enable bitchord-jam
-systemctl restart bitchord-jam
-install -m 644 "$BACKEND_DIR/deploy/bitchord-keepalive.service" /etc/systemd/system/bitchord-keepalive.service
+systemctl enable pexpo-jam
+systemctl restart pexpo-jam
+install -m 644 "$BACKEND_DIR/deploy/pexpo-keepalive.service" /etc/systemd/system/pexpo-keepalive.service
 systemctl daemon-reload
-systemctl enable --now bitchord-keepalive
+systemctl enable --now pexpo-keepalive
 
 echo "== caddy (HTTPS + WebSocket proxy)"
 if ! command -v caddy >/dev/null; then
@@ -59,8 +59,8 @@ if ! cmp -s /tmp/Caddyfile /etc/caddy/Caddyfile; then
 fi
 
 echo "== deploy hook"
-echo "$DOMAIN" > /etc/bitchord-domain
-install -m 755 "$BACKEND_DIR/deploy/bitchord-deploy.sh" /usr/local/sbin/bitchord-deploy
+echo "$DOMAIN" > /etc/pexpo-domain
+install -m 755 "$BACKEND_DIR/deploy/pexpo-deploy.sh" /usr/local/sbin/pexpo-deploy
 
 echo "== firewall"
 # Oracle's Ubuntu images ship an iptables REJECT rule that blocks everything

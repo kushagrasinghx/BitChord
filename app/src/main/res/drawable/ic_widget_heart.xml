@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Like, unset. The same heart BitChordIcons.Heart draws in the player, carried
+  Like, unset. The same heart PexpoIcons.Heart draws in the player, carried
   over as a drawable because a widget can't render an ImageVector. Stroked at
   the transport's 2.4 rather than the app's 2.2 so it matches its neighbours.
 -->

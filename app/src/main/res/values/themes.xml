@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Compose owns all theming; this just gives an edge-to-edge, action-bar-free window. -->
-    <style name="Theme.BitChord" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="Theme.Pexpo" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
     </style>
 </resources>

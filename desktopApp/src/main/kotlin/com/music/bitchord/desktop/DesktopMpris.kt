@@ -21,6 +21,51 @@ private const val MPRIS_PLAYER_INTERFACE = "org.mpris.MediaPlayer2.Player"
 private const val MPRIS_OBJECT_PATH = "/org/mpris/MediaPlayer2"
 private const val MPRIS_BUS_NAME = "org.mpris.MediaPlayer2.bitchord"
 
+internal data class MprisCapabilities(
+    val canGoNext: Boolean,
+    val canGoPrevious: Boolean,
+    val canPlay: Boolean,
+    val canPause: Boolean,
+    val canSeek: Boolean,
+) {
+    fun asProperties(): Map<String, Variant<*>> = linkedMapOf(
+        "CanGoNext" to Variant(canGoNext),
+        "CanGoPrevious" to Variant(canGoPrevious),
+        "CanPlay" to Variant(canPlay),
+        "CanPause" to Variant(canPause),
+        "CanSeek" to Variant(canSeek),
+    )
+
+    companion object {
+        fun from(playback: DesktopPlaybackState): MprisCapabilities {
+            val hasTrack = playback.song != null
+            return MprisCapabilities(
+                canGoNext = hasTrack,
+                canGoPrevious = hasTrack,
+                canPlay = hasTrack && playback.error == null,
+                canPause = hasTrack,
+                canSeek = hasTrack && durationMs(playback.song, playback.durationMs) > 0L,
+            )
+        }
+    }
+}
+
+internal class MprisCapabilityTracker {
+    private var published: MprisCapabilities? = null
+
+    fun changed(playback: DesktopPlaybackState, force: Boolean = false): Map<String, Variant<*>> {
+        val current = MprisCapabilities.from(playback)
+        val previous = published?.asProperties()
+        published = current
+        return current.asProperties().filterTo(linkedMapOf()) { (name, value) ->
+            force || previous?.get(name)?.value != value.value
+        }
+    }
+}
+
+private fun durationMs(song: Song?, knownDurationMs: Long): Long =
+    knownDurationMs.takeIf { it > 0L } ?: song?.durationText.durationMillis()
+
 interface MprisMetadataType : TypeRef<Map<String, Variant<*>>>
 
 @DBusInterfaceName(MPRIS_ROOT_INTERFACE)
@@ -97,6 +142,7 @@ internal class DesktopMprisController(
     private var publishedLoopStatus = "None"
     private var publishedRate = 1.0
     private var publishedVolume = 1.0
+    private val capabilityTracker = MprisCapabilityTracker()
 
     fun start() {
         if (!isLinux() || synchronized(lock) { started }) return
@@ -171,6 +217,7 @@ internal class DesktopMprisController(
             if (force || publishedVolume != state.volume.toDouble()) {
                 changed["Volume"] = variant(state.volume.toDouble().coerceIn(0.0, 1.0))
             }
+            changed.putAll(capabilityTracker.changed(state, force))
             publishedSongId = state.song?.videoId
             publishedPlaybackStatus = playbackStatus
             publishedShuffle = shuffle
@@ -209,6 +256,7 @@ internal class DesktopMprisController(
             ),
         )
         MPRIS_PLAYER_INTERFACE -> synchronized(lock) {
+            val capabilities = MprisCapabilities.from(state)
             linkedMapOf(
                 "Metadata" to variant(metadata(state.song), "a{sv}"),
                 "PlaybackStatus" to variant(playbackStatus(state)),
@@ -219,13 +267,10 @@ internal class DesktopMprisController(
                 "Position" to variant(state.positionMs.coerceAtLeast(0L) * 1_000L),
                 "MinimumRate" to variant(0.25),
                 "MaximumRate" to variant(3.0),
-                "CanGoNext" to variant(state.song != null),
-                "CanGoPrevious" to variant(state.song != null),
-                "CanPlay" to variant(state.song != null && state.error == null),
-                "CanPause" to variant(state.song != null),
-                "CanSeek" to variant(state.song != null && durationMs(state.song, state.durationMs) > 0L),
-                "CanControl" to variant(true),
-            )
+            ).apply {
+                putAll(capabilities.asProperties())
+                put("CanControl", variant(true))
+            }
         }
         else -> unknownProperty(interfaceName, "")
     }
@@ -270,9 +315,6 @@ internal class DesktopMprisController(
         playback.song != null && playback.error == null -> "Paused"
         else -> "Stopped"
     }
-
-    private fun durationMs(song: Song?, knownDurationMs: Long): Long =
-        knownDurationMs.takeIf { it > 0L } ?: song?.durationText.durationMillis()
 
     private fun trackPath(song: Song): String =
         "$MPRIS_OBJECT_PATH/track/${Integer.toUnsignedString(song.videoId.hashCode(), 16)}"

@@ -1,6 +1,8 @@
 package com.music.bitchord.ui.tv.dialogs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +36,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.BuildConfig
+import com.music.bitchord.R
+import com.music.bitchord.auth.WebSessionMode
+import androidx.compose.ui.res.painterResource
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.tv.components.TvButton
@@ -78,8 +83,14 @@ fun TvAccountDialog(
         if (!signedIn && loginMode == "qr") {
             scope.launch {
                 val serverInfo = TvAuthServer.start { receivedCookie ->
-                    viewModel.onSignedIn(receivedCookie)
-                    isJustPaired = true
+                    scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                        isJustPaired = true
+                        viewModel.onSignedIn(receivedCookie) { success ->
+                            if (success) {
+                                isJustPaired = true
+                            }
+                        }
+                    }
                 }
                 if (serverInfo != null) {
                     val (port, ip) = serverInfo
@@ -93,6 +104,9 @@ fun TvAccountDialog(
     }
 
     if (loginMode == "google") {
+        var captureTrigger by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+        var isPageReadyToConfirm by remember { mutableStateOf(false) }
+
         // Direct Fullscreen Google Web Login Dialog
         androidx.compose.ui.window.Dialog(onDismissRequest = { loginMode = "menu" }) {
             Box(
@@ -117,11 +131,18 @@ fun TvAccountDialog(
                             fontFamily = TvSFProDisplay,
                             color = Color.White,
                         )
-                        TvButton(
-                            text = "Cancel",
-                            isPrimary = false,
-                            onClick = { loginMode = "menu" },
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            TvButton(
+                                text = "Confirm & Finish",
+                                isPrimary = true,
+                                onClick = { captureTrigger++ },
+                            )
+                            TvButton(
+                                text = "Cancel",
+                                isPrimary = false,
+                                onClick = { loginMode = "menu" },
+                            )
+                        }
                     }
 
                     Box(
@@ -131,11 +152,20 @@ fun TvAccountDialog(
                             .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)),
                     ) {
                         com.music.bitchord.auth.YtMusicLoginScreen(
-                            onCookiesCaptured = { cookies ->
-                                viewModel.onSignedIn(cookies)
-                                isJustPaired = true
-                                loginMode = "menu"
-                                onDismiss()
+                            mode = WebSessionMode.SIGN_IN,
+                            captureRequest = captureTrigger,
+                            onPageReady = { ready ->
+                                isPageReadyToConfirm = ready
+                                if (ready) captureTrigger++
+                            },
+                            onCaptured = { session ->
+                                viewModel.onWebSession(session, WebSessionMode.SIGN_IN) { success ->
+                                    if (success) {
+                                        isJustPaired = true
+                                        loginMode = "menu"
+                                        onDismiss()
+                                    }
+                                }
                             },
                         )
                     }
@@ -483,7 +513,7 @@ fun TvScrobbleDialog(
 fun TvSourcesDialog(
     onDismiss: () -> Unit,
 ) {
-    val moduleUrl = BuildConfig.MODULE_INDEX_URL
+    val moduleUrl = "Default bundled modules"
 
     TvDialog(
         title = "Hi-Res Stream Module Sources",
@@ -498,7 +528,7 @@ fun TvSourcesDialog(
             )
 
             Text(
-                text = "Current Index: ${moduleUrl.ifBlank { "Default bundled modules" }}",
+                text = "Current Index: $moduleUrl",
                 color = TvColors.TextPrimary,
                 fontSize = 14.sp,
                 fontFamily = TvSFProDisplay,
@@ -529,35 +559,133 @@ fun TvAboutDialog(
         title = "About BitChord TV",
         onDismissRequest = onDismiss,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Header Banner
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_logo),
+                        contentDescription = "BitChord Logo",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = "BitChord TV Edition",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.W800,
+                        fontFamily = TvSFProDisplay,
+                        color = Color.White,
+                    )
+                    Text(
+                        text = "v${BuildConfig.VERSION_NAME} TV • Apple Music Living Room Client",
+                        fontSize = 13.sp,
+                        fontFamily = TvSFProDisplay,
+                        color = Color.White.copy(alpha = 0.65f),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(2.dp))
+
+            // Developer Credit Cards
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Main Developer: Kushagra Singh (@kushagrasinghx)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .padding(14.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Kushagra Singh",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = TvSFProDisplay,
+                            color = Color.White,
+                        )
+                        Text(
+                            text = "@kushagrasinghx",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = TvSFProDisplay,
+                            color = TvColors.AccentRed,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "Main Developer & Creator • Core Android Client, InnerTube Engine & Automix",
+                        fontSize = 12.sp,
+                        fontFamily = TvSFProDisplay,
+                        color = Color.White.copy(alpha = 0.70f),
+                    )
+                }
+
+                // TV Lead & Architect: Nithyanantha / Nimalanrao (@nimalanrao)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = 0.08f))
+                        .padding(14.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Nithyanantha (Nimalanrao)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = TvSFProDisplay,
+                            color = Color.White,
+                        )
+                        Text(
+                            text = "@nimalanrao",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = TvSFProDisplay,
+                            color = Color(0xFF64D2FF),
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "TV Platform Lead & Architect • 10-foot UI/UX, 120Hz Engine, Apple Music Layout & Flowing Lyrics",
+                        fontSize = 12.sp,
+                        fontFamily = TvSFProDisplay,
+                        color = Color.White.copy(alpha = 0.70f),
+                    )
+                }
+            }
+
             Text(
-                text = "BitChord TV Edition • Modern YouTube Music Client",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                text = "Free software licensed under GNU General Public License v3.0 (GPLv3). Independent third-party client not affiliated with YouTube or Google LLC.",
+                fontSize = 11.sp,
                 fontFamily = TvSFProDisplay,
-                color = TvColors.TextPrimary,
-            )
-            Text(
-                text = "Version 0.01 (Build 1) • TV Platform & Engineering by Nithyanantha (Nyxcore)",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = TvSFProDisplay,
-                color = Color.White,
-            )
-            Text(
-                text = "TV UI/UX Architecture, 120Hz Rendering Engine, and Remote-First Experience engineered by Nithyanantha (Nyxcore).",
-                fontSize = 13.sp,
-                fontFamily = TvSFProDisplay,
-                color = TvColors.TextPrimary,
-            )
-            Text(
-                text = "Licensed under the GNU General Public License v3.0 (GPLv3). BitChord is an independent third-party client not affiliated with Google or YouTube.",
-                fontSize = 13.sp,
-                fontFamily = TvSFProDisplay,
-                color = TvColors.TextSecondary,
+                color = Color.White.copy(alpha = 0.50f),
+                lineHeight = 16.sp,
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -623,8 +751,8 @@ fun TvRefreshRateDialog(
                 TvRefreshRateOptionRow(
                     preference = com.music.bitchord.ui.tv.display.TvRefreshRatePreference.ULTRA_120,
                     isSelected = currentPref == com.music.bitchord.ui.tv.display.TvRefreshRatePreference.ULTRA_120,
-                    isEnabled = capabilities.is120HzSupported,
-                    disabledReason = if (!capabilities.is120HzSupported) "This TV does not report a compatible 120 Hz mode at native ${capabilities.currentPhysicalHeight}p resolution." else null,
+                    isEnabled = true,
+                    disabledReason = null,
                     onClick = {
                         activity?.let { com.music.bitchord.ui.tv.display.TvRefreshRateController.setPreference(it, com.music.bitchord.ui.tv.display.TvRefreshRatePreference.ULTRA_120) }
                         onDismiss()
@@ -794,35 +922,67 @@ fun TvNicknameDialog(
         onDismissRequest = onDismiss,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // Display box
+            var isInputFocused by remember { mutableStateOf(false) }
+            val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
+            // Input box using default Android TV IME keyboard
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(TvColors.SurfaceVariant)
+                    .border(
+                        width = if (isInputFocused) 3.dp else 1.dp,
+                        color = if (isInputFocused) Color.White else Color.White.copy(alpha = 0.20f),
+                        shape = RoundedCornerShape(12.dp),
+                    )
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+                if (draftNickname.isEmpty()) {
                     Text(
-                        text = draftNickname.ifEmpty { "Enter nickname..." },
-                        color = if (draftNickname.isEmpty()) TvColors.TextMuted else Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = TvSFProDisplay,
-                    )
-                    Text(
-                        text = "$graphemeCount/${com.music.bitchord.ui.tv.personalization.NicknamePolicy.MAX_GRAPHEMES}",
+                        text = "Enter nickname...",
                         color = TvColors.TextMuted,
-                        fontSize = 12.sp,
+                        fontSize = 16.sp,
                         fontFamily = TvSFProDisplay,
                     )
                 }
+
+                androidx.compose.foundation.text.BasicTextField(
+                    value = draftNickname,
+                    onValueChange = { newText ->
+                        if (com.music.bitchord.ui.tv.personalization.NicknamePolicy.getGraphemeCount(newText) <= com.music.bitchord.ui.tv.personalization.NicknamePolicy.MAX_GRAPHEMES) {
+                            draftNickname = newText
+                        }
+                    },
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = TvSFProDisplay,
+                    ),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(Color.White),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                        autoCorrectEnabled = false,
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done,
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                        onDone = {
+                            keyboardController?.hide()
+                            if (isValid) {
+                                AppSettings.setTvNickname(draftNickname)
+                                onDismiss()
+                            }
+                        }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { isInputFocused = it.isFocused },
+                )
             }
 
             if (validation is com.music.bitchord.ui.tv.personalization.NicknameValidationResult.Invalid) {
@@ -833,23 +993,6 @@ fun TvNicknameDialog(
                     fontFamily = TvSFProDisplay,
                 )
             }
-
-            // Keyboard
-            com.music.bitchord.ui.tv.keyboard.TvKeyboard(
-                text = draftNickname,
-                cursorIndex = cursorIndex,
-                onTextChange = { newText, newCursor ->
-                    draftNickname = newText
-                    cursorIndex = newCursor
-                },
-                onDone = {
-                    if (isValid) {
-                        AppSettings.setTvNickname(draftNickname)
-                        onDismiss()
-                    }
-                },
-                onOpenSystemIme = {},
-            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

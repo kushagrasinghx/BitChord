@@ -2642,22 +2642,12 @@ class PlaybackService : MediaLibraryService() {
      * reason the notification itself was previously un-tappable.
      */
     private fun sessionActivity(): PendingIntent {
-        val targetClass = if (DeviceType.isTv(this)) {
-            TvActivity::class.java
-        } else {
-            MainActivity::class.java
-        }
-        val category = if (DeviceType.isTv(this)) {
-            Intent.CATEGORY_LEANBACK_LAUNCHER
-        } else {
-            Intent.CATEGORY_LAUNCHER
-        }
         return PendingIntent.getActivity(
             this,
             0,
-            Intent(this, targetClass)
+            Intent(this, com.music.bitchord.MainActivity::class.java)
                 .setAction(Intent.ACTION_MAIN)
-                .addCategory(category)
+                .addCategory(Intent.CATEGORY_DEFAULT)
                 // singleTask resumes the existing task rather than stacking duplicate UI
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

@@ -7,9 +7,12 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.runtime.collectAsState
+import com.music.bitchord.ui.tv.focus.tvButtonFocus
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,8 +36,23 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Tv
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.SurroundSound
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Icon
+import com.music.bitchord.ui.tv.components.TvLiquidGlassSwitch
 import androidx.compose.material3.Text
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,8 +84,10 @@ import com.music.bitchord.ui.tv.theme.TvSFProDisplay
 
 enum class SetupStep {
     WELCOME,
+    LOGIN,
     NICKNAME,
     THEME,
+    CUSTOMIZATION,
     COMPLETE
 }
 
@@ -96,9 +116,11 @@ fun TvSetupScreen(
                 onBack = {
                     when (currentStep) {
                         SetupStep.WELCOME -> false
-                        SetupStep.NICKNAME -> { currentStep = SetupStep.WELCOME; true }
+                        SetupStep.LOGIN -> { currentStep = SetupStep.WELCOME; true }
+                        SetupStep.NICKNAME -> { currentStep = SetupStep.LOGIN; true }
                         SetupStep.THEME -> { currentStep = SetupStep.NICKNAME; true }
-                        SetupStep.COMPLETE -> { currentStep = SetupStep.THEME; true }
+                        SetupStep.CUSTOMIZATION -> { currentStep = SetupStep.THEME; true }
+                        SetupStep.COMPLETE -> { currentStep = SetupStep.CUSTOMIZATION; true }
                     }
                 },
             ),
@@ -118,15 +140,25 @@ fun TvSetupScreen(
             when (step) {
                 SetupStep.WELCOME -> {
                     TvWelcomeStep(
-                        onStartSetup = { currentStep = SetupStep.NICKNAME },
+                        onStartSetup = { currentStep = SetupStep.LOGIN },
                         onUseDefaults = {
-                            AppSettings.setTvPersonalization(
-                                nickname = NicknamePolicy.DEFAULT_NICKNAME,
-                                themeId = AppThemeOption.DYNAMIC_ARTWORK.id,
-                                version = 1,
-                            )
+                            try {
+                                AppSettings.setTvPersonalization(
+                                    nickname = NicknamePolicy.DEFAULT_NICKNAME,
+                                    themeId = AppThemeOption.DYNAMIC_ARTWORK.id,
+                                    version = 1,
+                                )
+                            } catch (e: Exception) {
+                                android.util.Log.e("TvSetup", "Failed to save personalization", e)
+                            }
                             onComplete()
                         },
+                    )
+                }
+                SetupStep.LOGIN -> {
+                    TvLoginStep(
+                        onContinue = { currentStep = SetupStep.NICKNAME }, // Real login logic would go here
+                        onSkip = { currentStep = SetupStep.NICKNAME },
                     )
                 }
                 SetupStep.NICKNAME -> {
@@ -144,7 +176,13 @@ fun TvSetupScreen(
                     TvThemeStep(
                         selectedTheme = draftTheme,
                         onThemeSelect = { draftTheme = it },
+                        onContinue = { currentStep = SetupStep.CUSTOMIZATION },
+                    )
+                }
+                SetupStep.CUSTOMIZATION -> {
+                    TvCustomizationStep(
                         onContinue = { currentStep = SetupStep.COMPLETE },
+                        onBack = { currentStep = SetupStep.THEME },
                     )
                 }
                 SetupStep.COMPLETE -> {
@@ -152,11 +190,15 @@ fun TvSetupScreen(
                         nickname = draftNickname,
                         theme = draftTheme,
                         onFinish = {
-                            AppSettings.setTvPersonalization(
-                                nickname = draftNickname.ifBlank { NicknamePolicy.DEFAULT_NICKNAME },
-                                themeId = draftTheme.id,
-                                version = 1,
-                            )
+                            try {
+                                AppSettings.setTvPersonalization(
+                                    nickname = draftNickname.ifBlank { NicknamePolicy.DEFAULT_NICKNAME },
+                                    themeId = draftTheme.id,
+                                    version = 1,
+                                )
+                            } catch (e: Exception) {
+                                android.util.Log.e("TvSetup", "Failed to save personalization", e)
+                            }
                             onComplete()
                         },
                         onChangeChoices = { currentStep = SetupStep.NICKNAME },
@@ -292,7 +334,9 @@ private fun TvNicknameStep(
     onSkip: () -> Unit,
 ) {
     val currentFont = LocalTvFontFamily.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val presets = listOf("Living Room TV", "Bedroom TV", "Studio TV", "Family Room", "Theater", "Listener")
+    var isInputFocused by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -307,38 +351,182 @@ private fun TvNicknameStep(
                 color = Color.White,
             )
             Text(
-                text = "Select a name for this television. Used for friendly home screen greetings.",
+                text = "Type a custom name using your TV remote keyboard or pick a preset below.",
                 fontSize = 15.sp,
                 color = Color.White.copy(alpha = 0.70f),
                 fontFamily = currentFont,
             )
         }
 
-        // Preset Chips Row
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxWidth(),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(36.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            items(presets) { preset ->
-                val isSelected = preset == nickname
+            // Left Column: Custom Nickname Input & Presets
+            Column(
+                modifier = Modifier.weight(0.60f),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text(
+                    text = "CUSTOM NICKNAME",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = currentFont,
+                    color = Color.White.copy(alpha = 0.55f),
+                    letterSpacing = 1.sp,
+                )
+
                 Box(
                     modifier = Modifier
-                        .tvButtonFocus(
-                            shape = RoundedCornerShape(20.dp),
-                            focusedScale = 1.06f,
-                            focusedBorderColor = Color.White,
-                            onClick = { onNicknameSelect(preset) },
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .border(
+                            width = if (isInputFocused) 3.dp else 1.dp,
+                            color = if (isInputFocused) Color.White else Color.White.copy(alpha = 0.25f),
+                            shape = RoundedCornerShape(16.dp),
                         )
-                        .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.12f))
-                        .padding(horizontal = 24.dp, vertical = 14.dp),
-                    contentAlignment = Alignment.Center,
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
+                    if (nickname.isBlank()) {
+                        Text(
+                            text = "Enter TV nickname...",
+                            color = Color.White.copy(alpha = 0.40f),
+                            fontSize = 18.sp,
+                            fontFamily = currentFont,
+                        )
+                    }
+
+                    BasicTextField(
+                        value = nickname,
+                        onValueChange = { if (it.length <= 32) onNicknameSelect(it) },
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = currentFont,
+                        ),
+                        cursorBrush = SolidColor(Color.White),
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            autoCorrectEnabled = false,
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                keyboardController?.hide()
+                                if (nickname.isNotBlank()) onContinue()
+                            }
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onFocusChanged { isInputFocused = it.isFocused },
+                    )
+                }
+
+                Text(
+                    text = "OR CHOOSE A PRESET",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = currentFont,
+                    color = Color.White.copy(alpha = 0.55f),
+                    letterSpacing = 1.sp,
+                )
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    items(presets) { preset ->
+                        val isSelected = preset == nickname
+                        Box(
+                            modifier = Modifier
+                                .tvButtonFocus(
+                                    shape = RoundedCornerShape(20.dp),
+                                    focusedScale = 1.06f,
+                                    focusedBorderColor = Color.White,
+                                    onClick = { onNicknameSelect(preset) },
+                                )
+                                .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.12f))
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = preset,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = currentFont,
+                                color = if (isSelected) Color.Black else Color.White,
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Right Column: Apple TV Illustrated Device Card
+            Box(
+                modifier = Modifier
+                    .weight(0.40f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .border(
+                        1.dp,
+                        Brush.verticalGradient(
+                            listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.06f))
+                        ),
+                        RoundedCornerShape(24.dp),
+                    )
+                    .padding(24.dp),
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tv,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(30.dp),
+                        )
+                    }
+
                     Text(
-                        text = preset,
-                        fontSize = 16.sp,
+                        text = "HOME SCREEN GREETING",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontFamily = currentFont,
+                    )
+
+                    Text(
+                        text = "Good Evening, ${nickname.ifBlank { "Living Room" }}",
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = currentFont,
-                        color = if (isSelected) Color.Black else Color.White,
+                        color = Color.White,
+                    )
+
+                    Text(
+                        text = "Your customized greeting appears in the top navigation bar and recommendations shelf.",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontFamily = currentFont,
                     )
                 }
             }
@@ -453,6 +641,222 @@ private fun TvThemeStep(
     }
 }
 
+/**
+ * Step 4: TV Audio & Experience Personalization.
+ * 10 real TV remote-friendly customization toggles.
+ */
+@Composable
+private fun TvCustomizationStep(
+    onContinue: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val currentFont = LocalTvFontFamily.current
+    val palette = com.music.bitchord.ui.tv.theme.TvThemeColors.current
+
+    val spatialAudio by AppSettings.spatialAudioEnabled.collectAsState()
+    val smartFade by AppSettings.smartFadeEnabled.collectAsState()
+    val soundCheck by AppSettings.soundCheckEnabled.collectAsState()
+    val liveCanvas by AppSettings.animatedCanvas.collectAsState()
+    val syncedLyrics by AppSettings.syncedLyrics.collectAsState()
+    val highPerformance by AppSettings.highPerformanceMode.collectAsState()
+    val skipSilence by AppSettings.skipSilence.collectAsState()
+    val addPlaylistSongs by AppSettings.addPlaylistSongsToLibrary.collectAsState()
+    val showNerdStats by AppSettings.showNerdStats.collectAsState()
+    val discordPresence by AppSettings.discordRpcEnabled.collectAsState()
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = "Audio & TV Personalization",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.W800,
+                fontFamily = currentFont,
+                color = palette.textPrimary,
+            )
+            Text(
+                text = "Customize 10 features tailored for your living room setup. Press D-pad to toggle anytime.",
+                fontSize = 15.sp,
+                fontFamily = currentFont,
+                color = palette.textSecondary,
+            )
+        }
+
+        // 10 Interactive Customization Options (Scrollable 2-Column Grid)
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            // 1. Spatial Audio
+            item {
+                TvCustomizationTile(
+                    title = "Spatial Audio Virtualizer",
+                    desc = "3D Dolby Atmos soundstage for TV soundbars",
+                    enabled = spatialAudio,
+                    onToggle = { AppSettings.setSpatialAudioEnabled(!spatialAudio) },
+                )
+            }
+            // 2. Automix
+            item {
+                TvCustomizationTile(
+                    title = "Automix DJ Transitions",
+                    desc = "Beat-matched crossfade between tracks",
+                    enabled = smartFade,
+                    onToggle = { AppSettings.setSmartFadeEnabled(!smartFade) },
+                )
+            }
+            // 3. Sound Check
+            item {
+                TvCustomizationTile(
+                    title = "Sound Check (Loudness Match)",
+                    desc = "ReplayGain volume normalization",
+                    enabled = soundCheck,
+                    onToggle = { AppSettings.setSoundCheckEnabled(!soundCheck) },
+                )
+            }
+            // 4. Live Canvas
+            item {
+                TvCustomizationTile(
+                    title = "Motion Video Canvas",
+                    desc = "Looping artist background video sleeve",
+                    enabled = liveCanvas,
+                    onToggle = { AppSettings.setAnimatedCanvas(!liveCanvas) },
+                )
+            }
+            // 5. Synced Lyrics
+            item {
+                TvCustomizationTile(
+                    title = "Synchronized Flowing Lyrics",
+                    desc = "Apple Music 1:1 real-time word sweep",
+                    enabled = syncedLyrics,
+                    onToggle = { AppSettings.setSyncedLyrics(!syncedLyrics) },
+                )
+            }
+            // 6. High Performance Mode
+            item {
+                TvCustomizationTile(
+                    title = "120Hz High-Performance Mode",
+                    desc = "Silky frame pacing for high-end TV panels",
+                    enabled = highPerformance,
+                    onToggle = { AppSettings.setHighPerformanceMode(!highPerformance) },
+                )
+            }
+            // 7. Skip Silence
+            item {
+                TvCustomizationTile(
+                    title = "Skip Silence",
+                    desc = "Skip silent intros and outros seamlessly",
+                    enabled = skipSilence,
+                    onToggle = { AppSettings.setSkipSilence(!skipSilence) },
+                )
+            }
+            // 8. Auto-Add Playlist Tracks
+            item {
+                TvCustomizationTile(
+                    title = "Add Playlist Songs to Library",
+                    desc = "Automatically sync playlist additions to library",
+                    enabled = addPlaylistSongs,
+                    onToggle = { AppSettings.setAddPlaylistSongsToLibrary(!addPlaylistSongs) },
+                )
+            }
+            // 9. Stats for Nerds
+            item {
+                TvCustomizationTile(
+                    title = "Stream Stats for Nerds",
+                    desc = "Audio codec, FLAC bitrate & sink HUD",
+                    enabled = showNerdStats,
+                    onToggle = { AppSettings.setShowNerdStats(!showNerdStats) },
+                )
+            }
+            // 10. Discord Rich Presence
+            item {
+                TvCustomizationTile(
+                    title = "Discord Rich Presence",
+                    desc = "Broadcast now playing track to Discord",
+                    enabled = discordPresence,
+                    onToggle = { AppSettings.setDiscordRpcEnabled(!discordPresence) },
+                )
+            }
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            TvButton(
+                text = "Continue",
+                isPrimary = true,
+                onClick = onContinue,
+            )
+            TvButton(
+                text = "Back",
+                onClick = onBack,
+            )
+        }
+    }
+}
+
+@Composable
+private fun TvCustomizationTile(
+    title: String,
+    desc: String,
+    enabled: Boolean,
+    onToggle: () -> Unit,
+) {
+    val currentFont = LocalTvFontFamily.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.08f))
+            .border(
+                width = if (isFocused) 2.5.dp else 1.dp,
+                color = if (isFocused) Color.White else Color.White.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(16.dp),
+            )
+            .tvButtonFocus(
+                shape = RoundedCornerShape(16.dp),
+                focusedScale = 1.02f,
+                focusedBorderColor = Color.White,
+                borderWidth = 2.5.dp,
+                onClick = onToggle,
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = currentFont,
+                color = Color.White,
+                maxLines = 1,
+            )
+            Text(
+                text = desc,
+                fontSize = 12.sp,
+                fontFamily = currentFont,
+                color = Color.White.copy(alpha = 0.65f),
+                maxLines = 1,
+            )
+        }
+
+        TvLiquidGlassSwitch(
+            checked = enabled,
+            onCheckedChange = { onToggle() },
+        )
+    }
+}
+
 @Composable
 private fun TvSetupCompleteStep(
     nickname: String,
@@ -511,6 +915,48 @@ private fun TvSetupCompleteStep(
                     onClick = onChangeChoices,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun TvLoginStep(
+    onContinue: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    val currentFont = LocalTvFontFamily.current
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                text = "Sign in to YouTube Music",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.W800,
+                fontFamily = currentFont,
+                color = Color.White,
+            )
+            Text(
+                text = "Link your Google Account to access your playlists, history, and tailored recommendations on the big screen.",
+                fontSize = 17.sp,
+                lineHeight = 24.sp,
+                color = Color.White.copy(alpha = 0.70f),
+                fontFamily = currentFont,
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            TvButton(
+                text = "Sign In",
+                isPrimary = true,
+                onClick = onContinue, // Just mock it for now by skipping to next step
+            )
+            TvButton(
+                text = "Skip for Now",
+                onClick = onSkip,
+            )
         }
     }
 }

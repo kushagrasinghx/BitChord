@@ -44,7 +44,7 @@ fun TvPlayerProgress(
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     val trackHeight by animateDpAsState(
-        targetValue = if (isFocused) 7.dp else 4.dp,
+        targetValue = if (isFocused) 5.dp else 2.5.dp,
         animationSpec = tween(durationMillis = 150),
         label = "tvProgressHeight",
     )
@@ -85,7 +85,7 @@ fun TvPlayerProgress(
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(24.dp),
+                .height(18.dp),
         ) {
             val h = trackHeight.toPx()
             val cy = size.height / 2f
@@ -113,7 +113,7 @@ fun TvPlayerProgress(
 
             // 3. Focused Scrub Thumb with soft halo
             if (isFocused) {
-                val thumbRadius = 7.dp.toPx()
+                val thumbRadius = 6.dp.toPx()
                 drawCircle(
                     color = Color.White.copy(alpha = 0.25f),
                     radius = thumbRadius * 1.5f,
@@ -129,7 +129,8 @@ fun TvPlayerProgress(
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        // Time Labels
+        // Time Labels (Elapsed on left, negative remaining on right 1:1 with Apple Music TV)
+        val remainingMs = (durationMs - currentPositionMs).coerceAtLeast(0L)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -141,7 +142,7 @@ fun TvPlayerProgress(
                 color = if (isFocused) Color.White else Color.White.copy(alpha = 0.7f),
             )
             Text(
-                text = formatDuration(durationMs),
+                text = if (durationMs > 0) "-${formatDuration(remainingMs)}" else "-0:00",
                 fontSize = 13.sp,
                 fontFamily = TvSFProDisplay,
                 color = if (isFocused) Color.White else Color.White.copy(alpha = 0.7f),

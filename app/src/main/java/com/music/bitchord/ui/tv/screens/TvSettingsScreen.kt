@@ -4,9 +4,11 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import com.music.bitchord.ui.tv.theme.appleSpring
 import com.music.bitchord.ui.tv.theme.AppleSpringPreset
@@ -27,9 +29,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.MusicNote
+import com.music.bitchord.ui.tv.components.TvLiquidGlassSwitch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,14 +64,13 @@ import com.music.bitchord.ui.tv.personalization.AppThemeOption
 import com.music.bitchord.ui.tv.theme.LocalTvFontFamily
 import com.music.bitchord.ui.tv.theme.TvColors
 import com.music.bitchord.ui.tv.theme.TvDimensions
-import com.music.bitchord.ui.tv.theme.TvFontOption
 import com.music.bitchord.ui.tv.theme.TvSFProDisplay
 
 /**
  * 1:1 Apple TV Settings Layout matching the exact reference image.
  *
  * - Left Pane: Red Squircle BitChord Music Icon card and dynamic explanatory description text.
- * - Right Pane: Grouped Pill Menu (LIBRARY, HOME SCREEN, AUDIO, CANVAS, FONTS, ABOUT).
+ * - Right Pane: Grouped Pill Menu (LIBRARY, HOME SCREEN, AUDIO, CANVAS, ABOUT).
  * - Full color inversion on focus/hover (Solid White Pill, Pure Black Text).
  */
 @Composable
@@ -90,8 +92,6 @@ fun TvSettingsScreen(
 
     val tvNickname by AppSettings.tvNickname.collectAsState()
     val tvThemeId by AppSettings.tvTheme.collectAsState()
-    val tvFontId by AppSettings.tvFontFamily.collectAsState()
-    val currentFontOption = TvFontOption.fromId(tvFontId)
     val currentTheme = AppThemeOption.fromId(tvThemeId)
 
     val spatialAudio by AppSettings.spatialAudioEnabled.collectAsState()
@@ -102,12 +102,24 @@ fun TvSettingsScreen(
     val showNerdStats by AppSettings.showNerdStats.collectAsState()
     val addPlaylistSongs by AppSettings.addPlaylistSongsToLibrary.collectAsState()
     val addFavoriteSongs by AppSettings.addFavoriteSongsToLibrary.collectAsState()
+    val skipSilence by AppSettings.skipSilence.collectAsState()
+    val loudnessNormalization by AppSettings.loudnessNormalization.collectAsState()
+    val preferUsbDac by AppSettings.preferUsbDac.collectAsState()
+    val lyricsBlur by AppSettings.lyricsBlur.collectAsState()
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsState()
+    val reduceAnimation by AppSettings.reduceAnimation.collectAsState()
+    val autoplay by AppSettings.autoplay.collectAsState()
+    val crossfadeSeconds by AppSettings.crossfadeSeconds.collectAsState()
+    val tvUiScale by AppSettings.tvUiScale.collectAsState()
+    val tvLiquidGlassEnabled by AppSettings.tvLiquidGlassEnabled.collectAsState()
+    val tvBlurIntensity by AppSettings.tvBlurIntensity.collectAsState()
+    val tvLyricsCanvasEnabled by AppSettings.tvLyricsCanvasEnabled.collectAsState()
+    val tvNavLayout by AppSettings.tvNavLayout.collectAsState()
+    val isLeftRail = tvNavLayout == "left_rail"
 
     var activeDescription by remember {
-        mutableStateOf("Configure audio, spatial sound, video canvas, typography, and personalized living room preferences.")
+        mutableStateOf("Configure audio, spatial sound, video canvas, visual themes, and personalized living room preferences.")
     }
-
-    var showFontDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -119,6 +131,8 @@ fun TvSettingsScreen(
                 bottom = 24.dp,
             ),
     ) {
+        val palette = com.music.bitchord.ui.tv.theme.TvThemeColors.current
+
         // Top Header with optional Back button & centered Title
         Row(
             modifier = Modifier
@@ -133,16 +147,15 @@ fun TvSettingsScreen(
                         .tvButtonFocus(
                             shape = CircleShape,
                             focusedScale = 1.15f,
-                            focusedBorderColor = Color.White,
                             onClick = onBack,
                         )
-                        .background(Color.White.copy(alpha = 0.15f)),
+                        .background(palette.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
-                        tint = Color.White,
+                        tint = palette.textPrimary,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -154,7 +167,7 @@ fun TvSettingsScreen(
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = currentFont,
-                color = Color.White,
+                color = palette.textPrimary,
             )
         }
 
@@ -174,21 +187,22 @@ fun TvSettingsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                // Apple Music Red Gradient Squircle Card
+                // Apple TV Luxury Squircle Card (Monochrome Glass & Pure White)
                 Box(
                     modifier = Modifier
                         .size(width = 240.dp, height = 160.dp)
-                        .shadow(28.dp, RoundedCornerShape(32.dp), spotColor = Color(0xFFFF2D55).copy(alpha = 0.45f))
+                        .shadow(28.dp, RoundedCornerShape(32.dp), spotColor = Color.White.copy(alpha = 0.20f))
                         .clip(RoundedCornerShape(32.dp))
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(
-                                    Color(0xFFFF335E),
-                                    Color(0xFFE60039),
-                                    Color(0xFFB30026),
+                                    Color(0xFF2C2C2E),
+                                    Color(0xFF1C1C1E),
+                                    Color(0xFF141416),
                                 ),
                             ),
-                        ),
+                        )
+                        .border(1.dp, Color.White.copy(alpha = 0.25f), RoundedCornerShape(32.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -207,7 +221,7 @@ fun TvSettingsScreen(
                     fontSize = 15.sp,
                     lineHeight = 22.sp,
                     fontFamily = currentFont,
-                    color = Color.White.copy(alpha = 0.70f),
+                    color = palette.textSecondary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
@@ -226,23 +240,23 @@ fun TvSettingsScreen(
                     TvSettingsSectionHeader(title = "LIBRARY")
                 }
                 item {
-                    TvApplePillOption(
+                    TvApplePillSwitchOption(
                         title = "Add Playlist Songs to Library",
-                        value = if (addPlaylistSongs) "On" else "Off",
+                        checked = addPlaylistSongs,
+                        onCheckedChange = { AppSettings.setAddPlaylistSongsToLibrary(it) },
                         onFocus = {
                             activeDescription = "Songs will be automatically added to your library when you add them to your playlists."
                         },
-                        onClick = { AppSettings.setAddPlaylistSongsToLibrary(!addPlaylistSongs) },
                     )
                 }
                 item {
-                    TvApplePillOption(
+                    TvApplePillSwitchOption(
                         title = "Add Favorite Songs to Library",
-                        value = if (addFavoriteSongs) "On" else "Off",
+                        checked = addFavoriteSongs,
+                        onCheckedChange = { AppSettings.setAddFavoriteSongsToLibrary(it) },
                         onFocus = {
                             activeDescription = "Liked tracks and heart favorites will be saved to your primary music library."
                         },
-                        onClick = { AppSettings.setAddFavoriteSongsToLibrary(!addFavoriteSongs) },
                     )
                 }
 
@@ -252,16 +266,15 @@ fun TvSettingsScreen(
                     TvSettingsSectionHeader(title = "AUDIO & SPATIAL")
                 }
                 item {
-                    TvApplePillOption(
+                    TvApplePillSwitchOption(
                         title = "Spatial Audio & 3D Virtualization",
-                        value = if (spatialAudio) "Automatic" else "Off",
-                        onFocus = {
-                            activeDescription = "Expands stereo music into an immersive 3D Dolby Atmos soundstage for TV speakers and soundbars."
-                        },
-                        onClick = {
-                            val next = !spatialAudio
+                        checked = spatialAudio,
+                        onCheckedChange = { next ->
                             AppSettings.setSpatialAudioEnabled(next)
                             TvSpatialAudioEngine.setEnabled(next)
+                        },
+                        onFocus = {
+                            activeDescription = "Expands stereo music into an immersive 3D Dolby Atmos soundstage for TV speakers and soundbars."
                         },
                     )
                 }
@@ -276,23 +289,71 @@ fun TvSettingsScreen(
                     )
                 }
                 item {
-                    TvApplePillOption(
+                    TvApplePillSwitchOption(
                         title = "Sound Check (Loudness Match)",
-                        value = if (soundCheck) "On" else "Off",
+                        checked = soundCheck,
+                        onCheckedChange = { AppSettings.setSoundCheckEnabled(it) },
                         onFocus = {
                             activeDescription = "Maintains consistent loudness volume across all albums and music sources."
                         },
-                        onClick = { AppSettings.setSoundCheckEnabled(!soundCheck) },
+                    )
+                }
+                item {
+                    TvApplePillSwitchOption(
+                        title = "EBU R128 Normalization",
+                        checked = loudnessNormalization,
+                        onCheckedChange = { AppSettings.setLoudnessNormalization(it) },
+                        onFocus = {
+                            activeDescription = "Standardizes perceived audio loudness according to international broadcast standards."
+                        },
+                    )
+                }
+                item {
+                    TvApplePillSwitchOption(
+                        title = "Skip Silence",
+                        checked = skipSilence,
+                        onCheckedChange = { AppSettings.setSkipSilence(it) },
+                        onFocus = {
+                            activeDescription = "Intelligently skips silent gaps at the beginning and end of music tracks."
+                        },
                     )
                 }
                 item {
                     TvApplePillOption(
+                        title = "Crossfade Duration",
+                        value = if (crossfadeSeconds > 0) "${crossfadeSeconds}s" else "Off",
+                        onFocus = {
+                            activeDescription = "Crossfades between songs so playback flows continuously without interruptions."
+                        },
+                        onClick = {
+                            val next = when (crossfadeSeconds) {
+                                0 -> 3
+                                3 -> 6
+                                6 -> 10
+                                else -> 0
+                            }
+                            AppSettings.setCrossfadeSeconds(next)
+                        },
+                    )
+                }
+                item {
+                    TvApplePillSwitchOption(
                         title = "Automix DJ Transitions",
-                        value = if (automixEnabled) "On" else "Off",
+                        checked = automixEnabled,
+                        onCheckedChange = { AppSettings.setSmartFadeEnabled(it) },
                         onFocus = {
                             activeDescription = "Beat-matches and smoothly mixes transitions between consecutive songs using on-device DSP."
                         },
-                        onClick = { AppSettings.setSmartFadeEnabled(!automixEnabled) },
+                    )
+                }
+                item {
+                    TvApplePillSwitchOption(
+                        title = "Bit-Perfect USB DAC",
+                        checked = preferUsbDac,
+                        onCheckedChange = { AppSettings.setPreferUsbDac(it) },
+                        onFocus = {
+                            activeDescription = "Sends bit-exact PCM stream directly to external USB DACs, bypassing the Android TV mixer."
+                        },
                     )
                 }
 
@@ -302,49 +363,107 @@ fun TvSettingsScreen(
                     TvSettingsSectionHeader(title = "CANVAS & VISUALS")
                 }
                 item {
-                    TvApplePillOption(
+                    TvApplePillSwitchOption(
                         title = "Live Video Canvas",
-                        value = if (liveCanvas) "On" else "Off",
+                        checked = liveCanvas,
+                        onCheckedChange = { AppSettings.setAnimatedCanvas(it) },
                         onFocus = {
                             activeDescription = "Plays looping artist motion video artwork behind the player. Shows notification when unavailable."
                         },
-                        onClick = { AppSettings.setAnimatedCanvas(!liveCanvas) },
                     )
                 }
                 item {
-                    TvApplePillOption(
+                    TvApplePillSwitchOption(
+                        title = "Canvas in Lyrics Mode",
+                        checked = tvLyricsCanvasEnabled,
+                        onCheckedChange = { AppSettings.setTvLyricsCanvasEnabled(it) },
+                        onFocus = {
+                            activeDescription = "Displays live looping canvas video artwork behind synchronized lyrics in the Now Playing overlay."
+                        },
+                    )
+                }
+                item {
+                    TvApplePillSwitchOption(
                         title = "Synchronized Lyrics",
-                        value = if (syncedLyrics) "On" else "Off",
+                        checked = syncedLyrics,
+                        onCheckedChange = { AppSettings.setSyncedLyrics(it) },
                         onFocus = {
                             activeDescription = "Real-time word-by-word and syllable flowing highlight lyrics with background vocal support."
                         },
-                        onClick = { AppSettings.setSyncedLyrics(!syncedLyrics) },
                     )
                 }
                 item {
-                    TvApplePillOption(
+                    TvApplePillSwitchOption(
+                        title = "Autoplay Similar Music",
+                        checked = autoplay,
+                        onCheckedChange = { AppSettings.setAutoplay(it) },
+                        onFocus = {
+                            activeDescription = "Keeps the music playing by recommending similar artists and songs when your queue ends."
+                        },
+                    )
+                }
+                item {
+                    TvApplePillSwitchOption(
+                        title = "Lyrics Backdrop Blur",
+                        checked = lyricsBlur,
+                        onCheckedChange = { AppSettings.setLyricsBlur(it) },
+                        onFocus = {
+                            activeDescription = "Renders an atmospheric frosted glass reflection behind the synchronized lyrics panel."
+                        },
+                    )
+                }
+                item {
+                    TvApplePillSwitchOption(
                         title = "Stats for Nerds HUD",
-                        value = if (showNerdStats) "On" else "Off",
+                        checked = showNerdStats,
+                        onCheckedChange = { AppSettings.setShowNerdStats(it) },
                         onFocus = {
                             activeDescription = "Displays live codec, bitrate, sample rate, and audio resolution telemetry on the player."
                         },
-                        onClick = { AppSettings.setShowNerdStats(!showNerdStats) },
                     )
                 }
 
-                // ── SECTION: TYPOGRAPHY & THEMES ──
+                // ── SECTION: PERFORMANCE & LOW-END TV OPTIMIZATION ──
                 item {
                     Spacer(modifier = Modifier.height(10.dp))
-                    TvSettingsSectionHeader(title = "TYPOGRAPHY & DISPLAY")
+                    TvSettingsSectionHeader(title = "PERFORMANCE & TV HARDWARE")
                 }
                 item {
-                    TvApplePillOption(
-                        title = "Font Style",
-                        value = "${currentFontOption.title} >",
+                    TvApplePillSwitchOption(
+                        title = "Low-End TV GPU Optimization",
+                        checked = reduceDynamicBlur,
+                        onCheckedChange = { AppSettings.setReduceDynamicBlur(it) },
                         onFocus = {
-                            activeDescription = "Pick between Apple SF Pro, Google Sans, Arial, and Minecraft Pixel typography."
+                            activeDescription = "Replaces expensive full-frame GPU blur shaders with high-speed acrylic scrims for smooth 60fps on budget TVs."
                         },
-                        onClick = { showFontDialog = true },
+                    )
+                }
+                item {
+                    TvApplePillSwitchOption(
+                        title = "Reduce Motion",
+                        checked = reduceAnimation,
+                        onCheckedChange = { AppSettings.setReduceAnimation(it) },
+                        onFocus = {
+                            activeDescription = "Simplifies decorative animations to conserve processor cycles on low-power TV chipsets."
+                        },
+                    )
+                }
+
+                // ── SECTION: THEME & DISPLAY ──
+                item {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    TvSettingsSectionHeader(title = "THEME & DISPLAY")
+                }
+                item {
+                    TvApplePillSwitchOption(
+                        title = "Spotify Sidebar Navigation",
+                        checked = isLeftRail,
+                        onCheckedChange = { isChecked ->
+                            AppSettings.setTvNavLayout(if (isChecked) "left_rail" else "top")
+                        },
+                        onFocus = {
+                            activeDescription = "Displays a sleek vertical navigation sidebar on the left side (Spotify TV style). Turn off for classic Apple TV top pill navigation."
+                        },
                     )
                 }
                 item {
@@ -358,6 +477,36 @@ fun TvSettingsScreen(
                     )
                 }
                 item {
+                    TvApplePillSwitchOption(
+                        title = "Liquid Glass Aesthetics",
+                        checked = tvLiquidGlassEnabled,
+                        onCheckedChange = { AppSettings.setTvLiquidGlassEnabled(it) },
+                        onFocus = {
+                            activeDescription = "Translucent frosted acrylics with glowing specular highlights and Apple spring physics."
+                        },
+                    )
+                }
+                item {
+                    TvApplePillOption(
+                        title = "Blur Intensity",
+                        value = "${(tvBlurIntensity * 100).toInt()}%",
+                        onFocus = {
+                            activeDescription = "Adjust global frosted acrylic blur intensity from 0% (solid performance fallback) to 100% (deep glass blur)."
+                        },
+                        onClick = {
+                            val next = when {
+                                tvBlurIntensity < 0.20f -> 0.25f
+                                tvBlurIntensity < 0.45f -> 0.50f
+                                tvBlurIntensity < 0.70f -> 0.75f
+                                tvBlurIntensity < 0.84f -> 0.85f
+                                tvBlurIntensity < 0.95f -> 1.00f
+                                else -> 0.0f
+                            }
+                            AppSettings.setTvBlurIntensity(next)
+                        },
+                    )
+                }
+                item {
                     TvApplePillOption(
                         title = "TV Display Refresh Rate",
                         value = "Configure >",
@@ -365,6 +514,42 @@ fun TvSettingsScreen(
                             activeDescription = "Adjust display refresh rate mode: 120Hz Ultra-Performance, 60Hz, or Cinematic Match."
                         },
                         onClick = onOpenRefreshRateDialog,
+                    )
+                }
+
+                // ── SECTION: DPI / UI SCALE ──
+                item {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    TvSettingsSectionHeader(title = "DPI & UI SCALE")
+                }
+                item {
+                    val scaleLabel = when {
+                        tvUiScale <= 0.85f -> "80% (Small)"
+                        tvUiScale <= 0.95f -> "90% (Small-Normal)"
+                        tvUiScale <= 1.05f -> "100% (Standard)"
+                        tvUiScale <= 1.15f -> "110% (Large)"
+                        tvUiScale <= 1.25f -> "120% (Large Plus)"
+                        tvUiScale <= 1.35f -> "130% (Extra Large)"
+                        else -> "140% (Maximum)"
+                    }
+                    TvApplePillOption(
+                        title = "UI Scale (Cycle 80% – 140%)",
+                        value = scaleLabel,
+                        onFocus = {
+                            activeDescription = "Unified scale for all text, cards, icons, and menus. Click to cycle through scale steps."
+                        },
+                        onClick = {
+                            val next = when {
+                                tvUiScale < 0.85f -> 0.90f
+                                tvUiScale < 0.95f -> 1.00f
+                                tvUiScale < 1.05f -> 1.10f
+                                tvUiScale < 1.15f -> 1.20f
+                                tvUiScale < 1.25f -> 1.30f
+                                tvUiScale < 1.35f -> 1.40f
+                                else -> 0.80f
+                            }
+                            AppSettings.setTvUiScale(next)
+                        },
                     )
                 }
                 item {
@@ -418,25 +603,13 @@ fun TvSettingsScreen(
                         title = "About BitChord TV",
                         value = "v${BuildConfig.VERSION_NAME} >",
                         onFocus = {
-                            activeDescription = "BitChord TV v${BuildConfig.VERSION_NAME} • Architecture & Development by Nithyanantha (Nyxcore)."
+                            activeDescription = "BitChord TV v${BuildConfig.VERSION_NAME} • Main Dev: Kushagra Singh (@kushagrasinghx) • TV Architecture: Nithyanantha (@nimalanrao)."
                         },
                         onClick = onOpenAboutDialog,
                     )
                 }
             }
         }
-    }
-
-    // Font Selection Dialog
-    if (showFontDialog) {
-        TvFontSelectionDialog(
-            currentFontId = tvFontId,
-            onSelect = { fontId ->
-                AppSettings.setTvFontFamily(fontId)
-                showFontDialog = false
-            },
-            onDismiss = { showFontDialog = false },
-        )
     }
 }
 
@@ -445,20 +618,21 @@ fun TvSettingsScreen(
  */
 @Composable
 private fun TvSettingsSectionHeader(title: String) {
+    val palette = com.music.bitchord.ui.tv.theme.TvThemeColors.current
     Text(
         text = title,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.2.sp,
         fontFamily = LocalTvFontFamily.current,
-        color = Color.White.copy(alpha = 0.45f),
+        color = palette.textMuted,
         modifier = Modifier.padding(start = 12.dp, top = 6.dp, bottom = 4.dp),
     )
 }
 
 /**
  * 1:1 Apple TV Settings Pill Option with high-contrast sharp color inversion.
- * (Unfocused: translucent dark pill with white text; Focused: pure white pill with black text).
+ * (Unfocused: theme surface with primary text; Focused: high-contrast inverted pill).
  */
 @Composable
 private fun TvApplePillOption(
@@ -468,27 +642,47 @@ private fun TvApplePillOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val palette = com.music.bitchord.ui.tv.theme.TvThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
 
     androidx.compose.runtime.LaunchedEffect(isFocused) {
         if (isFocused) onFocus()
     }
 
+    val targetScale = when {
+        isPressed -> 0.96f
+        isFocused -> 1.03f
+        else -> 1.0f
+    }
+
     val scale by animateFloatAsState(
-        targetValue = if (isFocused) 1.03f else 1.0f,
+        targetValue = targetScale,
         animationSpec = appleSpring(AppleSpringPreset.Snappy),
         label = "pillScale",
     )
 
+    val unfocusedBg = if (palette.isDark) Color.White.copy(alpha = 0.12f) else palette.surfaceVariant
+    val focusedBg = if (palette.isDark) Color.White else Color(0xFF1C1C1E)
+
     val animatedBg by animateColorAsState(
-        targetValue = if (isFocused) Color.White else Color.White.copy(alpha = 0.12f),
+        targetValue = if (isFocused) focusedBg else unfocusedBg,
         animationSpec = appleSpring(AppleSpringPreset.Snappy),
         label = "pillBg",
     )
 
-    val titleColor = if (isFocused) Color.Black else Color.White
-    val valueColor = if (isFocused) Color(0xFF222222) else Color.White.copy(alpha = 0.60f)
+    val titleColor = if (isFocused) {
+        if (palette.isDark) Color.Black else Color.White
+    } else {
+        palette.textPrimary
+    }
+
+    val valueColor = if (isFocused) {
+        if (palette.isDark) Color(0xFF222222) else Color(0xFFD1D1D6)
+    } else {
+        palette.textSecondary
+    }
 
     Row(
         modifier = modifier
@@ -530,28 +724,84 @@ private fun TvApplePillOption(
 }
 
 /**
- * Font Selection Modal Dialog.
+ * Apple TV Pill Option with integrated Liquid Glass Toggle Switch.
  */
 @Composable
-private fun TvFontSelectionDialog(
-    currentFontId: String,
-    onSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
+private fun TvApplePillSwitchOption(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    onFocus: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    TvDialog(
-        title = "Choose Font Style",
-        onDismissRequest = onDismiss,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            for (option in TvFontOption.entries) {
-                val isSelected = option.id.equals(currentFontId, ignoreCase = true)
-                TvApplePillOption(
-                    title = option.title,
-                    value = if (isSelected) "Active" else "",
-                    onFocus = {},
-                    onClick = { onSelect(option.id) },
-                )
+    val palette = com.music.bitchord.ui.tv.theme.TvThemeColors.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    androidx.compose.runtime.LaunchedEffect(isFocused) {
+        if (isFocused) onFocus()
+    }
+
+    val targetScale = when {
+        isPressed -> 0.97f
+        isFocused -> 1.03f
+        else -> 1.0f
+    }
+
+    val scale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = appleSpring(AppleSpringPreset.Snappy),
+        label = "switchPillScale",
+    )
+
+    val unfocusedBg = if (palette.isDark) Color.White.copy(alpha = 0.10f) else palette.surfaceVariant
+    val focusedBg = if (palette.isDark) Color.White.copy(alpha = 0.22f) else Color(0xFF1C1C1E)
+
+    val animatedBg by animateColorAsState(
+        targetValue = if (isFocused) focusedBg else unfocusedBg,
+        animationSpec = appleSpring(AppleSpringPreset.Snappy),
+        label = "switchPillBg",
+    )
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
             }
-        }
+            .clip(RoundedCornerShape(24.dp))
+            .background(animatedBg)
+            .border(
+                width = if (isFocused) 2.dp else 1.dp,
+                color = if (isFocused) Color.White else Color.White.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(24.dp),
+            )
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { onCheckedChange(!checked) },
+            )
+            .padding(horizontal = 22.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = title,
+            fontSize = 16.sp,
+            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.SemiBold,
+            fontFamily = LocalTvFontFamily.current,
+            color = Color.White,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        TvLiquidGlassSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }
+

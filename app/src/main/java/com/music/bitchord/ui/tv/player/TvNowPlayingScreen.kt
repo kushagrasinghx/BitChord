@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Airplay
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.Icon
@@ -42,6 +42,9 @@ import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.tv.components.TvButton
+import com.music.bitchord.ui.tv.dialogs.TvAddToPlaylistDialog
+import com.music.bitchord.ui.tv.dialogs.TvQueueDialog
+import com.music.bitchord.ui.tv.dialogs.TvSongActionMenuDialog
 import com.music.bitchord.ui.tv.focus.onTvKeyEvent
 import com.music.bitchord.ui.tv.focus.tvButtonFocus
 import com.music.bitchord.ui.tv.theme.LocalTvFontFamily
@@ -58,7 +61,7 @@ fun TvNowPlayingScreen(
 ) {
     val song = playerState.song
     val isPlaying = playerState.isPlaying
-    val currentPositionMs = playerState.position.positionMs
+    val position = playerState.position
     val durationMs = playerState.durationMs
     val repeatMode = playerState.repeatMode
     val isShuffleActive by com.music.bitchord.playback.QueueShuffle.enabled.collectAsState()
@@ -70,6 +73,9 @@ fun TvNowPlayingScreen(
     val lyricsChecked by viewModel.lyricsChecked.collectAsState()
 
     var isLyricsActive by remember { mutableStateOf(false) }
+    var showOptionsDialog by remember { mutableStateOf(false) }
+    var showPlaylistDialog by remember { mutableStateOf(false) }
+    var showQueueDialog by remember { mutableStateOf(false) }
     val currentFont = LocalTvFontFamily.current
 
     LaunchedEffect(song?.videoId, durationMs) {
@@ -94,12 +100,12 @@ fun TvNowPlayingScreen(
                     true
                 },
                 onBack = {
-                    if (isLyricsActive) {
-                        isLyricsActive = false
-                        true
-                    } else {
-                        onBack()
-                        true
+                    when {
+                        showOptionsDialog -> { showOptionsDialog = false; true }
+                        showPlaylistDialog -> { showPlaylistDialog = false; true }
+                        showQueueDialog -> { showQueueDialog = false; true }
+                        isLyricsActive -> { isLyricsActive = false; true }
+                        else -> { onBack(); true }
                     }
                 },
             ),
@@ -135,7 +141,7 @@ fun TvNowPlayingScreen(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowBack,
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
                                 tint = Color.White,
                                 modifier = Modifier.size(18.dp),
@@ -157,7 +163,7 @@ fun TvNowPlayingScreen(
                                 modifier = Modifier.size(16.dp),
                             )
                             Text(
-                                text = "BitChord TV",
+                                text = "BitChordTV",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
                                 fontFamily = currentFont,
@@ -240,6 +246,16 @@ fun TvNowPlayingScreen(
 
         val previousSong = if (playerState.queueIndex > 0) playerState.queue.getOrNull(playerState.queueIndex - 1) else null
         val nextSong = if (playerState.queueIndex < playerState.queue.lastIndex) playerState.queue.getOrNull(playerState.queueIndex + 1) else null
+        val liveCanvasEnabled by com.music.bitchord.data.settings.AppSettings.animatedCanvas.collectAsState()
+        var canvasArtwork by remember(song.videoId) { mutableStateOf<com.music.bitchord.data.canvas.CanvasArtwork?>(null) }
+
+        LaunchedEffect(song.videoId, liveCanvasEnabled) {
+            if (!liveCanvasEnabled) {
+                canvasArtwork = null
+            } else {
+                canvasArtwork = com.music.bitchord.data.canvas.CanvasRepository.canvasFor(song)
+            }
+        }
 
         // View Mode: Standard Cinematic Player vs. Full Synchronized Lyrics Layout
         Crossfade(
@@ -250,7 +266,7 @@ fun TvNowPlayingScreen(
                 TvLyricsOverlay(
                     song = song,
                     isPlaying = isPlaying,
-                    currentPositionMs = currentPositionMs,
+                    position = position,
                     durationMs = durationMs,
                     lyrics = lyrics,
                     isLoadingLyrics = !lyricsChecked && lyrics == null,
@@ -276,7 +292,7 @@ fun TvNowPlayingScreen(
                 TvPlayerLayout(
                     song = song,
                     isPlaying = isPlaying,
-                    currentPositionMs = currentPositionMs,
+                    currentPositionMs = position.positionMs,
                     durationMs = durationMs,
                     isLiked = isLiked,
                     isShuffleActive = isShuffleActive,
@@ -294,11 +310,60 @@ fun TvNowPlayingScreen(
                         if (isPlaying) mediaController?.pause() else mediaController?.play()
                     },
                     onNext = { mediaController?.seekToNextMediaItem() },
-                    onToggleQueue = { /* Opens Queue / Options */ },
+                    onToggleQueue = { showQueueDialog = true },
                     onToggleLyrics = { isLyricsActive = !isLyricsActive },
                     onSeek = { targetMs -> mediaController?.seekTo(targetMs) },
+                    onCycleRepeat = {
+                        mediaController?.let { controller ->
+                            val next = when (controller.repeatMode) {
+                                androidx.media3.common.Player.REPEAT_MODE_OFF -> androidx.media3.common.Player.REPEAT_MODE_ALL
+                                androidx.media3.common.Player.REPEAT_MODE_ALL -> androidx.media3.common.Player.REPEAT_MODE_ONE
+                                else -> androidx.media3.common.Player.REPEAT_MODE_OFF
+                            }
+                            com.music.bitchord.data.settings.AppSettings.setRepeatMode(next)
+                            controller.repeatMode = next
+                        }
+                    },
+                    onAddToPlaylist = { showPlaylistDialog = true },
+                    onOpenOptions = { showOptionsDialog = true },
                 )
             }
         }
+
+        // Action Menu Dialog (•••)
+        if (showOptionsDialog) {
+            TvSongActionMenuDialog(
+                song = song,
+                isLiked = isLiked,
+                viewModel = viewModel,
+                mediaController = mediaController,
+                onToggleLike = { viewModel.toggleLike(song.videoId) },
+                onDismiss = { showOptionsDialog = false },
+            )
+        }
+
+        // Add to Playlist / Create Playlist Dialog (+)
+        if (showPlaylistDialog) {
+            TvAddToPlaylistDialog(
+                song = song,
+                viewModel = viewModel,
+                onDismiss = { showPlaylistDialog = false },
+            )
+        }
+
+        // Playing Now Queue Dialog
+        if (showQueueDialog) {
+            TvQueueDialog(
+                queue = playerState.queue,
+                currentIndex = playerState.queueIndex,
+                isPlaying = isPlaying,
+                onSelectIndex = { index ->
+                    mediaController?.seekToDefaultPosition(index)
+                    mediaController?.play()
+                },
+                onDismiss = { showQueueDialog = false },
+            )
+        }
     }
 }
+

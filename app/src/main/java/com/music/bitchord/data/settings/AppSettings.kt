@@ -968,6 +968,12 @@ object AppSettings {
         addPlaylistSongsToLibrary.value = prefs.getBoolean(KEY_ADD_PLAYLIST_SONGS_TO_LIBRARY, true)
         addFavoriteSongsToLibrary.value = prefs.getBoolean(KEY_ADD_FAVORITE_SONGS_TO_LIBRARY, true)
         tvSetupVersionCompleted.value = prefs.getInt(KEY_TV_SETUP_VERSION, 0)
+        tvUiScale.value = prefs.getFloat(KEY_TV_UI_SCALE, 1.0f).coerceIn(0.8f, 1.4f)
+        tvLiquidGlassEnabled.value = prefs.getBoolean(KEY_TV_LIQUID_GLASS, true)
+        tvBlurIntensity.value = prefs.getFloat(KEY_TV_BLUR_INTENSITY, 0.85f).coerceIn(0.0f, 1.0f)
+        tvLyricsCanvasEnabled.value = prefs.getBoolean(KEY_TV_LYRICS_CANVAS, true)
+        tvVideoAuto1080p.value = prefs.getBoolean(KEY_TV_VIDEO_AUTO_1080P, true)
+        tvNavLayout.value = prefs.getString(KEY_TV_NAV_LAYOUT, "left_rail") ?: "left_rail"
     }
 
     val tvRefreshRate = MutableStateFlow("AUTO")
@@ -979,11 +985,56 @@ object AppSettings {
     val addPlaylistSongsToLibrary = MutableStateFlow(true)
     val addFavoriteSongsToLibrary = MutableStateFlow(true)
     val tvSetupVersionCompleted = MutableStateFlow(0)
+    val tvLiquidGlassEnabled = MutableStateFlow(true)
+    val tvBlurIntensity = MutableStateFlow(0.85f)
+    val tvLyricsCanvasEnabled = MutableStateFlow(true)
+    val tvVideoAuto1080p = MutableStateFlow(true)
+    val tvNavLayout = MutableStateFlow("left_rail")
+
+    /** UI density/scale multiplier for the TV layout: 0.8 (Small) → 1.0 (Normal) → 1.2 (Large) → 1.4 (XL). */
+    val tvUiScale = MutableStateFlow(1.0f)
 
     fun setTvFontFamily(fontId: String) {
         tvFontFamily.value = fontId
         if (this::prefs.isInitialized) {
             prefs.edit().putString(KEY_TV_FONT, fontId).apply()
+        }
+    }
+
+    fun setTvUiScale(scale: Float) {
+        val clamped = scale.coerceIn(0.8f, 1.4f)
+        tvUiScale.value = clamped
+        if (this::prefs.isInitialized) {
+            prefs.edit().putFloat(KEY_TV_UI_SCALE, clamped).apply()
+        }
+    }
+
+    fun setTvLiquidGlassEnabled(enabled: Boolean) {
+        tvLiquidGlassEnabled.value = enabled
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_TV_LIQUID_GLASS, enabled).apply()
+        }
+    }
+
+    fun setTvBlurIntensity(intensity: Float) {
+        val clamped = intensity.coerceIn(0.0f, 1.0f)
+        tvBlurIntensity.value = clamped
+        if (this::prefs.isInitialized) {
+            prefs.edit().putFloat(KEY_TV_BLUR_INTENSITY, clamped).apply()
+        }
+    }
+
+    fun setTvLyricsCanvasEnabled(enabled: Boolean) {
+        tvLyricsCanvasEnabled.value = enabled
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_TV_LYRICS_CANVAS, enabled).apply()
+        }
+    }
+
+    fun setTvVideoAuto1080p(enabled: Boolean) {
+        tvVideoAuto1080p.value = enabled
+        if (this::prefs.isInitialized) {
+            prefs.edit().putBoolean(KEY_TV_VIDEO_AUTO_1080P, enabled).apply()
         }
     }
 
@@ -1053,6 +1104,13 @@ object AppSettings {
         tvTheme.value = themeId
         if (this::prefs.isInitialized) {
             prefs.edit().putString(KEY_TV_THEME, themeId).apply()
+        }
+    }
+
+    fun setTvNavLayout(layout: String) {
+        tvNavLayout.value = layout
+        if (this::prefs.isInitialized) {
+            prefs.edit().putString(KEY_TV_NAV_LAYOUT, layout).apply()
         }
     }
 
@@ -2135,6 +2193,12 @@ object AppSettings {
     private const val KEY_ADD_PLAYLIST_SONGS_TO_LIBRARY = "tv_add_playlist_songs_to_library"
     private const val KEY_ADD_FAVORITE_SONGS_TO_LIBRARY = "tv_add_favorite_songs_to_library"
     private const val KEY_TV_SETUP_VERSION = "tv_setup_version"
+    private const val KEY_TV_UI_SCALE = "tv_ui_scale"
+    private const val KEY_TV_LIQUID_GLASS = "tv_liquid_glass"
+    private const val KEY_TV_BLUR_INTENSITY = "tv_blur_intensity"
+    private const val KEY_TV_LYRICS_CANVAS = "tv_lyrics_canvas"
+    private const val KEY_TV_VIDEO_AUTO_1080P = "tv_video_auto_1080p"
+    private const val KEY_TV_NAV_LAYOUT = "tv_nav_layout"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
 

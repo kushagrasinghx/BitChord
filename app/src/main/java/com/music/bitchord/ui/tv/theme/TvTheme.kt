@@ -7,12 +7,15 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ColorScheme
@@ -70,10 +73,10 @@ data class TvColorPalette(
 // ─────────────────────────────────────────────────────────────────────────────
 
 val TvDarkPalette = TvColorPalette(
-    accentRed = Color(0xFFFA2D48),
-    accentRedGlow = Color(0x66FA2D48),
-    accentPink = Color(0xFFFF375F),
-    accentPurple = Color(0xFFBF5AF2),
+    accentRed = Color(0xFFFFFFFF),
+    accentRedGlow = Color(0x66FFFFFF),
+    accentPink = Color(0xFFE5E5EA),
+    accentPurple = Color(0xFFD1D1D6),
     accentBlue = Color(0xFF0A84FF),
 
     background = Color(0xFF08080B),
@@ -111,10 +114,10 @@ val TvDarkPalette = TvColorPalette(
 // ─────────────────────────────────────────────────────────────────────────────
 
 val TvOledPalette = TvColorPalette(
-    accentRed = Color(0xFFFA2D48),
-    accentRedGlow = Color(0x66FA2D48),
-    accentPink = Color(0xFFFF375F),
-    accentPurple = Color(0xFFBF5AF2),
+    accentRed = Color(0xFFFFFFFF),
+    accentRedGlow = Color(0x66FFFFFF),
+    accentPink = Color(0xFFE5E5EA),
+    accentPurple = Color(0xFFD1D1D6),
     accentBlue = Color(0xFF0A84FF),
 
     background = Color(0xFF000000),
@@ -188,46 +191,7 @@ val TvMidnightPalette = TvColorPalette(
     isDark = true,
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. Light Palette (Apple Music-inspired clean white)
-// ─────────────────────────────────────────────────────────────────────────────
 
-val TvLightPalette = TvColorPalette(
-    accentRed = Color(0xFFE5233D),
-    accentRedGlow = Color(0x44E5233D),
-    accentPink = Color(0xFFE8314F),
-    accentPurple = Color(0xFF9B41D4),
-    accentBlue = Color(0xFF007AFF),
-
-    background = Color(0xFFF2F2F7),
-    backgroundElevated = Color(0xFFFFFFFF),
-    surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFE8E8ED),
-    surfaceFocused = Color(0xFFD6D6DE),
-    surfaceSelected = Color(0xFFFCE4E7),
-
-    textPrimary = Color(0xFF1C1C1E),
-    textSecondary = Color(0xFF636366),
-    textMuted = Color(0xFF8E8E93),
-
-    borderSubtle = Color(0xFFD1D1D6),
-    borderFocused = Color(0xFFFFFFFF),
-    borderFocusedWhite = Color(0xFF1C1C1E),
-
-    scrimDark = Color(0x88000000),
-    glassOverlay = Color(0x22F2F2F7),
-    glassOverlayFocused = Color(0x44E5233D),
-
-    backgroundGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFFF8F0FA),
-            Color(0xFFF4F4F9),
-            Color(0xFFF2F2F7),
-        ),
-    ),
-
-    isDark = false,
-)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CompositionLocal & Static Accessors
@@ -236,38 +200,110 @@ val TvLightPalette = TvColorPalette(
 val LocalTvColors = compositionLocalOf { TvDarkPalette }
 
 object TvColors {
-    val AccentRed = Color(0xFFFA2D48)
-    val AccentRedGlow = Color(0x66FA2D48)
-    val AccentPink = Color(0xFFFF375F)
-    val AccentPurple = Color(0xFFBF5AF2)
-    val AccentBlue = Color(0xFF0A84FF)
+    val AccentRed: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.accentRed
 
-    val Background = Color(0xFF08080B)
-    val BackgroundElevated = Color(0xFF101015)
-    val Surface = Color(0xFF17171E)
-    val SurfaceVariant = Color(0xFF22222C)
-    val SurfaceFocused = Color(0xFF323242)
-    val SurfaceSelected = Color(0xFF38151D)
+    val AccentRedGlow: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.accentRedGlow
 
-    val TextPrimary = Color(0xFFFFFFFF)
-    val TextSecondary = Color(0xFFA0A0AB)
-    val TextMuted = Color(0xFF6E6E7A)
+    val AccentPink: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.accentPink
 
-    val BorderSubtle = Color(0xFF282834)
-    val BorderFocused = Color(0xFFFFFFFF)
-    val BorderFocusedWhite = Color(0xFFFFFFFF)
+    val AccentPurple: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.accentPurple
 
-    val ScrimDark = Color(0xCC000000)
-    val GlassOverlay = Color(0x3320202E)
-    val GlassOverlayFocused = Color(0x44FFFFFF)
+    val AccentBlue: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.accentBlue
 
-    val BackgroundGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF150D18),
-            Color(0xFF0A090D),
-            Color(0xFF050507),
-        ),
-    )
+    val Background: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.background
+
+    val BackgroundElevated: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.backgroundElevated
+
+    val Surface: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.surface
+
+    val SurfaceVariant: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.surfaceVariant
+
+    val SurfaceFocused: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.surfaceFocused
+
+    val SurfaceSelected: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.surfaceSelected
+
+    val TextPrimary: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.textPrimary
+
+    val TextSecondary: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.textSecondary
+
+    val TextMuted: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.textMuted
+
+    val BorderSubtle: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.borderSubtle
+
+    val BorderFocused: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.borderFocused
+
+    val BorderFocusedWhite: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.borderFocusedWhite
+
+    val ScrimDark: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.scrimDark
+
+    val GlassOverlay: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.glassOverlay
+
+    val GlassOverlayFocused: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.glassOverlayFocused
+
+    val BackgroundGradient: Brush
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalTvColors.current.backgroundGradient
 }
 
 object TvThemeColors {
@@ -304,14 +340,14 @@ val TvMinecraft = FontFamily(
 // 10-foot TV typography scale
 // ─────────────────────────────────────────────────────────────────────────────
 
-private val TvTypography = Typography(
+fun createTvTypography(palette: TvColorPalette): Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W800,
         fontSize = 44.sp,
         lineHeight = 52.sp,
         letterSpacing = (-0.8).sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     displayMedium = TextStyle(
         fontFamily = TvSFProDisplay,
@@ -319,7 +355,7 @@ private val TvTypography = Typography(
         fontSize = 36.sp,
         lineHeight = 44.sp,
         letterSpacing = (-0.6).sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     displaySmall = TextStyle(
         fontFamily = TvSFProDisplay,
@@ -327,108 +363,92 @@ private val TvTypography = Typography(
         fontSize = 28.sp,
         lineHeight = 36.sp,
         letterSpacing = (-0.4).sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     headlineLarge = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W700,
         fontSize = 24.sp,
         lineHeight = 32.sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     headlineMedium = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W700,
         fontSize = 20.sp,
         lineHeight = 28.sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     headlineSmall = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W600,
         fontSize = 18.sp,
         lineHeight = 24.sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     titleLarge = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W600,
         fontSize = 18.sp,
         lineHeight = 24.sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     titleMedium = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W600,
         fontSize = 16.sp,
         lineHeight = 22.sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     titleSmall = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W500,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        color = TvColors.TextSecondary,
+        color = palette.textSecondary,
     ),
     bodyLarge = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W400,
         fontSize = 16.sp,
         lineHeight = 24.sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     bodyMedium = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W400,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        color = TvColors.TextSecondary,
+        color = palette.textSecondary,
     ),
     bodySmall = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W400,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        color = TvColors.TextMuted,
+        color = palette.textMuted,
     ),
     labelLarge = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W600,
         fontSize = 15.sp,
         lineHeight = 20.sp,
-        color = TvColors.TextPrimary,
+        color = palette.textPrimary,
     ),
     labelMedium = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W600,
         fontSize = 13.sp,
         lineHeight = 18.sp,
-        color = TvColors.TextSecondary,
+        color = palette.textSecondary,
     ),
     labelSmall = TextStyle(
         fontFamily = TvSFProDisplay,
         fontWeight = FontWeight.W600,
         fontSize = 11.sp,
         lineHeight = 16.sp,
-        color = TvColors.TextMuted,
+        color = palette.textMuted,
     ),
-)
-
-val TvColorScheme: ColorScheme = darkColorScheme(
-    primary = Color.White,
-    onPrimary = Color.Black,
-    primaryContainer = Color(0xFF282828),
-    onPrimaryContainer = Color.White,
-    secondary = TvColors.AccentPink,
-    onSecondary = Color.White,
-    background = TvColors.Background,
-    onBackground = TvColors.TextPrimary,
-    surface = TvColors.Surface,
-    onSurface = TvColors.TextPrimary,
-    surfaceVariant = TvColors.SurfaceVariant,
-    onSurfaceVariant = TvColors.TextSecondary,
-    border = TvColors.BorderSubtle,
 )
 
 object TvDimensions {
@@ -443,24 +463,13 @@ object TvDimensions {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Font Customization Options & CompositionLocal
+// Font Customization & CompositionLocal — Unified Apple SF Pro Display typography
 // ─────────────────────────────────────────────────────────────────────────────
-
-enum class TvFontOption(val id: String, val title: String, val description: String, val fontFamily: FontFamily) {
-    SF_PRO("sf_pro", "Apple SF Pro Display", "Clean, refined iOS / macOS luxury typography", TvSFProDisplay),
-    GOOGLE_SANS("google_sans", "Google Sans", "Modern geometric sans-serif typeface", TvGoogleSans),
-    ARIAL("arial", "Arial Classic", "Clean standard universal typography", FontFamily.Default),
-    MINECRAFT("minecraft", "Minecraft Pixel", "Retro 8-bit arcade pixelated monospace font", TvMinecraft);
-
-    companion object {
-        fun fromId(id: String): TvFontOption = entries.firstOrNull { it.id.equals(id, ignoreCase = true) } ?: SF_PRO
-    }
-}
 
 val LocalTvFontFamily = compositionLocalOf { TvSFProDisplay }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Theme wrapper — reacts directly to AppSettings.tvTheme & tvFontFamily
+// Theme wrapper — reacts directly to AppSettings.tvTheme
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -468,24 +477,48 @@ fun BitChordTvTheme(
     content: @Composable () -> Unit,
 ) {
     val tvThemeId by AppSettings.tvTheme.collectAsState()
-    val tvFontId by AppSettings.tvFontFamily.collectAsState()
+    val tvUiScale by AppSettings.tvUiScale.collectAsState()
 
     val palette = when (tvThemeId.lowercase()) {
         "pure_black", "oled", "pure_black_oled" -> TvOledPalette
         "midnight" -> TvMidnightPalette
-        "light_white", "light", "white", "pure_white" -> TvLightPalette
-        else -> TvDarkPalette
+        else -> TvDarkPalette // Dynamic Artwork (default) — light/white mode removed
     }
 
-    val selectedFont = TvFontOption.fromId(tvFontId)
+    val colorScheme = darkColorScheme(
+        primary = palette.accentRed,
+        onPrimary = Color.Black,
+        primaryContainer = palette.surfaceVariant,
+        onPrimaryContainer = palette.textPrimary,
+        secondary = palette.accentPink,
+        onSecondary = Color.Black,
+        background = palette.background,
+        onBackground = palette.textPrimary,
+        surface = palette.surface,
+        onSurface = palette.textPrimary,
+        surfaceVariant = palette.surfaceVariant,
+        onSurfaceVariant = palette.textSecondary,
+        border = palette.borderSubtle,
+    )
+
+    val typography = remember(palette) {
+        createTvTypography(palette)
+    }
+
+    // Apply user DPI scale by overriding LocalDensity for the entire TV UI tree
+    val baseDensity = LocalDensity.current
+    val scaledDensity = remember(baseDensity, tvUiScale) {
+        Density(density = baseDensity.density * tvUiScale, fontScale = baseDensity.fontScale * tvUiScale)
+    }
 
     CompositionLocalProvider(
         LocalTvColors provides palette,
-        LocalTvFontFamily provides selectedFont.fontFamily,
+        LocalTvFontFamily provides TvSFProDisplay,
+        LocalDensity provides scaledDensity,
     ) {
         MaterialTheme(
-            colorScheme = TvColorScheme,
-            typography = TvTypography,
+            colorScheme = colorScheme,
+            typography = typography,
             content = content,
         )
     }

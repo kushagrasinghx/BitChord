@@ -3,6 +3,10 @@
 /build/
 /app/build/
 build/
+builds/
+bills/
+*.apk
+*.aab
 gradle-app.setting
 !gradle-wrapper.jar
 !gradle-wrapper.properties
@@ -34,10 +38,16 @@ keystore.properties
 *.jks
 *.keystore
 
-# Project scratch / debug artifacts
+# Project scratch / debug artifacts / experimental
 .shots/
 .tmp_verify/
 .debug/
+TIZEN OS/
+originalsrcappmobile/
+md files/
+.agents/
+TV_*.md
 
 # AI agent configuration
 AGENTS.md
+

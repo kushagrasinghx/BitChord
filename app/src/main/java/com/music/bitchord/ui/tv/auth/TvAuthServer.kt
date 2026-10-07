@@ -52,6 +52,7 @@ object TvAuthServer {
     fun getLocalIpAddress(): String? {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces() ?: return null
+            var fallbackIp: String? = null
             while (interfaces.hasMoreElements()) {
                 val iface = interfaces.nextElement()
                 if (iface.isLoopback || !iface.isUp) continue
@@ -63,9 +64,11 @@ object TvAuthServer {
                         if (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")) {
                             return host
                         }
+                        if (fallbackIp == null) fallbackIp = host
                     }
                 }
             }
+            return fallbackIp
         } catch (e: Exception) {
             Log.w(TAG, "Failed to resolve local IP", e)
         }
@@ -293,6 +296,14 @@ object TvAuthServer {
     }
 
     private fun parseCookieFromBody(body: String): String? {
+        if (body.startsWith("cookie=")) {
+            val raw = body.substring("cookie=".length)
+            return try {
+                URLDecoder.decode(raw, "UTF-8").trim()
+            } catch (_: Exception) {
+                raw.trim()
+            }
+        }
         val pairs = body.split("&")
         for (pair in pairs) {
             val idx = pair.indexOf("=")

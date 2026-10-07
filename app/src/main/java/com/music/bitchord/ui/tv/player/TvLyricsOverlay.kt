@@ -9,6 +9,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,14 +23,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
+import com.music.bitchord.ui.tv.focus.tvButtonFocus
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +56,10 @@ import coil3.request.crossfade
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.playback.PlaybackPosition
+import com.music.bitchord.ui.player.LyricsPanel
+import com.music.bitchord.ui.player.PlaybackPositionScope
+import com.music.bitchord.ui.tv.components.TvErrorState
 import com.music.bitchord.ui.tv.components.TvLyricsBadge
 import com.music.bitchord.ui.tv.focus.onTvKeyEvent
 import com.music.bitchord.ui.tv.theme.TvDimensions
@@ -56,14 +69,13 @@ import com.music.bitchord.ui.tv.theme.TvSFProDisplay
  * 1:1 Apple Music TV Synchronized Lyrics Overlay.
  *
  * - Left Column: Album Art Card (~280dp), Song Title & Artist, Stats for Nerds with Info Icon, and Lyrics Badge on bottom-left.
- * - Right Column: Ultra-smooth 6-line Lyrics Viewport (2 top unfocused, 1 middle active, 3 bottom unfocused).
+ * - Right Column: 1:1 Original Mobile Lyrics Engine (Zero Recomposition Draw-Phase Sweeps & Zero Lag).
  * - Bottom: Full-width pure white seekbar with smooth linear animation.
  */
 @Composable
 fun TvLyricsOverlay(
     song: Song,
     isPlaying: Boolean,
-    currentPositionMs: Long,
     durationMs: Long,
     lyrics: List<LyricLine>?,
     isLoadingLyrics: Boolean,
@@ -75,34 +87,66 @@ fun TvLyricsOverlay(
     onNext: () -> Unit,
     onCloseLyrics: () -> Unit,
     modifier: Modifier = Modifier,
+    position: PlaybackPosition? = null,
+    currentPositionMs: Long = position?.positionMs ?: 0L,
     isLiked: Boolean = false,
     onToggleLike: (() -> Unit)? = null,
 ) {
     val showNerdStats by AppSettings.showNerdStats.collectAsState()
+    val liveCanvasEnabled by AppSettings.tvLyricsCanvasEnabled.collectAsState()
+    var canvasArtwork by remember(song.videoId) { mutableStateOf<com.music.bitchord.data.canvas.CanvasArtwork?>(null) }
 
-    val targetFraction = if (durationMs > 0) {
-        (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-    } else 0f
+    LaunchedEffect(song.videoId, liveCanvasEnabled) {
+        if (liveCanvasEnabled) {
+            canvasArtwork = com.music.bitchord.data.canvas.CanvasRepository.canvasFor(song)
+        } else {
+            canvasArtwork = null
+        }
+    }
 
-    val smoothFraction by animateFloatAsState(
-        targetValue = targetFraction,
-        animationSpec = tween(durationMillis = 250, easing = LinearEasing),
-        label = "lyricsSmoothFraction",
-    )
+    // Isolate playback ticks into a lambda so the outer TvLyricsOverlay NEVER recomposes on position tick
+    val positionLambda: () -> Long = remember(position, currentPositionMs) {
+        if (position != null) { { position.positionMs } }
+        else { { currentPositionMs } }
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .focusable()
             .onTvKeyEvent(
+                onUp = {
+                    val lines = lyrics
+                    if (!lines.isNullOrEmpty()) {
+                        val currentMs = positionLambda()
+                        val currentIdx = lines.indexOfLast { it.timeMs <= currentMs }
+                        if (currentIdx > 0) {
+                            onSeek(lines[currentIdx - 1].timeMs)
+                        } else if (currentIdx == 0) {
+                            onSeek(lines[0].timeMs)
+                        }
+                    }
+                    true
+                },
+                onDown = {
+                    val lines = lyrics
+                    if (!lines.isNullOrEmpty()) {
+                        val currentMs = positionLambda()
+                        val currentIdx = lines.indexOfLast { it.timeMs <= currentMs }
+                        if (currentIdx in 0 until lines.lastIndex) {
+                            onSeek(lines[currentIdx + 1].timeMs)
+                        }
+                    }
+                    true
+                },
                 onLeft = {
                     val stepMs = 10_000L // 10s seek
-                    onSeek((currentPositionMs - stepMs).coerceAtLeast(0L))
+                    onSeek((positionLambda() - stepMs).coerceAtLeast(0L))
                     true
                 },
                 onRight = {
                     val stepMs = 10_000L // 10s seek
-                    onSeek((currentPositionMs + stepMs).coerceAtMost(durationMs))
+                    onSeek((positionLambda() + stepMs).coerceAtMost(durationMs))
                     true
                 },
                 onPlayPause = {
@@ -115,7 +159,32 @@ fun TvLyricsOverlay(
                 },
             ),
     ) {
-        // Main Content: Left Metadata & Artwork + Right 6-line Lyrics Window
+        val palette = com.music.bitchord.ui.tv.theme.TvThemeColors.current
+
+        // Top-Left Back Button: Pure luxury translucent frosted glass button (zero GPU blur overhead)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 48.dp, top = 24.dp)
+                .size(44.dp)
+                .tvButtonFocus(
+                    shape = CircleShape,
+                    focusedScale = 1.15f,
+                    borderWidth = 3.dp,
+                    onClick = onCloseLyrics,
+                )
+                .background(Color.White.copy(alpha = 0.12f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back from Lyrics",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+
+        // Main Content: Left Metadata & Artwork + Right 1:1 Fluid Lyrics Window
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -134,7 +203,7 @@ fun TvLyricsOverlay(
                     .fillMaxHeight(),
                 verticalArrangement = Arrangement.Center,
             ) {
-                // Album Art Card
+                // Album Art Card (with animated live canvas support when enabled in settings)
                 Box(
                     modifier = Modifier
                         .size(280.dp)
@@ -143,7 +212,14 @@ fun TvLyricsOverlay(
                         .background(Color.White.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (!song.thumbnailUrl.isNullOrBlank()) {
+                    val currentCanvas = canvasArtwork
+                    if (currentCanvas != null && liveCanvasEnabled) {
+                        com.music.bitchord.ui.player.CanvasArtworkPlayer(
+                            canvas = currentCanvas,
+                            isPlaying = isPlaying,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else if (!song.thumbnailUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
                                 .data(song.thumbnailUrl)
@@ -220,36 +296,77 @@ fun TvLyricsOverlay(
                 )
             }
 
-            // Right Column: Synchronized 6-line Lyrics Window
+            // Right Column: 1:1 Original Mobile Lyrics Engine (Zero Recomposition, Smooth Apple Spring Glide)
             Box(
                 modifier = Modifier
                     .weight(0.62f)
                     .fillMaxHeight(),
             ) {
-                TvLyricsList(
-                    lyrics = lyrics,
-                    currentPositionMs = currentPositionMs,
-                    isPlaying = isPlaying,
-                    isLoading = isLoadingLyrics,
-                    error = lyricsError,
-                    onRetry = onRetryLyrics,
-                    onSeekToTimestamp = onSeek,
-                )
+                if (lyricsError != null && lyrics.isNullOrEmpty()) {
+                    TvErrorState(
+                        message = "No lyrics found for this track",
+                        onRetry = onRetryLyrics,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    PlaybackPositionScope(positionLambda) { currentMs ->
+                        LyricsPanel(
+                            lines = lyrics.orEmpty(),
+                            trackKey = song.videoId,
+                            positionMs = currentMs,
+                            looking = isLoadingLyrics,
+                            isPlaying = isPlaying,
+                            onSeekToLine = onSeek,
+                            controlsOpen = true,
+                            onRevealControls = {},
+                            onHideControls = {},
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
             }
         }
 
         // Bottom Full-Width Progressive Seek Line (Pure White & Glides Smoothly Left-to-Right)
+        TvLyricsProgressBar(
+            positionMs = positionLambda,
+            durationMs = durationMs,
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+@Composable
+private fun TvLyricsProgressBar(
+    positionMs: () -> Long,
+    durationMs: Long,
+    modifier: Modifier = Modifier,
+) {
+    PlaybackPositionScope(positionMs) { currentMs ->
+        val fraction = if (durationMs > 0) {
+            (currentMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+        } else 0f
+
+        val smoothFraction by animateFloatAsState(
+            targetValue = fraction,
+            animationSpec = tween(durationMillis = 250, easing = LinearEasing),
+            label = "lyricsSmoothFraction",
+        )
+
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .height(4.dp)
-                .align(Alignment.BottomCenter)
                 .background(Color.White.copy(alpha = 0.18f)),
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(smoothFraction)
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        scaleX = smoothFraction
+                        transformOrigin = TransformOrigin(0f, 0.5f)
+                    }
                     .background(Color.White),
             )
         }

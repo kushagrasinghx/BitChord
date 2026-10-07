@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -37,11 +38,13 @@ fun Modifier.tvCardFocus(
     shape: Shape = RoundedCornerShape(16.dp),
     focusedScale: Float = 1.05f,
     borderWidth: Dp = 2.dp,
-    focusedBorderColor: Color = Color.White,
+    focusedBorderColor: Color = Color.Unspecified,
     unfocusedBorderColor: Color = Color.Transparent,
     elevation: Dp = 12.dp,
     onClick: (() -> Unit)? = null,
 ): Modifier = composed {
+    val palette = com.music.bitchord.ui.tv.theme.LocalTvColors.current
+    val effectiveBorderColor = if (focusedBorderColor != Color.Unspecified) focusedBorderColor else palette.borderFocusedWhite
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -58,7 +61,10 @@ fun Modifier.tvCardFocus(
         label = "tvCardFocusScale",
     )
 
+    val effectiveBorderWidth = if (isFocused) borderWidth.coerceAtLeast(3.5.dp) else borderWidth
+
     this
+        .focusable(interactionSource = interactionSource)
         .graphicsLayer {
             scaleX = scale
             scaleY = scale
@@ -69,14 +75,14 @@ fun Modifier.tvCardFocus(
                 Modifier.shadow(elevation, shape, clip = false)
             } else Modifier
         )
+        .clip(shape)
         .border(
             border = BorderStroke(
-                width = borderWidth,
-                color = if (isFocused) focusedBorderColor else unfocusedBorderColor,
+                width = effectiveBorderWidth,
+                color = if (isFocused) effectiveBorderColor else unfocusedBorderColor,
             ),
             shape = shape,
         )
-        .clip(shape)
         .then(
             if (onClick != null) {
                 Modifier.clickable(
@@ -94,11 +100,13 @@ fun Modifier.tvCardFocus(
 fun Modifier.tvButtonFocus(
     shape: Shape = RoundedCornerShape(12.dp),
     focusedScale: Float = 1.03f,
-    focusedBorderColor: Color = Color.White,
+    focusedBorderColor: Color = Color.Unspecified,
     unfocusedBorderColor: Color = Color.Transparent,
     borderWidth: Dp = 2.dp,
     onClick: (() -> Unit)? = null,
 ): Modifier = composed {
+    val palette = com.music.bitchord.ui.tv.theme.LocalTvColors.current
+    val effectiveBorderColor = if (focusedBorderColor != Color.Unspecified) focusedBorderColor else palette.borderFocusedWhite
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -115,20 +123,23 @@ fun Modifier.tvButtonFocus(
         label = "tvBtnFocusScale",
     )
 
+    val effectiveBorderWidth = if (isFocused) borderWidth.coerceAtLeast(3.dp) else borderWidth
+
     this
+        .focusable(interactionSource = interactionSource)
         .graphicsLayer {
             scaleX = scale
             scaleY = scale
         }
-        .zIndex(if (isFocused) 5f else 1f)
+        .zIndex(if (isFocused) 10f else 1f)
+        .clip(shape)
         .border(
             border = BorderStroke(
-                width = borderWidth,
-                color = if (isFocused) focusedBorderColor else unfocusedBorderColor,
+                width = effectiveBorderWidth,
+                color = if (isFocused) effectiveBorderColor else unfocusedBorderColor,
             ),
             shape = shape,
         )
-        .clip(shape)
         .then(
             if (onClick != null) {
                 Modifier.clickable(

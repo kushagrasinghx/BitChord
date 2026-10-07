@@ -10,11 +10,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,6 +48,7 @@ fun TvHomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val homeState by viewModel.home.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     when (val state = homeState) {
         is UiState.Loading -> {
@@ -80,7 +84,9 @@ fun TvHomeScreen(
                 TvHomeFeed(
                     shelves = shelves,
                     onPlaySong = { song ->
-                        mediaController?.playSongs(listOf(song), 0)
+                        coroutineScope.launch {
+                            mediaController?.playSongs(listOf(song), 0)
+                        }
                         onNavigateToNowPlaying()
                     },
                     onNavigateToDetail = onNavigateToDetail,
@@ -133,10 +139,10 @@ private fun TvHomeFeed(
             }
         }
 
-        items(
+        itemsIndexed(
             items = shelves,
-            key = { shelf -> shelf.title },
-        ) { shelf ->
+            key = { index, shelf -> "${shelf.title}_$index" },
+        ) { _, shelf ->
             TvShelfRow(
                 shelf = shelf,
                 onPlaySong = onPlaySong,
@@ -165,10 +171,10 @@ private fun TvShelfRow(
             horizontalArrangement = Arrangement.spacedBy(TvDimensions.CardSpacing),
             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
         ) {
-            items(
+            itemsIndexed(
                 items = shelf.items,
-                key = { item -> item.videoId ?: item.browseId ?: item.title },
-            ) { item ->
+                key = { index, item -> "${item.videoId ?: item.browseId ?: item.title}_$index" },
+            ) { _, item ->
                 TvShelfItemCard(
                     item = item,
                     onPlaySong = onPlaySong,

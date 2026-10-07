@@ -95,15 +95,33 @@ fun YtMusicLoginScreen(
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+                settings.databaseEnabled = true
+                settings.setSupportZoom(true)
+                settings.builtInZoomControls = false
+
+                // Google blocks default embedded Android WebView with:
+                // "This browser or app may not be secure. Learn more. Try using a different browser."
+                // Stripping '; wv' and 'Version/4.0' presents a standard browser user agent so Google OAuth succeeds.
+                val defaultUa = settings.userAgentString
+                val cleanUa = defaultUa
+                    ?.replace("; wv", "")
+                    ?.replace(Regex("Version/[0-9.]+"), "")
+                    ?.replace("  ", " ")
+                    ?.trim()
+                settings.userAgentString = cleanUa ?: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+
+                // TV remote D-Pad navigation support
+                isFocusable = true
+                isFocusableInTouchMode = true
 
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        // Reaching the Music origin only enables confirmation.
-                        // A multi-channel login can still be waiting for the
-                        // listener to choose an identity on this very page.
-                        // Capturing automatically here is the race that used to
-                        // create a fake "Personal" profile and close too soon.
-                        currentOnPageReady(url?.startsWith(MUSIC_ORIGIN) == true)
+                        val isMusicOrigin = url?.startsWith(MUSIC_ORIGIN) == true
+                        currentOnPageReady(isMusicOrigin)
+                        if (isMusicOrigin && view != null) {
+                            // Automatically attempt session capture once landed on YouTube Music
+                            captureFrom(view, currentOnCaptured) {}
+                        }
                     }
                 }
 

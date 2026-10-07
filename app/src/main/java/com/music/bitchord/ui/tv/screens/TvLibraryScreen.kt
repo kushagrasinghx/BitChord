@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -61,6 +63,8 @@ fun TvLibraryScreen(
     onNavigateToDownloads: () -> Unit,
     onNavigateToHistory: () -> Unit,
     onNavigateToLiked: () -> Unit,
+    onNavigateToSearch: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val signedIn by viewModel.signedIn.collectAsState()
@@ -116,7 +120,7 @@ fun TvLibraryScreen(
                             title = "Local Music",
                             subtitle = "Device & USB Drives",
                             icon = Icons.Default.Folder,
-                            accentColor = TvColors.AccentPurple,
+                            accentColor = Color.White,
                             onClick = onNavigateToLocalMusic,
                         )
                     }
@@ -125,8 +129,26 @@ fun TvLibraryScreen(
                             title = "History",
                             subtitle = "Recently listened",
                             icon = Icons.Default.History,
-                            accentColor = TvColors.AccentPink,
+                            accentColor = Color.White,
                             onClick = onNavigateToHistory,
+                        )
+                    }
+                    item {
+                        TvQuickHubCard(
+                            title = "Search",
+                            subtitle = "Find songs & artists",
+                            icon = Icons.Default.Search,
+                            accentColor = Color.White,
+                            onClick = onNavigateToSearch,
+                        )
+                    }
+                    item {
+                        TvQuickHubCard(
+                            title = "Settings",
+                            subtitle = "Audio, theme & display",
+                            icon = Icons.Default.Settings,
+                            accentColor = Color.White,
+                            onClick = onNavigateToSettings,
                         )
                     }
                 }

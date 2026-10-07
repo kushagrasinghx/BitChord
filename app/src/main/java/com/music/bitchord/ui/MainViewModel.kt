@@ -2671,8 +2671,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (wasSignedIn) clearListenerState()
             reloadForAccount()
             loadChannels(force = true)
-            onComplete(true)
         }
+    }
+
+    /**
+     * Backward-compatible sign-in method for TV pairing and direct cookie inputs.
+     */
+    fun onSignedIn(cookie: String, onComplete: (Boolean) -> Unit = {}) {
+        val session = CapturedSession(
+            cookie = cookie.trim(),
+            pageId = null,
+            dataSyncId = null,
+            authUser = null,
+            visitorData = null,
+            clientVersion = null,
+            loggedIn = true,
+        )
+        onWebSession(session, WebSessionMode.SIGN_IN, onComplete)
     }
 
     /** Put request signing back exactly as it was after a rejected candidate. */

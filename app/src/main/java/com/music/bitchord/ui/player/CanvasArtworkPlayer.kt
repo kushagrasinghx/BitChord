@@ -190,6 +190,10 @@ fun CanvasArtworkPlayer(
     val currentPresentationAlpha by rememberUpdatedState(presentationAlpha)
     val reportAspect by rememberUpdatedState(onAspectRatioChanged)
 
+    val isTv = remember {
+        com.music.bitchord.ui.tv.DeviceType.isTv(context)
+    }
+
     val player = remember {
         ExoPlayer.Builder(context)
             // Shares the app's one OkHttp client, as everything that fetches
@@ -206,6 +210,13 @@ fun CanvasArtworkPlayer(
                 repeatMode = Player.REPEAT_MODE_ONE
                 trackSelectionParameters = trackSelectionParameters.buildUpon()
                     .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                    .apply {
+                        // On TV, cap canvas to 24fps to massively reduce GPU decode pressure.
+                        // 24fps is Cinema quality — plenty for background artwork.
+                        if (isTv) {
+                            setMaxVideoFrameRate(24)
+                        }
+                    }
                     .build()
             }
     }

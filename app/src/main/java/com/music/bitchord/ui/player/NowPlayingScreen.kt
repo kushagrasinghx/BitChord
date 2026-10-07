@@ -1772,7 +1772,7 @@ fun NowPlayingScreen(
 
         // Mount once, behind the controls. A known portrait aspect changes the
         // invisible view to full-player bounds before its first frame is shown.
-        if (heroMode && heroHeight > 0.dp) {
+        if (heroMode && heroHeight > 0.dp && !lyricsOpen) {
             heroClip?.let { clip ->
                 CanvasArtworkPlayer(
                     canvas = clip,
@@ -2470,7 +2470,7 @@ fun NowPlayingScreen(
                         // inside the same clip as the still art, taking the
                         // sleeve's corners, shadow and paused shrink for free.
                         if (!heroMode) {
-                            canvas?.takeIf { !collapsePastHalf }?.let { clip ->
+                            canvas?.takeIf { !collapsePastHalf && !lyricsOpen }?.let { clip ->
                                 CanvasArtworkPlayer(
                                     canvas = clip,
                                     isPlaying = isPlaying,

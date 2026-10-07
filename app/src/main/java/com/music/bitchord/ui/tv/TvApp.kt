@@ -1,17 +1,25 @@
 package com.music.bitchord.ui.tv
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +27,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,18 +56,25 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import com.music.bitchord.ui.tv.components.tvNavbarBlur
+import com.music.bitchord.ui.tv.components.tvMiniPlayerBlur
+import com.music.bitchord.ui.tv.components.TvLeftNavRail
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import kotlinx.coroutines.delay
 import androidx.media3.session.MediaController
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -92,13 +108,12 @@ import com.music.bitchord.ui.tv.theme.TvThemeColors
 import com.music.bitchord.ui.tv.theme.appleSpring
 
 enum class TvDestination(val label: String, val icon: ImageVector) {
-    FOR_YOU("Listen Now", Icons.Default.Home),
-    BROWSE("Browse", Icons.Default.Explore),
-    VIDEOS("Videos", Icons.Default.VideoLibrary),
-    RADIO("Radio", Icons.Default.Radio),
+    FOR_YOU("Home", Icons.Default.Home),
     LIBRARY("Library", Icons.Default.LibraryMusic),
     SEARCH("Search", Icons.Default.Search),
     SETTINGS("Settings", Icons.Default.Settings),
+    BROWSE("Browse", Icons.Default.Explore),
+    RADIO("Radio", Icons.Default.Radio),
 }
 
 private data class DetailDestination(
@@ -122,7 +137,9 @@ fun TvApp(
         var isNowPlayingOpen by remember { mutableStateOf(false) }
 
         val setupVersionCompleted by com.music.bitchord.data.settings.AppSettings.tvSetupVersionCompleted.collectAsState()
-        var isRunningSetup by remember { mutableStateOf(setupVersionCompleted == 0) }
+        var isRunningSetup by remember(setupVersionCompleted) { mutableStateOf(setupVersionCompleted == 0) }
+        val tvNavLayout by AppSettings.tvNavLayout.collectAsState()
+        val isLeftRail = tvNavLayout == "left_rail"
 
         // Dialog States
         var showAccountDialog by remember { mutableStateOf(false) }
@@ -143,6 +160,28 @@ fun TvApp(
         LaunchedEffect(spatialAudio) {
             com.music.bitchord.ui.tv.audio.TvSpatialAudioEngine.setEnabled(spatialAudio)
         }
+
+        // App Startup Banner Animation
+        var showStartupBanner by remember { mutableStateOf(true) }
+        var bannerFading by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            delay(1200)
+            bannerFading = true
+            delay(750)
+            showStartupBanner = false
+        }
+
+        val bannerAlpha by animateFloatAsState(
+            targetValue = if (bannerFading) 0f else 1f,
+            animationSpec = tween(700, easing = FastOutSlowInEasing),
+            label = "bannerAlpha",
+        )
+        val bannerScale by animateFloatAsState(
+            targetValue = if (bannerFading) 1.05f else 1f,
+            animationSpec = tween(700, easing = FastOutSlowInEasing),
+            label = "bannerScale",
+        )
 
         Box(
             modifier = modifier
@@ -184,145 +223,123 @@ fun TvApp(
                         )
                     }
                     else -> {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            // Apple Music Top Navigation Bar
-                            TvTopNavigationBar(
-                                activeDestination = activeDestination,
-                                hasNowPlaying = playerState.song != null,
-                                onDestinationSelected = { dest ->
-                                    activeDetail = null
-                                    activeDestination = dest
-                                },
-                                onOpenNowPlaying = { isNowPlayingOpen = true },
-                            )
+                        if (isLeftRail) {
+                            Row(modifier = Modifier.fillMaxSize()) {
+                                // Spotify TV Style Left Vertical Navigation Sidebar
+                                TvLeftNavRail(
+                                    activeDestination = activeDestination,
+                                    hasNowPlaying = playerState.song != null,
+                                    isPlaying = playerState.isPlaying,
+                                    onDestinationSelected = { dest ->
+                                        activeDetail = null
+                                        activeDestination = dest
+                                    },
+                                    onOpenNowPlaying = { isNowPlayingOpen = true },
+                                )
 
-                            // Main Screen Content Area with Fast Snappy Crossfade
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth(),
-                            ) {
-                                if (activeDetail != null) {
-                                    val detail = activeDetail!!
-                                    TvDetailScreen(
-                                        browseId = detail.browseId,
-                                        initialTitle = detail.title,
-                                        initialSubtitle = detail.subtitle,
-                                        initialThumbnailUrl = detail.thumbnailUrl,
-                                        type = detail.type,
+                                // Main Screen Content Area taking full remaining width and full height
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight(),
+                                ) {
+                                    TvMainContentBody(
+                                        activeDestination = activeDestination,
+                                        activeDetail = activeDetail,
                                         viewModel = viewModel,
                                         mediaController = mediaController,
-                                        onNavigateToNowPlaying = { isNowPlayingOpen = true },
-                                        onBack = { activeDetail = null },
+                                        onDestinationChange = { activeDestination = it },
+                                        onDetailChange = { activeDetail = it },
+                                        onOpenNowPlaying = { isNowPlayingOpen = true },
+                                        onOpenAccountDialog = { showAccountDialog = true },
+                                        onOpenDiscordDialog = { showDiscordDialog = true },
+                                        onOpenScrobbleDialog = { showScrobbleDialog = true },
+                                        onOpenSourcesDialog = { showSourcesDialog = true },
+                                        onOpenRefreshRateDialog = { showRefreshRateDialog = true },
+                                        onOpenNicknameDialog = { showNicknameDialog = true },
+                                        onOpenThemeDialog = { showThemeDialog = true },
+                                        onRunSetupAgain = { isRunningSetup = true },
+                                        onOpenAboutDialog = { showAboutDialog = true },
                                     )
-                                } else {
-                                    Crossfade(
-                                        targetState = activeDestination,
-                                        animationSpec = tween(durationMillis = 140),
-                                        label = "navTabCrossfade",
-                                    ) { destination ->
-                                        when (destination) {
-                                            TvDestination.FOR_YOU -> {
-                                                TvHomeScreen(
-                                                    viewModel = viewModel,
-                                                    mediaController = mediaController,
-                                                    onNavigateToDetail = { browseId, title, subtitle, thumb, type ->
-                                                        activeDetail = DetailDestination(browseId, title, subtitle, thumb, type)
-                                                    },
-                                                    onNavigateToNowPlaying = { isNowPlayingOpen = true },
-                                                )
-                                            }
-                                            TvDestination.BROWSE -> {
-                                                TvDetailScreen(
-                                                    browseId = "FEmusic_explore",
-                                                    initialTitle = "Browse & Explore",
-                                                    initialSubtitle = "Explore charts, genres, and mood collections",
-                                                    initialThumbnailUrl = null,
-                                                    type = BrowseType.OTHER,
-                                                    viewModel = viewModel,
-                                                    mediaController = mediaController,
-                                                    onNavigateToNowPlaying = { isNowPlayingOpen = true },
-                                                    onBack = { activeDestination = TvDestination.FOR_YOU },
-                                                )
-                                            }
-                                            TvDestination.VIDEOS -> {
-                                                TvDetailScreen(
-                                                    browseId = "FEmusic_videos",
-                                                    initialTitle = "Music Videos",
-                                                    initialSubtitle = "Top trending videos & live concert performances",
-                                                    initialThumbnailUrl = null,
-                                                    type = BrowseType.OTHER,
-                                                    viewModel = viewModel,
-                                                    mediaController = mediaController,
-                                                    onNavigateToNowPlaying = { isNowPlayingOpen = true },
-                                                    onBack = { activeDestination = TvDestination.FOR_YOU },
-                                                )
-                                            }
-                                            TvDestination.RADIO -> {
-                                                TvDetailScreen(
-                                                    browseId = "FEmusic_radio",
-                                                    initialTitle = "Radio Stations & Mixes",
-                                                    initialSubtitle = "Continuous automated playback & custom stations",
-                                                    initialThumbnailUrl = null,
-                                                    type = BrowseType.OTHER,
-                                                    viewModel = viewModel,
-                                                    mediaController = mediaController,
-                                                    onNavigateToNowPlaying = { isNowPlayingOpen = true },
-                                                    onBack = { activeDestination = TvDestination.FOR_YOU },
-                                                )
-                                            }
-                                            TvDestination.LIBRARY -> {
-                                                TvLibraryScreen(
-                                                    viewModel = viewModel,
-                                                    onNavigateToDetail = { browseId, title, subtitle, thumb, type ->
-                                                        activeDetail = DetailDestination(browseId, title, subtitle, thumb, type)
-                                                    },
-                                                    onNavigateToLocalMusic = {
-                                                        activeDestination = TvDestination.FOR_YOU
-                                                    },
-                                                    onNavigateToDownloads = {},
-                                                    onNavigateToHistory = {},
-                                                    onNavigateToLiked = {},
-                                                )
-                                            }
-                                            TvDestination.SEARCH -> {
-                                                TvSearchScreen(
-                                                    viewModel = viewModel,
-                                                    mediaController = mediaController,
-                                                    onNavigateToDetail = { browseId, title, subtitle, thumb, type ->
-                                                        activeDetail = DetailDestination(browseId, title, subtitle, thumb, type)
-                                                    },
-                                                    onNavigateToNowPlaying = { isNowPlayingOpen = true },
-                                                )
-                                            }
-                                            TvDestination.SETTINGS -> {
-                                                TvSettingsScreen(
-                                                    viewModel = viewModel,
-                                                    onBack = { activeDestination = TvDestination.FOR_YOU },
-                                                    onOpenAccountDialog = { showAccountDialog = true },
-                                                    onOpenDiscordDialog = { showDiscordDialog = true },
-                                                    onOpenScrobbleDialog = { showScrobbleDialog = true },
-                                                    onOpenSourcesDialog = { showSourcesDialog = true },
-                                                    onOpenRefreshRateDialog = { showRefreshRateDialog = true },
-                                                    onOpenNicknameDialog = { showNicknameDialog = true },
-                                                    onOpenThemeDialog = { showThemeDialog = true },
-                                                    onRunSetupAgain = { isRunningSetup = true },
-                                                    onOpenAboutDialog = { showAboutDialog = true },
-                                                )
-                                            }
-                                        }
+
+                                    // Floating Mini Playback Bar (bottom right) with frosted glass blur
+                                    if (playerState.song != null && !isNowPlayingOpen) {
+                                        TvGlobalMiniPlayer(
+                                            playerState = playerState,
+                                            mediaController = mediaController,
+                                            onClick = { isNowPlayingOpen = true },
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .padding(end = TvDimensions.SafeMarginHorizontal, bottom = 24.dp)
+                                                .zIndex(15f),
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Classic Apple TV Top Pill Navigation Bar Layout
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(top = 74.dp),
+                                ) {
+                                    TvMainContentBody(
+                                        activeDestination = activeDestination,
+                                        activeDetail = activeDetail,
+                                        viewModel = viewModel,
+                                        mediaController = mediaController,
+                                        onDestinationChange = { activeDestination = it },
+                                        onDetailChange = { activeDetail = it },
+                                        onOpenNowPlaying = { isNowPlayingOpen = true },
+                                        onOpenAccountDialog = { showAccountDialog = true },
+                                        onOpenDiscordDialog = { showDiscordDialog = true },
+                                        onOpenScrobbleDialog = { showScrobbleDialog = true },
+                                        onOpenSourcesDialog = { showSourcesDialog = true },
+                                        onOpenRefreshRateDialog = { showRefreshRateDialog = true },
+                                        onOpenNicknameDialog = { showNicknameDialog = true },
+                                        onOpenThemeDialog = { showThemeDialog = true },
+                                        onRunSetupAgain = { isRunningSetup = true },
+                                        onOpenAboutDialog = { showAboutDialog = true },
+                                    )
+
+                                    // Floating Mini Playback Bar (bottom right) with frosted glass blur
+                                    if (playerState.song != null && !isNowPlayingOpen) {
+                                        TvGlobalMiniPlayer(
+                                            playerState = playerState,
+                                            mediaController = mediaController,
+                                            onClick = { isNowPlayingOpen = true },
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .padding(end = TvDimensions.SafeMarginHorizontal, bottom = 24.dp)
+                                                .zIndex(15f),
+                                        )
                                     }
                                 }
 
-                                // Floating Mini Playback Bar (bottom right)
-                                if (playerState.song != null && !isNowPlayingOpen) {
-                                    TvGlobalMiniPlayer(
-                                        playerState = playerState,
-                                        mediaController = mediaController,
-                                        onClick = { isNowPlayingOpen = true },
-                                        modifier = Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .padding(end = TvDimensions.SafeMarginHorizontal, bottom = 24.dp),
+                                // Transparent Top Navigation Bar with Frosted Glass Blur
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .fillMaxWidth()
+                                        .zIndex(20f),
+                                ) {
+                                    TvTopNavigationBar(
+                                        activeDestination = activeDestination,
+                                        hasNowPlaying = playerState.song != null,
+                                        onDestinationSelected = { dest ->
+                                            activeDetail = null
+                                            activeDestination = dest
+                                        },
+                                        onOpenNowPlaying = { isNowPlayingOpen = true },
+                                        onOpenSearch = {
+                                            activeDetail = null
+                                            activeDestination = TvDestination.SEARCH
+                                        },
+                                        onOpenSettings = {
+                                            activeDetail = null
+                                            activeDestination = TvDestination.SETTINGS
+                                        },
                                     )
                                 }
                             }
@@ -356,12 +373,168 @@ fun TvApp(
             if (showAboutDialog) {
                 TvAboutDialog(onDismiss = { showAboutDialog = false })
             }
+
+            // App Startup Banner Animation: FULLSCREEN edge-to-edge fit-to-screen
+            if (showStartupBanner) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(100f)
+                        .graphicsLayer {
+                            alpha = bannerAlpha
+                            scaleX = bannerScale
+                            scaleY = bannerScale
+                        }
+                        .background(Color(0xFF101015)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.tv_banner),
+                        contentDescription = "BitChord TV",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+            }
         }
     }
 }
 
 /**
- * 1:1 Apple Music-style Top Unified Horizontal Pill Navigation Bar with embedded search icon.
+ * Hosts the active main screen destination (Home, Search, Library, Settings, or Detail)
+ * with snappy crossfade transitions.
+ */
+@Composable
+private fun TvMainContentBody(
+    activeDestination: TvDestination,
+    activeDetail: DetailDestination?,
+    viewModel: MainViewModel,
+    mediaController: MediaController?,
+    onDestinationChange: (TvDestination) -> Unit,
+    onDetailChange: (DetailDestination?) -> Unit,
+    onOpenNowPlaying: () -> Unit,
+    onOpenAccountDialog: () -> Unit,
+    onOpenDiscordDialog: () -> Unit,
+    onOpenScrobbleDialog: () -> Unit,
+    onOpenSourcesDialog: () -> Unit,
+    onOpenRefreshRateDialog: () -> Unit,
+    onOpenNicknameDialog: () -> Unit,
+    onOpenThemeDialog: () -> Unit,
+    onRunSetupAgain: () -> Unit,
+    onOpenAboutDialog: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (activeDetail != null) {
+        val detail = activeDetail
+        TvDetailScreen(
+            browseId = detail.browseId,
+            initialTitle = detail.title,
+            initialSubtitle = detail.subtitle,
+            initialThumbnailUrl = detail.thumbnailUrl,
+            type = detail.type,
+            viewModel = viewModel,
+            mediaController = mediaController,
+            onNavigateToNowPlaying = onOpenNowPlaying,
+            onBack = { onDetailChange(null) },
+            modifier = modifier,
+        )
+    } else {
+        Crossfade(
+            targetState = activeDestination,
+            animationSpec = tween(durationMillis = 140),
+            label = "navTabCrossfade",
+            modifier = modifier,
+        ) { destination ->
+            when (destination) {
+                TvDestination.FOR_YOU -> {
+                    TvHomeScreen(
+                        viewModel = viewModel,
+                        mediaController = mediaController,
+                        onNavigateToDetail = { browseId, title, subtitle, thumb, type ->
+                            onDetailChange(DetailDestination(browseId, title, subtitle, thumb, type))
+                        },
+                        onNavigateToNowPlaying = onOpenNowPlaying,
+                    )
+                }
+                TvDestination.BROWSE -> {
+                    TvDetailScreen(
+                        browseId = "FEmusic_explore",
+                        initialTitle = "Browse & Explore",
+                        initialSubtitle = "Explore charts, genres, and mood collections",
+                        initialThumbnailUrl = null,
+                        type = BrowseType.OTHER,
+                        viewModel = viewModel,
+                        mediaController = mediaController,
+                        onNavigateToNowPlaying = onOpenNowPlaying,
+                        onBack = { onDestinationChange(TvDestination.FOR_YOU) },
+                    )
+                }
+                TvDestination.RADIO -> {
+                    TvDetailScreen(
+                        browseId = "FEmusic_radio",
+                        initialTitle = "Radio Stations & Mixes",
+                        initialSubtitle = "Continuous automated playback & custom stations",
+                        initialThumbnailUrl = null,
+                        type = BrowseType.OTHER,
+                        viewModel = viewModel,
+                        mediaController = mediaController,
+                        onNavigateToNowPlaying = onOpenNowPlaying,
+                        onBack = { onDestinationChange(TvDestination.FOR_YOU) },
+                    )
+                }
+                TvDestination.LIBRARY -> {
+                    TvLibraryScreen(
+                        viewModel = viewModel,
+                        onNavigateToDetail = { browseId, title, subtitle, thumb, type ->
+                            onDetailChange(DetailDestination(browseId, title, subtitle, thumb, type))
+                        },
+                        onNavigateToLocalMusic = {
+                            onDestinationChange(TvDestination.FOR_YOU)
+                        },
+                        onNavigateToDownloads = {},
+                        onNavigateToHistory = {},
+                        onNavigateToLiked = {},
+                        onNavigateToSearch = {
+                            onDestinationChange(TvDestination.SEARCH)
+                        },
+                        onNavigateToSettings = {
+                            onDestinationChange(TvDestination.SETTINGS)
+                        },
+                    )
+                }
+                TvDestination.SEARCH -> {
+                    TvSearchScreen(
+                        viewModel = viewModel,
+                        mediaController = mediaController,
+                        onNavigateToDetail = { browseId, title, subtitle, thumb, type ->
+                            onDetailChange(DetailDestination(browseId, title, subtitle, thumb, type))
+                        },
+                        onNavigateToNowPlaying = onOpenNowPlaying,
+                    )
+                }
+                TvDestination.SETTINGS -> {
+                    TvSettingsScreen(
+                        viewModel = viewModel,
+                        onBack = { onDestinationChange(TvDestination.FOR_YOU) },
+                        onOpenAccountDialog = onOpenAccountDialog,
+                        onOpenDiscordDialog = onOpenDiscordDialog,
+                        onOpenScrobbleDialog = onOpenScrobbleDialog,
+                        onOpenSourcesDialog = onOpenSourcesDialog,
+                        onOpenRefreshRateDialog = onOpenRefreshRateDialog,
+                        onOpenNicknameDialog = onOpenNicknameDialog,
+                        onOpenThemeDialog = onOpenThemeDialog,
+                        onRunSetupAgain = onRunSetupAgain,
+                        onOpenAboutDialog = onOpenAboutDialog,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 1:1 Apple Music-style Top Unified Horizontal Pill Navigation Bar with top-right search & settings buttons.
+ * Uses ultra-optimized custom blur.
  */
 @Composable
 private fun TvTopNavigationBar(
@@ -369,22 +542,34 @@ private fun TvTopNavigationBar(
     hasNowPlaying: Boolean,
     onDestinationSelected: (TvDestination) -> Unit,
     onOpenNowPlaying: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val palette = TvThemeColors.current
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                start = TvDimensions.SafeMarginHorizontal,
-                end = TvDimensions.SafeMarginHorizontal,
-                top = 20.dp,
-                bottom = 12.dp,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+    Box(
+        modifier = modifier.fillMaxWidth(),
     ) {
+        // Frosted Glass Blur background layer (sits behind children)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .tvNavbarBlur(),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = TvDimensions.SafeMarginHorizontal,
+                    end = TvDimensions.SafeMarginHorizontal,
+                    top = 18.dp,
+                    bottom = 14.dp,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
         // Left: Clean Frosted Monochrome BitChord Logo
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -394,13 +579,16 @@ private fun TvTopNavigationBar(
                 modifier = Modifier
                     .size(34.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.14f)),
+                    .background(
+                        if (palette.isDark) Color.White.copy(alpha = 0.14f)
+                        else Color.Black.copy(alpha = 0.08f)
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_logo),
                     contentDescription = "BitChord Logo",
-                    tint = Color.White,
+                    tint = palette.textPrimary,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -410,25 +598,25 @@ private fun TvTopNavigationBar(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.W800,
                 fontFamily = LocalTvFontFamily.current,
-                color = Color.White,
+                color = palette.textPrimary,
                 letterSpacing = (-0.4).sp,
             )
         }
 
-        // Center: Unified Pill Navigation Bar (Listen Now, Browse, Videos, Radio, Library, Now Playing, Search Icon)
+        // Center: Unified Pill Navigation Bar (Home | Library | Now Playing)
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(26.dp))
-                .background(Color.White.copy(alpha = 0.10f))
+                .background(
+                    if (palette.isDark) Color.White.copy(alpha = 0.10f)
+                    else Color.Black.copy(alpha = 0.06f)
+                )
                 .padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val pillTabs = listOf(
                 TvDestination.FOR_YOU,
-                TvDestination.BROWSE,
-                TvDestination.VIDEOS,
-                TvDestination.RADIO,
                 TvDestination.LIBRARY,
             )
 
@@ -447,27 +635,73 @@ private fun TvTopNavigationBar(
                 isSelected = false,
                 onClick = onOpenNowPlaying,
             )
-
-            // Search Icon Item inside the unified pill
-            TvNavPillSearchItem(
-                isSelected = activeDestination == TvDestination.SEARCH,
-                onClick = { onDestinationSelected(TvDestination.SEARCH) },
-            )
         }
 
-        // Right: Settings button
+        // Right Action Group: Search and Settings buttons side-by-side
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TvNavIconButton(
-                icon = Icons.Default.Settings,
-                contentDescription = "Settings",
-                isSelected = activeDestination == TvDestination.SETTINGS,
-                onClick = { onDestinationSelected(TvDestination.SETTINGS) },
-            )
+            // Frosted Circular Search Button
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (activeDestination == TvDestination.SEARCH) {
+                            if (palette.isDark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.18f)
+                        } else {
+                            if (palette.isDark) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.08f)
+                        }
+                    )
+                    .tvButtonFocus(
+                        shape = CircleShape,
+                        focusedScale = 1.15f,
+                        focusedBorderColor = if (palette.isDark) Color.White else palette.accentRed,
+                        borderWidth = 3.dp,
+                        onClick = onOpenSearch,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = palette.textPrimary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+
+            // Frosted Circular Settings Button (Beside Search)
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (activeDestination == TvDestination.SETTINGS) {
+                            if (palette.isDark) Color.White.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.18f)
+                        } else {
+                            if (palette.isDark) Color.White.copy(alpha = 0.14f) else Color.Black.copy(alpha = 0.08f)
+                        }
+                    )
+                    .tvButtonFocus(
+                        shape = CircleShape,
+                        focusedScale = 1.15f,
+                        focusedBorderColor = if (palette.isDark) Color.White else palette.accentRed,
+                        borderWidth = 3.dp,
+                        onClick = onOpenSettings,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = palette.textPrimary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
         }
     }
+}
 }
 
 @Composable
@@ -477,13 +711,14 @@ private fun TvNavPillItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val palette = TvThemeColors.current
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     val bgColor by animateColorAsState(
         targetValue = when {
-            isFocused -> Color.White
-            isSelected -> Color.White.copy(alpha = 0.22f)
+            isFocused -> if (palette.isDark) Color.White else palette.accentRed
+            isSelected -> if (palette.isDark) Color.White.copy(alpha = 0.22f) else palette.surfaceSelected
             else -> Color.Transparent
         },
         animationSpec = appleSpring(AppleSpringPreset.Snappy),
@@ -492,9 +727,9 @@ private fun TvNavPillItem(
 
     val textColor by animateColorAsState(
         targetValue = when {
-            isFocused -> Color.Black
-            isSelected -> Color.White
-            else -> Color.White.copy(alpha = 0.65f)
+            isFocused -> if (palette.isDark) Color.Black else Color.White
+            isSelected -> if (palette.isDark) Color.White else palette.accentRed
+            else -> palette.textSecondary
         },
         animationSpec = appleSpring(AppleSpringPreset.Snappy),
         label = "navPillText",
@@ -663,26 +898,36 @@ private fun TvGlobalMiniPlayer(
 ) {
     val song = playerState.song ?: return
     val isPlaying = playerState.isPlaying
+    val palette = TvThemeColors.current
 
-    Row(
+    Box(
         modifier = modifier
             .tvButtonFocus(
-                shape = RoundedCornerShape(16.dp),
-                focusedScale = 1.03f,
+                shape = RoundedCornerShape(20.dp),
+                focusedScale = 1.05f,
                 focusedBorderColor = Color.White,
+                borderWidth = 3.dp,
                 onClick = onClick,
-            )
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xE61E1E26))
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ),
     ) {
+        // Frosted Glass Blur Backdrop Layer (Ultra-optimized, sits behind controls)
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .tvMiniPlayerBlur(shape = RoundedCornerShape(20.dp)),
+        )
+
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
         Box(
             modifier = Modifier
                 .size(44.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color.White.copy(alpha = 0.1f)),
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.White.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center,
         ) {
             if (!song.thumbnailUrl.isNullOrBlank()) {
@@ -712,7 +957,7 @@ private fun TvGlobalMiniPlayer(
                 text = song.artist,
                 fontSize = 12.sp,
                 fontFamily = TvSFProDisplay,
-                color = Color.White.copy(alpha = 0.65f),
+                color = Color.White.copy(alpha = 0.70f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -720,7 +965,7 @@ private fun TvGlobalMiniPlayer(
 
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(34.dp)
                 .clip(CircleShape)
                 .background(Color.White)
                 .clickable {
@@ -736,4 +981,5 @@ private fun TvGlobalMiniPlayer(
             )
         }
     }
+}
 }

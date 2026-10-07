@@ -80,13 +80,8 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-<<<<<<< HEAD
-        versionCode = 100
-        versionName = "1.0.0"
-=======
-        versionCode = 22
-        versionName = "1.7"
->>>>>>> upstream/main
+        versionCode = 108
+        versionName = "2.6.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -106,8 +101,6 @@ android {
             reset()
             include("armeabi-v7a", "arm64-v8a", "x86_64")
             isUniversalApk = true
-        }
-    }
         }
     }
 
@@ -175,13 +168,14 @@ android {
              * `benchmark` build type below before it ships.
              */
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Null without a keystore to sign with: the build then produces
-            // app-release-unsigned.apk instead of failing outright.
-            signingConfig = signingConfigs.findByName("release")
+            // Null without a keystore to sign with: fallback to debug signing
+            // so the release build is fully R8 optimized and directly installable.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
         /*
          * The release build, installable next to the dev and prod apps: same R8,

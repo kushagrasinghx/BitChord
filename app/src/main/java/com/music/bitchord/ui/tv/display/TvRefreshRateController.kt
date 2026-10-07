@@ -6,6 +6,7 @@ import android.hardware.display.DisplayManager
 import android.os.Build
 import android.util.Log
 import android.view.Display
+import android.view.Surface
 import android.view.WindowManager
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +51,7 @@ object TvRefreshRateController {
             override fun onDisplayChanged(displayId: Int) {
                 if (displayId == display?.displayId) {
                     updateCapabilities(display)
+                    applyToWindow(activity, _preference.value)
                 }
             }
         }
@@ -94,7 +96,7 @@ object TvRefreshRateController {
 
             lp.preferredDisplayModeId = targetModeId
 
-            // Direct refresh rate override for panels where mode IDs are not reported
+            // Legacy direct refresh rate override (API 23+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 when (pref) {
                     TvRefreshRatePreference.ULTRA_120 -> {
@@ -112,7 +114,43 @@ object TvRefreshRateController {
                 }
             }
 
+            // Modern Android R (API 30+) display refresh rate bounds via reflection for universal SDK compatibility
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val (minR, maxR) = when (pref) {
+                    TvRefreshRatePreference.ULTRA_120 -> 120.0f to 120.0f
+                    TvRefreshRatePreference.SMOOTH_60 -> 60.0f to 60.0f
+                    TvRefreshRatePreference.SYSTEM_AUTO -> 0.0f to 0.0f
+                }
+                try {
+                    lp.javaClass.getField("preferredMinDisplayRefreshRate").setFloat(lp, minR)
+                    lp.javaClass.getField("preferredMaxDisplayRefreshRate").setFloat(lp, maxR)
+                } catch (_: Throwable) {}
+            }
+
             window.attributes = lp
+
+            // Android S (API 31+) surface frame rate request for ultra-smooth 120fps Compose rendering
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    val frameRate = when (pref) {
+                        TvRefreshRatePreference.ULTRA_120 -> 120.0f
+                        TvRefreshRatePreference.SMOOTH_60 -> 60.0f
+                        TvRefreshRatePreference.SYSTEM_AUTO -> 0.0f
+                    }
+                    if (frameRate > 0f) {
+                        val rootCtrl = window.decorView.rootSurfaceControl
+                        if (rootCtrl != null) {
+                            val setFrameRateMethod = rootCtrl.javaClass.methods.firstOrNull {
+                                it.name == "setFrameRate" && it.parameterTypes.size == 3
+                            }
+                            setFrameRateMethod?.invoke(rootCtrl, frameRate, 0, 1)
+                        }
+                    }
+                } catch (t: Throwable) {
+                    Log.w(TAG, "RootSurfaceControl.setFrameRate failed", t)
+                }
+            }
+
             Log.d(TAG, "Applied display settings: preferredDisplayModeId=$targetModeId, pref=$pref")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to apply display mode to window", e)

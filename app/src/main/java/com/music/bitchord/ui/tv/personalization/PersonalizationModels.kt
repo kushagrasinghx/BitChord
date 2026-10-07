@@ -23,18 +23,12 @@ enum class AppThemeOption(
         id = "pure_black",
         title = "Pure Black (OLED)",
         description = "True #000000 pitch black canvas engineered for maximum OLED contrast.",
-    ),
-    LIGHT_WHITE(
-        id = "light_white",
-        title = "Pure White (Light Mode)",
-        description = "Clean high-contrast luxury white canvas with deep black typography and glass highlights.",
     );
 
     companion object {
         fun fromId(id: String?): AppThemeOption = when (id?.lowercase()) {
             "midnight" -> MIDNIGHT
             "pure_black", "oled" -> PURE_BLACK
-            "light_white", "light", "white" -> LIGHT_WHITE
             else -> DYNAMIC_ARTWORK
         }
     }
@@ -67,9 +61,9 @@ fun AppThemeOption.getPalette(): TvThemePalette = when (this) {
         textPrimary = Color(0xFFFFFFFF),
         textSecondary = Color(0xFFA0A0AB),
         textMuted = Color(0xFF6E6E7A),
-        accent = Color(0xFFFA2D48),
-        accentGlow = Color(0x66FA2D48),
-        borderFocused = Color(0xFFFA2D48),
+        accent = Color(0xFFFFFFFF),
+        accentGlow = Color(0x66FFFFFF),
+        borderFocused = Color(0xFFFFFFFF),
     )
     AppThemeOption.MIDNIGHT -> TvThemePalette(
         background = Color(0xFF0A0E17),
@@ -91,27 +85,13 @@ fun AppThemeOption.getPalette(): TvThemePalette = when (this) {
         surface = Color(0xFF121212),
         surfaceVariant = Color(0xFF1E1E1E),
         surfaceFocused = Color(0xFF2C2C2C),
-        surfaceSelected = Color(0xFF331015),
+        surfaceSelected = Color(0xFF202020),
         textPrimary = Color(0xFFFFFFFF),
         textSecondary = Color(0xFFB0B0B0),
         textMuted = Color(0xFF707070),
-        accent = Color(0xFFFA2D48),
-        accentGlow = Color(0x66FA2D48),
-        borderFocused = Color(0xFFFA2D48),
-    )
-    AppThemeOption.LIGHT_WHITE -> TvThemePalette(
-        background = Color(0xFFF2F2F7),
-        backgroundElevated = Color(0xFFFFFFFF),
-        surface = Color(0xFFFFFFFF),
-        surfaceVariant = Color(0xFFE5E5EA),
-        surfaceFocused = Color(0xFFD1D1D6),
-        surfaceSelected = Color(0xFFFA2D48),
-        textPrimary = Color(0xFF1C1C1E),
-        textSecondary = Color(0xFF636366),
-        textMuted = Color(0xFF8E8E93),
-        accent = Color(0xFFFA2D48),
-        accentGlow = Color(0x33FA2D48),
-        borderFocused = Color(0xFF1C1C1E),
+        accent = Color(0xFFFFFFFF),
+        accentGlow = Color(0x66FFFFFF),
+        borderFocused = Color(0xFFFFFFFF),
     )
 }
 

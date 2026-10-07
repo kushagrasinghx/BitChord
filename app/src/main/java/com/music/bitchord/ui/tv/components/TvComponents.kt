@@ -2,12 +2,16 @@ package com.music.bitchord.ui.tv.components
 
 import android.graphics.Bitmap
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -185,7 +189,9 @@ fun TvCard(
     )
 
     Column(
-        modifier = modifier.width(cardWidth),
+        modifier = modifier.then(
+            if (cardWidth != Dp.Unspecified) Modifier.width(cardWidth) else Modifier.fillMaxWidth()
+        ),
     ) {
         // Small category label above card
         if (!categoryLabel.isNullOrBlank()) {
@@ -194,7 +200,7 @@ fun TvCard(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 fontFamily = TvSFProDisplay,
-                color = if (isFocused) Color.White else Color.White.copy(alpha = 0.5f),
+                color = if (isFocused) palette.textPrimary else palette.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
@@ -208,7 +214,6 @@ fun TvCard(
                 .tvCardFocus(
                     shape = shape,
                     focusedScale = 1.06f,
-                    focusedBorderColor = Color.White,
                     onClick = onClick,
                 )
                 .background(textBgColor),
@@ -341,23 +346,48 @@ fun TvButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val palette = TvThemeColors.current
+
+    val targetScale = when {
+        isPressed -> 0.95f
+        isFocused -> 1.05f
+        else -> 1.0f
+    }
+    val buttonScale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = appleSpring(AppleSpringPreset.Snappy),
+        label = "tvButtonScale",
+    )
 
     val bgColor by animateColorAsState(
         targetValue = when {
             !enabled -> TvColors.SurfaceVariant.copy(alpha = 0.5f)
-            isFocused -> if (isPrimary) TvColors.AccentRed else TvColors.SurfaceFocused
-            isPrimary -> TvColors.AccentRed.copy(alpha = 0.85f)
+            isFocused -> if (isPrimary) Color.White else TvColors.SurfaceFocused
+            isPrimary -> if (palette.isDark) Color.White else Color(0xFF1C1C1E)
             else -> TvColors.SurfaceVariant
         },
         animationSpec = appleSpring(AppleSpringPreset.Snappy),
         label = "tvButtonBg",
     )
 
+    val contentColor = when {
+        !enabled -> TvColors.TextMuted
+        isPrimary && isFocused -> Color.Black
+        isPrimary -> if (palette.isDark) Color.Black else Color.White
+        isFocused -> if (palette.isDark) Color.White else Color.Black
+        else -> Color.White
+    }
+
     Row(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = buttonScale
+                scaleY = buttonScale
+            }
             .tvButtonFocus(
                 shape = RoundedCornerShape(12.dp),
-                focusedScale = 1.05f,
+                focusedScale = 1.0f,
                 onClick = if (enabled) onClick else null,
             )
             .background(bgColor)
@@ -369,14 +399,14 @@ fun TvButton(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (enabled) Color.White else TvColors.TextMuted,
+                tint = contentColor,
                 modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
         Text(
             text = text,
-            color = if (enabled) Color.White else TvColors.TextMuted,
+            color = contentColor,
             fontSize = 15.sp,
             fontWeight = FontWeight.W600,
             fontFamily = TvSFProDisplay,
@@ -400,12 +430,25 @@ fun TvIconButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isFocused by interactionSource.collectIsFocusedAsState()
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val palette = TvThemeColors.current
+
+    val targetScale = when {
+        isPressed -> 0.94f
+        isFocused -> 1.08f
+        else -> 1.0f
+    }
+    val buttonScale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = appleSpring(AppleSpringPreset.Snappy),
+        label = "tvIconBtnScale",
+    )
 
     val bgColor by animateColorAsState(
         targetValue = when {
-            isFocused -> if (isPrimary) TvColors.AccentRed else TvColors.SurfaceFocused
-            isActive -> TvColors.AccentRed.copy(alpha = 0.3f)
-            isPrimary -> TvColors.AccentRed
+            isFocused -> if (isPrimary) Color.White else TvColors.SurfaceFocused
+            isActive -> Color.White.copy(alpha = 0.25f)
+            isPrimary -> if (palette.isDark) Color.White else Color(0xFF1C1C1E)
             else -> TvColors.SurfaceVariant
         },
         animationSpec = appleSpring(AppleSpringPreset.Snappy),
@@ -415,10 +458,13 @@ fun TvIconButton(
     Box(
         modifier = modifier
             .size(size)
+            .graphicsLayer {
+                scaleX = buttonScale
+                scaleY = buttonScale
+            }
             .tvButtonFocus(
                 shape = CircleShape,
-                focusedScale = 1.1f,
-                focusedBorderColor = TvColors.BorderFocused,
+                focusedScale = 1.0f,
                 onClick = onClick,
             )
             .background(bgColor),
@@ -428,10 +474,10 @@ fun TvIconButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = when {
-                isFocused -> Color.White
-                isActive -> TvColors.AccentRed
-                isPrimary -> Color.White
-                else -> TvThemeColors.current.textPrimary
+                isFocused -> if (isPrimary) Color.Black else if (palette.isDark) Color.White else Color.Black
+                isActive -> Color.White
+                isPrimary -> if (palette.isDark) Color.Black else Color.White
+                else -> palette.textPrimary
             },
             modifier = Modifier.size(iconSize),
         )
@@ -494,6 +540,7 @@ fun TvSlider(
 
         // Thumb Indicator (visible on focus)
         if (isFocused) {
+            val palette = TvThemeColors.current
             Box(
                 modifier = Modifier
                     .fillMaxWidth(fraction)
@@ -504,7 +551,7 @@ fun TvSlider(
                     modifier = Modifier
                         .size(16.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(if (palette.isDark) Color.White else palette.accentRed)
                 )
             }
         }
@@ -712,7 +759,7 @@ fun TvEmptyState(
 }
 
 /**
- * TV Modal Dialog Container with focus trap and back press handling.
+ * TV Modal Dialog Container with focus trap, back press handling, and Apple spring entrance animation.
  */
 @Composable
 fun TvDialog(
@@ -721,6 +768,20 @@ fun TvDialog(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { isVisible = true }
+
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0.88f,
+        animationSpec = appleSpring(AppleSpringPreset.Snappy),
+        label = "dialogScale",
+    )
+    val animatedAlpha by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = tween(180),
+        label = "dialogAlpha",
+    )
+
     Dialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(
@@ -732,14 +793,32 @@ fun TvDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(TvColors.ScrimDark),
+                .background(Color.Black.copy(alpha = 0.65f)),
             contentAlignment = Alignment.Center,
         ) {
             Column(
                 modifier = modifier
                     .fillMaxWidth(0.55f)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(TvThemeColors.current.surface)
+                    .graphicsLayer {
+                        scaleX = animatedScale
+                        scaleY = animatedScale
+                        alpha = animatedAlpha
+                    }
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        if (TvThemeColors.current.isDark) Color(0xF5121218)
+                        else Color(0xF7F7F7FA)
+                    )
+                    .border(
+                        width = 1.dp,
+                        brush = Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = 0.35f),
+                                Color.White.copy(alpha = 0.08f),
+                            )
+                        ),
+                        shape = RoundedCornerShape(24.dp),
+                    )
                     .padding(28.dp),
             ) {
                 Text(

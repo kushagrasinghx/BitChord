@@ -57,8 +57,10 @@ data class TvDisplayCapabilities(
     val hasAdaptiveRefreshRateSupport: Boolean? = null,
 ) {
     val is120HzSupported: Boolean
-        get() = compatible120ModeId != null
+        get() = compatible120ModeId != null ||
+                actualRefreshRateHz >= 119.0f ||
+                supportedModes.any { it.refreshRate >= 119.0f || it.alternativeRefreshRates.any { rate -> rate >= 119.0f } }
 
     val is60HzSupported: Boolean
-        get() = compatible60ModeId != null
+        get() = compatible60ModeId != null || supportedModes.any { it.refreshRate in 58.0f..62.0f }
 }

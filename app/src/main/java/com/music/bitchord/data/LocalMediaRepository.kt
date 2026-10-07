@@ -286,7 +286,6 @@ object LocalMediaRepository {
                 }
             }
         }.onFailure { Log.w(TAG, "Failed scanning device local music via MediaStore: ${it.message}") }
-        }
 
         // 2. Direct File System Scan for USB Pendrives & Mounted External Storage (/storage/)
         runCatching {

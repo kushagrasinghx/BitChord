@@ -40,6 +40,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -103,12 +105,14 @@ fun TvDetailScreen(
         }
     }
 
+    val coroutineScope = rememberCoroutineScope()
+
     if (page == null) {
         Box(
             modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
+            contentAlignment = Alignment.BottomCenter,
         ) {
-            CircularProgressIndicator(color = TvColors.AccentRed)
+            com.music.bitchord.ui.tv.components.TvBottomLoadingBar(visible = true)
         }
     } else {
         TvDetailContent(
@@ -116,12 +120,16 @@ fun TvDetailScreen(
             onRequestStoragePermission = { permissionLauncher.launch(permissionsToRequest) },
             onRetry = { viewModel.openDetail(browseId, initialTitle, initialSubtitle, initialThumbnailUrl, type) },
             onPlaySongAt = { songs, index ->
-                mediaController?.playSongs(songs, index)
+                coroutineScope.launch {
+                    mediaController?.playSongs(songs, index)
+                }
                 onNavigateToNowPlaying()
             },
             onShufflePlay = { songs ->
                 if (songs.isNotEmpty()) {
-                    mediaController?.playSongs(songs.shuffled(), 0)
+                    coroutineScope.launch {
+                        mediaController?.playSongs(songs.shuffled(), 0)
+                    }
                     onNavigateToNowPlaying()
                 }
             },
@@ -237,9 +245,9 @@ private fun TvDetailContent(
                 is UiState.Loading -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
+                        contentAlignment = Alignment.BottomCenter,
                     ) {
-                        CircularProgressIndicator(color = TvColors.AccentRed)
+                        com.music.bitchord.ui.tv.components.TvBottomLoadingBar(visible = true)
                     }
                 }
                 is UiState.Error -> {

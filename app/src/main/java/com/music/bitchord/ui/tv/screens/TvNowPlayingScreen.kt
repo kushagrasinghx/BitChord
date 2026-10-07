@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.music.bitchord.ui.tv.player.TvLyricsList
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Favorite
@@ -477,19 +478,6 @@ private fun TvLyricsPanel(
     currentPositionMs: Long,
     onClose: () -> Unit,
 ) {
-    val listState = rememberLazyListState()
-
-    // Find current active lyric index
-    val activeIndex = remember(lyrics, currentPositionMs) {
-        lyrics?.indexOfLast { it.timeMs <= currentPositionMs }?.coerceAtLeast(0) ?: 0
-    }
-
-    LaunchedEffect(activeIndex) {
-        if (lyrics != null && activeIndex in lyrics.indices) {
-            listState.animateScrollToItem(activeIndex)
-        }
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -518,36 +506,17 @@ private fun TvLyricsPanel(
             )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-        if (lyrics.isNullOrEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "Lyrics not available for this song",
-                    color = TvColors.TextMuted,
-                    fontSize = 15.sp,
-                    fontFamily = TvSFProDisplay,
-                )
-            }
-        } else {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(vertical = 10.dp),
-            ) {
-                itemsIndexed(lyrics) { index, line ->
-                    val isActive = index == activeIndex
-                    Text(
-                        text = line.text.ifBlank { "♪" },
-                        fontSize = if (isActive) 22.sp else 16.sp,
-                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                        fontFamily = TvSFProDisplay,
-                        color = if (isActive) TvColors.AccentRed else TvColors.TextSecondary.copy(alpha = 0.6f),
-                    )
-                }
-            }
-        }
+        TvLyricsList(
+            lyrics = lyrics,
+            currentPositionMs = currentPositionMs,
+            isLoading = false,
+            error = null,
+            onRetry = {},
+            onSeekToTimestamp = {},
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 

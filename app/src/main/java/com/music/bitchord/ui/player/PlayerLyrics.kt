@@ -1621,8 +1621,7 @@ internal fun LyricsPanel(
             .nestedScroll(controlsOnScroll)
             .nestedScroll(keepScroll)
             // Browsing leaves taps to each lyric row's seek action throughout the list.
-            .revealLyricsControlsOnTap(!controlsOpen, onBottomHalfTap)
-            .fadingEdges(),
+            .revealLyricsControlsOnTap(!controlsOpen, onBottomHalfTap),
         // Each row carries GLOW_ROOM of its own inset for the halo, so the
         // list hands that much back — otherwise the lines would sit a glow's
         // width further apart and further in than they used to.
@@ -1676,15 +1675,26 @@ internal fun LyricsPanel(
             val offset = if (scrollLine < 0) 0 else index - scrollLine
             val distance = abs(offset)
             val isActive = isSynced && index in activeRows
-            // Symmetric either side of the playing line, and shallow: the two
-            // rows around it stay readable so you can follow back over what was
-            // just sung as well as ahead, and everything past that recedes to
-            // the same floor rather than fading to nothing.
-            val step = distance.coerceAtMost(LINE_FALLOFF_ALPHA.lastIndex)
+
+            // Hardware-safe progressive text blur hierarchy per TV_TEXT_BLUR_ALGORITHM.md:
+            // - Active/Focused line: 0.0dp blur (0% blur) -> Zero GPU shader stalls during syllable sweeps
+            // - Top lines (past context): ~20% blur (1.0dp - 1.6dp) -> Soft optical diffusion, remains legible
+            // - Bottom lines (upcoming lyrics): ~60% blur (1.8dp - 5.4dp) -> Deep atmospheric Apple-style blur
             val blur by animateDpAsState(
                 targetValue = when {
-                    !isSynced || reduceDynamicBlur || !lyricsBlur || browsing || isActive -> 0.dp
-                    else -> LINE_FALLOFF_BLUR[step]
+                    !isSynced || reduceDynamicBlur || !lyricsBlur || isActive -> 0.dp
+                    offset < 0 -> {
+                        // Top lines (past sung context): 20% blur
+                        if (distance == 1) 1.0.dp else 1.6.dp
+                    }
+                    else -> {
+                        // Bottom lines (upcoming lyrics): thoughtfully ~60% blur
+                        when (distance) {
+                            1 -> 1.8.dp // Next immediate line: slight anticipation
+                            2 -> 3.6.dp
+                            else -> 5.4.dp // ~60% optical blur
+                        }
+                    }
                 },
                 animationSpec = tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING),
                 label = "lyricBlur",
@@ -1693,10 +1703,19 @@ internal fun LyricsPanel(
                 targetValue = when {
                     !isSynced -> 0.95f
                     isActive -> 1f
-                    // Reading by hand is not following along: the stack flattens
-                    // to one brightness so no row is being pointed at.
-                    browsing -> BROWSING_ALPHA
-                    else -> LINE_FALLOFF_ALPHA[step]
+                    browsing -> if (isActive) 1f else 0.70f // Never lose active line focus when browsing!
+                    offset < 0 -> {
+                        // Top lines: readable past context (~20% fade)
+                        if (distance == 1) 0.82f else 0.65f
+                    }
+                    else -> {
+                        // Bottom lines: progressive falloff
+                        when (distance) {
+                            1 -> 0.78f
+                            2 -> 0.55f
+                            else -> 0.38f
+                        }
+                    }
                 },
                 animationSpec = tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING),
                 label = "lyricAlpha",

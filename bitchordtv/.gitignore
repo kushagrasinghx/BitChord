@@ -1,0 +1,57 @@
+# Gradle
+.gradle/
+.vscode/
+/build/
+/app/build/
+/desktopApp/bin/
+build/
+builds/
+bills/
+*.apk
+*.aab
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Local configuration file (SDK path, etc.)
+local.properties
+
+# Kotlin
+.kotlin/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+
+# Log/OS files
+*.log
+.DS_Store
+Thumbs.db
+
+# Release signing — never commit the key or its passwords
+keystore.properties
+*.jks
+*.keystore
+
+# Project scratch / debug artifacts / experimental
+.shots/
+.tmp_verify/
+.debug/
+TIZEN OS/
+originalsrcappmobile/
+md files/
+.agents/
+TV_*.md
+
+# AI agent configuration
+AGENTS.md
+
+/output/
+

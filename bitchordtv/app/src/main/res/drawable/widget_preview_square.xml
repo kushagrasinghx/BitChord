@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Picker artwork for the 2×2 widget, on hosts older than API 31 — from 31 the
+  picker inflates previewLayout instead and this is never seen.
+
+  The band's darkening is folded into the background's own gradient rather than
+  drawn as a second rect over it, so there is nothing to clip against the rounded
+  corners: a dark rect pinned to the bottom would square off the two corners the
+  path underneath had rounded.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="110dp"
+    android:height="110dp"
+    android:viewportWidth="110"
+    android:viewportHeight="110">
+
+    <path android:pathData="M12,0 L98,0 A12,12 0 0 1 110,12 L110,98 A12,12 0 0 1 98,110 L12,110 A12,12 0 0 1 0,98 L0,12 A12,12 0 0 1 12,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="0"
+                android:endY="110"
+                android:startX="0"
+                android:startY="0"
+                android:type="linear">
+                <item android:color="#FF2E3446" android:offset="0" />
+                <item android:color="#FF1B2130" android:offset="0.45" />
+                <item android:color="#FF07090E" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!--
+      Transport, on the row the real layout puts it: the band is 66dp of a 110dp
+      widget, 4dp of that is padding below the buttons, and the buttons are 40dp
+      with a 9dp inset — so the glyphs run from y=75 to y=97. Spread across the
+      band's content width the way the weighted row spreads them, rather than
+      bunched in the middle.
+    -->
+    <group android:translateX="12.7" android:translateY="75" android:scaleX="0.917" android:scaleY="0.917">
+        <path android:pathData="M7,7.4L7,16.6" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeWidth="2.4" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M16.6,7.7L16.6,16.3L10.7,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.4" />
+    </group>
+    <group android:translateX="44" android:translateY="75" android:scaleX="0.917" android:scaleY="0.917">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M8.4,6.4L8.4,17.6L17.6,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.6" />
+    </group>
+    <group android:translateX="75.3" android:translateY="75" android:scaleX="0.917" android:scaleY="0.917">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M7.4,7.7L7.4,16.3L13.3,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.4" />
+        <path android:pathData="M17,7.4L17,16.6" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeWidth="2.4" />
+    </group>
+</vector>

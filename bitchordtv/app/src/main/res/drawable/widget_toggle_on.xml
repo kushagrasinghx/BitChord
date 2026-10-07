@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A toggle button that is on — Shuffle in the pill widget. A soft disc behind the
+  glyph, the way the player's own Shuffle shows it; a white glyph on arbitrary
+  wallpaper has no colour to change to that is sure to read. Same ripple and
+  oval mask as widget_transport_button, so pressing it looks the same.
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#40FFFFFF">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#33FFFFFF" />
+        </shape>
+    </item>
+</ripple>

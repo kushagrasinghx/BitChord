@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The 4×2 widget, and the shape either widget takes at
+  MediaWidget.WIDE_LAYOUT_MIN_DP or wider. Same full-bleed cover and same baked
+  blur as widget_media_compact; the extra width goes to the track, because three
+  glyphs spread across four cells reads as an empty bar.
+
+  See widget_media_compact for why the band's height has to match the blurred
+  region, and why nothing in it is clickable except the buttons themselves.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_preview_art">
+
+    <ImageView
+        android:id="@+id/widget_art"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/widget_artwork"
+        android:scaleType="fitXY" />
+
+    <LinearLayout
+        android:id="@+id/widget_band"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/widget_band_wide"
+        android:layout_gravity="bottom"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="14dp"
+        android:paddingRight="4dp">
+
+        <LinearLayout
+            android:id="@+id/widget_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingRight="8dp">
+
+            <TextView
+                android:id="@+id/widget_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/sf_pro_display_semibold"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FFFFFFFF"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/widget_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:fontFamily="@font/sf_pro_display_regular"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#B3FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/widget_previous"
+            android:layout_width="@dimen/widget_button_wide"
+            android:layout_height="@dimen/widget_button_wide"
+            android:background="@drawable/widget_transport_button"
+            android:contentDescription="@string/widget_previous"
+            android:padding="10dp"
+            android:src="@drawable/ic_widget_previous" />
+
+        <ImageView
+            android:id="@+id/widget_toggle"
+            android:layout_width="@dimen/widget_button_wide"
+            android:layout_height="@dimen/widget_button_wide"
+            android:background="@drawable/widget_transport_button"
+            android:contentDescription="@string/widget_play"
+            android:padding="10dp"
+            android:src="@drawable/ic_widget_play" />
+
+        <ImageView
+            android:id="@+id/widget_next"
+            android:layout_width="@dimen/widget_button_wide"
+            android:layout_height="@dimen/widget_button_wide"
+            android:background="@drawable/widget_transport_button"
+            android:contentDescription="@string/widget_next"
+            android:padding="10dp"
+            android:src="@drawable/ic_widget_next" />
+    </LinearLayout>
+</FrameLayout>

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the picker shows for the 4×1 widget on API 31+: widget_media_pill with
+  stand-in text, no ids and no press states. See that file for the layout.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/widget_pill_height"
+        android:layout_gravity="center_vertical">
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/widget_pill_background"
+            android:importantForAccessibility="no"
+            android:scaleType="fitXY" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingLeft="7dp"
+            android:paddingRight="12dp">
+
+            <!--
+              The bitmap arrives already cut to a circle — see MediaWidgetPill. The
+              oval background is only what shows before it does.
+            -->
+            <ImageView
+                android:layout_width="@dimen/widget_pill_art"
+                android:layout_height="@dimen/widget_pill_art"
+                android:background="@drawable/widget_pill_art_placeholder"
+                android:contentDescription="@string/widget_artwork"
+                android:scaleType="fitXY" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="6dp"
+                android:layout_marginTop="4dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <!--
+                  Inset by the heart's own inset inside its button (9dp of padding
+                  plus the glyph's side bearing), so the text starts exactly above
+                  the heart rather than to the left of it.
+                -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/sf_pro_display_semibold"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:text="@string/widget_preview_pill"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="16sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/widget_button_pill"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:contentDescription="@string/like"
+                        android:padding="9dp"
+                        android:src="@drawable/ic_widget_heart" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:contentDescription="@string/widget_previous"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_widget_previous" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:contentDescription="@string/widget_play"
+                        android:padding="4dp"
+                        android:src="@drawable/ic_widget_play" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:contentDescription="@string/widget_next"
+                        android:padding="6dp"
+                        android:src="@drawable/ic_widget_next" />
+
+                    <FrameLayout
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <ImageView
+                        android:layout_width="@dimen/widget_button_pill"
+                        android:layout_height="@dimen/widget_button_pill"
+                        android:contentDescription="@string/shuffle_off"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_widget_shuffle" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>

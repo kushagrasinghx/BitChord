@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Picker artwork for the 4×2 widget, on hosts older than API 31. See
+  widget_preview_square for why the band is part of the background gradient.
+  The two bars on the left stand in for the title and artist lines.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="250dp"
+    android:height="110dp"
+    android:viewportWidth="250"
+    android:viewportHeight="110">
+
+    <path android:pathData="M12,0 L238,0 A12,12 0 0 1 250,12 L250,98 A12,12 0 0 1 238,110 L12,110 A12,12 0 0 1 0,98 L0,12 A12,12 0 0 1 12,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="0"
+                android:endY="110"
+                android:startX="0"
+                android:startY="0"
+                android:type="linear">
+                <item android:color="#FF2E3446" android:offset="0" />
+                <item android:color="#FF1B2130" android:offset="0.45" />
+                <item android:color="#FF07090E" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Title and artist. -->
+    <path android:pathData="M18,73L104,73" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeWidth="7" />
+    <path android:pathData="M18,89L74,89" android:strokeColor="#8CFFFFFF" android:strokeLineCap="round" android:strokeWidth="6" />
+
+    <!-- Transport, right-aligned in the band: previous, play, next. -->
+    <group android:translateX="160" android:translateY="68" android:scaleX="1" android:scaleY="1">
+        <path android:pathData="M7,7.4L7,16.6" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeWidth="2.4" />
+        <path android:fillColor="#FFFFFFFF" android:pathData="M16.6,7.7L16.6,16.3L10.7,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.4" />
+    </group>
+    <group android:translateX="188" android:translateY="68" android:scaleX="1" android:scaleY="1">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M8.4,6.4L8.4,17.6L17.6,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.6" />
+    </group>
+    <group android:translateX="216" android:translateY="68" android:scaleX="1" android:scaleY="1">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M7.4,7.7L7.4,16.3L13.3,12Z" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeLineJoin="round" android:strokeWidth="2.4" />
+        <path android:pathData="M17,7.4L17,16.6" android:strokeColor="#FFFFFFFF" android:strokeLineCap="round" android:strokeWidth="2.4" />
+    </group>
+</vector>

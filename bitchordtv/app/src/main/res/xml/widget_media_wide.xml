@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The 4×2 entry in the widget picker: same widget, placed four cells wide by
+  default and so laid out with the track alongside the transport. See
+  widget_media_square for the grid arithmetic, why resizing is horizontal only,
+  and why maxResizeWidth is 288dp rather than four cells' nominal 250dp.
+
+  minResizeWidth lets this one be dragged back down to two cells, where it takes
+  the compact layout — the two providers differ in the size they arrive at, not
+  in what they can become.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_wide_description"
+    android:initialLayout="@layout/widget_media_wide"
+    android:maxResizeWidth="288dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minWidth="250dp"
+    android:previewImage="@drawable/widget_preview_wide"
+    android:previewLayout="@layout/widget_media_wide_preview"
+    android:resizeMode="horizontal"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

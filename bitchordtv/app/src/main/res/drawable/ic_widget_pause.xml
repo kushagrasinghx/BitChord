@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pause. Two bars drawn as round-capped lines rather than as rounded rectangles:
+  a line of stroke width w with a round cap *is* a bar w wide with fully rounded
+  ends, which is what the rounded icon set's pause looks like, and it needs four
+  numbers instead of a dozen. See ic_widget_play for why the glyphs are white.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M8.2,6.8L8.2,17.2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="3.6" />
+    <path
+        android:pathData="M15.8,6.8L15.8,17.2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="3.6" />
+</vector>

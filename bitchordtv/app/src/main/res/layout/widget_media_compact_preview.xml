@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the picker shows for the 2×2 widget on API 31+, where previewLayout is
+  inflated live rather than an image being drawn.
+
+  A copy of widget_media_compact with stand-in text, and only because of the
+  text: everything else about the real layout already previews itself correctly —
+  widget_art carries no bitmap until a provider fills it, so the root's gradient
+  background shows through. The same reason widget_media_wide_preview exists.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_preview_art">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/widget_band_compact"
+        android:layout_gravity="bottom"
+        android:gravity="center_horizontal|bottom"
+        android:orientation="vertical"
+        android:paddingLeft="@dimen/widget_band_padding"
+        android:paddingRight="@dimen/widget_band_padding"
+        android:paddingBottom="4dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="3dp"
+            android:ellipsize="end"
+            android:fontFamily="@font/sf_pro_display_semibold"
+            android:gravity="center_horizontal"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:paddingLeft="4dp"
+            android:paddingRight="4dp"
+            android:text="@string/widget_preview_title"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_button_compact"
+                android:layout_weight="1"
+                android:contentDescription="@string/widget_previous"
+                android:padding="9dp"
+                android:src="@drawable/ic_widget_previous" />
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_button_compact"
+                android:layout_weight="1"
+                android:contentDescription="@string/widget_play"
+                android:padding="9dp"
+                android:src="@drawable/ic_widget_play" />
+
+            <ImageView
+                android:layout_width="0dp"
+                android:layout_height="@dimen/widget_button_compact"
+                android:layout_weight="1"
+                android:contentDescription="@string/widget_next"
+                android:padding="9dp"
+                android:src="@drawable/ic_widget_next" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

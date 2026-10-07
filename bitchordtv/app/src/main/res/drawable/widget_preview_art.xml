@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Stand-in artwork. Used two ways, and it has to work as both: as the picker
+  preview's cover, where no real track exists yet, and as what the widget draws
+  when a track genuinely has no artwork.
+
+  Only the top two stops are the "cover"; the bottom third darkens on its own,
+  standing in for the scrim the compositor bakes over real artwork so the
+  transport is legible over this too.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="@dimen/widget_corner_radius" />
+    <gradient
+        android:angle="270"
+        android:centerColor="#FF1B2130"
+        android:centerY="0.45"
+        android:endColor="#FF07090E"
+        android:startColor="#FF2E3446"
+        android:type="linear" />
+</shape>

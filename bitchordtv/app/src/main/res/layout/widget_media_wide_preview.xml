@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the picker shows for the 4×2 widget on API 31+, where previewLayout is
+  inflated live rather than an image being drawn.
+
+  A copy of widget_media_wide with stand-in text, and only because of the text:
+  the real layout already previews itself correctly — widget_art carries no
+  bitmap until a provider fills it, so the root's gradient background shows
+  through. widget_media_compact_preview exists for the same reason.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_preview_art">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/widget_band_wide"
+        android:layout_gravity="bottom"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="14dp"
+        android:paddingRight="4dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:paddingRight="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/sf_pro_display_semibold"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="@string/widget_preview_title"
+                android:textColor="#FFFFFFFF"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:fontFamily="@font/sf_pro_display_regular"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="@string/widget_preview_artist"
+                android:textColor="#B3FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="@dimen/widget_button_wide"
+            android:layout_height="@dimen/widget_button_wide"
+            android:contentDescription="@string/widget_previous"
+            android:padding="10dp"
+            android:src="@drawable/ic_widget_previous" />
+
+        <ImageView
+            android:layout_width="@dimen/widget_button_wide"
+            android:layout_height="@dimen/widget_button_wide"
+            android:contentDescription="@string/widget_play"
+            android:padding="10dp"
+            android:src="@drawable/ic_widget_play" />
+
+        <ImageView
+            android:layout_width="@dimen/widget_button_wide"
+            android:layout_height="@dimen/widget_button_wide"
+            android:contentDescription="@string/widget_next"
+            android:padding="10dp"
+            android:src="@drawable/ic_widget_next" />
+    </LinearLayout>
+</FrameLayout>

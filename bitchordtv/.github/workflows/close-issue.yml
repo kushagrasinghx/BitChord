@@ -1,0 +1,23 @@
+name: Close issue on /close
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  issues: write
+
+jobs:
+  close:
+    if: >-
+      !github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/close') &&
+      contains(fromJSON('["kushagrasinghx", "Galaxyyss"]'), github.event.comment.user.login)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close the issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: gh issue close "$ISSUE" --reason completed

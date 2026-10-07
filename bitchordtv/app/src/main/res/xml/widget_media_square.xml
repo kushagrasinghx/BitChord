@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The 2×2 entry in the widget picker. Sizes follow the launcher grid's own
+  arithmetic — a span of n cells is 70n − 30 dp — so 2 cells is 110dp.
+
+  resizeMode is horizontal only: every size this widget is meant to take is two
+  rows tall, and the band at its foot is a fixed height, so a widget stretched
+  vertically would just be more artwork above an unchanged bar. Width is free
+  between two and four cells, and the layout swaps at
+  MediaWidget.WIDE_LAYOUT_MIN_DP, so growing this one all the way picks up the
+  4×2's own layout rather than leaving three buttons adrift in a wide band.
+
+  maxResizeWidth is 288dp rather than 4 cells' nominal 250dp on purpose: cells
+  are not really 70dp on every launcher, and a cap set at the nominal figure
+  stops a launcher with slightly wider cells one column short of the four the
+  widget is supposed to reach. 288dp clears four cells anywhere while staying
+  well under five (320dp nominal), so the range on offer is the intended one.
+
+  previewLayout points at a copy of the real layout carrying stand-in text, for
+  the same reason the 4×2's does: widget_art holds no bitmap until a provider
+  fills one in, so the root's gradient shows through and the picker sees a cover
+  with the transport on it — but the title would be blank. previewImage is the
+  fallback for hosts below API 31, which don't inflate previewLayout at all.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_square_description"
+    android:initialLayout="@layout/widget_media_compact"
+    android:maxResizeWidth="288dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minWidth="110dp"
+    android:previewImage="@drawable/widget_preview_square"
+    android:previewLayout="@layout/widget_media_compact_preview"
+    android:resizeMode="horizontal"
+    android:targetCellHeight="2"
+    android:targetCellWidth="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the FileProvider is allowed to hand out, which is these folders and no
+  more.
+
+  The Replay poster is written to cache/shared and shared from there, so another
+  app receiving the intent can read that one picture and nothing else this app
+  has on disk — not the audio cache, not the downloads, not the listening
+  history. The in-app updater's APK cache is shared the same way, and only to
+  the installer. A provider declared over the whole cache directory would work
+  identically today and be a much larger promise.
+-->
+<paths>
+    <cache-path name="shared" path="shared/" />
+    <cache-path name="updates" path="updates/" />
+</paths>

@@ -1,0 +1,23 @@
+<!--
+  Status-bar / notification variant of the BitChord mark (assets/LogoTransparent.svg).
+
+  Notification small icons are drawn as a silhouette: the system throws away
+  every colour and keeps only the alpha channel, so the fill has to be opaque
+  white. The source art is 730x484 and off-centre, so the group scales its real
+  bounds down to the 22x22 content box Android expects inside a 24x24 canvas.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <group
+      android:scaleX="0.029647"
+      android:scaleY="0.029647"
+      android:translateX="1.2013"
+      android:translateY="4.564">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6.73729,316.937C20.201,294.159 49.6986,286.649 72.4033,300.174H72.4277C237.603,398.282 510.121,407.302 667.823,359.439C693.147,351.759 719.927,366.055 727.602,391.378C735.276,416.715 720.992,443.477 695.649,451.176C514.618,506.132 213.674,495.514 23.5058,382.622C0.678772,369.103 -6.78757,339.685 6.73729,316.937ZM77.8135,154.865C89.38,136.046 113.982,130.11 132.77,141.676C270.528,226.369 480.519,250.891 643.46,201.43C664.592,195.047 686.911,206.957 693.324,228.052C699.689,249.184 687.774,271.46 666.679,277.886C480.555,334.36 249.169,307.004 90.9707,209.79C72.1827,198.224 66.247,173.628 77.8135,154.865ZM140.542,15.3012C149.722,0.246392 169.428,-4.52761 184.482,4.71335C304.811,78.2128 456.29,94.8593 634.684,54.101C651.874,50.1843 669.01,60.9551 672.927,78.1518C676.862,95.3486 666.134,112.484 648.9,116.401C453.677,161.021 286.219,141.799 151.129,59.2417C136.074,50.0006 131.301,30.3561 140.542,15.3012Z"/>
+  </group>
+</vector>

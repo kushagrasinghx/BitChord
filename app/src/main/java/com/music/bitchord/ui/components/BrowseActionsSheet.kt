@@ -1,6 +1,8 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,10 +21,12 @@ import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -152,6 +156,12 @@ fun BrowseActionsSheet(
     isPinned: Boolean = false,
     onTogglePin: (() -> Unit)? = null,
     onRename: ((String) -> Unit)? = null,
+    /**
+     * Opens the reorder sheet for one of the account's own playlists — set
+     * under the same rule as [onRename], since YouTube refuses to rearrange a
+     * playlist the account only saved.
+     */
+    onReorder: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     /**
      * Removes the files this release was downloaded as, when it was downloaded
@@ -161,8 +171,22 @@ fun BrowseActionsSheet(
      * also happens to be downloaded.
      */
     onDeleteDownload: (() -> Unit)? = null,
+    /**
+     * [SongActionsPresentation.Menu] draws only the rows, compact, for the
+     * popup a held card lifts into — [HeldContextMenu] shows the card itself,
+     * so the header here would only say the same thing twice.
+     */
+    presentation: SongActionsPresentation = SongActionsPresentation.Sheet,
+    /**
+     * Rename in the popup: a text field and its keyboard have no place on a
+     * menu floating over the page, so the popup hands the job to the sheet,
+     * which then opens straight on the form via [startRenaming].
+     */
+    onRenameInSheet: (() -> Unit)? = null,
+    startRenaming: Boolean = false,
 ) {
-    var renaming by remember { mutableStateOf(false) }
+    val menu = presentation == SongActionsPresentation.Menu
+    var renaming by remember { mutableStateOf(startRenaming) }
     var confirmingDelete by remember { mutableStateOf(false) }
     var confirmingDeleteDownload by remember { mutableStateOf(false) }
 
@@ -177,110 +201,127 @@ fun BrowseActionsSheet(
         return
     }
 
-    Column(modifier.fillMaxWidth()) {
-        BrowseSheetHeader(target)
-        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+    CompositionLocalProvider(LocalActionRowStyle provides if (menu) ActionRowStyle.Menu else ActionRowStyle.Sheet) {
+        Column(
+            modifier
+                .fillMaxWidth()
+                .then(if (menu) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+        ) {
+            if (!menu) {
+                BrowseSheetHeader(target)
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+            }
 
-        onPlay?.let { ActionRow(Icons.Rounded.PlayArrow, stringResource(R.string.play), onClick = it) }
-        onShuffle?.let { ActionRow(BitChordIcons.Shuffle, stringResource(R.string.shuffle), onClick = it) }
-        ActionRow(
-            Icons.AutoMirrored.Rounded.PlaylistPlay,
-            stringResource(R.string.play_next),
-            onClick = onPlayNext,
-        )
-        ActionRow(
-            Icons.AutoMirrored.Rounded.QueueMusic,
-            stringResource(R.string.add_to_queue),
-            onClick = onAddToQueue,
-        )
-        onDownloadAll?.let { download ->
-            // Saying which of the three it is, rather than offering the same row
-            // whatever the state — this is where a release is asked for now that
-            // its page's header spends that spot on the search, and a menu that
-            // can't say "already on the device" leaves the question open. The
-            // tap is left live in every state: [Downloads.enqueue] leaves a
-            // track that is saved, queued or running alone.
-            val active by Downloads.active.collectAsStateWithLifecycle()
-            val requested by Downloads.requested.collectAsStateWithLifecycle()
-            val saved by Downloads.saved.collectAsStateWithLifecycle()
-            // Only the tracks *this release* asked for — two releases can share
-            // a track, and reading the whole queue would show this release
-            // waiting on a download some other one started. Failed entries stay
-            // in [Downloads.active] until dismissed, and a failure is not a wait.
-            val waiting = target.browseId?.let { requested[it] }.orEmpty().any { id ->
-                when (active[id]) {
-                    is DownloadState.Queued, is DownloadState.Running -> true
-                    else -> false
+            onPlay?.let { ActionRow(Icons.Rounded.PlayArrow, stringResource(R.string.play), onClick = it) }
+            onShuffle?.let { ActionRow(BitChordIcons.Shuffle, stringResource(R.string.shuffle), onClick = it) }
+            ActionRow(
+                Icons.AutoMirrored.Rounded.PlaylistPlay,
+                stringResource(R.string.play_next),
+                onClick = onPlayNext,
+            )
+            ActionRow(
+                Icons.AutoMirrored.Rounded.QueueMusic,
+                stringResource(R.string.add_to_queue),
+                onClick = onAddToQueue,
+            )
+            onDownloadAll?.let { download ->
+                // Saying which of the three it is, rather than offering the same row
+                // whatever the state — this is where a release is asked for now that
+                // its page's header spends that spot on the search, and a menu that
+                // can't say "already on the device" leaves the question open. The
+                // tap is left live in every state: [Downloads.enqueue] leaves a
+                // track that is saved, queued or running alone.
+                val active by Downloads.active.collectAsStateWithLifecycle()
+                val requested by Downloads.requested.collectAsStateWithLifecycle()
+                val saved by Downloads.saved.collectAsStateWithLifecycle()
+                // Only the tracks *this release* asked for — two releases can share
+                // a track, and reading the whole queue would show this release
+                // waiting on a download some other one started. Failed entries stay
+                // in [Downloads.active] until dismissed, and a failure is not a wait.
+                val waiting = target.browseId?.let { requested[it] }.orEmpty().any { id ->
+                    when (active[id]) {
+                        is DownloadState.Queued, is DownloadState.Running -> true
+                        else -> false
+                    }
+                }
+                // The same reading [DownloadedBadge] does per row: a release counts
+                // as downloaded once every one of its tracks is in the saved set,
+                // not from any record of the release itself. Empty for a card whose
+                // page was never opened, which is not an answer either way.
+                val ids = remember(target.songs) { target.songs.mapTo(HashSet()) { it.videoId } }
+                val downloaded = !waiting && ids.isNotEmpty() && ids.all { it in saved }
+                ActionRow(
+                    icon = when {
+                        waiting -> BitChordIcons.Clock
+                        downloaded -> BitChordIcons.Check
+                        else -> BitChordIcons.Download
+                    },
+                    label = stringResource(R.string.download_all),
+                    value = when {
+                        waiting -> stringResource(R.string.downloading)
+                        downloaded -> stringResource(R.string.downloaded)
+                        else -> null
+                    },
+                    onClick = download,
+                )
+            }
+            onOpen?.let {
+                ActionRow(
+                    BitChordIcons.ChevronRight,
+                    target.type.localizedOpenLabel(),
+                    onClick = it,
+                )
+            }
+            onShare?.let {
+                ActionRow(Icons.Rounded.Share, stringResource(R.string.share), onClick = it)
+            }
+            onTogglePin?.let {
+                ActionRow(
+                    BitChordIcons.Pin,
+                    stringResource(if (isPinned) R.string.unpin else R.string.pin),
+                    onClick = it,
+                )
+            }
+            if (onRename != null) {
+                ActionRow(Icons.Rounded.Edit, stringResource(R.string.rename)) {
+                    if (menu && onRenameInSheet != null) {
+                        onRenameInSheet()
+                    } else {
+                        renaming = true
+                    }
                 }
             }
-            // The same reading [DownloadedBadge] does per row: a release counts
-            // as downloaded once every one of its tracks is in the saved set,
-            // not from any record of the release itself. Empty for a card whose
-            // page was never opened, which is not an answer either way.
-            val ids = remember(target.songs) { target.songs.mapTo(HashSet()) { it.videoId } }
-            val downloaded = !waiting && ids.isNotEmpty() && ids.all { it in saved }
-            ActionRow(
-                icon = when {
-                    waiting -> BitChordIcons.Clock
-                    downloaded -> BitChordIcons.Check
-                    else -> BitChordIcons.Download
-                },
-                label = stringResource(R.string.download_all),
-                value = when {
-                    waiting -> stringResource(R.string.downloading)
-                    downloaded -> stringResource(R.string.downloaded)
-                    else -> null
-                },
-                onClick = download,
-            )
-        }
-        onOpen?.let {
-            ActionRow(
-                BitChordIcons.ChevronRight,
-                target.type.localizedOpenLabel(),
-                onClick = it,
-            )
-        }
-        onShare?.let {
-            ActionRow(Icons.Rounded.Share, stringResource(R.string.share), onClick = it)
-        }
-        onTogglePin?.let {
-            ActionRow(
-                BitChordIcons.Pin,
-                stringResource(if (isPinned) R.string.unpin else R.string.pin),
-                onClick = it,
-            )
-        }
-        if (onRename != null) {
-            ActionRow(Icons.Rounded.Edit, stringResource(R.string.rename)) { renaming = true }
-        }
-        if (onDelete != null) {
-            if (confirmingDelete) {
-                ActionRow(
-                    icon = Icons.Rounded.DeleteForever,
-                    label = stringResource(R.string.delete_playlist_confirmation, target.title),
-                    tint = MaterialTheme.colorScheme.error,
-                    onClick = onDelete,
-                )
-            } else {
-                ActionRow(Icons.Rounded.Delete, stringResource(R.string.delete_playlist)) { confirmingDelete = true }
+            onReorder?.let {
+                ActionRow(Icons.Rounded.SwapVert, stringResource(R.string.reorder_songs), onClick = it)
             }
-        }
-        if (onDeleteDownload != null) {
-            if (confirmingDeleteDownload) {
-                ActionRow(
-                    icon = Icons.Rounded.DeleteForever,
-                    label = stringResource(R.string.delete_download_confirmation, target.title),
-                    tint = MaterialTheme.colorScheme.error,
-                    onClick = onDeleteDownload,
-                )
-            } else {
-                ActionRow(Icons.Rounded.Delete, stringResource(R.string.delete_download)) {
-                    confirmingDeleteDownload = true
+            if (onDelete != null) {
+                if (confirmingDelete) {
+                    ActionRow(
+                        icon = Icons.Rounded.DeleteForever,
+                        label = stringResource(R.string.delete_playlist_confirmation, target.title),
+                        tint = MaterialTheme.colorScheme.error,
+                        onClick = onDelete,
+                    )
+                } else {
+                    ActionRow(Icons.Rounded.Delete, stringResource(R.string.delete_playlist)) { confirmingDelete = true }
                 }
             }
+            if (onDeleteDownload != null) {
+                if (confirmingDeleteDownload) {
+                    ActionRow(
+                        icon = Icons.Rounded.DeleteForever,
+                        label = stringResource(R.string.delete_download_confirmation, target.title),
+                        tint = MaterialTheme.colorScheme.error,
+                        onClick = onDeleteDownload,
+                    )
+                } else {
+                    ActionRow(Icons.Rounded.Delete, stringResource(R.string.delete_download)) {
+                        confirmingDeleteDownload = true
+                    }
+                }
+            }
+            if (!menu) Spacer(Modifier.height(24.dp))
         }
-        Spacer(Modifier.height(24.dp))
     }
 }
 

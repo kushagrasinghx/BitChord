@@ -3,6 +3,7 @@ package com.music.bitchord.playback.audio
 import android.util.Log
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.playback.EqualizerProcessor
+import com.music.bitchord.playback.LoudnessProcessor
 import com.music.bitchord.playback.SpatialAudioProcessor
 import com.music.bitchord.playback.TransitionFilterProcessor
 
@@ -10,15 +11,15 @@ import com.music.bitchord.playback.TransitionFilterProcessor
  * Composite DSP chain executing BitChord's custom audio processors in their canonical sequence:
  *
  * AudioBlock(Float32) -> SpatialAudioProcessor -> EqualizerProcessor
- *   -> TransitionFilterProcessor -> AudioBlock(Float32)
+ *   -> TransitionFilterProcessor -> LoudnessProcessor -> AudioBlock(Float32)
  *
  * Operates purely on in-place Float32 audio blocks without intermediate fixed-point quantization,
  * preserving full dynamic range and headroom.
  *
- * Loudness normalization is not one of these stages — it runs as a platform
- * `LoudnessEnhancer` effect on the audio session instead, driven by
- * `PlaybackService.setupLoudnessEnhancer`, so it applies to whichever player
- * is audible without needing a seat in this per-sink chain.
+ * Loudness normalization is the last stage, and per sink on purpose: each
+ * player levels the track *it* is playing, so the two sides of a crossfade are
+ * each levelled for their own song — see [LoudnessProcessor]. Last because its
+ * limiter has to see the signal every other stage has finished shaping.
  *
  * ## Staying out of the way
  *
@@ -32,6 +33,7 @@ class DspChain(
     val spatial: SpatialAudioProcessor = SpatialAudioProcessor(),
     val equalizer: EqualizerProcessor = EqualizerProcessor(),
     val transition: TransitionFilterProcessor = TransitionFilterProcessor(),
+    val loudness: LoudnessProcessor = LoudnessProcessor(),
 ) : FloatAudioProcessor {
 
     private var currentSampleRate: Int = 0
@@ -42,6 +44,12 @@ class DspChain(
         spatial.configure(sampleRate, channelCount)
         equalizer.configure(sampleRate, channelCount)
         transition.configure(sampleRate, channelCount)
+        loudness.configure(sampleRate, channelCount)
+    }
+
+    /** A new track has begun gaplessly on this sink; see [LoudnessProcessor.onStreamBoundary]. */
+    fun onStreamBoundary() {
+        loudness.onStreamBoundary()
     }
 
     override fun process(block: AudioBlock) {
@@ -70,6 +78,7 @@ class DspChain(
         spatial.process(block)
         equalizer.process(block)
         transition.process(block)
+        loudness.process(block)
     }
 
     @Suppress("DEPRECATION")
@@ -77,6 +86,7 @@ class DspChain(
         spatial.flush()
         equalizer.flush()
         transition.flush()
+        loudness.flush()
     }
 
     override fun reset() {
@@ -84,6 +94,7 @@ class DspChain(
         spatial.reset()
         equalizer.reset()
         transition.reset()
+        loudness.reset()
     }
 
     companion object {

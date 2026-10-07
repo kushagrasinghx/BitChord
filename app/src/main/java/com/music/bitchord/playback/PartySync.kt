@@ -5,6 +5,7 @@ import androidx.media3.common.Player
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyTrack
+import com.music.bitchord.data.listentogether.partyQueueIndexOf
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.sources.TrackMatcher
@@ -672,7 +673,7 @@ class PartySync(
             // Falling back to the track alone is always right; falling back to
             // position zero never is.
             val partyQueue = party.queue.items
-            val index = partyQueue.indexOfFirst { it.videoId == track.videoId }
+            val index = partyQueueIndexOf(party.queue, party.playback, track.videoId)
             val queue = if (index >= 0) partyQueue else listOf(track)
             val startIndex = if (index >= 0) index else 0
             // Off the main thread: building an item resolves artwork sizes and
@@ -782,7 +783,7 @@ class PartySync(
         // Play next, Add to queue, removing a row, dragging one. Before this,
         // none of them reached the party and its copy of the queue silently went
         // stale until the next track change happened to rebuild it.
-        val partyIndex = party.queue.items.indexOfFirst { it.videoId == party.playback.track?.videoId }
+        val partyIndex = partyQueueIndexOf(party.queue, party.playback, party.playback.track?.videoId)
         val upcomingPartyTracks = if (partyIndex >= 0) {
             party.queue.items.drop(partyIndex + 1)
         } else {
@@ -933,7 +934,7 @@ class PartySync(
 
         val currentIndex = exo.currentMediaItemIndex
         val currentMediaId = exo.currentMediaItem?.mediaId ?: return
-        val partyIndex = partyQueue.indexOfFirst { it.videoId == currentMediaId }
+        val partyIndex = partyQueueIndexOf(party.queue, party.playback, currentMediaId)
         if (partyIndex < 0) return
 
         val desiredUpcoming = partyQueue.subList(partyIndex + 1, partyQueue.size).take(MAX_PARTY_UPCOMING_QUEUE)

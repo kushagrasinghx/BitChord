@@ -122,6 +122,21 @@ class PrecisionAudioSink(
     private var timestampedInputTimeUs: Long = C.TIME_UNSET
     private var framesEmittedForInput: Long = 0L
 
+    /**
+     * Whether audio has flowed since the last flush — which is what tells a
+     * gapless track boundary apart from a skip. Both reach [setOutputStreamOffsetUs],
+     * but only a boundary arrives mid-stream, and only there is the chain's
+     * "next track" the one actually starting.
+     */
+    private var streaming = false
+
+    /**
+     * End of the last block the DSP chain processed, in the renderer's
+     * timebase — the same one [getCurrentPositionUs] answers in, so the gap
+     * between the two is how far ahead of the speaker the chain is running.
+     */
+    private var processedEndUs: Long = C.TIME_UNSET
+
     override fun configure(audioSinkConfig: AudioSink.AudioSinkConfig) {
         val format = audioSinkConfig.format
         activeFormat = format
@@ -270,6 +285,7 @@ class PrecisionAudioSink(
         val channelCount = audioBlock.channelCount
         val bytesPerFrame = inEncoding.bytesPerFrame(channelCount)
         if (bytesPerFrame <= 0) return true
+        streaming = true
 
         // 1. Drain pending output from previous cycle if delegate had backpressure
         if (outputByteBuffer.hasRemaining()) {
@@ -338,6 +354,9 @@ class PrecisionAudioSink(
             outputByteBuffer.flip()
 
             val blockTimeUs = advanceTimestamp(presentationTimeUs, framesEmittedForInput)
+            if (blockTimeUs != C.TIME_UNSET && configuredSampleRate > 0) {
+                processedEndUs = blockTimeUs + Util.sampleCountToDurationUs(decodedFrames.toLong(), configuredSampleRate)
+            }
             // The access-unit count describes the whole decoder buffer, so it is
             // reported once, on the first piece of it.
             val blockAccessUnits = if (framesEmittedForInput == 0L) encodedAccessUnitCount else 0
@@ -373,7 +392,38 @@ class PrecisionAudioSink(
         return presentationTimeUs + Util.sampleCountToDurationUs(frames, configuredSampleRate)
     }
 
+    /**
+     * Called by the renderer as the output side moves onto the next stream —
+     * after the outgoing track's last buffer, before the incoming one's first.
+     * That is the one moment the DSP chain can switch per-track state on the
+     * right sample, so a gapless boundary is passed on; a skip, which flushed
+     * first, is not.
+     */
+    override fun setOutputStreamOffsetUs(outputStreamOffsetUs: Long) {
+        if (streaming) dspChain.onStreamBoundary()
+        super.setOutputStreamOffsetUs(outputStreamOffsetUs)
+    }
+
+    /**
+     * Passed straight through, noting on the way how far the DSP chain is
+     * running ahead of it — see
+     * [com.music.bitchord.playback.TransitionFilterProcessor.leadUs]. The
+     * renderer polls this on every clock tick, so the lead stays current for
+     * free.
+     */
+    override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
+        val position = super.getCurrentPositionUs(sourceEnded)
+        val processed = processedEndUs
+        if (position != AudioSink.CURRENT_POSITION_NOT_SET && processed != C.TIME_UNSET) {
+            dspChain.transition.leadUs = (processed - position).coerceAtLeast(0L)
+        }
+        return position
+    }
+
     override fun flush() {
+        processedEndUs = C.TIME_UNSET
+        dspChain.transition.leadUs = 0L
+        streaming = false
         outputByteBuffer.clear()
         outputByteBuffer.flip()
         audioBlock.clear()
@@ -388,6 +438,9 @@ class PrecisionAudioSink(
     }
 
     override fun reset() {
+        processedEndUs = C.TIME_UNSET
+        dspChain.transition.leadUs = 0L
+        streaming = false
         processCounter = 0L
         outputByteBuffer.clear()
         outputByteBuffer.flip()

@@ -213,8 +213,8 @@ class SourcesTest {
 
     // ---- Cross-source matching ---------------------------------------------
 
-    private fun song(title: String, artist: String, duration: String? = null) =
-        Song(videoId = "x", title = title, artist = artist, thumbnailUrl = null, durationText = duration)
+    private fun song(title: String, artist: String, duration: String? = null, album: String? = null) =
+        Song(videoId = "x", title = title, artist = artist, thumbnailUrl = null, durationText = duration, albumName = album)
 
     private fun matches(candidate: Song, title: String, artist: String, durationSec: Int? = null) =
         TrackMatcher.matches(candidate, title, artist, durationSec)
@@ -243,6 +243,25 @@ class SourcesTest {
                 artist = "Queen",
             ),
         )
+    }
+
+    @Test
+    fun `matches CJK titles across punctuation and spacing differences`() {
+        assertTrue(
+            matches(
+                song("夜に駆ける", "YOASOBI", duration = "4:20"),
+                title = "夜 に 駆ける！",
+                artist = "YOASOBI",
+                durationSec = 261,
+            ),
+        )
+        assertTrue(matches(song("좋은 날", "IU"), "좋은날", "IU"))
+    }
+
+    @Test
+    fun `keeps substring matching strict for short Unicode titles`() {
+        assertFalse(matches(song("愛情", "Artist"), "愛", "Artist"))
+        assertFalse(matches(song("봄날", "Artist"), "봄", "Artist"))
     }
 
     /**
@@ -1353,6 +1372,340 @@ class SourcesTest {
     @Test
     fun `has nothing to ask for without a title`() {
         assertTrue(TrackMatcher.queries(TrackMatcher.Target("", "Atif Aslam")).isEmpty())
+    }
+
+    /** A mixed-script upload is filed under its transliteration, not its original script. */
+    @Test
+    fun `asks for the romaji filing of a mixed-script title`() {
+        assertEquals(
+            listOf("dai zero kan 10-feet", "dai zero kan"),
+            TrackMatcher.queries(TrackMatcher.Target("第ゼロ感 - Dai Zero Kan", "10-FEET")),
+        )
+    }
+
+    /** A pure CJK title is kept rather than emptied into asking for nothing. */
+    @Test
+    fun `keeps a pure CJK title instead of asking for nothing`() {
+        assertEquals(
+            listOf("残響散歌 aimer", "残響散歌"),
+            TrackMatcher.queries(TrackMatcher.Target("残響散歌", "Aimer")),
+        )
+    }
+
+    @Test
+    fun `matches the romaji catalogue row for a mixed-script request`() {
+        assertTrue(
+            matches(
+                song("Dai Zero Kan", "10-FEET", "4:48"),
+                title = "第ゼロ感 - Dai Zero Kan",
+                artist = "10-FEET",
+                durationSec = 288,
+            ),
+        )
+    }
+
+    @Test
+    fun `rejects the cover take of a CJK recording`() {
+        assertFalse(
+            matches(
+                song("第ゼロ感 (Cover)", "Raise A Suilen", "4:49"),
+                title = "第ゼロ感",
+                artist = "10-FEET",
+                durationSec = 288,
+            ),
+        )
+        assertFalse(
+            matches(
+                song("残響散歌 (カバー)", "Aimer", "4:49"),
+                title = "残響散歌",
+                artist = "Aimer",
+                durationSec = 288,
+            ),
+        )
+    }
+
+    /** The take marker may live on the release: title "KALYANI" + album "KALYANI (Remix)". */
+    @Test
+    fun `accepts the remix single whose marker lives on the album`() {
+        assertTrue(
+            matches(
+                song("KALYANI", "ARJN, KDS, FIFTY4, Shreya Ghoshal", "4:29", album = "KALYANI (Remix)"),
+                title = "KALYANI (Remix)",
+                artist = "ARJN, KDS, FIFTY4 & Shreya Ghoshal",
+                durationSec = 270,
+            ),
+        )
+    }
+
+    @Test
+    fun `still rejects the original recording for a remix request`() {
+        // Same artists, same length, but neither row nor release names a take.
+        assertFalse(
+            matches(
+                song("KALYANI", "ARJN, KDS, FIFTY4, Shreya Ghoshal", "4:30", album = "KALYANI"),
+                title = "KALYANI (Remix)",
+                artist = "ARJN, KDS, FIFTY4 & Shreya Ghoshal",
+                durationSec = 270,
+            ),
+        )
+    }
+
+    @Test
+    fun `a plain request ignores the album when the row needs no marker`() {
+        // One-directional rescue: the album only ever completes a wanted
+        // marker, so a plain request keeps today's strict behavior here and
+        // stays accepted rather than gaining a veto it never had.
+        assertTrue(
+            matches(
+                song("KALYANI", "ARJN, KDS, FIFTY4, Shreya Ghoshal", "4:29", album = "KALYANI (Remix)"),
+                title = "KALYANI",
+                artist = "ARJN, KDS, FIFTY4 & Shreya Ghoshal",
+                durationSec = 269,
+            ),
+        )
+    }
+
+    /** Same title, same length — only the album says this one has no vocals. */
+    @Test
+    fun `rejects the instrumental twin for a vocal request`() {
+        assertFalse(
+            matches(
+                song(
+                    "Am I Dreaming", "Metro Boomin", "4:16",
+                    album = "METRO BOOMIN PRESENTS SPIDER-MAN: ACROSS THE SPIDER-VERSE " +
+                        "(SOUNDTRACK FROM AND INSPIRED BY THE MOTION PICTURE " +
+                        "(METROVERSE INSTRUMENTAL EDITION))",
+                ),
+                title = "Am I Dreaming",
+                artist = "Metro Boomin, A\$AP Rocky & Roisee",
+                durationSec = 257,
+            ),
+        )
+    }
+
+    @Test
+    fun `accepts the instrumental twin for an instrumental request`() {
+        assertTrue(
+            matches(
+                song(
+                    "Am I Dreaming", "Metro Boomin", "4:16",
+                    album = "METRO BOOMIN PRESENTS SPIDER-MAN: ACROSS THE SPIDER-VERSE " +
+                        "(SOUNDTRACK FROM AND INSPIRED BY THE MOTION PICTURE " +
+                        "(METROVERSE INSTRUMENTAL EDITION))",
+                ),
+                title = "Am I Dreaming (Instrumental)",
+                artist = "Metro Boomin",
+                durationSec = 257,
+            ),
+        )
+    }
+
+    @Test
+    fun `still matches the vocal original from the same soundtrack`() {
+        assertTrue(
+            matches(
+                song(
+                    "Am I Dreaming", "Metro Boomin, A\$AP Rocky, Roisee", "4:16",
+                    album = "METRO BOOMIN PRESENTS SPIDER-MAN: ACROSS THE SPIDER-VERSE " +
+                        "(SOUNDTRACK FROM AND INSPIRED BY THE MOTION PICTURE)",
+                ),
+                title = "Am I Dreaming",
+                artist = "Metro Boomin, A\$AP Rocky & Roisee",
+                durationSec = 257,
+            ),
+        )
+    }
+
+    // ---- Non-Latin script accuracy -----------------------------------------
+
+    @Test
+    fun `matches the plain Mayonaka row across the wave-dash spellings`() {
+        // Mixed kanji+kana titles keep their two as-written queries: the
+        // transliteration is partial (kanji has no reading) and is not asked.
+        // ("with me" is eaten as a feat. marker on both sides alike; the wave
+        // dash is a word break, so the query keeps "stay" a separate word.)
+        assertEquals(
+            listOf("真夜中のドア stay miki matsubara", "真夜中のドア stay"),
+            TrackMatcher.queries(
+                TrackMatcher.Target(
+                    "真夜中のドア〜stay with me - Mayonaka no Door~stay with me",
+                    "Miki Matsubara",
+                ),
+            ),
+        )
+        assertTrue(
+            matches(
+                song("真夜中のドア〜stay with me", "miki matsubara", "5:12", album = "松原みき ベスト・コレクション"),
+                title = "真夜中のドア〜stay with me - Mayonaka no Door~stay with me",
+                artist = "Miki Matsubara",
+                durationSec = 312,
+            ),
+        )
+    }
+
+    @Test
+    fun `matches the club mix take for a club mix request`() {
+        assertTrue(
+            matches(
+                song(
+                    "真夜中のドア〜stay with me (Original club mix)", "miki matsubara", "5:46",
+                    album = "POCKET PARK (Remastered)",
+                ),
+                title = "真夜中のドア〜stay with me (Original club mix)",
+                artist = "Miki Matsubara",
+                durationSec = 346,
+            ),
+        )
+        assertFalse(
+            matches(
+                song("真夜中のドア〜stay with me", "miki matsubara", "5:12"),
+                title = "真夜中のドア〜stay with me (Original club mix)",
+                artist = "Miki Matsubara",
+                durationSec = 346,
+            ),
+        )
+    }
+
+    /** One extra query in the other script, without the artist — never a second pair. */
+    @Test
+    fun `asks both scripts for a transliterated pair`() {
+        assertEquals(
+            listOf("koikogare mugi", "koikogare", "コイコガレ"),
+            TrackMatcher.queries(TrackMatcher.Target("コイコガレ - koikogare", "MUGI")),
+        )
+        assertEquals(
+            listOf("コイコガレ mugi", "コイコガレ", "koikogare"),
+            TrackMatcher.queries(TrackMatcher.Target("コイコガレ", "MUGI")),
+        )
+    }
+
+    /** "Title - Artist" in two scripts is not a transliteration. */
+    @Test
+    fun `keeps a CJK title whose dash tail is the artist`() {
+        assertEquals(
+            listOf("紅蓮華 lisa", "紅蓮華"),
+            TrackMatcher.queries(TrackMatcher.Target("紅蓮華 - LiSA", "LiSA")),
+        )
+    }
+
+    @Test
+    fun `matches the katakana row for a romaji-queried Koi Kogare`() {
+        assertTrue(
+            matches(
+                song("コイコガレ", "MUGI", "2:39", album = "LAST KISS"),
+                title = "コイコガレ - koikogare",
+                artist = "MUGI",
+                durationSec = 159,
+            ),
+        )
+        // Same title, different recording (Demon Slayer ED): duration vetoes.
+        assertFalse(
+            matches(
+                song("Koi Kogare", "milet, MAN WITH A MISSION", "3:36"),
+                title = "コイコガレ - koikogare",
+                artist = "MUGI",
+                durationSec = 159,
+            ),
+        )
+    }
+
+    @Test
+    fun `matches the instrumental twin for an instrumental Kizuna request`() {
+        assertTrue(
+            matches(
+                song(
+                    "Kizuna No Kiseki Instrumental", "MAN WITH A MISSION, milet", "3:43",
+                    album = "Kizuna No Kiseki / Koi Kogare",
+                ),
+                title = "絆ノ奇跡 -Instrumental- - Kizuna No Kiseki Instrumental",
+                artist = "MAN WITH A MISSION & milet",
+                durationSec = 223,
+            ),
+        )
+        assertFalse(
+            matches(
+                song("Kizuna No Kiseki", "MAN WITH A MISSION, milet", "3:43", album = "Kizuna No Kiseki"),
+                title = "絆ノ奇跡 -Instrumental- - Kizuna No Kiseki Instrumental",
+                artist = "MAN WITH A MISSION & milet",
+                durationSec = 223,
+            ),
+        )
+    }
+
+    @Test
+    fun `separates vocal from instrumental blue`() {
+        assertTrue(
+            matches(
+                song("blue (instrumental)", "yung kai", "3:36", album = "shades of blue (instrumental)"),
+                title = "blue (instrumental)",
+                artist = "yung kai",
+                durationSec = 216,
+            ),
+        )
+        assertFalse(
+            matches(
+                song("blue", "yung kai", "3:36", album = "shades of blue"),
+                title = "blue (instrumental)",
+                artist = "yung kai",
+                durationSec = 216,
+            ),
+        )
+    }
+
+    @Test
+    fun `transliterates kana to romaji`() {
+        assertEquals("koikogare", TrackMatcher.romajiOf("コイコガレ"))
+        assertEquals("abunaikioku", TrackMatcher.romajiOf("アブナイキオク"))
+        assertEquals("kiseki", TrackMatcher.romajiOf("きせき"))
+        assertEquals("gakkou", TrackMatcher.romajiOf("がっこう"))
+        assertEquals("shimbun", TrackMatcher.romajiOf("しんぶん"))
+        assertEquals("kyou", TrackMatcher.romajiOf("きょう"))
+        // Kanji passes through (kana around it still resolves); English loans don't.
+        assertEquals("第zero感", TrackMatcher.romajiOf("第ゼロ感"))
+        assertEquals("doa", TrackMatcher.romajiOf("ドア"))
+        // sh/ch/j carry the glide themselves.
+        assertEquals("sharuru", TrackMatcher.romajiOf("シャルル"))
+        assertEquals("janki", TrackMatcher.romajiOf("ジャンキ"))
+        assertEquals("chotto", TrackMatcher.romajiOf("ちょっと"))
+        assertEquals("jetto", TrackMatcher.romajiOf("ジェット"))
+        // No apostrophe after ん: catalogue romaji doesn't write one.
+        assertEquals("renai", TrackMatcher.romajiOf("レンアイ"))
+    }
+
+    @Test
+    fun `matches the romaji row of a kana title with a syllabic n`() {
+        assertTrue(matches(song("Renai", "A", "3:30"), "レンアイ", "A", 210))
+    }
+
+    /** The album only ever supplies markers the request asked for, never extra ones. */
+    @Test
+    fun `album naming beyond the wanted take does not refuse the row`() {
+        assertTrue(
+            matches(song("Song (Remix)", "Artist", "3:30", album = "Song (Remixes)"), "Song (Remix)", "Artist", 210),
+        )
+        assertTrue(
+            matches(song("Song (Live)", "Artist", "3:30", album = "MTV Unplugged"), "Song (Live)", "Artist", 210),
+        )
+        assertTrue(
+            matches(
+                song("Song (Acoustic)", "Artist", "3:30", album = "Acoustic Sessions"),
+                "Song (Acoustic)", "Artist", 210,
+            ),
+        )
+    }
+
+    /** A version word that is the title's last word is still the title. */
+    @Test
+    fun `a title ending in a version word does not take the live recording`() {
+        assertFalse(matches(song("Let Me Live (Live)", "Queen", "4:45"), "Let Me Live", "Queen", 285))
+        assertTrue(matches(song("Let Me Live", "Queen", "4:45"), "Let Me Live", "Queen", 285))
+    }
+
+    /** The katakana middle dot joins a transliterated name; it doesn't separate artists. */
+    @Test
+    fun `a katakana full name is one artist`() {
+        assertFalse(TrackMatcher.sharesArtist("ジョン・レノン", "ジョン・ウィリアムズ"))
+        assertTrue(TrackMatcher.sharesArtist("ジョン・レノン", "ジョン・レノン、オノ・ヨーコ"))
     }
 
     // ---- The mid-track swap guard ------------------------------------------

@@ -80,8 +80,8 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 108
-        versionName = "2.6.3"
+        versionCode = 26
+        versionName = "1.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -260,6 +260,9 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 }
 
 dependencies {
+    implementation(project(":shared"))
+    implementation(project(":sharedUi"))
+
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
@@ -279,6 +282,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    // ProcessLifecycleOwner: whether the app is on screen, for the open-app count.
+    implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
@@ -303,6 +308,15 @@ dependencies {
     // progressive, and the extractors try to sniff XML as audio
     // (ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED). See withResolvedStreamType.
     implementation("androidx.media3:media3-exoplayer-dash:1.11.0")
+    // FFmpeg audio decoding for what the phone has no decoder of its own for:
+    // ALAC on every phone, and AC-4, E-AC-3 / AC-3 (Dolby Atmos music),
+    // TrueHD and DTS on phones without Dolby or DTS licensed in. Added as the
+    // *last* audio renderer in silenceSkippingRenderers, so a platform decoder
+    // still wins wherever one exists. No artifact: the extension's Java half is
+    // vendored under app/src/main/java/androidx/media3/decoder/ffmpeg, and
+    // libffmpegJNI.so under src/main/jniLibs is built from librempeg (the only
+    // FFmpeg line with an AC-4 decoder) by native/ffmpeg/build.sh. It needs
+    // media3-decoder, which media3-exoplayer already brings.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0")
 
     // ---- Images: Coil 3 + Palette (dominant colors for the mesh gradient) ----
@@ -380,6 +394,14 @@ dependencies {
     // files, which would put an offline conversion step between the model and
     // the app for a saving that does not matter in a self-distributed APK.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
+
+    // ---- Casting: Google Cast sender + the route discovery it sits on ----
+    // The framework and the router only. media3-cast is left out on purpose:
+    // its CastPlayer hands the receiver whatever URI a MediaItem carries, and
+    // ours are `bitchord://` addresses that only the service's resolver can
+    // turn into a real stream — see [com.music.bitchord.playback.cast.CastPlayback].
+    implementation("com.google.android.gms:play-services-cast-framework:22.2.0")
+    implementation("androidx.mediarouter:mediarouter:1.8.1")
 
     testImplementation("junit:junit:4.13.2")
     // A real HTTP server for the addon tests. The addon protocol is entirely

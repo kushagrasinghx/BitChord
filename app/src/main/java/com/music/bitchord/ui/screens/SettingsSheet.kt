@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.Cached
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Cloud
@@ -213,10 +214,12 @@ fun SettingsScreen(
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
     val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
+    val loudnessOffOnSpeaker by AppSettings.loudnessOffOnSpeaker.collectAsStateWithLifecycle()
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
     val playingFormat by NerdStats.current.collectAsStateWithLifecycle()
     val playingDolbyAtmos = playingFormat?.isDolbyAtmos == true
     val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
+    val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
@@ -276,6 +279,7 @@ fun SettingsScreen(
     var exportStatus by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf<String?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
+    var confirmClearSongCache by remember { mutableStateOf(false) }
     var showPerformanceWarning by remember { mutableStateOf(false) }
     var showPerformanceConfirmation by remember { mutableStateOf(false) }
     val backupScope = rememberCoroutineScope()
@@ -599,6 +603,14 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },
+                )
+            }
+            val loudnessSpeakerTitle = stringResource(R.string.loudness_off_on_speaker)
+            row(loudnessSpeakerTitle, "loudness", "speaker", "normalize") {
+                SettingsSubRow(
+                    title = loudnessSpeakerTitle,
+                    checked = loudnessOffOnSpeaker,
+                    onCheckedChange = AppSettings::setLoudnessOffOnSpeaker,
                 )
             }
             // Automix decides its own length from each pair of tracks —
@@ -1084,26 +1096,51 @@ fun SettingsScreen(
             }
         }
 
-        val cacheLimitMb = (cacheLimitBytes / (1024 * 1024)).toInt()
+        val cacheUnlimited = cacheLimitBytes == AppSettings.UNLIMITED_CACHE_LIMIT_BYTES
+        // The slider's last stop, one step past the largest fixed size, is
+        // "Unlimited" — see [AppSettings.setAudioCacheLimitBytes].
+        val cacheLimitMb = if (cacheUnlimited) CACHE_UNLIMITED_STOP_MB else (cacheLimitBytes / (1024 * 1024)).toInt()
+        val unlimitedLabel = stringResource(R.string.song_cache_unlimited)
+        val cacheLimitLabel = if (cacheUnlimited) unlimitedLabel else formatCacheSize(cacheLimitMb)
         SearchableSettingsGroup(search, header = stringResource(R.string.storage)) {
+            val showCacheFolderTitle = stringResource(R.string.show_cache_folder)
+            row(showCacheFolderTitle, "cache", "cached songs", "library", "folder") {
+                SettingsRow(
+                    icon = Icons.Rounded.Cached,
+                    title = showCacheFolderTitle,
+                    subtitle = stringResource(R.string.show_cache_folder_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = showCacheFolder,
+                            onCheckedChange = AppSettings::setShowCacheFolder,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setShowCacheFolder(!showCacheFolder) },
+                )
+            }
             val songCacheLimitTitle = stringResource(R.string.song_cache_limit)
-            row(songCacheLimitTitle, "cache", "space") {
+            row(songCacheLimitTitle, "cache", "space", "unlimited") {
                 SliderRow(
                     icon = Icons.Rounded.Storage,
                     title = songCacheLimitTitle,
-                    subtitle = if (cacheLimitMb > CACHE_WARNING_MB) {
-                        stringResource(R.string.song_cache_large_subtitle, formatCacheSize(cacheLimitMb))
-                    } else {
-                        stringResource(R.string.song_cache_limit_subtitle)
+                    subtitle = when {
+                        cacheUnlimited -> stringResource(R.string.song_cache_unlimited_subtitle)
+                        cacheLimitMb > CACHE_WARNING_MB ->
+                            stringResource(R.string.song_cache_large_subtitle, cacheLimitLabel)
+                        else -> stringResource(R.string.song_cache_limit_subtitle)
                     },
-                    value = formatCacheSize(cacheLimitMb),
+                    value = cacheLimitLabel,
                     sliderValue = cacheLimitMb.toFloat(),
                     onSliderValue = {
                         AppSettings.setAudioCacheLimitBytes(it.roundToInt().toLong() * 1024 * 1024)
                     },
                     valueRange = (AppSettings.DEFAULT_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat()..
-                        (AppSettings.MAX_CACHE_LIMIT_BYTES / (1024 * 1024)).toFloat(),
-                    steps = 18,
+                        CACHE_UNLIMITED_STOP_MB.toFloat(),
+                    steps = 19,
                 )
             }
             val clearSongCacheTitle = stringResource(R.string.clear_song_cache)
@@ -1112,11 +1149,7 @@ fun SettingsScreen(
                     icon = Icons.Rounded.DeleteSweep,
                     title = clearSongCacheTitle,
                     subtitle = stringResource(R.string.clear_song_cache_subtitle),
-                    onClick = {
-                        AudioCache.clear {
-                            Toast.makeText(context, context.getString(R.string.song_cache_cleared), Toast.LENGTH_SHORT).show()
-                        }
-                    },
+                    onClick = { confirmClearSongCache = true },
                 )
             }
             val clearImageCacheTitle = stringResource(R.string.clear_image_cache)
@@ -1452,6 +1485,30 @@ fun SettingsScreen(
         }
     }
 
+    // Everything in the Cached songs folder goes with it, so say so first.
+    if (confirmClearSongCache) {
+        AlertDialog(
+            onDismissRequest = { confirmClearSongCache = false },
+            title = { Text(stringResource(R.string.clear_song_cache_title)) },
+            text = { Text(stringResource(R.string.clear_song_cache_warning)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClearSongCache = false
+                    AudioCache.clear {
+                        Toast.makeText(context, context.getString(R.string.song_cache_cleared), Toast.LENGTH_SHORT).show()
+                    }
+                }) {
+                    Text(stringResource(R.string.clear))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearSongCache = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
     // Asked before the picker opens rather than after a file is chosen: the
     // thing being confirmed is that this device's own history is about to be
     // thrown away, and that is true whichever file gets picked.
@@ -1714,6 +1771,12 @@ internal fun openEqualizer(context: Context, sessionId: Int) {
 /** Above this, the cache limit slider's subtitle warns rather than reassures. */
 private const val CACHE_WARNING_MB = 2048
 
+/**
+ * Where the cache limit slider's "Unlimited" stop sits: one 512MB step past
+ * [AppSettings.MAX_CACHE_LIMIT_BYTES], so the fixed sizes keep their positions.
+ */
+private const val CACHE_UNLIMITED_STOP_MB = 10 * 1024 + 512
+
 /** "512 MB", "2 GB", "2.5 GB" — whichever reads more naturally at that size. */
 private fun formatCacheSize(mb: Int): String {
     if (mb < 1024) return "$mb MB"
@@ -1728,13 +1791,22 @@ internal fun AccountCard(
     account: Account?,
     onSignIn: () -> Unit,
     onClick: (() -> Unit)? = null,
+    /** Sits inside a [SettingsGroup] that already supplies the card, so draws none of its own. */
+    grouped: Boolean = false,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = GROUP_INSET)
-            .clip(GroupShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .then(
+                if (grouped) {
+                    Modifier
+                } else {
+                    Modifier
+                        .padding(horizontal = GROUP_INSET)
+                        .clip(GroupShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                },
+            )
             .then(
                 when {
                     signedIn && onClick != null -> Modifier.clickable(onClick = onClick)

@@ -422,3 +422,65 @@ func TestHostOnlyControlTravelsOnTheSnapshot(t *testing.T) {
 		t.Errorf("a joining device must learn the party is locked, got %v", wire["hostOnlyControl"])
 	}
 }
+
+func TestQueueAddSkipsAutoplayAlreadyWaiting(t *testing.T) {
+	ps := NewPlaybackState()
+	current := &Track{VideoId: "curr"}
+	ps.SetTrack(nil, current, 0, true, nil, nil)
+	ps.SetQueue(nil, []*Track{current}, 0)
+
+	var batch []*Track
+	for i := 0; i < 10; i++ {
+		batch = append(batch, &Track{VideoId: fmt.Sprintf("a%d", i), FromAutoplay: true})
+	}
+	if ok, reason := ps.AddUpcoming(nil, batch, false); !ok {
+		t.Fatalf("first batch refused: %s", reason)
+	}
+	seq := ps.QueueSeq
+	// The same station again, as a second supplier or a retry would send it.
+	if ok, reason := ps.AddUpcoming(nil, batch, false); !ok {
+		t.Fatalf("a batch that is already queued should succeed as a no-op, got %s", reason)
+	}
+	if len(ps.Queue) != 11 {
+		t.Fatalf("expected the station once (11 rows), got %d", len(ps.Queue))
+	}
+	if ps.QueueSeq != seq {
+		t.Fatalf("a no-op top-up should not bump the queue seq")
+	}
+
+	// A hand-queued duplicate is the listener's choice and is kept.
+	manual := []*Track{{VideoId: "a0"}}
+	if ok, _ := ps.AddUpcoming(nil, manual, false); !ok || len(ps.Queue) != 12 {
+		t.Fatalf("a manual duplicate should be queued, got len %d", len(ps.Queue))
+	}
+}
+
+func TestQueueIndexPrefersTheCopyAtTheNeedle(t *testing.T) {
+	ps := NewPlaybackState()
+	x := &Track{VideoId: "x"}
+	a := &Track{VideoId: "a"}
+	b := &Track{VideoId: "b"}
+	// x has played before and is playing again: [x, a, x, b] with the second x current.
+	ps.SetTrack(nil, x, 0, true, nil, nil)
+	ps.SetQueue(nil, []*Track{x, a, x, b}, 2)
+	if ps.QueueIndex != 2 {
+		t.Fatalf("setQueue should keep the sender's index for the playing track, got %d", ps.QueueIndex)
+	}
+
+	// Moving on to b, with no index sent, lands on the slot after the needle.
+	ps.SetTrack(nil, b, 0, true, nil, nil)
+	if ps.QueueIndex != 3 {
+		t.Fatalf("expected b at 3, got %d", ps.QueueIndex)
+	}
+	// Going back to x lands on the copy just behind, not the first one.
+	ps.SetTrack(nil, x, 0, true, nil, nil)
+	if ps.QueueIndex != 2 {
+		t.Fatalf("expected x at 2, got %d", ps.QueueIndex)
+	}
+	// An index that names a different track is not trusted.
+	wrong := 0
+	ps.SetTrack(nil, b, 0, true, &wrong, nil)
+	if ps.QueueIndex != 3 {
+		t.Fatalf("expected b at 3 despite a stale index, got %d", ps.QueueIndex)
+	}
+}

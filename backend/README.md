@@ -230,6 +230,43 @@ To keep memory, bandwidth, and latency strictly bounded:
   alongside indices. If concurrent network lag (e.g. 800 ms mobile latency) or
   a track completion shifts indices, the server resolves `fromIndex` from the
   track's `videoId` under the party lock, preventing misplaced drops.
+- **Repeated tracks**: the queue keeps its history, so it can hold the playing
+  track twice. `setQueue` keeps the sender's `queueIndex` when it names the
+  playing track, and `setTrack` without one takes the copy nearest the current
+  index (the next slot first) rather than the first copy from the top.
+- **AutoPlay de-duplication**: `queueAdd` drops `fromAutoplay` tracks already
+  waiting after the current one (or repeated in the batch). A batch that is
+  entirely such tracks succeeds without changing the queue. Hand-queued tracks
+  are never filtered.
+
+## Deploying to Oracle Cloud (Always Free)
+
+This is what runs `https://api.bitchord.kushagrasingh.in`: one Always Free
+`VM.Standard.E2.1.Micro` (1 OCPU, 1 GB) on Ubuntu 24.04 in ap-mumbai-1, with
+Caddy in front for HTTPS and WebSockets. Files are in `deploy/`.
+
+1. **Create the VM**: Compute -> Instances -> Create. Image *Canonical Ubuntu
+   24.04*, shape *VM.Standard.E2.1.Micro* (tagged Always Free), public subnet,
+   public IPv4 on, paste your SSH public key.
+2. **Open 80/443 in the VCN**: Networking -> VCN -> Security -> *Default
+   Security List* -> Add Ingress Rule: source `0.0.0.0/0`, TCP, destination
+   ports `80,443`.
+3. **DNS**: an `A` record for the host name pointing at the VM's public IP.
+   It has to resolve before step 4 can get a certificate.
+4. **Install** (from a copy of `backend/` on the VM):
+
+   ```sh
+   sudo DOMAIN=api.bitchord.kushagrasingh.in bash deploy/setup.sh
+   ```
+
+   It installs Go, builds the server into `/opt/bitchord-jam`, runs it as the
+   `bitchord-jam` systemd service on `:8000`, installs Caddy for the domain, and
+   opens 80/443 in the VM's own iptables. Oracle's Ubuntu images carry a REJECT
+   rule besides the security list, so both have to be opened. Re-run the same
+   command to deploy a new build.
+
+Check it with `curl https://<domain>/healthz`. Logs are in
+`journalctl -u bitchord-jam` and `journalctl -u caddy`.
 
 ## Deploying to Render
 
@@ -295,6 +332,7 @@ Every one of these is optional — `config/config.go` carries the same defaults.
 | `JAM_CONNECTION_IDLE_MS` | `900000` | Close a WebSocket that sends no message for 15 minutes. |
 | `JAM_ALLOWED_ORIGINS` | *(none)* | Comma-separated browser Origin allowlist. Native clients send no Origin and remain supported. |
 | `JAM_TRUST_PROXY` | `false` | Read `X-Forwarded-For` for rate limiting only when a trusted proxy terminates requests. |
+| `JAM_PUBLIC_ORIGIN` | *(none)* | Public origin emitted verbatim in invite deep links, e.g. `https://party.example.com`. Set it when TLS terminates upstream and `X-Forwarded-Proto` may be rewritten or dropped along the way. |
 | `PORT` | `8000` | Port the server listens on. |
 
 ## Layout

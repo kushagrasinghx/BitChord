@@ -1,5 +1,16 @@
 package com.music.bitchord.ui.screens
 
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.music.bitchord.playback.audio.LosslessOutput
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Column
@@ -16,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Dns
@@ -56,6 +68,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.smb.SmbRepository
 import com.music.bitchord.data.webdav.WebDavRepository
 import com.music.bitchord.data.settings.AudioQuality
@@ -125,14 +138,17 @@ fun SourcesScreen(
 
     /** Last known reachability per source, filled in as the probes come back. */
     val health = remember { mutableStateMapOf<String, SourceHealth>() }
+    val losslessOutput by LosslessOutput.state.collectAsStateWithLifecycle()
 
     // Every source that has a server to reach is probed, so an addon gets a
     // reachability line — which is the only feedback that a URL just pasted in
     // was any good, and the only place a manifest that fails validation gets to
-    // say why.
-    val probeKey = configs.filter { it.kind.needsServer }.joinToString { "${it.id}@${it.baseUrl}" }
+    // say why. Except an addon waiting on a lossless output: it is not to be
+    // contacted at all until one is connected, and connecting one re-runs this.
+    val probeKey = configs.filter { it.kind.needsServer }
+        .joinToString { "${it.id}@${it.baseUrl}@${it.checkValidLossless}" } + "@${losslessOutput.capable}"
     LaunchedEffect(probeKey) {
-        configs.filter { it.kind.needsServer && it.isComplete }.forEach { config ->
+        configs.filter { it.kind.needsServer && it.isComplete && !it.awaitsLosslessOutput }.forEach { config ->
             val source = SourceRegistry.instance(config.id) ?: return@forEach
             health[config.id] = withContext(Dispatchers.IO) {
                 runCatching { source.health() }
@@ -225,6 +241,7 @@ fun SourcesScreen(
                         // connection keeps meaning "…and here is what it costs
                         // today".
                         skippedByQuality = config.enabled && !ceiling.permits(config.kind),
+                        awaitingOutput = if (config.enabled && config.awaitsLosslessOutput) losslessOutput else null,
                         onMetered = metered == true,
                         ceiling = ceiling,
                         // Anything the user configured is theirs to edit or
@@ -260,6 +277,16 @@ fun SourcesScreen(
             fixed.forEachIndexed { index, config ->
                 if (index > 0) RowDivider()
                 row(addons.size + index + 1, config, null)
+            }
+
+            // The one shut-out an addon can't tell apart from "not lossless":
+            // headphones on LDAC or LHDC whose codec Android won't name without
+            // the Nearby devices permission. Offered only then, and only from
+            // here, where the reason for asking is on screen.
+            val waiting = configs.any { it.enabled && it.awaitsLosslessOutput }
+            if (waiting && losslessOutput.bluetoothCodecUnknown) {
+                RowDivider()
+                BluetoothCodecPermissionRow()
             }
 
             RowDivider()
@@ -637,6 +664,86 @@ private fun AddSourceRow(onClick: () -> Unit) {
     }
 }
 
+/**
+ * Asks for Nearby devices so the Bluetooth codec can be read — the only way an
+ * LDAC or LHDC headset qualifies for an addon's `checkValidLossless`. Draws
+ * nothing where the permission does not exist (before Android 12) or is
+ * already granted, since asking again would do nothing.
+ */
+@Composable
+private fun BluetoothCodecPermissionRow() {
+    val context = LocalContext.current
+    val permission = "android.permission.BLUETOOTH_CONNECT"
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    fun isGranted() =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    var granted by remember { mutableStateOf(isGranted()) }
+    var denied by remember { mutableStateOf(false) }
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        granted = ok
+        denied = !ok
+        if (ok) LosslessOutput.refresh()
+    }
+    // Back from system Settings, where it may have been switched on.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val now = isGranted()
+        if (now && !granted) LosslessOutput.refresh()
+        granted = now
+        if (now) denied = false
+    }
+    // Asked as soon as the screen shows the shut-out it would fix, and again
+    // on every later visit, since this row is composed afresh each time. After
+    // a second refusal Android answers without a dialog, which lands in
+    // [denied] and the Settings prompt below.
+    LaunchedEffect(Unit) {
+        if (!isGranted()) ask.launch(permission)
+    }
+    if (granted) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                if (denied) {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            .setData(Uri.fromParts("package", context.packageName, null)),
+                    )
+                } else {
+                    ask.launch(permission)
+                }
+            }
+            .heightIn(min = 60.dp)
+            .padding(horizontal = ROW_INSET, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Spacer(Modifier.width(24.dp))
+        Icon(
+            imageVector = Icons.Rounded.Bluetooth,
+            contentDescription = null,
+            tint = if (denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(ICON_SIZE),
+        )
+        Spacer(Modifier.width(ICON_GAP))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(
+                    if (denied) R.string.lossless_output_permission_denied else R.string.lossless_output_permission,
+                ),
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = stringResource(
+                    if (denied) R.string.lossless_output_permission_denied_detail else R.string.lossless_output_permission_detail,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+            )
+        }
+    }
+}
+
 @Composable
 private fun SourceRow(
     position: Int,
@@ -647,6 +754,8 @@ private fun SourceRow(
     onToggle: ((Boolean) -> Unit)?,
     /** On, but skipped by the ceiling the current connection is set to. */
     skippedByQuality: Boolean = false,
+    /** On, but its addon needs a lossless output and this is what is connected instead. Null when not waiting. */
+    awaitingOutput: LosslessOutput.State? = null,
     /** Which of the two ceilings [ceiling] is, so the row can name it. */
     onMetered: Boolean = false,
     ceiling: AudioQuality = AudioQuality.LOSSLESS,
@@ -661,7 +770,7 @@ private fun SourceRow(
     // Dimmed for the same reason an off source is: it is not in the walk. The
     // switch stays where the user left it, so the row reads "on, but not
     // today" rather than "off".
-    val dimmed = !config.enabled || skippedByQuality
+    val dimmed = !config.enabled || skippedByQuality || awaitingOutput != null
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -710,17 +819,28 @@ private fun SourceRow(
                 // The ceiling outranks the health line: a source that isn't
                 // going to be asked at all is not usefully described by
                 // whether its server answered a probe.
-                text = if (skippedByQuality) {
-                    stringResource(
+                text = when {
+                    // Outranks the ceiling: this one is not reached on *any*
+                    // connection until the output changes.
+                    awaitingOutput != null -> when {
+                        awaitingOutput.bluetoothCodecUnknown ->
+                            stringResource(R.string.source_needs_lossless_bt_unknown)
+                        awaitingOutput.bluetoothCodec != null ->
+                            stringResource(R.string.source_needs_lossless_bt_codec, awaitingOutput.bluetoothCodec)
+                        else -> stringResource(R.string.source_needs_lossless_output)
+                    }
+                    skippedByQuality -> stringResource(
                         R.string.source_skipped_by_quality,
                         stringResource(if (onMetered) R.string.mobile_data else R.string.wifi),
                         ceiling.localizedLabel(),
                     )
-                } else {
-                    config.statusLine(health)
+                    else -> config.statusLine(health)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = when {
+                    // A warning, not a fault: the addon is fine, the output is
+                    // what has to change — but it is something to act on.
+                    awaitingOutput != null -> MaterialTheme.colorScheme.error
                     // Only a rejection is coloured, and only when it is what
                     // the line actually says. A server that is merely down
                     // will be up again without anyone doing anything, and
@@ -778,6 +898,9 @@ private fun SourceConfig.statusLine(health: SourceHealth?): String = when {
     health is SourceHealth.Ok -> listOfNotNull(
         health.detail,
         kind.labels.take(3).joinToString(" · "),
+        // The addon's own `allowDownloads: 0`, said where the user will look
+        // when a download from it came from somewhere else.
+        stringResource(R.string.source_downloads_off).takeIf { !allowDownloads },
     ).joinToString(" · ")
     health is SourceHealth.Rejected -> health.reason
     health is SourceHealth.Unreachable -> stringResource(R.string.source_unreachable, health.reason)

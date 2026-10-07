@@ -95,8 +95,6 @@
     <string name="rich_presence">נוכחות עשירה</string>
     <string name="scrobbling">סקרובלינג</string>
     <string name="now_playing">מתנגן כעת</string>
-    <string name="next_in_queue">הבא בתור</string>
-    <string name="next_from">הבא מתוך: %1$s</string>
     <string name="selected">נבחר</string>
     <string name="password">סיסמה</string>
     <string name="username">שם משתמש</string>
@@ -270,22 +268,9 @@
     <string name="always_on">מופעל תמיד</string>
     <string name="api_token">אסימון API</string>
     <string name="audio_quality_connection">בעת חיבור ל-%1$s</string>
-    <string name="autoplay">הפעלה אוטומטית</string>
     <string name="back_in_future_version">יחזור בגרסה עתידית</string>
     <string name="buttons">כפתורים</string>
     <string name="clear_name">נקה שם</string>
-    <string name="close_lyrics">סגור מילים</string>
-    <string name="translate_lyrics">תרגם מילים</string>
-    <string name="romanize_lyrics">תעתיק לטיני למילים</string>
-    <string name="show_original_lyrics">הצג מילים מקוריות</string>
-    <string name="translating_lyrics_to">מתרגם ל%1$s…</string>
-    <string name="lyrics_translated_to">תורגם ל%1$s</string>
-    <string name="romanizing_lyrics">מתעתק את המילים…</string>
-    <string name="lyrics_romanized">הגייה בתעתיק לטיני</string>
-    <string name="lyrics_already_romanized">המילים האלה כבר כתובות באותיות לטיניות</string>
-    <string name="lyrics_romanization_unavailable">תעתיק לטיני לא זמין למילים האלה</string>
-    <string name="lyrics_already_in_language">המילים כבר ב%1$s</string>
-    <string name="lyrics_translation_unavailable">התרגום אינו זמין כרגע</string>
     <string name="connect_account_first">חבר חשבון תחילה</string>
     <string name="connected_presence_off">מחובר, נוכחות כבויה</string>
     <string name="copy_log">העתק יומן</string>
@@ -320,36 +305,11 @@
     <string name="enter_token_to_enable">הזן אסימון כדי להפעיל</string>
     <string name="first_button">כפתור ראשון</string>
     <string name="got_it">הבנתי</string>
-    <string name="high_quality">איכות גבוהה</string>
-    <string name="instrumental">אינסטרומנטלי</string>
     <string name="pause">השהה</string>
-    <string name="lyrics_by">מילים מאת %1$s</string>
-    <string name="change_lyrics_provider">שינוי</string>
-    <string name="choose_lyrics_provider">בחירת ספק מילים</string>
-    <string name="lyrics_provider_current">הספק הנוכחי</string>
-    <string name="lyrics_provider_found">נמצאו מילים · הקישו לשימוש</string>
-    <string name="lyrics_provider_not_found">לא נמצאו מילים</string>
-    <string name="lyrics_provider_fetching">מביא מילים…</string>
-    <string name="lyrics_provider_not_fetched">הקישו כדי להביא</string>
-    <string name="no_lyrics_found">לא נמצאו מילים</string>
-    <string name="lyrics_saved_with_download">מילים נשמרו יחד עם ההורדה הזו</string>
     <string name="shuffle_on">ערבוב מופעל</string>
     <string name="shuffle_off">ערבוב כבוי</string>
-    <string name="repeat_one">חזור על אחד</string>
-    <string name="repeat_all">חזור על הכל</string>
-    <string name="repeat_off">חזרה כבויה</string>
-    <string name="autoplay_on">הפעלה אוטומטית מופעלת</string>
-    <string name="autoplay_off">הפעלה אוטומטית כבויה</string>
-    <string name="autoplay_queue_description">מוזיקה דומה, נבחרה להתנגן בהמשך</string>
-    <string name="autoplay_empty_description">מוזיקה דומה תמשיך להתנגן</string>
-    <string name="high_quality_upgrading">איכות גבוהה, משדרג</string>
-    <string name="upgrading_quality">משדרג איכות</string>
-    <string name="hi_res_lossless">ללא אובדן נתונים ברזולוציה גבוהה</string>
-    <string name="bit_depth">%1$d-ביט</string>
     <string name="mono">מונו</string>
     <string name="stereo">סטריאו</string>
-    <string name="channel_count">%1$d ערוצים</string>
-    <string name="downgraded_from">↓ מ-%1$s</string>
     <string name="history">היסטוריה</string>
     <string name="sources">מקורות</string>
     <string name="wifi">Wi-Fi</string>
@@ -397,7 +357,6 @@
     <string name="listenbrainz_token">אסימון ListenBrainz</string>
     <string name="listenbrainz_token_description">הדבק את אסימון המשתמש של ListenBrainz כדי להפעיל scrobbling.</string>
     <string name="listening_history">היסטוריית האזנה</string>
-    <string name="lyrics_not_available">מילים לא זמינות</string>
     <string name="lyrics_sources_order">המקורות נבדקים בסדר זה. גרור כדי לשנות סדר. המקור הראשון עם מילים מנצח, אלא אם ניתנת עדיפות למילים לפי הברות.</string>
     <string name="max_delay">השהיה מקסימלית</string>
     <string name="max_delay_subtitle">עיכוב scrobble מקסימלי בשניות</string>
@@ -405,7 +364,6 @@
     <string name="min_song_duration_subtitle">שירים קצרים יותר לא יתועדו</string>
     <string name="monthly_listeners">%1$s מאזינים חודשיים</string>
     <string name="name">שם</string>
-    <string name="no_lyrics_for_track">אין מילים לרצועה זו</string>
     <string name="no_playlists_yet">עדיין אין רשימות השמעה. השתמש בשורה למעלה כדי ליצור אחת.</string>
     <string name="no_tracks_here">אין כאן רצועות</string>
     <string name="not_connected">לא מחובר</string>
@@ -427,8 +385,11 @@
     <string name="remove">הסר</string>
     <string name="remove_from_liked">הסר ממוזיקה שאהבתי</string>
     <string name="remove_from_playlist">הסר מרשימת השמעה זו</string>
-    <string name="remove_from_queue">הסר מהתור</string>
     <string name="rename_playlist">שנה שם רשימת ההשמעה</string>
+    <string name="reorder_songs">שנה סדר שירים</string>
+    <string name="reorder_failed">לא ניתן לשמור את הסדר החדש</string>
+    <string name="playlist_reordered">סדר הפלייליסט נשמר</string>
+    <string name="save_order">שמור</string>
     <string name="reset_to_default">אפס לברירת מחדל</string>
     <string name="rich_presence_footer">הראה במה אתה משחק בפרופיל דיסקורד שלך.</string>
     <string name="save_name">שמור שם</string>
@@ -490,7 +451,6 @@
     <string name="token">אסימון</string>
     <string name="turn_off_timer">כבה טיימר</string>
     <string name="undo_dislike">בטל לא אוהב</string>
-    <string name="up_next">הבא בתור</string>
     <string name="verb_competing">מתחרה ב-</string>
     <string name="verb_listening">מאזין ל-</string>
     <string name="verb_playing">משחק</string>
@@ -505,6 +465,10 @@
     <string name="hour_pm">%1$d PM</string>
     <string name="hours_minutes_short">%1$dh %2$dm</string>
     <string name="listen_most_around">אתה מאזין בעיקר סביב %1$s.</string>
+    <string name="lyrics_share_title">שיתוף המילים</string>
+    <string name="lyrics_share_description">השורות שבחרת, על כרטיס עם העטיפה.</string>
+    <string name="lyrics_share_story">המר לסטורי</string>
+    <string name="lyrics_share_story_revert">חזרה לכרטיס</string>
     <string name="listening_shape">דפוס ההאזנה שלך</string>
     <string name="member_since">חבר מאז</string>
     <string name="member_since_value">חבר מאז %1$s</string>
@@ -536,6 +500,10 @@
     <string name="replay_minutes_end"> עם מוזיקה.</string>
     <string name="replay_minutes_start">בילית </string>
     <string name="replay_minutes_value">%1$s</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s דקה</item>
+        <item quantity="other">%1$s דקות</item>
+    </plurals>
     <string name="replay_mostly_around">, רובם סביב %1$s.</string>
     <string name="replay_private_counting">נבנה באופן פרטי מההיסטוריה המקומית שלך</string>
     <string name="replay_share_card_description">כרטיס מלוטש עם דגשי ההאזנה העיקריים שלך.</string>
@@ -544,16 +512,19 @@
     <string name="replay_songs_start">בסך הכל, </string>
     <string name="replay_summary_start">לסגנון ההאזנה שלך הייתה אווירה </string>
     <string name="saved">נשמר</string>
+    <string name="saved_bang">נשמר!</string>
     <string name="share_my_replay">שתף את ה-Replay שלי</string>
+    <string name="share_your_lyrics">שליחת כרטיס המילים</string>
     <string name="share_your_replay">שתף את ה-Replay שלך</string>
     <string name="tap_share_for_picture">הקש שתף כדי ליצור תמונה</string>
     <string name="top_album">אלבום מוביל</string>
     <string name="top_artist">אמן מוביל</string>
     <string name="top_genre">ז\'אנר מוביל</string>
     <string name="top_song">שיר מוביל</string>
-    <string name="when_you_listen_most">מתי אתה מאזין הכי הרבה</string>
+    <string name="when_you_listen_the_most">מתי אתה מאזין הכי הרבה</string>
     <string name="your_biggest_day">היום הגדול ביותר שלך: %1$s</string>
     <string name="your_listening_experience">חווית ההאזנה שלך</string>
+    <string name="your_lyrics_card">כרטיס המילים שלך</string>
     <string name="your_replay">ה-Replay שלך</string>
     <string name="all_audio_folders">כל תיקיות האודיו</string>
     <string name="local_music_folder">תיקיית מוזיקה מקומית</string>
@@ -605,11 +576,6 @@
     <string name="delete_playlist_confirmation">למחוק את “%1$s”? הקש שוב לאישור.</string>
     <string name="delete_download_confirmation">להסיר את “%1$s” מהמכשיר? הקש שוב לאישור.</string>
     <string name="running">פועל</string>
-    <string name="automix_analysis_status">Automix · השיר הזה: %1$s · הבא: %2$s</string>
-    <string name="analysis_complete">נותח</string>
-    <string name="analysis_refining">נותח, משפר…</string>
-    <string name="analysis_in_progress">מנתח…</string>
-    <string name="waiting">ממתין</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">לא הובא</string>
     <string name="version_cut_fetching">מביא</string>
@@ -617,6 +583,8 @@
     <string name="version_cut_aligned">מיושר</string>
     <string name="automix_enabled_subtitle">מתזמן ומשלב כל מעבר מהרצועות עצמן. כבה זאת אם הטלפון מתחמם או ההפעלה מגמגמת.</string>
     <string name="automix_disabled_subtitle">מתזמן ומשלב מעברים באופן אוטומטי, ללא מחוון. הביצועים עשויים להשתנות במכשירים איטיים.</string>
+    <string name="advanced_automix">Automix מתקדם</string>
+    <string name="advanced_automix_subtitle">מערבב כמו די-ג׳יי: שומר על הקצב מסונכרן, מבצע כל מעבר על הפעמה וחותך בין שירים שלא מתמזגים. ללא עיבוד נוסף.</string>
     <string name="no_lyrics_sources_enabled">אין. מילים לא יורדו.</string>
     <string name="song_cache_large_subtitle">שומר עד %1$s של שמע שהורד בכונן. זה יכול לתפוס נתח משמעותי מהמקום הפנוי שלך.</string>
     <string name="song_cache_limit_subtitle">שומר שמע שהורד בכונן לחיפוש מיידי ולהשמעות חוזרות</string>
@@ -695,34 +663,6 @@
         <item quantity="one">חודש %1$d של האזנה</item>
         <item quantity="other">%1$d חודשי האזנה</item>
     </plurals>
-    <string-array name="lyrics_intro_lines">
-        <item>הקצב מתקרב</item>
-        <item>השיר מתחיל</item>
-        <item>מתחממים</item>
-        <item>קובעים את האווירה</item>
-        <item>קודם בס, אחר כך מילים</item>
-        <item>חכה לזה</item>
-        <item>תרגיש את ההתגברות</item>
-        <item>רק הגרוב בינתיים</item>
-        <item>הפזמון בדרך</item>
-        <item>תן לזה לנשום</item>
-        <item>הכן את השירה</item>
-        <item>תווים ראשונים</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>משיג את המילים</item>
-        <item>מוצא את המילים</item>
-        <item>מביא את הבתים</item>
-        <item>המילים נטענות</item>
-        <item>בודק את דף המילים</item>
-        <item>מחפש בספר השירים</item>
-        <item>מסדר את המילים</item>
-        <item>מילים בדרך</item>
-        <item>בודק בארכיונים</item>
-        <item>מוצא את המילים הנכונות</item>
-        <item>המילים מתחברות</item>
-        <item>כמעט מצאתי את המילים</item>
-    </string-array>
     <string name="hebrew">עברית</string>
 
     <!-- Listen together -->
@@ -779,7 +719,6 @@
     <string name="listen_together_you">אתם</string>
     <string name="listen_together_host">מארח</string>
     <string name="listen_together_away">מרוחק — המקום נשמר</string>
-    <string name="listen_together_manage">ניהול</string>
     <string name="listen_together_landing_title">התחלת מסיבה</string>
     <string name="listen_together_landing_subtitle">כי מוזיקה נשמעת טוב יותר ביחד. הזמינו חברים להאזין ולהוסיף שירים בזמן אמת, איפה שהם לא יהיו.</string>
     <string name="listen_together_create_action">יצירת מסיבה</string>
@@ -805,10 +744,6 @@
     <string name="listen_together_reconnecting">מתחבר מחדש…</string>
     <string name="listen_together_syncing_clock">מודד את השעון…</string>
     <string name="listen_together_in_sync">מסונכרן · %1$d מ״ש הלוך ושוב</string>
-    <string name="listen_together_jam">הג׳אם של %1$s</string>
-    <string name="listen_together_jam_unnamed">מאזינים ביחד</string>
-    <string name="listen_together_open">להאזין ביחד</string>
-    <string name="listen_together_open_count">מאזינים ביחד · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">להצטרף למסיבה בשרת מותאם אישית?</string>
     <string name="listen_together_custom_server_dialog_message">המסיבה הזו מתארחת בשרת חיצוני:\n\n%1$s\n\nלהחליף את שרת המסיבות ולהצטרף למסיבה %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">החלפה והצטרפות</string>
@@ -868,8 +803,6 @@
 
     <string name="automix_mode_performance_subtitle">4 תהליכונים · ניתוח מהיר ביותר · שימוש מוגבר בסוללה</string>
 
-    <string name="automix_not_supported_video">Automix אינו נתמך בקטעי וידאו</string>
-    <string name="automix_stopped_in_party">Automix: הופסק בהאזנה ביחד</string>
 
     <string name="automix_performance">ביצועי Automix</string>
 
@@ -938,13 +871,13 @@
 
     <string name="personal">אישי</string>
 
-    <string name="playing_radio">מנגן רדיו %1$s</string>
 
     <string name="playlist_action">פלייליסט</string>
 
     <string name="prefer_usb_dac">העדף USB DAC</string>
     <string name="loudness_normalization">נרמול עוצמה</string>
     <string name="loudness_normalization_subtitle">מביא כל רצועה לאותה עוצמה נשמעת</string>
+    <string name="loudness_off_on_speaker">השבתה ברמקול הטלפון</string>
     <string name="loudness_target">עוצמת יעד</string>
     <string name="loudness_target_subtitle">שקט יותר מתאים לאוזניות; חזק יותר לרכב או לרמקול הטלפון</string>
     <string name="loudness_target_value">%1$s LUFS</string>
@@ -1083,13 +1016,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="auto_quick_picks">Quick picks</string>
 
@@ -1226,11 +1155,18 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="cast_dialog_title">Cast</string>
+    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
+    <string name="cast_searching">Looking for devices…</string>
+    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
+    <string name="cast_device_connecting">Connecting…</string>
+    <string name="cast_device_connected">Casting</string>
+    <string name="cast_stop">Stop casting</string>
+    <string name="cast_track_unsupported">This track can\'t be cast</string>
+    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
     <string name="audio_pipeline_subtitle">נתיב האות בזמן אמת, מהמפענח ועד הפלט</string>
 
     <string name="pipeline_track_info">Track Info</string>
@@ -1277,9 +1213,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1288,6 +1222,14 @@
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">נוסף לרשימת ההשמעה</string>
     <string name="song_already_in_playlist">כבר ברשימת ההשמעה</string>
+    <plurals name="add_to_playlists_count">
+        <item quantity="one">הוסף לרשימת השמעה %1$d</item>
+        <item quantity="other">הוסף ל-%1$d רשימות השמעה</item>
+    </plurals>
+    <plurals name="added_to_playlists_notice">
+        <item quantity="one">נוסף לרשימת השמעה %1$d</item>
+        <item quantity="other">נוסף ל-%1$d רשימות השמעה</item>
+    </plurals>
     <string name="party_queue_full">התור מלא (עד %d שירים במסיבה)</string>
 
     <string name="paxsenix_api_key">PaxSenix API key</string>
@@ -1296,22 +1238,59 @@
 
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
-    <string name="open_lyrics">Lyrics</string>
-
-    <string name="audio_output">Audio output</string>
-
-    <string name="audio_output_playing">Playing here</string>
-
-    <string name="wired_headphones">Wired headphones</string>
-
-    <string name="usb_audio">USB audio</string>
-
-    <string name="hdmi_output">HDMI</string>
-
-    <string name="personal_phone">%1$s’s Phone</string>
-
-    <string name="this_phone">This phone</string>
 
 
 
+
+
+
+
+
+
+
+    <string name="source_needs_lossless_output">דורש פלט ללא אובדן · השתמשו במכשיר שתומך באודיו ללא אובדן</string>
+    <string name="source_needs_lossless_bt_codec">דורש פלט ללא אובדן · ה‑Bluetooth משתמש ב‑%1$s; השתמשו במכשיר שתומך באודיו ללא אובדן</string>
+    <string name="source_needs_lossless_bt_unknown">דורש פלט ללא אובדן · לא ניתן לדעת באיזה קודק Bluetooth נעשה שימוש</string>
+    <string name="source_downloads_off">הזרמה בלבד</string>
+    <string name="lossless_output_permission">בדיקת קודק Bluetooth</string>
+    <string name="lossless_output_permission_detail">אפשרו מכשירים בקרבת מקום כדי שאוזניות LDAC או LHDC יפתחו תוספים ללא אובדן</string>
+    <string name="cached_songs">שירים במטמון</string>
+    <string name="cached_songs_subtitle">שירים מ-YouTube ומ-JioSaavn במטמון השירים</string>
+    <string name="cached_songs_empty">אין עדיין שירים במטמון. שירים שתנגן מ-YouTube או מ-JioSaavn יופיעו כאן.</string>
+    <string name="show_cache_folder">הצג תיקיית שירים במטמון</string>
+    <string name="show_cache_folder_subtitle">מוסיף לספרייה תיקייה עם שירי YouTube ו-JioSaavn שנשמרו במטמון</string>
+    <string name="song_cache_unlimited">ללא הגבלה</string>
+    <string name="song_cache_unlimited_subtitle">אין מגבלה. האודיו במטמון יכול לגדול עד שהאחסון יתמלא.</string>
+    <string name="clear_song_cache_title">לנקות את מטמון השירים?</string>
+    <string name="clear_song_cache_warning">כל השירים במטמון יימחקו ותיקיית השירים במטמון תתרוקן. הם יוזרמו שוב בפעם הבאה שתנגן אותם.</string>
+    <string name="import_spotify">ייבוא מ-Spotify</string>
+    <string name="import_spotify_subtitle">מקישור לפלייליסט</string>
+    <string name="local_playlist_subtitle">%1$d שירים · במכשיר זה</string>
+    <string name="lossless_output_permission_denied">הרשאת מכשירים בקרבת מקום כבויה</string>
+    <string name="lossless_output_permission_denied_detail">הקישו לפתיחת ההגדרות ולאישור מכשירים בקרבת מקום — בלעדיה לא נוכל לזהות את מקודד ה-Bluetooth שלכם</string>
+    <string name="recent_album">אלבום אחרון</string>
+    <string name="recent_ep">EP אחרון</string>
+    <string name="recent_single">סינגל אחרון</string>
+    <string name="spotify">Spotify</string>
+    <string name="spotify_connect_subtitle">התחברו כדי לטעון את הפלייליסטים שלכם. ההשמעה משתמשת ב-YouTube Music.</string>
+    <string name="spotify_disconnect">התנתקות</string>
+    <string name="spotify_empty_playlists">אין פלייליסטים בחשבון זה</string>
+    <string name="spotify_empty_tracks">לפלייליסט זה אין שירים</string>
+    <string name="spotify_import_button">ייבוא</string>
+    <string name="spotify_import_description">הדביקו קישור לפלייליסט ציבורי. השירים יותאמו ב-YouTube Music.</string>
+    <string name="spotify_import_description_local">הדביקו קישור לפלייליסט ציבורי. השירים יותאמו ב-YouTube Music ויישמרו במכשיר זה.</string>
+    <string name="spotify_import_done">„%1$s” יובאה</string>
+    <string name="spotify_import_empty_playlist">אין שירים בפלייליסט זה</string>
+    <string name="spotify_import_failed">ייבוא הפלייליסט נכשל: %1$s</string>
+    <string name="spotify_import_fetching">קורא את הפלייליסט של Spotify…</string>
+    <string name="spotify_import_hint">open.spotify.com/playlist/…</string>
+    <string name="spotify_import_invalid">זהו לא קישור לפלייליסט של Spotify.</string>
+    <string name="spotify_import_local_fallback">לא ניתן היה ליצור אותה ב-YouTube Music, ולכן „%1$s” נשמרה במכשיר זה.</string>
+    <string name="spotify_import_matching">מתאים שירים %1$d מתוך %2$d</string>
+    <string name="spotify_import_none">אף אחד מהשירים הללו לא נמצא ב-YouTube Music.</string>
+    <string name="spotify_import_title">ייבוא פלייליסט מ-Spotify</string>
+    <string name="spotify_import_unmatched">%1$d שירים לא נמצאו ב-YouTube Music</string>
+    <string name="spotify_library_subtitle">הפלייליסטים שלכם ב-Spotify</string>
+    <string name="spotify_sign_in">התחברות עם Spotify</string>
+    <string name="spotify_track_unavailable">לא נמצא שיר כזה ב-YouTube Music</string>
 </resources>

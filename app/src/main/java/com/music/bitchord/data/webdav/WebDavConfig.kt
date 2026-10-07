@@ -90,26 +90,6 @@ object WebDavConfig {
     }
 }
 
-/**
- * In-memory credentials for [com.music.bitchord.data.Http]'s interceptor.
- *
- * Held outside SharedPreferences so the network layer never touches prefs:
- * [com.music.bitchord.data.settings.AppSettings] publishes here on init and
- * on every WebDAV edit.
- */
-object WebDavAuth {
-    @Volatile var host: String? = null
-    @Volatile var authHeader: String? = null
-
-    fun update(url: String, username: String, password: String) {
-        host = WebDavConfig.hostOf(url)
-        authHeader = WebDavConfig.basicAuthHeader(username, password)
-    }
-
-    fun shouldAuthorize(requestHost: String): Boolean {
-        val expected = host ?: return false
-        val header = authHeader ?: return false
-        if (header.isBlank()) return false
-        return requestHost.equals(expected, ignoreCase = true)
-    }
-}
+/** Publishes the saved server's credentials to the shared HTTP client. */
+fun WebDavAuth.update(url: String, username: String, password: String) =
+    update(WebDavConfig.hostOf(url), WebDavConfig.basicAuthHeader(username, password))

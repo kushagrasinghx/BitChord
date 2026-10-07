@@ -93,8 +93,6 @@
     <string name="rich_presence">रिच प्रेज़ेंस</string>
     <string name="scrobbling">स्क्रॉबलिंग</string>
     <string name="now_playing">अभी चल रहा है</string>
-    <string name="next_in_queue">कतार में अगला</string>
-    <string name="next_from">अगला यहाँ से: %1$s</string>
     <string name="selected">चयनित</string>
     <string name="password">पासवर्ड</string>
     <string name="username">यूज़रनेम</string>
@@ -269,22 +267,9 @@
     <string name="always_on">हमेशा चालू</string>
     <string name="api_token">API टोकन</string>
     <string name="audio_quality_connection">%1$s पर रहते हुए</string>
-    <string name="autoplay">ऑटोप्ले</string>
     <string name="back_in_future_version">आने वाले वर्शन में वापस</string>
     <string name="buttons">बटन</string>
     <string name="clear_name">नाम साफ़ करें</string>
-    <string name="close_lyrics">लिरिक्स बंद करें</string>
-    <string name="translate_lyrics">लिरिक्स का अनुवाद करें</string>
-    <string name="romanize_lyrics">लिरिक्स रोमन में दिखाएँ</string>
-    <string name="show_original_lyrics">मूल लिरिक्स दिखाएँ</string>
-    <string name="translating_lyrics_to">%1$s में अनुवाद हो रहा है…</string>
-    <string name="lyrics_translated_to">%1$s में अनुवादित</string>
-    <string name="romanizing_lyrics">लिरिक्स रोमन में बदले जा रहे हैं…</string>
-    <string name="lyrics_romanized">रोमन उच्चारण</string>
-    <string name="lyrics_already_romanized">ये लिरिक्स पहले से लैटिन अक्षरों में हैं</string>
-    <string name="lyrics_romanization_unavailable">इन लिरिक्स के लिए रोमन रूप उपलब्ध नहीं है</string>
-    <string name="lyrics_already_in_language">ये लिरिक्स पहले से %1$s में हैं</string>
-    <string name="lyrics_translation_unavailable">अनुवाद अभी उपलब्ध नहीं है</string>
     <string name="connect_account_first">पहले कोई खाता कनेक्ट करें</string>
     <string name="connected_presence_off">कनेक्टेड, प्रेज़ेंस बंद</string>
     <string name="copy_log">लॉग कॉपी करें</string>
@@ -319,36 +304,11 @@
     <string name="enter_token_to_enable">चालू करने के लिए टोकन डालें</string>
     <string name="first_button">पहला बटन</string>
     <string name="got_it">समझ गए</string>
-    <string name="high_quality">हाई क्वालिटी</string>
-    <string name="instrumental">इंस्ट्रूमेंटल</string>
     <string name="pause">रोकें</string>
-    <string name="lyrics_by">%1$s द्वारा लिरिक्स</string>
-    <string name="change_lyrics_provider">बदलें</string>
-    <string name="choose_lyrics_provider">लिरिक्स प्रदाता चुनें</string>
-    <string name="lyrics_provider_current">मौजूदा प्रदाता</string>
-    <string name="lyrics_provider_found">लिरिक्स मिल गए · इस्तेमाल करने के लिए टैप करें</string>
-    <string name="lyrics_provider_not_found">लिरिक्स नहीं मिले</string>
-    <string name="lyrics_provider_fetching">लिरिक्स लाए जा रहे हैं…</string>
-    <string name="lyrics_provider_not_fetched">लाने के लिए टैप करें</string>
-    <string name="no_lyrics_found">कोई लिरिक्स नहीं मिले</string>
-    <string name="lyrics_saved_with_download">इस डाउनलोड के साथ लिरिक्स सेव किए गए</string>
     <string name="shuffle_on">शफ़ल चालू</string>
     <string name="shuffle_off">शफ़ल बंद</string>
-    <string name="repeat_one">एक गाना दोहराएं</string>
-    <string name="repeat_all">सभी दोहराएं</string>
-    <string name="repeat_off">दोहराना बंद</string>
-    <string name="autoplay_on">ऑटोप्ले चालू</string>
-    <string name="autoplay_off">ऑटोप्ले बंद</string>
-    <string name="autoplay_queue_description">मिलता-जुलता संगीत, आगे चलाने के लिए चुना गया</string>
-    <string name="autoplay_empty_description">मिलता-जुलता संगीत चलता रहेगा</string>
-    <string name="high_quality_upgrading">हाई क्वालिटी, अपग्रेड हो रहा है</string>
-    <string name="upgrading_quality">क्वालिटी अपग्रेड हो रही है</string>
-    <string name="hi_res_lossless">हाई-रेस लॉसलेस</string>
-    <string name="bit_depth">%1$d-बिट</string>
     <string name="mono">मोनो</string>
     <string name="stereo">स्टीरियो</string>
-    <string name="channel_count">%1$d ch</string>
-    <string name="downgraded_from">↓ %1$s से</string>
     <string name="history">इतिहास</string>
     <string name="sources">स्रोत</string>
     <string name="wifi">Wi-Fi</string>
@@ -432,7 +392,6 @@
     <string name="listenbrainz_token">ListenBrainz टोकन</string>
     <string name="listenbrainz_token_description">स्क्रॉबलिंग चालू करने के लिए अपना ListenBrainz यूज़र टोकन पेस्ट करें।</string>
     <string name="listening_history">सुनने का इतिहास</string>
-    <string name="lyrics_not_available">लिरिक्स उपलब्ध नहीं हैं</string>
     <string name="lyrics_sources_order">स्रोत इसी क्रम में आज़माए जाते हैं। क्रम बदलने के लिए खींचें। जब तक सिलेबल लिरिक्स को प्राथमिकता न दी जाए, लिरिक्स वाला पहला स्रोत इस्तेमाल होता है।</string>
     <string name="max_delay">अधिकतम देरी</string>
     <string name="max_delay_subtitle">सेकंड में अधिकतम स्क्रॉबल देरी</string>
@@ -440,7 +399,6 @@
     <string name="min_song_duration_subtitle">इससे छोटे गाने स्क्रॉबल नहीं होंगे</string>
     <string name="monthly_listeners">%1$s मासिक श्रोता</string>
     <string name="name">नाम</string>
-    <string name="no_lyrics_for_track">इस ट्रैक के लिए कोई लिरिक्स नहीं हैं</string>
     <string name="no_playlists_yet">अभी तक कोई प्लेलिस्ट नहीं है। एक बनाने के लिए ऊपर दी गई पंक्ति का इस्तेमाल करें।</string>
     <string name="no_tracks_here">यहां कोई ट्रैक नहीं है</string>
     <string name="not_connected">कनेक्टेड नहीं</string>
@@ -462,8 +420,11 @@
     <string name="remove">हटाएं</string>
     <string name="remove_from_liked">पसंदीदा संगीत से हटाएं</string>
     <string name="remove_from_playlist">इस प्लेलिस्ट से हटाएं</string>
-    <string name="remove_from_queue">कतार से हटाएं</string>
     <string name="rename_playlist">प्लेलिस्ट का नाम बदलें</string>
+    <string name="reorder_songs">गानों का क्रम बदलें</string>
+    <string name="reorder_failed">नया क्रम सेव नहीं हो सका</string>
+    <string name="playlist_reordered">प्लेलिस्ट का क्रम सेव हो गया</string>
+    <string name="save_order">सेव करें</string>
     <string name="reset_to_default">डिफ़ॉल्ट पर रीसेट करें</string>
     <string name="rich_presence_footer">अपनी Discord प्रोफ़ाइल पर दिखाएं कि आप क्या चला रहे हैं।</string>
     <string name="save_name">नाम सेव करें</string>
@@ -522,7 +483,6 @@
     <string name="token">टोकन</string>
     <string name="turn_off_timer">टाइमर बंद करें</string>
     <string name="undo_dislike">नापसंद वापस लें</string>
-    <string name="up_next">आगे बजेगा</string>
     <string name="verb_competing">में प्रतिस्पर्धा कर रहे हैं</string>
     <string name="verb_listening">सुन रहे हैं</string>
     <string name="verb_playing">चला रहे हैं</string>
@@ -541,6 +501,10 @@
     <string name="hour_pm">%1$d PM</string>
     <string name="hours_minutes_short">%1$dh %2$dm</string>
     <string name="listen_most_around">आप सबसे ज़्यादा %1$s के आसपास सुनते हैं।</string>
+    <string name="lyrics_share_title">गाने के शब्द साझा करें</string>
+    <string name="lyrics_share_description">आपकी चुनी हुई पंक्तियाँ, कवर के साथ एक कार्ड पर।</string>
+    <string name="lyrics_share_story">स्टोरी बनाएँ</string>
+    <string name="lyrics_share_story_revert">कार्ड पर वापस जाएँ</string>
     <string name="listening_shape">आपके सुनने का पैटर्न</string>
     <string name="member_since">सदस्य बने</string>
     <string name="member_since_value">%1$s से सदस्य</string>
@@ -572,6 +536,10 @@
     <string name="replay_minutes_end"> संगीत के साथ बिताए।</string>
     <string name="replay_minutes_start">आपने बिताए </string>
     <string name="replay_minutes_value">%1$s</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s मिनट</item>
+        <item quantity="other">%1$s मिनट</item>
+    </plurals>
     <string name="replay_mostly_around">, ज़्यादातर %1$s के आसपास।</string>
     <string name="replay_private_counting">इस डिवाइस पर आपके सुनने के इतिहास से निजी तौर पर तैयार किया गया</string>
     <string name="replay_share_card_description">आपकी मुख्य सुनने की झलकियों के साथ एक पॉलिश्ड कार्ड।</string>
@@ -580,16 +548,19 @@
     <string name="replay_songs_start">कुल मिलाकर, </string>
     <string name="replay_summary_start">आपके सुनने में एक </string>
     <string name="saved">सेव किया गया</string>
+    <string name="saved_bang">सहेजा गया!</string>
     <string name="share_my_replay">मेरा Replay शेयर करें</string>
+    <string name="share_your_lyrics">शब्द कार्ड भेजें</string>
     <string name="share_your_replay">अपना Replay शेयर करें</string>
     <string name="tap_share_for_picture">तस्वीर बनाने के लिए शेयर पर टैप करें</string>
     <string name="top_album">टॉप एल्बम</string>
     <string name="top_artist">टॉप कलाकार</string>
     <string name="top_genre">टॉप शैली</string>
     <string name="top_song">टॉप गाना</string>
-    <string name="when_you_listen_most">जब आप सबसे ज़्यादा सुनते हैं</string>
+    <string name="when_you_listen_the_most">जब आप सबसे ज़्यादा सुनते हैं</string>
     <string name="your_biggest_day">आपका सबसे बड़ा दिन: %1$s</string>
     <string name="your_listening_experience">आपका सुनने का अनुभव</string>
+    <string name="your_lyrics_card">आपका शब्द कार्ड</string>
     <string name="your_replay">आपका Replay</string>
     <plurals name="replay_artist_count">
         <item quantity="one">%1$s कलाकार</item>
@@ -653,11 +624,6 @@
     <string name="delete_playlist_confirmation">“%1$s” मिटाएं? पुष्टि के लिए फिर से टैप करें।</string>
     <string name="delete_download_confirmation">“%1$s” को इस डिवाइस से हटाएं? पुष्टि के लिए फिर से टैप करें।</string>
     <string name="running">चल रहा है</string>
-    <string name="automix_analysis_status">ऑटोमिक्स · यह गाना: %1$s · अगला: %2$s</string>
-    <string name="analysis_complete">विश्लेषित</string>
-    <string name="analysis_refining">विश्लेषित, सुधार हो रहा है…</string>
-    <string name="analysis_in_progress">विश्लेषण हो रहा है…</string>
-    <string name="waiting">प्रतीक्षा में</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">नहीं लाया गया</string>
     <string name="version_cut_fetching">लाया जा रहा है</string>
@@ -665,6 +631,8 @@
     <string name="version_cut_aligned">अलाइन हो गया</string>
     <string name="automix_enabled_subtitle">ट्रैक्स से खुद हर ट्रांज़िशन का समय और मिश्रण तय करता है। फ़ोन गर्म होने या प्लेबैक अटकने पर इसे बंद कर दें।</string>
     <string name="automix_disabled_subtitle">बिना स्लाइडर के, ट्रांज़िशन का समय और मिश्रण अपने आप तय करता है। धीमे डिवाइस पर परफ़ॉर्मेंस अलग हो सकती है।</string>
+    <string name="advanced_automix">एडवांस्ड ऑटोमिक्स</string>
+    <string name="advanced_automix_subtitle">DJ की तरह मिक्स करता है: बीट्स को मिलाए रखता है, हर बदलाव बीट पर करता है और जो गाने मेल नहीं खाते उनके बीच कट करता है। कोई अतिरिक्त प्रोसेसिंग नहीं।</string>
     <string name="no_lyrics_sources_enabled">कोई नहीं। लिरिक्स नहीं लिए जाएंगे।</string>
     <string name="song_cache_large_subtitle">डिस्क पर %1$s तक डाउनलोड किया गया ऑडियो रखता है। इससे आपकी खाली जगह का एक बड़ा हिस्सा इस्तेमाल हो सकता है।</string>
     <string name="song_cache_limit_subtitle">तुरंत सीक करने और दोबारा सुनने के लिए डाउनलोड किया गया ऑडियो डिस्क पर रखता है</string>
@@ -691,34 +659,6 @@
     <string name="this_month">इस महीने</string>
     <string name="this_year">इस साल</string>
     <string name="all_time">अब तक</string>
-    <string-array name="lyrics_intro_lines">
-        <item>बीट उतर रही है</item>
-        <item>गाना शुरू हो रहा है</item>
-        <item>वॉर्मअप हो रहा है</item>
-        <item>माहौल बन रहा है</item>
-        <item>पहले बेस, फिर शब्द</item>
-        <item>थोड़ा रुकिए</item>
-        <item>बिल्ड-अप महसूस कीजिए</item>
-        <item>अभी तो बस ग्रूव</item>
-        <item>हुक आने ही वाला है</item>
-        <item>इसे थोड़ी सांस लेने दीजिए</item>
-        <item>वोकल्स की बारी</item>
-        <item>पहले सुर आ गए</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>लिरिक्स लाए जा रहे हैं</item>
-        <item>शब्द ढूंढे जा रहे हैं</item>
-        <item>पंक्तियां लाई जा रही हैं</item>
-        <item>लिरिक्स लोड हो रहे हैं</item>
-        <item>लिरिक्स शीट जांची जा रही है</item>
-        <item>सॉन्गबुक खंगाली जा रही है</item>
-        <item>लिरिक्स तरतीब में लगाए जा रहे हैं</item>
-        <item>शब्द आने ही वाले हैं</item>
-        <item>आर्काइव्स जांचे जा रहे हैं</item>
-        <item>सही शब्द ढूंढे जा रहे हैं</item>
-        <item>लिरिक्स जुड़ रहे हैं</item>
-        <item>शब्द लगभग मिल गए</item>
-    </string-array>
 
     <!-- Listen together -->
     <string name="listen_together">साथ में सुनें</string>
@@ -774,7 +714,6 @@
     <string name="listen_together_you">आप</string>
     <string name="listen_together_host">होस्ट</string>
     <string name="listen_together_away">दूर हैं — उनकी जगह रखी है</string>
-    <string name="listen_together_manage">मैनेज करें</string>
     <string name="listen_together_landing_title">पार्टी शुरू करें</string>
     <string name="listen_together_landing_subtitle">क्योंकि संगीत साथ में बेहतर लगता है। दोस्तों को साथ सुनने और रियल टाइम में गाने जोड़ने के लिए बुलाएँ, चाहे वे कहीं भी हों।</string>
     <string name="listen_together_create_action">पार्टी बनाएँ</string>
@@ -800,10 +739,6 @@
     <string name="listen_together_reconnecting">दोबारा जुड़ रहे हैं…</string>
     <string name="listen_together_syncing_clock">घड़ी मिलाई जा रही है…</string>
     <string name="listen_together_in_sync">सिंक में · %1$d मि.से. राउंड ट्रिप</string>
-    <string name="listen_together_jam">%1$s का जैम</string>
-    <string name="listen_together_jam_unnamed">साथ में सुन रहे हैं</string>
-    <string name="listen_together_open">साथ में सुनें</string>
-    <string name="listen_together_open_count">साथ में सुन रहे हैं · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">कस्टम सर्वर की पार्टी में शामिल हों?</string>
     <string name="listen_together_custom_server_dialog_message">यह पार्टी एक बाहरी सर्वर पर चल रही है:\n\n%1$s\n\nक्या आप अपना पार्टी सर्वर बदलकर पार्टी %2$s में शामिल होना चाहते हैं?</string>
     <string name="listen_together_custom_server_switch_and_join">बदलें और शामिल हों</string>
@@ -863,8 +798,6 @@
 
     <string name="automix_mode_performance_subtitle">4 थ्रेड्स · सबसे तेज़ विश्लेषण · अधिक बैटरी उपयोग</string>
 
-    <string name="automix_not_supported_video">वीडियो गानों पर Automix समर्थित नहीं है</string>
-    <string name="automix_stopped_in_party">Automix: साथ में सुनें के दौरान बंद</string>
 
     <string name="automix_performance">Automix प्रदर्शन</string>
 
@@ -933,13 +866,13 @@
 
     <string name="personal">व्यक्तिगत</string>
 
-    <string name="playing_radio">%1$s रेडियो चल रहा है</string>
 
     <string name="playlist_action">प्लेलिस्ट</string>
 
     <string name="prefer_usb_dac">USB DAC को प्राथमिकता दें</string>
     <string name="loudness_normalization">लाउडनेस नॉर्मलाइज़ेशन</string>
     <string name="loudness_normalization_subtitle">हर ट्रैक को एक जैसी लाउडनेस पर लाता है</string>
+    <string name="loudness_off_on_speaker">फ़ोन स्पीकर पर बंद करें</string>
     <string name="loudness_target">लक्ष्य लाउडनेस</string>
     <string name="loudness_target_subtitle">कम हेडफ़ोन के लिए ठीक है; ज़्यादा कार या फ़ोन स्पीकर के लिए</string>
     <string name="loudness_target_value">%1$s LUFS</string>
@@ -1078,13 +1011,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="auto_quick_picks">Quick picks</string>
 
@@ -1221,11 +1150,18 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="cast_dialog_title">Cast</string>
+    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
+    <string name="cast_searching">Looking for devices…</string>
+    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
+    <string name="cast_device_connecting">Connecting…</string>
+    <string name="cast_device_connected">Casting</string>
+    <string name="cast_stop">Stop casting</string>
+    <string name="cast_track_unsupported">This track can\'t be cast</string>
+    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
     <string name="audio_pipeline_subtitle">डीकोडर से आउटपुट तक लाइव सिग्नल पाथ</string>
 
     <string name="pipeline_track_info">Track Info</string>
@@ -1272,9 +1208,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1283,6 +1217,14 @@
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">प्लेलिस्ट में जोड़ा गया</string>
     <string name="song_already_in_playlist">पहले से प्लेलिस्ट में है</string>
+    <plurals name="add_to_playlists_count">
+        <item quantity="one">%1$d प्लेलिस्ट में जोड़ें</item>
+        <item quantity="other">%1$d प्लेलिस्ट में जोड़ें</item>
+    </plurals>
+    <plurals name="added_to_playlists_notice">
+        <item quantity="one">%1$d प्लेलिस्ट में जोड़ा गया</item>
+        <item quantity="other">%1$d प्लेलिस्ट में जोड़ा गया</item>
+    </plurals>
     <string name="party_queue_full">कतार भर गई है (पार्टी में अधिकतम %d गाने)</string>
 
     <string name="paxsenix_api_key">PaxSenix API key</string>
@@ -1291,22 +1233,59 @@
 
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
-    <string name="open_lyrics">Lyrics</string>
-
-    <string name="audio_output">Audio output</string>
-
-    <string name="audio_output_playing">Playing here</string>
-
-    <string name="wired_headphones">Wired headphones</string>
-
-    <string name="usb_audio">USB audio</string>
-
-    <string name="hdmi_output">HDMI</string>
-
-    <string name="personal_phone">%1$s’s Phone</string>
-
-    <string name="this_phone">This phone</string>
 
 
 
+
+
+
+
+
+
+
+    <string name="source_needs_lossless_output">लॉसलेस आउटपुट चाहिए · लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
+    <string name="source_needs_lossless_bt_codec">लॉसलेस आउटपुट चाहिए · Bluetooth %1$s पर है; लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
+    <string name="source_needs_lossless_bt_unknown">लॉसलेस आउटपुट चाहिए · पता नहीं चल रहा कि कौन-सा Bluetooth कोडेक चल रहा है</string>
+    <string name="source_downloads_off">सिर्फ़ स्ट्रीमिंग</string>
+    <string name="lossless_output_permission">Bluetooth कोडेक जाँचें</string>
+    <string name="lossless_output_permission_detail">आस-पास के डिवाइस की अनुमति दें ताकि LDAC या LHDC हेडफ़ोन लॉसलेस ऐड-ऑन खोल सकें</string>
+    <string name="cached_songs">कैश किए गए गाने</string>
+    <string name="cached_songs_subtitle">सॉन्ग कैश में YouTube और JioSaavn के गाने</string>
+    <string name="cached_songs_empty">अभी कोई कैश किया गया गाना नहीं है। YouTube या JioSaavn से चलाए गए गाने यहाँ दिखेंगे।</string>
+    <string name="show_cache_folder">कैश किए गए गानों का फ़ोल्डर दिखाएँ</string>
+    <string name="show_cache_folder_subtitle">लाइब्रेरी में सॉन्ग कैश में रखे YouTube और JioSaavn गानों का फ़ोल्डर जोड़ता है</string>
+    <string name="song_cache_unlimited">असीमित</string>
+    <string name="song_cache_unlimited_subtitle">कोई सीमा नहीं। कैश ऑडियो स्टोरेज भरने तक बढ़ सकता है।</string>
+    <string name="clear_song_cache_title">सॉन्ग कैश साफ़ करें?</string>
+    <string name="clear_song_cache_warning">सभी कैश किए गए गाने हटा दिए जाएँगे और कैश किए गए गानों का फ़ोल्डर खाली हो जाएगा। अगली बार चलाने पर वे फिर से स्ट्रीम होंगे।</string>
+    <string name="import_spotify">Spotify से आयात करें</string>
+    <string name="import_spotify_subtitle">प्लेलिस्ट लिंक से</string>
+    <string name="local_playlist_subtitle">%1$d गाने · इस डिवाइस पर</string>
+    <string name="lossless_output_permission_denied">नज़दीकी डिवाइस अनुमति बंद है</string>
+    <string name="lossless_output_permission_denied_detail">सेटिंग्स खोलने और नज़दीकी डिवाइस अनुमति देने के लिए टैप करें — इसके बिना आपका ब्लूटूथ कोडेक नहीं पढ़ा जा सकता</string>
+    <string name="recent_album">हाल का एल्बम</string>
+    <string name="recent_ep">हाल की EP</string>
+    <string name="recent_single">हाल का सिंगल</string>
+    <string name="spotify">Spotify</string>
+    <string name="spotify_connect_subtitle">अपनी प्लेलिस्ट लाने के लिए साइन इन करें. प्लेबैक YouTube Music से होता है.</string>
+    <string name="spotify_disconnect">डिस्कनेक्ट</string>
+    <string name="spotify_empty_playlists">इस खाते में कोई प्लेलिस्ट नहीं</string>
+    <string name="spotify_empty_tracks">इस प्लेलिस्ट में कोई गाना नहीं</string>
+    <string name="spotify_import_button">आयात</string>
+    <string name="spotify_import_description">सार्वजनिक प्लेलिस्ट लिंक चिपकाएँ. गाने YouTube Music पर मिलाए जाते हैं.</string>
+    <string name="spotify_import_description_local">सार्वजनिक प्लेलिस्ट लिंक चिपकाएँ. गाने YouTube Music पर मिलाए जाते हैं और इस डिवाइस पर सहेजे जाते हैं.</string>
+    <string name="spotify_import_done">‘%1$s’ आयात हुई</string>
+    <string name="spotify_import_empty_playlist">इस प्लेलिस्ट में कोई गाना नहीं</string>
+    <string name="spotify_import_failed">प्लेलिस्ट आयात नहीं हो सकी: %1$s</string>
+    <string name="spotify_import_fetching">Spotify प्लेलिस्ट पढ़ी जा रही है…</string>
+    <string name="spotify_import_hint">open.spotify.com/playlist/…</string>
+    <string name="spotify_import_invalid">यह Spotify प्लेलिस्ट लिंक नहीं है.</string>
+    <string name="spotify_import_local_fallback">इसे YouTube Music पर नहीं बनाया जा सका, इसलिए ‘%1$s’ इस डिवाइस पर सहेज ली गई.</string>
+    <string name="spotify_import_matching">गाने मिलाए जा रहे हैं %1$d / %2$d</string>
+    <string name="spotify_import_none">वे गाने YouTube Music पर नहीं मिले.</string>
+    <string name="spotify_import_title">Spotify प्लेलिस्ट आयात करें</string>
+    <string name="spotify_import_unmatched">%1$d गाने YouTube Music पर नहीं मिले</string>
+    <string name="spotify_library_subtitle">आपकी Spotify प्लेलिस्ट</string>
+    <string name="spotify_sign_in">Spotify से साइन इन करें</string>
+    <string name="spotify_track_unavailable">वह गाना YouTube Music पर नहीं मिला</string>
 </resources>

@@ -16,16 +16,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.InsertDriveFile
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
@@ -45,7 +40,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -63,29 +57,23 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
-import com.music.bitchord.ui.utils.containSheetGestures
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.AudioOutputStatus
+import com.music.bitchord.playback.dsd.DsdFilter
+import com.music.bitchord.playback.dsd.DsdFormat
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.isActive
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 
-private val PIPELINE_CARD_SHAPE = RoundedCornerShape(ALERT_CORNER)
-private val PIPELINE_SCRIM_COLOR = Color.Black.copy(alpha = 0.4f)
-private val PIPELINE_WIDTH = 320.dp
-private val PIPELINE_CONTENT_MAX_HEIGHT = 420.dp
 private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
 
 /**
@@ -115,12 +103,17 @@ private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
  * now" is worth answering whether or not there is a switch that forces it.
  */
 private fun bitExactVerdict(
+    dsd: Boolean,
     outputExact: Boolean,
     outputExactDetail: String?,
     loudnessActive: Boolean,
     eqActive: Boolean,
     spatialActive: Boolean,
 ): String = when {
+    // Not a fault to fix: there is no DSD output path (native DSD or DoP)
+    // here, so the PCM conversion is a deviation every DSD track carries,
+    // whatever the stages after it do.
+    dsd -> "No — DSD converted to PCM"
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"
     spatialActive -> "No — spatial audio"
@@ -141,7 +134,6 @@ private fun bitExactVerdict(
  * theme-adaptive one those settings dialogs use, since everything else on this
  * screen is drawn in [Color.White] alphas regardless of the app's light/dark theme.
  */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 fun AudioPipelineDialog(
     hazeState: HazeState,
@@ -151,7 +143,6 @@ fun AudioPipelineDialog(
 ) {
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
-    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
 
     val eqEnabled by AppSettings.equalizerEnabled.collectAsStateWithLifecycle()
     val eqPreset by AppSettings.equalizerPreset.collectAsStateWithLifecycle()
@@ -220,346 +211,317 @@ fun AudioPipelineDialog(
         if (stageCenters[idx] != center) stageCenters[idx] = center
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .containSheetGestures()
-            .background(PIPELINE_SCRIM_COLOR)
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() },
-                onClick = onDismiss,
-            ),
-        contentAlignment = Alignment.Center,
+    AudioPopupCard(
+        hazeState = hazeState,
+        title = stringResource(R.string.audio_pipeline),
+        subtitle = stringResource(R.string.audio_pipeline_subtitle),
+        doneLabel = stringResource(R.string.done),
+        onDismiss = onDismiss,
+        modifier = modifier,
     ) {
+        // The signal flow redraws every frame while playing. On its own
+        // layer, each frame re-records just these lines rather than every
+        // stage row and the frosted card they sit on.
+        Spacer(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer {}
+                .drawBehind {
+                    drawSignalFlow(stageCenters, flowAlpha, pulseProgress, interactionRadiusPx)
+                },
+        )
         Column(
             modifier = Modifier
-                .width(PIPELINE_WIDTH)
-                .clip(PIPELINE_CARD_SHAPE)
-                .then(
-                    if (reduceDynamicBlur) {
-                        Modifier.background(Color(0xFF121212))
-                    } else {
-                        Modifier
-                            .optimizedHazeEffect(
-                                state = hazeState,
-                                style = HazeMaterials.regular(Color(0xFF141414)),
-                            )
-                            .background(Color(0xFF121212).copy(alpha = 0.9f))
-                    }
-                )
-                // Swallows the tap before it reaches the scrim behind, so
-                // touching the card itself never dismisses it.
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() },
-                    onClick = {},
-                ),
+                .fillMaxWidth()
+                .onGloballyPositioned { columnCoordinates = it },
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 19.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = stringResource(R.string.audio_pipeline),
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.W600,
-                    ),
-                    color = Color.White,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = stringResource(R.string.audio_pipeline_subtitle),
-                    modifier = Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 13.sp,
-                        lineHeight = 17.sp,
-                    ),
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center,
-                )
+            // 1. Track Info Stage
+            val sourceName = nerdStats?.sourceName ?: "—"
+            // DSD is the one source whose own rate is not the rate the
+            // rest of the pipeline runs at: DsdExtractor hands the
+            // renderer 176.4 kHz PCM, so every stage after this one has
+            // to be told that rate instead of the DSD bit rate.
+            val dsdRateHz = nerdStats?.takeIf { it.mimeType?.startsWith("audio/dsd") == true }?.sampleRateHz
+            val pcmRateHz = if (dsdRateHz != null) DsdFormat.PCM_RATE else nerdStats?.sampleRateHz
+            val codec = NerdStats.codecLabel(nerdStats?.mimeType) ?: nerdStats?.mimeType ?: "—"
+            val format = nerdStats?.container?.let { "$codec ($it)" } ?: codec
+            // A lossy codec has no bit depth of its own; the decoder's PCM
+            // depth is not the source's, so it is only shown for lossless.
+            val bitDepth = if (nerdStats?.isLossless == true) {
+                nerdStats?.bitDepth?.let { "$it-bit" }
+                    ?: nerdStats?.claimed?.bitDepth?.let { "$it-bit" }
+                    ?: "—"
+            } else {
+                "—"
             }
-
-            Box(
-                modifier = Modifier
-                    .heightIn(max = PIPELINE_CONTENT_MAX_HEIGHT)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                // The signal flow redraws every frame while playing. On its own
-                // layer, each frame re-records just these lines rather than every
-                // stage row and the frosted card they sit on.
-                Spacer(
-                    Modifier
-                        .matchParentSize()
-                        .graphicsLayer {}
-                        .drawBehind {
-                            drawSignalFlow(stageCenters, flowAlpha, pulseProgress, interactionRadiusPx)
-                        },
-                )
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onGloballyPositioned { columnCoordinates = it },
-                ) {
-                    // 1. Track Info Stage
-                    val sourceName = nerdStats?.sourceName ?: "—"
-                    val format = NerdStats.codecLabel(nerdStats?.mimeType) ?: nerdStats?.mimeType ?: "—"
-                    val bitDepth = nerdStats?.bitDepth?.let { "$it-bit" }
-                        ?: nerdStats?.claimed?.bitDepth?.let { "$it-bit" }
-                        ?: "—"
-                    val sampleRate = nerdStats?.sampleRateHz?.let { "$it Hz" }
-                        ?: nerdStats?.claimed?.sampleRateHz?.let { "$it Hz" }
-                        ?: "—"
-                    val bitrate = nerdStats?.bitrateKbps?.let { "$it kbps" } ?: "—"
-                    val channels = when (nerdStats?.channels) {
-                        1 -> stringResource(R.string.mono)
-                        2 -> stringResource(R.string.stereo)
-                        null -> "—"
-                        else -> "${nerdStats?.channels} (Surround)"
-                    }
-
-                    PipelineRule()
-                    PipelineSection(
-                        stageIndex = 0,
-                        icon = Icons.AutoMirrored.Rounded.InsertDriveFile,
-                        title = stringResource(R.string.pipeline_track_info),
-                        columnCoordinates = columnCoordinates,
-                        stageActivationProvider = stageActivation,
-                        onStageIconPositioned = onStageIconPositioned,
-                    ) {
-                        PipelineRow(stringResource(R.string.pipeline_source), sourceName)
-                        PipelineRow(stringResource(R.string.pipeline_format), format)
-                        PipelineRow(stringResource(R.string.pipeline_bit_depth), bitDepth)
-                        PipelineRow(stringResource(R.string.pipeline_sample_rate), sampleRate)
-                        PipelineRow(stringResource(R.string.pipeline_bitrate), bitrate)
-                        PipelineRow(stringResource(R.string.pipeline_channels), channels)
-                    }
-
-                    // 2. Decoder Stage
-                    val decoderName = outputStatus.decoderName ?: "—"
-
-                    PipelineRule()
-                    PipelineSection(
-                        stageIndex = 1,
-                        icon = Icons.Rounded.Memory,
-                        title = stringResource(R.string.pipeline_decoder),
-                        columnCoordinates = columnCoordinates,
-                        stageActivationProvider = stageActivation,
-                        onStageIconPositioned = onStageIconPositioned,
-                    ) {
-                        PipelineRow(stringResource(R.string.pipeline_decoder_name), decoderName)
-                        outputStatus.decoderOutputEncoding?.let {
-                            PipelineRow(stringResource(R.string.pipeline_format), it)
-                        }
-                    }
-
-                    // 3. Resampler Stage
-                    val inRate = nerdStats?.sampleRateHz
-                    val outRate = outputStatus.actualSampleRateHz ?: inRate
-                    val isPassthrough = inRate != null && outRate != null && inRate == outRate
-                    val ioRateText = if (inRate != null && outRate != null) {
-                        "$inRate Hz → $outRate Hz"
-                    } else if (inRate != null) {
-                        "$inRate Hz → —"
-                    } else if (outRate != null) {
-                        "— → $outRate Hz"
-                    } else {
-                        "—"
-                    }
-                    val resamplerType = when {
-                        inRate == null && outRate == null -> "—"
-                        isPassthrough -> "None"
-                        else -> "Resampler"
-                    }
-                    val qualityText = when {
-                        inRate == null && outRate == null -> "—"
-                        isPassthrough -> "Passthrough"
-                        else -> "Resampled"
-                    }
-
-                    PipelineRule()
-                    PipelineSection(
-                        stageIndex = 2,
-                        icon = Icons.Rounded.Tune,
-                        title = stringResource(R.string.pipeline_resampler),
-                        columnCoordinates = columnCoordinates,
-                        stageActivationProvider = stageActivation,
-                        onStageIconPositioned = onStageIconPositioned,
-                    ) {
-                        PipelineRow(stringResource(R.string.pipeline_io_rate), ioRateText)
-                        PipelineRow(stringResource(R.string.pipeline_type), resamplerType)
-                        PipelineRow(stringResource(R.string.pipeline_cutoff), "—")
-                        PipelineRow(stringResource(R.string.pipeline_quality), qualityText)
-                    }
-
-                    // 4. DSP Stage
-                    val pcmFormat = outputStatus.dspFormat
-                    val dspRate = outputStatus.actualSampleRateHz ?: nerdStats?.sampleRateHz
-                    val dspRateText = if (dspRate != null) "$dspRate Hz" else "—"
-                    val eqPresetText = if (eqEnabled) {
-                        eqPreset.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
-                    } else {
-                        "Flat"
-                    }
-                    val stereoExpandText = if (spatialAudio) "250%" else "100%"
-                    val buffersText = outputStatus.bufferSize?.let { size ->
-                        val rate = outputStatus.actualSampleRateHz
-                        val bytesPerSample = when (outputStatus.actualEncoding) {
-                            AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_32BIT -> 4
-                            AudioFormat.ENCODING_PCM_24BIT_PACKED -> 3
-                            else -> 2
-                        }
-                        val channelCount = nerdStats?.channels ?: 2
-                        val bytesPerFrame = bytesPerSample * channelCount
-                        val frames = if (bytesPerFrame > 0) size / bytesPerFrame else 0
-                        if (rate != null && rate > 0 && frames > 0) {
-                            val ms = (frames * 1000L) / rate
-                            "2x (${ms}ms, $frames frames)"
-                        } else {
-                            "—"
-                        }
-                    } ?: "—"
-
-                    // Loudness reads before the rest of the DSP stage because
-                    // that is the order the samples meet them in — see
-                    // [DspChain] on why the level correction goes first.
-                    val loudnessGainText = when {
-                        !loudnessNormalization -> stringResource(R.string.off)
-                        outputStatus.loudnessGainDb == null -> "—"
-                        else -> stringResource(
-                            R.string.loudness_gain_db,
-                            "%+.1f".format(Locale.ROOT, outputStatus.loudnessGainDb),
-                        )
-                    }
-                    val loudnessMeasuredText = outputStatus.loudnessLufs?.let {
-                        stringResource(R.string.loudness_lufs, "%+.1f".format(Locale.ROOT, it))
-                    } ?: "—"
-
-                    PipelineRule()
-                    PipelineSection(
-                        stageIndex = 3,
-                        icon = Icons.Rounded.GraphicEq,
-                        title = stringResource(R.string.pipeline_dsp),
-                        columnCoordinates = columnCoordinates,
-                        stageActivationProvider = stageActivation,
-                        onStageIconPositioned = onStageIconPositioned,
-                    ) {
-                        PipelineRow(stringResource(R.string.pipeline_pcm_format), pcmFormat)
-                        PipelineRow(stringResource(R.string.pipeline_sample_rate), dspRateText)
-                        PipelineRow(stringResource(R.string.pipeline_loudness_gain), loudnessGainText)
-                        PipelineRow(stringResource(R.string.pipeline_loudness_measured), loudnessMeasuredText)
-                        PipelineRow(stringResource(R.string.pipeline_eq_preset), eqPresetText)
-                        PipelineRow(stringResource(R.string.pipeline_stereo_expand), stereoExpandText)
-                        PipelineRow(stringResource(R.string.pipeline_buffers), buffersText)
-                        PipelineRow(stringResource(R.string.pipeline_output_api), outputStatus.sink.ifBlank { "AAudio" })
-                        // The verdict, rather than the settings. Names whichever
-                        // stage is altering samples — or, when none is, whether
-                        // the route can carry the decoder's own encoding —
-                        // instead of leaving the reader to infer it from four
-                        // rows above.
-                        PipelineRow(
-                            stringResource(R.string.pipeline_bit_exact),
-                            bitExactVerdict(
-                                outputExact = outputStatus.outputExact,
-                                outputExactDetail = outputStatus.outputExactDetail,
-                                loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
-                                eqActive = eqEnabled,
-                                spatialActive = spatialAudio,
-                            ),
-                        )
-                    }
-
-                    // 5. Output Device Stage
-                    val deviceName = outputStatus.deviceName.ifBlank { "System default" }
-                    val audioTrackEncoding = when (outputStatus.actualEncoding) {
-                        AudioFormat.ENCODING_PCM_FLOAT -> "Float32"
-                        AudioFormat.ENCODING_PCM_24BIT_PACKED -> "PCM24"
-                        AudioFormat.ENCODING_PCM_32BIT -> "PCM32"
-                        AudioFormat.ENCODING_PCM_16BIT -> "PCM16"
-                        else -> "Float32"
-                    }
-                    val audioTrackRate = outputStatus.actualSampleRateHz ?: nerdStats?.sampleRateHz ?: 48000
-                    val audioTrackText = "$audioTrackEncoding / $audioTrackRate Hz"
-
-                    PipelineRule()
-                    PipelineSection(
-                        stageIndex = 4,
-                        icon = Icons.AutoMirrored.Rounded.VolumeUp,
-                        title = stringResource(R.string.pipeline_output_device),
-                        columnCoordinates = columnCoordinates,
-                        stageActivationProvider = stageActivation,
-                        onStageIconPositioned = onStageIconPositioned,
-                    ) {
-                        PipelineRow(stringResource(R.string.pipeline_device_name), deviceName)
-                        PipelineRow("Route", outputStatus.routeKind.name)
-                        PipelineRow("Transport", outputStatus.transportType.label)
-
-                        val directStatusText = when {
-                            outputStatus.transportType == com.music.bitchord.playback.audio.TransportType.DIRECT_USB ->
-                                "Active (Direct Userspace USB)"
-                            outputStatus.directPlaybackActual ->
-                                "Active (Direct AudioTrack, Bypasses Mixer)"
-                            outputStatus.directPlaybackRejected ->
-                                "Rejected"
-                            outputStatus.directPlaybackSupported ->
-                                "Supported (Framework Mixed)"
-                            else ->
-                                "Not Supported (Mixed Path)"
-                        }
-                        PipelineRow("Direct", directStatusText)
-                        PipelineRow("AudioTrack", audioTrackText)
-
-                        val mixerText = when {
-                            outputStatus.transportType == com.music.bitchord.playback.audio.TransportType.DIRECT_USB ->
-                                "Direct (Bypasses System Mixer)"
-                            outputStatus.directPlaybackActual ->
-                                "Direct path active; endpoint format not independently verified"
-                            outputStatus.systemMixerRateHz != null -> {
-                                val hal = outputStatus.halFormat
-                                if (hal != null) {
-                                    "AudioFlinger Mixer ${outputStatus.systemMixerRateHz} Hz, HAL $hal"
-                                } else {
-                                    "AudioFlinger Mixer ${outputStatus.systemMixerRateHz} Hz"
-                                }
-                            }
-                            else -> null
-                        }
-                        mixerText?.let {
-                            PipelineRow("System", it)
-                        }
-
-                        outputStatus.usbEndpointFormat?.let {
-                            PipelineRow("USB Device Capability", formatUsbCapability(it))
-                            PipelineNote("Reported by Android for the connected USB device. This describes device capabilities and may differ from the active playback format.")
-                        }
-
-                        if (outputStatus.routeKind == com.music.bitchord.playback.AudioRouting.Kind.BLUETOOTH) {
-                            val bt = outputStatus.bluetoothTelemetry
-                            outputStatus.bluetoothProfile?.let { PipelineRow("Bluetooth", it) }
-                            if (bt != null && bt.isConnected) {
-                                PipelineRow("Codec", if (bt.hasNamedCodec) bt.codecName else "System Managed")
-                                bt.bitDepth?.let { PipelineRow("Codec Bits", "$it-bit") }
-                                bt.sampleRateHz?.let { PipelineRow("Codec Sample Rate", "$it Hz") }
-                                PipelineRow("Codec Bitrate", bt.bitrateLabel)
-                                bt.mode?.let { PipelineRow("Codec Mode", it) }
-                            } else {
-                                PipelineRow("Codec", "System Managed")
-                            }
-                        }
-
-                        if (outputStatus.fallbackReason != com.music.bitchord.playback.audio.FallbackReason.NONE) {
-                            val fallbackText = outputStatus.fallbackDetail ?: outputStatus.fallbackReason.label
-                            PipelineRow("Fallback", fallbackText)
-                        }
-                    }
-                }
+            val sampleRate = nerdStats?.sampleRateHz?.let(::rateText)
+                ?: nerdStats?.claimed?.sampleRateHz?.let(::rateText)
+                ?: "—"
+            val bitrate = nerdStats?.bitrateKbps?.let { "$it kbps" } ?: "—"
+            val pcmDataRate = nerdStats?.pcmDataRateKbps?.let { "$it kbps" } ?: "—"
+            val channels = when (nerdStats?.channels) {
+                1 -> stringResource(R.string.mono)
+                2 -> stringResource(R.string.stereo)
+                null -> "—"
+                else -> "${nerdStats?.channels} (Surround)"
             }
 
             PipelineRule()
-            PipelineDoneAction(label = stringResource(R.string.done), onClick = onDismiss)
+            PipelineSection(
+                stageIndex = 0,
+                icon = Icons.AutoMirrored.Rounded.InsertDriveFile,
+                title = stringResource(R.string.pipeline_track_info),
+                columnCoordinates = columnCoordinates,
+                stageActivationProvider = stageActivation,
+                onStageIconPositioned = onStageIconPositioned,
+            ) {
+                PipelineRow(stringResource(R.string.pipeline_source), sourceName)
+                PipelineRow(stringResource(R.string.pipeline_format), format)
+                PipelineRow(stringResource(R.string.pipeline_bit_depth), bitDepth)
+                PipelineRow(stringResource(R.string.pipeline_sample_rate), sampleRate)
+                PipelineRow(stringResource(R.string.pipeline_bitrate), bitrate)
+                PipelineRow(stringResource(R.string.pipeline_pcm_data_rate), pcmDataRate)
+                PipelineRow(stringResource(R.string.pipeline_channels), channels)
+            }
+
+            // 2. Decoder Stage
+            val decoderName = if (dsdRateHz != null) {
+                "DSD to PCM (native FIR decimator)"
+            } else {
+                outputStatus.decoderName ?: "—"
+            }
+
+            PipelineRule()
+            PipelineSection(
+                stageIndex = 1,
+                icon = Icons.Rounded.Memory,
+                title = stringResource(R.string.pipeline_decoder),
+                columnCoordinates = columnCoordinates,
+                stageActivationProvider = stageActivation,
+                onStageIconPositioned = onStageIconPositioned,
+            ) {
+                PipelineRow(stringResource(R.string.pipeline_decoder_name), decoderName)
+                outputStatus.decoderOutputEncoding?.let {
+                    val withRate = if (dsdRateHz != null) "$it / ${rateText(DsdFormat.PCM_RATE)}" else it
+                    PipelineRow(stringResource(R.string.pipeline_format), withRate)
+                }
+            }
+
+            // 3. Resampler Stage
+            // For DSD this is the decimation DsdExtractor did: the one
+            // step that actually changes the rate, so it is described
+            // as what it is rather than as a resample, and its output
+            // side is the PCM it produced, not the DSD rate.
+            val inRate = dsdRateHz ?: nerdStats?.sampleRateHz
+            val outRate = if (dsdRateHz != null) DsdFormat.PCM_RATE else outputStatus.actualSampleRateHz
+            val isPassthrough = inRate != null && outRate != null && inRate == outRate
+            val ioRateText = if (inRate != null && outRate != null) {
+                "${rateText(inRate)} → ${rateText(outRate)}"
+            } else if (inRate != null) {
+                "${rateText(inRate)} → —"
+            } else if (outRate != null) {
+                "— → ${rateText(outRate)}"
+            } else {
+                "—"
+            }
+            val resamplerType = when {
+                dsdRateHz != null ->
+                    "FIR decimation ×${dsdRateHz / DsdFormat.PCM_RATE}, ${DsdFormat.tapsFor(dsdRateHz)} taps"
+                inRate == null || outRate == null -> "—"
+                isPassthrough -> "None"
+                else -> "Resampler"
+            }
+            val cutoffText = if (dsdRateHz != null) rateText(DsdFilter.CUTOFF_HZ) else "—"
+            val qualityText = when {
+                dsdRateHz != null -> "DSD to PCM, full band below the cutoff"
+                inRate == null || outRate == null -> "—"
+                isPassthrough -> "Passthrough"
+                else -> "Resampled"
+            }
+
+            PipelineRule()
+            PipelineSection(
+                stageIndex = 2,
+                icon = Icons.Rounded.Tune,
+                title = if (dsdRateHz != null) "DSD to PCM" else stringResource(R.string.pipeline_resampler),
+                columnCoordinates = columnCoordinates,
+                stageActivationProvider = stageActivation,
+                onStageIconPositioned = onStageIconPositioned,
+            ) {
+                PipelineRow(stringResource(R.string.pipeline_io_rate), ioRateText)
+                PipelineRow(stringResource(R.string.pipeline_type), resamplerType)
+                PipelineRow(stringResource(R.string.pipeline_cutoff), cutoffText)
+                PipelineRow(stringResource(R.string.pipeline_quality), qualityText)
+            }
+
+            // 4. DSP Stage
+            val pcmFormat = outputStatus.dspFormat
+            val dspRate = outputStatus.actualSampleRateHz ?: pcmRateHz
+            val dspRateText = dspRate?.let(::rateText) ?: "—"
+            val eqPresetText = if (eqEnabled) {
+                eqPreset.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+            } else {
+                "Flat"
+            }
+            val stereoExpandText = if (spatialAudio) "250%" else "100%"
+            val buffersText = outputStatus.bufferSize?.let { size ->
+                val rate = outputStatus.actualSampleRateHz
+                val bytesPerSample = when (outputStatus.actualEncoding) {
+                    AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_32BIT -> 4
+                    AudioFormat.ENCODING_PCM_24BIT_PACKED -> 3
+                    else -> 2
+                }
+                val channelCount = nerdStats?.channels ?: 2
+                val bytesPerFrame = bytesPerSample * channelCount
+                val frames = if (bytesPerFrame > 0) size / bytesPerFrame else 0
+                if (rate != null && rate > 0 && frames > 0) {
+                    val ms = (frames * 1000L) / rate
+                    "2x (${ms}ms, $frames frames)"
+                } else {
+                    "—"
+                }
+            } ?: "—"
+
+            // Loudness reads before the rest of the DSP stage because
+            // that is the order the samples meet them in — see
+            // [DspChain] on why the level correction goes first.
+            val loudnessGainText = when {
+                !loudnessNormalization -> stringResource(R.string.off)
+                outputStatus.loudnessGainDb == null -> "—"
+                else -> stringResource(
+                    R.string.loudness_gain_db,
+                    "%+.1f".format(Locale.ROOT, outputStatus.loudnessGainDb),
+                )
+            }
+            val loudnessMeasuredText = outputStatus.loudnessLufs?.let {
+                stringResource(R.string.loudness_lufs, "%+.1f".format(Locale.ROOT, it))
+            } ?: "—"
+
+            PipelineRule()
+            PipelineSection(
+                stageIndex = 3,
+                icon = Icons.Rounded.GraphicEq,
+                title = stringResource(R.string.pipeline_dsp),
+                columnCoordinates = columnCoordinates,
+                stageActivationProvider = stageActivation,
+                onStageIconPositioned = onStageIconPositioned,
+            ) {
+                PipelineRow(stringResource(R.string.pipeline_pcm_format), pcmFormat)
+                PipelineRow(stringResource(R.string.pipeline_sample_rate), dspRateText)
+                PipelineRow(stringResource(R.string.pipeline_loudness_gain), loudnessGainText)
+                PipelineRow(stringResource(R.string.pipeline_loudness_measured), loudnessMeasuredText)
+                PipelineRow(stringResource(R.string.pipeline_eq_preset), eqPresetText)
+                PipelineRow(stringResource(R.string.pipeline_stereo_expand), stereoExpandText)
+                PipelineRow(stringResource(R.string.pipeline_buffers), buffersText)
+                PipelineRow(stringResource(R.string.pipeline_output_api), outputStatus.sink.ifBlank { "AAudio" })
+                // The verdict, rather than the settings. Names whichever
+                // stage is altering samples — or, when none is, whether
+                // the route can carry the decoder's own encoding —
+                // instead of leaving the reader to infer it from four
+                // rows above.
+                PipelineRow(
+                    stringResource(R.string.pipeline_bit_exact),
+                    bitExactVerdict(
+                        dsd = dsdRateHz != null,
+                        outputExact = outputStatus.outputExact,
+                        outputExactDetail = outputStatus.outputExactDetail,
+                        loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
+                        eqActive = eqEnabled,
+                        spatialActive = spatialAudio,
+                    ),
+                )
+            }
+
+            // 5. Output Device Stage
+            val deviceName = outputStatus.deviceName.ifBlank { "System default" }
+            val audioTrackEncoding = when (outputStatus.actualEncoding) {
+                AudioFormat.ENCODING_PCM_FLOAT -> "Float32"
+                AudioFormat.ENCODING_PCM_24BIT_PACKED -> "PCM24"
+                AudioFormat.ENCODING_PCM_32BIT -> "PCM32"
+                AudioFormat.ENCODING_PCM_16BIT -> "PCM16"
+                else -> null
+            }
+            val audioTrackRate = outputStatus.actualSampleRateHz
+            val audioTrackText = when {
+                audioTrackEncoding != null && audioTrackRate != null ->
+                    "$audioTrackEncoding / ${rateText(audioTrackRate)}"
+                audioTrackEncoding != null -> audioTrackEncoding
+                audioTrackRate != null -> rateText(audioTrackRate)
+                else -> "—"
+            }
+
+            PipelineRule()
+            PipelineSection(
+                stageIndex = 4,
+                icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                title = stringResource(R.string.pipeline_output_device),
+                columnCoordinates = columnCoordinates,
+                stageActivationProvider = stageActivation,
+                onStageIconPositioned = onStageIconPositioned,
+            ) {
+                PipelineRow(stringResource(R.string.pipeline_device_name), deviceName)
+                PipelineRow("Route", outputStatus.routeKind.name)
+                PipelineRow("Transport", outputStatus.transportType.label)
+
+                val directStatusText = when {
+                    outputStatus.transportType == com.music.bitchord.playback.audio.TransportType.DIRECT_USB ->
+                        "Active (Direct Userspace USB)"
+                    outputStatus.directPlaybackActual ->
+                        "Active (Direct AudioTrack, Bypasses Mixer)"
+                    outputStatus.directPlaybackRejected ->
+                        "Rejected"
+                    outputStatus.directPlaybackSupported ->
+                        "Supported (Framework Mixed)"
+                    else ->
+                        "Not Supported (Mixed Path)"
+                }
+                PipelineRow("Direct", directStatusText)
+                PipelineRow("AudioTrack", audioTrackText)
+
+                val mixerText = when {
+                    outputStatus.transportType == com.music.bitchord.playback.audio.TransportType.DIRECT_USB ->
+                        "Direct (Bypasses System Mixer)"
+                    outputStatus.directPlaybackActual ->
+                        "Direct path active; endpoint format not independently verified"
+                    outputStatus.systemMixerRateHz != null -> {
+                        val hal = outputStatus.halFormat
+                        val mixerRate = outputStatus.systemMixerRateHz?.let(::rateText)
+                        if (hal != null) {
+                            "AudioFlinger Mixer $mixerRate, HAL $hal"
+                        } else {
+                            "AudioFlinger Mixer $mixerRate"
+                        }
+                    }
+                    else -> null
+                }
+                mixerText?.let {
+                    PipelineRow("System", it)
+                }
+
+                outputStatus.usbEndpointFormat?.let {
+                    PipelineRow("USB Device Capability", formatUsbCapability(it))
+                    PipelineNote("Reported by Android for the connected USB device. This describes device capabilities and may differ from the active playback format.")
+                }
+
+                if (outputStatus.routeKind == com.music.bitchord.playback.AudioRouting.Kind.BLUETOOTH) {
+                    val bt = outputStatus.bluetoothTelemetry
+                    outputStatus.bluetoothProfile?.let { PipelineRow("Bluetooth", it) }
+                    if (bt != null && bt.isConnected) {
+                        PipelineRow("Codec", if (bt.hasNamedCodec) bt.codecName else "System Managed")
+                        bt.bitDepth?.let { PipelineRow("Codec Bits", "$it-bit") }
+                        bt.sampleRateHz?.let { PipelineRow("Codec Sample Rate", rateText(it)) }
+                        PipelineRow("Codec Bitrate", bt.bitrateLabel)
+                        bt.mode?.let { PipelineRow("Codec Mode", it) }
+                    } else {
+                        PipelineRow("Codec", "System Managed")
+                    }
+                }
+
+                if (outputStatus.fallbackReason != com.music.bitchord.playback.audio.FallbackReason.NONE) {
+                    val fallbackText = outputStatus.fallbackDetail ?: outputStatus.fallbackReason.label
+                    PipelineRow("Fallback", fallbackText)
+                }
+            }
         }
     }
 }
@@ -912,7 +874,7 @@ private fun PipelineRow(label: String, value: String) {
 
 /** Hairline separator between stages, indented to align with the text column and clear the signal lane. */
 @Composable
-private fun PipelineRule(modifier: Modifier = Modifier.padding(start = 52.dp, end = 16.dp)) {
+internal fun PipelineRule(modifier: Modifier = Modifier.padding(start = 52.dp, end = 16.dp)) {
     Box(
         modifier
             .fillMaxWidth()
@@ -923,7 +885,7 @@ private fun PipelineRule(modifier: Modifier = Modifier.padding(start = 52.dp, en
 
 /** Full-bleed closing action, [AlertAction]'s shape fixed to this screen's white-on-dark palette. */
 @Composable
-private fun PipelineDoneAction(label: String, onClick: () -> Unit) {
+internal fun PipelineDoneAction(label: String, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     Box(
@@ -966,6 +928,10 @@ private fun PipelineNote(text: String) {
     )
 }
 
+/** 44100 -> "44.1 kHz", 2822400 -> "2.8224 MHz". */
+private fun rateText(hz: Int): String =
+    NerdStats.megahertzLabel(hz) ?: "${"%.1f".format(Locale.ROOT, hz / 1000f).removeSuffix(".0")} kHz"
+
 internal fun formatUsbCapability(raw: String): String {
     var formatted = raw
         .replace("PCM32", "PCM 32-bit")
@@ -977,7 +943,7 @@ internal fun formatUsbCapability(raw: String): String {
     formatted = hzRegex.replace(formatted) { matchResult ->
         val hz = matchResult.groupValues[1].toIntOrNull()
             ?: return@replace matchResult.value
-        "${"%.1f".format(Locale.ROOT, hz / 1000f).removeSuffix(".0")} kHz"
+        rateText(hz)
     }
     return formatted
 }

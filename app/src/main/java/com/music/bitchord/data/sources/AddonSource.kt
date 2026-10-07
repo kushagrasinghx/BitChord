@@ -5,6 +5,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
+import com.music.bitchord.data.sources.addon.AddonManifest
 import com.music.bitchord.data.sources.addon.AddonNotFound
 import com.music.bitchord.data.sources.addon.AddonStream
 import com.music.bitchord.data.sources.addon.AddonTrack
@@ -60,6 +61,38 @@ class AddonSource(
         },
     )
 
+    // ── Manifest policy ───────────────────────────────────────────────────
+
+    /** The stored config as it is now: the manifest switches change without this source being rebuilt. */
+    private val live: SourceConfig get() = SourceRegistry.config(config.id) ?: config
+
+    /**
+     * True while this addon asked for a lossless output (`checkValidLossless`)
+     * and none is connected. Checked before every request this class makes —
+     * [SourceRegistry.active] already leaves the addon out of the walks, but a
+     * queued track names its source directly and arrives here regardless.
+     */
+    private fun shutOut(what: String): Boolean {
+        if (!live.awaitsLosslessOutput) return false
+        TrackLog.d(TAG, "${config.displayName}: no lossless output connected; not asking it for $what")
+        return true
+    }
+
+    /**
+     * [shutOut], then the manifest's current answer, then [shutOut] again — so
+     * an addon that has just turned the switch on is stopped before the request
+     * rather than after it. The manifest is the client's shared, cached copy,
+     * which the request was about to read for its settings anyway.
+     */
+    private suspend fun admitted(what: String): Boolean {
+        if (shutOut(what)) return false
+        client.manifest().getOrNull()?.let(::recordPolicy)
+        return !shutOut(what)
+    }
+
+    private fun recordPolicy(manifest: AddonManifest) =
+        SourceRegistry.updatePolicy(config.id, manifest.downloadsAllowed, manifest.requiresLosslessOutput)
+
     // ── Health ────────────────────────────────────────────────────────────
 
     /**
@@ -76,8 +109,12 @@ class AddonSource(
         if (config.baseUrl.isBlank()) {
             return@withContext SourceHealth.Rejected("An addon URL is required")
         }
+        if (shutOut("a health check")) {
+            return@withContext SourceHealth.Rejected(NEEDS_LOSSLESS_OUTPUT)
+        }
         client.manifest().fold(
             onSuccess = { manifest ->
+                recordPolicy(manifest)
                 SourceHealth.Ok(
                     listOfNotNull(
                         manifest.displayName.takeIf { it.isNotBlank() },
@@ -120,7 +157,7 @@ class AddonSource(
      * this reads what the probe already fetched.
      */
     suspend fun manifestName(): String? =
-        client.manifest().getOrNull()?.displayName?.ifBlank { null }
+        if (shutOut("its name")) null else client.manifest().getOrNull()?.displayName?.ifBlank { null }
 
     // ── Search ────────────────────────────────────────────────────────────
 
@@ -153,6 +190,7 @@ class AddonSource(
     ): List<Song> =
         withContext(Dispatchers.IO) {
             if (query.isBlank()) return@withContext emptyList()
+            if (!admitted("a search")) return@withContext emptyList()
             val tier = request?.tier ?: AddonClient.TIER_LOSSLESS
             val tracks = client.search(query, tier).getOrElse { failure ->
                 TrackLog.w(TAG, "${config.displayName}: search failed — ${failure.message}")
@@ -192,6 +230,7 @@ class AddonSource(
 
     override suspend fun stream(trackId: String, request: StreamRequest): SourceStream? =
         withContext(Dispatchers.IO) {
+            if (!admitted("a stream")) return@withContext null
             val tier = request.tier
             val result = client.stream(trackId, tier)
             val answer = result.getOrNull()
@@ -368,6 +407,10 @@ class AddonSource(
 
     private companion object {
         const val TAG = "BitChord"
+
+        /** What a gated addon's health says, for the editor's Test line. The sources list draws its own. */
+        const val NEEDS_LOSSLESS_OUTPUT =
+            "This addon only works with a lossless output — use a lossless supported device"
 
         /** How many search rows to remember. A long queue's worth, several times over. */
         const val MAX_ROWS = 256

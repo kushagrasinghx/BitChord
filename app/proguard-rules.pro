@@ -28,6 +28,11 @@
 -keep class net.engio.mbassy.** { *; }
 -keep class org.bouncycastle.** { *; }
 -keepclasseswithmembernames,includedescriptorclasses class * { native <methods>; }
+# The vendored FFmpeg extension's JNI calls back into this by name to grow
+# its output buffer (native/ffmpeg/ffmpeg_jni.cc, JNI_OnLoad).
+-keep,includedescriptorclasses class androidx.media3.decoder.ffmpeg.FfmpegAudioDecoder {
+    private java.nio.ByteBuffer growOutputBuffer(androidx.media3.decoder.SimpleDecoderOutputBuffer, int);
+}
 
 # ---- Serialization --------------------------------------------------------------
 # protobuf-lite reads its generated messages' fields reflectively.

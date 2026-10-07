@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">分析済み</string>
+    <string name="analysis_in_progress">分析中…</string>
+    <string name="analysis_refining">分析済み、調整中…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">オートミックス · この曲：%1$s · 次：%2$s</string>
+    <string name="automix_not_supported_video">動画の曲では Automix はサポートされていません</string>
+    <string name="automix_stopped_in_party">Automix: 一緒に聴く中は停止</string>
+    <string name="autoplay">AutoPlay</string>
+    <string name="autoplay_empty_description">似た曲が引き続き再生されます</string>
+    <string name="autoplay_off">AutoPlay: オフ</string>
+    <string name="autoplay_on">AutoPlay: オン</string>
+    <string name="autoplay_queue_description">次に再生される、似た曲</string>
+    <string name="bit_depth">%1$dビット</string>
+    <string name="cancel">キャンセル</string>
+    <string name="cast">Cast</string>
+    <string name="cast_casting">Casting</string>
+    <string name="cast_connecting">Connecting…</string>
+    <string name="cast_row_subtitle">Chromecast and Google Cast speakers</string>
+    <string name="channel_count">%1$dch</string>
+    <string name="choose_lyrics_provider">歌詞の提供元を選択</string>
+    <string name="clear">消去</string>
+    <string name="close_lyrics">歌詞を閉じる</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ %1$sから</string>
+    <string name="drag_to_reorder">ドラッグして並べ替え</string>
+    <string name="failed">失敗しました</string>
+    <string name="hi_res_lossless">ハイレゾロスレス</string>
+    <string name="high_quality">高音質</string>
+    <string name="high_quality_upgrading">高音質、アップグレード中</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">インストゥルメンタル</string>
+    <string name="like">高評価</string>
+    <string name="listen_together">一緒に聴く</string>
+    <string name="listen_together_away">離席中 — 枠は確保されています</string>
+    <string name="listen_together_host">ホスト</string>
+    <string name="listen_together_in_party">パーティー中 · %1$s</string>
+    <string name="listen_together_jam">%1$s のジャム</string>
+    <string name="listen_together_jam_unnamed">一緒に聴いています</string>
+    <string name="listen_together_manage">管理</string>
+    <string name="listen_together_open">一緒に聴く</string>
+    <string name="listen_together_open_count">一緒に聴いています · %1$d</string>
+    <string name="listen_together_you">あなた</string>
+    <string name="mixing">ミキシング</string>
+    <string name="lossless">ロスレス</string>
+    <string name="lyrics_already_in_language">この歌詞はすでに%1$sです</string>
+    <string name="lyrics_already_romanized">この歌詞はすでにラテン文字です</string>
+    <string name="lyrics_by">歌詞提供：%1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>ビートが着地中</item>
+        <item>曲がスタート</item>
+        <item>ウォーミングアップ中</item>
+        <item>ムードを演出中</item>
+        <item>まずベース、言葉は後で</item>
+        <item>お楽しみに</item>
+        <item>盛り上がりを感じて</item>
+        <item>今はグルーヴだけ</item>
+        <item>サビが近づいています</item>
+        <item>少し間を置いて</item>
+        <item>ボーカルの出番</item>
+        <item>最初の音が鳴った</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>歌詞を取得中</item>
+        <item>言葉を探しています</item>
+        <item>歌詞を呼び出し中</item>
+        <item>歌詞を読み込み中</item>
+        <item>歌詞カードを確認中</item>
+        <item>歌詞集を検索中</item>
+        <item>歌詞を並べています</item>
+        <item>言葉がもうすぐ届きます</item>
+        <item>アーカイブを確認中</item>
+        <item>ぴったりの言葉を探しています</item>
+        <item>歌詞がまとまりつつあります</item>
+        <item>もう少しで言葉が見つかりそう</item>
+    </string-array>
+    <string name="lyrics_not_available">歌詞は利用できません</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">現在の提供元</string>
+    <string name="lyrics_provider_fetching">歌詞を取得中…</string>
+    <string name="lyrics_provider_found">歌詞が見つかりました · タップして使用</string>
+    <string name="lyrics_provider_not_fetched">タップして取得</string>
+    <string name="lyrics_provider_not_found">歌詞が見つかりません</string>
+    <string name="lyrics_romanization_unavailable">この歌詞はローマ字化できません</string>
+    <string name="lyrics_romanized">ローマ字読み</string>
+    <string name="lyrics_saved_with_download">このダウンロードに歌詞を保存済み</string>
+    <string name="lyrics_share_pick_limit">カードがいっぱいです</string>
+    <string name="lyrics_translated_to">%1$sに翻訳済み</string>
+    <string name="lyrics_translation_unavailable">現在、翻訳を利用できません</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">モノラル</string>
+    <string name="more">その他</string>
+    <string name="next_from">次の再生元: %1$s</string>
+    <string name="next_in_queue">キューの次の曲</string>
+    <string name="no_lyrics_for_track">この曲の歌詞はありません</string>
+    <string name="no_lyrics_found">歌詞が見つかりません</string>
+    <string name="now_playing">再生中</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">一時停止</string>
+    <string name="play">再生</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">%1$s ラジオを再生中</string>
+    <string name="queue">再生キュー</string>
+    <string name="remove_from_liked">高く評価した音楽から削除</string>
+    <string name="remove_from_queue">再生キューから削除</string>
+    <string name="repeat_all">すべてリピート</string>
+    <string name="repeat_off">リピート: オフ</string>
+    <string name="repeat_one">1曲をリピート</string>
+    <string name="romanize_lyrics">歌詞をローマ字化</string>
+    <string name="romanizing_lyrics">歌詞をローマ字化しています…</string>
+    <string name="show_original_lyrics">元の歌詞を表示</string>
+    <string name="shuffle_off">シャッフル: オフ</string>
+    <string name="shuffle_on">シャッフル: オン</string>
+    <string name="stereo">ステレオ</string>
+    <string name="translate_lyrics">歌詞を翻訳</string>
+    <string name="translating_lyrics_to">%1$sに翻訳中…</string>
+    <string name="up_next">次の曲</string>
+    <string name="upgrading_quality">音質をアップグレード中</string>
+    <string name="waiting">待機中</string>
+    <string name="widget_next">次へ</string>
+    <string name="widget_previous">前へ</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+    <string name="albums">アルバム</string>
+    <string name="artists">アーティスト</string>
+    <string name="card_plays_format">%1$s 回再生</string>
+    <string name="card_songs_format">%1$s 曲</string>
+    <string name="card_views_format">%1$s 回視聴</string>
+    <string name="clear_search">検索をクリア</string>
+    <string name="downloaded">ダウンロード済み</string>
+    <string name="explore">見つける</string>
+    <string name="library">ライブラリ</string>
+    <string name="library_sign_in_description">Googleアカウントにログインすると、高評価した曲、プレイリスト、YouTube Musicの履歴が表示されます。</string>
+    <string name="new_playlist">新しいプレイリスト</string>
+    <string name="on_device">デバイス内</string>
+    <string name="personalized_recommendations">あなたに合わせたおすすめを受け取る</string>
+    <string name="pinned">ピン留め済み</string>
+    <string name="play_next">次に再生</string>
+    <string name="playlist">プレイリスト</string>
+    <string name="playlist_action">プレイリスト</string>
+    <string name="playlists">プレイリスト</string>
+    <string name="recent_search_edit">「%1$s」を編集</string>
+    <string name="recent_search_remove">最近の検索から「%1$s」を削除</string>
+    <string name="recent_searches">最近の検索</string>
+    <string name="replay_subtitle">よく聴いた曲、アーティスト、アルバム、ジャンル</string>
+    <string name="retry">再試行</string>
+    <string name="saved_to_youtube_music">YouTube Musicに保存済み</string>
+    <string name="search">検索</string>
+    <string name="search_empty">YouTube Musicで何百万もの曲を検索できます。</string>
+    <string name="search_hint">アーティスト、曲、歌詞など</string>
+    <string name="selected">選択済み</string>
+    <string name="share">共有</string>
+    <string name="shelf_artists_on_the_rise">注目のアーティスト</string>
+    <string name="shelf_chart">チャート</string>
+    <string name="shelf_charts">チャート</string>
+    <string name="shelf_concerts">コンサート</string>
+    <string name="shelf_featured_playlists_for_you">おすすめの再生リスト</string>
+    <string name="shelf_for_you">あなたへのおすすめ</string>
+    <string name="shelf_forgotten_favorites">よく聴いたお気に入りの曲</string>
+    <string name="shelf_from_the_community">コミュニティより</string>
+    <string name="shelf_from_your_library">ライブラリから</string>
+    <string name="shelf_hits_today">今日のヒット曲</string>
+    <string name="shelf_listen_again">もう一度聴く</string>
+    <string name="shelf_mixed_for_you">ミックス</string>
+    <string name="shelf_new_releases">最新リリース</string>
+    <string name="shelf_quick_picks">クイック ミックス</string>
+    <string name="shelf_recents">最近</string>
+    <string name="shelf_recommended_music_videos">おすすめのミュージック ビデオ</string>
+    <string name="shelf_shorts">ショート</string>
+    <string name="shelf_similar_to">%1$s に似ている曲</string>
+    <string name="shelf_single">シングル</string>
+    <string name="shelf_song_item">曲</string>
+    <string name="shelf_top_music_videos">人気のミュージック ビデオ</string>
+    <string name="shelf_top_tunes_right_now">注目の曲</string>
+    <string name="shelf_trending">急上昇</string>
+    <string name="shelf_trending_community_playlists">急上昇のコミュニティ再生リスト</string>
+    <string name="shelf_youtube_charts">YouTube チャート</string>
+    <string name="show_all">すべて表示</string>
+    <string name="sign_in">ログイン</string>
+    <string name="sign_in_youtube_music">YouTube Musicにログイン</string>
+    <string name="subscriptions">登録チャンネル</string>
+    <string name="switch_to_grid_view">グリッド表示に切り替え</string>
+    <string name="switch_to_list_view">リスト表示に切り替え</string>
+    <string name="your_replay">あなたのReplay</string>
+    <string name="your_listening_experience">あなたの再生体験</string>
+    <string name="default_replay_holder">BitChordリスナー</string>
+    <string name="member_since">登録日</string>
+    <string name="import_spotify">Spotify からインポート</string>
+    <string name="import_spotify_subtitle">プレイリストのリンクから</string>
+    <string name="search_library_empty">ローカル音楽フォルダ内の曲を検索します。</string>
+    <string name="search_library_hint">曲・アーティスト・アルバム</string>
+    <string name="search_library_no_results">ローカル音楽に「%1$s」に一致するものはありません。</string>
+</resources>

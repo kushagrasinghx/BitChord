@@ -66,6 +66,14 @@ internal object SpotifyToken {
         appContext = context.applicationContext
     }
 
+    fun invalidate() {
+        cachedAccessToken = null
+        accessTokenExpiresAtMs = 0L
+        cachedClientId = null
+        cachedClientToken = null
+        clientTokenExpiresAtMs = 0L
+    }
+
     /**
      * The current bearer token, or null when there is no cookie to mint one
      * from, [init] was never called, or the harvest failed. Cached until

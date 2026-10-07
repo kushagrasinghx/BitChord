@@ -257,15 +257,12 @@ class DownloadSessionTest {
         ids.associateWith { "content://media/external/audio/media/$it" }
 
     /**
-     * The shelf's whole reason for existing: an album downloaded whole can be
-     * grouped back up off its tracks' own tags, so it is already reachable
-     * through the Downloads folder without help. A playlist cannot be grouped
-     * that way at all, so it is the one that needs a card of its own — and a
-     * card per album beside it would only be a second door onto a list already
-     * there.
+     * Everything downloaded whole gets a card: a playlist because nothing else
+     * can reach it, an album because the shelf is where a downloaded release is
+     * looked for, even though the Downloads folder's Albums tab can group it too.
      */
     @Test
-    fun `only playlists get a card, because only playlists cannot be inferred`() {
+    fun `playlists and albums downloaded whole both get a card`() {
         Downloads.rememberCollection(
             DownloadTarget(id = "VLPL1", title = "Late night drive", playlist = true),
             listOf(onDisk("a"), onDisk("b")),
@@ -275,8 +272,8 @@ class DownloadSessionTest {
             listOf(onDisk("c")),
         )
 
-        val shelf = Downloads.savedPlaylists(onDiskMap("a", "b", "c"))
-        assertEquals(listOf("Late night drive"), shelf.map { it.title })
+        val shelf = Downloads.savedReleases(onDiskMap("a", "b", "c"))
+        assertEquals(listOf("Late night drive", "Motion"), shelf.map { it.title })
     }
 
     /**
@@ -290,11 +287,11 @@ class DownloadSessionTest {
             DownloadTarget(id = "VLPL1", title = "Late night drive", playlist = true),
             listOf(onDisk("a"), onDisk("b")),
         )
-        assertTrue(Downloads.savedPlaylists(emptyMap()).isEmpty())
+        assertTrue(Downloads.savedReleases(emptyMap()).isEmpty())
 
         // One track in is enough to be worth opening: the page behind the card
         // is the tracks that are there, not the tracks that were asked for.
-        assertEquals(1, Downloads.savedPlaylists(onDiskMap("b")).size)
+        assertEquals(1, Downloads.savedReleases(onDiskMap("b")).size)
     }
 
     /**
@@ -308,8 +305,8 @@ class DownloadSessionTest {
             DownloadTarget(id = "VLPL1", title = "Late night drive", playlist = true),
             listOf(onDisk("a"), onDisk("b")),
         )
-        assertEquals(1, Downloads.savedPlaylists(onDiskMap("a")).size)
-        assertTrue(Downloads.savedPlaylists(onDiskMap("unrelated")).isEmpty())
+        assertEquals(1, Downloads.savedReleases(onDiskMap("a")).size)
+        assertTrue(Downloads.savedReleases(onDiskMap("unrelated")).isEmpty())
     }
 
     @Test
@@ -322,7 +319,7 @@ class DownloadSessionTest {
         }
         assertEquals(
             listOf("anthems", "Morning", "Zephyr"),
-            Downloads.savedPlaylists(onDiskMap("Zephyr", "anthems", "Morning")).map { it.title },
+            Downloads.savedReleases(onDiskMap("Zephyr", "anthems", "Morning")).map { it.title },
         )
     }
 

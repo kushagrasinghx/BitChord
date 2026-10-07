@@ -1,7 +1,9 @@
 # Gradle
 .gradle/
+.vscode/
 /build/
 /app/build/
+/desktopApp/bin/
 build/
 builds/
 bills/
@@ -50,4 +52,6 @@ TV_*.md
 
 # AI agent configuration
 AGENTS.md
+
+/output/
 

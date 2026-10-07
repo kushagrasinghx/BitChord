@@ -61,8 +61,32 @@ import java.util.Locale
 @UnstableApi
 class TrackAnalyzer(private val context: Context, private val cache: AudioCache) {
 
-    private val tracker = BeatTracker(context)
-    private val vocals = VocalTracker(context)
+    private val tracker = BeatTracker(
+        modelPath = { unpackedAsset(BeatTracker.MODEL_ASSET) },
+        inferenceThreads = { AppSettings.automixPerformanceMode.value.inferenceThreads },
+    )
+    private val vocals = VocalTracker(
+        modelPath = { unpackedAsset(VocalTracker.MODEL_ASSET) },
+        inferenceThreads = { AppSettings.automixPerformanceMode.value.inferenceThreads },
+    )
+
+    /**
+     * A model's weights on disk, unpacked from assets the first time they are
+     * asked for.
+     *
+     * ONNX Runtime wants a file it can memory-map, and an asset inside the APK
+     * is not one. This used to live inside each tracker; it moved out when they
+     * became shared with the desktop build, which unpacks from the jar instead.
+     */
+    private fun unpackedAsset(name: String): String {
+        val file = java.io.File(context.filesDir, name)
+        if (!file.exists() || file.length() == 0L) {
+            context.assets.open(name).use { input ->
+                file.outputStream().use { output -> input.copyTo(output) }
+            }
+        }
+        return file.absolutePath
+    }
 
     /**
      * Whether analysis is switched off entirely right now.
@@ -132,7 +156,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     private val restoreAttempted = ConcurrentHashMap.newKeySet<String>()
 
     /** Results that survive the process, so a track is measured once and stays measured. */
-    private val store = AnalysisStore(context)
+    private val store = AnalysisStore { context.filesDir }
 
     /**
      * Cache keys of renditions that decoded short despite the cache calling them

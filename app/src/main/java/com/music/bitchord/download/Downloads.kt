@@ -425,10 +425,12 @@ object Downloads {
      * track listing — so it gets a segment of its own rather than an id in the
      * same namespace.
      *
-     * Playlists only, which is why the word is in the prefix. A downloaded album
-     * stamps its name onto each of its tracks, so the Albums tab groups it back
-     * up without being told; a playlist's tracks are off forty different releases
-     * and no tag on any of them names it, so it is the one that needs a page.
+     * Built for playlists, which is why the word is in the prefix: a playlist's
+     * tracks are off forty different releases and no tag on any of them names
+     * it, so it is the one that needs a page. A downloaded album opens through
+     * it as well, from its card on the Library's On Device shelf — the record
+     * is the same either way — though the Albums tab still groups one up on
+     * its own.
      */
     const val PLAYLIST_PREFIX = "local:playlist:"
 
@@ -437,10 +439,11 @@ object Downloads {
 
     /** The release [pageIdFor] built [browseId] from, or null if it didn't. */
     fun recordIdOf(browseId: String): String? =
-        browseId.removePrefix(PLAYLIST_PREFIX).takeIf { it != browseId && it.isNotEmpty() }
+        browseId.removePrefix(PLAYLIST_PREFIX).takeIf { it != browseId && it.isNotEmpty() && !it.startsWith("sp_local_") }
 
     /**
-     * The playlists downloaded whole, in name order, without their tracks.
+     * The playlists and albums downloaded whole, in name order, without their
+     * tracks.
      *
      * What the Library page's On Device shelf draws a card from. Unlike
      * [collectionsAmong] there is no track list here to prune against — that
@@ -457,10 +460,10 @@ object Downloads {
      * songs: the rule is worth stating on a known folder rather than only on
      * whatever this process happens to have recorded.
      */
-    fun savedPlaylists(onDisk: Map<String, String> = _saved.value): List<SavedCollection> {
+    fun savedReleases(onDisk: Map<String, String> = _saved.value): List<SavedCollection> {
         if (_collections.value.isEmpty()) return emptyList()
         return _collections.value.values
-            .filter { record -> record.playlist && record.videoIds.any { it in onDisk } }
+            .filter { record -> record.videoIds.any { it in onDisk } }
             .sortedBy { it.title.lowercase(Locale.ROOT) }
     }
 
@@ -894,7 +897,7 @@ object Downloads {
             }
         }
 
-        val route = routeFor(track, quality)
+        val route = routeFor(context, track, quality)
         Log.d(TAG, "downloading ${song.videoId} as .${route.extension} (${route.describe}, ${quality.label})")
         Prepared(song.videoId, track, route = route, alreadyAt = null)
     }
@@ -1089,7 +1092,7 @@ object Downloads {
      *   than to the middle of this one. [Downloader.fetch] resolves again after
      *   a mid-download refusal and has to ask for the same rung it started on.
      */
-    private suspend fun routeFor(track: Song, quality: DownloadQuality): Route {
+    private suspend fun routeFor(context: Context, track: Song, quality: DownloadQuality): Route {
         fromSources(track, quality)?.let { (stream, storable) ->
             // A manifest is an index, not audio. Whichever kind it is, fetching
             // it as a file writes the index into something named `.flac` —
@@ -1100,10 +1103,31 @@ object Downloads {
             val dash = OfflineDash.handles(stream.url)
             val hls = stream.url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)
             val packaged = hls || dash
-            // A package is only useful inside BitChord. When the user
-            // explicitly exports files for another player, decline it here and
-            // let the ordinary portable-file fallback resolve instead.
-            if (packaged && AppSettings.exportDownloads.value) return@let
+            // A manifest's segments are joined back into one ordinary file —
+            // see [ManifestFile] — exported or not, so a lossless download is
+            // a `.flac` wherever it lands. Exports used to decline manifests
+            // instead, which meant YouTube: Tidal serves every lossless tier
+            // as a manifest, so an exporting user heard FLAC and saved 131kbps
+            // AAC. Only a codec the assembler can't file falls through to the
+            // package (in-app) or YouTube (export) below.
+            if (packaged && storable.extension in ManifestFile.EXTENSIONS) {
+                return Route(
+                    extension = storable.extension,
+                    mimeType = storable.mimeType,
+                    describe = "${stream.format.summary} (assembled from ${if (dash) "DASH" else "HLS"})",
+                    downloadFormat = stream.format.downloadBadge(),
+                    write = { sink, onProgress ->
+                        ManifestFile.write(
+                            context.cacheDir, stream.url, stream.headers, dash,
+                            storable.extension, sink, onProgress,
+                        )
+                    },
+                )
+            }
+            if (packaged && AppSettings.exportDownloads.value) {
+                Log.d(TAG, "can't export a .${storable.extension} manifest; taking YouTube for ${track.videoId}")
+                return@let
+            }
             return Route(
                 // DASH is saved *as* HLS — see [OfflineDash] for why — so both
                 // kinds land as the same package and are named for what was
@@ -1251,9 +1275,10 @@ object Downloads {
      *
      * Sized off what it actually bounds, therefore, rather than off the playback
      * timeout it used to be matched to. One patient search is 25s, the matcher
-     * offers up to two queries (`TrackMatcher.queries`), and [streamBest] may
-     * then open up to `STREAM_ATTEMPTS` stream endpoints on the winner. Sixty
-     * seconds covers a slow-but-working index; it is still finite, because the
+     * offers up to three queries (`TrackMatcher.queries` — the third only for a
+     * kana title, in the other script), and [streamBest] may then open up to
+     * `STREAM_ATTEMPTS` stream endpoints on the winner. Eighty-five seconds
+     * covers a slow-but-working index; it is still finite, because the
      * alternative is the queue stalled per track on modules that simply do not
      * have the recording.
      *
@@ -1268,7 +1293,7 @@ object Downloads {
      * turn: a fast source queued behind a slow one would spend this budget
      * waiting for a module and never be asked.
      */
-    private const val SOURCE_LOOKUP_MS = 60_000L
+    private const val SOURCE_LOOKUP_MS = 85_000L
 
     /**
      * The extensions a file in Music can carry that say, on their own, that a

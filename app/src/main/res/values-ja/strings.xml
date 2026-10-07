@@ -88,8 +88,6 @@
     <string name="rich_presence">リッチプレゼンス</string>
     <string name="scrobbling">スクロブリング</string>
     <string name="now_playing">再生中</string>
-    <string name="next_in_queue">キューの次の曲</string>
-    <string name="next_from">次の再生元: %1$s</string>
     <string name="selected">選択済み</string>
     <string name="password">パスワード</string>
     <string name="username">ユーザー名</string>
@@ -264,22 +262,9 @@
     <string name="always_on">常にオン</string>
     <string name="api_token">APIトークン</string>
     <string name="audio_quality_connection">%1$s接続時</string>
-    <string name="autoplay">AutoPlay</string>
     <string name="back_in_future_version">今後のバージョンで復活予定</string>
     <string name="buttons">ボタン</string>
     <string name="clear_name">名前を消去</string>
-    <string name="close_lyrics">歌詞を閉じる</string>
-    <string name="translate_lyrics">歌詞を翻訳</string>
-    <string name="romanize_lyrics">歌詞をローマ字化</string>
-    <string name="show_original_lyrics">元の歌詞を表示</string>
-    <string name="translating_lyrics_to">%1$sに翻訳中…</string>
-    <string name="lyrics_translated_to">%1$sに翻訳済み</string>
-    <string name="romanizing_lyrics">歌詞をローマ字化しています…</string>
-    <string name="lyrics_romanized">ローマ字読み</string>
-    <string name="lyrics_already_romanized">この歌詞はすでにラテン文字です</string>
-    <string name="lyrics_romanization_unavailable">この歌詞はローマ字化できません</string>
-    <string name="lyrics_already_in_language">この歌詞はすでに%1$sです</string>
-    <string name="lyrics_translation_unavailable">現在、翻訳を利用できません</string>
     <string name="connect_account_first">先にアカウントを連携してください</string>
     <string name="connected_presence_off">接続済み、プレゼンスはオフ</string>
     <string name="copy_log">ログをコピー</string>
@@ -314,36 +299,11 @@
     <string name="enter_token_to_enable">有効にするにはトークンを入力してください</string>
     <string name="first_button">1つ目のボタン</string>
     <string name="got_it">了解</string>
-    <string name="high_quality">高音質</string>
-    <string name="instrumental">インストゥルメンタル</string>
     <string name="pause">一時停止</string>
-    <string name="lyrics_by">歌詞提供：%1$s</string>
-    <string name="change_lyrics_provider">変更</string>
-    <string name="choose_lyrics_provider">歌詞の提供元を選択</string>
-    <string name="lyrics_provider_current">現在の提供元</string>
-    <string name="lyrics_provider_found">歌詞が見つかりました · タップして使用</string>
-    <string name="lyrics_provider_not_found">歌詞が見つかりません</string>
-    <string name="lyrics_provider_fetching">歌詞を取得中…</string>
-    <string name="lyrics_provider_not_fetched">タップして取得</string>
-    <string name="no_lyrics_found">歌詞が見つかりません</string>
-    <string name="lyrics_saved_with_download">このダウンロードに歌詞を保存済み</string>
     <string name="shuffle_on">シャッフル: オン</string>
     <string name="shuffle_off">シャッフル: オフ</string>
-    <string name="repeat_one">1曲をリピート</string>
-    <string name="repeat_all">すべてリピート</string>
-    <string name="repeat_off">リピート: オフ</string>
-    <string name="autoplay_on">AutoPlay: オン</string>
-    <string name="autoplay_off">AutoPlay: オフ</string>
-    <string name="autoplay_queue_description">次に再生される、似た曲</string>
-    <string name="autoplay_empty_description">似た曲が引き続き再生されます</string>
-    <string name="high_quality_upgrading">高音質、アップグレード中</string>
-    <string name="upgrading_quality">音質をアップグレード中</string>
-    <string name="hi_res_lossless">ハイレゾロスレス</string>
-    <string name="bit_depth">%1$dビット</string>
     <string name="mono">モノラル</string>
     <string name="stereo">ステレオ</string>
-    <string name="channel_count">%1$dch</string>
-    <string name="downgraded_from">↓ %1$sから</string>
     <string name="history">履歴</string>
     <string name="sources">ソース</string>
     <string name="wifi">Wi-Fi</string>
@@ -418,7 +378,6 @@
     <string name="listenbrainz_token">ListenBrainzトークン</string>
     <string name="listenbrainz_token_description">スクロブリングを有効にするには、ListenBrainzのユーザートークンを貼り付けてください。</string>
     <string name="listening_history">再生履歴</string>
-    <string name="lyrics_not_available">歌詞は利用できません</string>
     <string name="lyrics_sources_order">ソースはこの順番で試されます。ドラッグして並べ替えられます。音節単位の歌詞が優先されていない限り、歌詞が見つかった最初のソースが採用されます。</string>
     <string name="max_delay">最大遅延</string>
     <string name="max_delay_subtitle">スクロブルまでの最大遅延（秒）</string>
@@ -426,7 +385,6 @@
     <string name="min_song_duration_subtitle">これより短い曲はスクロブルされません</string>
     <string name="monthly_listeners">月間リスナー数 %1$s人</string>
     <string name="name">名前</string>
-    <string name="no_lyrics_for_track">この曲の歌詞はありません</string>
     <string name="no_playlists_yet">プレイリストはまだありません。上の行から作成してください。</string>
     <string name="no_tracks_here">ここにはトラックがありません</string>
     <string name="not_connected">未接続</string>
@@ -448,8 +406,11 @@
     <string name="remove">削除</string>
     <string name="remove_from_liked">高く評価した音楽から削除</string>
     <string name="remove_from_playlist">このプレイリストから削除</string>
-    <string name="remove_from_queue">再生キューから削除</string>
     <string name="rename_playlist">プレイリスト名を変更</string>
+    <string name="reorder_songs">曲を並べ替え</string>
+    <string name="reorder_failed">新しい順序を保存できませんでした</string>
+    <string name="playlist_reordered">プレイリストの順序を保存しました</string>
+    <string name="save_order">保存</string>
     <string name="reset_to_default">デフォルトに戻す</string>
     <string name="rich_presence_footer">Discordのプロフィールに再生中の曲を表示します。</string>
     <string name="save_name">名前を保存</string>
@@ -508,7 +469,6 @@
     <string name="token">トークン</string>
     <string name="turn_off_timer">タイマーをオフにする</string>
     <string name="undo_dislike">低評価を取り消す</string>
-    <string name="up_next">次の曲</string>
     <string name="verb_competing">参加中</string>
     <string name="verb_listening">再生中</string>
     <string name="verb_playing">プレイ中</string>
@@ -526,6 +486,10 @@
     <string name="hour_pm">午後%1$d時</string>
     <string name="hours_minutes_short">%1$d時間%2$d分</string>
     <string name="listen_most_around">最もよく聴くのは%1$s頃です。</string>
+    <string name="lyrics_share_title">歌詞を共有</string>
+    <string name="lyrics_share_description">選んだ行を、ジャケットと一緒にカードにレイアウトします。</string>
+    <string name="lyrics_share_story">ストーリー用にする</string>
+    <string name="lyrics_share_story_revert">カードに戻す</string>
     <string name="listening_shape">あなたの再生パターン</string>
     <string name="member_since">登録日</string>
     <string name="member_since_value">登録日：%1$s</string>
@@ -557,6 +521,9 @@
     <string name="replay_minutes_end">です。</string>
     <string name="replay_minutes_start">音楽と過ごした時間は</string>
     <string name="replay_minutes_value">%1$s</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="other">%1$s分</item>
+    </plurals>
     <string name="replay_mostly_around">、主に%1$s頃でした。</string>
     <string name="replay_private_counting">このデバイス内の再生履歴から非公開で集計されています</string>
     <string name="replay_share_card_description">主な再生ハイライトをまとめた、洗練されたカードです。</string>
@@ -565,16 +532,19 @@
     <string name="replay_songs_start">合計</string>
     <string name="replay_summary_start">あなたの再生スタイルは</string>
     <string name="saved">保存済み</string>
+    <string name="saved_bang">保存しました！</string>
     <string name="share_my_replay">自分のReplayを共有</string>
+    <string name="share_your_lyrics">歌詞カードを送る</string>
     <string name="share_your_replay">あなたのReplayを共有</string>
     <string name="tap_share_for_picture">共有をタップして画像を作成</string>
     <string name="top_album">トップアルバム</string>
     <string name="top_artist">トップアーティスト</string>
     <string name="top_genre">トップジャンル</string>
     <string name="top_song">トップ曲</string>
-    <string name="when_you_listen_most">最もよく聴く時間帯</string>
+    <string name="when_you_listen_the_most">最もよく聴く時間帯</string>
     <string name="your_biggest_day">最も聴いた日：%1$s</string>
     <string name="your_listening_experience">あなたの再生体験</string>
+    <string name="your_lyrics_card">歌詞カード</string>
     <string name="your_replay">あなたのReplay</string>
     <plurals name="replay_artist_count">
         <item quantity="other">%1$s組のアーティスト</item>
@@ -635,11 +605,6 @@
     <string name="delete_playlist_confirmation">「%1$s」を削除しますか？もう一度タップして確定します。</string>
     <string name="delete_download_confirmation">「%1$s」をこのデバイスから削除しますか？もう一度タップして確定します。</string>
     <string name="running">実行中</string>
-    <string name="automix_analysis_status">オートミックス · この曲：%1$s · 次：%2$s</string>
-    <string name="analysis_complete">分析済み</string>
-    <string name="analysis_refining">分析済み、調整中…</string>
-    <string name="analysis_in_progress">分析中…</string>
-    <string name="waiting">待機中</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">未取得</string>
     <string name="version_cut_fetching">取得中</string>
@@ -647,6 +612,8 @@
     <string name="version_cut_aligned">同期済み</string>
     <string name="automix_enabled_subtitle">トラック自体からすべての切り替えのタイミングとブレンドを計算します。端末が熱くなったり再生が途切れたりする場合はオフにしてください。</string>
     <string name="automix_disabled_subtitle">スライダーなしで切り替えのタイミングとブレンドを自動的に計算します。低スペック端末ではパフォーマンスが変わることがあります。</string>
+    <string name="advanced_automix">高度なオートミックス</string>
+    <string name="advanced_automix_subtitle">DJ のようにミックスします。ビートを揃え、切り替えを拍に合わせ、合わない曲同士はカットでつなぎます。追加の処理は不要です。</string>
     <string name="no_lyrics_sources_enabled">なし。歌詞は取得されません。</string>
     <string name="song_cache_large_subtitle">ダウンロードした音声を最大%1$sまでディスクに保持します。空き容量をかなり使用することがあります。</string>
     <string name="song_cache_limit_subtitle">即座にシークや再生ができるよう、ダウンロードした音声をディスクに保持します</string>
@@ -672,34 +639,6 @@
     <string name="this_month">今月</string>
     <string name="this_year">今年</string>
     <string name="all_time">すべての期間</string>
-    <string-array name="lyrics_intro_lines">
-        <item>ビートが着地中</item>
-        <item>曲がスタート</item>
-        <item>ウォーミングアップ中</item>
-        <item>ムードを演出中</item>
-        <item>まずベース、言葉は後で</item>
-        <item>お楽しみに</item>
-        <item>盛り上がりを感じて</item>
-        <item>今はグルーヴだけ</item>
-        <item>サビが近づいています</item>
-        <item>少し間を置いて</item>
-        <item>ボーカルの出番</item>
-        <item>最初の音が鳴った</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>歌詞を取得中</item>
-        <item>言葉を探しています</item>
-        <item>歌詞を呼び出し中</item>
-        <item>歌詞を読み込み中</item>
-        <item>歌詞カードを確認中</item>
-        <item>歌詞集を検索中</item>
-        <item>歌詞を並べています</item>
-        <item>言葉がもうすぐ届きます</item>
-        <item>アーカイブを確認中</item>
-        <item>ぴったりの言葉を探しています</item>
-        <item>歌詞がまとまりつつあります</item>
-        <item>もう少しで言葉が見つかりそう</item>
-    </string-array>
 
     <!-- Listen together -->
     <string name="listen_together">一緒に聴く</string>
@@ -755,7 +694,6 @@
     <string name="listen_together_you">あなた</string>
     <string name="listen_together_host">ホスト</string>
     <string name="listen_together_away">離席中 — 枠は確保されています</string>
-    <string name="listen_together_manage">管理</string>
     <string name="listen_together_landing_title">パーティーを始める</string>
     <string name="listen_together_landing_subtitle">音楽はみんなで聴くともっと楽しい。友だちを招待して、どこにいてもリアルタイムで一緒に聴いたり曲を追加したりできます。</string>
     <string name="listen_together_create_action">パーティーを作成</string>
@@ -781,10 +719,6 @@
     <string name="listen_together_reconnecting">再接続中…</string>
     <string name="listen_together_syncing_clock">時刻を計測中…</string>
     <string name="listen_together_in_sync">同期中 · 往復 %1$d ms</string>
-    <string name="listen_together_jam">%1$s のジャム</string>
-    <string name="listen_together_jam_unnamed">一緒に聴いています</string>
-    <string name="listen_together_open">一緒に聴く</string>
-    <string name="listen_together_open_count">一緒に聴いています · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">カスタムサーバーのパーティーに参加しますか？</string>
     <string name="listen_together_custom_server_dialog_message">このパーティーは外部サーバーでホストされています:\n\n%1$s\n\nパーティーサーバーを切り替えて、パーティー %2$s に参加しますか？</string>
     <string name="listen_together_custom_server_switch_and_join">切り替えて参加</string>
@@ -854,6 +788,7 @@
     <string name="prefer_usb_dac">USB DAC を優先</string>
     <string name="loudness_normalization">音量の正規化</string>
     <string name="loudness_normalization_subtitle">すべての曲を同じラウドネスにそろえます</string>
+    <string name="loudness_off_on_speaker">バイトフォンで無効化</string>
     <string name="loudness_target">目標ラウドネス</string>
     <string name="loudness_target_subtitle">小さめはヘッドホン向け、大きめは車やスマホのスピーカー向けです</string>
     <string name="loudness_target_value">%1$s LUFS</string>
@@ -980,8 +915,6 @@
 
     <string name="automix_mode_performance_subtitle">4 スレッド · 最速分析 · 発熱とバッテリー消費が高くなります</string>
 
-    <string name="automix_not_supported_video">動画の曲では Automix はサポートされていません</string>
-    <string name="automix_stopped_in_party">Automix: 一緒に聴く中は停止</string>
 
     <string name="automix_performance">Automix パフォーマンス</string>
 
@@ -1016,7 +949,6 @@
 
     <string name="liquid_glass_unavailable">Android 12 以降が必要です</string>
 
-    <string name="playing_radio">%1$s ラジオを再生中</string>
 
     <string name="playlist_action">プレイリスト</string>
 
@@ -1059,13 +991,9 @@
 
     <string name="lyrics_offset">Lyrics offset</string>
 
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
 
-    <string name="lyrics_offset_reset">Reset</string>
 
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
 
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
 
     <string name="auto_quick_picks">Quick picks</string>
 
@@ -1202,11 +1130,18 @@
 
     <string name="no_languages_match">No languages match</string>
 
-    <string name="data_saver">Data-Saver</string>
 
-    <string name="medium_quality">Medium Quality</string>
 
     <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="cast_dialog_title">Cast</string>
+    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
+    <string name="cast_searching">Looking for devices…</string>
+    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
+    <string name="cast_device_connecting">Connecting…</string>
+    <string name="cast_device_connected">Casting</string>
+    <string name="cast_stop">Stop casting</string>
+    <string name="cast_track_unsupported">This track can\'t be cast</string>
+    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
     <string name="audio_pipeline_subtitle">デコーダーから出力までのリアルタイム信号経路</string>
 
     <string name="pipeline_track_info">Track Info</string>
@@ -1253,9 +1188,7 @@
 
     <string name="pipeline_device_name">Device Name</string>
 
-    <string name="playing_from">Playing from %1$s</string>
 
-    <string name="played_by">Played by %1$s</string>
 
     <string name="shared_link">Shared link</string>
 
@@ -1264,6 +1197,12 @@
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">プレイリストに追加しました</string>
     <string name="song_already_in_playlist">すでにプレイリストにあります</string>
+    <plurals name="add_to_playlists_count">
+        <item quantity="other">%1$d件のプレイリストに追加</item>
+    </plurals>
+    <plurals name="added_to_playlists_notice">
+        <item quantity="other">%1$d件のプレイリストに追加しました</item>
+    </plurals>
     <string name="party_queue_full">キューがいっぱいです（パーティーの上限は%d曲）</string>
 
     <string name="paxsenix_api_key">PaxSenix API key</string>
@@ -1272,22 +1211,59 @@
 
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
-    <string name="open_lyrics">Lyrics</string>
-
-    <string name="audio_output">Audio output</string>
-
-    <string name="audio_output_playing">Playing here</string>
-
-    <string name="wired_headphones">Wired headphones</string>
-
-    <string name="usb_audio">USB audio</string>
-
-    <string name="hdmi_output">HDMI</string>
-
-    <string name="personal_phone">%1$s’s Phone</string>
-
-    <string name="this_phone">This phone</string>
 
 
 
+
+
+
+
+
+
+
+    <string name="source_needs_lossless_output">ロスレス出力が必要 · ロスレス対応のデバイスを使用してください</string>
+    <string name="source_needs_lossless_bt_codec">ロスレス出力が必要 · Bluetoothは%1$sです。ロスレス対応のデバイスを使用してください</string>
+    <string name="source_needs_lossless_bt_unknown">ロスレス出力が必要 · 使用中のBluetoothコーデックを判別できません</string>
+    <string name="source_downloads_off">ストリーミングのみ</string>
+    <string name="lossless_output_permission">Bluetoothコーデックを確認</string>
+    <string name="lossless_output_permission_detail">付近のデバイスを許可すると、LDACまたはLHDCのヘッドホンでロスレス専用アドオンを使えます</string>
+    <string name="cached_songs">キャッシュ済みの曲</string>
+    <string name="cached_songs_subtitle">曲キャッシュ内のYouTubeとJioSaavnの曲</string>
+    <string name="cached_songs_empty">キャッシュ済みの曲はまだありません。YouTubeやJioSaavnで再生した曲がここに表示されます。</string>
+    <string name="show_cache_folder">キャッシュ済みの曲フォルダを表示</string>
+    <string name="show_cache_folder_subtitle">曲キャッシュに保存されたYouTubeとJioSaavnの曲のフォルダをライブラリに追加します</string>
+    <string name="song_cache_unlimited">無制限</string>
+    <string name="song_cache_unlimited_subtitle">上限なし。キャッシュされた音声はストレージがいっぱいになるまで増え続けます。</string>
+    <string name="clear_song_cache_title">曲キャッシュを消去しますか？</string>
+    <string name="clear_song_cache_warning">キャッシュ済みの曲はすべて削除され、キャッシュ済みの曲フォルダは空になります。次回再生時に再びストリーミングされます。</string>
+    <string name="import_spotify">Spotify からインポート</string>
+    <string name="import_spotify_subtitle">プレイリストのリンクから</string>
+    <string name="local_playlist_subtitle">%1$d 曲 · この端末内</string>
+    <string name="lossless_output_permission_denied">近くのデバイスの権限がオフです</string>
+    <string name="lossless_output_permission_denied_detail">タップして設定を開き、「近くのデバイス」を許可してください — 許可しないと Bluetooth コーデックを読み取れません</string>
+    <string name="recent_album">最近のアルバム</string>
+    <string name="recent_ep">最近の EP</string>
+    <string name="recent_single">最近のシングル</string>
+    <string name="spotify">Spotify</string>
+    <string name="spotify_connect_subtitle">サインインしてプレイリストを読み込みます。再生は YouTube Music を使います。</string>
+    <string name="spotify_disconnect">切断</string>
+    <string name="spotify_empty_playlists">このアカウントにはプレイリストがありません</string>
+    <string name="spotify_empty_tracks">このプレイリストには曲がありません</string>
+    <string name="spotify_import_button">インポート</string>
+    <string name="spotify_import_description">公開プレイリストのリンクを貼り付けます。楽曲は YouTube Music で照合されます。</string>
+    <string name="spotify_import_description_local">公開プレイリストのリンクを貼り付けます。楽曲は YouTube Music で照合され、この端末に保存されます。</string>
+    <string name="spotify_import_done">「%1$s」をインポートしました</string>
+    <string name="spotify_import_empty_playlist">このプレイリストに曲はありません</string>
+    <string name="spotify_import_failed">プレイリストをインポートできませんでした: %1$s</string>
+    <string name="spotify_import_fetching">Spotify のプレイリストを読み込んでいます…</string>
+    <string name="spotify_import_hint">open.spotify.com/playlist/…</string>
+    <string name="spotify_import_invalid">Spotify のプレイリストのリンクではありません。</string>
+    <string name="spotify_import_local_fallback">YouTube Music に作成できなかったため、「%1$s」をこの端末に保存しました。</string>
+    <string name="spotify_import_matching">楽曲を照合中 %1$d / %2$d</string>
+    <string name="spotify_import_none">それらの曲は YouTube Music で見つかりませんでした。</string>
+    <string name="spotify_import_title">Spotify プレイリストをインポート</string>
+    <string name="spotify_import_unmatched">%1$d 曲が YouTube Music で見つかりませんでした</string>
+    <string name="spotify_library_subtitle">あなたの Spotify プレイリスト</string>
+    <string name="spotify_sign_in">Spotify でサインイン</string>
+    <string name="spotify_track_unavailable">その曲は YouTube Music で見つかりません</string>
 </resources>

@@ -228,7 +228,7 @@ fun ReplayScreen(
                             Note(
                                 text = stringResource(R.string.genres_pending),
                                 dark = dark,
-                                modifier = Modifier.padding(horizontal = PAGE_GUTTER + 10.dp),
+                                modifier = Modifier.padding(horizontal = PAGE_GUTTER + 4.dp),
                             )
                         }
                     }
@@ -255,7 +255,7 @@ fun ReplayScreen(
 private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, dark: Boolean) {
     val context = LocalContext.current
     val textColor = if (dark) Color.White else Color.Black
-    Column(Modifier.padding(horizontal = PAGE_GUTTER + 10.dp)) {
+    Column(Modifier.padding(horizontal = PAGE_GUTTER + 4.dp)) {
         Spacer(Modifier.height(48.dp))
         Text(
             text = stringResource(R.string.replay),
@@ -331,7 +331,7 @@ internal fun ReplayCardRow(
     memberSince: String?,
     onCardClick: (ReplayStoryPage) -> Unit,
     modifier: Modifier = Modifier,
-    contentPadding: PaddingValues = PaddingValues(horizontal = PAGE_GUTTER + 10.dp),
+    contentPadding: PaddingValues = PaddingValues(horizontal = PAGE_GUTTER + 4.dp),
 ) {
     LazyRow(
         modifier = modifier,
@@ -383,7 +383,7 @@ private fun ReplayActionRow(icon: ImageVector, label: String, dark: Boolean, onC
     val textColor = if (dark) Color.White else Color.Black
     Row(
         Modifier
-            .padding(horizontal = PAGE_GUTTER + 10.dp, vertical = 18.dp)
+            .padding(horizontal = PAGE_GUTTER + 4.dp, vertical = 18.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(textColor.copy(alpha = 0.12f))
@@ -440,8 +440,8 @@ private fun SectionTitle(text: String, dark: Boolean) {
         fontWeight = FontWeight.W800,
         color = textColor,
         modifier = Modifier.padding(
-            start = PAGE_GUTTER + 10.dp,
-            end = PAGE_GUTTER + 10.dp,
+            start = PAGE_GUTTER + 4.dp,
+            end = PAGE_GUTTER + 4.dp,
             top = 8.dp,
             bottom = 10.dp,
         ),
@@ -457,7 +457,7 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = PAGE_GUTTER + 10.dp, vertical = 7.dp),
+            .padding(horizontal = PAGE_GUTTER + 4.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RankBadge(row.rank, AccentRed)
@@ -505,7 +505,7 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
 @Composable
 private fun Habits(summary: ReplaySummary, dark: Boolean) {
     val context = LocalContext.current
-    Column(Modifier.padding(horizontal = PAGE_GUTTER + 10.dp)) {
+    Column(Modifier.padding(horizontal = PAGE_GUTTER + 4.dp)) {
         SectionTitleInline(stringResource(R.string.listening_shape), dark)
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

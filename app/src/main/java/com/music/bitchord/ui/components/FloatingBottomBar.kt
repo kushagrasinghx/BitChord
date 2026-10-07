@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -73,6 +76,21 @@ data class BottomTab(
  * rather than merely near it.
  */
 internal val PILL_INSET = 6.dp
+
+/**
+ * How far the floating bars stand off the bottom edge: the system navigation
+ * bar's inset, but never less than a gesture bar's.
+ *
+ * With the gesture hint (or the navigation bar itself) switched off that inset
+ * is zero, and the tab bar dropped onto the screen's very edge. It keeps the
+ * height it has with the hint showing instead. Three-button navigation is
+ * taller than the floor, so it still wins there.
+ */
+internal val floatingBarInsets: WindowInsets
+    @Composable get() = WindowInsets.navigationBars.union(WindowInsets(bottom = GESTURE_BAR_FLOOR))
+
+/** A gesture bar's inset — 45px at the test phone's 3x density. */
+private val GESTURE_BAR_FLOOR = 15.dp
 
 /**
  * Each tab's own vertical padding, and the counterweight to [PILL_INSET].
@@ -195,8 +213,8 @@ fun FloatingBottomBar(
 
     Box(
         modifier = modifier
-            .navigationBarsPadding()
-            .padding(horizontal = PAGE_GUTTER)
+            .windowInsetsPadding(floatingBarInsets)
+            .padding(horizontal = BAR_GUTTER)
             .padding(bottom = 2.dp)
             .fillMaxWidth()
             .clip(pillShape)

@@ -29,6 +29,7 @@
     <string name="downloads">Downloads</string>
     <string name="downloaded_songs">Downloaded songs</string>
     <string name="local_music">Local Music</string>
+    <string name="search_source_youtube" translatable="false">YouTube</string>
     <string name="audio_files_on_device">Audio files on device</string>
     <string name="on_device">On Device</string>
     <string name="playlists">Playlists</string>
@@ -42,10 +43,6 @@
     <string name="shuffle">Shuffle</string>
     <string name="more">More</string>
     <string name="lyrics_offset">Lyrics offset</string>
-    <string name="lyrics_offset_description">Positive values show lyrics later</string>
-    <string name="lyrics_offset_reset">Reset</string>
-    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
-    <string name="increase_lyrics_offset">Increase lyrics offset</string>
     <string name="auto_quick_picks">Quick picks</string>
     <string name="auto_recents">Recent</string>
     <string name="auto_liked">Liked songs</string>
@@ -119,12 +116,17 @@
     <string name="testing">Testing…</string>
     <string name="connected">Connected</string>
     <string name="account_integrations">Account &amp; integrations</string>
+    <string name="spotify">Spotify</string>
+    <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
+    <string name="spotify_sign_in">Sign in with Spotify</string>
+    <string name="spotify_disconnect">Disconnect</string>
+    <string name="spotify_empty_playlists">No playlists on this account</string>
+    <string name="spotify_empty_tracks">This playlist has no tracks</string>
+    <string name="spotify_track_unavailable">Couldn\'t find that song on YouTube Music</string>
     <string name="account_scrobbling">Account &amp; scrobbling</string>
     <string name="rich_presence">Rich presence</string>
     <string name="scrobbling">Scrobbling</string>
     <string name="now_playing">Now playing</string>
-    <string name="next_in_queue">Next in queue</string>
-    <string name="next_from">Next from: %1$s</string>
     <string name="selected">Selected</string>
     <string name="select_all">Select all</string>
     <string name="password">Password</string>
@@ -376,22 +378,9 @@
     <string name="always_on">Always on</string>
     <string name="api_token">API token</string>
     <string name="audio_quality_connection">While on %1$s</string>
-    <string name="autoplay">AutoPlay</string>
     <string name="back_in_future_version">Back in a future version</string>
     <string name="buttons">Buttons</string>
     <string name="clear_name">Clear name</string>
-    <string name="close_lyrics">Close lyrics</string>
-    <string name="translate_lyrics">Translate lyrics</string>
-    <string name="romanize_lyrics">Romanize lyrics</string>
-    <string name="show_original_lyrics">Show original lyrics</string>
-    <string name="translating_lyrics_to">Translating to %1$s…</string>
-    <string name="lyrics_translated_to">Translated to %1$s</string>
-    <string name="romanizing_lyrics">Romanizing lyrics…</string>
-    <string name="lyrics_romanized">Romanized pronunciation</string>
-    <string name="lyrics_already_romanized">These lyrics already use Latin characters</string>
-    <string name="lyrics_romanization_unavailable">Romanization is unavailable for these lyrics</string>
-    <string name="lyrics_already_in_language">These lyrics are already in %1$s</string>
-    <string name="lyrics_translation_unavailable">Translation is unavailable right now</string>
     <string name="translation_language">Translation language</string>
     <string name="translation_language_description">The language the translate button turns lyrics into.</string>
     <string name="translation_language_app_default">App language</string>
@@ -432,34 +421,19 @@
     <string name="enter_token_to_enable">Enter a token to enable</string>
     <string name="first_button">First button</string>
     <string name="got_it">Got it</string>
-    <string name="high_quality">High quality</string>
-    <string name="instrumental">Instrumental</string>
     <string name="pause">Pause</string>
-    <string name="lyrics_by">Lyrics by %1$s</string>
-    <string name="change_lyrics_provider">Change</string>
-    <string name="choose_lyrics_provider">Choose lyrics provider</string>
-    <string name="lyrics_provider_current">Current provider</string>
-    <string name="lyrics_provider_found">Lyrics found · Tap to use</string>
-    <string name="lyrics_provider_not_found">Lyrics not found</string>
-    <string name="lyrics_provider_fetching">Fetching lyrics…</string>
-    <string name="lyrics_provider_not_fetched">Tap to fetch</string>
-    <string name="no_lyrics_found">No lyrics found</string>
-    <string name="lyrics_saved_with_download">Lyrics saved with this download</string>
     <string name="shuffle_on">Shuffle on</string>
     <string name="shuffle_off">Shuffle off</string>
-    <string name="repeat_one">Repeat one</string>
-    <string name="repeat_all">Repeat all</string>
-    <string name="repeat_off">Repeat off</string>
-    <string name="autoplay_on">AutoPlay on</string>
-    <string name="autoplay_off">AutoPlay off</string>
-    <string name="autoplay_queue_description">Similar music, selected to play next</string>
-    <string name="autoplay_empty_description">Similar music will keep playing</string>
-    <string name="high_quality_upgrading">High quality, upgrading</string>
-    <string name="upgrading_quality">Upgrading quality</string>
-    <string name="hi_res_lossless">Hi-Res Lossless</string>
-    <string name="data_saver">Data-Saver</string>
-    <string name="medium_quality">Medium Quality</string>
     <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="cast_dialog_title">Cast</string>
+    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
+    <string name="cast_searching">Looking for devices…</string>
+    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
+    <string name="cast_device_connecting">Connecting…</string>
+    <string name="cast_device_connected">Casting</string>
+    <string name="cast_stop">Stop casting</string>
+    <string name="cast_track_unsupported">This track can\'t be cast</string>
+    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
     <string name="audio_pipeline_subtitle">Live signal path, decoder to output</string>
     <string name="pipeline_track_info">Track Info</string>
     <string name="pipeline_decoder">Decoder</string>
@@ -471,6 +445,7 @@
     <string name="pipeline_bit_depth">Bit Depth</string>
     <string name="pipeline_sample_rate">Sample Rate</string>
     <string name="pipeline_bitrate">Bitrate</string>
+    <string name="pipeline_pcm_data_rate" translatable="false">PCM Data Rate</string>
     <string name="pipeline_channels">Channels</string>
     <string name="pipeline_decoder_name">Decoder Name</string>
     <string name="pipeline_io_rate">I/O Rate</string>
@@ -483,11 +458,8 @@
     <string name="pipeline_buffers">Buffers</string>
     <string name="pipeline_output_api">Output API</string>
     <string name="pipeline_device_name">Device Name</string>
-    <string name="bit_depth">%1$d-bit</string>
     <string name="mono">Mono</string>
     <string name="stereo">Stereo</string>
-    <string name="channel_count">%1$d ch</string>
-    <string name="downgraded_from">↓ from %1$s</string>
     <string name="history">History</string>
     <string name="sources">Sources</string>
     <string name="wifi">Wi-Fi</string>
@@ -502,9 +474,6 @@
     <string name="downloading_progress">Downloading · %1$d%%</string>
     <string name="starting">Starting</string>
     <string name="start_radio">Start radio</string>
-    <string name="playing_radio">Playing %1$s Radio</string>
-    <string name="playing_from">Playing from %1$s</string>
-    <string name="played_by">Played by %1$s</string>
     <string name="shared_link">Shared link</string>
     <string name="radio_started">%1$s radio started</string>
     <string name="saved_to_bitchord_folder">Saved to Music/BitChord</string>
@@ -544,6 +513,9 @@
     <string name="your_playlists">Your playlists</string>
     <string name="who_can_see_it">Who can see it</string>
     <string name="about_artist">About the artist</string>
+    <string name="recent_album">Recent Album</string>
+    <string name="recent_single">Recent Single</string>
+    <string name="recent_ep">Recent EP</string>
     <string name="about_album">About the album</string>
     <string name="nothing_matches">Nothing here matches “%1$s”</string>
     <string name="close_search">Close search</string>
@@ -567,6 +539,14 @@
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">Added to playlist</string>
     <string name="song_already_in_playlist">Already in playlist</string>
+    <plurals name="add_to_playlists_count">
+        <item quantity="one">Add to %1$d playlist</item>
+        <item quantity="other">Add to %1$d playlists</item>
+    </plurals>
+    <plurals name="added_to_playlists_notice">
+        <item quantity="one">Added to %1$d playlist</item>
+        <item quantity="other">Added to %1$d playlists</item>
+    </plurals>
     <string name="party_queue_full">Queue is full (maximum %d songs in party)</string>
     <plurals name="log_copied_line_count">
         <item quantity="one">Log copied · %1$d line</item>
@@ -584,7 +564,6 @@
     <string name="listenbrainz_token">ListenBrainz token</string>
     <string name="listenbrainz_token_description">Paste your ListenBrainz user token to enable scrobbling.</string>
     <string name="listening_history">Listening history</string>
-    <string name="lyrics_not_available">Lyrics not available</string>
     <string name="lyrics_sources_order">Sources are tried in this order. Drag to reorder them. The first source with lyrics wins unless syllable lyrics are prioritized.</string>
     <string name="paxsenix_api_key">PaxSenix API key</string>
     <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
@@ -596,7 +575,6 @@
     <string name="addon_url_description">Paste the addon’s URL — either its root or its manifest.json. BitChord reads what it can search and stream, then asks it for tracks over plain HTTP.</string>
     <string name="monthly_listeners">%1$s monthly listeners</string>
     <string name="name">Name</string>
-    <string name="no_lyrics_for_track">No lyrics for this track</string>
     <string name="no_playlists_yet">No playlists yet. Use the row above to create one.</string>
     <string name="no_tracks_here">No tracks here</string>
     <string name="not_connected">Not connected</string>
@@ -618,11 +596,14 @@
     <string name="remove">Remove</string>
     <string name="remove_from_liked">Remove from Liked Music</string>
     <string name="remove_from_playlist">Remove from this playlist</string>
-    <string name="remove_from_queue">Remove from queue</string>
     <string name="rename_playlist">Rename playlist</string>
+    <string name="reorder_songs">Reorder songs</string>
+    <string name="reorder_failed">Couldn\'t save the new order</string>
+    <string name="playlist_reordered">Playlist order saved</string>
     <string name="reset_to_default">Reset to default</string>
     <string name="rich_presence_footer">Show what you are playing on your Discord profile.</string>
     <string name="save_name">Save name</string>
+    <string name="save_order">Save</string>
     <string name="saved_to_downloads">Saved to Downloads</string>
     <string name="saved_to_youtube_music_account">Saved to your YouTube Music account</string>
     <string name="scrobble_delay">Scrobble delay</string>
@@ -678,7 +659,6 @@
     <string name="token">Token</string>
     <string name="turn_off_timer">Turn off timer</string>
     <string name="undo_dislike">Undo dislike</string>
-    <string name="up_next">Up next</string>
     <string name="verb_competing">Competing in</string>
     <string name="verb_listening">Listening to</string>
     <string name="verb_playing">Playing</string>
@@ -697,6 +677,10 @@
     <string name="hour_pm">%1$d PM</string>
     <string name="hours_minutes_short">%1$dh %2$dm</string>
     <string name="listen_most_around">You listen most around %1$s.</string>
+    <string name="lyrics_share_title">Share lyrics</string>
+    <string name="lyrics_share_description">The lines you picked, laid out on a card with the cover.</string>
+    <string name="lyrics_share_story">Make it a story</string>
+    <string name="lyrics_share_story_revert">Back to the card</string>
     <string name="listening_shape">Your listening pattern</string>
     <string name="member_since">Member since</string>
     <string name="member_since_value">Member since %1$s</string>
@@ -709,7 +693,7 @@
     <string name="not_enough_listening">Not enough listening yet</string>
     <string name="not_enough_this_month">Play a few more songs this month to unlock your Replay.</string>
     <string name="pinned">Pinned</string>
-    <string name="replay_across"> across </string>
+    <string name="replay_across">Across </string>
     <string name="replay_album_end"> held your attention.</string>
     <string name="replay_album_focus">One album</string>
     <string name="replay_album_start">This time, </string>
@@ -728,32 +712,39 @@
     <string name="replay_minutes_end"> with music.</string>
     <string name="replay_minutes_start">You spent </string>
     <string name="replay_minutes_value">%1$s</string>
-    <string name="replay_mostly_around">, mostly around %1$s.</string>
-    <string name="replay_private_counting">Built privately from your listening history on this device</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="one">%1$s minute</item>
+        <item quantity="other">%1$s minutes</item>
+    </plurals>
+    <string name="replay_mostly_around">%1$s</string>
+    <string name="replay_private_counting">Built privately from your listening history on this device.</string>
     <string name="replay_share_card_description">A polished card with your main listening highlights.</string>
     <string name="replay_share_summary_description">A full picture with songs, artists, albums, genres, and habits.</string>
     <string name="replay_songs_end"> filled your month.</string>
     <string name="replay_songs_start">In total, </string>
-    <string name="replay_summary_start">Your listening had a </string>
+    <string name="replay_summary_start">Your </string>
     <string name="saved">Saved</string>
+    <string name="saved_bang">Saved!</string>
     <string name="share_my_replay">Share my Replay</string>
+    <string name="share_your_lyrics">Send your lyrics card</string>
     <string name="share_your_replay">Share your Replay</string>
-    <string name="tap_share_for_picture">Tap Share to create a picture</string>
+    <string name="tap_share_for_picture">Tap Share to create a picture.</string>
     <string name="top_album">Top album</string>
     <string name="top_artist">Top artist</string>
     <string name="top_genre">Top genre</string>
     <string name="top_song">Top song</string>
-    <string name="when_you_listen_most">When you listen most</string>
+    <string name="when_you_listen_the_most">When you listen the most</string>
     <string name="your_biggest_day">Your biggest day: %1$s</string>
     <string name="your_listening_experience">Your listening experience</string>
+    <string name="your_lyrics_card">Your lyrics card</string>
     <string name="your_replay">Your Replay</string>
     <plurals name="replay_artist_count">
         <item quantity="one">%1$s artist</item>
         <item quantity="other">%1$s artists</item>
     </plurals>
     <plurals name="replay_play_count">
-        <item quantity="one">%1$s play</item>
-        <item quantity="other">%1$s plays</item>
+        <item quantity="one">%1$s Play</item>
+        <item quantity="other">%1$s Plays</item>
     </plurals>
     <plurals name="replay_song_count">
         <item quantity="one">%1$s song</item>
@@ -815,13 +806,6 @@
     <string name="delete_playlist_confirmation">Delete “%1$s”? Tap again to confirm.</string>
     <string name="delete_download_confirmation">Remove “%1$s” from this device? Tap again to confirm.</string>
     <string name="running">Running</string>
-    <string name="automix_analysis_status">Automix · this song: %1$s · next: %2$s</string>
-    <string name="automix_not_supported_video">Automix not supported on video songs</string>
-    <string name="automix_stopped_in_party">Automix: stopped in listen together</string>
-    <string name="analysis_complete">analysed</string>
-    <string name="analysis_refining">analysed, refining…</string>
-    <string name="analysis_in_progress">analysing…</string>
-    <string name="waiting">waiting</string>
     <string name="version_alignment_status">%1$s · %2$s</string>
     <string name="version_cut_not_fetched">not fetched</string>
     <string name="version_cut_fetching">fetching</string>
@@ -829,6 +813,8 @@
     <string name="version_cut_aligned">aligned</string>
     <string name="automix_enabled_subtitle">Times and blends every transition from the tracks themselves. Turn it off if the phone gets hot or playback stutters.</string>
     <string name="automix_disabled_subtitle">Times and blends transitions automatically, without a slider. Performance may vary on slower devices.</string>
+    <string name="advanced_automix">Advanced Automix</string>
+    <string name="advanced_automix_subtitle">Mixes like a DJ: keeps the beats locked, makes each move on the beat, and cuts between songs that won\'t blend. No extra processing.</string>
     <string name="no_lyrics_sources_enabled">None. Lyrics will not be fetched.</string>
     <string name="song_cache_large_subtitle">Keeps up to %1$s of downloaded audio on disk. This can take a noticeable share of your free space.</string>
     <string name="song_cache_limit_subtitle">Keeps downloaded audio on disk for instant seeking and replays</string>
@@ -855,34 +841,6 @@
     <string name="this_month">This month</string>
     <string name="this_year">This year</string>
     <string name="all_time">All time</string>
-    <string-array name="lyrics_intro_lines">
-        <item>The beat is landing</item>
-        <item>The song is starting</item>
-        <item>Warming up</item>
-        <item>Setting the mood</item>
-        <item>Bass first, words later</item>
-        <item>Wait for it</item>
-        <item>Feel that build</item>
-        <item>Just the groove for now</item>
-        <item>The hook is on the way</item>
-        <item>Let it breathe</item>
-        <item>Cue the vocals</item>
-        <item>First notes in</item>
-    </string-array>
-    <string-array name="lyrics_loading_lines">
-        <item>Getting the lyrics</item>
-        <item>Finding the words</item>
-        <item>Fetching the verses</item>
-        <item>Lyrics are loading</item>
-        <item>Checking the lyric sheet</item>
-        <item>Searching the songbook</item>
-        <item>Lining up the lyrics</item>
-        <item>Words are on the way</item>
-        <item>Checking the archives</item>
-        <item>Finding the right words</item>
-        <item>Lyrics are coming together</item>
-        <item>Almost found the words</item>
-    </string-array>
     <string name="switch_account">Switch account</string>
     <string name="accounts">Accounts</string>
     <string name="profiles">Profiles</string>
@@ -900,14 +858,6 @@
     <string name="use_this_profile">Use this profile</string>
     <string name="switch_profile_hint">Switch using the avatar, then use this profile.</string>
     <string name="profile_unavailable">No signed-in profile is available on this page yet.</string>
-    <string name="open_lyrics">Lyrics</string>
-    <string name="audio_output">Audio output</string>
-    <string name="audio_output_playing">Playing here</string>
-    <string name="wired_headphones">Wired headphones</string>
-    <string name="usb_audio">USB audio</string>
-    <string name="hdmi_output">HDMI</string>
-    <string name="personal_phone">%1$s’s Phone</string>
-    <string name="this_phone">This phone</string>
 
     <!-- Listen together -->
     <string name="listen_together">Listen together</string>
@@ -963,7 +913,6 @@
     <string name="listen_together_you">You</string>
     <string name="listen_together_host">Host</string>
     <string name="listen_together_away">Away — their slot is held</string>
-    <string name="listen_together_manage">Manage</string>
     <string name="listen_together_landing_title">Start a party</string>
     <string name="listen_together_landing_subtitle">Because music sounds better together. Invite friends to listen and add songs in real time, wherever they are.</string>
     <string name="listen_together_create_action">Create a party</string>
@@ -989,10 +938,6 @@
     <string name="listen_together_reconnecting">Reconnecting…</string>
     <string name="listen_together_syncing_clock">Measuring the clock…</string>
     <string name="listen_together_in_sync">In sync · %1$d ms round trip</string>
-    <string name="listen_together_jam">%1$s’s Jam</string>
-    <string name="listen_together_jam_unnamed">Listening together</string>
-    <string name="listen_together_open">Listen together</string>
-    <string name="listen_together_open_count">Listening together · %1$d</string>
     <string name="listen_together_custom_server_dialog_title">Join party on custom server?</string>
     <string name="listen_together_custom_server_dialog_message">This party is hosted on an external server:\n\n%1$s\n\nDo you want to switch your party server and join party %2$s?</string>
     <string name="listen_together_custom_server_switch_and_join">Switch &amp; Join</string>
@@ -1029,6 +974,7 @@
     <string name="loudness_normalization">Loudness normalization</string>
 
     <string name="loudness_normalization_subtitle">Levels every track to the same loudness</string>
+    <string name="loudness_off_on_speaker">Disable on Phone Speaker</string>
 
     <string name="loudness_target">Target loudness</string>
 
@@ -1144,4 +1090,39 @@
 
     <string name="card_songs_format">%1$s songs</string>
 
+    <string name="source_needs_lossless_output">Needs a lossless output · use a lossless supported device</string>
+    <string name="source_needs_lossless_bt_codec">Needs a lossless output · Bluetooth is on %1$s; use a lossless supported device</string>
+    <string name="source_needs_lossless_bt_unknown">Needs a lossless output · can’t tell which Bluetooth codec is in use</string>
+    <string name="source_downloads_off">Streaming only</string>
+    <string name="lossless_output_permission">Check Bluetooth codec</string>
+    <string name="lossless_output_permission_denied">Nearby devices permission is off</string>
+    <string name="lossless_output_permission_denied_detail">Tap to open Settings and allow Nearby devices — without it we can’t read your Bluetooth codec</string>
+    <string name="lossless_output_permission_detail">Allow Nearby devices so LDAC or LHDC headphones can unlock lossless-only addons</string>
+    <string name="cached_songs">Cached songs</string>
+    <string name="cached_songs_subtitle">Songs from YouTube and JioSaavn in the song cache</string>
+    <string name="cached_songs_empty">No cached songs yet. Songs you play from YouTube or JioSaavn will show up here.</string>
+    <string name="show_cache_folder">Show cached songs folder</string>
+    <string name="show_cache_folder_subtitle">Adds a Cached songs folder to Library with the YouTube and JioSaavn songs kept in the song cache</string>
+    <string name="song_cache_unlimited">Unlimited</string>
+    <string name="song_cache_unlimited_subtitle">No limit. Cached audio can keep growing until your storage is full.</string>
+    <string name="clear_song_cache_title">Clear song cache?</string>
+    <string name="clear_song_cache_warning">All cached songs will be deleted and the Cached songs folder will be emptied. They will stream again the next time you play them.</string>
+    <string name="import_spotify">Import Spotify</string>
+    <string name="import_spotify_subtitle">From a playlist link</string>
+    <string name="spotify_import_title">Import Spotify playlist</string>
+    <string name="spotify_import_description">Paste a public playlist link. Songs are matched on YouTube Music.</string>
+    <string name="spotify_import_description_local">Paste a public playlist link. Songs are matched on YouTube Music and saved on this device.</string>
+    <string name="spotify_import_hint">open.spotify.com/playlist/…</string>
+    <string name="spotify_import_invalid">That isn\'t a Spotify playlist link.</string>
+    <string name="spotify_import_fetching">Reading the Spotify playlist…</string>
+    <string name="spotify_import_matching">Matching songs %1$d of %2$d</string>
+    <string name="spotify_import_none">None of those songs were found on YouTube Music.</string>
+    <string name="spotify_import_failed">Couldn\'t import the playlist: %1$s</string>
+    <string name="spotify_import_button">Import</string>
+    <string name="spotify_import_local_fallback">Couldn\'t create it on YouTube Music, so \'%1$s\' was saved on this device instead.</string>
+    <string name="spotify_import_done">Imported \'%1$s\'</string>
+    <string name="spotify_import_unmatched">%1$d songs weren\'t found on YouTube Music</string>
+    <string name="local_playlist_subtitle">%1$d songs · On this device</string>
+    <string name="spotify_import_empty_playlist">No songs in this playlist</string>
+    <string name="spotify_library_subtitle">Your Spotify playlists</string>
 </resources>

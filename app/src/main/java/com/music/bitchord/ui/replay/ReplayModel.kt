@@ -128,7 +128,11 @@ fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<H
     ReplayStoryPage.MINUTES -> runs(
         context.getString(R.string.replay_minutes_start) to false,
         " " to false,
-        context.getString(R.string.replay_minutes_value, formatMinutes(totalMs)) to true,
+        context.resources.getQuantityString(
+            R.plurals.replay_minutes_unit,
+            formatMinutes(totalMs).replace(",", "").toIntOrNull() ?: 0,
+            formatMinutes(totalMs),
+        ) to true,
         " " to false,
         context.getString(R.string.replay_minutes_end) to false,
     )
@@ -174,8 +178,7 @@ fun ReplaySummary.storyHeadline(context: Context, page: ReplayStoryPage): List<H
         context.getString(R.string.replay_summary_start) to false,
         " " to false,
         label to true,
-        " " to false,
-        "." to false,
+        " in music." to false,
     )
 }
 

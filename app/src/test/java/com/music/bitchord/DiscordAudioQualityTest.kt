@@ -67,4 +67,21 @@ class DiscordAudioQualityTest {
         assertNull(discordAudioQualityLine(stats))
         assertNull(discordAudioQualityLine(null))
     }
+
+    @Test
+    fun `dsd line names the dsd rate in megahertz`() {
+        val stats = NerdStats.Snapshot(
+            mimeType = "audio/dsd64",
+            bitrateKbps = 5644,
+            sampleRateHz = 2_822_400,
+            channels = 2,
+        )
+
+        assertEquals(
+            "Hi-Res Lossless · DSD64 · 5644 kbps · 2.8224 MHz · Stereo",
+            discordAudioQualityLine(stats),
+        )
+        assertEquals("45.1584 MHz", NerdStats.megahertzLabel(45_158_400))
+        assertNull(NerdStats.megahertzLabel(192_000))
+    }
 }

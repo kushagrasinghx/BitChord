@@ -18,10 +18,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.music.bitchord.R
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -61,7 +59,7 @@ import kotlinx.coroutines.flow.map
  * from the pipeline.
  */
 @Composable
-internal fun rememberAudioOutputs(): List<AudioRouting.Device> {
+internal fun rememberAndroidAudioOutputs(): List<AudioOutputDevice> {
     val context = LocalContext.current
     val manager = remember(context) {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -129,53 +127,23 @@ internal fun rememberAudioOutputs(): List<AudioRouting.Device> {
             outputs.map { it.copy(isActive = it.id == pipelineActiveId) }
         } else {
             outputs
-        }
+        }.map { it.toOutputDevice() }
     }
 }
 
-/**
- * What to call an output on screen.
- *
- * Bluetooth and USB devices carry their own name and keep it. The phone's own
- * speaker and a pair of wired headphones do not — `productName` gives the
- * *phone's* model for both, which is why the caption used to read "SM-S911B"
- * — so those get a label from here instead.
- */
-@Composable
-internal fun outputLabel(device: AudioRouting.Device, accountName: String?): String {
-    val context = LocalContext.current
-    val firstName = accountName?.trim()?.split(Regex("\\s+"))?.firstOrNull()?.takeIf { it.isNotBlank() }
-    return when {
-        device.name.isNotBlank() -> device.name
-        device.kind == AudioRouting.Kind.WIRED -> stringResource(R.string.wired_headphones)
-        device.kind == AudioRouting.Kind.USB -> stringResource(R.string.usb_audio)
-        device.kind == AudioRouting.Kind.HDMI -> stringResource(R.string.hdmi_output)
-        firstName != null -> context.getString(R.string.personal_phone, firstName)
-        else -> stringResource(R.string.this_phone)
-    }
-}
-
-/**
- * The name of whatever is playing the music, for the line under the transport.
- *
- * Derived from the same list the picker shows, so the two can never disagree —
- * which they did constantly when this read [android.media.MediaRouter]'s
- * selected route and the picker read the audio devices.
- */
-@Composable
-internal fun rememberAudioOutputName(accountName: String?): String {
-    val outputs = rememberAudioOutputs()
-    val active = outputs.firstOrNull { it.isActive }
-        ?: return if (accountName.isNullOrBlank()) {
-            stringResource(R.string.this_phone)
-        } else {
-            LocalContext.current.getString(
-                R.string.personal_phone,
-                accountName.trim().split(Regex("\\s+")).first(),
-            )
-        }
-    return outputLabel(active, accountName)
-}
+private fun AudioRouting.Device.toOutputDevice() = AudioOutputDevice(
+    id = id,
+    name = name,
+    kind = when (kind) {
+        AudioRouting.Kind.PHONE -> AudioOutputKind.PHONE
+        AudioRouting.Kind.WIRED -> AudioOutputKind.WIRED
+        AudioRouting.Kind.USB -> AudioOutputKind.USB
+        AudioRouting.Kind.BLUETOOTH -> AudioOutputKind.BLUETOOTH
+        AudioRouting.Kind.HDMI -> AudioOutputKind.HDMI
+        AudioRouting.Kind.OTHER -> AudioOutputKind.OTHER
+    },
+    isActive = isActive,
+)
 
 /**
  * When to look again after something changed, in milliseconds.
@@ -205,7 +173,7 @@ private val SETTLE_MS = longArrayOf(350L, 1_200L, 2_500L)
  * is the app's own settings page in Android.
  */
 @Composable
-internal fun rememberOutputPicker(onOpen: () -> Unit): () -> Unit {
+internal fun rememberAndroidOutputPicker(onOpen: () -> Unit): () -> Unit {
     val context = LocalContext.current
     val ask = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),

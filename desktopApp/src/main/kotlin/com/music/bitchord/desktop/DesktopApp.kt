@@ -6,7 +6,6 @@ import com.music.bitchord.ui.components.ShelfRowChrome
 import com.music.bitchord.ui.components.ShelfRow
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.ui.input.key.isAltPressed
-import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.pointer.isBackPressed
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -2844,8 +2843,6 @@ fun BitChordDesktopApp() {
         colorScheme = desktopColorScheme(),
         typography = desktopTypography(),
     ) {
-        val ambientBackdrop by DesktopAppearanceSettings.ambientBackdrop.collectAsState()
-        val windowActions = LocalDesktopWindowActions.current
         CompositionLocalProvider(
             LocalContentColor provides Color.White,
             LocalNowPlaying provides selectedSong,
@@ -2853,54 +2850,38 @@ fun BitChordDesktopApp() {
             DesktopFrame(
                 // The phone's page is black, not the near-black of its cards.
                 containerColor = DesktopBackground,
-                // Only Replay dresses itself unless ambient backdrop is on; everywhere else the chrome sits on the plain surface.
+                // Only Replay dresses itself; everywhere else the chrome sits on the plain surface.
                 backdrop = { transparentBase ->
-                    val ambientArtworkUrl = replaySummary.songs.firstOrNull()?.song?.thumbnailUrl
-                        .takeIf { overlays.replay }
-                        ?: selectedSong?.thumbnailUrl.takeIf { ambientBackdrop }
                     DesktopPageBackdrop(
-                        artworkUrl = ambientArtworkUrl,
+                        artworkUrl = replaySummary.songs.firstOrNull()?.song?.thumbnailUrl
+                            .takeIf { overlays.replay },
                         transparentBase = transparentBase,
                     )
                 },
                 modifier = Modifier.onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyUp) return@onPreviewKeyEvent false
-                    when {
-                        event.key == Key.MediaPlayPause -> {
+                    when (event.key) {
+                        Key.MediaPlayPause -> {
                             if (selectedSong != null) togglePlayPauseFromUser()
                             true
                         }
-                        event.key == Key.MediaNext -> {
+                        Key.MediaNext -> {
                             playNext()
                             true
                         }
-                        event.key == Key.MediaPrevious -> {
+                        Key.MediaPrevious -> {
                             playPrevious()
                             true
                         }
-                        event.key == Key.DirectionLeft && event.isAltPressed && !overlays.nowPlaying -> {
+                        Key.DirectionLeft -> if (event.isAltPressed && !overlays.nowPlaying) {
                             goBack()
                             true
-                        }
-                        DesktopPlatform.isMac && event.isMetaPressed && event.key == Key.Comma -> {
-                            openSettings()
-                            true
-                        }
-                        DesktopPlatform.isMac && event.isMetaPressed && event.key == Key.F -> {
-                            searchFocusRequested = true
-                            true
-                        }
-                        DesktopPlatform.isMac && event.isMetaPressed && event.key == Key.W -> {
-                            windowActions?.close?.invoke()
-                            true
-                        }
-                        DesktopPlatform.isMac && event.isMetaPressed && event.key == Key.M -> {
-                            windowActions?.minimize?.invoke()
-                            true
+                        } else {
+                            false
                         }
                         // One layer at a time, innermost first: the player's own side panel, then
                         // the player.
-                        event.key == Key.Escape -> when {
+                        Key.Escape -> when {
                             // The player's own layers first — the lyrics, the queue, a
                             // drawer — in the order Android's back reaches them.
                             overlays.nowPlaying && PlayerBack.dispatch() -> true
@@ -4001,7 +3982,7 @@ private fun DesktopTopBar(
                     Modifier
                         .fillMaxHeight()
                         .desktopWindowGlass(DesktopChromeEdge.BOTTOM)
-                        .padding(start = if (DesktopPlatform.isMac) 16.dp else 10.dp),
+                        .padding(start = 10.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     DesktopWindowButtons()
@@ -4311,12 +4292,7 @@ private fun DesktopSidebar(
             // three buttons, and room to take hold of the window by.
             if (inlineCaption) {
                 DesktopTitleBarDragArea(Modifier.fillMaxWidth().height(SIDEBAR_CAPTION_HEIGHT)) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(start = if (DesktopPlatform.isMac) 16.dp else 10.dp),
-                        contentAlignment = Alignment.CenterStart,
-                    ) {
+                    Box(Modifier.fillMaxSize().padding(start = 10.dp), contentAlignment = Alignment.CenterStart) {
                         DesktopWindowButtons()
                     }
                 }
@@ -4642,15 +4618,8 @@ private fun DesktopFrame(
     val appBackground by DesktopWindowBackdrop.appBackground.collectAsState()
     val glass = material != DesktopBackdrop.OFF
     val materialBehindApp = glass && appBackground
-    val maximized by DesktopWindowMode.maximized.collectAsState()
-    val roundCorners = DesktopPlatform.isMac && !maximized
     CompositionLocalProvider(LocalDesktopHaze provides haze) {
-        Box(
-            modifier
-                .fillMaxSize()
-                .then(if (roundCorners) Modifier.clip(RoundedCornerShape(10.dp)) else Modifier)
-                .then(if (glass) Modifier else Modifier.background(containerColor)),
-        ) {
+        Box(modifier.fillMaxSize().then(if (glass) Modifier else Modifier.background(containerColor))) {
             // Both sources of the same state: the chrome blurs the backdrop behind it, and the
             // floating bottom bar blurs the page scrolling under it.
             if (!glass) Box(Modifier.fillMaxSize().hazeSource(haze)) { backdrop(false) }
@@ -5762,11 +5731,9 @@ private fun DesktopSettingsScreen(
                                 Text(
                                     when {
                                         backdropChoice != DesktopBackdrop.OFF && backdropActive == DesktopBackdrop.OFF ->
-                                            if (DesktopPlatform.isMac) "Native vibrancy could not be attached"
-                                            else "Needs Windows 11 version 22H2 or later"
+                                            "Needs Windows 11 version 22H2 or later"
                                         backdropChoice == DesktopBackdrop.MICA ->
-                                            if (DesktopPlatform.isMac) "A subtle blur of your desktop wallpaper"
-                                            else "A soft tint taken from your wallpaper"
+                                            "A soft tint taken from your wallpaper"
                                         backdropChoice == DesktopBackdrop.ACRYLIC ->
                                             "A frosted blur of whatever is behind the window"
                                         else -> "Solid, as the rest of the app"
@@ -5785,16 +5752,6 @@ private fun DesktopSettingsScreen(
                             ],
                             appBackground,
                             DesktopWindowBackdrop::setAppBackground,
-                        )
-                        val ambientBackdrop by DesktopAppearanceSettings.ambientBackdrop.collectAsState()
-                        SettingsToggle(
-                            DesktopStrings["d_ambient_backdrop", "Ambient artwork glow"],
-                            DesktopStrings[
-                                "d_ambient_backdrop_subtitle",
-                                "Diffuse current song artwork colors under the window glass",
-                            ],
-                            ambientBackdrop,
-                            DesktopAppearanceSettings::setAmbientBackdrop,
                         )
                     }
                     SettingsToggle(
@@ -6778,20 +6735,7 @@ internal fun Modifier.desktopWindowGlass(
     return if (backdrop == DesktopBackdrop.OFF) {
         desktopChromeGlass(edge, fade)
     } else {
-        val base = background(Color.Black.copy(alpha = WINDOW_GLASS_TINT))
-        if (DesktopPlatform.isMac && edge == DesktopChromeEdge.BOTTOM) {
-            base.drawBehind {
-                // Subtle liquid glass specular highlight along the top edge
-                drawLine(
-                    color = Color.White.copy(alpha = 0.08f),
-                    start = Offset(0f, 0f),
-                    end = Offset(size.width, 0f),
-                    strokeWidth = 1f,
-                )
-            }
-        } else {
-            base
-        }
+        background(Color.Black.copy(alpha = WINDOW_GLASS_TINT))
     }
 }
 
@@ -6806,11 +6750,7 @@ private const val WINDOW_GLASS_TINT = 0.28f
 @Composable
 internal fun desktopChromeDivider(): Color {
     val backdrop by DesktopWindowBackdrop.active.collectAsState()
-    return when {
-        backdrop == DesktopBackdrop.ACRYLIC -> Color.White.copy(alpha = 0.14f)
-        DesktopPlatform.isMac && backdrop != DesktopBackdrop.OFF -> Color.White.copy(alpha = 0.10f)
-        else -> DesktopDivider
-    }
+    return if (backdrop == DesktopBackdrop.ACRYLIC) Color.White.copy(alpha = 0.14f) else DesktopDivider
 }
 
 @Composable

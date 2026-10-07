@@ -45,8 +45,6 @@ patterns, where `<v>` is the version from section 1:
 | Linux | `BitChord-<v>-linux-x86_64.AppImage` (preferred by the update check) |
 | Linux | `BitChord-<v>-linux-amd64.deb` (used if there is no AppImage) |
 | Linux | `BitChord-<v>-linux-x86_64.rpm` |
-| macOS | `BitChord-<v>-macos-arm64.dmg` (Apple Silicon; also `.pkg` and `.zip`) |
-| macOS | `BitChord-<v>-macos-x64.dmg` (Intel; also `.pkg` and `.zip`) |
 
 Rules:
 
@@ -57,11 +55,6 @@ Rules:
   `installerUrl()` in `DesktopUpdateChecker.kt`**. Pick by architecture; today the check assumes
   x86_64.
 - Upload files to the release, do not rely on the generated source archives.
-
-macOS builds are unsigned. Clear the quarantine flag with `xattr -cr /Applications/BitChord.app`.
-If the app will not start, a missing library may need installing first with Homebrew
-(`brew install <library>`; the exact library still has to be confirmed). The update check does not
-look for macOS files yet, so Mac users get the release page.
 
 ## 4. How the app finds an update
 

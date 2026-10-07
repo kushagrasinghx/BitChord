@@ -1,18 +1,12 @@
 # BitChord Desktop
 
-BitChord has a Kotlin Multiplatform shared module and a Compose Multiplatform
-desktop application for macOS, Linux, and Windows. Desktop uses the JVM target, which is
-the supported Compose Multiplatform desktop model.
+BitChord now has a Kotlin Multiplatform shared module and a Compose Multiplatform
+desktop application for Linux and Windows. Desktop uses the JVM target, which is
+the supported Compose Multiplatform desktop model; macOS is intentionally not a
+configured target.
 
-The desktop target uses Java 21.
-
-On macOS (Apple Silicon or Intel), run it with a Java 21 JDK available in your environment:
-
-```bash
-./gradlew :desktopApp:run
-```
-
-On Linux, run it with the JDK and native libraries available in the shell:
+The desktop target uses Java 21. Run it on Linux with the JDK and native
+libraries available in the shell:
 
 On NixOS:
 ```bash
@@ -33,23 +27,12 @@ Nothing else has to be installed first — no JDK, no codec pack.
 
 | Platform | Download | Notes |
 |---|---|---|
-| macOS | `BitChord-<version>-macos-arm64.dmg` | For Apple Silicon Macs (M1/M2/M3/M4/later). Drag to Applications. |
-| macOS | `BitChord-<version>-macos-x64.dmg` | For Intel Macs. Drag to Applications. |
-| macOS | `BitChord-<version>-macos-*.pkg` | Standard macOS installer package for automated or managed installations. |
 | Linux | `BitChord-<version>-linux-x86_64.AppImage` | `chmod +x` it and run. No install, works on any distribution. |
 | Linux | `BitChord-<version>-linux-amd64.deb` | `sudo apt install ./BitChord-*.deb` on Debian, Ubuntu and derivatives. |
 | Linux | `BitChord-<version>-linux-x86_64.rpm` | `sudo dnf install ./BitChord-*.rpm` on Fedora, RHEL and openSUSE. |
 | Windows | `BitChord-<version>-windows-x64-setup.exe` | The ordinary installer. Installs for the current user, so it never asks for an administrator. |
 | Windows | `BitChord-<version>-windows-x64.msi` | The same thing for anyone who deploys by MSI. |
 | Windows | `BitChord-<version>-windows-x64-portable.zip` | Unzip anywhere and run `BitChord.exe`. Writes nothing outside the folder. |
-
-**macOS Gatekeeper.** Unsigned binaries built locally or downloaded outside the Mac App Store
-may trigger a macOS security prompt ("BitChord is damaged and can't be opened" or "unidentified developer").
-To clear the quarantine flag, run:
-
-```bash
-xattr -cr /Applications/BitChord.app
-```
 
 The Linux packages are built on Ubuntu 22.04 against its glibc, so they install
 on that release and anything newer.
@@ -73,20 +56,6 @@ itself, because Windows expects it to be a system component.
 jpackage builds a package by driving the target platform's own tooling, so each
 one has to be built on the platform it is for. This is what CI does; see
 [`.github/workflows/release.yml`](.github/workflows/release.yml).
-
-On macOS:
-
-```bash
-# Builds the disk image (.dmg) installer
-./gradlew :desktopApp:packageDmg
-
-# Builds the .pkg installer
-./gradlew :desktopApp:packagePkg
-
-# Standalone BitChord.app bundle
-./gradlew :desktopApp:createDistributable
-# Output is at: desktopApp/build/compose/binaries/main/app/BitChord.app
-```
 
 On Linux — `rpm`, `fakeroot` and `binutils` must be installed for the packages,
 and `file` for the AppImage:

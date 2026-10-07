@@ -99,47 +99,6 @@ jobs:
             desktopApp/build/reports/tests/
             shared/build/reports/tests/
 
-  desktop-macos:
-    name: Desktop · macOS
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Write local.properties
-        run: |
-          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
-          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
-
-      - run: chmod +x gradlew
-
-      - name: Tests
-        run: ./gradlew :shared:jvmTest :desktopApp:test
-
-      - name: Build the distributable
-        run: ./gradlew :desktopApp:createDistributable
-
-      - name: The analyser and models are in the jar
-        run: |
-          jar=$(ls desktopApp/build/compose/binaries/main/app/BitChord.app/Contents/app/desktopApp*.jar)
-          jar tf "$jar" | grep -q 'models/.*\.onnx'
-
-      - name: Upload test reports
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-macos-test-reports
-          path: |
-            desktopApp/build/reports/tests/
-            shared/build/reports/tests/
-
   android:
     name: Android
     runs-on: ubuntu-latest

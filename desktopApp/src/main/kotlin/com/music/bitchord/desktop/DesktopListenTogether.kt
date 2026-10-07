@@ -34,6 +34,7 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
+import kotlin.random.Random
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -493,8 +494,11 @@ internal object DesktopListenTogether {
             _state.update { it.copy(connection = Connection.CONNECTING) }
             clock.reset()
             _state.update { it.copy(clockSynced = false) }
-            delay(backoffMs)
-            backoffMs = (backoffMs * 2).coerceAtMost(20_000L)
+            // Jittered, or every client that lost the socket in the same outage
+            // retries at the same instants and a recovering server is hit by the
+            // whole crowd at once.
+            delay(backoffMs / 2 + Random.nextLong(backoffMs + 1))
+            backoffMs = (backoffMs * 2).coerceAtMost(30_000L)
         }
     }
 

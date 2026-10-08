@@ -997,7 +997,7 @@ fun SettingsScreen(
                 val originalTitle = stringResource(R.string.lyrics_original_title)
                 row(originalTitle, "lyrics", "translate", "title") {
                     SettingsRow(
-                        icon = Icons.Rounded.Title,
+                        icon = Icons.Rounded.Translate,
                         title = originalTitle,
                         subtitle = stringResource(R.string.lyrics_original_title_desc),
                         trailing = {

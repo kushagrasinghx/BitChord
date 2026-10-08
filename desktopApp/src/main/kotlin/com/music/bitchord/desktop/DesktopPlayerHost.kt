@@ -211,8 +211,17 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val smartTransitionWindow = MutableStateFlow<TransitionWindow?>(null)
     override val spotifyCanvasAutoHide = MutableStateFlow(true)
     override val syncedLyrics = MutableStateFlow(true)
-    override val translationLanguage = MutableStateFlow("")
+    // Wired to the translation-language picker (blank = follow the app).
+    override val translationLanguage: StateFlow<String> get() = DesktopTranslationSetting.language
+    override val autoTranslateLyrics = MutableStateFlow(
+        persistence.boolean(KEY_AUTO_TRANSLATE, true),
+    )
     override val versionAlignmentInProgress = MutableStateFlow(false)
+
+    fun setAutoTranslateLyrics(value: Boolean) {
+        (autoTranslateLyrics as MutableStateFlow<Boolean>).value = value
+        persistence.saveBoolean(KEY_AUTO_TRANSLATE, value)
+    }
 
     override fun setLastPlayerScreen(value: LastPlayerScreen) {
         lastPlayerScreen.value = value
@@ -227,6 +236,7 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
 
     private const val KEY_LAST_SCREEN = "last_player_screen"
     private const val KEY_LYRICS_OFFSET = "lyrics_offset_ms"
+    private const val KEY_AUTO_TRANSLATE = "auto_translate_lyrics"
 }
 
 /** Which glyph a mixer gets, from the only thing Java Sound says about it: its name. */

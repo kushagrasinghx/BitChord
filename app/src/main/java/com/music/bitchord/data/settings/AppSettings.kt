@@ -411,6 +411,12 @@ object AppSettings {
     val translationLanguage = MutableStateFlow("")
 
     /**
+     * Auto-translate lyrics to the app language (zh-Hant/zh-Hans aware).
+     * On by default per the zh rollout; turning it off restores manual-only.
+     */
+    val autoTranslateLyrics = MutableStateFlow(true)
+
+    /**
      * Plays a looping video behind the cover art on the player when one is
      * published for the track — Spotify's Canvas, Apple's motion artwork.
      *
@@ -838,6 +844,7 @@ object AppSettings {
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
+        autoTranslateLyrics.value = prefs.getBoolean(KEY_AUTO_TRANSLATE_LYRICS, true)
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
@@ -1269,6 +1276,11 @@ object AppSettings {
     fun setTranslationLanguage(value: String) {
         translationLanguage.value = value
         prefs.edit().putString(KEY_TRANSLATION_LANGUAGE, value).apply()
+    }
+
+    fun setAutoTranslateLyrics(value: Boolean) {
+        autoTranslateLyrics.value = value
+        prefs.edit().putBoolean(KEY_AUTO_TRANSLATE_LYRICS, value).apply()
     }
 
     fun setSyncedLyrics(value: Boolean) {
@@ -1963,6 +1975,7 @@ object AppSettings {
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
+    private const val KEY_AUTO_TRANSLATE_LYRICS = "auto_translate_lyrics"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"

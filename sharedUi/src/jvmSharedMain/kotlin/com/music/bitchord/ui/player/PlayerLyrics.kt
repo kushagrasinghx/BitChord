@@ -2718,14 +2718,15 @@ internal fun rememberLyricsTranslation(
     val reduceTranslationMotion by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val configuredLocale = appLanguageTag()
     val preferredTranslation by PlayerSettings.translationLanguage.collectAsStateWithLifecycle()
-    // Settings wins where it has been set; blank means follow the app. Only the
-    // app-language path is reduced to a base language — a code chosen in
-    // Settings is already exactly what the endpoint wants and narrowing it
-    // would throw away the script half of zh-TW.
+    // Settings wins where it has been set; blank means follow the app.
+    // Script preserved: zh-Hant -> zh-TW, zh-Hans -> zh-CN on the wire.
+    // A code chosen in Settings passes through translationWireTarget so
+    // legacy "zh"/"zh-Hant" picks also land on what the endpoint wants.
     val translationLanguage = remember(configuredLocale, preferredTranslation) {
-        preferredTranslation.ifBlank {
-            Locale.forLanguageTag(configuredLocale).language.ifBlank { "en" }
+        val raw = preferredTranslation.ifBlank {
+            com.music.bitchord.data.LocaleTags.normalizeAppTag(configuredLocale)
         }
+        com.music.bitchord.data.LocaleTags.translationWireTarget(raw)
     }
     val translationLanguageName = remember(configuredLocale, translationLanguage) {
         translationLanguageName(translationLanguage, Locale.forLanguageTag(configuredLocale))
@@ -2776,6 +2777,44 @@ internal fun rememberLyricsTranslation(
         LyricsDisplayMode.Original -> null
     }
     val translationScope = rememberCoroutineScope()
+    val autoTranslate by PlayerSettings.autoTranslateLyrics.collectAsStateWithLifecycle()
+    var autoFiredKey by remember(trackId, translationLanguage) { mutableStateOf<String?>(null) }
+    // Auto-translate to the app language (zh-Hant -> zh-TW, zh-Hans -> zh-CN
+    // via translationLanguage above). Silent: success switches the view,
+    // SameLanguage/Unavailable stay on the original without toasting.
+    LaunchedEffect(trackId, translationLanguage, lyrics, autoTranslate) {
+        if (!autoTranslate) return@LaunchedEffect
+        val source = lyrics.orEmpty()
+        if (source.isEmpty()) return@LaunchedEffect
+        if (translationState !is LyricsTranslationUiState.Idle) return@LaunchedEffect
+        if (lyricsDisplayMode != LyricsDisplayMode.Original) return@LaunchedEffect
+        val key = "$trackId|$translationLanguage"
+        if (autoFiredKey == key) return@LaunchedEffect
+        autoFiredKey = key
+        translationState = LyricsTranslationUiState.Loading
+        // Direct work in this effect (no child launch): a track/language
+        // change cancels it automatically. Manual toggle sees Loading and
+        // yields, so the two paths never race.
+        when (
+            val result = PlayerPlatform.host.translateLyrics(
+                trackId = trackId,
+                lines = source,
+                targetLanguageTag = translationLanguage,
+            )
+        ) {
+            is LyricsTranslationResult.Translated -> {
+                translationState = LyricsTranslationUiState.Ready(result.lines)
+                lyricsDisplayMode = LyricsDisplayMode.Translated
+                translationTransition++
+            }
+            is LyricsTranslationResult.SameLanguage -> {
+                translationState = LyricsTranslationUiState.SameLanguage
+            }
+            LyricsTranslationResult.Unavailable -> {
+                translationState = LyricsTranslationUiState.Idle
+            }
+        }
+    }
     val toggleTranslation: () -> Unit = toggleTranslation@{
         when (val state = translationState) {
             is LyricsTranslationUiState.Ready -> {

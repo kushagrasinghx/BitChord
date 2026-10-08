@@ -5599,6 +5599,23 @@ private fun DesktopSettingsScreen(
                             subtitle = DesktopTranslationSetting.describe(translationLanguage),
                             onClick = onOpenTranslationLanguage,
                         )
+                        // Same OpenCC-style switch as the phone: only shown while
+                        // the desktop itself runs in Chinese.
+                        val desktopLanguage by DesktopStrings.language.collectAsState()
+                        val desktopLocaleTag = remember(desktopLanguage) {
+                            com.music.bitchord.data.LocaleTags.normalizeAppTag(DesktopStrings.resolvedTag())
+                        }
+                        if (desktopLocaleTag == com.music.bitchord.data.LocaleTags.ZH_HANT ||
+                            desktopLocaleTag == com.music.bitchord.data.LocaleTags.ZH_HANS
+                        ) {
+                            val autoTranslateLyrics by DesktopPlayerSettings.autoTranslateLyrics.collectAsState()
+                            SettingsToggle(
+                                DesktopStrings["lyrics_auto_translate", "Auto-translate lyrics"],
+                                DesktopStrings["lyrics_auto_translate_desc", "Follows the app language; Chinese modes convert between Simplified and Traditional"],
+                                autoTranslateLyrics,
+                                DesktopPlayerSettings::setAutoTranslateLyrics,
+                            )
+                        }
                     }
                 }
             }

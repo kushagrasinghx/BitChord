@@ -670,4 +670,6 @@
     <string name="listen_together_open">一起听</string>
     <string name="listen_together_open_count">一起听 · %1$d</string>
     <string name="miscellaneous_footer">启用后，从最近任务界面关闭应用也会停止音乐播放。</string>
+    <string name="lyrics_auto_translate">自动翻译歌词</string>
+    <string name="lyrics_auto_translate_desc">跟随 App 语言自动翻译；中文模式会在简繁之间转换</string>
 </resources>

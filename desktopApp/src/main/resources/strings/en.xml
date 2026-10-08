@@ -856,4 +856,6 @@
     <string name="listen_together_open_count">Listening together · %1$d</string>
     <string name="miscellaneous_footer">When enabled, closing the app from the recent apps screen will also stop music playback.</string>
     <string name="translate">Translate</string>
+    <string name="lyrics_auto_translate">Auto-translate lyrics</string>
+    <string name="lyrics_auto_translate_desc">Follows the app language; Chinese modes convert between Simplified and Traditional</string>
 </resources>

@@ -164,6 +164,8 @@ interface PlayerSettingsSource {
     val spotifyCanvasAutoHide: StateFlow<Boolean>
     val syncedLyrics: StateFlow<Boolean>
     val translationLanguage: StateFlow<String>
+    /** Auto-translate lyrics to the app language (zh-Hant/zh-Hans aware). Default on. */
+    val autoTranslateLyrics: StateFlow<Boolean>
     val versionAlignmentInProgress: StateFlow<Boolean>
 
     fun setLastPlayerScreen(value: LastPlayerScreen)

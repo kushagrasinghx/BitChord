@@ -134,6 +134,7 @@ import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
 import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.LocalMediaRepository
+import com.music.bitchord.data.LocaleTags
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.listentogether.ListenTogether
@@ -209,6 +210,7 @@ fun SettingsScreen(
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
+    val autoTranslateLyrics by AppSettings.autoTranslateLyrics.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
@@ -990,6 +992,36 @@ fun SettingsScreen(
                         trailing = { Chevron() },
                         onClick = onTranslationLanguage,
                     )
+                }
+                // OpenCC-style auto conversion: only meaningful (and only shown)
+                // while the app itself runs in Chinese. The toggle drives the
+                // player lyric panel's auto-translate; the manual button stays.
+                val appLocaleTag = remember {
+                    LocaleTags.normalizeAppTag(
+                        AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
+                            ?: Locale.getDefault().toLanguageTag(),
+                    )
+                }
+                if (appLocaleTag == LocaleTags.ZH_HANT || appLocaleTag == LocaleTags.ZH_HANS) {
+                    val autoTranslateTitle = stringResource(R.string.lyrics_auto_translate)
+                    row(autoTranslateTitle, "lyrics", "translate", "chinese") {
+                        SettingsRow(
+                            icon = Icons.Rounded.Translate,
+                            title = autoTranslateTitle,
+                            subtitle = stringResource(R.string.lyrics_auto_translate_desc),
+                            trailing = {
+                                Switch(
+                                    checked = autoTranslateLyrics,
+                                    onCheckedChange = AppSettings::setAutoTranslateLyrics,
+                                    colors = SwitchDefaults.colors(
+                                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                        checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                    ),
+                                )
+                            },
+                            onClick = { AppSettings.setAutoTranslateLyrics(!autoTranslateLyrics) },
+                        )
+                    }
                 }
             }
         }

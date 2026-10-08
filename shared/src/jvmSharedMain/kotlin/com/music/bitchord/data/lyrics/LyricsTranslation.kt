@@ -25,6 +25,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Call
 import okhttp3.Callback
@@ -136,12 +137,9 @@ object LyricsTranslation {
         lines: List<LyricLine>,
         targetLanguageTag: String,
     ): Result {
-        // Sent as given rather than reduced to a base language: zh-CN and
-        // zh-TW are the same language in two scripts, and canonicalising either
-        // to "zh" hands back Simplified whichever one was asked for. The
-        // narrowing is still done, but only where it belongs — in
-        // [sameLanguage], which is asking a different question.
-        val target = targetLanguageTag.trim()
+        // Script preserved: zh-Hant -> zh-TW, zh-Hans -> zh-CN on the wire.
+        // Bare "zh" would silently return Simplified whichever was asked for.
+        val target = com.music.bitchord.data.LocaleTags.translationWireTarget(targetLanguageTag)
         if (target.isBlank() || lines.isEmpty()) return Result.Unavailable
 
         val slots = flatten(lines)
@@ -166,8 +164,13 @@ object LyricsTranslation {
         val answers = coroutineScope {
             // Two short requests at a time keeps a long lyric fast without
             // competing with playback for every connection in the pool.
+            // Google first; MyMemory covers a Google outage per batch.
             batches.chunked(MAX_PARALLEL_REQUESTS).flatMap { group ->
-                group.map { batch -> async { requestBatch(batch, target) } }.awaitAll()
+                group.map { batch ->
+                    async {
+                        requestBatch(batch, target) ?: requestFallbackBatch(batch, target)
+                    }
+                }.awaitAll()
             }
         }
         if (answers.any { it == null }) return Result.Unavailable
@@ -373,6 +376,58 @@ object LyricsTranslation {
         }.getOrNull()
     }
 
+    /**
+     * Second library in the chain: MyMemory, one slot per GET.
+     *
+     * Only reached when the Google batch above fails (outage/rate-limit),
+     * so per-slot requests here are rare rather than the steady state.
+     * Source comes back as "auto" (unknown) with zero weight: real Google
+     * detections outvote it, and an all-fallback song still reads as
+     * "not the target language" rather than failing outright.
+     */
+    private suspend fun requestFallbackBatch(batch: Batch, target: String): BatchAnswer? {
+        val out = mutableListOf<String>()
+        for (slot in batch.slots) {
+            val text = requestFallbackText(slot.text, target) ?: return null
+            if (text.isBlank()) return null
+            out += text
+        }
+        return BatchAnswer(out, "auto", 0)
+    }
+
+    private suspend fun requestFallbackText(text: String, target: String): String? {
+        if (text.length > 450) return null // free-tier guard per request
+        val url = okhttp3.HttpUrl.Builder()
+            .scheme("https")
+            .host("api.mymemory.translated.net")
+            .addPathSegment("get")
+            .addQueryParameter("q", text)
+            .addQueryParameter("langpair", "auto|$target")
+            .build()
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "BitChord/1.7.1")
+            .header("Accept", "application/json")
+            .get()
+            .build()
+        val body = try {
+            client.newCall(request).awaitBody()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: IOException) {
+            return null
+        }
+        return runCatching {
+            val root = json.parseToJsonElement(body).jsonObject
+            val translated = root["responseData"]?.jsonObject
+                ?.get("translatedText")?.jsonPrimitive?.contentOrNull?.trim()
+                .orEmpty()
+            if (translated.isBlank()) return@runCatching null
+            if ("MYMEMORY WARNING" in translated || "LIMIT EXCEEDED" in translated) return@runCatching null
+            translated
+        }.getOrNull()
+    }
+
     private suspend fun requestRomanizationBatch(batch: Batch, target: String): BatchAnswer? {
         val body = FormBody.Builder()
             .add("client", "dict-chrome-ex")
@@ -556,7 +611,7 @@ object LyricsTranslation {
     }
 
     private fun sameLanguage(first: String, second: String): Boolean =
-        canonicalLanguage(first) == canonicalLanguage(second)
+        com.music.bitchord.data.LocaleTags.sameLanguageScriptAware(first, second)
 
     private fun cacheKey(trackId: String, target: String, slots: List<TextSlot>): String {
         val source = buildString {

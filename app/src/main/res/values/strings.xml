@@ -1125,4 +1125,6 @@
     <string name="local_playlist_subtitle">%1$d songs · On this device</string>
     <string name="spotify_import_empty_playlist">No songs in this playlist</string>
     <string name="spotify_library_subtitle">Your Spotify playlists</string>
+    <string name="lyrics_original_title">Search lyrics by original title</string>
+    <string name="lyrics_original_title_desc">Resolve the untranslated YouTube title first, so translated titles still find lyrics</string>
 </resources>

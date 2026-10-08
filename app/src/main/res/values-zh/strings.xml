@@ -1265,4 +1265,6 @@
     <string name="spotify_library_subtitle">你的 Spotify 播放列表</string>
     <string name="spotify_sign_in">使用 Spotify 登录</string>
     <string name="spotify_track_unavailable">在 YouTube Music 上找不到该歌曲</string>
+    <string name="lyrics_original_title">用原标题搜歌词</string>
+    <string name="lyrics_original_title_desc">先还原 YouTube 原标题再搜歌词，翻译过的标题也找得到</string>
 </resources>

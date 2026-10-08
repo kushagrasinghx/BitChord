@@ -214,6 +214,15 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
     override val translationLanguage = MutableStateFlow("")
     override val versionAlignmentInProgress = MutableStateFlow(false)
 
+    val useOriginalTitle = MutableStateFlow(
+        persistence.boolean(KEY_ORIGINAL_TITLE, true),
+    )
+
+    fun setUseOriginalTitle(value: Boolean) {
+        (useOriginalTitle as MutableStateFlow<Boolean>).value = value
+        persistence.saveBoolean(KEY_ORIGINAL_TITLE, value)
+    }
+
     override fun setLastPlayerScreen(value: LastPlayerScreen) {
         lastPlayerScreen.value = value
         persistence.saveString(KEY_LAST_SCREEN, value.name)
@@ -227,6 +236,7 @@ internal object DesktopPlayerSettings : PlayerSettingsSource {
 
     private const val KEY_LAST_SCREEN = "last_player_screen"
     private const val KEY_LYRICS_OFFSET = "lyrics_offset_ms"
+    private const val KEY_ORIGINAL_TITLE = "original_title_lyrics"
 }
 
 /** Which glyph a mixer gets, from the only thing Java Sound says about it: its name. */

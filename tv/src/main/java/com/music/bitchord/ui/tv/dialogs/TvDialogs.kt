@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.tv.dialogs
 
+import com.music.bitchord.ui.configureTvSignInWebView
+import com.music.bitchord.ui.onSignedIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.focus.onFocusChanged
@@ -40,6 +42,7 @@ import com.music.bitchord.R
 import com.music.bitchord.auth.WebSessionMode
 import androidx.compose.ui.res.painterResource
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.tv.components.TvButton
 import com.music.bitchord.ui.tv.components.TvDialog
@@ -153,6 +156,7 @@ fun TvAccountDialog(
                     ) {
                         com.music.bitchord.auth.YtMusicLoginScreen(
                             mode = WebSessionMode.SIGN_IN,
+                            configureWebView = ::configureTvSignInWebView,
                             captureRequest = captureTrigger,
                             onPageReady = { ready ->
                                 isPageReadyToConfirm = ready
@@ -831,7 +835,7 @@ private fun TvRefreshRateOptionRow(
 fun TvThemeDialog(
     onDismiss: () -> Unit,
 ) {
-    val currentThemeId by AppSettings.tvTheme.collectAsState()
+    val currentThemeId by TvSettings.tvTheme.collectAsState()
     val currentTheme = com.music.bitchord.ui.tv.personalization.AppThemeOption.fromId(currentThemeId)
 
     TvDialog(
@@ -850,7 +854,7 @@ fun TvThemeDialog(
                             shape = RoundedCornerShape(10.dp),
                             focusedBorderColor = TvColors.BorderFocused,
                             onClick = {
-                                AppSettings.setTvTheme(theme.id)
+                                TvSettings.setTvTheme(theme.id)
                                 onDismiss()
                             },
                         )
@@ -909,7 +913,7 @@ fun TvThemeDialog(
 fun TvNicknameDialog(
     onDismiss: () -> Unit,
 ) {
-    val currentSavedNickname by AppSettings.tvNickname.collectAsState()
+    val currentSavedNickname by TvSettings.tvNickname.collectAsState()
     var draftNickname by remember { mutableStateOf(currentSavedNickname) }
     var cursorIndex by remember { mutableIntStateOf(draftNickname.length) }
 
@@ -974,7 +978,7 @@ fun TvNicknameDialog(
                         onDone = {
                             keyboardController?.hide()
                             if (isValid) {
-                                AppSettings.setTvNickname(draftNickname)
+                                TvSettings.setTvNickname(draftNickname)
                                 onDismiss()
                             }
                         }
@@ -1003,7 +1007,7 @@ fun TvNicknameDialog(
                     isPrimary = true,
                     enabled = isValid,
                     onClick = {
-                        AppSettings.setTvNickname(draftNickname)
+                        TvSettings.setTvNickname(draftNickname)
                         onDismiss()
                     },
                 )

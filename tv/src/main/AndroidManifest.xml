@@ -138,13 +138,16 @@
           uiMode is deliberately *not* in the list: a day/night change should
           still recreate the Activity so the theme is rebuilt from resources.
         -->
-        <activity
+        <!--
+          MainActivity is still what the shared code names — the playback
+          notification, the widgets — so on TV that name is the TV interface.
+          Every entry point the phone declares is kept.
+        -->
+        <activity-alias
             android:name=".MainActivity"
             android:banner="@drawable/tv_banner"
             android:exported="true"
-            android:launchMode="singleTask"
-            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
-            android:theme="@style/Theme.BitChord.Tv">
+            android:targetActivity=".TvActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -265,26 +268,23 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <!--
           Android TV / Google TV remote-first interface.
-          Landscape, Leanback launcher, TV theme, and singleTask to prevent duplicate playback tasks.
+          Reached through the ".MainActivity" alias above (launcher, links, share).
+          Landscape, TV theme, and singleTask to prevent duplicate playback tasks.
         -->
         <activity
             android:name=".TvActivity"
             android:banner="@drawable/tv_banner"
-            android:exported="true"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:icon="@mipmap/ic_launcher"
             android:label="@string/app_name"
             android:launchMode="singleTask"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.BitChord.Tv">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.BitChord.Tv" />
 
         <service
             android:name=".playback.PlaybackService"

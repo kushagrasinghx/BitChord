@@ -82,6 +82,7 @@ import coil3.request.crossfade
 import com.music.bitchord.R
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.ui.MainViewModel
@@ -136,9 +137,9 @@ fun TvApp(
         var activeDetail by remember { mutableStateOf<DetailDestination?>(null) }
         var isNowPlayingOpen by remember { mutableStateOf(false) }
 
-        val setupVersionCompleted by com.music.bitchord.data.settings.AppSettings.tvSetupVersionCompleted.collectAsState()
+        val setupVersionCompleted by com.music.bitchord.data.settings.TvSettings.tvSetupVersionCompleted.collectAsState()
         var isRunningSetup by remember(setupVersionCompleted) { mutableStateOf(setupVersionCompleted == 0) }
-        val tvNavLayout by AppSettings.tvNavLayout.collectAsState()
+        val tvNavLayout by TvSettings.tvNavLayout.collectAsState()
         val isLeftRail = tvNavLayout == "left_rail"
 
         // Dialog States
@@ -156,7 +157,7 @@ fun TvApp(
 
 
         // Initialize Spatial Audio Virtualizer
-        val spatialAudio by AppSettings.spatialAudioEnabled.collectAsState()
+        val spatialAudio by TvSettings.spatialAudioEnabled.collectAsState()
         LaunchedEffect(spatialAudio) {
             com.music.bitchord.ui.tv.audio.TvSpatialAudioEngine.setEnabled(spatialAudio)
         }

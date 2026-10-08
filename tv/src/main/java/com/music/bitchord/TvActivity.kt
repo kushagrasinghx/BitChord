@@ -1,11 +1,15 @@
 package com.music.bitchord
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
+import com.music.bitchord.data.listentogether.JamInviteLink
+import com.music.bitchord.playback.MusicLink
+import com.music.bitchord.playback.PlayerDeepLink
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.ui.MainViewModel
@@ -43,6 +47,18 @@ class TvActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeLinks(intent)
+    }
+
+    private fun consumeLinks(intent: Intent) {
+        PlayerDeepLink.consume(intent)
+        JamInviteLink.consume(intent)
+        MusicLink.consume(intent)
     }
 
     override fun onDestroy() {

@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.tv.audio.TvSpatialAudioEngine
 import com.music.bitchord.ui.tv.components.TvDialog
@@ -90,18 +91,18 @@ fun TvSettingsScreen(
 ) {
     val currentFont = LocalTvFontFamily.current
 
-    val tvNickname by AppSettings.tvNickname.collectAsState()
-    val tvThemeId by AppSettings.tvTheme.collectAsState()
+    val tvNickname by TvSettings.tvNickname.collectAsState()
+    val tvThemeId by TvSettings.tvTheme.collectAsState()
     val currentTheme = AppThemeOption.fromId(tvThemeId)
 
-    val spatialAudio by AppSettings.spatialAudioEnabled.collectAsState()
-    val soundCheck by AppSettings.soundCheckEnabled.collectAsState()
+    val spatialAudio by TvSettings.spatialAudioEnabled.collectAsState()
+    val soundCheck by TvSettings.soundCheckEnabled.collectAsState()
     val liveCanvas by AppSettings.animatedCanvas.collectAsState()
     val automixEnabled by AppSettings.smartFadeEnabled.collectAsState()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsState()
     val showNerdStats by AppSettings.showNerdStats.collectAsState()
-    val addPlaylistSongs by AppSettings.addPlaylistSongsToLibrary.collectAsState()
-    val addFavoriteSongs by AppSettings.addFavoriteSongsToLibrary.collectAsState()
+    val addPlaylistSongs by TvSettings.addPlaylistSongsToLibrary.collectAsState()
+    val addFavoriteSongs by TvSettings.addFavoriteSongsToLibrary.collectAsState()
     val skipSilence by AppSettings.skipSilence.collectAsState()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsState()
     val preferUsbDac by AppSettings.preferUsbDac.collectAsState()
@@ -110,11 +111,11 @@ fun TvSettingsScreen(
     val reduceAnimation by AppSettings.reduceAnimation.collectAsState()
     val autoplay by AppSettings.autoplay.collectAsState()
     val crossfadeSeconds by AppSettings.crossfadeSeconds.collectAsState()
-    val tvUiScale by AppSettings.tvUiScale.collectAsState()
-    val tvLiquidGlassEnabled by AppSettings.tvLiquidGlassEnabled.collectAsState()
-    val tvBlurIntensity by AppSettings.tvBlurIntensity.collectAsState()
-    val tvLyricsCanvasEnabled by AppSettings.tvLyricsCanvasEnabled.collectAsState()
-    val tvNavLayout by AppSettings.tvNavLayout.collectAsState()
+    val tvUiScale by TvSettings.tvUiScale.collectAsState()
+    val tvLiquidGlassEnabled by TvSettings.tvLiquidGlassEnabled.collectAsState()
+    val tvBlurIntensity by TvSettings.tvBlurIntensity.collectAsState()
+    val tvLyricsCanvasEnabled by TvSettings.tvLyricsCanvasEnabled.collectAsState()
+    val tvNavLayout by TvSettings.tvNavLayout.collectAsState()
     val isLeftRail = tvNavLayout == "left_rail"
 
     var activeDescription by remember {
@@ -243,7 +244,7 @@ fun TvSettingsScreen(
                     TvApplePillSwitchOption(
                         title = "Add Playlist Songs to Library",
                         checked = addPlaylistSongs,
-                        onCheckedChange = { AppSettings.setAddPlaylistSongsToLibrary(it) },
+                        onCheckedChange = { TvSettings.setAddPlaylistSongsToLibrary(it) },
                         onFocus = {
                             activeDescription = "Songs will be automatically added to your library when you add them to your playlists."
                         },
@@ -253,7 +254,7 @@ fun TvSettingsScreen(
                     TvApplePillSwitchOption(
                         title = "Add Favorite Songs to Library",
                         checked = addFavoriteSongs,
-                        onCheckedChange = { AppSettings.setAddFavoriteSongsToLibrary(it) },
+                        onCheckedChange = { TvSettings.setAddFavoriteSongsToLibrary(it) },
                         onFocus = {
                             activeDescription = "Liked tracks and heart favorites will be saved to your primary music library."
                         },
@@ -270,7 +271,7 @@ fun TvSettingsScreen(
                         title = "Spatial Audio & 3D Virtualization",
                         checked = spatialAudio,
                         onCheckedChange = { next ->
-                            AppSettings.setSpatialAudioEnabled(next)
+                            TvSettings.setSpatialAudioEnabled(next)
                             TvSpatialAudioEngine.setEnabled(next)
                         },
                         onFocus = {
@@ -292,7 +293,7 @@ fun TvSettingsScreen(
                     TvApplePillSwitchOption(
                         title = "Sound Check (Loudness Match)",
                         checked = soundCheck,
-                        onCheckedChange = { AppSettings.setSoundCheckEnabled(it) },
+                        onCheckedChange = { TvSettings.setSoundCheckEnabled(it) },
                         onFocus = {
                             activeDescription = "Maintains consistent loudness volume across all albums and music sources."
                         },
@@ -376,7 +377,7 @@ fun TvSettingsScreen(
                     TvApplePillSwitchOption(
                         title = "Canvas in Lyrics Mode",
                         checked = tvLyricsCanvasEnabled,
-                        onCheckedChange = { AppSettings.setTvLyricsCanvasEnabled(it) },
+                        onCheckedChange = { TvSettings.setTvLyricsCanvasEnabled(it) },
                         onFocus = {
                             activeDescription = "Displays live looping canvas video artwork behind synchronized lyrics in the Now Playing overlay."
                         },
@@ -459,7 +460,7 @@ fun TvSettingsScreen(
                         title = "Spotify Sidebar Navigation",
                         checked = isLeftRail,
                         onCheckedChange = { isChecked ->
-                            AppSettings.setTvNavLayout(if (isChecked) "left_rail" else "top")
+                            TvSettings.setTvNavLayout(if (isChecked) "left_rail" else "top")
                         },
                         onFocus = {
                             activeDescription = "Displays a sleek vertical navigation sidebar on the left side (Spotify TV style). Turn off for classic Apple TV top pill navigation."
@@ -480,7 +481,7 @@ fun TvSettingsScreen(
                     TvApplePillSwitchOption(
                         title = "Liquid Glass Aesthetics",
                         checked = tvLiquidGlassEnabled,
-                        onCheckedChange = { AppSettings.setTvLiquidGlassEnabled(it) },
+                        onCheckedChange = { TvSettings.setTvLiquidGlassEnabled(it) },
                         onFocus = {
                             activeDescription = "Translucent frosted acrylics with glowing specular highlights and Apple spring physics."
                         },
@@ -502,7 +503,7 @@ fun TvSettingsScreen(
                                 tvBlurIntensity < 0.95f -> 1.00f
                                 else -> 0.0f
                             }
-                            AppSettings.setTvBlurIntensity(next)
+                            TvSettings.setTvBlurIntensity(next)
                         },
                     )
                 }
@@ -548,7 +549,7 @@ fun TvSettingsScreen(
                                 tvUiScale < 1.35f -> 1.40f
                                 else -> 0.80f
                             }
-                            AppSettings.setTvUiScale(next)
+                            TvSettings.setTvUiScale(next)
                         },
                     )
                 }

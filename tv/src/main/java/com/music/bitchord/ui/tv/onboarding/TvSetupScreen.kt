@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.ui.tv.components.TvButton
 import com.music.bitchord.ui.tv.focus.onTvKeyEvent
 import com.music.bitchord.ui.tv.focus.tvButtonFocus
@@ -97,8 +98,8 @@ fun TvSetupScreen(
     modifier: Modifier = Modifier,
 ) {
     var currentStep by remember { mutableStateOf(SetupStep.WELCOME) }
-    var draftNickname by remember { mutableStateOf(AppSettings.tvNickname.value.ifBlank { "Living Room TV" }) }
-    var draftTheme by remember { mutableStateOf(AppThemeOption.fromId(AppSettings.tvTheme.value)) }
+    var draftNickname by remember { mutableStateOf(TvSettings.tvNickname.value.ifBlank { "Living Room TV" }) }
+    var draftTheme by remember { mutableStateOf(AppThemeOption.fromId(TvSettings.tvTheme.value)) }
 
     val activePalette = draftTheme.getPalette()
 
@@ -143,7 +144,7 @@ fun TvSetupScreen(
                         onStartSetup = { currentStep = SetupStep.LOGIN },
                         onUseDefaults = {
                             try {
-                                AppSettings.setTvPersonalization(
+                                TvSettings.setTvPersonalization(
                                     nickname = NicknamePolicy.DEFAULT_NICKNAME,
                                     themeId = AppThemeOption.DYNAMIC_ARTWORK.id,
                                     version = 1,
@@ -191,7 +192,7 @@ fun TvSetupScreen(
                         theme = draftTheme,
                         onFinish = {
                             try {
-                                AppSettings.setTvPersonalization(
+                                TvSettings.setTvPersonalization(
                                     nickname = draftNickname.ifBlank { NicknamePolicy.DEFAULT_NICKNAME },
                                     themeId = draftTheme.id,
                                     version = 1,
@@ -653,14 +654,14 @@ private fun TvCustomizationStep(
     val currentFont = LocalTvFontFamily.current
     val palette = com.music.bitchord.ui.tv.theme.TvThemeColors.current
 
-    val spatialAudio by AppSettings.spatialAudioEnabled.collectAsState()
+    val spatialAudio by TvSettings.spatialAudioEnabled.collectAsState()
     val smartFade by AppSettings.smartFadeEnabled.collectAsState()
-    val soundCheck by AppSettings.soundCheckEnabled.collectAsState()
+    val soundCheck by TvSettings.soundCheckEnabled.collectAsState()
     val liveCanvas by AppSettings.animatedCanvas.collectAsState()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsState()
     val highPerformance by AppSettings.highPerformanceMode.collectAsState()
     val skipSilence by AppSettings.skipSilence.collectAsState()
-    val addPlaylistSongs by AppSettings.addPlaylistSongsToLibrary.collectAsState()
+    val addPlaylistSongs by TvSettings.addPlaylistSongsToLibrary.collectAsState()
     val showNerdStats by AppSettings.showNerdStats.collectAsState()
     val discordPresence by AppSettings.discordRpcEnabled.collectAsState()
 
@@ -700,7 +701,7 @@ private fun TvCustomizationStep(
                     title = "Spatial Audio Virtualizer",
                     desc = "3D Dolby Atmos soundstage for TV soundbars",
                     enabled = spatialAudio,
-                    onToggle = { AppSettings.setSpatialAudioEnabled(!spatialAudio) },
+                    onToggle = { TvSettings.setSpatialAudioEnabled(!spatialAudio) },
                 )
             }
             // 2. Automix
@@ -718,7 +719,7 @@ private fun TvCustomizationStep(
                     title = "Sound Check (Loudness Match)",
                     desc = "ReplayGain volume normalization",
                     enabled = soundCheck,
-                    onToggle = { AppSettings.setSoundCheckEnabled(!soundCheck) },
+                    onToggle = { TvSettings.setSoundCheckEnabled(!soundCheck) },
                 )
             }
             // 4. Live Canvas
@@ -763,7 +764,7 @@ private fun TvCustomizationStep(
                     title = "Add Playlist Songs to Library",
                     desc = "Automatically sync playlist additions to library",
                     enabled = addPlaylistSongs,
-                    onToggle = { AppSettings.setAddPlaylistSongsToLibrary(!addPlaylistSongs) },
+                    onToggle = { TvSettings.setAddPlaylistSongsToLibrary(!addPlaylistSongs) },
                 )
             }
             // 9. Stats for Nerds

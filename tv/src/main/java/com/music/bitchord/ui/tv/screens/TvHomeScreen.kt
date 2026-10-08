@@ -104,7 +104,7 @@ private fun TvHomeFeed(
     onNavigateToDetail: (browseId: String, title: String, subtitle: String, thumbnailUrl: String?, type: BrowseType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val nickname by com.music.bitchord.data.settings.AppSettings.tvNickname.collectAsState()
+    val nickname by com.music.bitchord.data.settings.TvSettings.tvNickname.collectAsState()
     val verticalListState = rememberLazyListState()
 
     LazyColumn(

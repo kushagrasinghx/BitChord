@@ -9,6 +9,7 @@ import android.view.Display
 import android.view.Surface
 import android.view.WindowManager
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,7 +41,7 @@ object TvRefreshRateController {
         updateCapabilities(display)
 
         // Read stored preference
-        val stored = AppSettings.tvRefreshRate.value
+        val stored = TvSettings.tvRefreshRate.value
         val pref = TvRefreshRatePreference.fromString(stored)
         _preference.value = pref
         applyToWindow(activity, pref)
@@ -73,7 +74,7 @@ object TvRefreshRateController {
 
     fun setPreference(activity: Activity, preference: TvRefreshRatePreference) {
         _preference.value = preference
-        AppSettings.setTvRefreshRate(preference.name)
+        TvSettings.setTvRefreshRate(preference.name)
         applyToWindow(activity, preference)
     }
 

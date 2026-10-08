@@ -56,6 +56,7 @@ import coil3.request.crossfade
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.ui.player.SyncedLyricsPanel
 import com.music.bitchord.ui.tv.components.TvErrorState
@@ -92,7 +93,7 @@ fun TvLyricsOverlay(
     onToggleLike: (() -> Unit)? = null,
 ) {
     val showNerdStats by AppSettings.showNerdStats.collectAsState()
-    val liveCanvasEnabled by AppSettings.tvLyricsCanvasEnabled.collectAsState()
+    val liveCanvasEnabled by TvSettings.tvLyricsCanvasEnabled.collectAsState()
     var canvasArtwork by remember(song.videoId) { mutableStateOf<com.music.bitchord.data.canvas.CanvasArtwork?>(null) }
 
     LaunchedEffect(song.videoId, liveCanvasEnabled) {

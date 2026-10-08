@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
@@ -156,7 +157,7 @@ fun TvMeshBackground(
         }
     }
 
-    val tvThemeId by AppSettings.tvTheme.collectAsState()
+    val tvThemeId by TvSettings.tvTheme.collectAsState()
     val isOledMode = tvThemeId.lowercase() in listOf("pure_black", "oled", "pure_black_oled")
     val isLightMode = tvThemeId.lowercase() in listOf("light_white", "light", "white", "pure_white")
     val baseCanvasColor = when {

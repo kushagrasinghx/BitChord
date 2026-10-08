@@ -24,6 +24,7 @@ import androidx.tv.material3.Typography
 import androidx.tv.material3.darkColorScheme
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Immutable palette data class — one instance per theme variant
@@ -469,15 +470,15 @@ object TvDimensions {
 val LocalTvFontFamily = compositionLocalOf { TvSFProDisplay }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Theme wrapper — reacts directly to AppSettings.tvTheme
+// Theme wrapper — reacts directly to TvSettings.tvTheme
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun BitChordTvTheme(
     content: @Composable () -> Unit,
 ) {
-    val tvThemeId by AppSettings.tvTheme.collectAsState()
-    val tvUiScale by AppSettings.tvUiScale.collectAsState()
+    val tvThemeId by TvSettings.tvTheme.collectAsState()
+    val tvUiScale by TvSettings.tvUiScale.collectAsState()
 
     val palette = when (tvThemeId.lowercase()) {
         "pure_black", "oled", "pure_black_oled" -> TvOledPalette

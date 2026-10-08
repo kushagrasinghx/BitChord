@@ -96,6 +96,16 @@
             android:name="com.samsung.android.support.ongoing_activity"
             android:value="true" />
 
+        <!-- TV-only hooks into shared code, in place before any component starts. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.music.bitchord.data.TvStartup"
+                android:value="androidx.startup" />
+        </provider>
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
             android:enabled="false"

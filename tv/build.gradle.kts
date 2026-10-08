@@ -313,6 +313,7 @@ dependencies {
     // ---- Android TV (Compose for TV) ----
     implementation("androidx.tv:tv-material:1.0.0")
     implementation("androidx.tv:tv-foundation:1.0.0-alpha12")
+    implementation("androidx.startup:startup-runtime:1.2.0")
 
     // ---- Media playback: Media3 / ExoPlayer ----
     implementation("androidx.media3:media3-exoplayer:1.11.0")

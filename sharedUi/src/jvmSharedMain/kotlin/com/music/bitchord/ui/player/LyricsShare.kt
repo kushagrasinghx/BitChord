@@ -131,6 +131,8 @@ internal class LyricsPicker(
     val cancel: () -> Unit,
     /** Hands the chosen lines over as a card request. */
     val share: () -> Unit,
+    /** Header share button: enter picking with nothing preselected. */
+    val beginPicking: () -> Unit,
 )
 
 /**
@@ -227,6 +229,17 @@ internal fun rememberLyricsPicker(
         picks = emptySet()
         overBudget = false
     }
+    // Header share button: the same mode a long-press opens, but with nothing
+    // preselected — the header names no line, so there is nothing to fold in.
+    // Kept separate from [pick] so a tap on it can never seek or toggle.
+    val beginPicking: () -> Unit = {
+        if (!picking) {
+            haptics.play(Haptic.Select)
+            picking = true
+            picks = emptySet()
+            overBudget = false
+        }
+    }
     val share: () -> Unit = {
         val source = lines.orEmpty()
         val chosen = picks.sorted()
@@ -264,6 +277,7 @@ internal fun rememberLyricsPicker(
         toggle = toggle,
         cancel = cancel,
         share = share,
+        beginPicking = beginPicking,
     )
 }
 

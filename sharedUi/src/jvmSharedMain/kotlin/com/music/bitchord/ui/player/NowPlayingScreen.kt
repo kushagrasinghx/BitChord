@@ -63,6 +63,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -3261,10 +3263,39 @@ fun NowPlayingScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                     }
+                    // While the lyrics are up the menu glyph becomes the share
+                    // entry: the same pick mode a long-press on a line opens,
+                    // only on phones where a card can actually be made. While
+                    // picking it is the way back out again — the bar below
+                    // already holds Share.
+                    val lyricsShareGlyphVisible = lyricsOpen && lyricsShareEnabled &&
+                        !lyrics.isNullOrEmpty()
                     CircleGlyph(
-                        icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
-                        contentDescription = stringResource(Res.string.more),
-                        onClick = onOpenMenu,
+                        icon = when {
+                            showRevertCue -> Icons.AutoMirrored.Rounded.Undo
+                            lyricsShareGlyphVisible && lyricPicker.picking -> Icons.Rounded.Close
+                            lyricsShareGlyphVisible -> Icons.Rounded.IosShare
+                            else -> Icons.Rounded.MoreHoriz
+                        },
+                        contentDescription = stringResource(
+                            when {
+                                showRevertCue -> Res.string.more
+                                lyricsShareGlyphVisible && lyricPicker.picking -> Res.string.cancel
+                                lyricsShareGlyphVisible -> Res.string.share
+                                else -> Res.string.more
+                            },
+                        ),
+                        onClick = when {
+                            showRevertCue -> onOpenMenu
+                            lyricsShareGlyphVisible && lyricPicker.picking -> lyricPicker.cancel
+                            lyricsShareGlyphVisible -> lyricPicker.beginPicking
+                            else -> onOpenMenu
+                        },
+                        haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
+                            Haptic.Select
+                        } else {
+                            Haptic.Tap
+                        },
                     )
                 }
 

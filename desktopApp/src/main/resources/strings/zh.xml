@@ -672,4 +672,6 @@
     <string name="miscellaneous_footer">启用后，从最近任务界面关闭应用也会停止音乐播放。</string>
     <string name="lyrics_auto_translate">自动翻译歌词</string>
     <string name="lyrics_auto_translate_desc">跟随 App 语言自动翻译；中文模式会在简繁之间转换</string>
+    <string name="lyrics_original_title">用原标题搜歌词</string>
+    <string name="lyrics_original_title_desc">先还原 YouTube 原标题再搜歌词，翻译过的标题也找得到</string>
 </resources>

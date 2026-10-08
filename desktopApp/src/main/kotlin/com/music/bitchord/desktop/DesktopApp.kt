@@ -5616,6 +5616,13 @@ private fun DesktopSettingsScreen(
                                 DesktopPlayerSettings::setAutoTranslateLyrics,
                             )
                         }
+                        val useOriginalTitle by DesktopPlayerSettings.useOriginalTitle.collectAsState()
+                        SettingsToggle(
+                            DesktopStrings["lyrics_original_title", "Search lyrics by original title"],
+                            DesktopStrings["lyrics_original_title_desc", "Resolve the untranslated YouTube title first, so translated titles still find lyrics"],
+                            useOriginalTitle,
+                            DesktopPlayerSettings::setUseOriginalTitle,
+                        )
                     }
                 }
             }

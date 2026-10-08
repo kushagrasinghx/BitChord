@@ -395,6 +395,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val found = LyricsRepository.lyrics(
                 videoId, title, artist, durationMs, album, sources,
                 AppSettings.lyricsSourceOrder.value, AppSettings.prioritizeSyllableSync.value,
+                useOriginalTitle = AppSettings.useOriginalTitleForLyrics.value,
                 onSourceStarted = { source -> providerStarted(generation, source) },
                 onSourceResult = { source, result ->
                     providerFinished(generation, source, result)
@@ -447,6 +448,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 sources = setOf(source),
                 order = listOf(source),
                 prioritizeSyllableSync = false,
+                useOriginalTitle = AppSettings.useOriginalTitleForLyrics.value,
                 onSourceStarted = { provider -> providerStarted(generation, provider) },
                 onSourceResult = { provider, result ->
                     providerFinished(generation, provider, result)

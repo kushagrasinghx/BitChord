@@ -211,6 +211,7 @@ fun SettingsScreen(
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
     val autoTranslateLyrics by AppSettings.autoTranslateLyrics.collectAsStateWithLifecycle()
+    val useOriginalTitleForLyrics by AppSettings.useOriginalTitleForLyrics.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
@@ -1022,6 +1023,27 @@ fun SettingsScreen(
                             onClick = { AppSettings.setAutoTranslateLyrics(!autoTranslateLyrics) },
                         )
                     }
+                }
+                // Original-title lookup: helps every language with translated
+                // titles, so unlike the switch above it is always shown.
+                val originalTitle = stringResource(R.string.lyrics_original_title)
+                row(originalTitle, "lyrics", "translate", "title") {
+                    SettingsRow(
+                        icon = Icons.Rounded.Title,
+                        title = originalTitle,
+                        subtitle = stringResource(R.string.lyrics_original_title_desc),
+                        trailing = {
+                            Switch(
+                                checked = useOriginalTitleForLyrics,
+                                onCheckedChange = AppSettings::setUseOriginalTitleForLyrics,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setUseOriginalTitleForLyrics(!useOriginalTitleForLyrics) },
+                    )
                 }
             }
         }

@@ -1269,4 +1269,6 @@
     <string name="spotify_track_unavailable">在 YouTube Music 上找不到該歌曲</string>
     <string name="lyrics_auto_translate">自動翻譯歌詞</string>
     <string name="lyrics_auto_translate_desc">跟隨 App 語言自動翻譯；中文模式會在簡繁之間轉換</string>
+    <string name="lyrics_original_title">用原標題搜歌詞</string>
+    <string name="lyrics_original_title_desc">先還原 YouTube 原標題再搜歌詞，翻譯過的標題都搵得返</string>
 </resources>

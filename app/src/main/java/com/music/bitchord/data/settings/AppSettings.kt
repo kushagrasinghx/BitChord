@@ -417,6 +417,14 @@ object AppSettings {
     val autoTranslateLyrics = MutableStateFlow(true)
 
     /**
+     * Resolve the untranslated YouTube title before asking lyrics providers
+     * (see OriginalTitleResolver). On by default: translated UI titles are
+     * what make providers miss, and the lookup falls back to the given title
+     * when nothing original comes back.
+     */
+    val useOriginalTitleForLyrics = MutableStateFlow(true)
+
+    /**
      * Plays a looping video behind the cover art on the player when one is
      * published for the track — Spotify's Canvas, Apple's motion artwork.
      *
@@ -845,6 +853,7 @@ object AppSettings {
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
         autoTranslateLyrics.value = prefs.getBoolean(KEY_AUTO_TRANSLATE_LYRICS, true)
+        useOriginalTitleForLyrics.value = prefs.getBoolean(KEY_ORIGINAL_TITLE_LYRICS, true)
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
@@ -1281,6 +1290,11 @@ object AppSettings {
     fun setAutoTranslateLyrics(value: Boolean) {
         autoTranslateLyrics.value = value
         prefs.edit().putBoolean(KEY_AUTO_TRANSLATE_LYRICS, value).apply()
+    }
+
+    fun setUseOriginalTitleForLyrics(value: Boolean) {
+        useOriginalTitleForLyrics.value = value
+        prefs.edit().putBoolean(KEY_ORIGINAL_TITLE_LYRICS, value).apply()
     }
 
     fun setSyncedLyrics(value: Boolean) {
@@ -1976,6 +1990,7 @@ object AppSettings {
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_AUTO_TRANSLATE_LYRICS = "auto_translate_lyrics"
+    private const val KEY_ORIGINAL_TITLE_LYRICS = "original_title_lyrics"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"

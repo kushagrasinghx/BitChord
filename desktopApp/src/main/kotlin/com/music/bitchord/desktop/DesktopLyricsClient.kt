@@ -92,6 +92,7 @@ object DesktopLyricsClient {
                 sources = asked.toSet(),
                 order = asked,
                 prioritizeSyllableSync = persistence.boolean(KEY_PRIORITIZE_SYLLABLES, false),
+                useOriginalTitle = DesktopPlayerSettings.useOriginalTitle.value,
             )
             if (found == null) {
                 Result.failure(IllegalStateException("Lyrics unavailable"))

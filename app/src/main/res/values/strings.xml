@@ -1129,4 +1129,6 @@
     <string name="spotify_library_subtitle">Your Spotify playlists</string>
     <string name="lyrics_auto_translate">Auto-translate lyrics</string>
     <string name="lyrics_auto_translate_desc">Follows the app language; Chinese modes convert between Simplified and Traditional</string>
+    <string name="lyrics_original_title">Search lyrics by original title</string>
+    <string name="lyrics_original_title_desc">Resolve the untranslated YouTube title first, so translated titles still find lyrics</string>
 </resources>

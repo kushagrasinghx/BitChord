@@ -1328,8 +1328,8 @@ fun SettingsScreen(
         SearchableSettingsGroup(search, header = stringResource(R.string.language)) {
             val appLanguageTitle = stringResource(R.string.app_language)
             row(appLanguageTitle, "locale", "translate") {
-                val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
-                    ?: Locale.getDefault().language
+                val selectedLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
+                    ?: Locale.getDefault().toLanguageTag()
                 SettingsRow(
                     icon = Icons.Rounded.Language,
                     title = appLanguageTitle,

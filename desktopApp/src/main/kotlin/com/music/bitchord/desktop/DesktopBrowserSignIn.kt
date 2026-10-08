@@ -24,24 +24,37 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Interactive Windows sign-in for Chromium browsers.
+ * Interactive Windows and macOS sign-in for Chromium browsers.
  *
- * Current Chrome protects account cookies with App-Bound Encryption, deliberately preventing a
- * different executable from decrypting the main profile. Google also rejects account login while
- * remote debugging is active. We therefore sign in normally in a separate browser profile first;
- * after that window closes, the same profile is opened headlessly with loopback debugging only
- * long enough for Chrome to hand the completed session back to BitChord.
+ * Current Chrome protects account cookies with App-Bound Encryption on Windows and the login
+ * Keychain on macOS, deliberately preventing a different executable from decrypting the main
+ * profile. Google also rejects account login while remote debugging is active. We therefore sign in
+ * normally in a separate browser profile first; after that browser quits, the same profile is
+ * opened headlessly with loopback debugging only long enough for Chrome to hand the completed
+ * session back to BitChord.
  */
 internal object DesktopBrowserSignIn {
-    data class Browser(val name: String, val executable: Path) {
+    /** @param isDefault whether this is the browser macOS opens links in */
+    data class Browser(val name: String, val executable: Path, val isDefault: Boolean = false) {
         val label: String get() = "Sign in with $name"
+
+        /** Closing the last window ends a Windows browser; a macOS one keeps running until quit. */
+        val finish: String get() = if (DesktopPlatform.isMac) "quit $name (⌘Q)" else "close $name"
+
+        /** On macOS the browser is closed for the listener as soon as the session appears. */
+        val closesItself: Boolean get() = DesktopPlatform.isMac
     }
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** The first installed browser we can use for the interactive Windows path. */
-    fun preferred(): Browser? {
-        if (!DesktopPlatform.isWindows) return null
+    /** The first installed browser we can use for the interactive path. */
+    fun preferred(): Browser? = when {
+        DesktopPlatform.isWindows -> preferredWindows()
+        DesktopPlatform.isMac -> preferredMac()
+        else -> null
+    }
+
+    private fun preferredWindows(): Browser? {
         val local = environmentPath("LOCALAPPDATA", "AppData/Local")
         val programFiles = System.getenv("ProgramFiles")?.let(Paths::get)
         val programFilesX86 = System.getenv("ProgramFiles(x86)")?.let(Paths::get)
@@ -57,9 +70,48 @@ internal object DesktopBrowserSignIn {
         ).firstOrNull()
     }
 
+    /**
+     * The listener's default browser when it is one Chromium we can drive, else the first one
+     * installed. Safari and Firefox speak no Chrome DevTools Protocol, so they cannot hand back a
+     * session this way.
+     */
+    private fun preferredMac(): Browser? {
+        val roots = listOf(Paths.get("/Applications"), Paths.get(System.getProperty("user.home"), "Applications"))
+        val installed = MAC_BROWSERS.mapNotNull { (bundleId, name, executable) ->
+            roots.firstNotNullOfOrNull { candidate(name, it.resolve(executable)) }?.let { bundleId to it }
+        }
+        val default = macDefaultBrowserId()
+        return installed.firstOrNull { it.first == default }?.second?.copy(isDefault = true)
+            ?: installed.firstOrNull()?.second
+    }
+
+    /**
+     * The bundle id LaunchServices opens https links with, lower-cased. Null when it cannot be read
+     * or the listener never changed it from Safari, which leaves no https entry at all.
+     */
+    private fun macDefaultBrowserId(): String? = runCatching {
+        val plist = Paths.get(System.getProperty("user.home"))
+            .resolve("Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist")
+        if (!Files.isRegularFile(plist)) return null
+        val process = ProcessBuilder("/usr/bin/plutil", "-extract", "LSHandlers", "json", "-o", "-", plist.toString())
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start()
+        val text = process.inputStream.bufferedReader().use { it.readText() }
+        if (!process.waitFor(5, TimeUnit.SECONDS)) process.destroyForcibly()
+        httpsHandlerId(text)
+    }.getOrNull()
+
+    /** The https entry's bundle id from LaunchServices' `LSHandlers` array, as JSON. */
+    internal fun httpsHandlerId(handlers: String): String? = runCatching {
+        json.parseToJsonElement(handlers).jsonArray
+            .map { it.jsonObject }
+            .firstOrNull { it["LSHandlerURLScheme"]?.jsonPrimitive?.content == "https" }
+            ?.get("LSHandlerRoleAll")?.jsonPrimitive?.content?.lowercase()
+    }.getOrNull()
+
     /** Opens [browser] normally for sign-in, then reads the finished session in a headless pass. */
     suspend fun capture(browser: Browser): String = withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val profile = environmentPath("LOCALAPPDATA", "AppData/Local")
+        val profile = signInRoot()
             .resolve("BitChord")
             .resolve("Browser Sign In")
             .resolve(browser.name)
@@ -74,6 +126,7 @@ internal object DesktopBrowserSignIn {
             "--no-first-run",
             "--no-default-browser-check",
             "--new-window",
+            *macKeychainArgs(),
             MUSIC_URL,
         )
         var captureProcess: Process? = null
@@ -81,7 +134,19 @@ internal object DesktopBrowserSignIn {
         try {
             // Google sees an ordinary Chrome launch here. The close is the listener's explicit
             // signal that login is finished and the cookie database has been flushed to disk.
-            while (signInProcess?.isAlive == true) delay(BROWSER_CLOSE_POLL_MS)
+            var nextSessionCheck = 0L
+            while (signInProcess?.isAlive == true) {
+                if (browser.closesItself && System.currentTimeMillis() >= nextSessionCheck) {
+                    nextSessionCheck = System.currentTimeMillis() + SESSION_POLL_MS
+                    if (DesktopBrowserCookies.chromiumHasSigningCookie(profile)) {
+                        DesktopTrackLog.log("sign-in: ${browser.name} holds the session; closing it")
+                        signInProcess.quit()
+                        break
+                    }
+                }
+                delay(BROWSER_CLOSE_POLL_MS)
+            }
+            DesktopTrackLog.log("sign-in: ${browser.name} quit; reading the session headlessly")
             signInProcess = null
             Files.deleteIfExists(portFile)
 
@@ -92,6 +157,7 @@ internal object DesktopBrowserSignIn {
                 "--disable-background-mode",
                 "--remote-debugging-port=0",
                 "--remote-debugging-address=127.0.0.1",
+                *macKeychainArgs(),
                 "about:blank",
             )
             captureProcess = readerProcess
@@ -99,16 +165,42 @@ internal object DesktopBrowserSignIn {
             cdp = DevTools(endpoint)
             repeat(CAPTURE_POLLS) {
                 val header = cdp.youtubeCookieHeader()
+                if (it == CAPTURE_POLLS - 1) {
+                    val names = header.split(';').map { cookie -> cookie.substringBefore('=').trim() }
+                    DesktopTrackLog.log("sign-in: no signing cookie among ${names.size}: $names")
+                }
                 if (DesktopBrowserCookies.hasSigningSecret(header)) return@withContext header
                 delay(POLL_INTERVAL_MS)
             }
-            error("Chrome did not contain a signed-in YouTube session. Try again and close Chrome only after YouTube Music has opened.")
+            error(
+                if (browser.closesItself) {
+                    "${browser.name} closed before the sign-in finished. Try again and leave it " +
+                        "open; it closes by itself once you are signed in."
+                } else {
+                    "${browser.name} did not contain a signed-in YouTube session. Try again and " +
+                        "${browser.finish} only after YouTube Music has opened."
+                },
+            )
         } catch (cancelled: CancellationException) {
             throw cancelled
         } finally {
             cdp?.closeBrowser()
             signInProcess?.stop()
             captureProcess?.stop()
+            if (DesktopPlatform.isMac) forget(profile, signInProcess, captureProcess)
+        }
+    }
+
+    /**
+     * Deletes the macOS sign-in profile once the attempt is over, captured or not. Its cookies sit
+     * under the mock Keychain key, so effectively in the clear, and BitChord keeps its own copy of
+     * the session; the cost is a full Google sign-in next time, which is rare.
+     */
+    private fun forget(profile: Path, vararg processes: Process?) {
+        // The browser still writes into the profile while it shuts down.
+        processes.filterNotNull().forEach { runCatching { it.waitFor(PROFILE_RELEASE_SECONDS, TimeUnit.SECONDS) } }
+        if (!profile.toFile().deleteRecursively()) {
+            DesktopTrackLog.log("sign-in: could not fully delete ${profile.fileName} profile")
         }
     }
 
@@ -121,6 +213,15 @@ internal object DesktopBrowserSignIn {
             .redirectOutput(ProcessBuilder.Redirect.DISCARD)
             .redirectError(ProcessBuilder.Redirect.DISCARD)
             .start()
+
+    /**
+     * Quits the browser the way ⌘Q would: Chromium treats SIGTERM as a normal shutdown and writes
+     * its cookies out first. Forced only if it has not gone in time.
+     */
+    private fun Process.quit() {
+        destroy()
+        if (!waitFor(QUIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) stop()
+    }
 
     private fun Process.stop() {
         descendants().forEach { child -> runCatching { child.destroy() } }
@@ -140,6 +241,20 @@ internal object DesktopBrowserSignIn {
         }
         error("Could not connect to ${portFile.parent.fileName}. Close its other sign-in window and try again.")
     }
+
+    private fun signInRoot(): Path = if (DesktopPlatform.isMac) {
+        Paths.get(System.getProperty("user.home"), "Library", "Application Support")
+    } else {
+        environmentPath("LOCALAPPDATA", "AppData/Local")
+    }
+
+    /**
+     * Headless Chrome on macOS reads cookies with a mock Keychain key, so cookies the windowed run
+     * sealed with the real login Keychain would come back unreadable. Both runs use the mock key
+     * instead; the profile is BitChord's own, holds nothing but this sign-in, and is deleted after it.
+     */
+    private fun macKeychainArgs(): Array<String> =
+        if (DesktopPlatform.isMac) arrayOf("--use-mock-keychain") else emptyArray()
 
     private fun candidate(name: String, path: Path): Browser? =
         path.takeIf(Files::isRegularFile)?.let { Browser(name, it) }
@@ -228,7 +343,21 @@ internal object DesktopBrowserSignIn {
         }
     }
 
+    /** Bundle id (lower-cased, as LaunchServices may store it either way), name, executable. */
+    private val MAC_BROWSERS = listOf(
+        Triple("com.google.chrome", "Chrome", "Google Chrome.app/Contents/MacOS/Google Chrome"),
+        Triple("com.microsoft.edgemac", "Edge", "Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+        Triple("com.brave.browser", "Brave", "Brave Browser.app/Contents/MacOS/Brave Browser"),
+        Triple("com.vivaldi.vivaldi", "Vivaldi", "Vivaldi.app/Contents/MacOS/Vivaldi"),
+        Triple("org.chromium.chromium", "Chromium", "Chromium.app/Contents/MacOS/Chromium"),
+    )
+
     private const val MUSIC_URL = "https://music.youtube.com/"
+    private const val PROFILE_RELEASE_SECONDS = 5L
+    private const val QUIT_TIMEOUT_SECONDS = 10L
+
+    /** Chromium writes cookies out every 30 seconds or so, so checking faster gains little. */
+    private const val SESSION_POLL_MS = 2_000L
     private const val DEVTOOLS_ACTIVE_PORT = "DevToolsActivePort"
     private const val STARTUP_POLLS = 200
     private const val STARTUP_POLL_MS = 100L

@@ -274,6 +274,39 @@ internal object DesktopBrowserCookies {
 
     private val SIGNING_COOKIES = setOf("SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID")
 
+    /**
+     * Whether the Chromium user-data directory [userData] already lists a YouTube signing cookie.
+     * Only names are read, which Chromium keeps in the clear, and from a copy: the running browser
+     * still holds the file.
+     */
+    internal fun chromiumHasSigningCookie(userData: Path): Boolean {
+        val store = chromiumCookieStore(userData.resolve("Default")) ?: return false
+        val directory = runCatching { Files.createTempDirectory("bitchord-sign-in") }.getOrNull() ?: return false
+        return try {
+            val copy = directory.resolve(COOKIES_CHROMIUM)
+            Files.copy(store, copy)
+            // Recent writes may still sit in the journal beside it.
+            listOf("-wal", "-journal").forEach { suffix ->
+                store.resolveSibling(store.fileName.toString() + suffix)
+                    .takeIf(Files::isRegularFile)
+                    ?.let { Files.copy(it, directory.resolve(COOKIES_CHROMIUM + suffix)) }
+            }
+            DriverManager.getConnection("jdbc:sqlite:${copy.toAbsolutePath()}").use { db ->
+                db.prepareStatement(
+                    "SELECT 1 FROM cookies WHERE host_key LIKE '%youtube.com' AND name IN " +
+                        SIGNING_COOKIES.joinToString(prefix = "(", postfix = ")") { "?" } + " LIMIT 1",
+                ).use { statement ->
+                    SIGNING_COOKIES.forEachIndexed { index, name -> statement.setString(index + 1, name) }
+                    statement.executeQuery().use { it.next() }
+                }
+            }
+        } catch (_: Exception) {
+            false
+        } finally {
+            directory.toFile().deleteRecursively()
+        }
+    }
+
     private const val COOKIES_FIREFOX = "cookies.sqlite"
     private const val COOKIES_CHROMIUM = "Cookies"
     private const val NETWORK = "Network"

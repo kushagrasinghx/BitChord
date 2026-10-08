@@ -859,6 +859,7 @@ fun BitChordDesktopApp() {
         try {
             val scope = withContext(Dispatchers.IO) { DesktopYouTubeSession.adoptSessionScope(cookie) }
             if (scope == null) {
+                DesktopTrackLog.log("sign-in: $label has a cookie but YouTube did not accept the session")
                 signInError = "$label is not signed in to YouTube Music."
                 return
             }
@@ -3250,6 +3251,7 @@ fun BitChordDesktopApp() {
                                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                                         throw cancelled
                                     } catch (failure: Exception) {
+                                        DesktopTrackLog.log("sign-in: ${browser.name} failed: ${failure.message}")
                                         signInError = failure.message ?: "Could not complete browser sign-in."
                                     } finally {
                                         signInBusy = null

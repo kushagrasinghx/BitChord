@@ -22,12 +22,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.ManageAccounts
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -294,10 +296,12 @@ internal fun DesktopSignInDialog(
             Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.5f))
+                // Swallows clicks without dismissing: leaving now would cancel a browser sign-in
+                // that is still in progress, so only the close button does that.
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onDismiss,
+                    onClick = {},
                 ),
         )
         val shape = RoundedCornerShape(20.dp)
@@ -309,20 +313,39 @@ internal fun DesktopSignInDialog(
                 .desktopBarGlass(shape)
                 .padding(bottom = 8.dp),
         ) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 22.dp, end = 10.dp, top = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    DesktopStrings["sign_in_youtube_music", "Sign in to YouTube Music"],
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier.weight(1f).padding(top = 10.dp),
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Rounded.Close, DesktopStrings["close", "Close"], tint = DesktopSecondary)
+                }
+            }
             Text(
-                DesktopStrings["sign_in_youtube_music", "Sign in to YouTube Music"],
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 20.dp),
-            )
-            Text(
-                if (interactiveBrowser != null) {
+                if (interactiveBrowser?.closesItself == true) {
+                    "Choose ${interactiveBrowser.label} below and sign in inside the separate " +
+                        "browser window. It closes by itself once YouTube Music has your session." +
+                        if (!interactiveBrowser.isDefault) {
+                            " Your default browser cannot hand a session back, so this uses ${interactiveBrowser.name}."
+                        } else {
+                            ""
+                        }
+                } else if (interactiveBrowser != null) {
                     DesktopStrings[
                         "d_choose_the_browser_sign_in_button_below",
                         "Choose ${interactiveBrowser.label} below, then finish signing in inside " +
-                            "the separate browser window and close it to return to BitChord.",
+                            "the separate browser window and ${interactiveBrowser.finish} to return to BitChord.",
                     ]
+                } else if (DesktopPlatform.isMac) {
+                    "Signing in needs a Chromium-based browser such as Chrome, Brave or Edge. " +
+                        "Install one, or paste a cookie below."
                 } else {
                     DesktopStrings[
                         "d_google_signs_in_inside_a_browser",
@@ -400,10 +423,13 @@ internal fun DesktopSignInDialog(
                                 Column(Modifier.weight(1f)) {
                                     Text(browser.label, color = Color.White)
                                     Text(
-                                        if (busy == browser.label) {
-                                            "Finish signing in, then close Chrome"
-                                        } else {
-                                            "Opens normal Chrome; close it when signed in"
+                                        when {
+                                            browser.closesItself && busy == browser.label ->
+                                                "Sign in inside ${browser.name}; it closes by itself"
+                                            browser.closesItself ->
+                                                "Opens a separate ${browser.name} window that closes once you are signed in"
+                                            busy == browser.label -> "Finish signing in, then ${browser.finish}"
+                                            else -> "Opens normal ${browser.name}; ${browser.finish} when signed in"
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         color = DesktopSecondary,

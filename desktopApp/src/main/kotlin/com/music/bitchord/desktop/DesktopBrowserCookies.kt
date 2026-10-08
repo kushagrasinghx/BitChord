@@ -24,7 +24,8 @@ internal object DesktopBrowserCookies {
 
     /**
      * One browser profile that could be imported from.
-     * @param secretAttribute how the browser's own encryption key is filed in
+     * @param secretAttribute how the browser's own encryption key is filed: the keyring
+     *   attribute on Linux, the Keychain item on macOS
      * @param localState Chromium's browser-wide state, which holds the DPAPI-wrapped Windows key
      */
     data class Profile(
@@ -140,6 +141,15 @@ internal object DesktopBrowserCookies {
         } else {
             null
         }
+        val macPassword = if (DesktopPlatform.isMac) {
+            profile.secretAttribute?.let(::keychainPassword)
+                ?: return Result.Unavailable(
+                    "macOS did not hand over \"${profile.secretAttribute}\" from the Keychain. " +
+                        "Allow it when asked, or sign in with the browser button instead",
+                )
+        } else {
+            null
+        }
         val windowsKey = if (DesktopPlatform.isWindows) windowsMasterKey(profile.localState) else null
         return query(database) { connection ->
             val cookies = LinkedHashMap<String, String>()
@@ -157,7 +167,7 @@ internal object DesktopBrowserCookies {
                         val value = when {
                             !plain.isNullOrBlank() -> plain
                             sealed == null || sealed.isEmpty() -> null
-                            else -> decrypt(sealed, host, linuxPassword, windowsKey).also {
+                            else -> decrypt(sealed, host, macPassword ?: linuxPassword, windowsKey).also {
                                 if (it == null) undecipherable++
                                 if (name in SIGNING_COOKIES && sealed.hasPrefix(APP_BOUND_PREFIX)) {
                                     appBoundSigningCookie = true
@@ -188,10 +198,10 @@ internal object DesktopBrowserCookies {
         host: String,
         keyringPassword: ByteArray?,
         windowsKey: ByteArray?,
-    ): String? = if (DesktopPlatform.isWindows) {
-        decryptWindows(sealed, windowsKey, host)
-    } else {
-        decryptLinux(sealed, host, keyringPassword)
+    ): String? = when {
+        DesktopPlatform.isWindows -> decryptWindows(sealed, windowsKey, host)
+        DesktopPlatform.isMac -> keyringPassword?.let { decryptMac(sealed, host, it) }
+        else -> decryptLinux(sealed, host, keyringPassword)
     }
 
     /** Chromium's AES-GCM cookie format after its browser key has been unwrapped with DPAPI. */
@@ -223,9 +233,21 @@ internal object DesktopBrowserCookies {
             "v11" -> keyringPassword ?: return null
             else -> return null
         }
+        return decryptCbc(sealed, host, password, ITERATIONS)
+    }
+
+    /**
+     * Chromium's cookie encryption on macOS: the Linux scheme, keyed by the browser's
+     * "… Safe Storage" Keychain password and stretched over 1003 rounds instead of one.
+     */
+    internal fun decryptMac(sealed: ByteArray, host: String, keychainPassword: ByteArray): String? =
+        if (sealed.hasPrefix(CHROMIUM_V10)) decryptCbc(sealed, host, keychainPassword, MAC_ITERATIONS) else null
+
+    private fun decryptCbc(sealed: ByteArray, host: String, password: ByteArray, iterations: Int): String? {
+        if (sealed.size <= PREFIX_BYTES) return null
         val plain = runCatching {
             val key = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1")
-                .generateSecret(PBEKeySpec(String(password, Charsets.UTF_8).toCharArray(), SALT, ITERATIONS, KEY_BITS))
+                .generateSecret(PBEKeySpec(String(password, Charsets.UTF_8).toCharArray(), SALT, iterations, KEY_BITS))
                 .encoded
             Cipher.getInstance("AES/CBC/PKCS5Padding").run {
                 init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), IvParameterSpec(ByteArray(16) { ' '.code.toByte() }))
@@ -260,6 +282,22 @@ internal object DesktopBrowserCookies {
         val wrapped = Base64.getDecoder().decode(encoded)
         if (!wrapped.hasPrefix(DPAPI_PREFIX)) return null
         DesktopWindowsCrypto.unprotect(wrapped.copyOfRange(DPAPI_PREFIX.size, wrapped.size))
+    }.getOrNull()
+
+    /**
+     * The browser's cookie password from the login Keychain. macOS asks the listener first, the
+     * first time, and this waits for that answer; a refusal comes back as null.
+     */
+    private fun keychainPassword(service: String): ByteArray? = runCatching {
+        val process = ProcessBuilder("/usr/bin/security", "find-generic-password", "-w", "-s", service)
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start()
+        val password = process.inputStream.bufferedReader().use { it.readText() }.trimEnd('\n')
+        if (!process.waitFor(KEYCHAIN_TIMEOUT_SECONDS, java.util.concurrent.TimeUnit.SECONDS)) {
+            process.destroyForcibly()
+            return null
+        }
+        password.takeIf { process.exitValue() == 0 && it.isNotEmpty() }?.toByteArray(Charsets.UTF_8)
     }.getOrNull()
 
     private fun query(database: Path, block: (java.sql.Connection) -> Result): Result = runCatching {
@@ -319,6 +357,10 @@ internal object DesktopBrowserCookies {
     private const val FALLBACK_PASSWORD = "peanuts"
     private val SALT = "saltysalt".toByteArray(Charsets.UTF_8)
     private const val ITERATIONS = 1
+    private const val MAC_ITERATIONS = 1003
+
+    /** Long enough for the listener to read and answer the Keychain prompt. */
+    private const val KEYCHAIN_TIMEOUT_SECONDS = 120L
     private const val KEY_BITS = 128
     private const val PREFIX_BYTES = 3
     private const val GCM_NONCE_BYTES = 12
@@ -378,6 +420,24 @@ internal object DesktopBrowserCookies {
         "Opera" to (".config/opera" to "chromium"),
     )
 
+    private val MAC_FIREFOX_ROOTS = listOf(
+        "Firefox" to "Firefox/Profiles",
+        "LibreWolf" to "librewolf/Profiles",
+        "Waterfox" to "Waterfox/Profiles",
+        "Zen" to "zen/Profiles",
+    )
+
+    /** Browser to profile root and the Keychain item holding its cookie password. */
+    private val MAC_CHROMIUM_ROOTS = listOf(
+        "Chrome" to ("Google/Chrome" to "Chrome Safe Storage"),
+        "Chromium" to ("Chromium" to "Chromium Safe Storage"),
+        "Brave" to ("BraveSoftware/Brave-Browser" to "Brave Safe Storage"),
+        "Edge" to ("Microsoft Edge" to "Microsoft Edge Safe Storage"),
+        "Vivaldi" to ("Vivaldi" to "Vivaldi Safe Storage"),
+    )
+
+    private val macSupport: Path get() = home.resolve("Library/Application Support")
+
     private data class ChromiumRoot(val browser: String, val root: Path, val secretAttribute: String?)
 
     private fun firefoxRoots(): List<Pair<String, Path>> = if (DesktopPlatform.isWindows) {
@@ -388,6 +448,8 @@ internal object DesktopBrowserCookies {
             "Waterfox" to roaming.resolve("Waterfox/Profiles"),
             "Zen" to roaming.resolve("zen/Profiles"),
         )
+    } else if (DesktopPlatform.isMac) {
+        MAC_FIREFOX_ROOTS.map { (name, relative) -> name to macSupport.resolve(relative) }
     } else {
         LINUX_FIREFOX_ROOTS.map { (name, relative) -> name to home.resolve(relative) }
     }
@@ -401,6 +463,10 @@ internal object DesktopBrowserCookies {
             ChromiumRoot("Brave", local.resolve("BraveSoftware/Brave-Browser/User Data"), null),
             ChromiumRoot("Vivaldi", local.resolve("Vivaldi/User Data"), null),
         )
+    } else if (DesktopPlatform.isMac) {
+        MAC_CHROMIUM_ROOTS.map { (name, spec) ->
+            ChromiumRoot(name, macSupport.resolve(spec.first), spec.second)
+        }
     } else {
         LINUX_CHROMIUM_ROOTS.map { (name, spec) ->
             ChromiumRoot(name, home.resolve(spec.first), spec.second)

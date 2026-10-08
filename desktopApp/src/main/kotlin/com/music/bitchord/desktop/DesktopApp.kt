@@ -3291,10 +3291,14 @@ fun BitChordDesktopApp() {
                                     when (val found = withContext(Dispatchers.IO) { DesktopBrowserCookies.read(profile) }) {
                                         is DesktopBrowserCookies.Result.Session ->
                             signIn(found.cookie, profile.label, profile.database.toString())
-                                        DesktopBrowserCookies.Result.SignedOut ->
+                                        DesktopBrowserCookies.Result.SignedOut -> {
+                                            DesktopTrackLog.log("sign-in: ${profile.label} has no YouTube session")
                                             signInError = "${profile.label} is not signed in."
-                                        is DesktopBrowserCookies.Result.Unavailable ->
+                                        }
+                                        is DesktopBrowserCookies.Result.Unavailable -> {
+                                            DesktopTrackLog.log("sign-in: ${profile.label} unreadable: ${found.reason}")
                                             signInError = "${profile.label}: ${found.reason}."
+                                        }
                                     }
                                 }
                             },

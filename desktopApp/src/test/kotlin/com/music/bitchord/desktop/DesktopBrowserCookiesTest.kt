@@ -58,4 +58,23 @@ class DesktopBrowserCookiesTest {
         assertEquals(value, DesktopBrowserCookies.decryptWindows(sealed, key, host))
         assertNull(DesktopBrowserCookies.decryptWindows(sealed, null))
     }
+
+    @Test
+    fun `decrypts Chromium macOS Keychain cookies`() {
+        // Sealed outside this codebase (Python's PBKDF2 and the openssl CLI) with the scheme
+        // Chromium uses on macOS: "v10", PBKDF2-SHA1 over "saltysalt" for 1003 rounds, AES-128-CBC
+        // with an IV of sixteen spaces.
+        val password = "test-keychain-password".toByteArray()
+        val plain = "7631302595b364aadb6db3b4f00b02fad12f7679a8a9b462c6da164edc8e63235d5abe".hexBytes()
+        val hosted = ("763130e0b1a0e4e2cfe4b66cdc53ff4a090007f4a042eebd01593207fd5d3d085b77464f" +
+            "22930ff0e40cabe36c65f6366a02ac").hexBytes()
+
+        assertEquals("SAPISID-value-123", DesktopBrowserCookies.decryptMac(plain, "", password))
+        // Newer cookie stores prefix the value with the SHA-256 of its host.
+        assertEquals("hosted-value", DesktopBrowserCookies.decryptMac(hosted, ".youtube.com", password))
+        assertNull(DesktopBrowserCookies.decryptMac(plain, "", "wrong-password".toByteArray()))
+        assertNull(DesktopBrowserCookies.decryptMac("v11".toByteArray() + plain.copyOfRange(3, plain.size), "", password))
+    }
+
+    private fun String.hexBytes(): ByteArray = chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

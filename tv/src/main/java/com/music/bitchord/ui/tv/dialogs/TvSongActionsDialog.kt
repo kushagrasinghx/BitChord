@@ -550,7 +550,7 @@ fun TvStatsForNerdsDialog(song: Song, onDismiss: () -> Unit) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             TvStatRow("Track Title", song.title)
             TvStatRow("Artist", song.artist)
-            if (!song.albumName.isNullOrBlank()) TvStatRow("Album", song.albumName)
+            if (!song.albumName.isNullOrBlank()) TvStatRow("Album", song.albumName.orEmpty())
             TvStatRow("Video ID", song.videoId)
             TvStatRow("Format / Codec", "FLAC / Opus Hi-Res")
             TvStatRow("Sample Rate", "48.0 kHz / 24-bit")

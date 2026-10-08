@@ -9,7 +9,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.music.bitchord.data.lyrics.LyricLine
-import com.music.bitchord.ui.player.LyricsPanel
+import com.music.bitchord.playback.PlaybackPosition
+import com.music.bitchord.ui.player.SyncedLyricsPanel
 import com.music.bitchord.ui.tv.components.TvEmptyState
 import com.music.bitchord.ui.tv.components.TvErrorState
 
@@ -30,6 +31,7 @@ import com.music.bitchord.ui.tv.components.TvErrorState
 fun TvLyricsList(
     lyrics: List<LyricLine>?,
     currentPositionMs: Long,
+    position: PlaybackPosition? = null,
     isPlaying: Boolean = true,
     isLoading: Boolean = false,
     error: String? = null,
@@ -68,16 +70,13 @@ fun TvLyricsList(
         else lyrics.firstOrNull()?.text?.hashCode()?.toString() ?: "tv_lyrics"
     }
 
-    LyricsPanel(
+    SyncedLyricsPanel(
         lines = lyrics,
         trackKey = key,
-        positionMs = currentPositionMs,
+        position = rememberTvPlaybackPosition(position, currentPositionMs),
         looking = isLoading,
         isPlaying = isPlaying,
         onSeekToLine = onSeekToTimestamp,
-        controlsOpen = true,
-        onRevealControls = {},
-        onHideControls = {},
         modifier = modifier.fillMaxSize(),
     )
 }

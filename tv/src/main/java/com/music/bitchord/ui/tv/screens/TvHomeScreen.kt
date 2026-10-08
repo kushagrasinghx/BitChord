@@ -218,7 +218,7 @@ private fun TvShelfItemCard(
             if (isTrack && item.videoId != null) {
                 onPlaySong(
                     Song(
-                        videoId = item.videoId,
+                        videoId = item.videoId.orEmpty(),
                         title = item.title,
                         artist = item.subtitle,
                         thumbnailUrl = item.thumbnailUrl,
@@ -227,12 +227,12 @@ private fun TvShelfItemCard(
             } else if (item.browseId != null) {
                 val type = when {
                     isArtist -> BrowseType.ARTIST
-                    item.browseId.startsWith("MPRE") -> BrowseType.ALBUM
-                    item.browseId.startsWith("VL") -> BrowseType.PLAYLIST
+                    item.browseId.orEmpty().startsWith("MPRE") -> BrowseType.ALBUM
+                    item.browseId.orEmpty().startsWith("VL") -> BrowseType.PLAYLIST
                     else -> BrowseType.OTHER
                 }
                 onNavigateToDetail(
-                    item.browseId,
+                    item.browseId.orEmpty(),
                     item.title,
                     item.subtitle,
                     item.thumbnailUrl,

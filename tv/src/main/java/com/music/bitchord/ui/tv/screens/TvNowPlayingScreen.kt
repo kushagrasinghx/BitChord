@@ -248,7 +248,7 @@ fun TvNowPlayingScreen(
 
                 if (!song.albumName.isNullOrBlank()) {
                     Text(
-                        text = song.albumName,
+                        text = song.albumName.orEmpty(),
                         fontSize = 13.sp,
                         fontFamily = TvSFProDisplay,
                         color = TvColors.TextMuted,
@@ -288,6 +288,7 @@ fun TvNowPlayingScreen(
                         TvLyricsPanel(
                             lyrics = lyrics,
                             currentPositionMs = currentPositionMs,
+                            position = playerState.position,
                             onClose = { sidePanel = TvNowPlayingSidePanel.NONE },
                         )
                     }
@@ -476,6 +477,7 @@ private fun TvMainTransportPanel(
 private fun TvLyricsPanel(
     lyrics: List<LyricLine>?,
     currentPositionMs: Long,
+    position: com.music.bitchord.playback.PlaybackPosition,
     onClose: () -> Unit,
 ) {
     Column(
@@ -511,6 +513,7 @@ private fun TvLyricsPanel(
         TvLyricsList(
             lyrics = lyrics,
             currentPositionMs = currentPositionMs,
+            position = position,
             isLoading = false,
             error = null,
             onRetry = {},

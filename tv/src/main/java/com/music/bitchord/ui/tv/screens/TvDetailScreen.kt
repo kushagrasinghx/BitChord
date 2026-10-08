@@ -405,7 +405,7 @@ private fun TvTrackRow(
 
         if (!song.durationText.isNullOrBlank()) {
             Text(
-                text = song.durationText,
+                text = song.durationText.orEmpty(),
                 color = TvColors.TextMuted,
                 fontSize = 13.sp,
                 fontFamily = TvSFProDisplay,

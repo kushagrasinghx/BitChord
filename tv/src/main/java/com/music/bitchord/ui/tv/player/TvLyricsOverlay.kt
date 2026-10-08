@@ -57,8 +57,7 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlaybackPosition
-import com.music.bitchord.ui.player.LyricsPanel
-import com.music.bitchord.ui.player.PlaybackPositionScope
+import com.music.bitchord.ui.player.SyncedLyricsPanel
 import com.music.bitchord.ui.tv.components.TvErrorState
 import com.music.bitchord.ui.tv.components.TvLyricsBadge
 import com.music.bitchord.ui.tv.focus.onTvKeyEvent
@@ -309,20 +308,15 @@ fun TvLyricsOverlay(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    PlaybackPositionScope(positionLambda) { currentMs ->
-                        LyricsPanel(
-                            lines = lyrics.orEmpty(),
-                            trackKey = song.videoId,
-                            positionMs = currentMs,
-                            looking = isLoadingLyrics,
-                            isPlaying = isPlaying,
-                            onSeekToLine = onSeek,
-                            controlsOpen = true,
-                            onRevealControls = {},
-                            onHideControls = {},
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
+                    SyncedLyricsPanel(
+                        lines = lyrics.orEmpty(),
+                        trackKey = song.videoId,
+                        position = rememberTvPlaybackPosition(position, currentPositionMs),
+                        looking = isLoadingLyrics,
+                        isPlaying = isPlaying,
+                        onSeekToLine = onSeek,
+                        modifier = Modifier.fillMaxSize(),
+                    )
                 }
             }
         }

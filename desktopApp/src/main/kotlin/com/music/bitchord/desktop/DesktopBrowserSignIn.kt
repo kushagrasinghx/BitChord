@@ -45,6 +45,29 @@ internal object DesktopBrowserSignIn {
         val closesItself: Boolean get() = DesktopPlatform.isMac
     }
 
+    /** What a sign-in is for: where it starts, and the cookies that show it has finished. */
+    enum class Service(
+        val title: String,
+        internal val startUrl: String,
+        internal val cookieDomain: String,
+        internal val signingCookies: Set<String>,
+    ) {
+        YOUTUBE_MUSIC(
+            "YouTube Music",
+            "https://music.youtube.com/",
+            "youtube.com",
+            DesktopBrowserCookies.SIGNING_COOKIES,
+        ),
+
+        /** `sp_dc` is the cookie Spotify Canvas runs on; see [DesktopSpotifyToken]. */
+        SPOTIFY(
+            "Spotify",
+            "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F",
+            "spotify.com",
+            setOf(SPOTIFY_COOKIE),
+        ),
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
 
     /** The first installed browser we can use for the interactive path. */
@@ -109,12 +132,27 @@ internal object DesktopBrowserSignIn {
             ?.get("LSHandlerRoleAll")?.jsonPrimitive?.content?.lowercase()
     }.getOrNull()
 
-    /** Opens [browser] normally for sign-in, then reads the finished session in a headless pass. */
-    suspend fun capture(browser: Browser): String = withContext(kotlinx.coroutines.Dispatchers.IO) {
+    /** The `sp_dc` value from a Spotify sign-in in [browser]. */
+    suspend fun captureSpotify(browser: Browser): String =
+        capture(browser, Service.SPOTIFY).split(';')
+            .map { it.trim() }
+            .first { it.substringBefore('=') == SPOTIFY_COOKIE }
+            .substringAfter('=')
+
+    /**
+     * Opens [browser] normally for sign-in to [service], then reads the finished session in a
+     * headless pass. Returns the cookies for the service's domain as a `Cookie` header value.
+     */
+    suspend fun capture(
+        browser: Browser,
+        service: Service = Service.YOUTUBE_MUSIC,
+    ): String = withContext(kotlinx.coroutines.Dispatchers.IO) {
         val profile = signInRoot()
             .resolve("BitChord")
             .resolve("Browser Sign In")
-            .resolve(browser.name)
+            // YouTube keeps the folder it always had (Windows keeps that profile between sign-ins);
+            // the others get their own, so two sign-ins at once never share one browser instance.
+            .resolve(if (service == Service.YOUTUBE_MUSIC) browser.name else "${browser.name} ${service.title}")
         Files.createDirectories(profile)
         val portFile = profile.resolve(DEVTOOLS_ACTIVE_PORT)
         Files.deleteIfExists(portFile)
@@ -127,7 +165,7 @@ internal object DesktopBrowserSignIn {
             "--no-default-browser-check",
             "--new-window",
             *macKeychainArgs(),
-            MUSIC_URL,
+            service.startUrl,
         )
         var captureProcess: Process? = null
         var cdp: DevTools? = null
@@ -138,7 +176,7 @@ internal object DesktopBrowserSignIn {
             while (signInProcess?.isAlive == true) {
                 if (browser.closesItself && System.currentTimeMillis() >= nextSessionCheck) {
                     nextSessionCheck = System.currentTimeMillis() + SESSION_POLL_MS
-                    if (DesktopBrowserCookies.chromiumHasSigningCookie(profile)) {
+                    if (DesktopBrowserCookies.chromiumHasCookie(profile, service.cookieDomain, service.signingCookies)) {
                         DesktopTrackLog.log("sign-in: ${browser.name} holds the session; closing it")
                         signInProcess.quit()
                         break
@@ -164,12 +202,15 @@ internal object DesktopBrowserSignIn {
             val endpoint = waitForEndpoint(portFile, readerProcess)
             cdp = DevTools(endpoint)
             repeat(CAPTURE_POLLS) {
-                val header = cdp.youtubeCookieHeader()
+                val header = cdp.cookieHeader(service.cookieDomain)
                 if (it == CAPTURE_POLLS - 1) {
                     val names = header.split(';').map { cookie -> cookie.substringBefore('=').trim() }
                     DesktopTrackLog.log("sign-in: no signing cookie among ${names.size}: $names")
                 }
-                if (DesktopBrowserCookies.hasSigningSecret(header)) return@withContext header
+                if (header.holdsAny(service.signingCookies)) {
+                    DesktopTrackLog.log("sign-in: ${service.title} session captured from ${browser.name}")
+                    return@withContext header
+                }
                 delay(POLL_INTERVAL_MS)
             }
             error(
@@ -177,8 +218,8 @@ internal object DesktopBrowserSignIn {
                     "${browser.name} closed before the sign-in finished. Try again and leave it " +
                         "open; it closes by itself once you are signed in."
                 } else {
-                    "${browser.name} did not contain a signed-in YouTube session. Try again and " +
-                        "${browser.finish} only after YouTube Music has opened."
+                    "${browser.name} did not contain a signed-in ${service.title} session. Try again and " +
+                        "${browser.finish} only after ${service.title} has opened."
                 },
             )
         } catch (cancelled: CancellationException) {
@@ -189,6 +230,11 @@ internal object DesktopBrowserSignIn {
             captureProcess?.stop()
             if (DesktopPlatform.isMac) forget(profile, signInProcess, captureProcess)
         }
+    }
+
+    /** Whether a `Cookie` header value carries a non-empty value for any of [names]. */
+    private fun String.holdsAny(names: Set<String>): Boolean = split(';').any { entry ->
+        entry.substringBefore('=').trim() in names && entry.substringAfter('=', "").isNotBlank()
     }
 
     /**
@@ -315,7 +361,7 @@ internal object DesktopBrowserSignIn {
             }
         }
 
-        fun youtubeCookieHeader(): String {
+        fun cookieHeader(domain: String): String {
             val cookies = command("Storage.getCookies")["result"]
                 ?.jsonObject
                 ?.get("cookies")
@@ -324,8 +370,8 @@ internal object DesktopBrowserSignIn {
             val jar = LinkedHashMap<String, String>()
             cookies.forEach { element ->
                 val cookie = element.jsonObject
-                val domain = cookie["domain"]?.jsonPrimitive?.content.orEmpty().removePrefix(".")
-                if (domain != "youtube.com" && !domain.endsWith(".youtube.com")) return@forEach
+                val host = cookie["domain"]?.jsonPrimitive?.content.orEmpty().removePrefix(".")
+                if (host != domain && !host.endsWith(".$domain")) return@forEach
                 val name = cookie["name"]?.jsonPrimitive?.content.orEmpty()
                 val value = cookie["value"]?.jsonPrimitive?.content.orEmpty()
                 if (name.isNotBlank() && value.isNotBlank()) jar[name] = value
@@ -352,7 +398,7 @@ internal object DesktopBrowserSignIn {
         Triple("org.chromium.chromium", "Chromium", "Chromium.app/Contents/MacOS/Chromium"),
     )
 
-    private const val MUSIC_URL = "https://music.youtube.com/"
+    private const val SPOTIFY_COOKIE = "sp_dc"
     private const val PROFILE_RELEASE_SECONDS = 5L
     private const val QUIT_TIMEOUT_SECONDS = 10L
 

@@ -667,6 +667,10 @@ fun BitChordDesktopApp() {
     var legacyMeshGradient by remember { mutableStateOf(persistence.boolean("legacy_mesh_gradient", false)) }
     var animatedCanvas by remember { mutableStateOf(persistence.boolean("animated_canvas", true)) }
     var spotifyCanvasCookie by remember { mutableStateOf(DesktopSpotifyToken.cookie()) }
+    // Held here rather than by the Integrations page, so leaving the page does not close the
+    // browser mid sign-in.
+    var spotifySignInJob by remember { mutableStateOf<Job?>(null) }
+    var spotifySignInError by remember { mutableStateOf<String?>(null) }
     var showNerdStats by remember { mutableStateOf(persistence.boolean("show_nerd_stats", false)) }
     var syncedLyrics by remember {
         mutableStateOf(persistence.boolean(DesktopLyricsClient.KEY_SYNCED_LYRICS, true))
@@ -850,6 +854,29 @@ fun BitChordDesktopApp() {
         liveQueue = DesktopQueue(songs, index = 0)
         preShuffleOrder = emptyList()
         playCurrent(startPlaying)
+    }
+
+    /** Signs in to Spotify in [browser] for its `sp_dc`, or cancels the sign-in already open. */
+    fun signInToSpotify(browser: DesktopBrowserSignIn.Browser) {
+        spotifySignInJob?.let {
+            it.cancel()
+            return
+        }
+        spotifySignInError = null
+        spotifySignInJob = scope.launch {
+            try {
+                val cookie = DesktopBrowserSignIn.captureSpotify(browser)
+                DesktopSpotifyToken.setCookie(cookie)
+                spotifyCanvasCookie = cookie
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                DesktopTrackLog.log("sign-in: Spotify via ${browser.name} failed: ${failure.message}")
+                spotifySignInError = failure.message ?: "Could not complete the Spotify sign-in."
+            } finally {
+                spotifySignInJob = null
+            }
+        }
     }
 
     /** Takes a captured cookie all the way to a saved account. */
@@ -3633,6 +3660,18 @@ fun BitChordDesktopApp() {
                                 )
                                 DesktopSettingsPage.INTEGRATIONS -> DesktopIntegrationsDialog(
                                     song = playback.song,
+                                    spotify = DesktopSpotifyConnection(
+                                        connected = spotifyCanvasCookie.isNotBlank(),
+                                        browser = interactiveSignInBrowser,
+                                        signingIn = spotifySignInJob != null,
+                                        error = spotifySignInError,
+                                        onSignIn = ::signInToSpotify,
+                                        onPasteCookie = { overlays.settingsPage = DesktopSettingsPage.SPOTIFY_CANVAS },
+                                        onDisconnect = {
+                                            DesktopSpotifyToken.setCookie("")
+                                            spotifyCanvasCookie = ""
+                                        },
+                                    ),
                                     onOpenLastfm = { overlays.lastfmLogin = true },
                                     onOpenListenBrainz = { overlays.listenBrainzToken = true },
                                     onOpenDiscordToken = { overlays.discordToken = true },

@@ -272,14 +272,14 @@ internal object DesktopBrowserCookies {
             entry.substringAfter('=', "").trim().isNotEmpty()
     }
 
-    private val SIGNING_COOKIES = setOf("SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID")
+    internal val SIGNING_COOKIES = setOf("SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID")
 
     /**
-     * Whether the Chromium user-data directory [userData] already lists a YouTube signing cookie.
-     * Only names are read, which Chromium keeps in the clear, and from a copy: the running browser
-     * still holds the file.
+     * Whether the Chromium user-data directory [userData] already lists one of [names] for
+     * [domain] or a subdomain of it. Only names are read, which Chromium keeps in the clear, and
+     * from a copy: the running browser still holds the file.
      */
-    internal fun chromiumHasSigningCookie(userData: Path): Boolean {
+    internal fun chromiumHasCookie(userData: Path, domain: String, names: Set<String>): Boolean {
         val store = chromiumCookieStore(userData.resolve("Default")) ?: return false
         val directory = runCatching { Files.createTempDirectory("bitchord-sign-in") }.getOrNull() ?: return false
         return try {
@@ -293,10 +293,13 @@ internal object DesktopBrowserCookies {
             }
             DriverManager.getConnection("jdbc:sqlite:${copy.toAbsolutePath()}").use { db ->
                 db.prepareStatement(
-                    "SELECT 1 FROM cookies WHERE host_key LIKE '%youtube.com' AND name IN " +
-                        SIGNING_COOKIES.joinToString(prefix = "(", postfix = ")") { "?" } + " LIMIT 1",
+                    "SELECT 1 FROM cookies WHERE (host_key IN (?, ?) OR host_key LIKE ?) AND name IN " +
+                        names.joinToString(prefix = "(", postfix = ")") { "?" } + " LIMIT 1",
                 ).use { statement ->
-                    SIGNING_COOKIES.forEachIndexed { index, name -> statement.setString(index + 1, name) }
+                    statement.setString(1, domain)
+                    statement.setString(2, ".$domain")
+                    statement.setString(3, "%.$domain")
+                    names.forEachIndexed { index, name -> statement.setString(index + 4, name) }
                     statement.executeQuery().use { it.next() }
                 }
             }

@@ -32,16 +32,24 @@ class DesktopBrowserSignInTest {
     }
 
     @Test
-    fun `a youtube signing cookie in the profile counts as signed in`() {
-        val signedOut = profileWith("YSC" to ".youtube.com", "SAPISID" to ".google.com")
-        val signedIn = profileWith("YSC" to ".youtube.com", "SAPISID" to ".youtube.com")
+    fun `a signing cookie on the service's domain counts as signed in`() {
+        val youtube = DesktopBrowserSignIn.Service.YOUTUBE_MUSIC
+        val spotify = DesktopBrowserSignIn.Service.SPOTIFY
+        val signedOut = profileWith("YSC" to ".youtube.com", "SAPISID" to ".google.com", "sp_t" to ".spotify.com")
+        val signedIn = profileWith("SAPISID" to ".youtube.com", "sp_dc" to ".spotify.com")
+        // A lookalike host must not pass for the real one.
+        val lookalike = profileWith("sp_dc" to ".notspotify.com")
+        fun DesktopBrowserSignIn.Service.isIn(profile: Path) =
+            DesktopBrowserCookies.chromiumHasCookie(profile, cookieDomain, signingCookies)
         try {
-            assertFalse(DesktopBrowserCookies.chromiumHasSigningCookie(signedOut))
-            assertTrue(DesktopBrowserCookies.chromiumHasSigningCookie(signedIn))
-            assertFalse(DesktopBrowserCookies.chromiumHasSigningCookie(Files.createTempDirectory("empty")))
+            assertFalse(youtube.isIn(signedOut))
+            assertFalse(spotify.isIn(signedOut))
+            assertTrue(youtube.isIn(signedIn))
+            assertTrue(spotify.isIn(signedIn))
+            assertFalse(spotify.isIn(lookalike))
+            assertFalse(spotify.isIn(Files.createTempDirectory("empty")))
         } finally {
-            signedOut.toFile().deleteRecursively()
-            signedIn.toFile().deleteRecursively()
+            listOf(signedOut, signedIn, lookalike).forEach { it.toFile().deleteRecursively() }
         }
     }
 

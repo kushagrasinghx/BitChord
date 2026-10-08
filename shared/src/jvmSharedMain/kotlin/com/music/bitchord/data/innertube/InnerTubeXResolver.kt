@@ -104,7 +104,7 @@ object InnerTubeXResolver {
             runCatching {
                 innerTube.cookie = Innertube.cookie
                 innerTube.visitorData = Innertube.ensureVisitorData()
-                innerTube.locale = YouTubeLocale(gl = "US", hl = Innertube.currentLanguage)
+                innerTube.locale = YouTubeLocale(gl = Innertube.currentRegion, hl = Innertube.currentLanguage)
                 extractor.prewarm()
             }.onFailure { if (it is CancellationException) throw it }
                 .onFailure { TrackLog.w(TAG, "InnerTubeX warm-up failed: ${it.message}") }

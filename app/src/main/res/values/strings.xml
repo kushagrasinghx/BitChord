@@ -224,6 +224,8 @@
     <string name="japanese">Japanese</string>
     <string name="russian">Russian</string>
     <string name="chinese">Chinese (Simplified)</string>
+    <string name="chinese_simplified">Chinese (Simplified)</string>
+    <string name="chinese_traditional">Chinese (Traditional)</string>
     <string name="hebrew">Hebrew</string>
     <string name="italian">Italian</string>
     <string name="turkish">Turkish</string>

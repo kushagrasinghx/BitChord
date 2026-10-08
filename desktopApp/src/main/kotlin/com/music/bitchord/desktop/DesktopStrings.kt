@@ -33,7 +33,8 @@ object DesktopStrings {
         DesktopLanguage("pt", "Português"),
         DesktopLanguage("ru", "Русский"),
         DesktopLanguage("tr", "Türkçe"),
-        DesktopLanguage("zh", "中文"),
+        DesktopLanguage("zh-Hans", "简体中文"),
+        DesktopLanguage("zh-Hant", "繁體中文"),
     )
 
     private val english: Map<String, String> by lazy { catalogue("en") }
@@ -53,9 +54,36 @@ object DesktopStrings {
     /** Which catalogue is actually in use, after the system default is resolved. */
     fun resolvedTag(): String {
         val chosen = _language.value
-        if (chosen.isNotBlank()) return chosen
-        val system = Locale.getDefault().language.lowercase(Locale.ROOT)
-        return if (available.any { it.tag == system }) system else "en"
+        // Migrate legacy single "zh" (Simplified) to explicit script tag.
+        if (chosen.isNotBlank()) {
+            if (chosen == "zh") return "zh-Hans"
+            if (available.any { it.tag.equals(chosen, ignoreCase = true) }) return chosen
+            return com.music.bitchord.data.LocaleTags.normalizeAppTag(chosen)
+        }
+        val system = com.music.bitchord.data.LocaleTags.normalizeAppTag(
+            Locale.getDefault().toLanguageTag(),
+        )
+        return if (available.any { it.tag.equals(system, ignoreCase = true) }) system else "en"
+    }
+
+    /**
+     * One language, both layers.
+     *
+     * `<tag>.xml` is Android's own catalogue, copied in at build time. `desktop-<tag>.xml` holds
+     * the copy only this target has — its window chrome, the source editor, output precision — and
+     * is laid over the top, so a desktop key never collides with an Android one.
+     *
+     * zh-Hant/zh-Hans fall back to legacy "zh" files so old installs keep
+     * working while the script-tagged catalogues roll out.
+     */
+    private fun catalogue(tag: String): Map<String, String> = when (tag) {
+        "zh-Hant" ->
+            load("zh-Hant").ifEmpty { load("zh") } +
+                load("desktop-zh-Hant").ifEmpty { load("desktop-zh") }
+        "zh-Hans" ->
+            load("zh-Hans").ifEmpty { load("zh") } +
+                load("desktop-zh-Hans").ifEmpty { load("desktop-zh") }
+        else -> load(tag) + load("desktop-$tag")
     }
 
     fun setLanguage(tag: String) {
@@ -80,15 +108,6 @@ object DesktopStrings {
     /** As [get], with Android's `%1$s`-style positional arguments filled in. */
     fun format(key: String, vararg arguments: Any?, fallback: String = key): String =
         runCatching { String.format(get(key, fallback), *arguments) }.getOrDefault(get(key, fallback))
-
-    /**
-     * One language, both layers.
-     *
-     * `<tag>.xml` is Android's own catalogue, copied in at build time. `desktop-<tag>.xml` holds
-     * the copy only this target has — its window chrome, the source editor, output precision — and
-     * is laid over the top, so a desktop key never collides with an Android one.
-     */
-    private fun catalogue(tag: String): Map<String, String> = load(tag) + load("desktop-$tag")
 
     private fun load(tag: String): Map<String, String> = runCatching {
         val stream = DesktopStrings::class.java.getResourceAsStream("/strings/$tag.xml")

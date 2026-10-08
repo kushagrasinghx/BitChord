@@ -61,7 +61,8 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             }
         }
         // The per-app language picker, which YouTube Music's `hl` follows.
-        Innertube.appLanguage = { AppCompatDelegate.getApplicationLocales().get(0)?.language }
+        // Full tag (zh-Hant / zh-Hans preserved); Innertube maps to hl/gl.
+        Innertube.appLanguage = { AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag() }
         LyricsTranslation.cacheDir = cacheDir
         // PlaybackService shares this process, so seeding the cookie here means
         // stream resolution is authenticated from the first play onwards.

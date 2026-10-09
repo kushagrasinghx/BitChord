@@ -13,6 +13,7 @@ import com.music.bitchord.playback.PlayerDeepLink
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.ui.theme.BitChordTheme
 import com.music.bitchord.ui.tv.TvApp
 import com.music.bitchord.ui.tv.display.TvRefreshRateController
 import com.music.bitchord.ui.tv.theme.BitChordTvTheme
@@ -37,14 +38,18 @@ class TvActivity : ComponentActivity() {
 
         setContent {
             BitChordTvTheme {
-                val mediaController = rememberMediaController()
-                val playerState = rememberPlayerState(mediaController)
+                // The phone's Material theme too, so the components shared with
+                // it (lyrics, mood sleeves) are set in SF Pro on its type scale.
+                BitChordTheme(darkTheme = true) {
+                    val mediaController = rememberMediaController()
+                    val playerState = rememberPlayerState(mediaController)
 
-                TvApp(
-                    viewModel = viewModel,
-                    mediaController = mediaController,
-                    playerState = playerState,
-                )
+                    TvApp(
+                        viewModel = viewModel,
+                        mediaController = mediaController,
+                        playerState = playerState,
+                    )
+                }
             }
         }
     }

@@ -65,7 +65,12 @@ import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import com.music.bitchord.ui.tv.components.TvButton
 import com.music.bitchord.ui.tv.components.TvDialog
-import com.music.bitchord.ui.tv.focus.tvButtonFocus
+import com.music.bitchord.ui.tv.components.TvListRow
+import com.music.bitchord.ui.tv.components.TvSegmented
+import com.music.bitchord.ui.tv.components.tvInitialFocus
+import com.music.bitchord.ui.tv.theme.TvGlass
+import com.music.bitchord.ui.tv.theme.TvType
+import androidx.compose.foundation.layout.heightIn
 import com.music.bitchord.ui.tv.theme.AppleSpringPreset
 import com.music.bitchord.ui.tv.theme.TvSFProDisplay
 import com.music.bitchord.ui.tv.theme.TvThemeColors
@@ -75,34 +80,27 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private enum class EqTab(val label: String) {
-    MANUAL("7-Band Graphic EQ"),
-    PRESETS("Apple TV Presets"),
+    BANDS("Bands"),
+    PRESETS("Presets"),
 }
 
 /**
- * 1:1 Apple TV Pro Equalizer Dialog.
- *
- * Implements:
- * 1. 7-Band Graphic Equalizer with vertical Apple TV glass faders, center-baseline fill,
- *    D-pad step control (Up/Down adjusts dB gain, Left/Right changes frequency band).
- * 2. Full Apple TV Genre Presets with pure basic white selection checkmarks (Zero pink).
- * 3. Segmented Apple TV top tab switcher with tactile press bounce animations.
- * 4. High-contrast typography and instant persistent sync with AndroidX audio DSP pipeline.
+ * The equalizer as a tvOS sheet: on/off at the top, then either seven band
+ * faders (left and right pick a band, up and down set its gain, select resets
+ * it) or the list of presets.
  */
 @Composable
 fun TvEqualizerDialog(
     onDismiss: () -> Unit,
 ) {
-    val palette = TvThemeColors.current
     val enabled by AppSettings.equalizerEnabled.collectAsState()
     val currentPreset by AppSettings.equalizerPreset.collectAsState()
     val bands by AppSettings.equalizerBands.collectAsState()
-
-    var selectedTab by remember { mutableStateOf(EqTab.MANUAL) }
+    var tab by remember { mutableStateOf(EqTab.BANDS) }
 
     val presets: List<Pair<EqualizerPreset, String>> = remember {
         listOf(
-            EqualizerPreset.FLAT to "Off (Flat)",
+            EqualizerPreset.FLAT to "Flat",
             EqualizerPreset.ACOUSTIC to "Acoustic",
             EqualizerPreset.BASS_BOOST to "Bass Booster",
             EqualizerPreset.BASS_CUT to "Bass Reducer",
@@ -121,348 +119,84 @@ fun TvEqualizerDialog(
         )
     }
 
-    TvDialog(
-        title = "Equalizer",
-        onDismissRequest = onDismiss,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            // Top Row: Apple Segmented Pill Tabs & Status Indicator
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // Segmented Tabs [ 7-Band Graphic EQ | Apple TV Presets ]
+    TvDialog(title = "Equalizer", width = 640.dp, onDismissRequest = onDismiss) {
+        TvListRow(
+            title = "Equalizer",
+            value = if (enabled) "On" else "Off",
+            modifier = Modifier.tvInitialFocus(),
+            onClick = { AppSettings.setEqualizerEnabled(!enabled) },
+        )
+        Spacer(modifier = Modifier.height(18.dp))
+        TvSegmented(
+            options = EqTab.entries.map { it.label },
+            selectedIndex = tab.ordinal,
+            onSelect = { tab = EqTab.entries[it] },
+        )
+        Spacer(modifier = Modifier.height(18.dp))
+        when (tab) {
+            EqTab.BANDS -> {
                 Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    EqTab.entries.forEach { tab ->
-                        val isSelected = selectedTab == tab
-                        val interactionSource = remember { MutableInteractionSource() }
-                        val isFocused by interactionSource.collectIsFocusedAsState()
-                        val isPressed by interactionSource.collectIsPressedAsState()
-
-                        val targetScale = when {
-                            isPressed -> 0.95f
-                            isFocused -> 1.04f
-                            else -> 1.0f
-                        }
-                        val tabScale by animateFloatAsState(
-                            targetValue = targetScale,
-                            animationSpec = appleSpring(AppleSpringPreset.Snappy),
-                            label = "eqTabScale",
-                        )
-
-                        val tabBg by animateColorAsState(
-                            targetValue = when {
-                                isFocused && isSelected -> Color.White
-                                isFocused -> Color.White.copy(alpha = 0.25f)
-                                isSelected -> Color.White
-                                else -> Color.Transparent
+                    EqLayout.MANUAL_BANDS_HZ.forEachIndexed { index, hz ->
+                        TvBandFader(
+                            hz = hz,
+                            gainDb = bands.getOrElse(index) { 0f },
+                            enabled = enabled,
+                            onGainChange = { newDb ->
+                                val updated = bands.toMutableList().also {
+                                    while (it.size <= index) it.add(0f)
+                                    it[index] = newDb
+                                }
+                                AppSettings.setEqualizerBands(updated)
+                                if (!enabled) AppSettings.setEqualizerEnabled(true)
                             },
-                            animationSpec = appleSpring(AppleSpringPreset.Snappy),
-                            label = "eqTabBg",
-                        )
-
-                        val textColor = when {
-                            isSelected -> Color.Black
-                            isFocused -> Color.White
-                            else -> Color.White.copy(alpha = 0.70f)
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .graphicsLayer {
-                                    scaleX = tabScale
-                                    scaleY = tabScale
+                            onReset = {
+                                val updated = bands.toMutableList().also {
+                                    if (it.size > index) it[index] = 0f
                                 }
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(tabBg)
-                                .clickable(
-                                    interactionSource = interactionSource,
-                                    indication = null,
-                                    onClick = { selectedTab = tab },
-                                )
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = tab.label,
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                fontFamily = TvSFProDisplay,
-                                color = textColor,
-                            )
-                        }
+                                AppSettings.setEqualizerBands(updated)
+                            },
+                        )
                     }
                 }
-
-                // EQ Status Pill (Active / Bypass)
-                val interactionSource = remember { MutableInteractionSource() }
-                val isFocused by interactionSource.collectIsFocusedAsState()
-                val isPressed by interactionSource.collectIsPressedAsState()
-
-                val targetScale = when {
-                    isPressed -> 0.95f
-                    isFocused -> 1.04f
-                    else -> 1.0f
-                }
-                val scale by animateFloatAsState(
-                    targetValue = targetScale,
-                    animationSpec = appleSpring(AppleSpringPreset.Snappy),
-                    label = "eqStatusScale",
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "Up and down set a band. Select resets it.",
+                    style = TvType.Caption,
+                    color = TvGlass.TextTertiary,
                 )
-
-                Box(
-                    modifier = Modifier
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                        }
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (enabled) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f))
-                        .tvButtonFocus(
-                            shape = RoundedCornerShape(12.dp),
-                            focusedScale = 1.0f,
-                            onClick = { AppSettings.setEqualizerEnabled(!enabled) },
-                        )
-                        .padding(horizontal = 14.dp, vertical = 7.dp),
-                ) {
-                    Text(
-                        text = if (enabled) "EQ Active • ${currentPreset.name}" else "EQ Bypassed",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = TvSFProDisplay,
-                        color = if (enabled) Color.White else palette.textMuted,
-                    )
-                }
+                Spacer(modifier = Modifier.height(18.dp))
+                TvButton(
+                    text = "Reset All",
+                    onClick = {
+                        AppSettings.setEqualizerBands(List(EqLayout.MANUAL_COUNT) { 0f })
+                        AppSettings.setEqualizerPreset(EqualizerPreset.FLAT)
+                    },
+                )
             }
-
-            AnimatedContent(
-                targetState = selectedTab,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = "eqTabTransition",
-            ) { tab ->
-                when (tab) {
-                    EqTab.MANUAL -> {
-                        // 7-BAND MANUAL GRAPHIC EQUALIZER
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            Text(
-                                text = "Use D-pad \u2190 / \u2192 to select frequency, \u2191 / \u2193 to adjust dB gain (-12dB to +12dB).",
-                                fontSize = 13.sp,
-                                color = palette.textSecondary,
-                                fontFamily = TvSFProDisplay,
-                            )
-
-                            // 7 Faders Row
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(Color.White.copy(alpha = 0.04f))
-                                    .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
-                                    .padding(vertical = 18.dp, horizontal = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                EqLayout.MANUAL_BANDS_HZ.forEachIndexed { index, hz ->
-                                    val currentDb = bands.getOrElse(index) { 0f }
-                                    TvBandFader(
-                                        hz = hz,
-                                        gainDb = currentDb,
-                                        enabled = enabled,
-                                        onGainChange = { newDb ->
-                                            val updated = bands.toMutableList().also {
-                                                while (it.size <= index) it.add(0f)
-                                                it[index] = newDb
-                                            }
-                                            AppSettings.setEqualizerBands(updated)
-                                            if (!enabled) AppSettings.setEqualizerEnabled(true)
-                                        },
-                                        onReset = {
-                                            val updated = bands.toMutableList().also {
-                                                if (it.size > index) it[index] = 0f
-                                            }
-                                            AppSettings.setEqualizerBands(updated)
-                                        },
-                                    )
-                                }
-                            }
-
-                            // Quick Action Buttons
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                TvButton(
-                                    text = "Reset All (Flat)",
-                                    icon = Icons.Default.RestartAlt,
-                                    isPrimary = false,
-                                    onClick = {
-                                        AppSettings.setEqualizerBands(List(EqLayout.MANUAL_COUNT) { 0f })
-                                        AppSettings.setEqualizerPreset(EqualizerPreset.FLAT)
-                                    },
-                                )
-
-                                TvButton(
-                                    text = "Bass Boost",
-                                    icon = Icons.Default.Tune,
-                                    isPrimary = false,
-                                    onClick = {
-                                        AppSettings.setEqualizerPreset(EqualizerPreset.BASS_BOOST)
-                                        AppSettings.setEqualizerEnabled(true)
-                                    },
-                                )
-
-                                TvButton(
-                                    text = "Vocal Boost",
-                                    icon = Icons.Default.GraphicEq,
-                                    isPrimary = false,
-                                    onClick = {
-                                        AppSettings.setEqualizerPreset(EqualizerPreset.VOCAL)
-                                        AppSettings.setEqualizerEnabled(true)
-                                    },
-                                )
-
-                                Spacer(modifier = Modifier.weight(1f))
-
-                                TvButton(
-                                    text = "Done",
-                                    isPrimary = true,
-                                    onClick = onDismiss,
-                                )
-                            }
-                        }
+            EqTab.PRESETS -> LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items(presets) { (preset, label) ->
+                    val selected = if (preset == EqualizerPreset.FLAT) {
+                        !enabled || currentPreset == preset
+                    } else {
+                        enabled && currentPreset == preset
                     }
-
-                    EqTab.PRESETS -> {
-                        // APPLE TV GENRE PRESET LIST
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Text(
-                                text = "Select an Apple TV preset curve to optimize audio response for your listening setup.",
-                                fontSize = 13.sp,
-                                color = palette.textSecondary,
-                                fontFamily = TvSFProDisplay,
-                            )
-
-                            LazyColumn(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxHeight(0.72f),
-                            ) {
-                                items(presets) { (preset, label) ->
-                                    val isSelected = if (preset == EqualizerPreset.FLAT) {
-                                        !enabled || currentPreset == preset
-                                    } else {
-                                        enabled && currentPreset == preset
-                                    }
-
-                                    val interactionSource = remember { MutableInteractionSource() }
-                                    val isFocused by interactionSource.collectIsFocusedAsState()
-                                    val isPressed by interactionSource.collectIsPressedAsState()
-
-                                    val targetScale = when {
-                                        isPressed -> 0.96f
-                                        isFocused -> 1.02f
-                                        else -> 1.0f
-                                    }
-                                    val itemScale by animateFloatAsState(
-                                        targetValue = targetScale,
-                                        animationSpec = appleSpring(AppleSpringPreset.Snappy),
-                                        label = "presetItemScale",
-                                    )
-
-                                    val itemBg by animateColorAsState(
-                                        targetValue = when {
-                                            isFocused -> Color.White
-                                            isSelected -> Color.White.copy(alpha = 0.16f)
-                                            else -> Color.Transparent
-                                        },
-                                        animationSpec = appleSpring(AppleSpringPreset.Snappy),
-                                        label = "presetItemBg",
-                                    )
-
-                                    val itemTextColor = when {
-                                        isFocused -> Color.Black
-                                        isSelected -> Color.White
-                                        else -> palette.textSecondary
-                                    }
-
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .graphicsLayer {
-                                                scaleX = itemScale
-                                                scaleY = itemScale
-                                            }
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(itemBg)
-                                            .tvButtonFocus(
-                                                shape = RoundedCornerShape(12.dp),
-                                                focusedScale = 1.0f,
-                                                onClick = {
-                                                    if (preset == EqualizerPreset.FLAT) {
-                                                        AppSettings.setEqualizerEnabled(false)
-                                                        AppSettings.setEqualizerPreset(preset)
-                                                    } else {
-                                                        AppSettings.setEqualizerEnabled(true)
-                                                        AppSettings.setEqualizerPreset(preset)
-                                                    }
-                                                },
-                                            )
-                                            .padding(horizontal = 20.dp, vertical = 13.dp),
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Text(
-                                                text = label,
-                                                fontSize = 16.sp,
-                                                fontWeight = if (isSelected || isFocused) FontWeight.Bold else FontWeight.Medium,
-                                                fontFamily = TvSFProDisplay,
-                                                color = itemTextColor,
-                                            )
-
-                                            if (isSelected) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = "Selected",
-                                                    tint = if (isFocused) Color.Black else Color.White,
-                                                    modifier = Modifier.size(20.dp),
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                            ) {
-                                TvButton(
-                                    text = "Done",
-                                    isPrimary = true,
-                                    onClick = onDismiss,
-                                )
-                            }
-                        }
-                    }
+                    TvListRow(
+                        title = label,
+                        trailingIcon = if (selected) Icons.Default.Check else null,
+                        onClick = {
+                            AppSettings.setEqualizerEnabled(preset != EqualizerPreset.FLAT)
+                            AppSettings.setEqualizerPreset(preset)
+                        },
+                    )
                 }
             }
         }

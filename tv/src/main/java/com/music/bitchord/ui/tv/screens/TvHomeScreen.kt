@@ -1,27 +1,27 @@
 package com.music.bitchord.ui.tv.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.media3.session.MediaController
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.HomeShelf
@@ -30,14 +30,18 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.ui.tv.components.TvActivityIndicator
 import com.music.bitchord.ui.tv.components.TvCard
+import com.music.bitchord.ui.tv.components.TvChromeScrollEffect
 import com.music.bitchord.ui.tv.components.TvEmptyState
 import com.music.bitchord.ui.tv.components.TvErrorState
-import com.music.bitchord.ui.tv.components.TvSectionHeader
-import com.music.bitchord.ui.tv.components.TvShelfSkeleton
-import com.music.bitchord.ui.tv.theme.TvColors
+import com.music.bitchord.ui.tv.components.ProvideTvFeedScrolling
+import com.music.bitchord.ui.tv.components.TvLockup
+import com.music.bitchord.ui.tv.components.TvShelf
+import com.music.bitchord.ui.tv.components.TvShelfPlaceholder
+import com.music.bitchord.ui.tv.dialogs.TvSongMenu
 import com.music.bitchord.ui.tv.theme.TvDimensions
-import com.music.bitchord.ui.tv.theme.TvSFProDisplay
+import kotlinx.coroutines.launch
 
 @Composable
 fun TvHomeScreen(
@@ -48,198 +52,210 @@ fun TvHomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val homeState by viewModel.home.collectAsState()
-    val coroutineScope = rememberCoroutineScope()
+    val loadingMore by viewModel.homeLoadingMore.collectAsState()
+    val scope = rememberCoroutineScope()
+    var menuSong by remember { mutableStateOf<Song?>(null) }
 
     when (val state = homeState) {
-        is UiState.Loading -> {
-            Column(
-                modifier = modifier
-                    .fillMaxSize()
-                    .padding(
-                        horizontal = TvDimensions.SafeMarginHorizontal,
-                        vertical = TvDimensions.SafeMarginVertical,
-                    ),
-            ) {
-                TvShelfSkeleton(itemCount = 5)
-                Spacer(modifier = Modifier.height(TvDimensions.ShelfSpacing))
-                TvShelfSkeleton(itemCount = 5)
-            }
-        }
-        is UiState.Error -> {
-            TvErrorState(
-                message = state.message,
-                onRetry = { viewModel.refresh(MainViewModel.Feed.HOME) },
-                modifier = modifier,
-            )
-        }
+        is UiState.Loading -> TvShelvesLoading(modifier)
+        is UiState.Error -> TvErrorState(
+            message = state.message,
+            onRetry = { viewModel.refresh(MainViewModel.Feed.HOME) },
+            modifier = modifier,
+        )
         is UiState.Success -> {
-            val shelves = state.data
-            if (shelves.isEmpty()) {
+            if (state.data.isEmpty()) {
                 TvEmptyState(
-                    title = "Nothing to display",
-                    message = "Connect to the internet or sign in to load your music feed.",
+                    title = "Nothing Here Yet",
+                    message = "Sign in from Settings, or check your connection, to see your recommendations.",
                     modifier = modifier,
                 )
             } else {
-                TvHomeFeed(
-                    shelves = shelves,
+                TvShelfFeed(
+                    shelves = state.data,
+                    loadingMore = loadingMore,
+                    onNearEnd = { viewModel.loadMoreHome() },
                     onPlaySong = { song ->
-                        coroutineScope.launch {
-                            mediaController?.playSongs(listOf(song), 0)
-                        }
+                        scope.launch { mediaController?.playSongs(listOf(song), 0) }
                         onNavigateToNowPlaying()
                     },
+                    onSongMenu = { menuSong = it },
                     onNavigateToDetail = onNavigateToDetail,
+                    picksFirst = true,
                     modifier = modifier,
                 )
             }
         }
     }
+
+    menuSong?.let { song ->
+        TvSongMenu(
+            song = song,
+            viewModel = viewModel,
+            mediaController = mediaController,
+            onNavigateToDetail = onNavigateToDetail,
+            onDismiss = { menuSong = null },
+        )
+    }
 }
 
+/** Placeholder shelves while a feed loads. */
 @Composable
-private fun TvHomeFeed(
-    shelves: List<HomeShelf>,
-    onPlaySong: (Song) -> Unit,
-    onNavigateToDetail: (browseId: String, title: String, subtitle: String, thumbnailUrl: String?, type: BrowseType) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val nickname by com.music.bitchord.data.settings.TvSettings.tvNickname.collectAsState()
-    val verticalListState = rememberLazyListState()
-
-    LazyColumn(
-        state = verticalListState,
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = TvDimensions.SafeMarginHorizontal,
-            end = TvDimensions.SafeMarginHorizontal,
-            top = 12.dp,
-            bottom = 120.dp,
-        ),
+internal fun TvShelvesLoading(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(top = TvDimensions.ContentTop + 8.dp),
         verticalArrangement = Arrangement.spacedBy(TvDimensions.ShelfSpacing),
     ) {
-        // Personalized Welcome Header
-        item {
-            Column {
-                Text(
-                    text = "Welcome back, $nickname",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = TvSFProDisplay,
-                    color = TvColors.TextPrimary,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Personalized mixes, trending charts, and new releases",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                    fontFamily = TvSFProDisplay,
-                    color = TvColors.TextSecondary,
-                )
-            }
-        }
-
-        itemsIndexed(
-            items = shelves,
-            key = { index, shelf -> "${shelf.title}_$index" },
-        ) { _, shelf ->
-            TvShelfRow(
-                shelf = shelf,
-                onPlaySong = onPlaySong,
-                onNavigateToDetail = onNavigateToDetail,
-            )
-        }
+        TvShelfPlaceholder(width = 200.dp, count = 5)
+        TvShelfPlaceholder()
     }
 }
 
+/**
+ * A vertical run of shelves under the tab bar — Home, an Explore category, an
+ * artist's releases. With [picksFirst] the first shelf gets the large Top Picks
+ * cards; every other shelf is lockups.
+ */
 @Composable
-private fun TvShelfRow(
-    shelf: HomeShelf,
+internal fun TvShelfFeed(
+    shelves: List<HomeShelf>,
     onPlaySong: (Song) -> Unit,
+    onSongMenu: (Song) -> Unit,
     onNavigateToDetail: (browseId: String, title: String, subtitle: String, thumbnailUrl: String?, type: BrowseType) -> Unit,
     modifier: Modifier = Modifier,
+    picksFirst: Boolean = false,
+    loadingMore: Boolean = false,
+    onNearEnd: (() -> Unit)? = null,
+    header: (@Composable () -> Unit)? = null,
 ) {
-    val horizontalRowState = rememberLazyListState()
+    val listState = rememberLazyListState()
+    TvChromeScrollEffect(listState)
 
-    Column(modifier = modifier) {
-        TvSectionHeader(title = shelf.title)
+    if (onNearEnd != null) {
+        val nearEnd by remember(listState) {
+            derivedStateOf {
+                val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                last >= listState.layoutInfo.totalItemsCount - 3
+            }
+        }
+        LaunchedEffect(nearEnd, shelves.size) { if (nearEnd) onNearEnd() }
+    }
 
-        Spacer(modifier = Modifier.height(10.dp))
-
-        LazyRow(
-            state = horizontalRowState,
-            horizontalArrangement = Arrangement.spacedBy(TvDimensions.CardSpacing),
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-        ) {
-            itemsIndexed(
-                items = shelf.items,
-                key = { index, item -> "${item.videoId ?: item.browseId ?: item.title}_$index" },
-            ) { _, item ->
-                TvShelfItemCard(
-                    item = item,
-                    onPlaySong = onPlaySong,
-                    onNavigateToDetail = onNavigateToDetail,
-                )
+    // The first shelf's cards rest just under its title: ContentTop, the title's
+    // line, then the row's own top padding. Every focused shelf stops there.
+    ProvideTvFeedScrolling(anchor = TvDimensions.ContentTop + 24.dp + 14.dp) {
+    LazyColumn(
+        state = listState,
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = TvDimensions.ContentTop, bottom = 56.dp),
+        verticalArrangement = Arrangement.spacedBy(TvDimensions.ShelfSpacing - 14.dp),
+    ) {
+        if (header != null) {
+            item(key = "header", contentType = "header") { header() }
+        }
+        itemsIndexed(
+            items = shelves,
+            key = { index, shelf -> "${shelf.title}#$index" },
+            contentType = { index, shelf ->
+                when {
+                    picksFirst && index == 0 -> "picks"
+                    shelf.isArtistShelf() -> "artists"
+                    else -> "lockups"
+                }
+            },
+        ) { index, shelf ->
+            val onItem: (ShelfItem) -> Unit = { item ->
+                openShelfItem(item, onPlaySong, onNavigateToDetail)
+            }
+            val onItemMenu: (ShelfItem) -> (() -> Unit)? = { item ->
+                item.toSong()?.let { song -> { onSongMenu(song) } }
+            }
+            when {
+                picksFirst && index == 0 -> TvShelf(
+                    title = shelf.title,
+                    subtitle = shelf.subtitle.takeIf { it.isNotBlank() },
+                    items = shelf.items,
+                    key = { it.itemKey() },
+                ) { item ->
+                    TvCard(
+                        title = item.title,
+                        subtitle = item.subtitle,
+                        artworkUrl = item.thumbnailUrl,
+                        cardWidth = 204.dp,
+                        onClick = { onItem(item) },
+                        onLongClick = onItemMenu(item),
+                    )
+                }
+                shelf.isArtistShelf() -> TvShelf(
+                    title = shelf.title,
+                    subtitle = shelf.subtitle.takeIf { it.isNotBlank() },
+                    items = shelf.items,
+                    key = { it.itemKey() },
+                ) { item ->
+                    TvLockup(
+                        title = item.title,
+                        subtitle = null,
+                        artworkUrl = item.thumbnailUrl,
+                        circle = true,
+                        width = 150.dp,
+                        onClick = { onItem(item) },
+                    )
+                }
+                else -> TvShelf(
+                    title = shelf.title,
+                    subtitle = shelf.subtitle.takeIf { it.isNotBlank() },
+                    items = shelf.items,
+                    key = { it.itemKey() },
+                ) { item ->
+                    TvLockup(
+                        title = item.title,
+                        subtitle = item.subtitle,
+                        artworkUrl = item.thumbnailUrl,
+                        width = 164.dp,
+                        onClick = { onItem(item) },
+                        onLongClick = onItemMenu(item),
+                    )
+                }
+            }
+        }
+        if (loadingMore) {
+            item(key = "more", contentType = "more") {
+                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    TvActivityIndicator()
+                }
             }
         }
     }
+    }
 }
 
-@Composable
-private fun TvShelfItemCard(
+private fun ShelfItem.itemKey(): String = videoId ?: browseId ?: title
+
+private fun HomeShelf.isArtistShelf(): Boolean =
+    items.isNotEmpty() && items.count { it.browseId?.startsWith("UC") == true } * 2 > items.size
+
+internal fun ShelfItem.toSong(): Song? = videoId?.let {
+    Song(videoId = it, title = title, artist = subtitle, thumbnailUrl = thumbnailUrl)
+}
+
+internal fun browseTypeOf(browseId: String): BrowseType = when {
+    browseId.startsWith("UC") || browseId.startsWith("FEmusic_artist") -> BrowseType.ARTIST
+    browseId.startsWith("MPRE") || browseId.startsWith("FEmusic_album") -> BrowseType.ALBUM
+    browseId.startsWith("VL") || browseId.startsWith("PL") || browseId.startsWith("RD") || browseId == "LM" -> BrowseType.PLAYLIST
+    else -> BrowseType.OTHER
+}
+
+internal fun openShelfItem(
     item: ShelfItem,
     onPlaySong: (Song) -> Unit,
     onNavigateToDetail: (browseId: String, title: String, subtitle: String, thumbnailUrl: String?, type: BrowseType) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    val isTrack = item.videoId != null
-    val isArtist = item.browseId?.startsWith("UC") == true
-
-    TvCard(
-        title = item.title,
-        subtitle = item.subtitle,
-        artworkUrl = item.thumbnailUrl,
-        categoryLabel = when {
-            isTrack -> "Track"
-            isArtist -> "Artist"
-            item.browseId?.startsWith("MPRE") == true -> "New Release"
-            item.browseId?.startsWith("VL") == true -> "Made For You"
-            else -> "Featured"
-        },
-        isCircle = isArtist,
-        badge = when {
-            isTrack -> "Song"
-            isArtist -> "Artist"
-            item.browseId?.startsWith("MPRE") == true -> "Album"
-            item.browseId?.startsWith("VL") == true -> "Playlist"
-            else -> null
-        },
-        onClick = {
-            if (isTrack && item.videoId != null) {
-                onPlaySong(
-                    Song(
-                        videoId = item.videoId.orEmpty(),
-                        title = item.title,
-                        artist = item.subtitle,
-                        thumbnailUrl = item.thumbnailUrl,
-                    ),
-                )
-            } else if (item.browseId != null) {
-                val type = when {
-                    isArtist -> BrowseType.ARTIST
-                    item.browseId.orEmpty().startsWith("MPRE") -> BrowseType.ALBUM
-                    item.browseId.orEmpty().startsWith("VL") -> BrowseType.PLAYLIST
-                    else -> BrowseType.OTHER
-                }
-                onNavigateToDetail(
-                    item.browseId.orEmpty(),
-                    item.title,
-                    item.subtitle,
-                    item.thumbnailUrl,
-                    type,
-                )
-            }
-        },
-        modifier = modifier,
-    )
+    val song = item.toSong()
+    val browseId = item.browseId
+    when {
+        song != null -> onPlaySong(song)
+        browseId != null -> onNavigateToDetail(browseId, item.title, item.subtitle, item.thumbnailUrl, browseTypeOf(browseId))
+    }
 }

@@ -11,18 +11,18 @@ enum class AppThemeOption(
 ) {
     DYNAMIC_ARTWORK(
         id = "dynamic_artwork",
-        title = "Dynamic Artwork",
-        description = "Apple Music luxury dark base with dynamic artwork-derived accent highlights.",
+        title = "Artwork",
+        description = "Dark, softly tinted by the artwork of what's playing.",
     ),
     MIDNIGHT(
         id = "midnight",
         title = "Midnight",
-        description = "Deep charcoal-navy background with cool sapphire and violet accents.",
+        description = "A deep navy background.",
     ),
     PURE_BLACK(
         id = "pure_black",
-        title = "Pure Black (OLED)",
-        description = "True #000000 pitch black canvas engineered for maximum OLED contrast.",
+        title = "Pure Black",
+        description = "True black, for OLED screens.",
     );
 
     companion object {

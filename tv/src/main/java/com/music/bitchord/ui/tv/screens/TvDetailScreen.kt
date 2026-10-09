@@ -5,70 +5,68 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.session.MediaController
-import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.request.crossfade
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.UiState
+import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.ui.MainViewModel
+import com.music.bitchord.ui.tv.components.ProvideTvComfortScrolling
+import com.music.bitchord.ui.tv.components.TvActivityIndicator
+import com.music.bitchord.ui.tv.components.TvArtwork
 import com.music.bitchord.ui.tv.components.TvButton
+import com.music.bitchord.ui.tv.components.TvChromeScrollEffect
 import com.music.bitchord.ui.tv.components.TvEmptyState
 import com.music.bitchord.ui.tv.components.TvErrorState
-import com.music.bitchord.ui.tv.focus.tvButtonFocus
-import com.music.bitchord.ui.tv.theme.TvColors
+import com.music.bitchord.ui.tv.components.TvLockup
+import com.music.bitchord.ui.tv.components.TvShelf
+import com.music.bitchord.ui.tv.components.TvShelfTitle
+import com.music.bitchord.ui.tv.components.TvSongRow
+import com.music.bitchord.ui.tv.components.rememberDominantCardColor
+import com.music.bitchord.ui.tv.dialogs.TvSongMenu
 import com.music.bitchord.ui.tv.theme.TvDimensions
-import com.music.bitchord.ui.tv.theme.TvSFProDisplay
+import com.music.bitchord.ui.tv.theme.TvGlass
+import com.music.bitchord.ui.tv.theme.TvType
+import kotlinx.coroutines.launch
 
 @Composable
 fun TvDetailScreen(
@@ -79,244 +77,225 @@ fun TvDetailScreen(
     type: BrowseType,
     viewModel: MainViewModel,
     mediaController: MediaController?,
+    playerState: PlayerState,
+    onNavigateToDetail: (browseId: String, title: String, subtitle: String, thumbnailUrl: String?, type: BrowseType) -> Unit,
     onNavigateToNowPlaying: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val detailStack by viewModel.detailStack.collectAsState()
     val page = detailStack.lastOrNull { it.browseId == browseId }
+    val scope = rememberCoroutineScope()
+    var menuSong by remember { mutableStateOf<Song?>(null) }
 
-    // Storage permission launcher for scanning device audio & USB pendrives
-    val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         arrayOf(Manifest.permission.READ_MEDIA_AUDIO)
     } else {
         arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions(),
-    ) {
-        viewModel.openDetail(browseId, initialTitle, initialSubtitle, initialThumbnailUrl, type)
+    val reopen = { viewModel.openDetail(browseId, initialTitle, initialSubtitle, initialThumbnailUrl, type) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        reopen()
     }
 
-    LaunchedEffect(browseId) {
-        if (page == null) {
-            viewModel.openDetail(browseId, initialTitle, initialSubtitle, initialThumbnailUrl, type)
-        }
+    LaunchedEffect(browseId) { if (page == null) reopen() }
+
+    val play: (List<Song>, Int) -> Unit = { songs, index ->
+        scope.launch { mediaController?.playSongs(songs, index) }
+        onNavigateToNowPlaying()
     }
+    val shuffle: (List<Song>) -> Unit = { songs -> if (songs.isNotEmpty()) play(songs.shuffled(), 0) }
 
-    val coroutineScope = rememberCoroutineScope()
-
-    if (page == null) {
-        Box(
-            modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            com.music.bitchord.ui.tv.components.TvBottomLoadingBar(visible = true)
-        }
-    } else {
-        TvDetailContent(
+    if ((page?.type ?: type) == BrowseType.ARTIST) {
+        TvArtistContent(
             page = page,
-            onRequestStoragePermission = { permissionLauncher.launch(permissionsToRequest) },
-            onRetry = { viewModel.openDetail(browseId, initialTitle, initialSubtitle, initialThumbnailUrl, type) },
-            onPlaySongAt = { songs, index ->
-                coroutineScope.launch {
-                    mediaController?.playSongs(songs, index)
-                }
-                onNavigateToNowPlaying()
-            },
-            onShufflePlay = { songs ->
-                if (songs.isNotEmpty()) {
-                    coroutineScope.launch {
-                        mediaController?.playSongs(songs.shuffled(), 0)
-                    }
-                    onNavigateToNowPlaying()
-                }
-            },
+            title = page?.title ?: initialTitle,
+            artworkUrl = page?.thumbnailUrl ?: initialThumbnailUrl,
+            playingId = playerState.song?.videoId,
+            isPlaying = playerState.isPlaying,
+            onPlay = play,
+            onShuffle = shuffle,
+            onSongMenu = { menuSong = it },
+            onToggleSubscription = { viewModel.toggleSubscription(browseId) },
+            onRetry = reopen,
+            onNavigateToDetail = onNavigateToDetail,
             modifier = modifier,
+        )
+    } else {
+        TvReleaseContent(
+            page = page,
+            title = page?.title ?: initialTitle,
+            subtitle = page?.subtitle ?: initialSubtitle,
+            artworkUrl = page?.thumbnailUrl ?: initialThumbnailUrl,
+            type = page?.type ?: type,
+            playingId = playerState.song?.videoId,
+            isPlaying = playerState.isPlaying,
+            onPlay = play,
+            onShuffle = shuffle,
+            onSongMenu = { menuSong = it },
+            onRetry = reopen,
+            onRequestPermission = { permissionLauncher.launch(permissions) },
+            onNavigateToDetail = onNavigateToDetail,
+            modifier = modifier,
+        )
+    }
+
+    menuSong?.let { song ->
+        TvSongMenu(
+            song = song,
+            viewModel = viewModel,
+            mediaController = mediaController,
+            onNavigateToDetail = onNavigateToDetail,
+            onDismiss = { menuSong = null },
         )
     }
 }
 
+/**
+ * An album or a playlist, as Apple Music lays one out: a header — the large
+ * cover, then title, artist, how long it runs, the blurb and the circle action
+ * row — over a full-width track list with hairline separators. Albums number
+ * their tracks; playlists show each track's own cover. The page is washed in a
+ * colour taken from the cover.
+ */
 @Composable
-private fun TvDetailContent(
-    page: DetailPage,
-    onRequestStoragePermission: () -> Unit,
+private fun TvReleaseContent(
+    page: DetailPage?,
+    title: String,
+    subtitle: String,
+    artworkUrl: String?,
+    type: BrowseType,
+    playingId: String?,
+    isPlaying: Boolean,
+    onPlay: (List<Song>, Int) -> Unit,
+    onShuffle: (List<Song>) -> Unit,
+    onSongMenu: (Song) -> Unit,
     onRetry: () -> Unit,
-    onPlaySongAt: (List<Song>, Int) -> Unit,
-    onShufflePlay: (List<Song>) -> Unit,
+    onRequestPermission: () -> Unit,
+    onNavigateToDetail: (browseId: String, title: String, subtitle: String, thumbnailUrl: String?, type: BrowseType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val songs = when (val s = page.songs) {
-        is UiState.Success -> s.data
-        else -> emptyList()
-    }
+    val songsState = page?.songs
+    val songs = (songsState as? UiState.Success)?.data.orEmpty()
+    val suggested = page?.suggestedSongs.orEmpty()
+    val numbered = type == BrowseType.ALBUM
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    TvChromeScrollEffect(listState)
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(
-                start = TvDimensions.SafeMarginHorizontal,
-                end = TvDimensions.SafeMarginHorizontal,
-                top = 16.dp,
-                bottom = 40.dp,
-            ),
-        horizontalArrangement = Arrangement.spacedBy(36.dp),
-    ) {
-        // Left Pane: Metadata & Action Buttons
-        Column(
-            modifier = Modifier
-                .weight(0.38f)
-                .fillMaxHeight(),
+    // The cover's colour, washed down from the top of the page.
+    val tint = animateColorAsState(
+        targetValue = rememberDominantCardColor(artworkUrl, Color.Transparent),
+        animationSpec = tween(500),
+        label = "releaseTint",
+    )
+
+    ProvideTvComfortScrolling(top = TvDimensions.ContentTop, bottom = 72.dp) {
+        LazyColumn(
+            state = listState,
+            modifier = modifier
+                .fillMaxSize()
+                .drawBehind {
+                    drawRect(
+                        Brush.verticalGradient(
+                            0f to tint.value.copy(alpha = tint.value.alpha * 0.8f),
+                            0.75f to Color.Transparent,
+                        ),
+                    )
+                },
+            contentPadding = PaddingValues(top = TvDimensions.ContentTop + 6.dp, bottom = 56.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(if (page.type == BrowseType.ARTIST) CircleShape else RoundedCornerShape(18.dp))
-                    .background(TvColors.SurfaceVariant),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (!page.thumbnailUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(page.thumbnailUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = page.title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
+            item(key = "header") {
+                TvReleaseHeader(
+                    title = title,
+                    subtitle = subtitle,
+                    artworkUrl = artworkUrl,
+                    summary = songs.summary(),
+                    description = page?.description,
+                    canPlay = songs.isNotEmpty(),
+                    onPlay = { onPlay(songs, 0) },
+                    onShuffle = { onShuffle(songs) },
+                    onActionsFocused = { scope.launch { listState.animateScrollToItem(0) } },
+                )
+            }
+
+            when (songsState) {
+                null, UiState.Loading -> item(key = "loading") {
+                    Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                        TvActivityIndicator()
+                    }
+                }
+                is UiState.Error -> item(key = "error") {
+                    if (songsState.message.contains("permission", ignoreCase = true)) {
+                        TvEmptyState(
+                            title = "Allow Access to Music",
+                            message = "BitChord needs permission to read music on this TV and on connected USB drives.",
+                            modifier = Modifier.height(280.dp),
+                            action = { TvButton(text = "Allow Access", onClick = onRequestPermission) },
+                        )
+                    } else {
+                        TvErrorState(message = songsState.message, onRetry = onRetry, modifier = Modifier.height(280.dp))
+                    }
+                }
+                is UiState.Success -> if (songs.isEmpty()) {
+                    item(key = "empty") {
+                        TvEmptyState(
+                            title = "No Songs",
+                            message = "There's nothing to play here yet.",
+                            modifier = Modifier.height(260.dp),
+                        )
+                    }
+                } else {
+                    itemsIndexed(songs, key = { index, song -> "${song.videoId}#$index" }) { index, song ->
+                        TvTrackLine(
+                            song = song,
+                            number = if (numbered) index + 1 else null,
+                            isCurrent = song.videoId == playingId,
+                            isPlaying = isPlaying,
+                            divider = index < songs.lastIndex,
+                            onClick = { onPlay(songs, index) },
+                            onLongClick = { onSongMenu(song) },
+                        )
+                    }
+                }
+            }
+
+            // Tracks YouTube offers to round a playlist out, kept apart from
+            // the playlist's own — as the phone does.
+            if (suggested.isNotEmpty()) {
+                item(key = "suggestedTitle") {
+                    TvShelfTitle(title = "Suggestions", modifier = Modifier.padding(top = 30.dp, bottom = 8.dp))
+                }
+                itemsIndexed(suggested, key = { index, song -> "s:${song.videoId}#$index" }) { index, song ->
+                    TvTrackLine(
+                        song = song,
+                        number = null,
+                        isCurrent = song.videoId == playingId,
+                        isPlaying = isPlaying,
+                        divider = index < suggested.lastIndex,
+                        onClick = { onPlay(suggested, index) },
+                        onLongClick = { onSongMenu(song) },
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
-
-            Text(
-                text = page.title,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = TvSFProDisplay,
-                color = TvColors.TextPrimary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            if (!page.subtitle.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = page.subtitle,
-                    fontSize = 14.sp,
-                    fontFamily = TvSFProDisplay,
-                    color = TvColors.TextSecondary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TvButton(
-                    text = "Play All",
-                    icon = Icons.Default.PlayArrow,
-                    isPrimary = true,
-                    enabled = songs.isNotEmpty(),
-                    onClick = { onPlaySongAt(songs, 0) },
-                )
-
-                TvButton(
-                    text = "Shuffle",
-                    icon = Icons.Default.Shuffle,
-                    isPrimary = false,
-                    enabled = songs.isNotEmpty(),
-                    onClick = { onShufflePlay(songs) },
-                )
-            }
-        }
-
-        // Right Pane: Track List / Permission State
-        Column(
-            modifier = Modifier
-                .weight(0.62f)
-                .fillMaxHeight(),
-        ) {
-            when (val s = page.songs) {
-                is UiState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.BottomCenter,
-                    ) {
-                        com.music.bitchord.ui.tv.components.TvBottomLoadingBar(visible = true)
-                    }
-                }
-                is UiState.Error -> {
-                    if (s.message.contains("permission", ignoreCase = true)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Folder,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(48.dp),
-                            )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Text(
-                                text = "Storage & USB Permission Required",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = TvSFProDisplay,
-                                color = Color.White,
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Allow storage permission to scan and play music from internal storage and attached USB pendrives.",
-                                fontSize = 14.sp,
-                                fontFamily = TvSFProDisplay,
-                                color = TvColors.TextSecondary,
-                                modifier = Modifier.fillMaxWidth(0.7f),
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            TvButton(
-                                text = "Grant Storage Permission",
-                                isPrimary = true,
-                                onClick = onRequestStoragePermission,
-                            )
-                        }
-                    } else {
-                        TvErrorState(
-                            message = s.message,
-                            onRetry = onRetry,
+            page?.sections?.forEachIndexed { index, shelf ->
+                if (shelf.items.isEmpty()) return@forEachIndexed
+                item(key = "section#$index") {
+                    TvShelf(
+                        title = shelf.title,
+                        items = shelf.items,
+                        key = { it.videoId ?: it.browseId ?: it.title },
+                        modifier = Modifier.padding(top = 26.dp),
+                    ) { item ->
+                        TvLockup(
+                            title = item.title,
+                            subtitle = item.subtitle,
+                            artworkUrl = item.thumbnailUrl,
+                            circle = item.browseId?.startsWith("UC") == true,
+                            width = 164.dp,
+                            onClick = { openShelfItem(item, { song -> onPlay(listOf(song), 0) }, onNavigateToDetail) },
                         )
-                    }
-                }
-                is UiState.Success -> {
-                    if (s.data.isEmpty()) {
-                        TvEmptyState(
-                            title = "No tracks available",
-                            message = "This collection does not contain any playable tracks. Connect a USB drive or download music to listen offline.",
-                        )
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(bottom = 80.dp),
-                        ) {
-                            itemsIndexed(
-                                items = s.data,
-                                key = { index, song -> "${song.videoId}_$index" },
-                            ) { index, song ->
-                                TvTrackRow(
-                                    index = index + 1,
-                                    song = song,
-                                    onClick = { onPlaySongAt(s.data, index) },
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -324,92 +303,128 @@ private fun TvDetailContent(
     }
 }
 
+/** The release's header: the cover beside what it is, how long it runs, and the actions. */
 @Composable
-private fun TvTrackRow(
-    index: Int,
-    song: Song,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun TvReleaseHeader(
+    title: String,
+    subtitle: String,
+    artworkUrl: String?,
+    summary: String?,
+    description: String?,
+    canPlay: Boolean,
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+    onActionsFocused: () -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-
-    val animatedBg by animateColorAsState(
-        targetValue = if (isFocused) TvColors.SurfaceFocused else TvColors.SurfaceVariant,
-        label = "trackRowBg",
-    )
-
     Row(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
-            .tvButtonFocus(
-                shape = RoundedCornerShape(12.dp),
-                focusedScale = 1.02f,
-                focusedBorderColor = TvColors.BorderFocused,
-                onClick = onClick,
-            )
-            .background(animatedBg)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = TvDimensions.SafeMarginHorizontal)
+            .padding(bottom = 30.dp),
+        horizontalArrangement = Arrangement.spacedBy(40.dp),
+        verticalAlignment = Alignment.Bottom,
     ) {
-        Text(
-            text = index.toString(),
-            color = if (isFocused) TvColors.AccentRed else TvColors.TextMuted,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = TvSFProDisplay,
-            modifier = Modifier.width(24.dp),
-        )
-
-        Box(
+        val shape = RoundedCornerShape(12.dp)
+        TvArtwork(
+            url = artworkUrl,
+            px = 720,
+            shape = shape,
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(TvColors.Surface),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (!song.thumbnailUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(song.thumbnailUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = song.title,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-        }
-
+                .size(290.dp)
+                .shadow(30.dp, shape),
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = song.title,
-                color = if (isFocused) TvColors.AccentRed else TvColors.TextPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.W600,
-                fontFamily = TvSFProDisplay,
-                maxLines = 1,
+                text = title,
+                style = TvType.LargeTitle.copy(fontSize = 36.sp, lineHeight = 42.sp, fontWeight = FontWeight.W800),
+                color = TvGlass.TextPrimary,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-
-            Text(
-                text = song.artist,
-                color = TvColors.TextSecondary,
-                fontSize = 12.sp,
-                fontFamily = TvSFProDisplay,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+            if (subtitle.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = subtitle,
+                    style = TvType.Body.copy(fontSize = 19.sp, fontWeight = FontWeight.W600),
+                    color = TvGlass.AppleRed,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (!summary.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(text = summary, style = TvType.Callout, color = TvGlass.TextSecondary, maxLines = 1)
+            }
+            if (!description.isNullOrBlank()) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = description,
+                    style = TvType.Callout,
+                    color = TvGlass.TextSecondary,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 640.dp),
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            TvActionRow(
+                canPlay = canPlay,
+                onPlay = onPlay,
+                onShuffle = onShuffle,
+                onFocused = onActionsFocused,
             )
         }
+    }
+}
 
-        if (!song.durationText.isNullOrBlank()) {
-            Text(
-                text = song.durationText.orEmpty(),
-                color = TvColors.TextMuted,
-                fontSize = 13.sp,
-                fontFamily = TvSFProDisplay,
+/** A track line: a [TvSongRow] with a hairline under it, inset to the text. */
+@Composable
+private fun TvTrackLine(
+    song: Song,
+    number: Int?,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    divider: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    Column(modifier = Modifier.padding(horizontal = TvDimensions.SafeMarginHorizontal - 14.dp)) {
+        TvSongRow(
+            song = song,
+            number = number,
+            showArtwork = number == null,
+            isCurrent = isCurrent,
+            isPlaying = isPlaying,
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
+        if (divider) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = if (number != null) 54.dp else 70.dp, end = 14.dp)
+                    .height(1.dp)
+                    .background(TvGlass.Hairline),
             )
         }
+    }
+}
+
+/** "12 songs, 45 minutes" — from the tracks' own durations. */
+private fun List<Song>.summary(): String? {
+    if (isEmpty()) return null
+    val totalSeconds = sumOf { song ->
+        song.durationText
+            ?.split(":")
+            ?.mapNotNull { it.trim().toLongOrNull() }
+            ?.fold(0L) { acc, part -> acc * 60 + part }
+            ?: 0L
+    }
+    val count = if (size == 1) "1 song" else "$size songs"
+    val minutes = totalSeconds / 60
+    return when {
+        totalSeconds <= 0 -> count
+        minutes >= 60 -> "$count, ${minutes / 60} hr ${minutes % 60} min"
+        else -> "$count, $minutes minutes"
     }
 }

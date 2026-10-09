@@ -67,6 +67,12 @@ data class TvColorPalette(
 
     // Whether this is a dark palette
     val isDark: Boolean,
+
+    // tvOS canvas: the two ends of the screen-filling background gradient
+    val canvasTop: Color = Color(0xFF26272C),
+    val canvasBottom: Color = Color(0xFF101012),
+    // Whether the canvas picks up a tint from the playing song's artwork
+    val tintsCanvas: Boolean = true,
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -149,6 +155,9 @@ val TvOledPalette = TvColorPalette(
     ),
 
     isDark = true,
+    canvasTop = Color(0xFF000000),
+    canvasBottom = Color(0xFF000000),
+    tintsCanvas = false,
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -190,6 +199,8 @@ val TvMidnightPalette = TvColorPalette(
     ),
 
     isDark = true,
+    canvasTop = Color(0xFF18213A),
+    canvasBottom = Color(0xFF070A12),
 )
 
 
@@ -455,12 +466,58 @@ fun createTvTypography(palette: TvColorPalette): Typography = Typography(
 object TvDimensions {
     val SafeMarginHorizontal = 48.dp
     val SafeMarginVertical = 27.dp
-    val CardSpacing = 18.dp
-    val ShelfSpacing = 28.dp
+    val CardSpacing = 20.dp
+    val ShelfSpacing = 30.dp
     val TopNavBarHeight = 64.dp
+
+    /** Where scrolling content starts so its first row clears the floating tab bar. */
+    val ContentTop = 86.dp
 
     val NavigationRailWidth = 76.dp
     val NavigationRailExpandedWidth = 220.dp
+}
+
+/**
+ * tvOS "materials" on a dark canvas. Everything is white at an alpha so the same
+ * values read correctly on every theme, and nothing here needs a theme lookup.
+ */
+object TvGlass {
+    /** Resting fill for buttons, rows, the tab bar's capsule. */
+    val Fill = Color.White.copy(alpha = 0.10f)
+    /** Resting fill for a primary button, a touch brighter than [Fill]. */
+    val FillStrong = Color.White.copy(alpha = 0.18f)
+    /** The selected-but-unfocused tab or segment. */
+    val FillSelected = Color.White.copy(alpha = 0.28f)
+    /** The tab bar's own capsule. */
+    val Bar = Color.White.copy(alpha = 0.08f)
+    /** Placeholder behind artwork that hasn't loaded. */
+    val Placeholder = Color(0xFF2E2F33)
+    val Hairline = Color.White.copy(alpha = 0.10f)
+
+    /** The focused platter: tvOS inverts a focused control to white. */
+    val Platter = Color.White
+    val OnPlatter = Color(0xFF0C0C0E)
+    val OnPlatterSecondary = Color(0xFF0C0C0E).copy(alpha = 0.60f)
+
+    val TextPrimary = Color.White
+    val TextSecondary = Color.White.copy(alpha = 0.60f)
+    val TextTertiary = Color.White.copy(alpha = 0.38f)
+
+    /** Apple Music red, kept for the few places that mean "music": playing, liked. */
+    val AppleRed = Color(0xFFFA2D48)
+    val Destructive = Color(0xFFFF453A)
+}
+
+/** The 10-foot type ramp, in the dp space of a 1080p panel (960 × 540 dp). */
+object TvType {
+    val LargeTitle = TextStyle(fontFamily = TvSFProDisplay, fontWeight = FontWeight.W700, fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.4).sp)
+    val Title = TextStyle(fontFamily = TvSFProDisplay, fontWeight = FontWeight.W700, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.3).sp)
+    val Headline = TextStyle(fontFamily = TvSFProDisplay, fontWeight = FontWeight.W600, fontSize = 19.sp, lineHeight = 24.sp)
+    val Body = TextStyle(fontFamily = TvSFProDisplay, fontWeight = FontWeight.W500, fontSize = 16.sp, lineHeight = 21.sp)
+    val Callout = TextStyle(fontFamily = TvSFProDisplay, fontWeight = FontWeight.W400, fontSize = 15.sp, lineHeight = 21.sp)
+    val CardTitle = TextStyle(fontFamily = TvSFProDisplay, fontWeight = FontWeight.W500, fontSize = 14.sp, lineHeight = 18.sp)
+    val Caption = TextStyle(fontFamily = TvSFProDisplay, fontWeight = FontWeight.W400, fontSize = 13.sp, lineHeight = 17.sp)
+    val Tab = TextStyle(fontFamily = TvSFProDisplay, fontWeight = FontWeight.W600, fontSize = 15.sp, lineHeight = 20.sp)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -75,7 +75,9 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.music.bitchord"
+        // Its own id, so the TV app is a separate install from the phone app
+        // rather than an upgrade over it (or under it).
+        applicationId = "com.music.bitchord.tv"
         // 26 keeps reach wide; real-time blur (RenderEffect) kicks in on API 31+,
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
@@ -123,7 +125,7 @@ android {
         }
         getByName("debug") { java.srcDir("../app/src/debug/java") }
         // Created later by the "dev" flavor below, so picked up when it appears.
-        configureEach { if (name == "dev") manifest.srcFile("../app/src/dev/AndroidManifest.xml") }
+        configureEach { if (name == "dev") manifest.srcFile("src/dev/AndroidManifest.xml") }
     }
 
     externalNativeBuild {
@@ -140,7 +142,7 @@ android {
     productFlavors {
         create("dev") {
             dimension = "env"
-            applicationId = "com.dev.bitchord"
+            applicationId = "com.dev.bitchord.tv"
             resValue("string", "app_name", "BitChord TV")
         }
         create("prod") {

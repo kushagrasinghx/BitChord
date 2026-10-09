@@ -1000,6 +1000,9 @@
     <string name="blur_unfocused_lyrics">Blur unfocused lyrics</string>
 
     <string name="blur_unfocused_lyrics_subtitle">Keeps the spotlight on the current line</string>
+    <string name="hide_lyrics_preview">Hide lyrics</string>
+
+    <string name="hide_lyrics_preview_subtitle">Hides the lyrics line on the main player screen</string>
 
     <string name="advanced_options">Advanced &amp; experimental options</string>
 

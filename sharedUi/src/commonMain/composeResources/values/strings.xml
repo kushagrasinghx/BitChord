@@ -22,6 +22,8 @@
     <string name="cast_row_subtitle">Chromecast and Google Cast speakers</string>
     <string name="channel_count">%1$d ch</string>
     <string name="choose_lyrics_provider">Choose lyrics provider</string>
+    <string name="hide_lyrics_preview">Hide lyrics</string>
+    <string name="hide_lyrics_preview_subtitle">Hides the lyrics line on the main player screen</string>
     <string name="clear">Clear</string>
     <string name="close_lyrics">Close lyrics</string>
     <string name="data_saver">Data-Saver</string>

@@ -203,6 +203,7 @@ fun SettingsScreen(
     val liquidGlassSupported = isGlassSupported()
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
+    val hideLyricsPreview by AppSettings.hideLyricsPreview.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
@@ -959,6 +960,25 @@ fun SettingsScreen(
                             )
                         },
                         onClick = { AppSettings.setLyricsBlur(!lyricsBlur) },
+                    )
+                }
+                val hideLyricsPreviewTitle = stringResource(R.string.hide_lyrics_preview)
+                row(hideLyricsPreviewTitle, "lyrics", "hide") {
+                    SettingsRow(
+                        icon = Icons.Rounded.VisibilityOff,
+                        title = hideLyricsPreviewTitle,
+                        subtitle = stringResource(R.string.hide_lyrics_preview_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = hideLyricsPreview,
+                                onCheckedChange = AppSettings::setHideLyricsPreview,
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
+                                ),
+                            )
+                        },
+                        onClick = { AppSettings.setHideLyricsPreview(!hideLyricsPreview) },
                     )
                 }
                 val lyricsSourcesTitle = stringResource(R.string.lyrics_sources)

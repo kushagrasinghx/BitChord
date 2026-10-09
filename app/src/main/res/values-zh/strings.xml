@@ -193,12 +193,12 @@
     <string name="blocking">正在阻止</string>
     <string name="crossfade">交叉淡入淡出</string>
     <string name="crossfade_subtitle">将一首曲目渐变过渡到下一首</string>
-    <string name="automix">自动混音 [测试版]</string>
+    <string name="automix">Automix [测试版]</string>
     <string name="skip_silence">跳过静音</string>
     <string name="skip_silence_subtitle">裁剪超过一秒的静音间隙</string>
     <string name="skip_silence_float_subtitle">32 位浮点输出时不可用</string>
     <string name="equalizer">均衡器</string>
-    <string name="equalizer_subtitle">你设备的系统面板</string>
+    <string name="equalizer_subtitle">设备的系统面板</string>
     <string name="show_nerd_stats">显示技术统计信息</string>
     <string name="show_nerd_stats_subtitle">在播放器上显示编解码器、比特率和采样率</string>
     <string name="theme">主题</string>

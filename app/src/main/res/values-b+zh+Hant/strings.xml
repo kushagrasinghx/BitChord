@@ -193,12 +193,12 @@
     <string name="blocking">正在阻止</string>
     <string name="crossfade">交叉淡入淡出</string>
     <string name="crossfade_subtitle">將一首曲目漸變過渡到下一首</string>
-    <string name="automix">自動混音 [測試版]</string>
+    <string name="automix">Automix [測試版]</string>
     <string name="skip_silence">跳過靜音</string>
     <string name="skip_silence_subtitle">裁剪超過一秒的靜音間隙</string>
     <string name="skip_silence_float_subtitle">32 位浮點輸出時不可用</string>
     <string name="equalizer">均衡器</string>
-    <string name="equalizer_subtitle">你裝置的系統面板</string>
+    <string name="equalizer_subtitle">裝置的系統面板</string>
     <string name="show_nerd_stats">顯示技術統計資訊</string>
     <string name="show_nerd_stats_subtitle">在播放器上顯示編解碼器、位元率和取樣率</string>
     <string name="theme">主題</string>
@@ -1267,4 +1267,6 @@
     <string name="spotify_library_subtitle">你的 Spotify 播放列表</string>
     <string name="spotify_sign_in">使用 Spotify 登入</string>
     <string name="spotify_track_unavailable">在 YouTube Music 上找不到該歌曲</string>
+    <string name="lyrics_original_title">用原標題搜歌詞</string>
+    <string name="lyrics_original_title_desc">先還原 YouTube 原標題再搜歌詞，翻譯過的標題也能找到</string>
 </resources>

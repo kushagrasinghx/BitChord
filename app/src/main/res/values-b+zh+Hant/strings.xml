@@ -1,0 +1,1272 @@
+<resources>
+    <string name="app_name">BitChord</string>
+    <string name="playback_channel_name">正在播放</string>
+    <string name="download_channel_name">下載</string>
+    <string name="download_channel_description">正在儲存到你的音樂資料夾的歌曲</string>
+    <string name="download_notification_title">正在下載</string>
+    <string name="download_notification_starting">正在開始</string>
+    <string name="download_notification_queued">%1$s · 還有%2$d首排隊中</string>
+    <string name="upload_channel_name">上傳</string>
+    <string name="upload_channel_description">正在傳送到你的 WebDAV 伺服器的歌曲</string>
+    <string name="upload_notification_title">正在上傳</string>
+    <string name="upload_notification_queued">%1$s · 還有 %2$d 首在排隊</string>
+    <plurals name="uploading_song_count">
+        <item quantity="other">正在上傳 %1$d 首歌曲</item>
+    </plurals>
+    <string name="cancel">取消</string>
+    <string name="save">儲存</string>
+    <string name="close">關閉</string>
+    <string name="back">返回</string>
+    <string name="settings">設定</string>
+    <string name="search">搜尋</string>
+    <string name="clear_search">清除搜尋</string>
+    <string name="library">資料庫</string>
+    <string name="home">首頁</string>
+    <string name="play">播放</string>
+    <string name="explore">探索</string>
+    <string name="listen_now">立即收聽</string>
+    <string name="downloads">下載內容</string>
+    <string name="downloaded_songs">已下載的歌曲</string>
+    <string name="local_music">本地音樂</string>
+    <string name="audio_files_on_device">裝置上的音訊檔案</string>
+    <string name="on_device">裝置內</string>
+    <string name="playlists">播放列表</string>
+    <string name="new_playlist">新建播放列表</string>
+    <string name="saved_to_youtube_music">已儲存到 YouTube Music</string>
+    <string name="sign_in">登入</string>
+    <string name="sign_out">退出登入</string>
+    <string name="signed_in">已登入</string>
+    <string name="not_signed_in">未登入</string>
+    <string name="retry">重試</string>
+    <string name="shuffle">隨機播放</string>
+    <string name="more">更多</string>
+    <string name="add_to_playlist">新增到播放列表</string>
+    <string name="add_to_library">新增到資料庫</string>
+    <string name="remove_from_library">從資料庫中移除</string>
+    <string name="download_all">全部下載</string>
+    <string name="top_songs">熱門歌曲</string>
+    <string name="suggested">推薦內容</string>
+    <string name="song_count">%1$d 首歌曲</string>
+    <plurals name="song_count_plural">
+        <item quantity="other">%1$d 首歌曲</item>
+    </plurals>
+    <plurals name="artist_count">
+        <item quantity="other">%1$d 位藝人</item>
+    </plurals>
+    <plurals name="album_count">
+        <item quantity="other">%1$d 張專輯</item>
+    </plurals>
+    <string name="songs">歌曲</string>
+    <string name="artists">藝人</string>
+    <string name="albums">專輯</string>
+    <string name="no_album_metadata">這些曲目均未標明所屬專輯。</string>
+    <string name="search_empty">在 YouTube Music 上搜尋數百萬首歌曲。</string>
+    <string name="recent_searches">最近搜尋</string>
+    <string name="clear">清除</string>
+    <string name="search_hint">藝人、歌曲、歌詞等</string>
+    <string name="recent_search_edit">編輯“%1$s”</string>
+    <string name="recent_search_remove">從最近搜尋中移除“%1$s”</string>
+    <string name="storage_required_save">需要儲存訪問許可權才能儲存歌曲</string>
+    <string name="storage_required_read">需要儲存許可權才能讀取本地音訊檔案</string>
+    <string name="sharing_coming_soon">分享功能即將推出</string>
+    <string name="already_downloaded">已下載</string>
+    <plurals name="downloading_song_count">
+        <item quantity="other">正在下載 %1$d 首歌曲</item>
+    </plurals>
+    <string name="source">來源</string>
+    <string name="lossless_audio">無損音訊</string>
+    <string name="prefer_lossless">優先使用無損</string>
+    <string name="lossless_source_subtitle">直接從來源獲取 FLAC 和 ALAC</string>
+    <string name="overridden">已覆蓋</string>
+    <string name="add_module_source">新增模組來源</string>
+    <string name="remove_source">移除此來源</string>
+    <string name="test">測試</string>
+    <string name="testing">測試中…</string>
+    <string name="connected">已連線</string>
+    <string name="account_integrations">賬號與整合</string>
+    <string name="account_scrobbling">賬號與Scrobbling</string>
+    <string name="rich_presence">Rich Presence</string>
+    <string name="scrobbling">Scrobbling</string>
+    <string name="now_playing">正在播放</string>
+    <string name="selected">已選擇</string>
+    <string name="password">密碼</string>
+    <string name="username">使用者名稱</string>
+    <string name="login_failed">登入失敗</string>
+    <string name="song_cache_cleared">歌曲快取已清除</string>
+    <string name="image_cache_cleared">圖片快取已清除</string>
+    <string name="no_equalizer">此裝置沒有系統均衡器</string>
+    <string name="no_dolby_atmos">此裝置沒有杜比全景聲面板</string>
+    <string name="dolby_atmos_open_failed">無法開啟杜比全景聲設定</string>
+    <string name="update_available">有可用更新：v%1$s</string>
+    <string name="software_update">軟體更新</string>
+    <string name="update_available_body">bitchord %1$s 現已可供下載。</string>
+    <string name="update_downloading_body">正在下載 bitchord %1$s…</string>
+    <string name="update_ready_body">bitchord %1$s 已準備好安裝。</string>
+    <string name="update_failed_body">無法下載 bitchord %1$s。</string>
+    <string name="download_now">立即下載</string>
+    <string name="install_now">立即安裝</string>
+    <string name="later">以後再說</string>
+    <string name="remind_me_later">以後提醒我</string>
+    <string name="try_again">重試</string>
+    <string name="open_releases_page">開啟發布頁面</string>
+    <string name="whats_new">新版本說明</string>
+    <string name="log_copied">日誌已複製 · %1$d 行</string>
+    <string name="sign_in_youtube_music">登入 YouTube Music</string>
+    <string name="sign_in_discord">登入 Discord</string>
+    <string name="personalized_recommendations">獲取個性化推薦</string>
+    <string name="play_next">下一首播放</string>
+    <string name="queue">播放佇列</string>
+    <string name="source_setup_required">點按以完成設定</string>
+    <string name="source_unreachable">目前無法訪問 · %1$s</string>
+    <string name="checking">正在檢查…</string>
+    <string name="failed">失敗</string>
+    <string name="widget_square_label">正在播放 2×2</string>
+    <string name="widget_wide_label">正在播放 4×2</string>
+    <string name="widget_square_description">帶有播放控制元件的正方形專輯封面。</string>
+    <string name="widget_wide_description">帶有曲目和播放控制元件的全寬專輯封面。</string>
+    <string name="widget_play">播放</string>
+    <string name="widget_pause">暫停</string>
+    <string name="widget_next">下一首</string>
+    <string name="widget_previous">上一首</string>
+    <string name="widget_artwork">專輯封面</string>
+    <string name="widget_nothing_played">尚未播放任何內容</string>
+    <string name="widget_open_bitchord">開啟 BitChord</string>
+    <string name="widget_preview_title">歌曲標題</string>
+    <string name="widget_preview_artist">藝人</string>
+    <string name="widget_pill_label">正在播放 4×1</string>
+    <string name="widget_pill_description">單行顯示曲目，以及喜歡、隨機播放和播放控制元件。</string>
+    <string name="widget_preview_pill">歌曲標題 - 藝人</string>
+    <string name="download_quality">下載質量</string>
+    <string name="download_wifi_only">僅透過 Wi-Fi 下載</string>
+    <string name="spatial_audio">空間音訊</string>
+    <string name="spatial_audio_subtitle">拓寬立體聲音軌，帶來更沉浸的體驗</string>
+    <string name="spatial_audio_atmos_subtitle">此曲目已暫停 — Dolby Atmos 本身就是空間音訊</string>
+    <string name="animated_cover_cellular">在移動資料下播放動態封面</string>
+    <string name="replay">Replay</string>
+    <string name="replay_subtitle">你的熱門歌曲、藝人、專輯和流派</string>
+    <string name="work_out_genres">推算流派</string>
+    <string name="export_data">匯出資料</string>
+    <string name="export_data_subtitle">將設定和收聽記錄匯出為一個 JSON 檔案</string>
+    <string name="import_data">匯入資料</string>
+    <string name="import_data_subtitle">替換此裝置上的設定和記錄</string>
+    <string name="import_backup_title">要匯入備份嗎？</string>
+    <string name="choose_file">選擇檔案</string>
+    <string name="top_artists">熱門藝人</string>
+    <string name="top_albums">熱門專輯</string>
+    <string name="top_genres">熱門流派</string>
+    <string name="cancel_all">取消全部</string>
+    <string name="language">語言</string>
+    <string name="app_language">應用語言</string>
+    <string name="app_language_description">選擇 BitChord 使用的語言。</string>
+    <string name="english">英語</string>
+    <string name="spanish">西班牙語</string>
+    <string name="french">法語</string>
+    <string name="german">德語</string>
+    <string name="polish">波蘭語</string>
+    <string name="portuguese">葡萄牙語</string>
+    <string name="indonesian">印度尼西亞語</string>
+    <string name="hindi">印地語</string>
+    <string name="japanese">日語</string>
+    <string name="russian">俄語</string>
+    <string name="chinese_simplified">中文（簡體）</string>
+    <string name="chinese_traditional">中文（繁體）</string>
+    <string name="chinese">中文（簡體）</string>
+    <string name="hebrew">希伯來語</string>
+    <string name="italian">義大利語</string>
+    <string name="turkish">土耳其語</string>
+    <string name="thai">泰語</string>
+    <string name="show_all">檢視全部</string>
+    <string name="grid_view">網格</string>
+    <string name="list_view">列表</string>
+    <string name="switch_to_grid_view">切換到網格檢視</string>
+    <string name="switch_to_list_view">切換到列表檢視</string>
+    <string name="audio_quality">音訊質量</string>
+    <string name="playback">播放</string>
+    <string name="appearance">外觀</string>
+    <string name="storage">儲存空間</string>
+    <string name="your_data">你的資料</string>
+    <string name="miscellaneous">其他</string>
+    <string name="lossless_hq_audio">無損 / 高品質音訊</string>
+    <string name="on_wifi">使用 Wi-Fi 時</string>
+    <string name="on_mobile_data">使用移動資料時</string>
+    <string name="in_use">使用中</string>
+    <string name="blocking">正在阻止</string>
+    <string name="crossfade">交叉淡入淡出</string>
+    <string name="crossfade_subtitle">將一首曲目漸變過渡到下一首</string>
+    <string name="automix">Automix [測試版]</string>
+    <string name="skip_silence">跳過靜音</string>
+    <string name="skip_silence_subtitle">裁剪超過一秒的靜音間隙</string>
+    <string name="skip_silence_float_subtitle">32 位浮點輸出時不可用</string>
+    <string name="equalizer">均衡器</string>
+    <string name="equalizer_subtitle">裝置的系統面板</string>
+    <string name="show_nerd_stats">顯示技術統計資訊</string>
+    <string name="show_nerd_stats_subtitle">在播放器上顯示編解碼器、位元率和取樣率</string>
+    <string name="theme">主題</string>
+    <string name="reduce_animation">減少動畫</string>
+    <string name="reduce_animation_subtitle">讓主播放器的漸變保持靜止，而不是流動</string>
+    <string name="reduce_dynamic_blur">減少動態模糊</string>
+    <string name="reduce_dynamic_blur_subtitle">在整個應用中用純色填充替代磨砂玻璃效果</string>
+    <string name="full_screen_cover_art">全屏封面</string>
+    <string name="animated_cover_art">動態封面</string>
+    <string name="synced_lyrics">同步歌詞</string>
+    <string name="synced_lyrics_subtitle">隨著演唱在播放器上高亮顯示歌詞</string>
+    <string name="lyrics_sources">歌詞來源</string>
+    <string name="song_cache_limit">歌曲快取上限</string>
+    <string name="clear_song_cache">清除歌曲快取</string>
+    <string name="clear_song_cache_subtitle">釋放已下載音訊佔用的空間</string>
+    <string name="clear_image_cache">清除圖片快取</string>
+    <string name="clear_image_cache_subtitle">釋放專輯封面佔用的空間</string>
+    <string name="play_next_on_swipe">滑動時下一首播放</string>
+    <string name="dont_repeat_songs">本次會話中不重複播放歌曲</string>
+    <string name="stop_music_on_close">從最近任務中關閉時停止音樂</string>
+    <string name="stop_music_on_close_subtitle">從最近任務中划走應用時停止播放</string>
+    <string name="hide_volume_bar">隱藏音量條</string>
+    <string name="hide_volume_bar_subtitle">從主播放器中移除音量滑塊</string>
+    <string name="hide_song_status">隱藏歌曲狀態</string>
+    <string name="hide_song_status_subtitle">隱藏主播放器中的“播放自”或“播放者”文字</string>
+    <string name="off">關閉</string>
+    <string name="low">低</string>
+    <string name="medium">中</string>
+    <string name="high">高</string>
+    <string name="standard">標準</string>
+    <string name="lossless">無損</string>
+    <string name="system">跟隨系統</string>
+    <string name="light">淺色</string>
+    <string name="dark">深色</string>
+    <string name="full_screen_cover_art_subtitle">讓封面延伸至播放器邊緣，而不是顯示為方形</string>
+    <string name="animated_cover_art_subtitle">播放部分發行版自帶的迴圈影片，而不是靜態封面</string>
+    <string name="dont_repeat_songs_subtitle">自動播放不會在本次會話中重複推薦已播放或已推薦過的歌曲</string>
+    <string name="download_quality_subtitle">無論何種網路連線，每首曲目均為%1$s</string>
+    <string name="filter_non_music_audio">過濾非音樂音訊</string>
+    <string name="filter_non_music_audio_subtitle">隱藏時長低於 30 秒的片段、WAV 檔案、語音備忘錄、錄音和系統提示音</string>
+    <string name="performance">效能</string>
+    <string name="high_performance_mode">高效能模式</string>
+    <string name="high_performance_subtitle">使用完整動畫和模糊效果，並請求更高的螢幕重新整理率</string>
+    <string name="high_performance_active">已請求 %1$d Hz。Android 可能會在需要時降低此數值。</string>
+    <string name="beta">測試版</string>
+    <string name="refresh_rate">重新整理率</string>
+    <string name="high_performance_before_enabling">啟用前</string>
+    <string name="high_performance_battery_warning">請先將 BitChord 的電量使用設定為“不受限制”。更高的重新整理率會消耗更多電量、CPU 和 GPU 資源，並可能使裝置發熱。</string>
+    <string name="open_battery_settings">開啟電量設定</string>
+    <string name="enable_high_performance_title">要啟用高效能模式嗎？</string>
+    <string name="enable_high_performance_confirmation">僅當 BitChord 的電量使用設定為“不受限制”時才啟用。裝置發熱或電量不足時，Android 仍可能限制重新整理率。</string>
+    <string name="enable">啟用</string>
+    <string name="not_yet">暫不</string>
+    <string name="activity">活動</string>
+    <string name="activity_competing">競賽</string>
+    <string name="activity_dialog_message">顯示在卡片上方的動詞。</string>
+    <string name="activity_listening">收聽</string>
+    <string name="activity_name_message">顯示在個人資料中動詞後面的內容。留空則使用 %1$s。</string>
+    <string name="activity_playing">玩</string>
+    <string name="activity_watching">觀看</string>
+    <string name="add_to_queue">新增到播放佇列</string>
+    <string name="after_this_song">在這首歌之後</string>
+    <string name="always_on">始終開啟</string>
+    <string name="api_token">API 令牌</string>
+    <string name="audio_quality_connection">使用 %1$s 時</string>
+    <string name="back_in_future_version">將在未來版本中迴歸</string>
+    <string name="buttons">按鈕</string>
+    <string name="clear_name">清除名稱</string>
+    <string name="connect_account_first">請先連線賬號</string>
+    <string name="connected_presence_off">已連線，狀態顯示已關閉</string>
+    <string name="copy_log">複製日誌</string>
+    <string name="couldnt_find">找不到%1$s</string>
+    <string name="couldnt_open_link">無法開啟該連結</string>
+    <string name="create_playlist">建立播放列表</string>
+    <string name="customize_card">自定義卡片</string>
+    <string name="customize_card_subtitle">狀態、文字和兩個按鈕</string>
+    <string name="delete">刪除</string>
+    <string name="disconnect">斷開連線</string>
+    <string name="discord">Discord</string>
+    <string name="discord_account">Discord 賬號</string>
+    <string name="discord_button_variables">{song_name}、{artist_name} 和 {album_name} 會被替換為當前曲目的資訊。</string>
+    <string name="discord_buttons_footer">{song_name}、{artist_name} 和 {album_name} 會被替換為該曲目的資訊。第一個按鈕會在 YouTube Music 中開啟這首歌，第二個按鈕會開啟本專案。</string>
+    <string name="discord_presence_footer">當曲目、播放進度或播放狀態發生變化時，卡片會隨之更新；播放停止時會清除。</string>
+    <string name="discord_show_audio_quality">顯示音質</string>
+    <string name="discord_show_audio_quality_subtitle">在狀態卡片上顯示 Hi-Res、無損和 Dolby 規格</string>
+    <string name="discord_sign_in_footer">登入會開啟 Discord 的登入頁面，你不會在 BitChord 中輸入任何內容。</string>
+    <string name="discord_token">Discord 令牌</string>
+    <string name="discord_token_description">貼上你的 Discord 賬號令牌。它會在此裝置上加密儲存，且只會傳送給 Discord。</string>
+    <string name="discord_token_rejected">Discord 拒絕了該令牌。</string>
+    <string name="discord_token_warning">Discord 沒有提供可供應用設定狀態的 API，因此此功能會以你的賬號登入並使用 Discord 的協議。你的令牌會在此裝置上加密儲存，且只會傳送給 Discord。它會授予對你整個賬號的訪問許可權，而賬號自動化違反了 Discord 的服務條款。請僅在你接受此風險時使用此功能。</string>
+    <string name="dislike">不喜歡</string>
+    <string name="done">完成</string>
+    <string name="download">下載</string>
+    <string name="download_quality_dialog_subtitle">適用於儲存在此裝置上的檔案</string>
+    <string name="downloaded">已下載</string>
+    <string name="drag_to_reorder">拖動以重新排序</string>
+    <string name="enabled">已啟用</string>
+    <string name="enter_token_instead">改為輸入令牌</string>
+    <string name="enter_token_instead_subtitle">如果登入頁面無法載入，請使用此方式</string>
+    <string name="enter_token_to_enable">輸入令牌以啟用</string>
+    <string name="first_button">第一個按鈕</string>
+    <string name="got_it">知道了</string>
+    <string name="pause">暫停</string>
+    <string name="shuffle_on">隨機播放已開啟</string>
+    <string name="shuffle_off">隨機播放已關閉</string>
+    <string name="mono">單聲道</string>
+    <string name="stereo">立體聲</string>
+    <string name="history">歷史記錄</string>
+    <string name="sources">來源</string>
+    <string name="wifi">Wi-Fi</string>
+    <string name="mobile_data">移動資料</string>
+    <string name="couldnt_load_tracks">無法載入這些曲目</string>
+    <string name="wifi_only_download_refusal">下載已限制為僅使用 Wi-Fi。請在設定中關閉此項以使用移動資料。</string>
+    <string name="pinned_playlist_limit">最多隻能固定 %1$d 個播放列表</string>
+    <string name="downloaded_playlist">已下載的播放列表</string>
+    <string name="library_sign_in_description">登入 Google 賬號即可檢視你喜歡的歌曲、播放列表和 YouTube Music 歷史記錄。</string>
+    <string name="downloads_progress">下載 · %1$d%%</string>
+    <string name="downloads_finished">下載 · 已完成</string>
+    <string name="downloading_progress">正在下載 · %1$d%%</string>
+    <string name="starting">正在開始</string>
+    <string name="saved_to_bitchord_folder">已儲存到 Music/BitChord</string>
+    <string name="nothing_downloading">當前沒有下載任務</string>
+    <string name="nothing_to_explore">目前沒有可探索的內容</string>
+    <string name="no_youtube_music_results">YouTube Music 沒有搜尋結果</string>
+    <string name="library_empty">你的資料庫還是空的</string>
+    <string name="history_sign_in_required">登入後即可檢視你的收聽記錄</string>
+    <string name="history_empty">尚未播放過任何內容</string>
+    <string name="no_results">沒有結果</string>
+    <string name="downloaded_playlist_empty">此裝置上已沒有該播放列表中的任何內容</string>
+    <string name="no_local_audio_found">此裝置上未找到音訊檔案</string>
+    <string name="no_internet_connection">無網路連線</string>
+    <string name="youtube_request_rejected">YouTube Music 拒絕了此請求，請嘗試重新登入。</string>
+    <string name="something_went_wrong">出了點問題</string>
+    <string name="unknown_artist">未知藝人</string>
+    <plurals name="downloads_failed_count">
+        <item quantity="other">下載 · %1$d 個失敗</item>
+    </plurals>
+    <plurals name="download_waiting_count">
+        <item quantity="other">%1$d 個等待中</item>
+    </plurals>
+    <plurals name="download_done_count">
+        <item quantity="other">%1$d 個已完成</item>
+    </plurals>
+    <plurals name="download_failed_count">
+        <item quantity="other">%1$d 個失敗</item>
+    </plurals>
+    <plurals name="all_songs_downloaded">
+        <item quantity="other">全部 %1$d 首歌曲已下載</item>
+    </plurals>
+    <string name="your_playlists">你的播放列表</string>
+    <string name="who_can_see_it">誰可以看到</string>
+    <string name="about_artist">關於這位藝人</string>
+    <string name="about_album">關於這張專輯</string>
+    <string name="nothing_matches">這裡沒有與“%1$s”匹配的內容</string>
+    <string name="close_search">關閉搜尋</string>
+    <string name="less">收起</string>
+    <string name="song_count_with_minutes">%1$s，%2$d 分鐘</string>
+    <string name="song_count_with_duration">%1$s，%2$s</string>
+    <string name="song_count_with_hours_minutes">%1$s，%2$s %3$d 分鐘</string>
+    <plurals name="hour_count">
+        <item quantity="other">%1$d 小時</item>
+    </plurals>
+    <plurals name="songs_will_play_next">
+        <item quantity="other">將有 %1$d 首歌曲接下來播放</item>
+    </plurals>
+    <plurals name="songs_added_to_queue">
+        <item quantity="other">已將 %1$d 首歌曲新增到播放佇列</item>
+    </plurals>
+    <plurals name="log_copied_line_count">
+        <item quantity="other">日誌已複製 · %1$d 行</item>
+    </plurals>
+    <string name="integrate_spotify_canvas">設定 Spotify Canvas</string>
+    <string name="lastfm_login">Last.fm 登入</string>
+    <string name="lastfm_login_description">使用你的 Last.fm 賬號登入以啟用 Scrobbling。</string>
+    <string name="lastfm_now_playing_subtitle">將你正在收聽的內容更新到 Last.fm</string>
+    <string name="lead_with_song">優先顯示歌曲</string>
+    <string name="lead_with_song_subtitle">將歌曲標題顯示在粗體行，而不是藝人名</string>
+    <string name="like">喜歡</string>
+    <string name="listenbrainz_token">ListenBrainz 令牌</string>
+    <string name="listenbrainz_token_description">貼上你的 ListenBrainz 使用者令牌以啟用 Scrobbling。</string>
+    <string name="listening_history">收聽記錄</string>
+    <string name="lyrics_sources_order">系統會按此順序嘗試各個來源。拖動即可調整順序。除非優先使用逐字歌詞，否則會採用第一個找到歌詞的來源。</string>
+    <string name="max_delay">最大延遲</string>
+    <string name="max_delay_subtitle">Scrobble 的最大延遲（秒）</string>
+    <string name="min_song_duration">最短歌曲時長</string>
+    <string name="min_song_duration_subtitle">短於此時長的歌曲不會被 Scrobble</string>
+    <string name="monthly_listeners">%1$s 位月度聽眾</string>
+    <string name="name">名稱</string>
+    <string name="no_playlists_yet">還沒有播放列表，使用上方的選項建立一個吧。</string>
+    <string name="no_tracks_here">這裡沒有曲目</string>
+    <string name="not_connected">未連線</string>
+    <string name="one_hour">1 小時</string>
+    <string name="open_album">開啟專輯</string>
+    <string name="open_artist">開啟藝人</string>
+    <string name="pause_after_a_while">一段時間後暫停播放</string>
+    <string name="pause_after_song">這首歌結束後暫停</string>
+    <string name="pause_countdown">還有 %1$s 播放將暫停</string>
+    <string name="play_to_preview">播放一些內容即可填充預覽。</string>
+    <string name="playlist_name">播放列表名稱</string>
+    <string name="presence">狀態</string>
+    <string name="preview">預覽</string>
+    <string name="prioritize_syllable_lyrics">優先使用逐字歌詞</string>
+    <string name="prioritize_syllable_lyrics_subtitle">即使已找到逐行同步的歌詞，也繼續搜尋逐字歌詞</string>
+    <string name="quality_hourly">%1$s · %2$s</string>
+    <string name="quality_per_track">%1$s · 每首曲目 %2$s</string>
+    <string name="queued">已加入佇列</string>
+    <string name="remove">移除</string>
+    <string name="remove_from_liked">從喜歡的音樂中移除</string>
+    <string name="remove_from_playlist">從此播放列表中移除</string>
+    <string name="rename_playlist">重新命名播放列表</string>
+    <string name="reorder_songs">重新排序歌曲</string>
+    <string name="reorder_failed">無法儲存新的順序</string>
+    <string name="playlist_reordered">已儲存播放列表順序</string>
+    <string name="save_order">儲存</string>
+    <string name="reset_to_default">恢復預設設定</string>
+    <string name="rich_presence_footer">在你的 Discord 個人資料中顯示正在播放的內容。</string>
+    <string name="save_name">儲存名稱</string>
+    <string name="saved_to_downloads">已儲存到 Downloads</string>
+    <string name="saved_to_youtube_music_account">已儲存到你的 YouTube Music 賬號</string>
+    <string name="scrobble_delay">Scrobble 延遲</string>
+    <string name="scrobble_delay_subtitle">歌曲播放到什麼進度時進行 Scrobble</string>
+    <string name="scrobble_timing">Scrobble 時機</string>
+    <string name="scrobble_tracks">Scrobble 曲目</string>
+    <string name="scrobble_tracks_subtitle">將播放記錄同步到你的 Last.fm 時間線</string>
+    <string name="scrobbling_footer">將你的收聽記錄 Scrobble 到 Last.fm 和 ListenBrainz。</string>
+    <string name="scrobbling_paused_footer">Last.fm 和 ListenBrainz 在此版本中已暫停，稍後會恢復。已有的連線仍會保留。</string>
+    <string name="search_this_folder">搜尋此資料夾</string>
+    <string name="search_this_list">搜尋此列表</string>
+    <string name="second_button">第二個按鈕</string>
+    <string name="share">分享</string>
+    <string name="sharing_as">以 @%1$s 身份分享</string>
+    <string name="sharing_listens">正在分享你的收聽記錄</string>
+    <string name="show_what_playing">顯示我正在播放的內容</string>
+    <string name="signed_in_as">已登入為 %1$s</string>
+    <string name="signing_in">正在登入…</string>
+    <string name="sleep_timer">睡眠定時器</string>
+    <string name="sources_no_lossless">已啟用的來源均無法提供無損音訊。新增自定義模組即可播放可用的無損檔案，而無需轉碼。</string>
+    <string name="sources_order_footer">如果某個來源沒有該曲目或無法訪問，BitChord 會嘗試下一個來源。排在 YouTube 之前的來源如果返回更好的版本，可以替換其錄音。</string>
+    <string name="sources_order_header">來源，按此順序嘗試</string>
+    <string name="sources_quality_capped">此連線的設定低於高品質，因此串流會被轉碼以符合該限制，下載不受影響。</string>
+    <string name="jiosaavn_mismatch_warning">可能匹配到歌曲的錯誤版本。啟用風險自負。</string>
+    <string name="enable_jiosaavn">啟用 JioSaavn？</string>
+    <string name="enable_anyway">仍然啟用</string>
+    <string name="sources_subtitle">音訊的來源及使用順序</string>
+    <string name="source_matching">來源匹配</string>
+    <string name="upgrade_length_slack">曲目時長容差</string>
+    <string name="upgrade_length_slack_subtitle">替換音訊流允許的最大時長差</string>
+    <string name="upgrade_length_slack_footer">容差越大，接受的來源匹配越多；容差越小則越嚴格。預設為 3 秒。</string>
+    <string name="seconds_short">%1$d 秒</string>
+    <string name="spdc_token">sp_dc 令牌</string>
+    <string name="spotify_canvas_setup">Spotify Canvas 設定</string>
+    <string name="spotify_canvas_setup_description">要使用 Spotify Canvas，請提供你的 Spotify sp_dc cookie。</string>
+    <string name="spotify_canvas_setup_steps">1. 在瀏覽器中登入 open.spotify.com。\n2. 開啟開發者工具，然後進入“應用程式”和“Cookie”。\n3. 複製 sp_dc cookie 的值。\n4. 將其貼上到下方。</string>
+    <string name="spotify_canvas_auto_hide">自動隱藏播放控制元件</string>
+    <string name="spotify_canvas_auto_hide_subtitle">播放 Spotify Canvas 時，5 秒後收起半屏播放器</string>
+    <string name="prioritize_spotify_canvas">優先使用 Spotify Canvas</string>
+    <string name="prioritize_spotify_canvas_subtitle">先嚐試 Spotify，再嘗試 Apple Music 和其他動態封面來源</string>
+    <string name="status">狀態</string>
+    <string name="status_dialog_message">狀態顯示開啟時，你的賬號所展示的內容。</string>
+    <string name="status_dnd">請勿打擾</string>
+    <string name="status_dnd_detail">紅色橫線圖示，同時會遮蔽通知。</string>
+    <string name="status_idle">離開</string>
+    <string name="status_idle_detail">琥珀色月牙圖示，顯示為離開狀態</string>
+    <string name="status_online">線上</string>
+    <string name="status_online_detail">綠色圓點</string>
+    <string name="subscribers">%1$s 位訂閱者</string>
+    <string name="tap_to_connect">點按以連線</string>
+    <string name="tap_to_sign_in">點按以登入</string>
+    <string name="tap_to_sign_in_discord">點按以使用 Discord 登入</string>
+    <string name="token">令牌</string>
+    <string name="turn_off_timer">關閉定時器</string>
+    <string name="undo_dislike">撤銷不喜歡</string>
+    <string name="verb_competing">參與</string>
+    <string name="verb_listening">正在收聽</string>
+    <string name="verb_playing">正在播放</string>
+    <string name="verb_watching">正在觀看</string>
+    <plurals name="minute_count">
+        <item quantity="other">%1$d 分鐘</item>
+    </plurals>
+    <string name="biggest_day_note">你收聽最多的一天是 %1$s，共收聽了 %2$s。</string>
+    <string name="close_replay">關閉 Replay</string>
+    <string name="couldnt_draw_picture">無法生成圖片</string>
+    <string name="default_replay_holder">BitChord 聽眾</string>
+    <string name="different_albums">不同專輯</string>
+    <string name="genres_pending">隨著收聽記錄增多，流派資訊會逐漸顯示</string>
+    <string name="hour_am">上午%1$d點</string>
+    <string name="hour_pm">下午%1$d點</string>
+    <string name="hours_minutes_short">%1$d時%2$d分</string>
+    <string name="listen_most_around">你通常在%1$s左右收聽最多。</string>
+    <string name="lyrics_share_title">分享歌詞</string>
+    <string name="lyrics_share_description">你選中的幾行，連同封面排在一張卡片上。</string>
+    <string name="lyrics_share_story">轉為快拍尺寸</string>
+    <string name="lyrics_share_story_revert">恢復為卡片</string>
+    <string name="listening_shape">你的收聽規律</string>
+    <string name="member_since">加入時間</string>
+    <string name="member_since_value">加入時間：%1$s</string>
+    <string name="midday">中午</string>
+    <string name="midnight">午夜</string>
+    <string name="minutes">分鐘</string>
+    <string name="minutes_grouped_short">%1$s 分鐘</string>
+    <string name="minutes_listened">收聽分鐘數</string>
+    <string name="minutes_short">%1$d 分鐘</string>
+    <string name="not_enough_listening">收聽記錄還不夠多</string>
+    <string name="not_enough_this_month">本月再多播放幾首歌曲即可解鎖你的 Replay。</string>
+    <string name="pinned">已固定</string>
+    <string name="replay_across">跨越</string>
+    <string name="replay_album_end">佔據了你的關注。</string>
+    <string name="replay_album_focus">同一張專輯</string>
+    <string name="replay_album_start">這一次，</string>
+    <string name="replay_artist_end">讓你一聽再聽。</string>
+    <string name="replay_artist_focus">同一位藝人</string>
+    <string name="replay_artist_start">整月裡，</string>
+    <string name="replay_empty_description">再多聽一會兒，BitChord 就會把你的收聽記錄變成一份 Replay。</string>
+    <string name="replay_genre_end">塑造了你的聽感。</string>
+    <string name="replay_genre_focus">你的流派</string>
+    <string name="replay_genre_start">總的來說，</string>
+    <string name="replay_habits_middle"> 來自 </string>
+    <string name="replay_habits_start">你探索了 </string>
+    <string name="replay_hours_across">%1$s 小時</string>
+    <string name="replay_intro_end"> 已準備就緒。</string>
+    <string name="replay_intro_start">你的 </string>
+    <string name="replay_minutes_end"> 的時間聆聽音樂。</string>
+    <string name="replay_minutes_start">你花了 </string>
+    <string name="replay_minutes_value">%1$s</string>
+    <plurals name="replay_minutes_unit">
+        <item quantity="other">%1$s 分鐘</item>
+    </plurals>
+    <string name="replay_mostly_around">，主要集中在%1$s左右。</string>
+    <string name="replay_private_counting">根據你在此裝置上的收聽記錄私密生成</string>
+    <string name="replay_share_card_description">一張精美的卡片，展示你的主要收聽亮點。</string>
+    <string name="replay_share_summary_description">完整呈現歌曲、藝人、專輯、流派和收聽習慣。</string>
+    <string name="replay_songs_end"> 填滿了你的這個月。</string>
+    <string name="replay_songs_start">總共，</string>
+    <string name="replay_summary_start">你的收聽呈現出 </string>
+    <string name="saved">已儲存</string>
+    <string name="saved_bang">已儲存！</string>
+    <string name="share_my_replay">分享我的 Replay</string>
+    <string name="share_your_lyrics">傳送歌詞卡片</string>
+    <string name="share_your_replay">分享你的 Replay</string>
+    <string name="tap_share_for_picture">點按分享以生成圖片</string>
+    <string name="top_album">熱門專輯</string>
+    <string name="top_artist">熱門藝人</string>
+    <string name="top_genre">熱門流派</string>
+    <string name="top_song">熱門歌曲</string>
+    <string name="when_you_listen_the_most">你最常收聽的時段</string>
+    <string name="your_biggest_day">你收聽最多的一天：%1$s</string>
+    <string name="your_listening_experience">你的收聽體驗</string>
+    <string name="your_lyrics_card">你的歌詞卡片</string>
+    <string name="your_replay">你的 Replay</string>
+    <plurals name="replay_artist_count">
+        <item quantity="other">%1$s 位藝人</item>
+    </plurals>
+    <plurals name="replay_play_count">
+        <item quantity="other">%1$s 次播放</item>
+    </plurals>
+    <plurals name="replay_song_count">
+        <item quantity="other">%1$s 首歌曲</item>
+    </plurals>
+    <string name="all_audio_folders">所有音訊資料夾</string>
+    <string name="local_music_folder">本地音樂資料夾</string>
+    <string name="sort_music">排序方式</string>
+    <string name="sort_title_ascending">按字母順序（A 到 Z）</string>
+    <string name="sort_title_descending">按字母順序（Z 到 A）</string>
+    <string name="sort_date_added">新增日期（最新優先）</string>
+    <string name="sort_date_modified">修改日期（最新優先）</string>
+    <string name="use_all_audio_folders">使用所有音訊資料夾</string>
+    <string name="use_all_audio_folders_subtitle">取消資料夾限制，掃描整個裝置上的音樂</string>
+    <string name="album">專輯</string>
+    <string name="artist">藝人</string>
+    <string name="webdav">WebDAV</string>
+    <string name="webdav_subtitle">你伺服器上的音樂</string>
+    <string name="webdav_not_configured">請在“來源”中連線伺服器</string>
+    <string name="webdav_empty">WebDAV 伺服器上沒有找到音訊檔案。請在設定中檢查 URL。</string>
+    <string name="webdav_description">將 BitChord 指向一個 WebDAV 音樂資料夾 — 你的 Nextcloud 音樂目錄或任何支援 WebDAV 的伺服器。</string>
+    <string name="webdav_server_url">伺服器 URL</string>
+    <string name="webdav_server_url_hint">https://cloud.example.com/remote.php/dav/files/user/Music</string>
+    <string name="webdav_disconnect">斷開連線</string>
+    <string name="webdav_test_failed">無法連線：%1$s</string>
+    <string name="upload_to_webdav">上傳到 WebDAV</string>
+    <string name="webdav_conflict_title">“%1$s”已在伺服器上</string>
+    <string name="webdav_conflict_message">要覆蓋，還是保留兩份？</string>
+    <string name="webdav_overwrite">覆蓋</string>
+    <string name="webdav_keep_both">保留兩份</string>
+    <string name="webdav_skip">跳過</string>
+    <string name="webdav_apply_to_all">全部應用</string>
+    <string name="webdav_upload_summary">已上傳 %1$d · 已跳過 %2$d · 失敗 %3$d</string>
+    <string name="smb">SMB</string>
+    <string name="smb_subtitle">共享資料夾中的音樂</string>
+    <string name="smb_not_configured">請在“來源”中連線共享</string>
+    <string name="smb_empty">SMB 共享中沒有找到音訊檔案。請在“來源”中檢查伺服器。</string>
+    <string name="smb_description">將 BitChord 指向一個共享音樂資料夾 — 支援 SMB 的 NAS 或 Windows 共享。</string>
+    <string name="smb_server_hint">nas.local or 192.168.1.10:4445</string>
+    <string name="smb_share_hint">共享名稱，例如 Music</string>
+    <string name="smb_folder_hint">資料夾（可選）</string>
+    <string name="smb_disconnect">斷開連線</string>
+    <string name="smb_test_failed">無法連線：%1$s</string>
+    <string name="playlist">播放列表</string>
+    <string name="open">開啟</string>
+    <string name="open_playlist">開啟播放列表</string>
+    <string name="pin">固定</string>
+    <string name="unpin">取消固定</string>
+    <string name="rename">重新命名</string>
+    <string name="downloading">正在下載</string>
+    <string name="delete_playlist">刪除播放列表</string>
+    <string name="delete_download">刪除下載內容</string>
+    <string name="delete_playlist_confirmation">刪除“%1$s”？再次點按以確認。</string>
+    <string name="delete_download_confirmation">從此裝置中移除“%1$s”？再次點按以確認。</string>
+    <string name="running">執行中</string>
+    <string name="version_alignment_status">%1$s · %2$s</string>
+    <string name="version_cut_not_fetched">未獲取</string>
+    <string name="version_cut_fetching">獲取中</string>
+    <string name="version_cut_measuring">分析中</string>
+    <string name="version_cut_aligned">已對齊</string>
+    <string name="automix_enabled_subtitle">根據曲目本身自動把控每次過渡的時機與混合效果。如果手機發熱或播放卡頓，請將其關閉。</string>
+    <string name="automix_disabled_subtitle">自動把控過渡的時機與混合效果，無需手動調節。在效能較弱的裝置上效果可能有所不同。</string>
+    <string name="advanced_automix">高階自動混音</string>
+    <string name="advanced_automix_subtitle">像 DJ 一樣混音：保持節拍同步，每次切換都踩在拍子上，並在不搭的歌曲之間直接切換。無需額外處理。</string>
+    <string name="no_lyrics_sources_enabled">無。將不會獲取歌詞。</string>
+    <string name="song_cache_large_subtitle">最多在磁碟上保留 %1$s 的已下載音訊，這可能會佔用較多可用空間。</string>
+    <string name="song_cache_limit_subtitle">將已下載的音訊保留在磁碟上，以便即時跳轉和重播</string>
+    <string name="replay_genres_enabled_subtitle">向 Last.fm 請求藝人的流派資訊，僅會傳送藝人名稱。</string>
+    <string name="replay_genres_disabled_subtitle">關閉此項時，Replay 的流派圖表將保持隱藏</string>
+    <string name="swipe_plays_next">滑動歌曲後將其設為下一首播放</string>
+    <string name="swipe_adds_to_queue">關閉後，滑動會將歌曲新增到播放佇列末尾</string>
+    <string name="import_backup_warning">這將用檔案中的內容替換此裝置上的設定和收聽記錄。如果想保留當前資料，請先將其匯出。</string>
+    <string name="youtube_music_account">YouTube Music 賬號</string>
+    <string name="tap_to_sign_in_google">點按以使用 Google 登入</string>
+    <string name="export_succeeded">已匯出設定和%1$s</string>
+    <string name="export_failed">匯出失敗：%1$s</string>
+    <string name="import_succeeded">已從 v%2$s 匯入%1$s</string>
+    <string name="import_failed">匯入失敗：%1$s</string>
+    <string name="unknown_error">未知錯誤</string>
+    <string name="no_listening_history">無收聽記錄</string>
+    <plurals name="listening_month_count">
+        <item quantity="other">%1$d 個月的收聽記錄</item>
+    </plurals>
+    <string name="no_local_albums">這裡還沒有任何屬於專輯或播放列表的內容。下載完整的專輯或播放列表後，它們會顯示在這裡。</string>
+    <string name="play_your_replay">播放你的 Replay</string>
+    <string name="counted_on_device_with_bitchord">由 BitChord 在此裝置上統計</string>
+    <string name="this_month">本月</string>
+    <string name="this_year">今年</string>
+    <string name="all_time">全部時間</string>
+
+    <!-- Listen together -->
+    <string name="listen_together">一起聽</string>
+    <string name="listen_together_subtitle">分享一個程式碼，同步播放同一首音樂</string>
+    <string name="listen_together_in_party">派對中 · %1$s</string>
+    <string name="listen_together_sign_in_footer">一起聽需要賬號，這樣派對裡的每個人都能看到還有誰在。</string>
+    <string name="listen_together_server">派對伺服器</string>
+    <string name="listen_together_server_online">線上 · %1$d 毫秒</string>
+    <string name="listen_together_server_online_fallback">線上（預設備用）· %1$d 毫秒</string>
+    <string name="listen_together_server_offline">目前無法連線</string>
+    <string name="listen_together_server_checking">正在檢查…</string>
+    <string name="listen_together_server_unknown">點按以檢查</string>
+    <string name="listen_together_custom_server">使用自己的伺服器</string>
+    <string name="listen_together_custom_server_footer">留空則使用內建伺服器。如果你執行自己的副本，派對中的所有人都必須指向同一個。</string>
+    <string name="listen_together_using_default">正在使用內建伺服器</string>
+    <string name="listen_together_remove_server">移除伺服器</string>
+    <string name="listen_together_switched_to_default">已切換到預設伺服器</string>
+    <string name="listen_together_custom_server_saved">自定義伺服器已儲存</string>
+    <string name="listen_together_create">建立派對</string>
+    <string name="listen_together_create_subtitle">獲取程式碼，分享給朋友</string>
+    <string name="listen_together_create_footer">你會得到一個六位程式碼。拿到程式碼的人都能加入，包括你自己最多 %1$d 臺裝置。</string>
+    <string name="listen_together_profile">你的派對資料</string>
+    <string name="listen_together_nickname_hint">此派對中的暱稱</string>
+    <string name="listen_together_party_size">派對人數</string>
+    <string name="listen_together_party_size_subtitle">選擇 2–10 位聽眾</string>
+    <string name="listen_together_host_controls">只有你可以更改人數上限或移除聽眾</string>
+    <string name="listen_together_remove">移除</string>
+    <string name="listen_together_activity">最近活動</string>
+    <string name="listen_together_activity_footer">僅本次會話 · 最新在前 · 最多 100 條</string>
+    <string name="listen_together_activity_played">開始播放</string>
+    <string name="listen_together_activity_paused">暫停播放</string>
+    <string name="listen_together_activity_seeked">調整了播放進度</string>
+    <string name="listen_together_activity_skipped">跳到下一首</string>
+    <string name="listen_together_activity_went_back">返回上一首</string>
+    <string name="listen_together_activity_added">新增到佇列</string>
+    <string name="listen_together_activity_removed_track">從佇列中移除了一首</string>
+    <string name="listen_together_activity_cleared">清空了待播曲目</string>
+    <string name="listen_together_activity_reordered">重新排列了佇列</string>
+    <string name="listen_together_activity_removed_member">移除了一位聽眾</string>
+    <string name="listen_together_activity_changed_size">更改了派對人數</string>
+    <string name="listen_together_activity_updated">更新了派對</string>
+    <string name="listen_together_join">加入派對</string>
+    <string name="listen_together_join_action">加入</string>
+    <string name="listen_together_code_hint">六位字母或數字</string>
+    <string name="listen_together_code">派對程式碼</string>
+    <string name="listen_together_code_footer">讀出來或發出去。字母 O 和 I 不會用到，所以“歐”永遠是零。</string>
+    <string name="copy_code">複製程式碼</string>
+    <string name="listen_together_share_text">在 BitChord 上和我一起聽 — 派對程式碼 %1$s</string>
+    <string name="listen_together_now_playing">正在播放</string>
+    <string name="listen_together_nothing_playing">還沒有播放任何內容</string>
+    <string name="listen_together_listening">正在收聽 · %1$d / %2$d</string>
+    <string name="listen_together_members_footer">一個派對可容納 %1$d 臺裝置。其中任何人都可以控制音樂。</string>
+    <string name="listen_together_you">你</string>
+    <string name="listen_together_host">主持人</string>
+    <string name="listen_together_away">暫離 — 位置為其保留</string>
+    <string name="listen_together_landing_title">開始派對</string>
+    <string name="listen_together_landing_subtitle">因為一起聽的音樂更動聽。邀請朋友一起收聽，並實時新增歌曲，無論他們身在何處。</string>
+    <string name="listen_together_create_action">建立派對</string>
+    <string name="listen_together_join_existing">加入現有派對</string>
+    <string name="listen_together_create_sheet_subtitle">選擇你的顯示方式，以及可加入的人數。</string>
+    <string name="listen_together_creating">正在建立…</string>
+    <string name="listen_together_joining">正在加入…</string>
+    <string name="listen_together_full">此派對已滿</string>
+    <string name="listen_together_join_question">加入 %1$s 的派對？</string>
+    <string name="listen_together_join_question_unnamed">加入此派對？</string>
+    <string name="listen_together_not_now">以後再說</string>
+    <string name="listen_together_preview_footer">派對中的人會看到你的名字和頭像。</string>
+    <string name="listen_together_invite_title">邀請朋友加入你的派對</string>
+    <string name="listen_together_share_link">分享連結</string>
+    <string name="listen_together_scan_qr">掃描二維碼</string>
+    <string name="listen_together_scan_qr_subtitle">讓朋友掃描此碼即可加入。</string>
+    <string name="listen_together_invite">邀請</string>
+    <string name="listen_together_host_only">只有我能控制音樂</string>
+    <string name="listen_together_host_only_subtitle">其他人一起收聽，並可在自己的裝置上暫停</string>
+    <string name="listen_together_host_only_notice">只有主持人可以控制音樂</string>
+    <string name="listen_together_leave">離開派對</string>
+    <string name="listen_together_leave_subtitle">其他人繼續收聽</string>
+    <string name="listen_together_reconnecting">正在重新連線…</string>
+    <string name="listen_together_syncing_clock">正在校準時鐘…</string>
+    <string name="listen_together_in_sync">已同步 · 往返 %1$d 毫秒</string>
+    <string name="listen_together_custom_server_dialog_title">加入自定義伺服器上的派對？</string>
+    <string name="listen_together_custom_server_dialog_message">此派對託管在外部伺服器上：\n\n%1$s\n\n要切換派對伺服器並加入派對 %2$s 嗎？</string>
+    <string name="listen_together_custom_server_switch_and_join">切換並加入</string>
+    <string name="listen_together_official_server_dialog_title">切換到官方伺服器？</string>
+    <string name="listen_together_official_server_dialog_message">此派對託管在 BitChord 官方伺服器上。\n\n要切換回官方伺服器並加入派對 %1$s 嗎？</string>
+    <string name="listen_together_switch_failed_stayed_in_party">無法加入派對：%1$s。仍留在派對 %2$s 中。</string>
+    <string name="listen_together_switch_failed">無法加入派對：%1$s。</string>
+    <string name="listen_together_ping">%1$d ms</string>
+    <string name="listen_together_server_offline_dash">—</string>
+    <string name="listen_together_invalid_server_url">伺服器 URL 無效。請輸入有效地址（例如 https://your-server.com）</string>
+    <string name="listen_together_err_whitespace">伺服器 URL 不能包含空格</string>
+    <string name="listen_together_err_invalid_path">伺服器 URL 包含無效路徑</string>
+    <string name="listen_together_err_no_path">伺服器 URL 不能包含路徑</string>
+    <string name="listen_together_err_no_query">伺服器 URL 不能包含查詢引數</string>
+    <string name="listen_together_err_no_fragment">伺服器 URL 不能包含片段</string>
+    <string name="listen_together_err_invalid_port">伺服器埠必須在 1 到 65535 之間</string>
+    <string name="listen_together_custom_server_connected">已連線到自定義伺服器</string>
+    <string name="listen_together_custom_server_unreachable_fallback">無法連線自定義伺服器。正在使用預設備用伺服器。</string>
+    <string name="listen_together_status_custom_online">已連線到自定義伺服器 · %1$d 毫秒</string>
+    <string name="listen_together_status_custom_fallback">無法連線自定義伺服器 · 正在使用預設備用（%1$d 毫秒）</string>
+    <string name="listen_together_status_all_offline">自定義伺服器和預設伺服器均已離線</string>
+    <string name="listen_together_top_bar_fallback">備用 · %1$s</string>
+
+    <string name="vietnamese">越南語</string>
+
+    <string name="miscellaneous_footer">啟用後，從最近任務介面關閉應用也會停止音樂播放。</string>
+
+
+    <plurals name="track_count_plural">
+        <item quantity="other">%1$d 首曲目</item>
+    </plurals>
+
+    <string name="account_profiles_help">Google 賬號可以擁有個人和品牌資料。每個資料都有自己的媒體庫、頂和歷史記錄。</string>
+
+    <string name="accounts">賬號</string>
+
+    <string name="add_account">新增賬號</string>
+
+    <string name="add_addon">新增外掛</string>
+
+    <string name="add_addon_detail">將 BitChord 指向你自建或獲取連結的外掛伺服器</string>
+
+    <string name="addon_url_description">貼上外掛網址 — 根目錄或 manifest.json 均可。BitChord 會讀取其搜尋和流式播放內容，並透過標準 HTTP 請求曲目。</string>
+
+    <string name="advanced_options">高階選項</string>
+
+    <string name="automix_mode_balanced">均衡</string>
+
+    <string name="automix_mode_balanced_subtitle">2 個執行緒 · 推薦的平衡方案</string>
+
+    <string name="automix_mode_efficient">省電</string>
+
+    <string name="automix_mode_efficient_subtitle">1 個執行緒 · 發熱和耗電最低 · 分析耗時較長</string>
+
+    <string name="automix_mode_performance">高效能</string>
+
+    <string name="automix_mode_performance_subtitle">4 個執行緒 · 分析最快 · 發熱和耗電較高</string>
+
+
+    <string name="automix_performance">Automix 效能</string>
+
+    <string name="automix_performance_subtitle">設定後臺分析可使用的 CPU 上限</string>
+
+    <string name="automix_performance_warning">效能越高分析越快，但可能會更耗電並使裝置發熱。</string>
+
+    <string name="blur_unfocused_lyrics">虛化非焦點歌詞</string>
+
+    <string name="blur_unfocused_lyrics_subtitle">突出顯示當前歌詞行</string>
+
+    <string name="brand_account">品牌賬號</string>
+
+    <string name="card_plays_format">%1$s 次播放</string>
+
+    <string name="card_songs_format">%1$s 首歌曲</string>
+
+    <string name="card_views_format">%1$s 次觀看</string>
+
+    <string name="channel_session_unavailable">該頁面暫無會話 — 請先開啟 YouTube Music</string>
+
+    <string name="channel_switch_instructions">透過頭像切換，然後點選使用此頻道</string>
+
+    <string name="choose_a_channel">選擇頻道</string>
+
+    <string name="choose_profile">選擇個人資料</string>
+
+    <string name="convert_to_audio">轉換為音訊</string>
+    <string name="convert_to_video">轉換為影片</string>
+
+    <string name="converting_to_audio">正在轉換為音訊…</string>
+
+    <string name="current_account">當前賬號</string>
+
+    <string name="current_profile">當前個人資料</string>
+
+    <string name="default_youtube_profile">YouTube Music 預設個人資料</string>
+
+    <string name="dolby_atmos">杜比全景聲 (Dolby Atmos)</string>
+
+    <string name="dolby_atmos_subtitle">如果歌曲有更沉浸的環繞聲版本，則優先播放。</string>
+
+    <string name="dolby_atmos_unavailable">此裝置不支援杜比全景聲，歌曲將以普通版本播放</string>
+
+    <string name="export_compatible_downloads">匯出相容的下載</string>
+
+    <string name="legacy_mesh_gradient">經典網格漸變</string>
+
+    <string name="legacy_mesh_gradient_subtitle">恢復 v1.5 中播放器背後的流動色塊效果</string>
+
+    <string name="liquid_glass">液態玻璃 (Liquid Glass)</string>
+
+    <string name="liquid_glass_subtitle">浮動導航欄上的折射玻璃效果。僅限 Android 12+；會佔用更多 GPU。</string>
+
+    <string name="liquid_glass_unavailable">需要 Android 12 或更高版本</string>
+
+    <string name="listen_as">以該身份收聽</string>
+
+    <string name="lyrics_debug_logs">歌詞除錯日誌</string>
+
+    <string name="lyrics_debug_logs_subtitle">在歌詞面板顯示實時 API 查詢與抓取動態</string>
+
+    <string name="manage_accounts">管理賬號</string>
+
+    <string name="output_precision">輸出精度</string>
+
+    <string name="personal">個人</string>
+
+
+    <string name="playlist_action">播放列表</string>
+
+    <string name="prefer_usb_dac">首選 USB DAC</string>
+    <string name="loudness_normalization">響度標準化</string>
+    <string name="loudness_normalization_subtitle">將每首曲目調整到相同響度</string>
+    <string name="loudness_off_on_speaker">在手機揚聲器上停用</string>
+    <string name="loudness_target">目標響度</string>
+    <string name="loudness_target_subtitle">較低適合耳機；較高適合車載或手機揚聲器</string>
+    <string name="loudness_target_value">%1$s LUFS</string>
+    <string name="pipeline_loudness">響度</string>
+    <string name="pipeline_loudness_gain">增益</string>
+    <string name="pipeline_loudness_measured">測量值</string>
+    <string name="pipeline_bit_exact">位元精確</string>
+    <string name="loudness_measuring">正在測量…</string>
+    <string name="loudness_gain_db">%1$s dB</string>
+    <string name="loudness_lufs">%1$s LUFS</string>
+
+    <string name="profile_unavailable">此頁面暫無已登入的個人資料。</string>
+
+    <string name="profiles">個人資料</string>
+
+    <string name="radio_started">已開啟 %1$s 電臺</string>
+
+    <string name="revert_to_original">還原為原始版本</string>
+
+    <string name="scrobble_primary_artist_only">僅記錄主要藝人</string>
+
+    <string name="scrobble_primary_artist_only_subtitle">當曲目包含多位藝人時，僅使用第一位</string>
+
+    <string name="select_all">全選</string>
+
+    <string name="selected_account">已選賬號</string>
+
+    <string name="shelf_100_on_repeat">迴圈播放</string>
+
+    <string name="shelf_artists_on_the_rise">新星藝人</string>
+
+    <string name="shelf_chart">排行榜</string>
+
+    <string name="shelf_charts">排行榜</string>
+
+    <string name="shelf_commute">通勤路上</string>
+
+    <string name="shelf_concerts">演唱會</string>
+
+    <string name="shelf_energy_boosters">活力滿滿</string>
+
+    <string name="shelf_featured_playlists_for_you">為你推薦的播放列表</string>
+
+    <string name="shelf_feel_good">心情愉悅</string>
+
+    <string name="shelf_focus">專注工作</string>
+
+    <string name="shelf_for_you">為你推薦</string>
+
+    <string name="shelf_forgotten_favorites">被遺忘的最愛</string>
+
+    <string name="shelf_from_the_community">來自社群</string>
+
+    <string name="shelf_from_your_library">來自你的媒體庫</string>
+
+    <string name="shelf_hits_today">今日熱門</string>
+
+    <string name="shelf_listen_again">再次收聽</string>
+
+    <string name="shelf_mixed_for_you">為你精選</string>
+
+    <string name="shelf_new_albums_singles">最新專輯與單曲</string>
+
+    <string name="shelf_new_releases">最新發行</string>
+
+    <string name="shelf_party">聚會狂歡</string>
+
+    <string name="shelf_quick_picks">快速選擇</string>
+
+    <string name="shelf_recents">最近播放</string>
+
+    <string name="shelf_recommended_music_videos">推薦音樂影片</string>
+
+    <string name="shelf_relax">放鬆身心</string>
+
+    <string name="shelf_romance">浪漫時刻</string>
+
+    <string name="shelf_sad">悲傷情緒</string>
+
+    <string name="shelf_shorts">Shorts 精彩短影片</string>
+
+    <string name="shelf_similar_to">與 %1$s 類似</string>
+
+    <string name="shelf_single">單曲</string>
+
+    <string name="shelf_sleep">伴你入眠</string>
+
+    <string name="shelf_song_item">歌曲</string>
+
+    <string name="shelf_top_music_videos">熱門音樂影片</string>
+
+    <string name="shelf_top_tunes_right_now">當前熱門金曲</string>
+
+    <string name="shelf_trending">熱門趨勢</string>
+
+    <string name="shelf_trending_community_playlists">熱門社群播放列表</string>
+
+    <string name="shelf_workout">健身運動</string>
+
+    <string name="shelf_youtube_charts">YouTube 排行榜</string>
+
+    <string name="sort_date_added_oldest">新增日期（最舊優先）</string>
+
+    <string name="sort_date_added_toggle">新增日期</string>
+
+    <string name="sort_default">預設排序</string>
+
+    <string name="sort_library">排序</string>
+
+    <string name="sort_songs">排序列</string>
+
+    <string name="source_already_added">已新增為 %1$s</string>
+
+    <string name="source_skipped_by_quality">未在 %1$s 上使用 · 音質已設為 %2$s</string>
+
+    <string name="source_unrecognised">BitChord 無法識別該連結</string>
+
+    <string name="start_radio">開啟電臺</string>
+
+    <string name="subscribe">訂閱</string>
+
+    <string name="subscriptions">訂閱</string>
+
+    <string name="switch_account">切換賬號</string>
+
+    <string name="switch_profile_hint">點選頭像切換，然後使用此個人資料。</string>
+
+    <string name="unsubscribe">取消訂閱</string>
+
+    <string name="upgrade_quality">提升音質</string>
+
+    <string name="use_this_channel">使用此頻道</string>
+
+    <string name="use_this_profile">使用此資料</string>
+
+
+    <string name="lyrics_offset">Lyrics offset</string>
+
+
+
+
+
+    <string name="auto_quick_picks">Quick picks</string>
+
+    <string name="auto_recents">Recent</string>
+
+    <string name="auto_liked">Liked songs</string>
+
+    <string name="auto_login_title">Sign in to YouTube on your phone</string>
+
+    <string name="auto_login_subtitle">Open BitChord on your phone to sign in</string>
+
+    <string name="auto_empty_recents_title">No recent songs</string>
+
+    <string name="auto_empty_recents_subtitle">Songs you play will appear here</string>
+
+    <string name="auto_empty_quick_picks_title">No suggestions</string>
+
+    <string name="auto_empty_quick_picks_subtitle">Check your connection and try again</string>
+
+    <string name="auto_empty_playlists_title">No playlists available</string>
+
+    <string name="auto_empty_playlists_subtitle">Check your connection and try again</string>
+
+    <string name="auto_empty_liked_title">No liked songs</string>
+
+    <string name="auto_empty_liked_subtitle">Tap the heart on a song to save it here</string>
+
+    <string name="auto_empty_offline_title">No offline songs</string>
+
+    <string name="auto_empty_offline_subtitle">Download songs on your phone to listen here</string>
+
+    <string name="auto_unavailable_title">Content unavailable</string>
+
+    <string name="auto_unavailable_subtitle">Reopen the folder and try again</string>
+
+    <string name="settings_search_hint">Search settings</string>
+
+    <string name="settings_search_empty">No settings match “%1$s”</string>
+
+    <string name="prefer_music_only">Prefer music-only version</string>
+
+    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
+    <string name="smart_version_alignment">智慧音訊對齊</string>
+    <string name="smart_version_alignment_subtitle">分析音訊波形，精確匹配對應的播放時刻</string>
+
+    <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
+
+    <string name="equalizer_dynamic">Dynamic</string>
+
+    <string name="equalizer_manual">Manual</string>
+
+    <string name="equalizer_tone">Tone</string>
+
+    <string name="equalizer_tilt">Tilt</string>
+
+    <string name="equalizer_contour">Contour</string>
+
+    <string name="equalizer_broad">Broad</string>
+
+    <string name="equalizer_focused">Focused</string>
+
+    <string name="equalizer_broad_footer">Drag left for a warmer sound and right for a brighter one; down scoops the middle, up brings it forward. Broad moves wide stretches of the spectrum at once.</string>
+
+    <string name="equalizer_focused_footer">Drag left for a warmer sound and right for a brighter one; down scoops the middle, up brings it forward. Focused works on narrower stretches, so it changes less around what it moves.</string>
+
+    <string name="equalizer_preset">Preset</string>
+
+    <string name="equalizer_bands">Bands</string>
+
+    <string name="equalizer_bands_footer">Moving a band leaves the preset behind and the curve becomes your own.</string>
+
+    <string name="equalizer_reset">Reset all bands</string>
+
+    <string name="equalizer_balance">Balance</string>
+
+    <string name="equalizer_balance_left">L</string>
+
+    <string name="equalizer_balance_right">R</string>
+
+    <string name="equalizer_balance_footer">Shifts the sound towards one ear by quietening the other.</string>
+    <string name="equalizer_bitstream_title">當前未執行</string>
+    <string name="equalizer_bitstream_subtitle">此曲目未經解碼直接傳送到輸出</string>
+    <string name="equalizer_bitstream_footer">均衡器作用於解碼後的音訊。此曲目以位元流形式直通，由你的裝置解碼，因此這裡沒有可供處理的取樣。</string>
+
+    <string name="system_equalizer">System equalizer</string>
+
+    <string name="system_equalizer_subtitle">Your device\'s own panel</string>
+
+    <string name="system_equalizer_footer">Runs after BitChord\'s, on the whole audio session. Using both applies both.</string>
+
+    <string name="eq_preset_flat">Flat</string>
+
+    <string name="eq_preset_acoustic">Acoustic</string>
+
+    <string name="eq_preset_bass_boost">Bass boost</string>
+
+    <string name="eq_preset_bass_cut">Bass cut</string>
+
+    <string name="eq_preset_vocal">Vocal</string>
+
+    <string name="eq_preset_treble_boost">Treble boost</string>
+
+    <string name="eq_preset_treble_cut">Treble cut</string>
+
+    <string name="eq_preset_loudness">Loudness</string>
+
+    <string name="eq_preset_spoken_word">Spoken word</string>
+
+    <string name="eq_preset_electronic">Electronic</string>
+
+    <string name="eq_preset_rock">Rock</string>
+
+    <string name="eq_preset_hip_hop">Hip-hop</string>
+
+    <string name="eq_preset_jazz">Jazz</string>
+
+    <string name="eq_preset_classical">Classical</string>
+
+    <string name="eq_preset_small_speakers">Small speakers</string>
+
+    <string name="eq_preset_late_night">Late night</string>
+
+    <string name="eq_preset_custom">Custom</string>
+
+    <string name="translation_language">Translation language</string>
+
+    <string name="translation_language_description">The language the translate button turns lyrics into.</string>
+
+    <string name="translation_language_app_default">App language</string>
+
+    <string name="translation_language_subtitle">Follows the app language</string>
+
+    <string name="search_languages">Search languages</string>
+
+    <string name="no_languages_match">No languages match</string>
+
+
+
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="cast_dialog_title">Cast</string>
+    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
+    <string name="cast_searching">Looking for devices…</string>
+    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
+    <string name="cast_device_connecting">Connecting…</string>
+    <string name="cast_device_connected">Casting</string>
+    <string name="cast_stop">Stop casting</string>
+    <string name="cast_track_unsupported">This track can\'t be cast</string>
+    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
+    <string name="audio_pipeline_subtitle">實時訊號路徑，從解碼器到輸出</string>
+
+    <string name="pipeline_track_info">Track Info</string>
+
+    <string name="pipeline_decoder">Decoder</string>
+
+    <string name="pipeline_resampler">Resampler</string>
+
+    <string name="pipeline_dsp">DSP</string>
+
+    <string name="pipeline_output_device">Output Device</string>
+
+    <string name="pipeline_source">Source</string>
+
+    <string name="pipeline_format">Format</string>
+
+    <string name="pipeline_bit_depth">Bit Depth</string>
+
+    <string name="pipeline_sample_rate">Sample Rate</string>
+
+    <string name="pipeline_bitrate">Bitrate</string>
+
+    <string name="pipeline_channels">Channels</string>
+
+    <string name="pipeline_decoder_name">Decoder Name</string>
+
+    <string name="pipeline_io_rate">I/O Rate</string>
+
+    <string name="pipeline_type">Type</string>
+
+    <string name="pipeline_cutoff">Cutoff</string>
+
+    <string name="pipeline_quality">Quality</string>
+
+    <string name="pipeline_pcm_format">PCM Format</string>
+
+    <string name="pipeline_eq_preset">EQ Preset</string>
+
+    <string name="pipeline_stereo_expand">Stereo Expand</string>
+
+    <string name="pipeline_buffers">Buffers</string>
+
+    <string name="pipeline_output_api">Output API</string>
+
+    <string name="pipeline_device_name">Device Name</string>
+
+
+
+    <string name="shared_link">Shared link</string>
+
+    <string name="song_will_play_next">Song will play next</string>
+
+    <string name="song_added_to_queue">Song added to queue</string>
+    <string name="song_added_to_playlist">已新增到播放列表</string>
+    <string name="song_already_in_playlist">已在播放列表中</string>
+    <plurals name="add_to_playlists_count">
+        <item quantity="other">新增到 %1$d 個播放列表</item>
+    </plurals>
+    <plurals name="added_to_playlists_notice">
+        <item quantity="other">已新增到 %1$d 個播放列表</item>
+    </plurals>
+    <string name="party_queue_full">佇列已滿（派對最多 %d 首歌曲）</string>
+
+    <string name="paxsenix_api_key">PaxSenix API key</string>
+
+    <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
+
+    <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
+
+
+
+
+
+
+
+
+
+
+
+    <string name="source_needs_lossless_output">需要無損輸出 · 請使用支援無損的裝置</string>
+    <string name="source_needs_lossless_bt_codec">需要無損輸出 · 藍芽當前為 %1$s；請使用支援無損的裝置</string>
+    <string name="source_needs_lossless_bt_unknown">需要無損輸出 · 無法識別正在使用的藍芽編解碼器</string>
+    <string name="source_downloads_off">僅限線上播放</string>
+    <string name="lossless_output_permission">檢查藍芽編解碼器</string>
+    <string name="lossless_output_permission_detail">允許“附近的裝置”許可權，LDAC 或 LHDC 耳機即可解鎖僅限無損的外掛</string>
+    <string name="cached_songs">已快取的歌曲</string>
+    <string name="cached_songs_subtitle">歌曲快取中的 YouTube 和 JioSaavn 歌曲</string>
+    <string name="cached_songs_empty">還沒有已快取的歌曲。你從 YouTube 或 JioSaavn 播放的歌曲會顯示在這裡。</string>
+    <string name="show_cache_folder">顯示已快取歌曲資料夾</string>
+    <string name="show_cache_folder_subtitle">在資料庫中新增一個資料夾，列出歌曲快取中儲存的 YouTube 和 JioSaavn 歌曲</string>
+    <string name="song_cache_unlimited">無限制</string>
+    <string name="song_cache_unlimited_subtitle">無上限。快取的音訊會一直增長，直到儲存空間用完。</string>
+    <string name="clear_song_cache_title">清除歌曲快取？</string>
+    <string name="clear_song_cache_warning">所有已快取的歌曲都將被刪除，已快取歌曲資料夾也會被清空。下次播放時會重新線上播放。</string>
+    <string name="import_spotify">從 Spotify 匯入</string>
+    <string name="import_spotify_subtitle">從播放列表連結</string>
+    <string name="local_playlist_subtitle">%1$d 首歌曲 · 本裝置上</string>
+    <string name="lossless_output_permission_denied">附近裝置許可權未開啟</string>
+    <string name="lossless_output_permission_denied_detail">點按以開啟設定並允許「附近裝置」——沒有它就無法讀取你的藍芽編解碼器</string>
+    <string name="recent_album">最近的專輯</string>
+    <string name="recent_ep">最近的 EP</string>
+    <string name="recent_single">最近的單曲</string>
+    <string name="spotify">Spotify</string>
+    <string name="spotify_connect_subtitle">登入以載入你的播放列表。播放使用 YouTube Music。</string>
+    <string name="spotify_disconnect">斷開連線</string>
+    <string name="spotify_empty_playlists">此賬號沒有播放列表</string>
+    <string name="spotify_empty_tracks">此播放列表沒有歌曲</string>
+    <string name="spotify_import_button">匯入</string>
+    <string name="spotify_import_description">貼上公開播放列表連結。歌曲將在 YouTube Music 上匹配。</string>
+    <string name="spotify_import_description_local">貼上公開播放列表連結。歌曲將在 YouTube Music 上匹配並儲存到本裝置。</string>
+    <string name="spotify_import_done">已匯入“%1$s”</string>
+    <string name="spotify_import_empty_playlist">此播放列表中沒有歌曲</string>
+    <string name="spotify_import_failed">無法匯入播放列表：%1$s</string>
+    <string name="spotify_import_fetching">正在讀取 Spotify 播放列表…</string>
+    <string name="spotify_import_hint">open.spotify.com/playlist/…</string>
+    <string name="spotify_import_invalid">這不是 Spotify 播放列表連結。</string>
+    <string name="spotify_import_local_fallback">無法在 YouTube Music 上建立，因此“%1$s”已儲存到本裝置。</string>
+    <string name="spotify_import_matching">正在匹配歌曲 %1$d / %2$d</string>
+    <string name="spotify_import_none">這些歌曲都未在 YouTube Music 上找到。</string>
+    <string name="spotify_import_title">匯入 Spotify 播放列表</string>
+    <string name="spotify_import_unmatched">%1$d 首歌曲未在 YouTube Music 上找到</string>
+    <string name="spotify_library_subtitle">你的 Spotify 播放列表</string>
+    <string name="spotify_sign_in">使用 Spotify 登入</string>
+    <string name="spotify_track_unavailable">在 YouTube Music 上找不到該歌曲</string>
+    <string name="lyrics_original_title">用原標題搜歌詞</string>
+    <string name="lyrics_original_title_desc">先還原 YouTube 原標題再搜歌詞，翻譯過的標題也能找到</string>
+</resources>

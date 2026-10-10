@@ -12,11 +12,16 @@ val appVersion: String = providers.gradleProperty("bitchord.version").orNull
 /** Which platform this build is *for*, which is the host unless told otherwise. */
 val hostIsWindows = System.getProperty("os.name").contains("Windows", ignoreCase = true)
 val hostIsLinux = System.getProperty("os.name").contains("Linux", ignoreCase = true)
+val hostIsMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
 val targetOs: String = (providers.gradleProperty("bitchord.target").orNull ?: when {
     hostIsWindows -> "windows"
     hostIsLinux -> "linux"
-    else -> error("BitChord desktop supports Linux and Windows only")
+    hostIsMac -> "macos"
+    else -> error("BitChord desktop supports Linux, Windows, and macOS only")
 }).lowercase()
+
+val hostArch = System.getProperty("os.arch").lowercase()
+val isArm64 = hostArch == "aarch64" || hostArch == "arm64"
 
 // Windows installer metadata requires MAJOR.MINOR.BUILD even though the app's public version is
 // intentionally displayed without a patch number (1.7 rather than 1.7.0).
@@ -30,7 +35,8 @@ val ffmpegVersion = "7.1.1-$javacppVersion"
 val nativeClassifier = when (targetOs) {
     "windows" -> "windows-x86_64"
     "linux" -> "linux-x86_64"
-    else -> error("BitChord desktop supports Linux and Windows only")
+    "macos" -> if (isArm64) "macosx-arm64" else "macosx-x86_64"
+    else -> error("BitChord desktop supports Linux, Windows, and macOS only")
 }
 private fun localProperty(name: String): String = rootProject.file("local.properties")
     .takeIf { it.isFile }
@@ -65,7 +71,11 @@ dependencies {
     implementation(project(":sharedUi"))
     // BotGuard, for the PoTokens YouTube's web clients need: the phone runs it in an Android
     // WebView, the desktop in JavaFX's (WebKit). Per-platform jars carry the natives.
-    val javafxClassifier = if (targetOs == "windows") "win" else "linux"
+    val javafxClassifier = when (targetOs) {
+        "windows" -> "win"
+        "macos" -> if (isArm64) "mac-aarch64" else "mac"
+        else -> "linux"
+    }
     listOf("base", "graphics", "controls", "media", "web").forEach { module ->
         implementation("org.openjfx:javafx-$module:21.0.10:$javafxClassifier")
     }
@@ -95,7 +105,13 @@ dependencies {
     implementation(compose.components.resources)
     implementation(compose.materialIconsExtended)
     // The Skiko runtime rides in on this, and Skiko is per-platform.
-    implementation(if (targetOs == "windows") compose.desktop.windows_x64 else compose.desktop.linux_x64)
+    implementation(
+        when (targetOs) {
+            "windows" -> compose.desktop.windows_x64
+            "macos" -> if (isArm64) compose.desktop.macos_arm64 else compose.desktop.macos_x64
+            else -> compose.desktop.linux_x64
+        }
+    )
 
     implementation("io.ktor:ktor-client-core:3.0.3")
     implementation("io.ktor:ktor-client-cio:3.0.3")
@@ -127,6 +143,10 @@ dependencies {
     implementation("org.graalvm.js:js-language:24.1.2")
 
     testImplementation(kotlin("test"))
+}
+
+tasks.withType<Test> {
+    systemProperty("java.awt.headless", "true")
 }
 
 kotlin {
@@ -472,6 +492,9 @@ val composeMainClass = "com.music.bitchord.desktop.MainKt"
 
 compose.desktop {
     application {
+        javaHome = javaToolchains.launcherFor(java.toolchain).map {
+            it.metadata.installationPath.asFile.absolutePath
+        }.get()
         mainClass = composeMainClass
         jvmArgs("-Xmx512m")
         jvmArgs("-XX:+UseG1GC", "-XX:G1PeriodicGCInterval=20000", "-XX:G1PeriodicGCSystemLoadThreshold=0")
@@ -495,6 +518,8 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(
+                TargetFormat.Dmg,
+                TargetFormat.Pkg,
                 TargetFormat.Exe,
                 TargetFormat.Msi,
                 TargetFormat.Deb,
@@ -529,6 +554,19 @@ compose.desktop {
                 "jdk.unsupported",
                 "jdk.zipfs",
             )
+
+            macOS {
+                iconFile.set(project.file("packaging/icons/AppIcon.icns"))
+                bundleID = "com.music.bitchord"
+                appCategory = "public.app-category.music"
+                dockName = "BitChord"
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>NSRequiresAquaSystemAppearance</key>
+                        <false/>
+                    """.trimIndent()
+                }
+            }
 
             linux {
                 iconFile.set(project.file("packaging/icons/AppIcon.png"))

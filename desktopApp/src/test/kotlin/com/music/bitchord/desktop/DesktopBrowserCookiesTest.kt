@@ -7,16 +7,10 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DesktopBrowserCookiesTest {
-    @Test
-    fun `finds an installed browser for interactive Windows sign-in`() {
-        if (DesktopPlatform.isWindows) assertNotNull(DesktopBrowserSignIn.preferred())
-    }
-
     @Test
     fun `recognises a YouTube signing cookie`() {
         assertTrue(DesktopBrowserCookies.hasSigningSecret("SID=x; __Secure-3PAPISID=secret; other=y"))

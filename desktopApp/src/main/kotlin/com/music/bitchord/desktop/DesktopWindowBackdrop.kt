@@ -30,8 +30,9 @@ internal object DesktopWindowBackdrop {
      * start, because it decides whether the window is created transparent.
      */
     val available: Boolean =
-        DesktopPlatform.isWindows && DesktopPlatform.drawsOwnWindowFrame &&
-            System.getProperty("os.name").orEmpty().contains("11")
+        (DesktopPlatform.isWindows && DesktopPlatform.drawsOwnWindowFrame &&
+            System.getProperty("os.name").orEmpty().contains("11")) ||
+        DesktopPlatform.isMac
 
     private val _selected = MutableStateFlow(
         runCatching { DesktopBackdrop.valueOf(DesktopPersistence().string(KEY, DesktopBackdrop.MICA.name)) }
@@ -52,8 +53,8 @@ internal object DesktopWindowBackdrop {
 
     /**
      * The material actually behind the window right now. Off until the native frame is installed,
-     * and off if Windows turned the request down (a Windows 11 build before 22H2 has no backdrop
-     * attribute): the chrome only goes translucent over a material that is really there.
+     * and off if Windows or macOS turned the request down: the chrome only goes translucent over
+     * a material that is really there.
      */
     val active: StateFlow<DesktopBackdrop> = _active
 
@@ -68,14 +69,18 @@ internal object DesktopWindowBackdrop {
         _appBackground.value = value
     }
 
-    /** Asks DWM for the selected material; called once the native frame is in place, and on every change. */
+    /** Asks the native frame for the selected material; called once in place, and on every change. */
     fun apply() {
         if (!available) return
         val wanted = _selected.value
-        val applied = DesktopWindowsFrame.setBackdrop(wanted.nativeKind)
+        val applied = when {
+            DesktopPlatform.isWindows -> DesktopWindowsFrame.setBackdrop(wanted.nativeKind)
+            DesktopPlatform.isMac -> DesktopMacFrame.setBackdrop(wanted.nativeKind)
+            else -> false
+        }
         _active.value = if (applied) wanted else DesktopBackdrop.OFF
         if (!applied && wanted != DesktopBackdrop.OFF) {
-            DesktopTrackLog.log("window backdrop: Windows declined ${wanted.label}")
+            DesktopTrackLog.log("window backdrop: system declined ${wanted.label}")
         }
     }
 

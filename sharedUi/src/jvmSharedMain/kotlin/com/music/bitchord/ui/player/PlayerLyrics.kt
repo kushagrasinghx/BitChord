@@ -116,6 +116,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.sharedui.resources.*
+import com.music.bitchord.data.LocaleTags
 import com.music.bitchord.data.lyrics.CharGrowth
 import com.music.bitchord.data.lyrics.isGeniusSectionHeader
 import com.music.bitchord.data.lyrics.GrowingWord
@@ -2721,10 +2722,15 @@ internal fun rememberLyricsTranslation(
     // Settings wins where it has been set; blank means follow the app. Only the
     // app-language path is reduced to a base language — a code chosen in
     // Settings is already exactly what the endpoint wants and narrowing it
-    // would throw away the script half of zh-TW.
+    // would throw away the script half of zh-TW. Chinese is the exception on the
+    // app path too: bare "zh" comes back Simplified, so the script maps to zh-TW / zh-CN.
     val translationLanguage = remember(configuredLocale, preferredTranslation) {
         preferredTranslation.ifBlank {
-            Locale.forLanguageTag(configuredLocale).language.ifBlank { "en" }
+            if (LocaleTags.isChineseTag(configuredLocale)) {
+                LocaleTags.translationWireTarget(configuredLocale)
+            } else {
+                Locale.forLanguageTag(configuredLocale).language.ifBlank { "en" }
+            }
         }
     }
     val translationLanguageName = remember(configuredLocale, translationLanguage) {

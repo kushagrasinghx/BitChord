@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="analysis_complete">已分析</string>
+    <string name="analysis_in_progress">正在分析…</string>
+    <string name="analysis_refining">已分析，正在最佳化…</string>
+    <string name="audio_output">Audio output</string>
+    <string name="audio_output_playing">Playing here</string>
+    <string name="audio_pipeline">Audio Pipeline</string>
+    <string name="automix_analysis_status">自動混音 · 當前歌曲：%1$s · 下一首：%2$s</string>
+    <string name="automix_not_supported_video">影片類歌曲不支援 Automix</string>
+    <string name="automix_stopped_in_party">Automix：一起聽期間已停止</string>
+    <string name="autoplay">AutoPlay</string>
+    <string name="autoplay_empty_description">相似音樂將繼續播放</string>
+    <string name="autoplay_off">AutoPlay 已關閉</string>
+    <string name="autoplay_on">AutoPlay 已開啟</string>
+    <string name="autoplay_queue_description">相似音樂，已選定接下來播放</string>
+    <string name="bit_depth">%1$d 位</string>
+    <string name="cancel">取消</string>
+    <string name="cast">Cast</string>
+    <string name="cast_casting">Casting</string>
+    <string name="cast_connecting">Connecting…</string>
+    <string name="cast_row_subtitle">Chromecast and Google Cast speakers</string>
+    <string name="channel_count">%1$d 聲道</string>
+    <string name="choose_lyrics_provider">選擇歌詞來源</string>
+    <string name="clear">清除</string>
+    <string name="close_lyrics">關閉歌詞</string>
+    <string name="data_saver">Data-Saver</string>
+    <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
+    <string name="downgraded_from">↓ 來自 %1$s</string>
+    <string name="drag_to_reorder">拖動以重新排序</string>
+    <string name="failed">失敗</string>
+    <string name="hi_res_lossless">Hi-Res 無損</string>
+    <string name="high_quality">高品質</string>
+    <string name="high_quality_upgrading">高品質，升級中</string>
+    <string name="increase_lyrics_offset">Increase lyrics offset</string>
+    <string name="instrumental">純音樂</string>
+    <string name="like">喜歡</string>
+    <string name="listen_together">一起聽</string>
+    <string name="listen_together_away">暫離 — 位置為其保留</string>
+    <string name="listen_together_host">主持人</string>
+    <string name="listen_together_in_party">派對中 · %1$s</string>
+    <string name="listen_together_jam">%1$s 的同聽</string>
+    <string name="listen_together_jam_unnamed">一起聽</string>
+    <string name="listen_together_manage">管理</string>
+    <string name="listen_together_open">一起聽</string>
+    <string name="listen_together_open_count">一起聽 · %1$d</string>
+    <string name="listen_together_you">你</string>
+    <string name="mixing">混音中</string>
+    <string name="lossless">無損</string>
+    <string name="lyrics_already_in_language">歌詞已經是%1$s</string>
+    <string name="lyrics_already_romanized">這些歌詞已經是拉丁字母</string>
+    <string name="lyrics_by">歌詞來自 %1$s</string>
+    <string-array name="lyrics_intro_lines">
+        <item>節奏落地啦</item>
+        <item>歌曲開始啦</item>
+        <item>熱場中</item>
+        <item>氛圍調節中</item>
+        <item>先來低音，歌詞隨後</item>
+        <item>稍等一下</item>
+        <item>感受這段鋪墊</item>
+        <item>先感受節奏</item>
+        <item>高潮部分馬上到</item>
+        <item>讓旋律先喘口氣</item>
+        <item>人聲準備登場</item>
+        <item>第一個音符響起</item>
+    </string-array>
+    <string-array name="lyrics_loading_lines">
+        <item>正在獲取歌詞</item>
+        <item>正在尋找歌詞</item>
+        <item>正在抓取歌詞段落</item>
+        <item>歌詞載入中</item>
+        <item>正在檢視歌詞單</item>
+        <item>正在翻閱歌本</item>
+        <item>正在排列歌詞</item>
+        <item>歌詞馬上就到</item>
+        <item>正在查閱檔案</item>
+        <item>正在尋找準確的歌詞</item>
+        <item>歌詞正在拼湊完成</item>
+        <item>就快找到歌詞了</item>
+    </string-array>
+    <string name="lyrics_not_available">暫無歌詞</string>
+    <string name="lyrics_offset">Lyrics offset</string>
+    <string name="lyrics_offset_description">Positive values show lyrics later</string>
+    <string name="lyrics_offset_reset">Reset</string>
+    <string name="lyrics_provider_current">當前來源</string>
+    <string name="lyrics_provider_fetching">正在獲取歌詞…</string>
+    <string name="lyrics_provider_found">已找到歌詞 · 點按以使用</string>
+    <string name="lyrics_provider_not_fetched">點按以獲取</string>
+    <string name="lyrics_provider_not_found">未找到歌詞</string>
+    <string name="lyrics_romanization_unavailable">這些歌詞無法轉換為羅馬音</string>
+    <string name="lyrics_romanized">羅馬音發音</string>
+    <string name="lyrics_saved_with_download">歌詞已隨此次下載儲存</string>
+    <string name="lyrics_share_pick_limit">卡片已滿</string>
+    <string name="lyrics_translated_to">已翻譯為%1$s</string>
+    <string name="lyrics_translation_unavailable">翻譯目前不可用</string>
+    <string name="medium_quality">Medium Quality</string>
+    <string name="mono">單聲道</string>
+    <string name="more">更多</string>
+    <string name="next_from">接下來來自：%1$s</string>
+    <string name="next_in_queue">佇列中的下一首</string>
+    <string name="no_lyrics_for_track">此曲目沒有歌詞</string>
+    <string name="no_lyrics_found">未找到歌詞</string>
+    <string name="now_playing">正在播放</string>
+    <string name="open_lyrics">Lyrics</string>
+    <string name="pause">暫停</string>
+    <string name="play">播放</string>
+    <string name="played_by">Played by %1$s</string>
+    <string name="playing_from">Playing from %1$s</string>
+    <string name="playing_radio">正在播放 %1$s 電臺</string>
+    <string name="queue">播放佇列</string>
+    <string name="remove_from_liked">從喜歡的音樂中移除</string>
+    <string name="remove_from_queue">從播放佇列中移除</string>
+    <string name="repeat_all">全部迴圈</string>
+    <string name="repeat_off">迴圈已關閉</string>
+    <string name="repeat_one">單曲迴圈</string>
+    <string name="romanize_lyrics">羅馬音歌詞</string>
+    <string name="romanizing_lyrics">正在轉換為羅馬音…</string>
+    <string name="show_original_lyrics">顯示原歌詞</string>
+    <string name="shuffle_off">隨機播放已關閉</string>
+    <string name="shuffle_on">隨機播放已開啟</string>
+    <string name="stereo">立體聲</string>
+    <string name="translate_lyrics">翻譯歌詞</string>
+    <string name="translating_lyrics_to">正在翻譯為%1$s…</string>
+    <string name="up_next">接下來播放</string>
+    <string name="upgrading_quality">正在升級音質</string>
+    <string name="waiting">等待中</string>
+    <string name="widget_next">下一首</string>
+    <string name="widget_previous">上一首</string>
+    <string name="wired_headphones">Wired headphones</string>
+    <string name="usb_audio">USB audio</string>
+    <string name="hdmi_output">HDMI</string>
+    <string name="personal_phone">%1$s’s Phone</string>
+    <string name="this_phone">This phone</string>
+    <string name="albums">專輯</string>
+    <string name="artists">藝人</string>
+    <string name="card_plays_format">%1$s 次播放</string>
+    <string name="card_songs_format">%1$s 首歌曲</string>
+    <string name="card_views_format">%1$s 次觀看</string>
+    <string name="clear_search">清除搜尋</string>
+    <string name="downloaded">已下載</string>
+    <string name="explore">探索</string>
+    <string name="library">資料庫</string>
+    <string name="library_sign_in_description">登入 Google 賬號即可檢視你喜歡的歌曲、播放列表和 YouTube Music 歷史記錄。</string>
+    <string name="new_playlist">新建播放列表</string>
+    <string name="on_device">裝置內</string>
+    <string name="personalized_recommendations">獲取個性化推薦</string>
+    <string name="pinned">已固定</string>
+    <string name="play_next">下一首播放</string>
+    <string name="playlist">播放列表</string>
+    <string name="playlist_action">播放列表</string>
+    <string name="playlists">播放列表</string>
+    <string name="recent_search_edit">編輯“%1$s”</string>
+    <string name="recent_search_remove">從最近搜尋中移除“%1$s”</string>
+    <string name="recent_searches">最近搜尋</string>
+    <string name="replay_subtitle">你的熱門歌曲、藝人、專輯和流派</string>
+    <string name="retry">重試</string>
+    <string name="saved_to_youtube_music">已儲存到 YouTube Music</string>
+    <string name="search">搜尋</string>
+    <string name="search_empty">在 YouTube Music 上搜尋數百萬首歌曲。</string>
+    <string name="search_hint">藝人、歌曲、歌詞等</string>
+    <string name="selected">已選擇</string>
+    <string name="share">分享</string>
+    <string name="shelf_artists_on_the_rise">新星藝人</string>
+    <string name="shelf_chart">排行榜</string>
+    <string name="shelf_charts">排行榜</string>
+    <string name="shelf_concerts">演唱會</string>
+    <string name="shelf_featured_playlists_for_you">為你推薦的播放列表</string>
+    <string name="shelf_for_you">為你推薦</string>
+    <string name="shelf_forgotten_favorites">被遺忘的最愛</string>
+    <string name="shelf_from_the_community">來自社群</string>
+    <string name="shelf_from_your_library">來自你的媒體庫</string>
+    <string name="shelf_hits_today">今日熱門</string>
+    <string name="shelf_listen_again">再次收聽</string>
+    <string name="shelf_mixed_for_you">為你精選</string>
+    <string name="shelf_new_releases">最新發行</string>
+    <string name="shelf_quick_picks">快速選擇</string>
+    <string name="shelf_recents">最近播放</string>
+    <string name="shelf_recommended_music_videos">推薦音樂影片</string>
+    <string name="shelf_shorts">Shorts 精彩短影片</string>
+    <string name="shelf_similar_to">與 %1$s 類似</string>
+    <string name="shelf_single">單曲</string>
+    <string name="shelf_song_item">歌曲</string>
+    <string name="shelf_top_music_videos">熱門音樂影片</string>
+    <string name="shelf_top_tunes_right_now">當前熱門金曲</string>
+    <string name="shelf_trending">熱門趨勢</string>
+    <string name="shelf_trending_community_playlists">熱門社群播放列表</string>
+    <string name="shelf_youtube_charts">YouTube 排行榜</string>
+    <string name="show_all">檢視全部</string>
+    <string name="sign_in">登入</string>
+    <string name="sign_in_youtube_music">登入 YouTube Music</string>
+    <string name="subscriptions">訂閱</string>
+    <string name="switch_to_grid_view">切換到網格檢視</string>
+    <string name="switch_to_list_view">切換到列表檢視</string>
+    <string name="your_replay">你的 Replay</string>
+    <string name="your_listening_experience">你的收聽體驗</string>
+    <string name="default_replay_holder">BitChord 聽眾</string>
+    <string name="member_since">加入時間</string>
+    <string name="import_spotify">從 Spotify 匯入</string>
+    <string name="import_spotify_subtitle">從播放列表連結</string>
+    <string name="search_library_empty">搜尋本地音樂資料夾中的歌曲。</string>
+    <string name="search_library_hint">歌曲、藝人和專輯</string>
+    <string name="search_library_no_results">本地音樂中沒有與「%1$s」匹配的內容。</string>
+</resources>

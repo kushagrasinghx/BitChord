@@ -1,6 +1,5 @@
 package com.music.bitchord.data.spotify
 
-import android.net.Uri
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.SearchFilter
@@ -66,10 +65,10 @@ object SpotifyImporter {
             return id.takeIf { PLAYLIST_ID.matches(it) }
         }
 
-        val uri = runCatching { Uri.parse(trimmed) }.getOrNull() ?: return null
+        val uri = runCatching { java.net.URI(trimmed) }.getOrNull() ?: return null
         if (uri.scheme?.lowercase() !in setOf("http", "https")) return null
         if (!isSpotifyHost(uri.host?.lowercase().orEmpty())) return null
-        val segments = uri.pathSegments.orEmpty()
+        val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
         val playlistIdx = segments.indexOf("playlist")
         if (playlistIdx == -1 || playlistIdx + 1 >= segments.size) return null
         return segments[playlistIdx + 1].takeIf { PLAYLIST_ID.matches(it) }

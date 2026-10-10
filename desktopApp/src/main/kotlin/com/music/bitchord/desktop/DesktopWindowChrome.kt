@@ -116,12 +116,16 @@ internal fun DesktopWindowButtons(modifier: Modifier = Modifier) {
     if (!DesktopPlatform.drawsOwnWindowFrame) return
     val actions = LocalDesktopWindowActions.current ?: return
     val maximized by DesktopWindowMode.maximized.collectAsState()
+    val windowInfo = androidx.compose.ui.platform.LocalWindowInfo.current
+    val isFocused = windowInfo.isWindowFocused
+    val inactiveFill = if (!isFocused && DesktopPlatform.isMac) Color.White.copy(alpha = 0.22f) else null
+
     Row(
         modifier = modifier.height(CAPTION_HEIGHT).padding(start = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        MacCaptionButton("Close", MAC_CLOSE, onClick = actions.close) { glyph ->
+        MacCaptionButton("Close", MAC_CLOSE, onClick = actions.close, inactiveFill = inactiveFill) { glyph ->
             val reach = GLYPH_HALF.toPx()
             val line = HAIRLINE.toPx()
             drawLine(
@@ -139,7 +143,7 @@ internal fun DesktopWindowButtons(modifier: Modifier = Modifier) {
                 cap = StrokeCap.Round,
             )
         }
-        MacCaptionButton("Minimize", MAC_MINIMIZE, onClick = actions.minimize) { glyph ->
+        MacCaptionButton("Minimize", MAC_MINIMIZE, onClick = actions.minimize, inactiveFill = inactiveFill) { glyph ->
             drawLine(
                 color = glyph,
                 start = Offset(center.x - GLYPH_HALF.toPx(), center.y),
@@ -152,6 +156,7 @@ internal fun DesktopWindowButtons(modifier: Modifier = Modifier) {
             if (maximized) "Restore" else "Maximize",
             MAC_MAXIMIZE,
             onClick = actions.toggleMaximize,
+            inactiveFill = inactiveFill,
         ) { glyph ->
             val reach = GLYPH_HALF.toPx()
             val line = HAIRLINE.toPx()
@@ -171,10 +176,12 @@ private fun MacCaptionButton(
     label: String,
     fill: Color,
     onClick: () -> Unit,
+    inactiveFill: Color? = null,
     glyph: androidx.compose.ui.graphics.drawscope.DrawScope.(Color) -> Unit,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val hovered by interaction.collectIsHoveredAsState()
+    val buttonColor = if (inactiveFill != null && !hovered) inactiveFill else fill
     Box(
         Modifier
             .size(CAPTION_TOUCH_SIZE)
@@ -189,7 +196,7 @@ private fun MacCaptionButton(
             )
             .semantics { contentDescription = label }
             .drawBehind {
-                drawCircle(fill, radius = MAC_DOT_RADIUS.toPx())
+                drawCircle(buttonColor, radius = MAC_DOT_RADIUS.toPx())
                 if (hovered) glyph(MAC_GLYPH)
             },
         contentAlignment = Alignment.Center,
@@ -219,6 +226,7 @@ private val MAC_GLYPH = Color(0xB3000000)
  *
  * On Windows the move is handed to the system ([DesktopWindowsFrame.startDrag]), which runs its own
  * move loop — DWM slides the window, Aero Snap works, and no edge is left exposed to paint white.
+ * On macOS it is handed to AppKit via [DesktopMacFrame.startDrag] for smooth ProMotion dragging.
  * The double click is counted here rather than left to Windows: the area is client area as far as
  * Windows knows, so it never sends the caption's own double click. Without the native frame the
  * window is moved from the pointer, as WindowDraggableArea did.
@@ -240,6 +248,7 @@ private fun Modifier.captionPress(scope: WindowScope, actions: DesktopWindowActi
             lastPressAt = down.uptimeMillis
             lastPressPosition = down.position
             if (DesktopWindowsFrame.startDrag()) return@awaitEachGesture
+            if (DesktopPlatform.isMac && DesktopMacFrame.startDrag()) return@awaitEachGesture
             val window = scope.window
             val windowAtStart = window.location
             val pointerAtStart = MouseInfo.getPointerInfo()?.location ?: return@awaitEachGesture

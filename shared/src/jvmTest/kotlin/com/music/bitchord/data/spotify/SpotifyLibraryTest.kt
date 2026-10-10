@@ -1,11 +1,10 @@
-package com.music.bitchord
+package com.music.bitchord.data.spotify
 
-import com.music.bitchord.data.spotify.parsePlaylistPage
-import com.music.bitchord.data.spotify.parseTrackPage
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class SpotifyLibraryTest {
     private val json = Json { ignoreUnknownKeys = true }
@@ -51,5 +50,19 @@ class SpotifyLibraryTest {
         assertEquals("Album", track.album)
         assertEquals(180000, track.durationMs)
         assertEquals("https://img", track.imageUrl)
+    }
+
+    @Test
+    fun playlistIdsComeFromLinksAndUris() {
+        val id = "37i9dQZF1DXcBWIGoYBM5M"
+        assertEquals(id, SpotifyImporter.extractPlaylistId("https://open.spotify.com/playlist/$id"))
+        assertEquals(id, SpotifyImporter.extractPlaylistId("  https://open.spotify.com/playlist/$id?si=abc123  "))
+        assertEquals(id, SpotifyImporter.extractPlaylistId("https://open.spotify.com/intl-id/playlist/$id"))
+        assertEquals(id, SpotifyImporter.extractPlaylistId("spotify:playlist:$id"))
+        assertNull(SpotifyImporter.extractPlaylistId("https://open.spotify.com/album/$id"))
+        assertNull(SpotifyImporter.extractPlaylistId("https://notspotify.com/playlist/$id"))
+        assertNull(SpotifyImporter.extractPlaylistId("ftp://open.spotify.com/playlist/$id"))
+        assertNull(SpotifyImporter.extractPlaylistId("https://open.spotify.com/playlist/short"))
+        assertNull(SpotifyImporter.extractPlaylistId(""))
     }
 }

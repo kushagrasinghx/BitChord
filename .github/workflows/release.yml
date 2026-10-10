@@ -159,9 +159,77 @@ jobs:
           name: windows-artifacts
           path: dist/*
 
+  macos:
+    name: macOS · dmg, pkg, zip (${{ matrix.arch }})
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Work out the version
+        id: version
+        run: |
+          version="${{ inputs.version }}"
+          [ -n "$version" ] || version="${GITHUB_REF_NAME#v}"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "Building $version"
+
+      - name: Write local.properties
+        run: |
+          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
+          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+
+      - run: chmod +x gradlew
+
+      - name: Tests
+        run: ./gradlew :shared:jvmTest :desktopApp:test -Pbitchord.version=${{ steps.version.outputs.value }}
+
+      - name: Build DMG, PKG and the app bundle
+        run: |
+          ./gradlew :desktopApp:packageDmg :desktopApp:packagePkg :desktopApp:createDistributable \
+            -Pbitchord.version=${{ steps.version.outputs.value }}
+
+      - name: The analyser and models are in the jar
+        run: |
+          jar=$(ls desktopApp/build/compose/binaries/main/app/BitChord.app/Contents/app/desktopApp*.jar)
+          jar tf "$jar" | grep -q 'models/.*\.onnx'
+
+      - name: Collect
+        run: |
+          v="${{ steps.version.outputs.value }}"
+          arch="${{ matrix.arch }}"
+          mkdir -p dist
+          for f in desktopApp/build/compose/binaries/main/dmg/*.dmg; do
+            [ -f "$f" ] && cp "$f" "dist/BitChord-$v-macos-$arch.dmg"
+          done
+          for f in desktopApp/build/compose/binaries/main/pkg/*.pkg; do
+            [ -f "$f" ] && cp "$f" "dist/BitChord-$v-macos-$arch.pkg"
+          done
+          ditto -c -k --keepParent desktopApp/build/compose/binaries/main/app/BitChord.app "dist/BitChord-$v-macos-$arch.zip"
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}-artifacts
+          path: dist/*
+
   release:
     name: Publish
-    needs: [linux, windows]
+    needs: [linux, windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

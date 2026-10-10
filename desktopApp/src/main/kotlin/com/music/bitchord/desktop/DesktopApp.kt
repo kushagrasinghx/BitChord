@@ -6,6 +6,7 @@ import com.music.bitchord.ui.components.ShelfRowChrome
 import com.music.bitchord.ui.components.ShelfRow
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.pointer.isBackPressed
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -130,6 +131,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Fullscreen
@@ -284,7 +286,14 @@ import com.music.bitchord.data.model.UiState
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.durationMillis
+import com.music.bitchord.data.model.isMatchMissing
+import com.music.bitchord.data.model.isMatchPending
 import com.music.bitchord.data.model.isSameTrackAs
+import com.music.bitchord.data.model.isUnresolvedSpotify
+import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
+import com.music.bitchord.data.spotify.SpotifyLibrary
+import com.music.bitchord.sharedui.resources.Res as SharedRes
+import com.music.bitchord.sharedui.resources.spotify_logo
 import com.music.bitchord.data.model.withoutRepeatsOf
 import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.data.settings.LastPlayerScreen
@@ -558,6 +567,9 @@ fun BitChordDesktopApp() {
     val libraryGridState = rememberLazyGridState()
     /** A Library shelf's "Show all", open as a grid in place of the page. */
     var libraryShowAll by remember { mutableStateOf<HomeShelf?>(null) }
+    /** What the Spotify grid is waiting on, or why it is empty; null once its playlists are in. */
+    var spotifyLibraryStatus by remember { mutableStateOf<String?>(null) }
+    var spotifyImportOpen by remember { mutableStateOf(false) }
     /** Where the one back button in the top bar goes: every place visited, oldest first. */
     val navHistory = remember { mutableStateListOf<DesktopNavEntry>() }
     /** Set while [goBack] puts a place back, so that move is not itself recorded as a visit. */
@@ -666,6 +678,10 @@ fun BitChordDesktopApp() {
     var legacyMeshGradient by remember { mutableStateOf(persistence.boolean("legacy_mesh_gradient", false)) }
     var animatedCanvas by remember { mutableStateOf(persistence.boolean("animated_canvas", true)) }
     var spotifyCanvasCookie by remember { mutableStateOf(DesktopSpotifyToken.cookie()) }
+    // Held here rather than by the Integrations page, so leaving the page does not close the
+    // sign-in window.
+    var spotifySignInJob by remember { mutableStateOf<Job?>(null) }
+    var spotifySignInError by remember { mutableStateOf<String?>(null) }
     var showNerdStats by remember { mutableStateOf(persistence.boolean("show_nerd_stats", false)) }
     var syncedLyrics by remember {
         mutableStateOf(persistence.boolean(DesktopLyricsClient.KEY_SYNCED_LYRICS, true))
@@ -684,8 +700,7 @@ fun BitChordDesktopApp() {
     var activeProfileId by remember { mutableStateOf(DesktopAccounts.activeProfileId()) }
     var signInBusy by remember { mutableStateOf<String?>(null) }
     var signInError by remember { mutableStateOf<String?>(null) }
-    var browserSignInJob by remember { mutableStateOf<Job?>(null) }
-    val interactiveSignInBrowser = remember { DesktopBrowserSignIn.preferred() }
+    var webSignInJob by remember { mutableStateOf<Job?>(null) }
     val activeAccount = accounts.firstOrNull { it.accountId == activeAccountId } ?: accounts.firstOrNull()
     // The account's own library, fetched once a session is in force.
     var libraryState by remember { mutableStateOf<UiState<LibraryPage>>(UiState.Loading) }
@@ -851,6 +866,29 @@ fun BitChordDesktopApp() {
         playCurrent(startPlaying)
     }
 
+    /** Opens the Spotify sign-in window for an `sp_dc`, or closes the one already open. */
+    fun signInToSpotify() {
+        spotifySignInJob?.let {
+            it.cancel()
+            return
+        }
+        spotifySignInError = null
+        spotifySignInJob = scope.launch {
+            try {
+                val cookie = DesktopWebSignIn.captureSpotify()
+                DesktopSpotifyToken.setCookie(cookie)
+                spotifyCanvasCookie = cookie
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                DesktopTrackLog.log("sign-in: Spotify failed: ${failure.message}")
+                spotifySignInError = failure.message ?: "Could not complete the Spotify sign-in."
+            } finally {
+                spotifySignInJob = null
+            }
+        }
+    }
+
     /** Takes a captured cookie all the way to a saved account. */
     suspend fun signIn(cookie: String, label: String, sourceProfile: String? = null) {
         signInError = null
@@ -882,10 +920,14 @@ fun BitChordDesktopApp() {
     }
 
     fun playSongs(songs: List<Song>, startIndex: Int = 0, source: DesktopQueueSource? = null) {
-        if (songs.isEmpty()) return
+        // A Spotify playlist's rows still being matched to YouTube Music, or with no match, have
+        // nothing to play: they stay out of the queue, and the pick moves to the next playable row.
+        val resolved = songs.withIndex().filterNot { it.value.isUnresolvedSpotify }
+        if (resolved.isEmpty()) return
         if (partyTrackChangeBlocked()) return
-        val playable = songs.map(::canonicalSong).map { it.withSource(source) }
-        val at = startIndex.coerceIn(playable.indices)
+        val playable = resolved.map { canonicalSong(it.value).withSource(source) }
+        // Past the end still means the last row, as the clamp here always did.
+        val at = resolved.indexOfFirst { it.index >= startIndex }.takeIf { it >= 0 } ?: resolved.lastIndex
         if (DesktopListenTogether.state.value.inParty) {
             liveQueue = DesktopQueue(partyPlaybackQueue(playable[at]), index = 0)
             preShuffleOrder = emptyList()
@@ -1060,7 +1102,9 @@ fun BitChordDesktopApp() {
     // Keyed on the id, so a second page opened before the first answered cancels the first rather
     // than racing it; and a loading page restored by Back fetches again.
     LaunchedEffect(openedCollection?.browseId, openedCollection?.loading, collectionReloads) {
-        val pending = openedCollection?.takeIf { it.loading } ?: return@LaunchedEffect
+        val pending = openedCollection
+            ?.takeIf { it.loading && !it.browseId.startsWith(SPOTIFY_PAGE_PREFIX) }
+            ?: return@LaunchedEffect
         collectionError = null
         DesktopSearchClient.browse(
             browseId = pending.browseId,
@@ -1077,6 +1121,27 @@ fun BitChordDesktopApp() {
             },
             onFailure = { collectionError = it.message ?: "Could not open ${pending.title.ifBlank { "this page" }}" },
         )
+    }
+
+    // A Spotify playlist: its tracks, then each one's YouTube Music match. Keyed like the browse
+    // above, so opening another page cancels it, and Back to a page left half matched (or Retry
+    // on one that failed) reads it again.
+    LaunchedEffect(openedCollection?.browseId, collectionReloads) {
+        val page = openedCollection?.takeIf { it.browseId.startsWith(SPOTIFY_PAGE_PREFIX) }
+            ?: return@LaunchedEffect
+        if (!page.loading && page.songs.none { it.isMatchPending }) return@LaunchedEffect
+        collectionError = null
+        fun update(change: (DesktopCollection) -> DesktopCollection) {
+            openedCollection?.takeIf { it.browseId == page.browseId }?.let { openedCollection = change(it) }
+        }
+        runCatching { loadSpotifyPlaylist(page.browseId.removePrefix(SPOTIFY_PAGE_PREFIX), ::update) }
+            .onFailure { failure ->
+                if (failure is kotlinx.coroutines.CancellationException) throw failure
+                DesktopTrackLog.log("spotify: playlist ${page.title} failed: ${failure.message}")
+                collectionError = failure.message ?: "Could not open ${page.title}"
+                // The error page stands in for the list only while there is no list.
+                update { if (it.songs.isEmpty()) it.copy(loading = true) else it }
+            }
     }
 
     fun openAlbum(browseId: String) = openCollection(browseId)
@@ -1126,7 +1191,7 @@ fun BitChordDesktopApp() {
     fun downloadAll(songs: List<Song>) {
         val have = downloads.map(Song::videoId).toSet()
         DesktopDownloadQueue.enqueueAll(
-            songs.filterNot { it.videoId in have || it.localPath != null },
+            songs.filterNot { it.videoId in have || it.localPath != null || it.isUnresolvedSpotify },
         )
     }
 
@@ -1410,6 +1475,47 @@ fun BitChordDesktopApp() {
                 songs = playlist.songs,
             ),
         )
+    }
+
+    /**
+     * Keeps an imported Spotify playlist where the phone does: on the account when signed in,
+     * otherwise on this computer, which is also the fallback if the account refuses it. Returns a
+     * note only for that fallback.
+     */
+    suspend fun importSpotifyPlaylist(title: String, songs: List<Song>): String? {
+        val signedIn = DesktopYouTubeAuth.isSignedIn
+        if (signedIn) {
+            val created = DesktopSearchClient.createPlaylist(title, PlaylistPrivacy.PRIVATE, songs.map(Song::videoId))
+            created.getOrNull()?.let { playlistId ->
+                editPlaylistShelf { items ->
+                    val card = ShelfItem(
+                        title = title,
+                        subtitle = "${songs.size} songs",
+                        thumbnailUrl = songs.firstOrNull()?.thumbnailUrl,
+                        videoId = null,
+                        browseId = "VL$playlistId",
+                    )
+                    listOf(card) + items.filterNot { it.browseId == card.browseId }
+                }
+                libraryStale = true
+                openCollection("VL$playlistId")
+                return null
+            }
+            DesktopTrackLog.log("spotify import: account playlist failed: ${created.exceptionOrNull()?.message}")
+        }
+        val playlist = DesktopPlaylist(title = title, songs = songs)
+        playlists = playlists + playlist
+        persistence.savePlaylists(playlists)
+        openPlaylist(playlist)
+        return if (signedIn) {
+            DesktopStrings.format(
+                "spotify_import_local_fallback",
+                title,
+                fallback = "Couldn't create it on YouTube Music, so '%1\$s' was saved on this device instead.",
+            )
+        } else {
+            null
+        }
     }
 
     fun addToPlaylist(playlist: DesktopPlaylist) {
@@ -2144,9 +2250,9 @@ fun BitChordDesktopApp() {
         overlays.settingsPage = DesktopSettingsPage.MAIN
     }
 
-    /** The Library's folder rows: the two folders this computer has. */
-    val libraryLinks = remember {
-        listOf(
+    /** The Library's folder rows: the two folders this computer has, and Spotify once connected. */
+    val libraryLinks = remember(spotifyCanvasCookie.isNotBlank()) {
+        listOfNotNull(
             LibraryLink(
                 item = ShelfItem(
                     title = DesktopStrings["downloads", "Downloads"],
@@ -2167,7 +2273,38 @@ fun BitChordDesktopApp() {
                 ),
                 icon = Icons.Rounded.Folder,
             ),
+            // As on the phone, only while signed in to Spotify in Account & integrations.
+            LibraryLink(
+                item = ShelfItem(
+                    title = SPOTIFY_SHELF,
+                    subtitle = DesktopStrings["spotify_library_subtitle", "Your playlists and Liked Songs"],
+                    thumbnailUrl = null,
+                    videoId = null,
+                    browseId = SPOTIFY_LIBRARY_ID,
+                ),
+                icon = Icons.Rounded.Cloud,
+                logo = SharedRes.drawable.spotify_logo,
+            ).takeIf { spotifyCanvasCookie.isNotBlank() },
         )
+    }
+
+    /** The Spotify account's playlists, as a Library grid; Liked Songs first, as on the phone. */
+    fun openSpotifyLibrary() {
+        libraryShowAll = HomeShelf(SPOTIFY_SHELF, emptyList())
+        spotifyLibraryStatus = "Loading your Spotify playlists…"
+        scope.launch {
+            runCatching { SpotifyLibrary.playlists() }
+                .onSuccess { found ->
+                    spotifyLibraryStatus = null
+                    if (libraryShowAll?.title == SPOTIFY_SHELF) {
+                        libraryShowAll = HomeShelf(SPOTIFY_SHELF, found.map { it.toShelfItem() })
+                    }
+                }
+                .onFailure {
+                    DesktopTrackLog.log("spotify: playlists failed: ${it.message}")
+                    spotifyLibraryStatus = "Could not load your Spotify playlists: ${it.message}"
+                }
+        }
     }
 
     /**
@@ -2193,6 +2330,19 @@ fun BitChordDesktopApp() {
         when {
             browseId == LOCAL_DOWNLOADS_ID -> selectDestination(DesktopDestination.DOWNLOADS)
             browseId == LOCAL_MUSIC_ID -> selectDestination(DesktopDestination.LOCAL_MUSIC)
+            browseId == SPOTIFY_LIBRARY_ID -> openSpotifyLibrary()
+            // Spotify's tracks fill in below, as they are read and matched.
+            browseId.startsWith(SPOTIFY_PAGE_PREFIX) -> showCollection(
+                DesktopCollection(
+                    browseId = browseId,
+                    title = item.title,
+                    subtitle = item.subtitle,
+                    thumbnailUrl = item.thumbnailUrl,
+                    type = BrowseType.PLAYLIST,
+                    songs = emptyList(),
+                    loading = true,
+                ),
+            )
             browseId.startsWith(LOCAL_PLAYLIST_PREFIX) ->
                 playlists.firstOrNull { it.id == browseId.removePrefix(LOCAL_PLAYLIST_PREFIX) }?.let(::openPlaylist)
             else -> openShelfItem(item)
@@ -2843,6 +2993,8 @@ fun BitChordDesktopApp() {
         colorScheme = desktopColorScheme(),
         typography = desktopTypography(),
     ) {
+        val ambientBackdrop by DesktopAppearanceSettings.ambientBackdrop.collectAsState()
+        val windowActions = LocalDesktopWindowActions.current
         CompositionLocalProvider(
             LocalContentColor provides Color.White,
             LocalNowPlaying provides selectedSong,
@@ -2850,38 +3002,54 @@ fun BitChordDesktopApp() {
             DesktopFrame(
                 // The phone's page is black, not the near-black of its cards.
                 containerColor = DesktopBackground,
-                // Only Replay dresses itself; everywhere else the chrome sits on the plain surface.
+                // Only Replay dresses itself unless ambient backdrop is on; everywhere else the chrome sits on the plain surface.
                 backdrop = { transparentBase ->
+                    val ambientArtworkUrl = replaySummary.songs.firstOrNull()?.song?.thumbnailUrl
+                        .takeIf { overlays.replay }
+                        ?: selectedSong?.thumbnailUrl.takeIf { ambientBackdrop }
                     DesktopPageBackdrop(
-                        artworkUrl = replaySummary.songs.firstOrNull()?.song?.thumbnailUrl
-                            .takeIf { overlays.replay },
+                        artworkUrl = ambientArtworkUrl,
                         transparentBase = transparentBase,
                     )
                 },
                 modifier = Modifier.onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyUp) return@onPreviewKeyEvent false
-                    when (event.key) {
-                        Key.MediaPlayPause -> {
+                    when {
+                        event.key == Key.MediaPlayPause -> {
                             if (selectedSong != null) togglePlayPauseFromUser()
                             true
                         }
-                        Key.MediaNext -> {
+                        event.key == Key.MediaNext -> {
                             playNext()
                             true
                         }
-                        Key.MediaPrevious -> {
+                        event.key == Key.MediaPrevious -> {
                             playPrevious()
                             true
                         }
-                        Key.DirectionLeft -> if (event.isAltPressed && !overlays.nowPlaying) {
+                        event.key == Key.DirectionLeft && event.isAltPressed && !overlays.nowPlaying -> {
                             goBack()
                             true
-                        } else {
-                            false
+                        }
+                        DesktopPlatform.isMac && event.isMetaPressed && event.key == Key.Comma -> {
+                            openSettings()
+                            true
+                        }
+                        DesktopPlatform.isMac && event.isMetaPressed && event.key == Key.F -> {
+                            searchFocusRequested = true
+                            true
+                        }
+                        DesktopPlatform.isMac && event.isMetaPressed && event.key == Key.W -> {
+                            windowActions?.close?.invoke()
+                            true
+                        }
+                        DesktopPlatform.isMac && event.isMetaPressed && event.key == Key.M -> {
+                            windowActions?.minimize?.invoke()
+                            true
                         }
                         // One layer at a time, innermost first: the player's own side panel, then
                         // the player.
-                        Key.Escape -> when {
+                        event.key == Key.Escape -> when {
                             // The player's own layers first — the lyrics, the queue, a
                             // drawer — in the order Android's back reaches them.
                             overlays.nowPlaying && PlayerBack.dispatch() -> true
@@ -3215,26 +3383,35 @@ fun BitChordDesktopApp() {
                         )
                     }
 
+                    if (spotifyImportOpen) {
+                        DesktopSpotifyImportDialog(
+                            signedIn = youtubeSignedIn,
+                            onImported = ::importSpotifyPlaylist,
+                            onDismiss = { spotifyImportOpen = false },
+                        )
+                    }
+
                     if (overlays.signIn) {
                         DesktopSignInDialog(
                             busy = signInBusy,
                             error = signInError,
-                            interactiveBrowser = interactiveSignInBrowser,
-                            onBrowserSignIn = { browser ->
-                                browserSignInJob?.cancel()
-                                browserSignInJob = scope.launch {
+                            webSignIn = DesktopWebSignIn.available,
+                            onWebSignIn = {
+                                webSignInJob?.cancel()
+                                webSignInJob = scope.launch {
                                     signInError = null
-                                    signInBusy = browser.label
+                                    signInBusy = WEB_SIGN_IN
                                     try {
-                                        val cookie = DesktopBrowserSignIn.capture(browser)
-                                        signIn(cookie, browser.label)
+                                        val cookie = DesktopWebSignIn.captureYouTube()
+                                        signIn(cookie, WEB_SIGN_IN)
                                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                                         throw cancelled
                                     } catch (failure: Exception) {
-                                        signInError = failure.message ?: "Could not complete browser sign-in."
+                                        DesktopTrackLog.log("sign-in: YouTube Music failed: ${failure.message}")
+                                        signInError = failure.message ?: "Could not complete the sign-in."
                                     } finally {
                                         signInBusy = null
-                                        browserSignInJob = null
+                                        webSignInJob = null
                                     }
                                 }
                             },
@@ -3260,7 +3437,7 @@ fun BitChordDesktopApp() {
                                 }
                             },
                             onDismiss = {
-                                browserSignInJob?.cancel()
+                                webSignInJob?.cancel()
                                 overlays.signIn = false
                                 signInError = null
                             },
@@ -3612,6 +3789,18 @@ fun BitChordDesktopApp() {
                                 )
                                 DesktopSettingsPage.INTEGRATIONS -> DesktopIntegrationsDialog(
                                     song = playback.song,
+                                    spotify = DesktopSpotifyConnection(
+                                        connected = spotifyCanvasCookie.isNotBlank(),
+                                        canSignIn = DesktopWebSignIn.available,
+                                        signingIn = spotifySignInJob != null,
+                                        error = spotifySignInError,
+                                        onSignIn = ::signInToSpotify,
+                                        onPasteCookie = { overlays.settingsPage = DesktopSettingsPage.SPOTIFY_CANVAS },
+                                        onDisconnect = {
+                                            DesktopSpotifyToken.setCookie("")
+                                            spotifyCanvasCookie = ""
+                                        },
+                                    ),
                                     onOpenLastfm = { overlays.lastfmLogin = true },
                                     onOpenListenBrainz = { overlays.listenBrainzToken = true },
                                     onOpenDiscordToken = { overlays.discordToken = true },
@@ -3829,6 +4018,14 @@ fun BitChordDesktopApp() {
                                 Modifier.fillMaxWidth().padding(top = 8.dp, end = 12.dp),
                                 horizontalArrangement = Arrangement.End,
                             ) { DesktopLibrarySortMenu() }
+                            spotifyLibraryStatus?.takeIf { libraryShowAll?.title == SPOTIFY_SHELF }?.let { status ->
+                                Text(
+                                    status,
+                                    color = DesktopSecondary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(horizontal = PAGE_GUTTER, vertical = 12.dp),
+                                )
+                            }
                             LibraryGridPage(
                                 shelf = libraryShowAll!!,
                                 gridState = libraryGridState,
@@ -3847,6 +4044,7 @@ fun BitChordDesktopApp() {
                             onShelfItemClick = ::openLibraryItem,
                             onShelfItemLongPress = { item -> if (item.videoId != null) openMenu(item.toSong()) },
                             onNewPlaylist = { overlays.playlistDialog = true },
+                            onImportSpotifyPlaylist = { spotifyImportOpen = true },
                             onShowAll = { shelf -> libraryShowAll = shelf },
                             replay = {
                                 // The phone's wallet of Replay cards, or nothing until there is
@@ -3982,7 +4180,7 @@ private fun DesktopTopBar(
                     Modifier
                         .fillMaxHeight()
                         .desktopWindowGlass(DesktopChromeEdge.BOTTOM)
-                        .padding(start = 10.dp),
+                        .padding(start = if (DesktopPlatform.isMac) 16.dp else 10.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     DesktopWindowButtons()
@@ -4292,7 +4490,12 @@ private fun DesktopSidebar(
             // three buttons, and room to take hold of the window by.
             if (inlineCaption) {
                 DesktopTitleBarDragArea(Modifier.fillMaxWidth().height(SIDEBAR_CAPTION_HEIGHT)) {
-                    Box(Modifier.fillMaxSize().padding(start = 10.dp), contentAlignment = Alignment.CenterStart) {
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(start = if (DesktopPlatform.isMac) 16.dp else 10.dp),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
                         DesktopWindowButtons()
                     }
                 }
@@ -4618,8 +4821,15 @@ private fun DesktopFrame(
     val appBackground by DesktopWindowBackdrop.appBackground.collectAsState()
     val glass = material != DesktopBackdrop.OFF
     val materialBehindApp = glass && appBackground
+    val maximized by DesktopWindowMode.maximized.collectAsState()
+    val roundCorners = DesktopPlatform.isMac && !maximized
     CompositionLocalProvider(LocalDesktopHaze provides haze) {
-        Box(modifier.fillMaxSize().then(if (glass) Modifier else Modifier.background(containerColor))) {
+        Box(
+            modifier
+                .fillMaxSize()
+                .then(if (roundCorners) Modifier.clip(RoundedCornerShape(10.dp)) else Modifier)
+                .then(if (glass) Modifier else Modifier.background(containerColor)),
+        ) {
             // Both sources of the same state: the chrome blurs the backdrop behind it, and the
             // floating bottom bar blurs the page scrolling under it.
             if (!glass) Box(Modifier.fillMaxSize().hazeSource(haze)) { backdrop(false) }
@@ -5731,9 +5941,11 @@ private fun DesktopSettingsScreen(
                                 Text(
                                     when {
                                         backdropChoice != DesktopBackdrop.OFF && backdropActive == DesktopBackdrop.OFF ->
-                                            "Needs Windows 11 version 22H2 or later"
+                                            if (DesktopPlatform.isMac) "Native vibrancy could not be attached"
+                                            else "Needs Windows 11 version 22H2 or later"
                                         backdropChoice == DesktopBackdrop.MICA ->
-                                            "A soft tint taken from your wallpaper"
+                                            if (DesktopPlatform.isMac) "A subtle blur of your desktop wallpaper"
+                                            else "A soft tint taken from your wallpaper"
                                         backdropChoice == DesktopBackdrop.ACRYLIC ->
                                             "A frosted blur of whatever is behind the window"
                                         else -> "Solid, as the rest of the app"
@@ -5752,6 +5964,16 @@ private fun DesktopSettingsScreen(
                             ],
                             appBackground,
                             DesktopWindowBackdrop::setAppBackground,
+                        )
+                        val ambientBackdrop by DesktopAppearanceSettings.ambientBackdrop.collectAsState()
+                        SettingsToggle(
+                            DesktopStrings["d_ambient_backdrop", "Ambient artwork glow"],
+                            DesktopStrings[
+                                "d_ambient_backdrop_subtitle",
+                                "Diffuse current song artwork colors under the window glass",
+                            ],
+                            ambientBackdrop,
+                            DesktopAppearanceSettings::setAmbientBackdrop,
                         )
                     }
                     SettingsToggle(
@@ -6582,23 +6804,32 @@ private fun DesktopCollectionSongRow(
     /** Takes this row out of the playlist being read. */
     onRemove: ((Song) -> Unit)? = null,
 ) {
+    // A Spotify track still being matched to YouTube Music, or with no match: listed, but there is
+    // nothing yet to play, like, save or remove.
+    val unresolved = song.isUnresolvedSpotify
     Row(
         Modifier
             .fillMaxWidth()
+            .alpha(if (song.isMatchMissing) 0.45f else 1f)
             .clip(RoundedCornerShape(6.dp))
             .background(if (striped) Color.White.copy(alpha = 0.04f) else Color.Transparent)
-            .clickable { onClick(song) }
+            .clickable(enabled = !unresolved) { onClick(song) }
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val nowPlaying = song.isNowPlaying()
-        Text(
-            number.toString(),
-            Modifier.width(28.dp),
-            color = DesktopSecondary,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.labelSmall,
-        )
+        Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+            if (song.isMatchPending) {
+                CircularProgressIndicator(color = DesktopSecondary, strokeWidth = 1.5.dp, modifier = Modifier.size(12.dp))
+            } else {
+                Text(
+                    number.toString(),
+                    color = DesktopSecondary,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+        }
         Spacer(Modifier.width(12.dp))
         // No sleeve on an album's rows.
         if (collectionType != BrowseType.ALBUM) {
@@ -6641,6 +6872,7 @@ private fun DesktopCollectionSongRow(
             Modifier.width(collectionActionsWidth(onRemove != null)),
             horizontalArrangement = Arrangement.End,
         ) {
+            if (unresolved) return@Row
             onRemove?.let { remove ->
                 IconButton(onClick = { remove(song) }, modifier = Modifier.size(34.dp)) {
                     Icon(
@@ -6735,7 +6967,20 @@ internal fun Modifier.desktopWindowGlass(
     return if (backdrop == DesktopBackdrop.OFF) {
         desktopChromeGlass(edge, fade)
     } else {
-        background(Color.Black.copy(alpha = WINDOW_GLASS_TINT))
+        val base = background(Color.Black.copy(alpha = WINDOW_GLASS_TINT))
+        if (DesktopPlatform.isMac && edge == DesktopChromeEdge.BOTTOM) {
+            base.drawBehind {
+                // Subtle liquid glass specular highlight along the top edge
+                drawLine(
+                    color = Color.White.copy(alpha = 0.08f),
+                    start = Offset(0f, 0f),
+                    end = Offset(size.width, 0f),
+                    strokeWidth = 1f,
+                )
+            }
+        } else {
+            base
+        }
     }
 }
 
@@ -6750,7 +6995,11 @@ private const val WINDOW_GLASS_TINT = 0.28f
 @Composable
 internal fun desktopChromeDivider(): Color {
     val backdrop by DesktopWindowBackdrop.active.collectAsState()
-    return if (backdrop == DesktopBackdrop.ACRYLIC) Color.White.copy(alpha = 0.14f) else DesktopDivider
+    return when {
+        backdrop == DesktopBackdrop.ACRYLIC -> Color.White.copy(alpha = 0.14f)
+        DesktopPlatform.isMac && backdrop != DesktopBackdrop.OFF -> Color.White.copy(alpha = 0.10f)
+        else -> DesktopDivider
+    }
 }
 
 @Composable

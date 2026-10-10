@@ -9,6 +9,8 @@ internal object DesktopPlatform {
 
     val isLinux: Boolean = name.contains("linux", ignoreCase = true)
 
+    val isMac: Boolean = name.contains("mac", ignoreCase = true)
+
     /** Whether the application draws the window's own frame instead of the system drawing it. */
-    val drawsOwnWindowFrame: Boolean = isWindows
+    val drawsOwnWindowFrame: Boolean = isWindows || isMac
 }

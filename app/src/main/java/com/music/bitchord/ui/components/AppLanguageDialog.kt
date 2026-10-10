@@ -43,7 +43,14 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import java.util.Locale
 
-/** Language tag (matches a values-&lt;tag&gt; resource folder) paired with its display-name string. */
+/** Language tag paired with its display-name string.
+ *
+ * Tags carry a region (`zh-CN` / `zh-TW`, not bare `zh-Hans` / `zh-Hant`):
+ * Android Views understand script qualifiers (`values-b+zh+Hant`) but the
+ * shared Compose resources only match language + region, so a region-less
+ * script tag shows Traditional in Settings and Simplified on the player.
+ * [LocaleTags.normalizeAppTag] maps both forms to the same script downstream.
+ */
 data class AppLanguage(val tag: String, val nameRes: Int)
 
 val SUPPORTED_LANGUAGES = listOf(
@@ -57,7 +64,8 @@ val SUPPORTED_LANGUAGES = listOf(
     AppLanguage("hi", R.string.hindi),
     AppLanguage("ja", R.string.japanese),
     AppLanguage("ru", R.string.russian),
-    AppLanguage("zh", R.string.chinese),
+    AppLanguage("zh-CN", R.string.chinese_simplified),
+    AppLanguage("zh-TW", R.string.chinese_traditional),
     AppLanguage("he", R.string.hebrew),
     AppLanguage("it", R.string.italian),
     AppLanguage("tr", R.string.turkish),
@@ -65,8 +73,12 @@ val SUPPORTED_LANGUAGES = listOf(
     AppLanguage("vi", R.string.vietnamese),
 )
 
-fun languageDisplayNameRes(languageTag: String): Int =
-    SUPPORTED_LANGUAGES.firstOrNull { it.tag == languageTag }?.nameRes ?: R.string.english
+fun languageDisplayNameRes(languageTag: String): Int {
+    val norm = com.music.bitchord.data.LocaleTags.normalizeAppTag(languageTag)
+    return SUPPORTED_LANGUAGES.firstOrNull {
+        com.music.bitchord.data.LocaleTags.normalizeAppTag(it.tag) == norm
+    }?.nameRes ?: R.string.english
+}
 
 /** How much of the screen the list may take before it scrolls inside the card. */
 private val LANGUAGE_LIST_MAX_HEIGHT = 340.dp
@@ -86,8 +98,11 @@ fun AppLanguageDialog(
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val shape = RoundedCornerShape(ALERT_CORNER)
-    val currentLanguage = AppCompatDelegate.getApplicationLocales().get(0)?.language
-        ?: Locale.getDefault().language
+    // Full script tag (zh-Hant / zh-Hans preserved); legacy bare "zh" reads as Simplified.
+    val currentLanguage = com.music.bitchord.data.LocaleTags.normalizeAppTag(
+        AppCompatDelegate.getApplicationLocales().get(0)?.toLanguageTag()
+            ?: Locale.getDefault().toLanguageTag(),
+    )
 
     Box(
         modifier = modifier
@@ -158,7 +173,7 @@ fun AppLanguageDialog(
                     AlertRule()
                     LanguageRow(
                         language = language,
-                        selected = language.tag == currentLanguage,
+                        selected = com.music.bitchord.data.LocaleTags.normalizeAppTag(language.tag) == currentLanguage,
                         onClick = {
                             AppCompatDelegate.setApplicationLocales(
                                 LocaleListCompat.forLanguageTags(language.tag),

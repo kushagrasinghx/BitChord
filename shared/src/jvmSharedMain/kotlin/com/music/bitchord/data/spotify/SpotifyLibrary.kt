@@ -1,8 +1,6 @@
 package com.music.bitchord.data.spotify
 
 import com.music.bitchord.data.Http
-import com.music.bitchord.data.canvas.CANVAS_UA
-import com.music.bitchord.data.canvas.SpotifyToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -43,6 +41,21 @@ data class SpotifyTrack(
 )
 
 object SpotifyLibrary {
+    /** The web player's bearer, and its client token when there is one. */
+    class Tokens(val bearer: String, val clientToken: String?)
+
+    /**
+     * Where the tokens come from: the phone mints them in a WebView, the desktop in JavaFX's.
+     * Null tokens mean signed out or expired.
+     */
+    fun interface Auth {
+        suspend fun tokens(): Tokens?
+    }
+
+    /** Installed by each application at start-up; until then every call fails as signed out. */
+    @Volatile
+    var auth: Auth? = null
+
     private const val GQL = "https://api-partner.spotify.com/pathfinder/v2/query"
     private const val LIBRARY = "973e511ca44261fda7eebac8b653155e7caee3675abb4fb110cc1b8c78b091c3"
     private const val PLAYLIST = "346811f856fb0b7e4f6c59f8ebea78dd081c6e2fb01b77c954b26259d5fc6763"
@@ -51,6 +64,10 @@ object SpotifyLibrary {
     /** Spotify's own Liked Songs artwork, the purple heart; the collection has no cover of its own. */
     private const val LIKED_COVER = "https://misc.scdn.co/liked-songs/liked-songs-640.png"
     private const val LIKED = "087278b20b743578a6262c2b0b4bcd20d879c503cc359a2285baf083ef944240"
+    /** The phone's canvas client sent this one; kept so its requests look unchanged. */
+    private const val USER_AGENT =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/122.0.0.0 Safari/537.36"
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val mediaType = "application/json; charset=utf-8".toMediaType()
 
@@ -157,16 +174,16 @@ object SpotifyLibrary {
     }
 
     private suspend fun authHeaders(): Map<String, String> {
-        val token = SpotifyToken.accessToken()
+        val tokens = auth?.tokens()
             ?: throw IllegalStateException("Spotify sign-in expired")
         return buildMap {
-            put("Authorization", "Bearer $token")
+            put("Authorization", "Bearer ${tokens.bearer}")
             put("Accept", "application/json")
             put("app-platform", "WebPlayer")
             put("Origin", "https://open.spotify.com")
             put("Referer", "https://open.spotify.com/")
-            put("User-Agent", CANVAS_UA)
-            SpotifyToken.clientToken()?.let { put("Client-Token", it) }
+            put("User-Agent", USER_AGENT)
+            tokens.clientToken?.let { put("Client-Token", it) }
         }
     }
 

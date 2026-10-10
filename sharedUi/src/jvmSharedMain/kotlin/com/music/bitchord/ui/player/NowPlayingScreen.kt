@@ -3268,7 +3268,9 @@ fun NowPlayingScreen(
                     // only on phones where a card can actually be made. While
                     // picking it is the way back out again — the bar below
                     // already holds Share.
-                    val lyricsShareGlyphVisible = lyricsOpen && lyricsShareEnabled &&
+                    // Only once the sleeve has fully collapsed: the moment it starts
+                    // coming back the glyph is the menu again.
+                    val lyricsShareGlyphVisible = lyricsOpen && collapseDone && lyricsShareEnabled &&
                         !lyrics.isNullOrEmpty()
                     CircleGlyph(
                         icon = when {

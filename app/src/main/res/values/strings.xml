@@ -697,6 +697,7 @@
     <string name="minutes_short">%1$d min</string>
     <string name="not_enough_listening">Not enough listening yet</string>
     <string name="not_enough_this_month">Play a few more songs this month to unlock your Replay.</string>
+    <string name="not_enough_this_week">Play a few more songs this week to unlock your Replay.</string>
     <string name="pinned">Pinned</string>
     <string name="replay_across">Across </string>
     <string name="replay_album_end"> held your attention.</string>
@@ -705,6 +706,7 @@
     <string name="replay_artist_end"> kept coming back.</string>
     <string name="replay_artist_focus">One artist</string>
     <string name="replay_artist_start">All month, </string>
+    <string name="replay_artist_start_week">This week, </string>
     <string name="replay_empty_description">Listen a little more and BitChord will turn your history into a Replay.</string>
     <string name="replay_genre_end"> shaped your sound.</string>
     <string name="replay_genre_focus">Your genres</string>
@@ -726,8 +728,10 @@
     <string name="replay_share_card_description">A polished card with your main listening highlights.</string>
     <string name="replay_share_summary_description">A full picture with songs, artists, albums, genres, and habits.</string>
     <string name="replay_songs_end"> filled your month.</string>
+    <string name="replay_songs_end_week"> filled your week.</string>
     <string name="replay_songs_start">In total, </string>
     <string name="replay_summary_start">Your </string>
+    <string name="replay_summary_end_week">week</string>
     <string name="saved">Saved</string>
     <string name="saved_bang">Saved!</string>
     <string name="share_my_replay">Share my Replay</string>
@@ -844,6 +848,7 @@
     <string name="play_your_replay">Play your Replay</string>
     <string name="counted_on_device_with_bitchord">Counted on this device with BitChord</string>
     <string name="this_month">This month</string>
+    <string name="replay_this_week">This week</string>
     <string name="this_year">This year</string>
     <string name="all_time">All time</string>
     <string name="switch_account">Switch account</string>

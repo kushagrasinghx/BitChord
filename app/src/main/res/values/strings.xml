@@ -336,6 +336,8 @@
     <string name="hide_volume_bar">Hide volume bar</string>
     <string name="hide_volume_bar_subtitle">Removes the volume slider from the main player</string>
     <string name="hide_song_status">Hide Song Status</string>
+    <string name="show_queue_history">Show queue history</string>
+    <string name="show_queue_history_subtitle">Show up to 25 previously played songs above Now playing in the queue</string>
     <string name="hide_song_status_subtitle">Hides the “Playing from” or “Played by” text in the main player</string>
     <string name="off">Off</string>
     <string name="low">Low</string>

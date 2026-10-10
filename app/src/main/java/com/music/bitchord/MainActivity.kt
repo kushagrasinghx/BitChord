@@ -2315,6 +2315,8 @@ private fun BitChordApp(
             },
             onOpenAlbum = { id ->
                 dismissPlayer()
+                showReplay = false
+                settingsSubScreen = null
                 viewModel.openDetail(
                     id,
                     song.albumName ?: song.title,
@@ -2334,6 +2336,8 @@ private fun BitChordApp(
             // picture, and the page fills its own in once loaded.
             onOpenArtist = { id, name ->
                 dismissPlayer()
+                showReplay = false
+                settingsSubScreen = null
                 if (id != null) {
                     viewModel.openDetail(
                         id,

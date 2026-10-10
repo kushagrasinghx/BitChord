@@ -864,15 +864,17 @@ private fun SharedTransitionScope.ExpandedTabs(
                         .fillMaxWidth()
                         .onSizeChanged { rowSize = it }
                         .layerBackdrop(tabRow)
-                        .pointerInput(tabCount, tabStepPx, currentSelectedTabIndex, isRtl) {
+                        .pointerInput(Unit) {
                             if (currentSelectedTabIndex < 0 || tabStepPx <= 0f) return@pointerInput
 
                             // In tab order, whichever way the row runs.
                             val direction = if (isRtl) -1f else 1f
                             var totalDrag = 0f
+                            var dragStartIndex = currentSelectedTabIndex
                             detectHorizontalDragGestures(
                                 onDragStart = {
                                     totalDrag = 0f
+                                    dragStartIndex = currentSelectedTabIndex
                                     pill.startDrag()
                                 },
                                 onDragCancel = { pill.release(currentSelectedTabIndex) },
@@ -883,8 +885,9 @@ private fun SharedTransitionScope.ExpandedTabs(
                                         ratio < -0.35f -> minOf(-1, ratio.roundToInt())
                                         else -> 0
                                     }
-                                    val newIndex = (currentSelectedTabIndex + shift)
-                                        .coerceIn(0, scope.tabs.lastIndex)
+                                    val absoluteIndexFloat = (dragStartIndex + totalDrag / tabStepPx)
+                                        .coerceIn(0f, scope.tabs.lastIndex.toFloat())
+                                    val newIndex = absoluteIndexFloat.roundToInt()
                                     pill.release(newIndex)
                                     if (newIndex != currentSelectedTabIndex) {
                                         scope.tabs[newIndex].onClick()
@@ -892,19 +895,11 @@ private fun SharedTransitionScope.ExpandedTabs(
                                 },
                                 onHorizontalDrag = { _, delta ->
                                     totalDrag += delta * direction
-                                    val dragOffset = when {
-                                        totalDrag > 0 && currentSelectedTabIndex == scope.tabs.lastIndex ->
-                                            totalDrag * 0.25f
-                                        totalDrag < 0 && currentSelectedTabIndex == 0 ->
-                                            totalDrag * 0.25f
-                                        else -> totalDrag
-                                    }
-                                    pill.dragTo(currentSelectedTabIndex + dragOffset / tabStepPx)
+                                    val absoluteIndexFloat = (dragStartIndex + totalDrag / tabStepPx)
+                                        .coerceIn(0f, scope.tabs.lastIndex.toFloat())
+                                    pill.dragTo(absoluteIndexFloat)
 
-                                    val approximateTab =
-                                        (currentSelectedTabIndex + dragOffset / tabStepPx)
-                                            .coerceIn(0f, scope.tabs.lastIndex.toFloat())
-                                            .roundToInt()
+                                    val approximateTab = absoluteIndexFloat.roundToInt()
                                     if (approximateTab != lastHapticTab) {
                                         haptics.play(Haptic.Tick)
                                         lastHapticTab = approximateTab

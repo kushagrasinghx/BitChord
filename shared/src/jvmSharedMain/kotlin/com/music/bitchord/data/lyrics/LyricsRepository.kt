@@ -103,6 +103,13 @@ object LyricsRepository {
         onSourceResult: ((LyricsSource, Result?) -> Unit)? = null,
         /** Lets callers turn a cancelled race loser back into "not fetched". */
         onSourceCancelled: ((LyricsSource) -> Unit)? = null,
+        /**
+         * Resolve the untranslated YouTube title/artist first (see
+         * [OriginalTitleResolver]) and search lyrics with that. Translated
+         * UI titles miss the catalogues; the original rarely does. Bounded
+         * internally, and off means the given title/artist are used as-is.
+         */
+        useOriginalTitle: Boolean = true,
     ): Result? = coroutineScope {
         val sequence = (order + LyricsSource.offered)
             .distinct()
@@ -111,8 +118,15 @@ object LyricsRepository {
         // Every source but [SimpMusicLyrics] is asked for a name, and
         // YouTube's is not the name anyone catalogued. Cleaned once, here,
         // rather than by whichever source thought to do it for itself.
-        val searchTitle = title.forLyricsSearch()
-        val searchArtist = artist.artistForLyricsSearch()
+        // With [useOriginalTitle], the lookup runs against the untranslated
+        // title first — a translated title is what makes providers miss.
+        val original = if (useOriginalTitle) {
+            OriginalTitleResolver.resolve(videoId, title, artist)
+        } else {
+            null
+        }
+        val searchTitle = (original?.title ?: title).forLyricsSearch()
+        val searchArtist = (original?.artist ?: artist).artistForLyricsSearch()
 
         // Settled before anyone is asked for words, so every source that can
         // name the recording does. What the caller knows beats what we worked

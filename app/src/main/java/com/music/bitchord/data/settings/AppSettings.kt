@@ -411,6 +411,14 @@ object AppSettings {
     val translationLanguage = MutableStateFlow("")
 
     /**
+     * Resolve the untranslated YouTube title before asking lyrics providers
+     * (see OriginalTitleResolver). On by default: translated UI titles are
+     * what make providers miss, and the lookup falls back to the given title
+     * when nothing original comes back.
+     */
+    val useOriginalTitleForLyrics = MutableStateFlow(true)
+
+    /**
      * Plays a looping video behind the cover art on the player when one is
      * published for the track — Spotify's Canvas, Apple's motion artwork.
      *
@@ -838,6 +846,7 @@ object AppSettings {
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
+        useOriginalTitleForLyrics.value = prefs.getBoolean(KEY_ORIGINAL_TITLE_LYRICS, true)
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
@@ -1271,6 +1280,10 @@ object AppSettings {
         prefs.edit().putString(KEY_TRANSLATION_LANGUAGE, value).apply()
     }
 
+    fun setUseOriginalTitleForLyrics(value: Boolean) {
+        useOriginalTitleForLyrics.value = value
+        prefs.edit().putBoolean(KEY_ORIGINAL_TITLE_LYRICS, value).apply()
+    }
     fun setSyncedLyrics(value: Boolean) {
         syncedLyrics.value = value
         prefs.edit().putBoolean(KEY_SYNCED_LYRICS, value).apply()
@@ -1963,6 +1976,7 @@ object AppSettings {
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
+    private const val KEY_ORIGINAL_TITLE_LYRICS = "original_title_lyrics"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"

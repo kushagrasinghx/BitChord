@@ -856,4 +856,6 @@
     <string name="listen_together_open_count">Listening together · %1$d</string>
     <string name="miscellaneous_footer">When enabled, closing the app from the recent apps screen will also stop music playback.</string>
     <string name="translate">Translate</string>
+    <string name="lyrics_original_title">Search lyrics by original title</string>
+    <string name="lyrics_original_title_desc">Resolve the untranslated YouTube title first, so translated titles still find lyrics</string>
 </resources>

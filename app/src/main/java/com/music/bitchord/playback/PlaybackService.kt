@@ -6613,6 +6613,7 @@ class PlaybackService : MediaLibraryService() {
                     sources = AppSettings.lyricsSources.value,
                     order = AppSettings.lyricsSourceOrder.value,
                     prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                    useOriginalTitle = AppSettings.useOriginalTitleForLyrics.value,
                 )
                 lines = found?.lines
             }

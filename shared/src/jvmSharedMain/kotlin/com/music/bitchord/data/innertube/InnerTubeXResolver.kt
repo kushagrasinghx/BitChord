@@ -223,7 +223,7 @@ object InnerTubeXResolver {
     ): Extracted? {
         innerTube.cookie = Innertube.cookie
         innerTube.visitorData = Innertube.ensureVisitorData()
-        innerTube.locale = YouTubeLocale(gl = "US", hl = Innertube.currentLanguage)
+        innerTube.locale = YouTubeLocale(gl = Innertube.currentRegion, hl = Innertube.currentLanguage)
         val stream = extractor.extract(
             videoId = videoId,
             hints = ContentHints().withStreamCapabilities(allowHls = false, allowSabr = false, allowBoundedRange = true),

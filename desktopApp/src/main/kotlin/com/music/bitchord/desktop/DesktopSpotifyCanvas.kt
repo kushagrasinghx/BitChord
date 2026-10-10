@@ -22,8 +22,14 @@ import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.util.Base64
 import java.util.UUID
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
+import java.net.CookieHandler
+import java.nio.file.Files
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import javafx.application.Platform
+import javafx.concurrent.Worker
+import javafx.scene.web.WebEngine
+import netscape.javascript.JSObject
 
 /**
  * Spotify's Canvas: the short looping clip shown behind a track in their own app.
@@ -37,6 +43,24 @@ internal object DesktopSpotifyCanvas {
     private const val SEARCH_URL = "https://api.spotify.com/v1/search"
     private const val ALBUM_TRACKS_URL = "https://api.spotify.com/v1/albums"
     private const val CANVAS_URL = "https://spclient.wg.spotify.com/canvaz-cache/v0/canvases"
+    private const val PATHFINDER_URL = "https://api-partner.spotify.com/pathfinder/v1/query"
+
+    /**
+     * Names the web player's `searchTracks` query to Pathfinder.
+     *
+     * Pathfinder only runs persisted queries: the client sends the SHA-256 of a query text Spotify
+     * registered at build time, never the query itself. The text is not published, so the hash
+     * cannot be computed here; it is copied from the web player — the `extensions` parameter of a
+     * `searchTracks` request in DevTools, or the bundle's `"searchTracks","query","<hash>"`
+     * declaration. Same value as Android's `SpotifyCanvas`.
+     *
+     * It changes whenever Spotify edits the query. Pathfinder then rejects it, search falls back
+     * to REST `/v1/search` (which 429s these tokens), and canvases stop. Refresh it from either
+     * source above, or look it up at runtime the way [SpotifyCanvasQuery.findQueryHash] already
+     * does for the `canvas` query.
+     */
+    private const val PATHFINDER_SEARCH_HASH =
+        "bc1ca2fcd0ba1013a0fc88e6cc4f190af501851e3dafd3e1ef85840297694428"
 
     /** spclient gates this path to Spotify's own apps by user agent; the web player's is turned
      * away, so this wears a mobile client's instead. */
@@ -54,8 +78,15 @@ internal object DesktopSpotifyCanvas {
 
     fun search(title: String, artist: String, album: String?): DesktopCanvasArtwork? {
         val token = DesktopSpotifyToken.accessToken() ?: return null
-        val hit = searchTrack(title, artist, album, token) ?: return null
-        val canvasUrl = fetchCanvasUrl(hit.uri, token) ?: return null
+        val hit = searchTrack(title, artist, album, token) ?: run {
+            DesktopTrackLog.log("canvas: Spotify search found no match for '$title' by '$artist'")
+            return null
+        }
+        val canvasUrl = fetchCanvasUrl(hit.uri, token) ?: run {
+            DesktopTrackLog.log("canvas: Spotify has no canvas for ${hit.uri} ('${hit.title}')")
+            return null
+        }
+        DesktopTrackLog.log("canvas: Spotify canvas found for '${hit.title}'")
         return DesktopCanvasArtwork(
             url = canvasUrl,
             title = hit.title,
@@ -95,7 +126,78 @@ internal object DesktopSpotifyCanvas {
         return null
     }
 
-    private fun searchTrack(title: String, artist: String, album: String?, token: String): TrackHit? {
+    /** Pathfinder first, as on Android: REST `/v1/search` answers this kind of token with 429s. */
+    private fun searchTrack(title: String, artist: String, album: String?, token: String): TrackHit? =
+        searchViaPathfinder(title, artist, album, token) ?: searchViaRest(title, artist, album, token)
+
+    /**
+     * The web player's own search box. Spotify's ranking is trusted for the hit, as on Android: the
+     * GraphQL response's fields are not documented well enough to re-check title and artist.
+     */
+    private fun searchViaPathfinder(title: String, artist: String, album: String?, token: String): TrackHit? {
+        val clientToken = DesktopSpotifyToken.clientToken() ?: run {
+            DesktopTrackLog.log("canvas: no Spotify client token; skipping Pathfinder search")
+            return null
+        }
+        val variables = buildJsonObject {
+            put("searchTerm", listOfNotNull(title, artist, album).joinToString(" "))
+            put("offset", 0)
+            put("limit", 10)
+            put("numberOfTopResults", 5)
+            put("includeAudiobooks", false)
+            put("includePreReleases", false)
+        }.toString()
+        val extensions = buildJsonObject {
+            putJsonObject("persistedQuery") {
+                put("version", 1)
+                put("sha256Hash", PATHFINDER_SEARCH_HASH)
+            }
+        }.toString()
+        val response = runCatching {
+            http.send(
+                HttpRequest.newBuilder(
+                    URI.create(
+                        url(
+                            PATHFINDER_URL,
+                            listOf("operationName" to "searchTracks", "variables" to variables, "extensions" to extensions),
+                        ),
+                    ),
+                )
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Authorization", "Bearer $token")
+                    .header("Client-Token", clientToken)
+                    .header("App-platform", "WebPlayer")
+                    .header("Accept", "application/json")
+                    .header("User-Agent", CANVAS_UA)
+                    .GET()
+                    .build(),
+                HttpResponse.BodyHandlers.ofString(),
+            )
+        }.getOrElse {
+            DesktopTrackLog.log("canvas: Pathfinder search threw: ${it.message}")
+            return null
+        }
+        if (response.statusCode() !in 200..299) {
+            DesktopTrackLog.log("canvas: Pathfinder search answered ${response.statusCode()}: ${response.body().take(200)}")
+            return null
+        }
+        val hit = runCatching {
+            json.parseToJsonElement(response.body()).jsonObject["data"]?.jsonObject
+                ?.get("searchV2")?.jsonObject
+                ?.get("tracksV2")?.jsonObject
+                ?.get("items")?.jsonArray
+                ?.firstOrNull()?.jsonObject
+                ?.get("item")?.jsonObject
+                ?.get("data")?.jsonObject
+        }.getOrNull() ?: run {
+            DesktopTrackLog.log("canvas: Pathfinder search had no hit: ${response.body().take(200)}")
+            return null
+        }
+        val uri = hit.text("uri") ?: hit.text("id")?.let { "spotify:track:$it" } ?: return null
+        return TrackHit(uri, title, artist, album)
+    }
+
+    private fun searchViaRest(title: String, artist: String, album: String?, token: String): TrackHit? {
         val query = listOfNotNull(title, artist, album).joinToString(" ")
         val items = get(url(SEARCH_URL, listOf("q" to query, "type" to "track", "limit" to "10")), token)
             ?.get("tracks")?.jsonObject?.get("items")?.jsonArray
@@ -245,9 +347,25 @@ internal object DesktopSpotifyCanvas {
         DesktopSpotifyToken.clientToken()?.let { put("Client-Token", it) }
     }
 
-    private fun get(url: String, token: String): JsonObject? =
-        canvasGet(url, authHeaders(token))
-            ?.let { runCatching { json.parseToJsonElement(it).jsonObject }.getOrNull() }
+    private fun get(url: String, token: String): JsonObject? {
+        val response = runCatching {
+            val builder = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(15))
+                .header("User-Agent", CANVAS_UA)
+            authHeaders(token).forEach { (name, value) -> builder.header(name, value) }
+            http.send(builder.GET().build(), HttpResponse.BodyHandlers.ofString())
+        }.getOrElse {
+            DesktopTrackLog.log("canvas: Spotify ${url.substringBefore('?')} threw: ${it.message}")
+            return null
+        }
+        if (response.statusCode() !in 200..299) {
+            DesktopTrackLog.log(
+                "canvas: Spotify ${url.substringBefore('?')} answered ${response.statusCode()}: ${response.body().take(200)}",
+            )
+            return null
+        }
+        return runCatching { json.parseToJsonElement(response.body()).jsonObject }.getOrNull()
+    }
 
     private fun url(base: String, params: List<Pair<String, String>>): String =
         params.joinToString("&", prefix = "$base?") { (name, value) ->
@@ -320,15 +438,12 @@ private fun ByteArrayOutputStream.writeVarint(value: Long) {
 /**
  * The bearer Spotify's own web player mints for itself.
  *
- * Android loads the real player in an offscreen WebView and reads the token it mints, because a
- * request signed here is answered with a token the downstream endpoints then refuse. A desktop
- * build has no embedded browser to do that in, so this takes the only route left: the web player's
- * own `/api/token`, signed with the TOTP it derives from a secret published in its bundle. When
- * Spotify declines, the canvas chain simply falls through to its other three sources.
+ * Same as Android's `SpotifyToken`: the real player is loaded offscreen (JavaFX's WebEngine here)
+ * with the listener's cookie, and the token it mints is read off its own `/api/token` call. Signing
+ * that request ourselves with the bundle's TOTP secret breaks whenever Spotify rotates the secret,
+ * and even a correctly signed token is refused downstream with a 429.
  */
 internal object DesktopSpotifyToken {
-
-    private const val TOKEN_URL = "https://open.spotify.com/api/token"
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -357,40 +472,143 @@ internal object DesktopSpotifyToken {
         cachedAccessToken?.let { if (now < accessTokenExpiresAtMs - 30_000) return it }
         if (now < retryAfterMs) return null
 
-        val secret = TOTP_SECRETS.maxByOrNull { it.key }
-        val code = secret?.let { totp(it.value, now / 1000) }
-        val query = buildList {
-            add("reason" to "init")
-            add("productType" to "web-player")
-            if (code != null && secret != null) {
-                add("totp" to code)
-                add("totpServer" to code)
-                add("totpVer" to secret.key.toString())
-            }
-        }.joinToString("&") { (name, value) -> "$name=${URLEncoder.encode(value, StandardCharsets.UTF_8)}" }
-
-        val body = canvasGet(
-            "$TOKEN_URL?$query",
-            mapOf(
-                "Cookie" to "sp_dc=$cookie",
-                "Referer" to "https://open.spotify.com/",
-                "App-Platform" to "WebPlayer",
-            ),
-        )
-        val root = body?.let { runCatching { json.parseToJsonElement(it).jsonObject }.getOrNull() }
+        val root = harvest(cookie)
         val token = root?.get("accessToken")?.jsonPrimitive?.contentOrNull
         if (token.isNullOrBlank()) {
-            // Backed off rather than retried per track: if Spotify has changed the shape, asking on
-            // every skip fixes nothing and makes every canvas lookup pay for the round trip.
+            // Backed off rather than retried per track: a harvest loads the whole web player.
             retryAfterMs = now + RETRY_MS
-            DesktopTrackLog.log("canvas: Spotify would not mint an access token")
+            DesktopTrackLog.log("canvas: Spotify's web player did not hand over an access token")
             return null
         }
         cachedAccessToken = token
         accessTokenExpiresAtMs = root["accessTokenExpirationTimestampMs"]
-            ?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: (now + 3_600_000)
+            ?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+            ?.takeIf { it > now } ?: (now + 3_600_000)
         cachedClientId = root["clientId"]?.jsonPrimitive?.contentOrNull
+        root["clientToken"]?.jsonPrimitive?.contentOrNull?.let {
+            cachedClientToken = it
+            clientTokenExpiresAtMs = accessTokenExpiresAtMs
+        }
         return token
+    }
+
+    /**
+     * Loads open.spotify.com offscreen with the cookie applied and returns the body of the first
+     * logged-in `/api/token` response the page receives. Blocks the caller; never call on the FX
+     * thread.
+     */
+    private fun harvest(cookie: String): JsonObject? {
+        if (Platform.isFxApplicationThread() || !DesktopPoTokenWebView.available) return null
+        val result = CompletableFuture<JsonObject?>()
+        val bridge = TokenBridge(result)
+        // A fresh profile per harvest: the player skips minting when a live token sits in storage.
+        val profile = Files.createTempDirectory("bitchord-spotify").toFile()
+        var engine: WebEngine? = null
+
+        Platform.runLater {
+            runCatching {
+                val web = WebEngine().also { engine = it }
+                web.userDataDirectory = profile
+                web.userAgent = CANVAS_UA
+                // The first WebEngine installs its cookie store as the JVM default.
+                CookieHandler.getDefault()?.put(
+                    URI.create("https://open.spotify.com/"),
+                    mapOf("Set-Cookie" to listOf("sp_dc=$cookie; Domain=.spotify.com; Path=/; Secure")),
+                )
+                val hook = {
+                    runCatching {
+                        (web.executeScript("window") as JSObject).setMember(BRIDGE_NAME, bridge)
+                        web.executeScript(HOOK_SCRIPT)
+                        web.executeScript(HEADER_SCRIPT)
+                    }.onFailure { DesktopTrackLog.log("canvas: token hook not installed: ${it.message}") }
+                }
+                web.loadWorker.stateProperty().addListener { _, _, state ->
+                    when (state) {
+                        // JavaFX has no hook point before the page's scripts run; see onHeaders.
+                        Worker.State.SUCCEEDED -> hook()
+                        Worker.State.FAILED -> {
+                            DesktopTrackLog.log("canvas: web player failed to load: ${web.loadWorker.exception?.message}")
+                            result.complete(null)
+                        }
+                        else -> Unit
+                    }
+                }
+                web.load("https://open.spotify.com/")
+            }.onFailure { result.complete(null) }
+        }
+
+        return try {
+            result.get(HARVEST_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (_: Exception) {
+            DesktopTrackLog.log("canvas: no logged-in token within ${HARVEST_TIMEOUT_MS / 1000}s; page: ${describePage(engine)}")
+            null
+        } finally {
+            java.lang.ref.Reference.reachabilityFence(bridge) // JavaFX holds bridges weakly.
+            Platform.runLater {
+                runCatching { engine?.load("about:blank") }
+                profile.deleteRecursively()
+            }
+        }
+    }
+
+    /** Where the page got to, for the log when a harvest times out. Waits briefly on the FX thread. */
+    private fun describePage(engine: WebEngine?): String {
+        val web = engine ?: return "never created"
+        val described = CompletableFuture<String>()
+        Platform.runLater {
+            described.complete(
+                runCatching {
+                    web.executeScript(
+                        "location.href + ' | title=' + document.title + ' | hook=' + !!window.__bitchordTokenHook + " +
+                            "' | text=' + (document.body ? document.body.innerText : '').replace(/\\s+/g, ' ').slice(0, 200)",
+                    ).toString()
+                }.getOrElse { "unreadable: ${it.message}" },
+            )
+        }
+        return runCatching { described.get(3, TimeUnit.SECONDS) }.getOrDefault("FX thread busy")
+    }
+
+    /** What the hooked page calls with each raw `/api/token` body. Public for LiveConnect. */
+    class TokenBridge internal constructor(private val result: CompletableFuture<JsonObject?>) {
+        fun onTokenPayload(payload: String?) {
+            if (payload.isNullOrBlank() || result.isDone) return
+            val root = runCatching { json.parseToJsonElement(payload).jsonObject }.getOrNull()
+            if (root == null) {
+                DesktopTrackLog.log("canvas: /api/token answered with something else: ${payload.take(160)}")
+                return
+            }
+            // The player mints an anonymous token before the cookie counts; that one reads no canvases.
+            if (root["isAnonymous"]?.jsonPrimitive?.contentOrNull == "true") {
+                DesktopTrackLog.log("canvas: /api/token gave an anonymous token; waiting for the logged-in one")
+                return
+            }
+            if (root["accessToken"]?.jsonPrimitive?.contentOrNull.isNullOrBlank()) {
+                DesktopTrackLog.log("canvas: /api/token gave no token; keys=${root.keys}")
+                return
+            }
+            result.complete(root)
+        }
+
+        /**
+         * The headers off one of the page's own authenticated requests. JavaFX gives no hook point
+         * before the page's scripts run, so the `/api/token` call itself is usually missed, but
+         * everything the player sends to spclient afterwards carries the bearer it got.
+         */
+        fun onHeaders(authorization: String?, clientToken: String?) {
+            if (result.isDone) return
+            val bearer = authorization?.removePrefix("Bearer ")?.trim()
+            if (bearer.isNullOrBlank()) return
+            result.complete(
+                buildJsonObject {
+                    put("accessToken", bearer)
+                    // The real expiry came with the missed `/api/token` answer; tokens live an
+                    // hour and this one was minted moments ago.
+                    put("accessTokenExpirationTimestampMs", System.currentTimeMillis() + SNIFFED_TOKEN_LIFETIME_MS)
+                    if (!clientToken.isNullOrBlank()) put("clientToken", clientToken)
+                },
+            )
+        }
+
     }
 
     /**
@@ -457,37 +675,111 @@ internal object DesktopSpotifyToken {
         return (clientVersion to UUID.randomUUID().toString()).also { session = it }
     }
 
-    /**
-     * The six digits the web player sends with a token request.
-     *
-     * Standard TOTP over SHA-1, thirty-second steps, from a secret the bundle carries obfuscated as
-     * a byte array XORed against its own index.
-     */
-    internal fun totp(secret: IntArray, epochSeconds: Long): String? = runCatching {
-        val cleaned = secret.mapIndexed { index, value -> value xor (index % 33 + 9) }
-            .joinToString("")
-            .toByteArray(StandardCharsets.UTF_8)
-        val counter = epochSeconds / 30
-        val message = ByteArray(8) { index -> (counter ushr (56 - index * 8)).toByte() }
-        val mac = Mac.getInstance("HmacSHA1").apply { init(SecretKeySpec(cleaned, "HmacSHA1")) }
-        val hash = mac.doFinal(message)
-        val offset = hash[hash.size - 1].toInt() and 0x0F
-        val binary = ((hash[offset].toInt() and 0x7F) shl 24) or
-            ((hash[offset + 1].toInt() and 0xFF) shl 16) or
-            ((hash[offset + 2].toInt() and 0xFF) shl 8) or
-            (hash[offset + 3].toInt() and 0xFF)
-        "%06d".format(binary % 1_000_000)
-    }.getOrNull()
+    private const val BRIDGE_NAME = "BitChordSpotifyTokenBridge"
+    private const val HARVEST_TIMEOUT_MS = 25_000L
 
-    /**
-     * The secrets the web player has shipped, newest last.
-     *
-     * Kept as a table rather than scraped: the bundle's shape changes more often than the secret
-     * does, and an unknown version simply means the request goes out unsigned.
-     */
-    private val TOTP_SECRETS: Map<Int, IntArray> = mapOf(
-        12 to intArrayOf(107, 81, 49, 57, 67, 93, 87, 81, 69, 67, 40, 93, 48, 50, 46, 91, 94, 113, 41, 47),
-    )
+    private const val SNIFFED_TOKEN_LIFETIME_MS = 45L * 60 * 1000
+
+    /** Reports the bearer and client token off the page's own requests to Spotify's backends. */
+    private val HEADER_SCRIPT = """
+        (function () {
+          if (window.__bitchordHeaderHook) return;
+          window.__bitchordHeaderHook = true;
+          var isSpotify = function (u) {
+            try { return /^https:\/\/[^\/]*(spclient|api)\.spotify\.com\//.test(String(u)); } catch (e) { return false; }
+          };
+          var pick = function (h, name) {
+            try {
+              if (!h) return null;
+              if (typeof h.get === 'function') return h.get(name);
+              if (Array.isArray(h)) {
+                for (var i = 0; i < h.length; i++) if (String(h[i][0]).toLowerCase() === name) return h[i][1];
+                return null;
+              }
+              for (var k in h) if (k.toLowerCase() === name) return h[k];
+            } catch (e) {}
+            return null;
+          };
+          var report = function (auth, client) {
+            try { if (auth) $BRIDGE_NAME.onHeaders(String(auth), client ? String(client) : null); } catch (e) {}
+          };
+          var origFetch = window.fetch;
+          if (origFetch) {
+            window.fetch = function (input, init) {
+              var url = (input && input.url) ? input.url : input;
+              if (isSpotify(url)) {
+                var h = (init && init.headers) || (input && input.headers);
+                report(pick(h, 'authorization'), pick(h, 'client-token'));
+              }
+              return origFetch.apply(this, arguments);
+            };
+          }
+          var origOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function (method, url) {
+            this.__bitchordSpotify = isSpotify(url);
+            this.__bitchordHeaders = {};
+            return origOpen.apply(this, arguments);
+          };
+          var origSet = XMLHttpRequest.prototype.setRequestHeader;
+          XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+            try { if (this.__bitchordHeaders) this.__bitchordHeaders[String(name).toLowerCase()] = value; } catch (e) {}
+            return origSet.apply(this, arguments);
+          };
+          var origSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.send = function () {
+            if (this.__bitchordSpotify && this.__bitchordHeaders) {
+              report(this.__bitchordHeaders['authorization'], this.__bitchordHeaders['client-token']);
+            }
+            return origSend.apply(this, arguments);
+          };
+        })();
+    """.trimIndent()
+
+    /** Android's hook, unchanged: reports every `/api/token` response, fetch or XHR. */
+    private val HOOK_SCRIPT = """
+        (function () {
+          if (window.__bitchordTokenHook) return;
+          window.__bitchordTokenHook = true;
+          var report = function (body) {
+            try { $BRIDGE_NAME.onTokenPayload(body); } catch (e) {}
+          };
+          var isToken = function (u) {
+            try { return String(u).indexOf('/api/token') !== -1; } catch (e) { return false; }
+          };
+          var origFetch = window.fetch;
+          if (origFetch) {
+            window.fetch = function (input, init) {
+              var url = (input && input.url) ? input.url : input;
+              var result = origFetch.apply(this, arguments);
+              if (isToken(url)) {
+                try {
+                  result.then(function (res) {
+                    res.clone().text().then(report).catch(function () {});
+                  }).catch(function () {});
+                } catch (e) {}
+              }
+              return result;
+            };
+          }
+          var origOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function (method, url) {
+            this.__bitchordUrl = url;
+            return origOpen.apply(this, arguments);
+          };
+          var origSend = XMLHttpRequest.prototype.send;
+          XMLHttpRequest.prototype.send = function () {
+            var xhr = this;
+            try {
+              xhr.addEventListener('load', function () {
+                if (isToken(xhr.__bitchordUrl)) {
+                  try { report(xhr.responseText); } catch (e) {}
+                }
+              });
+            } catch (e) {}
+            return origSend.apply(this, arguments);
+          };
+        })();
+    """.trimIndent()
 
     private const val RETRY_MS = 30L * 60 * 1000
 

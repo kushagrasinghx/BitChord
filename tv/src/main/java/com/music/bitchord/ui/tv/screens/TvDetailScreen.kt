@@ -190,7 +190,7 @@ private fun TvReleaseContent(
         label = "releaseTint",
     )
 
-    ProvideTvComfortScrolling(top = TvDimensions.ContentTop, bottom = 72.dp) {
+    ProvideTvComfortScrolling(top = TvDimensions.ContentTop, bottom = 58.dp) {
         LazyColumn(
             state = listState,
             modifier = modifier
@@ -203,7 +203,7 @@ private fun TvReleaseContent(
                         ),
                     )
                 },
-            contentPadding = PaddingValues(top = TvDimensions.ContentTop + 6.dp, bottom = 56.dp),
+            contentPadding = PaddingValues(top = TvDimensions.ContentTop + 5.dp, bottom = 45.dp),
         ) {
             item(key = "header") {
                 TvReleaseHeader(
@@ -221,7 +221,7 @@ private fun TvReleaseContent(
 
             when (songsState) {
                 null, UiState.Loading -> item(key = "loading") {
-                    Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().padding(top = 32.dp), contentAlignment = Alignment.Center) {
                         TvActivityIndicator()
                     }
                 }
@@ -230,11 +230,11 @@ private fun TvReleaseContent(
                         TvEmptyState(
                             title = "Allow Access to Music",
                             message = "BitChord needs permission to read music on this TV and on connected USB drives.",
-                            modifier = Modifier.height(280.dp),
+                            modifier = Modifier.height(224.dp),
                             action = { TvButton(text = "Allow Access", onClick = onRequestPermission) },
                         )
                     } else {
-                        TvErrorState(message = songsState.message, onRetry = onRetry, modifier = Modifier.height(280.dp))
+                        TvErrorState(message = songsState.message, onRetry = onRetry, modifier = Modifier.height(224.dp))
                     }
                 }
                 is UiState.Success -> if (songs.isEmpty()) {
@@ -242,7 +242,7 @@ private fun TvReleaseContent(
                         TvEmptyState(
                             title = "No Songs",
                             message = "There's nothing to play here yet.",
-                            modifier = Modifier.height(260.dp),
+                            modifier = Modifier.height(208.dp),
                         )
                     }
                 } else {
@@ -264,7 +264,7 @@ private fun TvReleaseContent(
             // the playlist's own — as the phone does.
             if (suggested.isNotEmpty()) {
                 item(key = "suggestedTitle") {
-                    TvShelfTitle(title = "Suggestions", modifier = Modifier.padding(top = 30.dp, bottom = 8.dp))
+                    TvShelfTitle(title = "Suggestions", modifier = Modifier.padding(top = 24.dp, bottom = 6.dp))
                 }
                 itemsIndexed(suggested, key = { index, song -> "s:${song.videoId}#$index" }) { index, song ->
                     TvTrackLine(
@@ -286,14 +286,14 @@ private fun TvReleaseContent(
                         title = shelf.title,
                         items = shelf.items,
                         key = { it.videoId ?: it.browseId ?: it.title },
-                        modifier = Modifier.padding(top = 26.dp),
+                        modifier = Modifier.padding(top = 21.dp),
                     ) { item ->
                         TvLockup(
                             title = item.title,
                             subtitle = item.subtitle,
                             artworkUrl = item.thumbnailUrl,
                             circle = item.browseId?.startsWith("UC") == true,
-                            width = 164.dp,
+                            width = 131.dp,
                             onClick = { openShelfItem(item, { song -> onPlay(listOf(song), 0) }, onNavigateToDetail) },
                         )
                     }
@@ -320,53 +320,53 @@ private fun TvReleaseHeader(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = TvDimensions.SafeMarginHorizontal)
-            .padding(bottom = 30.dp),
-        horizontalArrangement = Arrangement.spacedBy(40.dp),
+            .padding(bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(32.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
-        val shape = RoundedCornerShape(12.dp)
+        val shape = RoundedCornerShape(10.dp)
         TvArtwork(
             url = artworkUrl,
             px = 720,
             shape = shape,
             modifier = Modifier
-                .size(290.dp)
-                .shadow(30.dp, shape),
+                .size(232.dp)
+                .shadow(24.dp, shape),
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = TvType.LargeTitle.copy(fontSize = 36.sp, lineHeight = 42.sp, fontWeight = FontWeight.W800),
+                style = TvType.LargeTitle.copy(fontSize = 31.sp, lineHeight = 36.sp, fontWeight = FontWeight.W800),
                 color = TvGlass.TextPrimary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(5.dp))
                 Text(
                     text = subtitle,
-                    style = TvType.Body.copy(fontSize = 19.sp, fontWeight = FontWeight.W600),
+                    style = TvType.Body.copy(fontSize = 16.sp, fontWeight = FontWeight.W600),
                     color = TvGlass.AppleRed,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             if (!summary.isNullOrBlank()) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(3.dp))
                 Text(text = summary, style = TvType.Callout, color = TvGlass.TextSecondary, maxLines = 1)
             }
             if (!description.isNullOrBlank()) {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 Text(
                     text = description,
                     style = TvType.Callout,
                     color = TvGlass.TextSecondary,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 640.dp),
+                    modifier = Modifier.widthIn(max = 512.dp),
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(19.dp))
             TvActionRow(
                 canPlay = canPlay,
                 onPlay = onPlay,
@@ -388,7 +388,7 @@ private fun TvTrackLine(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(horizontal = TvDimensions.SafeMarginHorizontal - 14.dp)) {
+    Column(modifier = Modifier.padding(horizontal = TvDimensions.SafeMarginHorizontal - 11.dp)) {
         TvSongRow(
             song = song,
             number = number,
@@ -402,7 +402,7 @@ private fun TvTrackLine(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = if (number != null) 54.dp else 70.dp, end = 14.dp)
+                    .padding(start = if (number != null) 43.dp else 56.dp, end = 11.dp)
                     .height(1.dp)
                     .background(TvGlass.Hairline),
             )

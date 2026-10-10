@@ -67,6 +67,25 @@ class TvActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        // Closing the app (back out of Home, or the task being swiped away)
+        // pauses the music rather than leaving it playing behind the launcher.
+        if (isFinishing) {
+            runCatching {
+                val future = androidx.media3.session.MediaController.Builder(
+                    applicationContext,
+                    androidx.media3.session.SessionToken(
+                        applicationContext,
+                        android.content.ComponentName(
+                            applicationContext,
+                            com.music.bitchord.playback.PlaybackService::class.java,
+                        ),
+                    ),
+                ).buildAsync()
+                future.addListener({
+                    runCatching { future.get().run { pause(); release() } }
+                }, androidx.core.content.ContextCompat.getMainExecutor(applicationContext))
+            }
+        }
         super.onDestroy()
         TvRefreshRateController.detach()
     }

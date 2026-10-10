@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 fun TvQrCodeView(
     content: String,
     modifier: Modifier = Modifier,
-    size: Dp = 190.dp,
+    size: Dp = 152.dp,
     quietZone: Int = 3,
 ) {
     val matrix = remember(content) {
@@ -35,13 +35,13 @@ fun TvQrCodeView(
     Box(
         modifier = modifier
             .size(size)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(13.dp))
             .background(Color.White)
-            .padding(12.dp),
+            .padding(10.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (matrix.isNotEmpty()) {
-            Canvas(modifier = Modifier.size(size - 24.dp)) {
+            Canvas(modifier = Modifier.size(size - 19.dp)) {
                 val matrixSize = matrix.size
                 val cellSize = this.size.width / (matrixSize + quietZone * 2)
 

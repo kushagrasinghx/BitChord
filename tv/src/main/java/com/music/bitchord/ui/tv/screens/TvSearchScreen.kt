@@ -140,8 +140,8 @@ fun TvSearchScreen(
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = TvDimensions.ContentTop, bottom = 56.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(top = TvDimensions.ContentTop, bottom = 45.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item(key = "field") {
             Column(
@@ -158,17 +158,17 @@ fun TvSearchScreen(
                         keyboard?.hide()
                         viewModel.submitSearch()
                     },
-                    modifier = Modifier.widthIn(max = 720.dp),
+                    modifier = Modifier.widthIn(max = 576.dp),
                 )
                 if (resultsState != null) {
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                     TvSegmented(
                         options = SearchFilters.map { it.label },
                         selectedIndex = SearchFilters.indexOf(filter).coerceAtLeast(0),
                         onSelect = { viewModel.onFilterChange(SearchFilters[it]) },
                     )
                 }
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(11.dp))
             }
         }
 
@@ -180,7 +180,7 @@ fun TvSearchScreen(
                             title = suggestion,
                             leadingIcon = Icons.Rounded.Search,
                             resting = androidx.compose.ui.graphics.Color.Transparent,
-                            modifier = Modifier.widthIn(max = 720.dp),
+                            modifier = Modifier.widthIn(max = 576.dp),
                             onClick = {
                                 keyboard?.hide()
                                 viewModel.searchFor(suggestion)
@@ -217,19 +217,19 @@ fun TvSearchScreen(
                 )
             }
             UiState.Loading -> item(key = "loading") {
-                Box(Modifier.fillMaxWidth().padding(top = 60.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().padding(top = 48.dp), contentAlignment = Alignment.Center) {
                     TvActivityIndicator()
                 }
             }
             is UiState.Error -> item(key = "error") {
-                TvErrorState(message = state.message, onRetry = viewModel::submitSearch, modifier = Modifier.height(320.dp))
+                TvErrorState(message = state.message, onRetry = viewModel::submitSearch, modifier = Modifier.height(256.dp))
             }
             is UiState.Success -> if (deduped.isEmpty()) {
                 item(key = "empty") {
                     TvEmptyState(
                         title = "No Results",
                         message = "Nothing matched “$query”. Check the spelling or try other words.",
-                        modifier = Modifier.height(320.dp),
+                        modifier = Modifier.height(256.dp),
                     )
                 }
             } else if (filter == SearchFilter.ALL) {
@@ -238,7 +238,7 @@ fun TvSearchScreen(
                 filteredResults(deduped, playResult, openBrowse, onSongMenu = { menuSong = it })
                 if (loadingMore) {
                     item(key = "more") {
-                        Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                             TvActivityIndicator()
                         }
                     }
@@ -272,7 +272,7 @@ private fun LazyListScope.idleContent(
             TvEmptyState(
                 title = "Search BitChord",
                 message = "Find songs, albums, artists and playlists.",
-                modifier = Modifier.height(300.dp),
+                modifier = Modifier.height(240.dp),
             )
         }
         return
@@ -281,7 +281,7 @@ private fun LazyListScope.idleContent(
         TvShelfTitle(
             title = "Recent Searches",
             trailing = { TvButton(text = "Clear", onClick = onClearHistory) },
-            modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
+            modifier = Modifier.padding(top = 6.dp, bottom = 5.dp),
         )
     }
     items(history.chunked(GridColumns), key = { row -> "recent:" + row.first().let { "${it.entityType}:${it.id}:${it.title}" } }) { row ->
@@ -310,7 +310,7 @@ private const val GridColumns = 5
 @Composable
 private fun TvGridRow(count: Int, cell: @Composable RowScope.(index: Int, cell: Modifier) -> Unit) {
     Row(
-        modifier = Modifier.padding(horizontal = TvDimensions.SafeMarginHorizontal, vertical = 10.dp),
+        modifier = Modifier.padding(horizontal = TvDimensions.SafeMarginHorizontal, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(TvDimensions.CardSpacing),
     ) {
         repeat(count) { index -> cell(index, Modifier.weight(1f)) }
@@ -352,7 +352,7 @@ private fun LazyListScope.groupedResults(
                         subtitle = if (type == BrowseType.ARTIST) null else item.subtitle,
                         artworkUrl = item.thumbnailUrl,
                         circle = type == BrowseType.ARTIST,
-                        width = if (type == BrowseType.ARTIST) 150.dp else 164.dp,
+                        width = if (type == BrowseType.ARTIST) 120.dp else 131.dp,
                         onClick = { onOpen(item) },
                     )
                 }
@@ -398,8 +398,8 @@ private fun LazyListScope.songGrid(
 ) {
     items(songs.chunked(3), key = { row -> "$keyPrefix:${row.first().videoId}" }) { row ->
         Row(
-            modifier = Modifier.padding(horizontal = TvDimensions.SafeMarginHorizontal - 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = TvDimensions.SafeMarginHorizontal - 11.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             row.forEach { song ->
                 TvSongRow(
@@ -428,7 +428,7 @@ private fun ResultLockup(
             title = song.title,
             subtitle = song.artist,
             artworkUrl = song.thumbnailUrl,
-            width = 164.dp,
+            width = 131.dp,
             onClick = { onPlaySong(song) },
             onLongClick = { onSongMenu(song) },
         )
@@ -439,7 +439,7 @@ private fun ResultLockup(
             subtitle = if (item.type == BrowseType.ARTIST) null else item.subtitle,
             artworkUrl = item.thumbnailUrl,
             circle = item.type == BrowseType.ARTIST,
-            width = if (item.type == BrowseType.ARTIST) 150.dp else 164.dp,
+            width = if (item.type == BrowseType.ARTIST) 120.dp else 131.dp,
             onClick = { onOpen(item) },
         )
     }

@@ -86,6 +86,13 @@ fun TvNowPlayingScreen(
 
     val scope = rememberCoroutineScope()
     val isPlaying = playerState.isPlaying
+
+    // Keep the TV awake (no screensaver) while a song plays on this screen.
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(isPlaying) {
+        view.keepScreenOn = isPlaying
+        onDispose { view.keepScreenOn = false }
+    }
     val position = playerState.position
     val durationMs = playerState.durationMs
 

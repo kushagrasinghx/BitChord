@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.BuildConfig
+import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.ui.MainViewModel
@@ -37,9 +38,11 @@ import com.music.bitchord.ui.tv.components.TvListHeader
 import com.music.bitchord.ui.tv.components.TvListRow
 import com.music.bitchord.ui.tv.dialogs.TvAboutDialog
 import com.music.bitchord.ui.tv.dialogs.TvEqualizerDialog
+import com.music.bitchord.ui.tv.dialogs.TvLyricsSourcesDialog
 import com.music.bitchord.ui.tv.dialogs.TvRefreshRateDialog
 import com.music.bitchord.ui.tv.dialogs.TvScrobbleDialog
 import com.music.bitchord.ui.tv.dialogs.TvThemeDialog
+import com.music.bitchord.ui.tv.dialogs.TvUpdateDialog
 import com.music.bitchord.ui.tv.display.TvRefreshRateController
 import com.music.bitchord.ui.tv.personalization.AppThemeOption
 import com.music.bitchord.ui.tv.theme.TvDimensions
@@ -47,7 +50,7 @@ import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
 
 // Discord Rich Presence is hidden on TV for now; TvDiscordDialog is kept for when it returns.
-private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Scrobbling, About }
+private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Scrobbling, LyricsSources, Update, About }
 
 private const val DefaultBlurb = "Playback, sound and display preferences for BitChord on this TV."
 
@@ -76,6 +79,7 @@ fun TvSettingsScreen(
     val loudness by AppSettings.loudnessNormalization.collectAsState()
     val usbDac by AppSettings.preferUsbDac.collectAsState()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsState()
+    val lyricsSources by AppSettings.lyricsSources.collectAsState()
     val canvas by AppSettings.animatedCanvas.collectAsState()
     val lyricsCanvas by TvSettings.tvLyricsCanvasEnabled.collectAsState()
     val nerdStats by AppSettings.showNerdStats.collectAsState()
@@ -87,6 +91,7 @@ fun TvSettingsScreen(
 
     var blurb by remember { mutableStateOf(DefaultBlurb) }
     var sheet by remember { mutableStateOf<SettingsSheet?>(null) }
+    val update by AppUpdateChecker.available.collectAsState()
 
     Row(
         modifier = modifier
@@ -97,12 +102,12 @@ fun TvSettingsScreen(
             modifier = Modifier
                 .weight(0.42f)
                 .fillMaxHeight()
-                .padding(horizontal = 40.dp),
+                .padding(horizontal = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            TvAppMark(size = 150.dp)
-            Spacer(modifier = Modifier.height(28.dp))
+            TvAppMark(size = 120.dp)
+            Spacer(modifier = Modifier.height(22.dp))
             AnimatedContent(
                 targetState = blurb,
                 transitionSpec = { fadeIn().togetherWith(fadeOut()) },
@@ -113,7 +118,7 @@ fun TvSettingsScreen(
                     style = TvType.Callout,
                     color = TvGlass.TextSecondary,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.widthIn(max = 340.dp),
+                    modifier = Modifier.widthIn(max = 272.dp),
                 )
             }
         }
@@ -122,8 +127,8 @@ fun TvSettingsScreen(
             modifier = Modifier
                 .weight(0.58f)
                 .fillMaxHeight(),
-            contentPadding = PaddingValues(end = TvDimensions.SafeMarginHorizontal, bottom = 48.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(end = TvDimensions.SafeMarginHorizontal, bottom = 38.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             item { TvListHeader("Account") }
             item {
@@ -226,6 +231,14 @@ fun TvSettingsScreen(
             }
             item {
                 TvListRow(
+                    title = "Lyrics Sources",
+                    value = "${lyricsSources.size} On",
+                    onFocused = { blurb = "Choose which lyric databases to ask, and in what order." },
+                    onClick = { sheet = SettingsSheet.LyricsSources },
+                )
+            }
+            item {
+                TvListRow(
                     title = "Motion Artwork",
                     value = onOff(canvas),
                     onFocused = { blurb = "Plays a song's looping video artwork behind the player, when it has one." },
@@ -305,6 +318,16 @@ fun TvSettingsScreen(
             }
 
             item { TvListHeader("General") }
+            if (update != null) {
+                item {
+                    TvListRow(
+                        title = "Software Update",
+                        value = "${update?.version.orEmpty()} Available",
+                        onFocused = { blurb = "Download and install the new version of BitChord for TV." },
+                        onClick = { sheet = SettingsSheet.Update },
+                    )
+                }
+            }
             item {
                 TvListRow(
                     title = "Set Up Again",
@@ -328,6 +351,8 @@ fun TvSettingsScreen(
         SettingsSheet.RefreshRate -> TvRefreshRateDialog(onDismiss = { sheet = null })
         SettingsSheet.Equalizer -> TvEqualizerDialog(onDismiss = { sheet = null })
         SettingsSheet.Scrobbling -> TvScrobbleDialog(onDismiss = { sheet = null })
+        SettingsSheet.LyricsSources -> TvLyricsSourcesDialog(onDismiss = { sheet = null })
+        SettingsSheet.Update -> update?.let { TvUpdateDialog(update = it, onDismiss = { sheet = null }) }
         SettingsSheet.About -> TvAboutDialog(onDismiss = { sheet = null })
         null -> Unit
     }

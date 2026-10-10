@@ -140,16 +140,16 @@ fun TvSongActionMenuDialog(
         TvArtwork(
             url = song.thumbnailUrl,
             px = 320,
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(8.dp),
             modifier = Modifier
-                .padding(bottom = 22.dp)
-                .size(96.dp),
+                .padding(bottom = 18.dp)
+                .size(77.dp),
         )
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(max = 360.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .heightIn(max = 288.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             item {
                 TvListRow(
@@ -313,17 +313,17 @@ fun TvAddToPlaylistDialog(
                 onImeAction = create,
                 modifier = Modifier.tvInitialFocus(),
             )
-            Spacer(modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.size(16.dp))
             TvDialogButton(text = "Create", enabled = name.isNotBlank(), onClick = create)
-            Spacer(modifier = Modifier.size(8.dp))
+            Spacer(modifier = Modifier.size(6.dp))
             TvDialogButton(text = "Cancel", onClick = { creating = false })
         }
         else -> TvDialog(title = "Add to Playlist", message = song.title, onDismissRequest = onDismiss) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 340.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                    .heightIn(max = 272.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 item {
                     TvListRow(
@@ -335,8 +335,8 @@ fun TvAddToPlaylistDialog(
                 }
                 if (loading && playlists.isEmpty()) {
                     item {
-                        Row(Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.Center) {
-                            TvActivityIndicator(size = 26.dp)
+                        Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center) {
+                            TvActivityIndicator(size = 21.dp)
                         }
                     }
                 }
@@ -368,7 +368,7 @@ fun TvSleepTimerDialog(onDismiss: () -> Unit) {
     val active = deadline != null || afterTrack
 
     TvDialog(title = "Sleep Timer", message = "Stop playing music after", onDismissRequest = onDismiss) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
             listOf(15, 30, 45, 60).forEachIndexed { index, minutes ->
                 TvListRow(
                     title = "$minutes Minutes",

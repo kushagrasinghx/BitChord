@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -69,9 +70,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
@@ -126,7 +129,7 @@ fun TvPlayerBackground(
     Box(modifier = modifier.fillMaxSize()) {
         ArtworkMeshBackdrop(
             mesh = mesh,
-            blurRadius = 42.dp,
+            blurRadius = 34.dp,
             seam = 0.dp,
             modifier = Modifier.fillMaxSize(),
         )
@@ -169,14 +172,14 @@ internal fun TvNowPlayingStage(
     val side by animateFloatAsState(if (showLyrics) 1f else 0f, tween(520), label = "artToSide")
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val centredSize = (maxHeight * 0.62f).coerceAtMost(400.dp)
-        val sideSize = (maxHeight * 0.54f).coerceAtMost(340.dp)
-        val sideStart = 64.dp
-        val lift = 26.dp // sit a little above centre, clear of the transport
+        val centredSize = (maxHeight * 0.62f).coerceAtMost(320.dp)
+        val sideSize = (maxHeight * 0.54f).coerceAtMost(272.dp)
+        val sideStart = 51.dp
+        val lift = 21.dp // sit a little above centre, clear of the transport
         val centredX = (maxWidth - centredSize) / 2
         val centredY = (maxHeight - centredSize) / 2 - lift
         val sideY = (maxHeight - sideSize) / 2 - lift
-        val shape = RoundedCornerShape(14.dp)
+        val shape = RoundedCornerShape(11.dp)
 
         Box(
             modifier = Modifier
@@ -189,7 +192,7 @@ internal fun TvNowPlayingStage(
                     scaleY = scale
                     translationX = lerp(0f, (sideStart - centredX).toPx(), side)
                     translationY = lerp(0f, (sideY - centredY).toPx(), side)
-                    shadowElevation = 36.dp.toPx()
+                    shadowElevation = 29.dp.toPx()
                     this.shape = shape
                     clip = true
                 },
@@ -198,10 +201,52 @@ internal fun TvNowPlayingStage(
             canvas?.let { CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize()) }
         }
 
+        // With the transport away, the song is named under the cover: the title and
+        // artist the transport carries, riding the same glide to the side.
+        val captionShown by animateFloatAsState(if (controlsVisible) 0f else 1f, tween(320), label = "captionFade")
+        if (captionShown > 0f) {
+            val captionGap = 14.dp
+            val sideCaptionY = sideY + sideSize + captionGap
+            Column(
+                modifier = Modifier
+                    .offset(x = centredX, y = centredY + centredSize + captionGap)
+                    .width(centredSize)
+                    .graphicsLayer {
+                        val scale = lerp(1f, sideSize / centredSize, side)
+                        transformOrigin = TransformOrigin(0f, 0f)
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = lerp(0f, (sideStart - centredX).toPx(), side)
+                        translationY = lerp(0f, (sideCaptionY - (centredY + centredSize + captionGap)).toPx(), side)
+                        alpha = captionShown
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = song.title,
+                    style = TvType.Title.copy(fontSize = 19.sp, lineHeight = 24.sp),
+                    color = TvGlass.TextPrimary,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (song.artist.isNotBlank()) {
+                    Text(
+                        text = song.artist,
+                        style = TvType.Body.copy(fontWeight = FontWeight.W400, fontSize = 14.sp),
+                        color = TvGlass.TextSecondary,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+
         if (showLyrics || side > 0f) {
             Box(
                 modifier = Modifier
-                    .padding(start = sideStart + sideSize + 64.dp, end = 48.dp)
+                    .padding(start = sideStart + sideSize + 51.dp, end = 38.dp)
                     .fillMaxHeight()
                     .graphicsLayer {
                         alpha = side
@@ -224,15 +269,24 @@ internal fun TvNowPlayingStage(
                         }
                     },
             ) {
-                SyncedLyricsPanel(
-                    lines = lyrics,
-                    trackKey = song.videoId,
-                    position = position,
-                    looking = lyricsLoading,
-                    isPlaying = isPlaying,
-                    onSeekToLine = onSeek,
-                    modifier = Modifier.fillMaxSize(),
-                )
+                // The shared panel's type is sized for a phone held at arm's
+                // length. Shrink only the glyphs: density stays whole, so its
+                // dp geometry still lands on pixels.
+                val density = LocalDensity.current
+                val lyricDensity = remember(density) {
+                    Density(density = density.density, fontScale = density.fontScale * LYRIC_FONT_SCALE)
+                }
+                CompositionLocalProvider(LocalDensity provides lyricDensity) {
+                    SyncedLyricsPanel(
+                        lines = lyrics,
+                        trackKey = song.videoId,
+                        position = position,
+                        looking = lyricsLoading,
+                        isPlaying = isPlaying,
+                        onSeekToLine = onSeek,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
         }
     }
@@ -241,6 +295,8 @@ internal fun TvNowPlayingStage(
 // ─────────────────────────────────────────────────────────────────────────────
 // Transport
 // ─────────────────────────────────────────────────────────────────────────────
+
+private const val LYRIC_FONT_SCALE = 0.8f
 
 private val TransportScrim = Brush.verticalGradient(
     0f to Color.Transparent,
@@ -280,27 +336,27 @@ internal fun TvTransport(
         modifier = Modifier
             .fillMaxWidth()
             .drawBehind { drawRect(TransportScrim) }
-            .padding(start = 56.dp, end = 56.dp, top = 96.dp, bottom = 30.dp),
+            .padding(start = 45.dp, end = 45.dp, top = 77.dp, bottom = 24.dp),
     ) {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = song.title,
-                    style = TvType.Title.copy(fontSize = 22.sp, lineHeight = 28.sp),
+                    style = TvType.Title.copy(fontSize = 19.sp, lineHeight = 24.sp),
                     color = TvGlass.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = listOf(song.artist, song.albumName.orEmpty()).filter { it.isNotBlank() }.joinToString(" — "),
-                    style = TvType.Body.copy(fontWeight = FontWeight.W400, fontSize = 17.sp),
+                    style = TvType.Body.copy(fontWeight = FontWeight.W400, fontSize = 14.sp),
                     color = TvGlass.TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                TvQualityLine(showStats = showStats, modifier = Modifier.padding(top = 8.dp))
+                TvQualityLine(showStats = showStats, modifier = Modifier.padding(top = 6.dp))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                 TvTransportButton(
                     icon = if (isLiked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     contentDescription = if (isLiked) "Unlove" else "Love",
@@ -326,7 +382,7 @@ internal fun TvTransport(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         TvScrubber(
             position = position,
             durationMs = durationMs,
@@ -344,7 +400,7 @@ internal fun TvTransport(
             exit = shrinkVertically(tween(260)) + fadeOut(tween(180)),
         ) {
             Column {
-                Spacer(modifier = Modifier.height(22.dp))
+                Spacer(modifier = Modifier.height(18.dp))
                 upNext()
             }
         }
@@ -359,7 +415,7 @@ private fun TvTransportButton(
     onClick: () -> Unit,
     active: Boolean = false,
     enabled: Boolean = true,
-    size: androidx.compose.ui.unit.Dp = 46.dp,
+    size: androidx.compose.ui.unit.Dp = 37.dp,
     badge: String? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -368,7 +424,7 @@ private fun TvTransportButton(
         modifier = Modifier
             .size(size)
             .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
-            .tvLift(interaction, CircleShape, focusedScale = 1.1f, elevation = 12.dp)
+            .tvLift(interaction, CircleShape, focusedScale = 1.1f, elevation = 10.dp)
             .tvPlatter(interaction, resting = if (active) TvGlass.FillSelected else TvGlass.Fill)
             .tvClick(interaction, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -384,7 +440,7 @@ private fun TvTransportButton(
             // The phone's Repeat One: the digit in place of the loop.
             Text(
                 text = badge,
-                style = TvType.Body.copy(fontSize = 17.sp, fontWeight = FontWeight.W700),
+                style = TvType.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.W700),
                 color = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary,
             )
         }
@@ -419,13 +475,13 @@ private fun TvScrubber(
     LaunchedEffect(isPlaying) {
         if (isPlaying) while (true) withFrameNanos { frame.longValue = it }
     }
-    val thickness by animateDpAsState(if (focused) 8.dp else 5.dp, tween(160), label = "scrubThickness")
+    val thickness by animateDpAsState(if (focused) 6.dp else 4.dp, tween(160), label = "scrubThickness")
 
     Column {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(22.dp)
+                .height(18.dp)
                 .focusRequester(focusRequester)
                 .onKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
@@ -491,7 +547,7 @@ private fun TvScrubTimes(
 ) {
     val second by remember(position) { derivedStateOf { position.positionMs / 1000L } }
     val shownMs = scrubTarget ?: (second * 1000L)
-    Box(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+    Box(modifier = Modifier.fillMaxWidth().padding(top = 3.dp)) {
         Text(
             text = formatClock(shownMs),
             style = TvType.Caption,
@@ -499,7 +555,7 @@ private fun TvScrubTimes(
             modifier = Modifier.align(Alignment.CenterStart),
         )
         if (isLoading) {
-            TvActivityIndicator(size = 16.dp, modifier = Modifier.align(Alignment.Center))
+            TvActivityIndicator(size = 13.dp, modifier = Modifier.align(Alignment.Center))
         }
         Text(
             text = if (durationMs > 0) "-" + formatClock((durationMs - shownMs).coerceAtLeast(0L)) else "",
@@ -541,23 +597,23 @@ private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (label != null) {
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(5.dp))
+                    .clip(RoundedCornerShape(4.dp))
                     .background(Color.White.copy(alpha = 0.16f))
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 if (stats.isDolbyAtmos) {
                     Icon(
                         painter = painterResource(Res.drawable.ic_dolby_atmos),
                         contentDescription = null,
                         tint = TvGlass.TextPrimary.copy(alpha = 0.85f),
-                        modifier = Modifier.height(11.dp),
+                        modifier = Modifier.height(9.dp),
                     )
                 }
                 Text(
@@ -631,12 +687,12 @@ internal fun TvUpNext(
                 color = TvGlass.TextPrimary,
                 modifier = Modifier.weight(1f),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 TvTransportButton(
                     icon = BitChordIcons.Shuffle,
                     contentDescription = "Shuffle",
                     active = shuffle,
-                    size = 40.dp,
+                    size = 32.dp,
                     onClick = onToggleShuffle,
                 )
                 TvTransportButton(
@@ -648,14 +704,14 @@ internal fun TvUpNext(
                     },
                     active = repeatMode != Player.REPEAT_MODE_OFF,
                     badge = if (repeatMode == Player.REPEAT_MODE_ONE) "1" else null,
-                    size = 40.dp,
+                    size = 32.dp,
                     onClick = onCycleRepeat,
                 )
                 TvTransportButton(
                     icon = BitChordIcons.Infinity,
                     contentDescription = "Autoplay",
                     active = autoplay,
-                    size = 40.dp,
+                    size = 32.dp,
                     onClick = onToggleAutoplay,
                 )
             }
@@ -666,7 +722,7 @@ internal fun TvUpNext(
                 style = TvType.Callout,
                 color = TvGlass.TextSecondary,
                 modifier = Modifier
-                    .padding(vertical = 26.dp)
+                    .padding(vertical = 21.dp)
                     .focusRequester(firstCardFocus)
                     .focusable(),
             )
@@ -676,16 +732,16 @@ internal fun TvUpNext(
                 items = indexed,
                 key = { "${it.value.videoId}#${it.index}" },
                 leading = 0.dp,
-                trailing = 24.dp,
-                spacing = 20.dp,
-                top = 16.dp,
-                bottom = 6.dp,
+                trailing = 19.dp,
+                spacing = 16.dp,
+                top = 13.dp,
+                bottom = 5.dp,
             ) { i, entry ->
                 TvLockup(
                     title = entry.value.title,
                     subtitle = entry.value.artist,
                     artworkUrl = entry.value.thumbnailUrl,
-                    width = 124.dp,
+                    width = 99.dp,
                     onClick = { onJump(currentIndex + 1 + i) },
                     modifier = if (i == 0) Modifier.focusRequester(firstCardFocus) else Modifier,
                 )
@@ -716,7 +772,7 @@ internal fun TvFlashGlyph(flash: TvFlash?, tick: Int, modifier: Modifier = Modif
     val shown = flash ?: return
     Box(
         modifier = modifier
-            .size(118.dp)
+            .size(94.dp)
             .graphicsLayer {
                 this.alpha = alpha.value
                 val s = 0.92f + 0.08f * alpha.value
@@ -738,7 +794,7 @@ internal fun TvFlashGlyph(flash: TvFlash?, tick: Int, modifier: Modifier = Modif
             ),
             contentDescription = null,
             tint = Color.White,
-            modifier = Modifier.size(50.dp),
+            modifier = Modifier.size(40.dp),
         )
     }
 }
@@ -752,7 +808,7 @@ internal fun TvNothingPlaying(onBrowse: () -> Unit, modifier: Modifier = Modifie
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(48.dp),
+            .padding(38.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -760,19 +816,19 @@ internal fun TvNothingPlaying(onBrowse: () -> Unit, modifier: Modifier = Modifie
             imageVector = BitChordIcons.MusicNote,
             contentDescription = null,
             tint = TvGlass.TextTertiary,
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier.size(58.dp),
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(19.dp))
         Text(text = "Not Playing", style = TvType.Title, color = TvGlass.TextPrimary)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = "Choose something from Home, Explore or your Library.",
             style = TvType.Callout,
             color = TvGlass.TextSecondary,
             textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(max = 480.dp),
+            modifier = Modifier.widthIn(max = 384.dp),
         )
-        Spacer(modifier = Modifier.height(26.dp))
-        TvButton(text = "Browse Music", onClick = onBrowse, modifier = Modifier.width(260.dp).tvInitialFocus())
+        Spacer(modifier = Modifier.height(21.dp))
+        TvButton(text = "Browse Music", onClick = onBrowse, modifier = Modifier.width(208.dp).tvInitialFocus())
     }
 }

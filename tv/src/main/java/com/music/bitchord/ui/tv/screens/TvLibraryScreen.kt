@@ -105,10 +105,10 @@ fun TvLibraryScreen(
     ) {
         LazyColumn(
             modifier = Modifier
-                .width(300.dp)
+                .width(240.dp)
                 .fillMaxHeight(),
-            contentPadding = PaddingValues(start = TvDimensions.SafeMarginHorizontal - 12.dp, end = 8.dp, bottom = 40.dp, top = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            contentPadding = PaddingValues(start = TvDimensions.SafeMarginHorizontal - 10.dp, end = 6.dp, bottom = 32.dp, top = 5.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             items(categories, key = { it.key }) { category ->
                 TvListRow(
@@ -234,7 +234,7 @@ private fun TvLibrarySongs(
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, end = TvDimensions.SafeMarginHorizontal, top = 6.dp, bottom = 48.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = TvDimensions.SafeMarginHorizontal, top = 5.dp, bottom = 38.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         itemsIndexed(songs, key = { index, song -> "${song.videoId}#$index" }) { index, song ->
@@ -257,11 +257,11 @@ private fun TvLibraryGrid(
     onNavigateToDetail: (browseId: String, title: String, subtitle: String, thumbnailUrl: String?, type: BrowseType) -> Unit,
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(150.dp),
+        columns = GridCells.Adaptive(120.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 28.dp, end = TvDimensions.SafeMarginHorizontal, top = 14.dp, bottom = 48.dp),
+        contentPadding = PaddingValues(start = 22.dp, end = TvDimensions.SafeMarginHorizontal, top = 11.dp, bottom = 38.dp),
         horizontalArrangement = Arrangement.spacedBy(TvDimensions.CardSpacing),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         items(shelf.items, key = { it.browseId ?: it.videoId ?: it.title }) { item ->
             val artist = item.browseId?.startsWith("UC") == true
@@ -270,7 +270,7 @@ private fun TvLibraryGrid(
                 subtitle = if (artist) null else item.subtitle,
                 artworkUrl = item.thumbnailUrl,
                 circle = artist,
-                width = 150.dp,
+                width = 120.dp,
                 onClick = { openShelfItem(item, onPlaySong, onNavigateToDetail) },
             )
         }
@@ -287,8 +287,8 @@ private fun TvPaneLoading() {
 /** The library failed to load; Recently Played still works, so this sits at the bottom instead of replacing it. */
 @Composable
 private fun TvLibraryBanner(message: String, onRetry: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().padding(bottom = 28.dp), contentAlignment = Alignment.BottomCenter) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Box(modifier = Modifier.fillMaxSize().padding(bottom = 22.dp), contentAlignment = Alignment.BottomCenter) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(13.dp)) {
             androidx.compose.material3.Text(
                 text = message,
                 style = com.music.bitchord.ui.tv.theme.TvType.Caption,

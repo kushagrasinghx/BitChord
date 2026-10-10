@@ -71,6 +71,7 @@ import com.music.bitchord.ui.tv.components.rememberDominantCardColor
 import com.music.bitchord.ui.tv.components.tvClick
 import com.music.bitchord.ui.tv.components.tvLift
 import com.music.bitchord.ui.tv.dialogs.TvAccountDialog
+import com.music.bitchord.ui.tv.dialogs.TvUpdateDialog
 import com.music.bitchord.ui.tv.player.TvNowPlayingScreen
 import com.music.bitchord.ui.tv.screens.TvDetailScreen
 import com.music.bitchord.ui.tv.screens.TvExploreScreen
@@ -113,6 +114,10 @@ fun TvApp(
     var isRunningSetup by remember(setupVersionCompleted) { mutableStateOf(setupVersionCompleted == 0) }
     var isNowPlayingOpen by remember { mutableStateOf(false) }
     var showAccountDialog by remember { mutableStateOf(false) }
+    // Offered once per launch, and not over first-time setup. Settings'
+    // "Software Update" row reopens it after it is dismissed.
+    val update by viewModel.updateAvailable.collectAsState()
+    var updateDismissed by remember { mutableStateOf(false) }
 
     val spatialAudio by TvSettings.spatialAudioEnabled.collectAsState()
     LaunchedEffect(spatialAudio) {
@@ -168,7 +173,16 @@ fun TvApp(
         }
 
         if (showAccountDialog) {
-            TvAccountDialog(viewModel = viewModel, onDismiss = { showAccountDialog = false })
+            TvAccountDialog(
+                viewModel = viewModel,
+                onDismiss = { showAccountDialog = false },
+                allowPhoneSignIn = false,
+            )
+        }
+
+        val pendingUpdate = update
+        if (pendingUpdate != null && !updateDismissed && !isRunningSetup && !showAccountDialog) {
+            TvUpdateDialog(update = pendingUpdate, onDismiss = { updateDismissed = true })
         }
     }
 }
@@ -412,7 +426,7 @@ private fun TvMainShell(
                     .zIndex(10f)
                     .graphicsLayer {
                         alpha = barProgress
-                        translationY = -(1f - barProgress) * 90.dp.toPx()
+                        translationY = -(1f - barProgress) * 72.dp.toPx()
                     }
                     .onFocusChanged { barHasFocus = it.hasFocus },
             )
@@ -445,7 +459,7 @@ private fun TvTopBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 22.dp, start = 48.dp, end = 48.dp),
+            .padding(top = 18.dp, start = 38.dp, end = 38.dp),
     ) {
         // The mark only, as the phone's Home heading shows it.
         Icon(
@@ -454,7 +468,7 @@ private fun TvTopBar(
             tint = TvGlass.TextPrimary,
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .height(26.dp)
+                .height(21.dp)
                 .aspectRatio(730f / 484f),
         )
         TvAvatarButton(
@@ -467,7 +481,7 @@ private fun TvTopBar(
                 .align(Alignment.Center)
                 .clip(CircleShape)
                 .background(TvGlass.Bar)
-                .padding(5.dp)
+                .padding(4.dp)
                 .focusRestorer(tabFocus)
                 .focusGroup(),
             horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -524,8 +538,8 @@ private fun TvAvatarButton(
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = modifier
-            .size(40.dp)
-            .tvLift(interaction, CircleShape, focusedScale = 1.15f, elevation = 10.dp)
+            .size(32.dp)
+            .tvLift(interaction, CircleShape, focusedScale = 1.15f, elevation = 8.dp)
             .tvClick(interaction, onClick = onClick)
             .background(TvGlass.Fill),
         contentAlignment = Alignment.Center,
@@ -535,7 +549,7 @@ private fun TvAvatarButton(
                 imageVector = Icons.Rounded.Person,
                 contentDescription = "Account",
                 tint = TvGlass.TextSecondary,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(18.dp),
             )
         } else {
             TvArtwork(url = imageUrl, px = 120, shape = CircleShape, modifier = Modifier.fillMaxSize())
@@ -545,7 +559,7 @@ private fun TvAvatarButton(
 
 /** The BitChord mark, for the few places that show the app itself. */
 @Composable
-fun TvAppMark(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 120.dp) {
+fun TvAppMark(modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 96.dp) {
     Box(
         modifier = modifier
             .size(size)

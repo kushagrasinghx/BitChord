@@ -105,10 +105,10 @@ internal fun TvShelvesLoading(modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(top = TvDimensions.ContentTop + 8.dp),
+            .padding(top = TvDimensions.ContentTop + 6.dp),
         verticalArrangement = Arrangement.spacedBy(TvDimensions.ShelfSpacing),
     ) {
-        TvShelfPlaceholder(width = 200.dp, count = 5)
+        TvShelfPlaceholder(width = 160.dp, count = 5)
         TvShelfPlaceholder()
     }
 }
@@ -145,12 +145,12 @@ internal fun TvShelfFeed(
 
     // The first shelf's cards rest just under its title: ContentTop, the title's
     // line, then the row's own top padding. Every focused shelf stops there.
-    ProvideTvFeedScrolling(anchor = TvDimensions.ContentTop + 24.dp + 14.dp) {
+    ProvideTvFeedScrolling(anchor = TvDimensions.ContentTop + 19.dp + 11.dp) {
     LazyColumn(
         state = listState,
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = TvDimensions.ContentTop, bottom = 56.dp),
-        verticalArrangement = Arrangement.spacedBy(TvDimensions.ShelfSpacing - 14.dp),
+        contentPadding = PaddingValues(top = TvDimensions.ContentTop, bottom = 45.dp),
+        verticalArrangement = Arrangement.spacedBy(TvDimensions.ShelfSpacing - 11.dp),
     ) {
         if (header != null) {
             item(key = "header", contentType = "header") { header() }
@@ -183,7 +183,7 @@ internal fun TvShelfFeed(
                         title = item.title,
                         subtitle = item.subtitle,
                         artworkUrl = item.thumbnailUrl,
-                        cardWidth = 204.dp,
+                        cardWidth = 163.dp,
                         onClick = { onItem(item) },
                         onLongClick = onItemMenu(item),
                     )
@@ -199,7 +199,7 @@ internal fun TvShelfFeed(
                         subtitle = null,
                         artworkUrl = item.thumbnailUrl,
                         circle = true,
-                        width = 150.dp,
+                        width = 120.dp,
                         onClick = { onItem(item) },
                     )
                 }
@@ -213,7 +213,7 @@ internal fun TvShelfFeed(
                         title = item.title,
                         subtitle = item.subtitle,
                         artworkUrl = item.thumbnailUrl,
-                        width = 164.dp,
+                        width = 131.dp,
                         onClick = { onItem(item) },
                         onLongClick = onItemMenu(item),
                     )
@@ -222,7 +222,7 @@ internal fun TvShelfFeed(
         }
         if (loadingMore) {
             item(key = "more", contentType = "more") {
-                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxWidth().padding(19.dp), contentAlignment = Alignment.Center) {
                     TvActivityIndicator()
                 }
             }

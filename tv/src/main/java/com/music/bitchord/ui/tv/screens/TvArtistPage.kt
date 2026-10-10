@@ -123,12 +123,12 @@ internal fun TvArtistContent(
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val heroHeight = maxHeight * 0.68f
-        ProvideTvComfortScrolling(top = 48.dp, bottom = 96.dp) {
+        ProvideTvComfortScrolling(top = 38.dp, bottom = 77.dp) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 56.dp),
-                verticalArrangement = Arrangement.spacedBy(TvDimensions.ShelfSpacing - 14.dp),
+                contentPadding = PaddingValues(bottom = 45.dp),
+                verticalArrangement = Arrangement.spacedBy(TvDimensions.ShelfSpacing - 11.dp),
             ) {
                 item(key = "hero", contentType = "hero") {
                     TvArtistHero(
@@ -148,12 +148,12 @@ internal fun TvArtistContent(
 
                 when (val state = page?.songs) {
                     null, UiState.Loading -> item(key = "loading") {
-                        Box(Modifier.fillMaxWidth().padding(28.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxWidth().padding(22.dp), contentAlignment = Alignment.Center) {
                             TvActivityIndicator()
                         }
                     }
                     is UiState.Error -> item(key = "error") {
-                        TvErrorState(message = state.message, onRetry = onRetry, modifier = Modifier.height(260.dp))
+                        TvErrorState(message = state.message, onRetry = onRetry, modifier = Modifier.height(208.dp))
                     }
                     is UiState.Success -> Unit
                 }
@@ -167,8 +167,8 @@ internal fun TvArtistContent(
                                 onClick = { openShelfItem(topRelease, { onPlay(listOf(it), 0) }, onNavigateToDetail) },
                                 modifier = Modifier.padding(
                                     start = TvDimensions.SafeMarginHorizontal,
-                                    top = 14.dp,
-                                    bottom = 8.dp,
+                                    top = 11.dp,
+                                    bottom = 6.dp,
                                 ),
                             )
                         }
@@ -184,11 +184,11 @@ internal fun TvArtistContent(
                             TvRow(
                                 items = columns,
                                 key = { it.first().videoId },
-                                spacing = 24.dp,
-                                top = 10.dp,
-                                bottom = 10.dp,
+                                spacing = 19.dp,
+                                top = 8.dp,
+                                bottom = 8.dp,
                             ) { _, column ->
-                                Column(modifier = Modifier.width(380.dp)) {
+                                Column(modifier = Modifier.width(304.dp)) {
                                     column.forEach { song ->
                                         TvSongRow(
                                             song = song,
@@ -220,7 +220,7 @@ internal fun TvArtistContent(
                                 subtitle = if (artists) null else item.subtitle,
                                 artworkUrl = item.thumbnailUrl,
                                 circle = artists,
-                                width = if (artists) 150.dp else 164.dp,
+                                width = if (artists) 120.dp else 131.dp,
                                 onClick = { openShelfItem(item, { onPlay(listOf(it), 0) }, onNavigateToDetail) },
                             )
                         }
@@ -237,9 +237,9 @@ internal fun TvArtistContent(
                                 text = about,
                                 stats = stats,
                                 modifier = Modifier.padding(
-                                    start = TvDimensions.SafeMarginHorizontal - 16.dp,
+                                    start = TvDimensions.SafeMarginHorizontal - 13.dp,
                                     end = TvDimensions.SafeMarginHorizontal,
-                                    top = 10.dp,
+                                    top = 8.dp,
                                 ),
                             )
                         }
@@ -295,7 +295,7 @@ private fun TvArtistHero(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = TvDimensions.SafeMarginHorizontal, end = TvDimensions.SafeMarginHorizontal, bottom = 10.dp),
+                .padding(start = TvDimensions.SafeMarginHorizontal, end = TvDimensions.SafeMarginHorizontal, bottom = 8.dp),
         ) {
             val logo = appleArt?.logoUrl
             var logoShown by remember(logo) { mutableStateOf(false) }
@@ -307,25 +307,25 @@ private fun TvArtistHero(
                     contentScale = ContentScale.Fit,
                     onSuccess = { logoShown = true },
                     modifier = Modifier
-                        .height(84.dp)
-                        .widthIn(max = 460.dp)
+                        .height(67.dp)
+                        .widthIn(max = 368.dp)
                         .aspectRatio(aspect),
                 )
             }
             if (!logoShown) {
                 Text(
                     text = name,
-                    style = TvType.LargeTitle.copy(fontSize = 46.sp, lineHeight = 52.sp, fontWeight = FontWeight.W800),
+                    style = TvType.LargeTitle.copy(fontSize = 39.sp, lineHeight = 44.sp, fontWeight = FontWeight.W800),
                     color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             if (stats.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(5.dp))
                 Text(text = stats, style = TvType.Callout, color = Color.White.copy(alpha = 0.72f), maxLines = 1)
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
             TvActionRow(
                 canPlay = canPlay,
                 onPlay = onPlay,
@@ -356,15 +356,15 @@ private fun TvLatestRelease(item: ShelfItem, onClick: () -> Unit, modifier: Modi
     val focused by interaction.collectIsFocusedAsState()
     Row(
         modifier = modifier
-            .width(540.dp)
-            .tvLift(interaction, RoundedCornerShape(16.dp), focusedScale = 1.04f, elevation = 18.dp)
+            .width(432.dp)
+            .tvLift(interaction, RoundedCornerShape(13.dp), focusedScale = 1.04f, elevation = 14.dp)
             .tvPlatter(interaction, resting = TvGlass.Fill)
             .tvClick(interaction, onClick = onClick)
-            .padding(14.dp),
+            .padding(11.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TvArtwork(url = item.thumbnailUrl, shape = RoundedCornerShape(10.dp), modifier = Modifier.size(132.dp))
+        TvArtwork(url = item.thumbnailUrl, shape = RoundedCornerShape(8.dp), modifier = Modifier.size(106.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.title,
@@ -373,7 +373,7 @@ private fun TvLatestRelease(item: ShelfItem, onClick: () -> Unit, modifier: Modi
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(3.dp))
             Text(
                 text = item.subtitle,
                 style = TvType.Callout,
@@ -396,12 +396,12 @@ private fun TvAbout(text: String?, stats: List<String>, modifier: Modifier = Mod
     var expanded by remember { mutableStateOf(false) }
     Column(
         modifier = modifier
-            .widthIn(max = 820.dp)
-            .heightIn(min = 52.dp)
-            .tvLift(interaction, RoundedCornerShape(16.dp), focusedScale = 1.02f, elevation = 14.dp)
+            .widthIn(max = 656.dp)
+            .heightIn(min = 42.dp)
+            .tvLift(interaction, RoundedCornerShape(13.dp), focusedScale = 1.02f, elevation = 11.dp)
             .tvPlatter(interaction, resting = Color.Transparent)
             .tvClick(interaction, onClick = { expanded = !expanded })
-            .padding(16.dp),
+            .padding(13.dp),
     ) {
         if (text != null) {
             Text(
@@ -413,7 +413,7 @@ private fun TvAbout(text: String?, stats: List<String>, modifier: Modifier = Mod
             )
         }
         if (stats.isNotEmpty()) {
-            if (text != null) Spacer(Modifier.height(12.dp))
+            if (text != null) Spacer(Modifier.height(10.dp))
             Text(
                 text = stats.joinToString(" · "),
                 style = TvType.Callout.copy(fontWeight = FontWeight.W600),

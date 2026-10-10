@@ -106,7 +106,7 @@ fun TvSetupScreen(
             SetupStep.Welcome -> TvSetupPage(
                 title = "Welcome to BitChord",
                 message = "Your music, made for the big screen.",
-                hero = { TvAppMark(size = 132.dp) },
+                hero = { TvAppMark(size = 106.dp) },
             ) {
                 TvSetupButton("Continue", initialFocus = true) { step = SetupStep.SignIn }
                 TvSetupButton("Set Up Later") { finish() }
@@ -119,7 +119,7 @@ fun TvSetupScreen(
                 title = "Choose a Look",
                 message = "You can change this later in Settings.",
                 hero = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                         AppThemeOption.entries.forEach { option ->
                             TvThemeSwatch(
                                 option = option,
@@ -145,7 +145,7 @@ fun TvSetupScreen(
                         imageVector = Icons.Rounded.CheckCircle,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(96.dp),
+                        modifier = Modifier.size(77.dp),
                     )
                 },
             ) {
@@ -166,25 +166,25 @@ private fun TvSetupPage(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 48.dp, vertical = 44.dp),
+            .padding(horizontal = 38.dp, vertical = 35.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(modifier = Modifier.weight(1f))
         hero()
-        Spacer(modifier = Modifier.height(36.dp))
+        Spacer(modifier = Modifier.height(29.dp))
         Text(text = title, style = TvType.LargeTitle, color = TvGlass.TextPrimary, textAlign = TextAlign.Center)
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = message,
             style = TvType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.W400),
             color = TvGlass.TextSecondary,
             textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(max = 560.dp),
+            modifier = Modifier.widthIn(max = 448.dp),
         )
         Spacer(modifier = Modifier.weight(1f))
         Column(
-            modifier = Modifier.width(380.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.width(304.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             content = buttons,
         )
     }
@@ -222,7 +222,7 @@ private fun TvSignInStep(viewModel: MainViewModel, onContinue: () -> Unit) {
         } else {
             "Bring your library, playlists and recommendations. You can also do this later in Settings."
         },
-        hero = { TvAppMark(size = 96.dp) },
+        hero = { TvAppMark(size = 77.dp) },
     ) {
         if (signedIn) {
             TvSetupButton("Continue", initialFocus = true, onClick = onContinue)
@@ -250,8 +250,8 @@ private fun TvPreferencesStep(onContinue: () -> Unit) {
         message = "Select a row to turn it on or off.",
         hero = {
             Column(
-                modifier = Modifier.width(520.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.width(416.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 TvListRow(
                     title = "Synced Lyrics",
@@ -302,10 +302,10 @@ private fun TvThemeSwatch(
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             modifier = Modifier
-                .width(210.dp)
+                .width(168.dp)
                 .aspectRatio(16f / 10f)
                 .tvInitialFocus(initialFocus)
-                .tvLift(interaction, RoundedCornerShape(14.dp), focusedScale = 1.08f, elevation = 22.dp)
+                .tvLift(interaction, RoundedCornerShape(11.dp), focusedScale = 1.08f, elevation = 18.dp)
                 .tvClick(interaction, onClick = onClick)
                 .background(
                     Brush.verticalGradient(
@@ -315,17 +315,17 @@ private fun TvThemeSwatch(
                         ),
                     ),
                 )
-                .padding(16.dp),
+                .padding(13.dp),
         ) {
             Row(
                 modifier = Modifier.align(Alignment.BottomStart),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 repeat(3) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(6.dp))
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(5.dp))
                             .background(Color.White.copy(alpha = 0.16f)),
                     )
                 }
@@ -337,12 +337,12 @@ private fun TvThemeSwatch(
                     tint = Color.White,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .size(24.dp)
+                        .size(19.dp)
                         .clip(CircleShape),
                 )
             }
         }
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(11.dp))
         Text(
             text = option.title,
             style = TvType.CardTitle,

@@ -149,7 +149,7 @@ fun TvCard(
     subtitle: String?,
     artworkUrl: String?,
     modifier: Modifier = Modifier,
-    cardWidth: Dp = 200.dp,
+    cardWidth: Dp = 160.dp,
     categoryLabel: String? = null,
     aspectRatio: Float = 1.0f,
     isCircle: Boolean = false,
@@ -187,13 +187,13 @@ fun TvCard(
                 color = if (focused) TvGlass.TextPrimary else TvGlass.TextSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(bottom = 8.dp),
+                modifier = Modifier.padding(bottom = 6.dp),
             )
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .tvLift(interaction, RoundedCornerShape(14.dp), focusedScale = 1.07f, elevation = 22.dp)
+                .tvLift(interaction, RoundedCornerShape(11.dp), focusedScale = 1.07f, elevation = 18.dp)
                 .tvClick(interaction, onLongClick = onLongClick, onClick = onClick)
                 .drawBehind { drawRect(footer.value) },
         ) {
@@ -207,21 +207,21 @@ fun TvCard(
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(10.dp)
-                            .size(26.dp)
+                            .padding(8.dp)
+                            .size(21.dp)
                             .clip(CircleShape)
                             .background(Color.Black.copy(alpha = 0.55f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        TvMiniEqualizer(isPlaying = true, barColor = Color.White, maxHeight = 11.dp)
+                        TvMiniEqualizer(isPlaying = true, barColor = Color.White, maxHeight = 9.dp)
                     }
                 }
             }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (subtitle.isNullOrBlank()) 52.dp else 64.dp)
-                    .padding(horizontal = 12.dp),
+                    .height(if (subtitle.isNullOrBlank()) 42.dp else 51.dp)
+                    .padding(horizontal = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
@@ -277,8 +277,8 @@ fun TvButton(
     }
     Row(
         modifier = modifier
-            .heightIn(min = 46.dp)
-            .tvLift(interaction, RoundedCornerShape(12.dp), focusedScale = 1.06f, elevation = 14.dp)
+            .heightIn(min = 37.dp)
+            .tvLift(interaction, RoundedCornerShape(10.dp), focusedScale = 1.06f, elevation = 11.dp)
             .tvPlatter(
                 interaction,
                 resting = when {
@@ -288,13 +288,13 @@ fun TvButton(
                 },
             )
             .tvClick(interaction, enabled = enabled, onClick = onClick)
-            .padding(horizontal = 26.dp, vertical = 11.dp),
+            .padding(horizontal = 21.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
         if (icon != null) {
-            Icon(imageVector = icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(9.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = content, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(7.dp))
         }
         Text(text = text, style = TvType.Body.copy(fontWeight = FontWeight.W600), color = content, maxLines = 1)
     }
@@ -313,20 +313,20 @@ fun TvErrorState(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(26.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(text = "Couldn't Load", style = TvType.Title.copy(fontSize = 22.sp), color = TvGlass.TextPrimary)
-        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = "Couldn't Load", style = TvType.Title.copy(fontSize = 19.sp), color = TvGlass.TextPrimary)
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = message,
             style = TvType.Callout,
             color = TvGlass.TextSecondary,
             textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(max = 520.dp),
+            modifier = Modifier.widthIn(max = 416.dp),
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(19.dp))
         TvButton(text = "Try Again", onClick = onRetry)
     }
 }
@@ -341,26 +341,26 @@ fun TvEmptyState(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(26.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = title,
-            style = TvType.Title.copy(fontSize = 22.sp),
+            style = TvType.Title.copy(fontSize = 19.sp),
             color = TvGlass.TextPrimary,
             textAlign = TextAlign.Center,
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = message,
             style = TvType.Callout,
             color = TvGlass.TextSecondary,
             textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(max = 520.dp),
+            modifier = Modifier.widthIn(max = 416.dp),
         )
         if (action != null) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(19.dp))
             action()
         }
     }
@@ -381,7 +381,7 @@ fun TvDialog(
     title: String,
     modifier: Modifier = Modifier,
     message: String? = null,
-    width: Dp = 560.dp,
+    width: Dp = 448.dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     var shown by remember { mutableStateOf(false) }
@@ -416,7 +416,7 @@ fun TvDialog(
                         scaleX = s
                         scaleY = s
                     }
-                    .padding(vertical = 32.dp),
+                    .padding(vertical = 26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
@@ -426,7 +426,7 @@ fun TvDialog(
                     textAlign = TextAlign.Center,
                 )
                 if (!message.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = message,
                         style = TvType.Callout,
@@ -434,7 +434,7 @@ fun TvDialog(
                         textAlign = TextAlign.Center,
                     )
                 }
-                Spacer(modifier = Modifier.height(26.dp))
+                Spacer(modifier = Modifier.height(21.dp))
                 content()
             }
         }
@@ -466,12 +466,12 @@ fun TvDialogButton(
 @Composable
 fun TvDialogList(
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(16.dp),
+    shape: Shape = RoundedCornerShape(13.dp),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
         content = content,
     )
 }

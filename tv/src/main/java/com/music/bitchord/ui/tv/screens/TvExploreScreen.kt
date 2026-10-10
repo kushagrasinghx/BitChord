@@ -99,8 +99,8 @@ private fun TvMoodGrid(
         contentPadding = PaddingValues(
             start = TvDimensions.SafeMarginHorizontal,
             end = TvDimensions.SafeMarginHorizontal,
-            top = TvDimensions.ContentTop + 4.dp,
-            bottom = 48.dp,
+            top = TvDimensions.ContentTop + 3.dp,
+            bottom = 38.dp,
         ),
         horizontalArrangement = Arrangement.spacedBy(MOOD_SPACING),
         verticalArrangement = Arrangement.spacedBy(MOOD_SPACING),
@@ -111,12 +111,12 @@ private fun TvMoodGrid(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(MOOD_CARD_ASPECT)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(13.dp))
                         .background(Color.White.copy(alpha = 0.06f)),
                 )
             }
             is UiState.Error -> item(span = { GridItemSpan(maxLineSpan) }) {
-                TvErrorState(message = state.message, onRetry = onRetry, modifier = Modifier.padding(top = 60.dp))
+                TvErrorState(message = state.message, onRetry = onRetry, modifier = Modifier.padding(top = 48.dp))
             }
             is UiState.Success -> {
                 val moods = state.data.flatMap(MoodGenreSection::items).distinctBy { it.browseId to it.params }
@@ -166,7 +166,7 @@ private fun TvMoodPage(
                     modifier = Modifier.padding(
                         start = TvDimensions.SafeMarginHorizontal,
                         end = TvDimensions.SafeMarginHorizontal,
-                        bottom = 4.dp,
+                        bottom = 3.dp,
                     ),
                 )
             },
@@ -186,5 +186,5 @@ private fun TvMoodPage(
 }
 
 /** The phone's own floor for a mood card's width; the grid fits as many columns as that allows. */
-private val MOOD_MIN_WIDTH = 220.dp
-private val MOOD_SPACING = 18.dp
+private val MOOD_MIN_WIDTH = 176.dp
+private val MOOD_SPACING = 14.dp

@@ -51,20 +51,20 @@ internal fun TvActionRow(
 ) {
     Row(
         modifier = modifier.onFocusChanged { if (it.hasFocus) onFocused() },
-        horizontalArrangement = Arrangement.spacedBy(22.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TvCircleAction(
             icon = BitChordIcons.Shuffle,
             contentDescription = "Shuffle",
-            size = 54.dp,
+            size = 43.dp,
             enabled = canPlay,
             onClick = onShuffle,
         )
         TvCircleAction(
             icon = BitChordIcons.Play,
             contentDescription = "Play",
-            size = 72.dp,
+            size = 58.dp,
             iconScale = 0.5f,
             resting = playColor ?: TvGlass.AppleRed,
             enabled = canPlay,
@@ -75,7 +75,7 @@ internal fun TvActionRow(
             TvCircleAction(
                 icon = if (subscribed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                 contentDescription = if (subscribed) "Unsubscribe" else "Subscribe",
-                size = 54.dp,
+                size = 43.dp,
                 onClick = onToggleSubscription,
             )
         }
@@ -100,7 +100,7 @@ private fun TvCircleAction(
         modifier = modifier
             .size(size)
             .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
-            .tvLift(interaction, CircleShape, focusedScale = 1.12f, elevation = 16.dp)
+            .tvLift(interaction, CircleShape, focusedScale = 1.12f, elevation = 13.dp)
             .tvPlatter(interaction, resting = resting)
             .tvClick(interaction, enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,

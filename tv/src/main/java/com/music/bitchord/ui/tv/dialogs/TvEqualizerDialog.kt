@@ -119,20 +119,20 @@ fun TvEqualizerDialog(
         )
     }
 
-    TvDialog(title = "Equalizer", width = 640.dp, onDismissRequest = onDismiss) {
+    TvDialog(title = "Equalizer", width = 512.dp, onDismissRequest = onDismiss) {
         TvListRow(
             title = "Equalizer",
             value = if (enabled) "On" else "Off",
             modifier = Modifier.tvInitialFocus(),
             onClick = { AppSettings.setEqualizerEnabled(!enabled) },
         )
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         TvSegmented(
             options = EqTab.entries.map { it.label },
             selectedIndex = tab.ordinal,
             onSelect = { tab = EqTab.entries[it] },
         )
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         when (tab) {
             EqTab.BANDS -> {
                 Row(
@@ -162,13 +162,13 @@ fun TvEqualizerDialog(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Up and down set a band. Select resets it.",
                     style = TvType.Caption,
                     color = TvGlass.TextTertiary,
                 )
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 TvButton(
                     text = "Reset All",
                     onClick = {
@@ -180,8 +180,8 @@ fun TvEqualizerDialog(
             EqTab.PRESETS -> LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 300.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                    .heightIn(max = 240.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 items(presets) { (preset, label) ->
                     val selected = if (preset == EqualizerPreset.FLAT) {
@@ -234,13 +234,13 @@ private fun TvBandFader(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier
             .graphicsLayer {
                 scaleX = faderScale
                 scaleY = faderScale
             }
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(if (isFocused) Color.White.copy(alpha = 0.12f) else Color.Transparent)
             .focusable(interactionSource = interactionSource)
             .onKeyEvent { event ->
@@ -263,7 +263,7 @@ private fun TvBandFader(
                     else -> false
                 }
             }
-            .padding(horizontal = 6.dp, vertical = 8.dp),
+            .padding(horizontal = 5.dp, vertical = 6.dp),
     ) {
         // Gain Readout (+4 dB, 0 dB, -2 dB)
         val formattedGain = when {
@@ -274,7 +274,7 @@ private fun TvBandFader(
 
         Text(
             text = formattedGain,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
             fontFamily = TvSFProDisplay,
             color = if (isFocused) Color.White else if (abs(gainDb) >= 0.5f) Color.White else Color.White.copy(alpha = 0.5f),
@@ -284,16 +284,16 @@ private fun TvBandFader(
         // Vertical Fader Canvas Track
         Box(
             modifier = Modifier
-                .width(36.dp)
-                .height(150.dp),
+                .width(29.dp)
+                .height(120.dp),
             contentAlignment = Alignment.Center,
         ) {
             Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
-                val trackWidth = 6.dp.toPx()
+                val trackWidth = 5.dp.toPx()
                 val trackRadius = trackWidth / 2f
                 val centerX = size.width / 2f
-                val topY = 12.dp.toPx()
-                val bottomY = size.height - 12.dp.toPx()
+                val topY = 10.dp.toPx()
+                val bottomY = size.height - 10.dp.toPx()
                 val centerY = (topY + bottomY) / 2f
                 val trackHeight = bottomY - topY
 
@@ -308,8 +308,8 @@ private fun TvBandFader(
                 // 2. Center 0dB Reference Tick
                 drawLine(
                     color = Color.White.copy(alpha = 0.40f),
-                    start = Offset(centerX - 8.dp.toPx(), centerY),
-                    end = Offset(centerX + 8.dp.toPx(), centerY),
+                    start = Offset(centerX - 6.dp.toPx(), centerY),
+                    end = Offset(centerX + 6.dp.toPx(), centerY),
                     strokeWidth = 1.5.dp.toPx(),
                 )
 
@@ -330,7 +330,7 @@ private fun TvBandFader(
                 )
 
                 // 5. White Fader Thumb Knob
-                val knobRadius = if (isFocused) 10.dp.toPx() else 8.dp.toPx()
+                val knobRadius = if (isFocused) 8.dp.toPx() else 6.dp.toPx()
                 drawCircle(
                     color = Color.White,
                     radius = knobRadius,
@@ -356,7 +356,7 @@ private fun TvBandFader(
 
         Text(
             text = freqLabel,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Normal,
             fontFamily = TvSFProDisplay,
             color = if (isFocused) Color.White else Color.White.copy(alpha = 0.65f),

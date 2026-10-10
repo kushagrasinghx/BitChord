@@ -111,7 +111,7 @@ fun Modifier.tvLift(
     interactionSource: MutableInteractionSource,
     shape: Shape,
     focusedScale: Float = 1.08f,
-    elevation: Dp = 18.dp,
+    elevation: Dp = 14.dp,
 ): Modifier {
     val focused by interactionSource.collectIsFocusedAsState()
     val pressed by interactionSource.collectIsPressedAsState()
@@ -288,8 +288,8 @@ fun <T> TvRow(
     leading: Dp = TvDimensions.SafeMarginHorizontal,
     trailing: Dp = TvDimensions.SafeMarginHorizontal,
     spacing: Dp = TvDimensions.CardSpacing,
-    top: Dp = 14.dp,
-    bottom: Dp = 18.dp,
+    top: Dp = 11.dp,
+    bottom: Dp = 14.dp,
     contentType: (T) -> Any? = { null },
     itemContent: @Composable (index: Int, item: T) -> Unit,
 ) {
@@ -388,7 +388,7 @@ fun ProvideTvFeedScrolling(anchor: Dp, content: @Composable () -> Unit) {
 fun TvArtwork(
     url: String?,
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(12.dp),
+    shape: Shape = RoundedCornerShape(10.dp),
     px: Int = 544,
     glyph: ImageVector = Icons.Rounded.MusicNote,
 ) {
@@ -428,7 +428,7 @@ fun TvLockup(
     artworkUrl: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    width: Dp = 160.dp,
+    width: Dp = 128.dp,
     circle: Boolean = false,
     aspectRatio: Float = 1f,
     onLongClick: (() -> Unit)? = null,
@@ -436,8 +436,8 @@ fun TvLockup(
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
-    val shape = if (circle) CircleShape else RoundedCornerShape(12.dp)
-    val captionDrop = animateDpAsState(if (focused) 9.dp else 0.dp, LiftDpSpring, label = "captionDrop")
+    val shape = if (circle) CircleShape else RoundedCornerShape(10.dp)
+    val captionDrop = animateDpAsState(if (focused) 7.dp else 0.dp, LiftDpSpring, label = "captionDrop")
 
     Column(
         // Dp.Unspecified fills the cell it's given — a grid column rather than a shelf slot.
@@ -462,7 +462,7 @@ fun TvLockup(
             modifier = Modifier
                 .fillMaxWidth()
                 .graphicsLayer { translationY = captionDrop.value.toPx() }
-                .padding(top = 10.dp),
+                .padding(top = 8.dp),
             horizontalAlignment = if (circle) Alignment.CenterHorizontally else Alignment.Start,
         ) {
             Text(
@@ -576,13 +576,13 @@ fun TvTabPill(
         modifier = modifier
             // No growth on focus: a segment that scaled would pull its rounded
             // ends off-centre from the capsule around it.
-            .height(36.dp)
+            .height(29.dp)
             .tvLift(interactionSource, CircleShape, focusedScale = 1f, elevation = 0.dp)
             .tvPlatter(interactionSource, resting = if (selected) TvGlass.FillSelected else Color.Transparent)
             .tvClick(interactionSource, onClick = onClick)
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         leading?.invoke()
         Text(
@@ -611,7 +611,7 @@ fun TvTabIcon(
     val focused by interactionSource.collectIsFocusedAsState()
     Box(
         modifier = modifier
-            .size(36.dp)
+            .size(29.dp)
             .tvLift(interactionSource, CircleShape, focusedScale = 1f, elevation = 0.dp)
             .tvPlatter(interactionSource, resting = if (selected) TvGlass.FillSelected else Color.Transparent)
             .tvClick(interactionSource, onClick = onClick),
@@ -625,7 +625,7 @@ fun TvTabIcon(
                 selected -> TvGlass.TextPrimary
                 else -> TvGlass.TextPrimary.copy(alpha = 0.66f)
             },
-            modifier = Modifier.size(19.dp),
+            modifier = Modifier.size(15.dp),
         )
     }
 }
@@ -642,7 +642,7 @@ fun TvSegmented(
         modifier = modifier
             .clip(CircleShape)
             .background(TvGlass.Bar)
-            .padding(4.dp),
+            .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -691,20 +691,20 @@ fun TvListRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 52.dp)
-            .tvLift(interaction, RoundedCornerShape(14.dp), focusedScale = 1.03f, elevation = 14.dp)
+            .heightIn(min = 42.dp)
+            .tvLift(interaction, RoundedCornerShape(11.dp), focusedScale = 1.03f, elevation = 11.dp)
             .tvPlatter(interaction, resting = resting)
             .tvClick(interaction, enabled = enabled, onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 11.dp),
+            .padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(11.dp),
     ) {
         if (leadingIcon != null) {
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
                 tint = if (focused) TvGlass.OnPlatter else titleColor,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -739,7 +739,7 @@ fun TvListRow(
                 imageVector = trailingIcon,
                 contentDescription = null,
                 tint = secondaryColor,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(16.dp),
             )
         }
     }
@@ -750,9 +750,9 @@ fun TvListRow(
 fun TvListHeader(title: String, modifier: Modifier = Modifier) {
     Text(
         text = title,
-        style = TvType.Caption.copy(fontSize = 14.sp),
+        style = TvType.Caption.copy(fontSize = 12.sp),
         color = TvGlass.TextSecondary,
-        modifier = modifier.padding(start = 20.dp, top = 18.dp, bottom = 8.dp),
+        modifier = modifier.padding(start = 16.dp, top = 14.dp, bottom = 6.dp),
     )
 }
 
@@ -779,23 +779,23 @@ fun TvSongRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(if (showArtwork) 60.dp else 52.dp)
-            .tvLift(interaction, RoundedCornerShape(12.dp), focusedScale = 1.025f, elevation = 12.dp)
+            .height(if (showArtwork) 48.dp else 42.dp)
+            .tvLift(interaction, RoundedCornerShape(10.dp), focusedScale = 1.025f, elevation = 10.dp)
             .tvPlatter(interaction, resting = Color.Transparent)
             .tvClick(interaction, onLongClick = onLongClick, onClick = onClick)
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(11.dp),
     ) {
         if (showArtwork) {
             TvArtwork(
                 url = song.thumbnailUrl,
                 px = 160,
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.size(42.dp),
+                shape = RoundedCornerShape(5.dp),
+                modifier = Modifier.size(34.dp),
             )
         } else {
-            Box(modifier = Modifier.width(26.dp), contentAlignment = Alignment.CenterStart) {
+            Box(modifier = Modifier.width(21.dp), contentAlignment = Alignment.CenterStart) {
                 if (isCurrent) {
                     TvMiniEqualizer(
                         isPlaying = isPlaying,
@@ -809,7 +809,7 @@ fun TvSongRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = song.title,
-                style = TvType.Body.copy(fontSize = 15.sp),
+                style = TvType.Body.copy(fontSize = 13.sp),
                 color = if (isCurrent && !focused) TvGlass.AppleRed else primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -844,10 +844,10 @@ fun TvMoodCard(
     val interaction = remember { MutableInteractionSource() }
     MoodGenreSleeve(
         item = item,
-        titleStyle = TvType.Body.copy(fontSize = 17.sp),
+        titleStyle = TvType.Body.copy(fontSize = 14.sp),
         modifier = modifier
             .aspectRatio(MOOD_CARD_ASPECT)
-            .tvLift(interaction, RoundedCornerShape(16.dp), focusedScale = 1.07f)
+            .tvLift(interaction, RoundedCornerShape(13.dp), focusedScale = 1.07f)
             .tvClick(interaction, onClick = onClick),
     )
 }
@@ -860,7 +860,7 @@ fun TvMoodCard(
 @Composable
 fun TvActivityIndicator(
     modifier: Modifier = Modifier,
-    size: Dp = 30.dp,
+    size: Dp = 24.dp,
     color: Color = Color.White,
 ) {
     val transition = rememberInfiniteTransition(label = "tvSpinner")
@@ -894,17 +894,17 @@ fun TvActivityIndicator(
 fun TvShelfPlaceholder(
     modifier: Modifier = Modifier,
     count: Int = 6,
-    width: Dp = 160.dp,
+    width: Dp = 128.dp,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .padding(horizontal = TvDimensions.SafeMarginHorizontal)
-                .size(width = 180.dp, height = 18.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .size(width = 144.dp, height = 14.dp)
+                .clip(RoundedCornerShape(5.dp))
                 .background(Color.White.copy(alpha = 0.06f)),
         )
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         Row(
             modifier = Modifier.padding(horizontal = TvDimensions.SafeMarginHorizontal),
             horizontalArrangement = Arrangement.spacedBy(TvDimensions.CardSpacing),
@@ -914,7 +914,7 @@ fun TvShelfPlaceholder(
                     modifier = Modifier
                         .width(width)
                         .aspectRatio(1f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(Color.White.copy(alpha = 0.06f)),
                 )
             }
@@ -952,7 +952,7 @@ fun TvTextField(
         onValueChange = onValueChange,
         singleLine = true,
         interactionSource = interaction,
-        textStyle = TvType.Body.copy(fontSize = 17.sp, color = textColor),
+        textStyle = TvType.Body.copy(fontSize = 14.sp, color = textColor),
         cursorBrush = androidx.compose.ui.graphics.SolidColor(textColor),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
             capitalization = capitalization,
@@ -978,28 +978,28 @@ fun TvTextField(
                 }
             }
             .fillMaxWidth()
-            .height(54.dp)
-            .tvLift(interaction, RoundedCornerShape(12.dp), focusedScale = 1.03f, elevation = 14.dp)
+            .height(43.dp)
+            .tvLift(interaction, RoundedCornerShape(10.dp), focusedScale = 1.03f, elevation = 11.dp)
             .tvPlatter(interaction, resting = TvGlass.Fill),
         decorationBox = { inner ->
             Row(
-                modifier = Modifier.padding(horizontal = 18.dp),
+                modifier = Modifier.padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (leadingIcon != null) {
                     Icon(
                         imageVector = leadingIcon,
                         contentDescription = null,
                         tint = if (focused) TvGlass.OnPlatterSecondary else TvGlass.TextSecondary,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
                 Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                     if (value.isEmpty()) {
                         Text(
                             text = placeholder,
-                            style = TvType.Body.copy(fontSize = 17.sp),
+                            style = TvType.Body.copy(fontSize = 14.sp),
                             color = if (focused) TvGlass.OnPlatterSecondary else TvGlass.TextTertiary,
                             maxLines = 1,
                         )

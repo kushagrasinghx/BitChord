@@ -31,8 +31,8 @@ fun TvMiniEqualizer(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     barColor: Color = Color.White,
-    maxHeight: Dp = 13.dp,
-    barWidth: Dp = 2.5.dp,
+    maxHeight: Dp = 10.dp,
+    barWidth: Dp = 2.dp,
     barSpacing: Dp = 2.dp,
 ) {
     val transition = rememberInfiniteTransition(label = "miniEqTransition")

@@ -95,6 +95,11 @@ android {
             "LISTEN_TOGETHER_SERVER",
             "\"${listenTogetherServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
+        // The TV APKs share a GitHub release with the phone ones and are told
+        // apart by name (BitChordTV-v1.8.apk, BitChordTV-v1.8_x86_64.apk), so
+        // the updater installs the TV app here, never the phone app. See
+        // AppUpdateChecker.apkAssetUrl.
+        buildConfigField("String", "UPDATE_APK_PREFIX", "\"BitChordTV-\"")
     }
 
     splits {

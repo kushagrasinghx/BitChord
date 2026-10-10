@@ -25,6 +25,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -37,6 +38,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -1708,6 +1710,7 @@ internal fun rememberPlayerControlsOnScroll(
  * Scrolling by hand clears the blur and suspends the auto-follow, so you can
  * read ahead; a couple of seconds after you stop it snaps back to the song.
  */
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun LyricsPanel(
@@ -1742,11 +1745,13 @@ internal fun LyricsPanel(
     onPickLine: (Int) -> Unit = {},
     /** Tap while picking: add or drop that line. */
     onTogglePick: (Int) -> Unit = {},
+    centerActiveLine: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val panelPlaying = isPlaying && active
     val clock = rememberLyricClock(trackKey, playhead, panelPlaying)
     val subReveal = rememberSubLyricsReveal(subLines, trackKey)
+    val density = LocalDensity.current
 
     val isSynced = remember(lines) { lines.any { it.timeMs > 0L } }
     // Only a song that actually names a second voice is laid out as one. A
@@ -1898,6 +1903,7 @@ internal fun LyricsPanel(
             snapshotFlow { listState.layoutInfo.viewportSize.height }.first { it > 0 }
             // Keep the same top anchor whether the playback controls are visible or hidden.
             val visible = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == focusLine }
+            val targetCenter = viewportHeight * 0.46f
             when {
                 !placed -> {
                     listState.scrollToItem(focusLine, scrollOffset = 0)
@@ -1909,15 +1915,14 @@ internal fun LyricsPanel(
                 // list's default spring.
                 visible != null -> {
                     val span = scrollLead(lines, clock.longValue).toInt()
-                    run = ScrollRun(run.id + 1, visible.offset.toFloat(), span)
-                    // The same curve the rows catch up on. Two different
-                    // curves and a row with no delay at all still trails the
-                    // list it is sitting in, which is most of the way to
-                    // looking like the panel cannot keep up with itself.
-                    listState.animateScrollBy(
-                        value = visible.offset.toFloat(),
-                        animationSpec = tween(durationMillis = span, easing = LYRIC_EASING),
-                    )
+                    val delta = visible.offset.toFloat()
+                    run = ScrollRun(run.id + 1, delta, span)
+                    if (abs(delta) > 0.5f) {
+                        listState.animateScrollBy(
+                            value = delta,
+                            animationSpec = tween(durationMillis = span, easing = LYRIC_EASING),
+                        )
+                    }
                 }
                 // Somewhere off screen — after a seek, or a long instrumental
                 // scrolled past. How far is not known without laying the rows
@@ -1945,29 +1950,34 @@ internal fun LyricsPanel(
         return
     }
 
-    LazyColumn(
-        state = listState,
-        modifier = modifier
-            .bleedHorizontally(PLAYER_GUTTER)
-            .nestedScroll(controlsOnScroll)
-            .nestedScroll(keepScroll)
-            // Browsing leaves taps to each lyric row's seek action throughout
-            // the list — and picking leaves them nothing at all: the gesture
-            // below takes taps at the initial pass, so while a pick is open it
-            // would swallow every choice before the row ever saw it.
-            .revealLyricsControlsOnTap(!controlsOpen && !picking, onBottomHalfTap)
-            .fadingEdges(),
-        // Each row carries GLOW_ROOM of its own inset for the halo, so the
-        // list hands that much back — otherwise the lines would sit a glow's
-        // width further apart and further in than they used to.
-        contentPadding = PaddingValues(
-            top = 40.dp - GLOW_ROOM,
-            bottom = with(LocalDensity.current) { viewportHeight.toDp() } * 0.8f,
-            start = PLAYER_GUTTER - GLOW_ROOM,
-            end = PLAYER_GUTTER - GLOW_ROOM,
-        ),
-        verticalArrangement = Arrangement.spacedBy(0.dp),
-    ) {
+    BoxWithConstraints(modifier = modifier) {
+        val targetTopDp = if (centerActiveLine && isSynced) (maxHeight * 0.46f) - 28.dp else 40.dp
+        val targetBottomDp = if (centerActiveLine && isSynced) maxHeight * 0.6f else with(density) { viewportHeight.toDp() } * 0.8f
+
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .bleedHorizontally(PLAYER_GUTTER)
+                .nestedScroll(controlsOnScroll)
+                .nestedScroll(keepScroll)
+                // Browsing leaves taps to each lyric row's seek action throughout
+                // the list — and picking leaves them nothing at all: the gesture
+                // below takes taps at the initial pass, so while a pick is open it
+                // would swallow every choice before the row ever saw it.
+                .revealLyricsControlsOnTap(!controlsOpen && !picking, onBottomHalfTap)
+                .fadingEdges(),
+            // Each row carries GLOW_ROOM of its own inset for the halo, so the
+            // list hands that much back — otherwise the lines would sit a glow's
+            // width further apart and further in than they used to.
+            contentPadding = PaddingValues(
+                top = (targetTopDp - GLOW_ROOM).coerceAtLeast(0.dp),
+                bottom = targetBottomDp,
+                start = PLAYER_GUTTER - GLOW_ROOM,
+                end = PLAYER_GUTTER - GLOW_ROOM,
+            ),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+        ) {
         itemsIndexed(lines) { index, line ->
             if (!isSynced && isGeniusSectionHeader(line.text)) {
                 val sectionTitle = line.text.removePrefix("[").removeSuffix("]").trim()
@@ -2433,6 +2443,7 @@ internal fun LyricsPanel(
                 }
             }
         }
+    }
     }
 }
 

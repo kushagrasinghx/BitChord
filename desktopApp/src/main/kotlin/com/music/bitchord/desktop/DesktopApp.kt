@@ -2939,8 +2939,9 @@ fun BitChordDesktopApp() {
                         onOpenLyrics = { overlays.toggleSidePanel(DesktopSidePanel.LYRICS) },
                         onOpenQueue = { overlays.toggleSidePanel(DesktopSidePanel.QUEUE) },
                         sidePanel = overlays.sidePanel,
-                        accountAvatar = activeAccount?.avatar
-                            ?: activeAccount?.profiles?.firstOrNull()?.avatar,
+                        accountAvatar = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.avatar?.takeIf { it.isNotBlank() }
+                            ?: activeAccount?.avatar?.takeIf { it.isNotBlank() }
+                            ?: activeAccount?.profiles?.firstOrNull()?.avatar?.takeIf { it.isNotBlank() },
                         onOpenAccounts = { DesktopTrackLog.log("accounts: opening the switcher"); overlays.accounts = true },
                         canGoBack = navHistory.isNotEmpty(),
                         onBack = ::goBack,
@@ -3057,7 +3058,8 @@ fun BitChordDesktopApp() {
                             shuffleEnabled = shuffle,
                             autoplayEnabled = DesktopAutoplay.enabled(partyState, autoplay),
                             signedIn = youtubeSignedIn,
-                            accountName = activeAccount?.name?.takeIf(String::isNotBlank),
+                            accountName = activeAccount?.profiles?.firstOrNull { it.profileId == activeProfileId }?.name?.takeIf(String::isNotBlank)
+                                ?: activeAccount?.name?.takeIf(String::isNotBlank),
                             likeStatus = when (current.videoId) {
                                 in likedIds -> LikeStatus.LIKE
                                 in dislikedIds -> LikeStatus.DISLIKE

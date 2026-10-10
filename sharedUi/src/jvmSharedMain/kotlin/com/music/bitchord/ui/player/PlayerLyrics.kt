@@ -30,6 +30,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -99,6 +101,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
@@ -109,6 +113,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -140,6 +146,45 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
+
+/** Returns true if any character in [text] belongs to a BMP RTL script. */
+private fun isRtl(text: String): Boolean {
+    var rtlCount = 0
+    var ltrCount = 0
+    for (ch in text) {
+        val code = ch.code
+        // Hebrew presentation forms
+        if (code in 0xFB1D..0xFB4F) return true
+        val dir = Character.getDirectionality(ch)
+        when (dir) {
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT,
+            Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC -> rtlCount++
+            Character.DIRECTIONALITY_LEFT_TO_RIGHT -> ltrCount++
+        }
+    }
+    return rtlCount > ltrCount
+}
+
+/** Returns the text direction for [text]: LTR by default, RTL when detected. */
+private fun textDirectionFor(text: String): androidx.compose.ui.text.style.TextDirection {
+    return if (isRtl(text)) androidx.compose.ui.text.style.TextDirection.Rtl
+    else androidx.compose.ui.text.style.TextDirection.Ltr
+}
+
+/** Whether this text should align to the right end of its box. */
+private fun alignsRight(text: String, alignEnd: Boolean, laneLocked: Boolean): Boolean =
+    if (laneLocked) alignEnd else isRtl(text)
+
+/** Compute per-voice text style with absolute physical alignment based on the voice's own text direction. */
+private fun voiceStyle(
+    base: TextStyle,
+    text: String,
+    alignEnd: Boolean,
+    laneLocked: Boolean,
+): TextStyle = base.copy(
+    textAlign = if (alignsRight(text, alignEnd, laneLocked)) TextAlign.Right else TextAlign.Left,
+    textDirection = if (isRtl(text)) androidx.compose.ui.text.style.TextDirection.Rtl else androidx.compose.ui.text.style.TextDirection.Ltr,
+)
 
 /**
  * How far back the part of the playing line that hasn't been sung yet is held.
@@ -516,35 +561,69 @@ internal fun CurrentLyricStrip(
     loadingText: String,
     onClick: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            // The slider's touch target reaches ~13dp above the drawn bar, so
-            // the strip reads as further off it than it is. Nudged down into
-            // that dead space, the same way the timestamps below are pulled
-            // back up into it.
-            .offset(y = 6.dp),
-    ) {
-        if (lines.isNotEmpty()) {
-            CurrentLyricLine(
-                lines = lines,
-                trackKey = trackKey,
-                playhead = playhead,
-                isPlaying = isPlaying,
-                durationMs = durationMs,
-                onClick = onClick,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else if (lyricsUnavailable) {
-            LyricsUnavailableLine(
-                trackKey = trackKey,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else {
-            LyricsLoadingLine(
-                text = loadingText,
-                modifier = Modifier.fillMaxWidth(),
-            )
+    // Compute the active lyric text so we can determine RTL direction at the
+    // strip level.  This lets us override the parent Column's forced
+    // CenterHorizontally alignment and flush RTL lines to the right edge.
+    val isSynced = remember(lines) { lines.any { it.timeMs > 0L } }
+    var stripRtl by remember { mutableStateOf(false) }
+    var activeText by remember { mutableStateOf("") }
+    if (isSynced) {
+        val clock = rememberLyricClock(trackKey, playhead, isPlaying)
+        val index by remember(lines) {
+            derivedStateOf { lines.indexOfLast { it.timeMs <= clock.longValue } }
+        }
+        val current = lines.getOrNull(index)
+        val instrumental = current == null || current.isGap
+        val firstSung = remember(lines) { lines.indexOfFirst { !it.isGap } }
+        val intro = instrumental && firstSung >= 0 && index < firstSung
+        val introLines = stringArrayResource(Res.array.lyrics_intro_lines)
+        val introLine = remember(trackKey) { introLines.random() }
+        activeText = when {
+            intro -> introLine
+            instrumental -> stringResource(Res.string.instrumental)
+            else -> current.text
+        }
+        stripRtl = isRtl(activeText)
+    }
+
+    val align: Alignment = if (stripRtl) Alignment.CenterStart else Alignment.CenterStart
+
+    CompositionLocalProvider(LocalLayoutDirection provides if (stripRtl) LayoutDirection.Rtl else LayoutDirection.Ltr) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                // The slider's touch target reaches ~13dp above the drawn bar, so
+                // the strip reads as further off it than it is. Nudged down into
+                // that dead space, the same way the timestamps below are pulled
+                // back up into it.
+                .offset(y = 6.dp),
+        ) {
+            if (lines.isNotEmpty()) {
+                CurrentLyricLine(
+                    lines = lines,
+                    trackKey = trackKey,
+                    playhead = playhead,
+                    isPlaying = isPlaying,
+                    durationMs = durationMs,
+                    onClick = onClick,
+                    modifier = Modifier
+                        .align(align),
+                )
+            } else if (lyricsUnavailable) {
+                LyricsUnavailableLine(
+                    trackKey = trackKey,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(align),
+                )
+            } else {
+                LyricsLoadingLine(
+                    text = loadingText,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(align),
+                )
+            }
         }
     }
 }
@@ -695,6 +774,7 @@ private fun SweptLyricLine(
     feather: Boolean = false,
     rise: Boolean = true,
     alignEnd: Boolean = false,
+    laneLocked: Boolean = false,
     translationProgress: State<Float>? = null,
 ) {
     var layout by remember(line) { mutableStateOf<TextLayoutResult?>(null) }
@@ -797,14 +877,10 @@ private fun SweptLyricLine(
         }
     }
 
-    // A right-hand duet line right-aligns twice over: the block within the row,
-    // for the case where it is one short line in a wide panel, and the lines
-    // within the block, for the case where it has wrapped. Neither alone is
-    // enough, and the three copies all take both, so they still land on top of
-    // each other.
+    val right = alignsRight(line.text, alignEnd, laneLocked)
     Box(
         modifier.lyricParticles(layout, translationProgress, glowRoom),
-        contentAlignment = if (alignEnd) Alignment.TopEnd else Alignment.TopStart,
+        contentAlignment = if (right) AbsoluteAlignment.TopRight else AbsoluteAlignment.TopLeft,
     ) {
         Text(
             text = line.text,
@@ -1100,18 +1176,32 @@ private fun ContentDrawScope.growEach(
  * Whole rows disappeared that way, and Japanese lines disappeared most, because
  * Apple's word spans there are whole phrases and reach a wrap on their own where
  * an English word rarely does.
+ */
+/**
+ * Where a character offset sits across a visual line, in pixels.
  *
- * So both ends of a row are answered with the row's own edges, and anything in
- * between is held inside them.
+ * For RTL paragraphs the first character of a visual line is at the right
+ * edge and the last is at the left — this function respects that so callers
+ * (horizontalAt, sweepTo) get correct clip boundaries regardless of text
+ * direction.  Interior offsets delegate to Compose's own cursor-position
+ * calculation which already handles direction; only the two boundary cases
+ * need special handling because getLineLeft / getLineRight return physical
+ * bounding-box edges (always left ≤ right), not paragraph-direction edges.
  */
 private fun TextLayoutResult.xOn(offset: Int, visualLine: Int, inset: Float): Float {
-    val left = getLineLeft(visualLine) + inset
-    val right = getLineRight(visualLine) + inset
+    val lineStart = getLineStart(visualLine)
+    val lineEndVisible = getLineEnd(visualLine, visibleEnd = true)
+    val lineLeft = getLineLeft(visualLine) + inset
+    val lineRight = getLineRight(visualLine) + inset
+
+    val rtl = getParagraphDirection(lineStart.coerceIn(0, layoutInput.text.length - 1)) ==
+              androidx.compose.ui.text.style.ResolvedTextDirection.Rtl
+
     return when {
-        offset <= getLineStart(visualLine) -> left
-        offset >= getLineEnd(visualLine, visibleEnd = true) -> right
-        else -> (getHorizontalPosition(offset, usePrimaryDirection = true) + inset)
-            .coerceIn(left, right)
+        offset <= lineStart -> if (rtl) lineRight else lineLeft
+        offset >= lineEndVisible -> if (rtl) lineLeft else lineRight
+        else -> getHorizontalPosition(offset, usePrimaryDirection = true)
+            .coerceIn(lineLeft, lineRight)
     }
 }
 
@@ -1146,22 +1236,51 @@ private fun horizontalAt(
     spans: List<IntRange>,
 ): Float {
     val lineStart = layout.getLineStart(visualLine)
-    val lineEnd = layout.getLineEnd(visualLine, visibleEnd = true)
+    val lineEndVisible = layout.getLineEnd(visualLine, visibleEnd = true)
+    // Use the *all* end (including trailing whitespace/punctuation) for the
+    // boundary check — visibleEnd can exclude chars that sit at the physical
+    // edge of an RTL line and would cause xOn to resolve to the next visual
+    // line instead of the current one's far edge.
+    val lineEndAll = layout.getLineEnd(visualLine, visibleEnd = false)
     val word = spans.firstOrNull { chars >= it.first && chars < it.last + 1 }
-    if (word != null && word.first >= lineStart && word.last + 1 <= lineEnd) {
+    if (word != null && word.first >= lineStart && word.last + 1 <= lineEndVisible) {
         val from = layout.xOn(word.first, visualLine, 0f)
         val to = layout.xOn(word.last + 1, visualLine, 0f)
         return from + (to - from) * (chars - word.first) / (word.last + 1 - word.first)
     }
     // A word broken over a wrap, or the space between two words: letter by
     // letter, which is all a single space or a half-word needs.
-    val index = chars.toInt().coerceIn(lineStart, lineEnd)
+    val index = chars.toInt().coerceIn(lineStart, lineEndAll)
     // Row-aware at both ends: on the last character of a wrapped row the next
     // position belongs to the row below, and read straight it puts the edge
     // back at the left margin — the highlight jumped backwards a letter before
-    // every wrap.
+    // every wrap.  Guard against that by checking whether index+1 would land
+    // on the next visual line; if so, clamp to this line's far edge instead.
     val here = layout.xOn(index, visualLine, 0f)
-    val next = layout.xOn((index + 1).coerceAtMost(lineEnd), visualLine, 0f)
+    val rawNext = index + 1
+    val textLen = layout.layoutInput.text.length
+    val spills: Boolean = layout.getLineForOffset(rawNext.coerceIn(0, textLen)) != visualLine
+    val next: Float = if (spills) {
+        // Spilled to the next visual line: use this line's far edge as the
+        // interpolation target.  For RTL that is getLineLeft; for LTR it is
+        // getLineRight.  The fallback below (xOn with coerceAtMost(lineEnd))
+        // would return the wrong side for RTL.
+        if (rawNext > lineEndVisible) {
+            // At or past the visible end: use the all-end edge.
+            val rtl = layout.getParagraphDirection(
+                visualLine.coerceAtMost(lineEndAll).coerceIn(0, textLen - 1)
+            ) == androidx.compose.ui.text.style.ResolvedTextDirection.Rtl
+            val farLeft = layout.getLineLeft(visualLine)
+            val farRight = layout.getLineRight(visualLine)
+            // For RTL, the "far" edge in character order is getLineLeft;
+            // for LTR it is getLineRight.  We detect by comparing the two:
+            if (rtl) farLeft else farRight
+        } else {
+            layout.xOn(rawNext.coerceAtMost(lineEndVisible), visualLine, 0f)
+        }
+    } else {
+        layout.xOn(rawNext, visualLine, 0f)
+    }
     return here + (next - here) * (chars - index)
 }
 
@@ -1188,47 +1307,97 @@ private fun ContentDrawScope.sweepTo(
     feather: Boolean,
 ) {
     if (revealedChars <= 0f) return
-    if (revealedChars >= layout.layoutInput.text.length) {
+    val textLen = layout.layoutInput.text.length
+    if (revealedChars >= textLen) {
         drawContent()
         return
     }
+    // Derive RTL from the layout's own resolved paragraph direction, not from
+    // text heuristics.  This keeps geometry in lock-step with how Compose
+    // actually laid out the glyphs — critical when a translation line (Hebrew)
+    // sits under an English lead and both get different text-analysis results.
+    val offset = layout.getLineStart(0).coerceIn(0, (layout.layoutInput.text.length - 1).coerceAtLeast(0))
+    val rtl = layout.getParagraphDirection(offset) == androidx.compose.ui.text.style.ResolvedTextDirection.Rtl
+
     for (visualLine in 0 until layout.lineCount) {
-        val start = layout.getLineStart(visualLine)
-        // Lines beyond the boundary have nothing lit on them, and neither has
-        // anything after them.
-        if (revealedChars <= start) return
-        val end = layout.getLineEnd(visualLine, visibleEnd = true)
-        val cut = revealedChars < end
-        val right = if (cut) {
+        val lineStart = layout.getLineStart(visualLine)
+        val lineEndVisible = layout.getLineEnd(visualLine, visibleEnd = true)
+        val lineEndAll = layout.getLineEnd(visualLine, visibleEnd = false)
+
+        // Lines whose character-range start is past the sweep boundary have
+        // nothing lit; lines after that too.  Use `>` (not `>=`) so a line
+        // whose *first* char is exactly at the boundary still gets drawn —
+        // it is the boundary line and must show the feather edge.
+        if (revealedChars <= lineStart) return
+
+        val cut = revealedChars < lineEndAll
+        val charPos = if (cut) {
             horizontalAt(layout, revealedChars, visualLine, spans)
         } else {
-            layout.getLineRight(visualLine)
+            // The sweep has passed this entire visual line.  Its boundary is
+            // the *far* edge: right edge for RTL (lineLeft), left edge for LTR.
+            if (rtl) layout.getLineLeft(visualLine) else layout.getLineRight(visualLine)
         }
+
+        val lineLeft = layout.getLineLeft(visualLine)
+        val lineRight = layout.getLineRight(visualLine)
+
+        // Clamp the sweep boundary so the clip rect is always valid and never
+        // inverted near the line ends.  For RTL the revealed prefix [0,k) must
+        // occupy [x(k), lineRight], with x(k) clamped inside [lineLeft, lineRight].
+        val safeCharPos = charPos.coerceIn(lineLeft, lineRight)
+
+        // For RTL lines the sweep fills right-to-left: clip from the line's
+        // right edge down to the sweep boundary.  For LTR it fills left-to-
+        // right as before.
+        val (clipLeft, clipRight) = if (rtl) {
+            safeCharPos to lineRight
+        } else {
+            lineLeft to safeCharPos
+        }
+
+        // Guard: an empty or inverted clip is a no-op; skip it cleanly.
+        if (clipLeft >= clipRight) continue
+
         val top = layout.getLineTop(visualLine)
         val bottom = layout.getLineBottom(visualLine)
         clipRect(
-            left = layout.getLineLeft(visualLine),
+            left = clipLeft,
             top = top,
-            right = right,
+            right = clipRight,
             bottom = bottom,
         ) {
             this@sweepTo.drawContent()
         }
+
         // Only the visual line holding the boundary has an edge to soften; a
         // line revealed to its end runs into the wrap, which is not an edge.
         if (!feather || !cut) continue
+
         // Scoped to this line's band so the mask cannot reach the lines above
         // and below it: DstIn erases whatever the source does not cover, and
         // outside the clip there is no source at all, so they are left alone.
         // Within it the brush clamps — opaque behind the feather, gone past it.
+        // For RTL lines the feather sits on the right side of the sweep boundary
+        // (between revealed and unrevealed text), not the wrong side where it
+        // would erase into the already-lit area.
         clipRect(top = top, bottom = bottom) {
             drawRect(
                 brush = Brush.horizontalGradient(
                     0f to Color.White,
                     1f to Color.Transparent,
-                    startX = (right - WIPE_FEATHER.toPx())
-                        .coerceAtLeast(layout.getLineLeft(visualLine)),
-                    endX = right,
+                    startX = if (rtl) {
+                        (safeCharPos + WIPE_FEATHER.toPx())
+                            .coerceAtMost(lineRight)
+                    } else {
+                        (safeCharPos - WIPE_FEATHER.toPx())
+                            .coerceAtLeast(lineLeft)
+                    },
+                    endX = if (rtl) {
+                        safeCharPos
+                    } else {
+                        safeCharPos
+                    },
                 ),
                 blendMode = BlendMode.DstIn,
             )
@@ -2149,11 +2318,12 @@ internal fun LyricsPanel(
                         label = "backingOpen",
                     )
                 }
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Column(modifier = shape) {
                     PanelVoice(
                         line = line,
                         clock = clock,
-                        style = style,
+                        style = voiceStyle(style, line.text, alignEnd, duet),
                         isActive = isActive,
                         sung = sung,
                         synced = isSynced,
@@ -2161,6 +2331,7 @@ internal fun LyricsPanel(
                         glowAlpha = glow,
                         room = GLOW_ROOM,
                         alignEnd = alignEnd,
+                        laneLocked = duet,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     // A line the service handed back unchanged ("falling
@@ -2169,7 +2340,7 @@ internal fun LyricsPanel(
                         PanelVoice(
                             line = subLine,
                             clock = clock,
-                            style = subStyle,
+                            style = voiceStyle(subStyle, subLine.text, alignEnd, duet),
                             isActive = isActive,
                             sung = sung,
                             synced = isSynced,
@@ -2177,6 +2348,7 @@ internal fun LyricsPanel(
                             glowAlpha = 0f,
                             room = 0.dp,
                             alignEnd = alignEnd,
+                            laneLocked = duet,
                             rise = false,
                             // Only the rows actually in front of the reader get the
                             // particle pass. Sixty rows' worth of glyph boxes is a
@@ -2203,10 +2375,10 @@ internal fun LyricsPanel(
                             PanelVoice(
                                 line = backing.withoutBracketPunctuation(),
                                 clock = clock,
-                                style = style.copy(
+                                style = voiceStyle(style.copy(
                                     fontSize = BACKING_FONT_SIZE,
                                     lineHeight = BACKING_LINE_HEIGHT,
-                                ),
+                                ), backing.text, alignEnd, duet),
                                 isActive = isActive,
                                 sung = sung,
                                 synced = isSynced,
@@ -2218,6 +2390,7 @@ internal fun LyricsPanel(
                                 glowAlpha = 0f,
                                 room = 0.dp,
                                 alignEnd = alignEnd,
+                                laneLocked = duet,
                                 rise = false,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -2233,10 +2406,10 @@ internal fun LyricsPanel(
                                     PanelVoice(
                                         line = subBacking.withoutBracketPunctuation(),
                                         clock = clock,
-                                        style = subStyle.copy(
+                                        style = voiceStyle(subStyle.copy(
                                             fontSize = SUB_BACKING_FONT_SIZE,
                                             lineHeight = SUB_BACKING_LINE_HEIGHT,
-                                        ),
+                                        ), subBacking.text, alignEnd, duet),
                                         isActive = isActive,
                                         sung = sung,
                                         synced = isSynced,
@@ -2244,6 +2417,7 @@ internal fun LyricsPanel(
                                         glowAlpha = 0f,
                                         room = 0.dp,
                                         alignEnd = alignEnd,
+                                        laneLocked = duet,
                                         rise = false,
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -2255,6 +2429,7 @@ internal fun LyricsPanel(
                                 }
                         }
                     }
+                }
                 }
             }
         }
@@ -2285,6 +2460,8 @@ private fun PanelVoice(
     room: Dp,
     /** Whether this line is one of the right-hand voice's; see [LyricAlignment]. */
     alignEnd: Boolean,
+    /** When true, alignment is driven by lane (duet) not text direction. */
+    laneLocked: Boolean = false,
     translationProgress: State<Float>? = null,
     /**
      * Whether words lift off the line as they are sung. Only the lead does:
@@ -2319,6 +2496,7 @@ private fun PanelVoice(
             feather = isActive,
             rise = rise,
             alignEnd = alignEnd,
+            laneLocked = laneLocked,
             translationProgress = translationProgress,
         )
     } else if (line.isWordSynced) {
@@ -2340,6 +2518,7 @@ private fun PanelVoice(
             glowRoom = room,
             rise = rise,
             alignEnd = alignEnd,
+            laneLocked = laneLocked,
             translationProgress = translationProgress,
         )
     } else {
@@ -2565,22 +2744,20 @@ private fun CurrentLyricLine(
 
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
 
+    // Content-based RTL: drive the row's layout direction from the active lyric's
+    // own text direction so alignment and sweep geometry match what Compose would
+    // produce for that paragraph.  LTR rows keep the chevron on the right; RTL
+    // rows put it on the left (mirrored) and right-align the text.
+    val stripRtl = isRtl(text)
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = if (stripRtl) Arrangement.End else Arrangement.Start,
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
     ) {
-        if (instrumental) {
-            Icon(
-                imageVector = BitChordIcons.MusicNote,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(16.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-        }
         AnimatedContent(
             targetState = Triple(index, current, text),
             transitionSpec = {
@@ -2609,7 +2786,7 @@ private fun CurrentLyricLine(
                 SweptLyricLine(
                     line = swept,
                     clock = clock,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = voiceStyle(MaterialTheme.typography.titleMedium, text, alignEnd = false, laneLocked = false),
                     dimAlpha = UNSUNG_ALPHA_STRIP,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -2618,21 +2795,40 @@ private fun CurrentLyricLine(
             } else {
                 Text(
                     text = lineText,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (itemInstrumental) Color.White.copy(alpha = 0.5f) else Color.White,
+                    style = voiceStyle(
+                        MaterialTheme.typography.titleMedium.copy(
+                            color = if (itemInstrumental) Color.White.copy(alpha = 0.5f) else Color.White
+                        ),
+                        lineText,
+                        alignEnd = false,
+                        laneLocked = false,
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        Spacer(Modifier.width(6.dp))
-        // Disclosure hint: this strip opens the full lyrics screen.
-        Icon(
-            imageVector = BitChordIcons.ChevronRight,
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.5f),
-            modifier = Modifier.size(14.dp),
-        )
+
+        if (!stripRtl) {
+            Spacer(Modifier.width(6.dp))
+            // Disclosure hint: this strip opens the full lyrics screen.
+            Icon(
+                imageVector = BitChordIcons.ChevronRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.size(14.dp),
+            )
+        } else {
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                imageVector = BitChordIcons.ChevronRight,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .size(14.dp)
+                    .graphicsLayer { scaleX = -1f },
+            )
+        }
     }
 }
 

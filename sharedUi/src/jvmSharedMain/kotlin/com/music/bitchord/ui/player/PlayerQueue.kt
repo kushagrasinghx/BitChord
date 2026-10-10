@@ -47,6 +47,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
@@ -146,17 +147,18 @@ internal fun Modifier.fadingEdges(): Modifier = this
     }
 
 /** One track in [InlineQueue], and where it sits in the player's timeline. */
-private data class QueueTrack(val timelineIndex: Int, val song: Song, val key: String)
+internal data class QueueTrack(val timelineIndex: Int, val song: Song, val key: String)
 
 /** The groups a queue row can be dragged within; a drag never leaves its own. */
-private enum class QueueSection { USER, CONTEXT, AUTOPLAY }
+internal enum class QueueSection { USER, CONTEXT, AUTOPLAY }
 
 /** The queue as [InlineQueue] lists it: what's playing, then each section in running order. */
-private class QueueTracks(
+internal class QueueTracks(
     val nowPlaying: QueueTrack?,
     val user: List<QueueTrack>,
     val context: List<QueueTrack>,
     val autoplay: List<QueueTrack>,
+    val history: List<QueueTrack> = emptyList(),
 ) {
     operator fun get(section: QueueSection): List<QueueTrack> = when (section) {
         QueueSection.USER -> user
@@ -169,7 +171,7 @@ private class QueueTracks(
     }
 }
 
-private fun splitQueue(queue: List<Song>, currentIndex: Int): QueueTracks {
+internal fun splitQueue(queue: List<Song>, currentIndex: Int, showHistory: Boolean = false): QueueTracks {
     if (currentIndex !in queue.indices) return QueueTracks.EMPTY
     // Keyed by the entry's own id, so a row keeps its identity through a reorder.
     // Entries without one (a party's tracks, a queue restored from before ids
@@ -194,7 +196,8 @@ private fun splitQueue(queue: List<Song>, currentIndex: Int): QueueTracks {
             QueueTier.AUTOPLAY -> autoplay += track(index, "autoplay")
         }
     }
-    return QueueTracks(track(currentIndex, "np"), user, context, autoplay)
+    val history = if (showHistory) (0 until currentIndex).map { track(it, "history") } else emptyList()
+    return QueueTracks(track(currentIndex, "np"), user, context, autoplay, history)
 }
 
 /** Placement-only item motion; see [QUEUE_ROW_MOTION]. */
@@ -234,7 +237,8 @@ internal fun InlineQueue(
         onReveal = onRevealPlayer,
         onHide = onHidePlayer,
     )
-    val tracks = remember(queue, currentIndex) { splitQueue(queue, currentIndex) }
+    val showHistory by PlayerSettings.showQueueHistory.collectAsStateWithLifecycle()
+    val tracks = remember(queue, currentIndex, showHistory) { splitQueue(queue, currentIndex, showHistory) }
     val drag = rememberQueueDrag(listState, tracks, onMove, onDragActiveChange)
     val nowPlaying = tracks.nowPlaying
     val contextSong = tracks.context.firstOrNull()?.song
@@ -243,16 +247,17 @@ internal fun InlineQueue(
         ?: nowPlaying?.song?.playbackSource?.takeIf { it.isNotBlank() }
         ?: nowPlaying?.song?.albumName?.takeIf { it.isNotBlank() }
 
-    // Back to the top on a track change — snapped the first time, animated
-    // after — but never mid-drag, which would pull the list from under the finger.
+    // Keep Now playing in view; history is available by scrolling upwards.
+    // Include the entry key because trimming history can leave the index unchanged.
     var hasScrolledOnce by remember { mutableStateOf(false) }
-    LaunchedEffect(currentIndex) {
-        val scrolledAway = listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0
+    LaunchedEffect(currentIndex, nowPlaying?.key, showHistory) {
+        val nowPlayingRow = if (tracks.history.isEmpty()) 0 else tracks.history.size + 1
+        val scrolledAway = listState.firstVisibleItemIndex != nowPlayingRow || listState.firstVisibleItemScrollOffset != 0
         if (drag.held == null && nowPlaying != null && scrolledAway) {
             if (hasScrolledOnce) {
-                listState.animateScrollToItem(0)
+                listState.animateScrollToItem(nowPlayingRow)
             } else {
-                listState.scrollToItem(0)
+                listState.scrollToItem(nowPlayingRow)
                 hasScrolledOnce = true
             }
         }
@@ -290,6 +295,24 @@ internal fun InlineQueue(
                     .then(if (collapsePlayerOnScroll) Modifier.nestedScroll(controlsOnScroll) else Modifier),
                 contentPadding = PaddingValues(horizontal = PLAYER_GUTTER),
             ) {
+                if (tracks.history.isNotEmpty()) {
+                    item(key = "header-history") {
+                        QueueHeading(
+                            title = stringResource(Res.string.previously_played),
+                            modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                        )
+                    }
+                    items(tracks.history, key = { it.key }) { track ->
+                        InlineQueueRow(
+                            song = track.song,
+                            isCurrent = false,
+                            onClick = { onJumpTo(track.timelineIndex) },
+                            onRemove = { onRemove(track.timelineIndex) },
+                            locked = controlsLocked,
+                            modifier = queueMotion(),
+                        )
+                    }
+                }
                 if (nowPlaying != null) {
                     item(key = "header-now-playing") {
                         QueueHeading(

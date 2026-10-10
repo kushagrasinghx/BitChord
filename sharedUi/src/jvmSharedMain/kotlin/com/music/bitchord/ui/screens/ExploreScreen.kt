@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -143,25 +144,37 @@ private fun MoodGenreRow(
     }
 }
 
-/**
- * A solid stripe down the left and the category's cover filling the rest,
- * redrawn as a duotone of the stripe's colour so every card reads as one
- * tinted sleeve rather than a photo pasted onto a swatch.
- */
 @Composable
 private fun MoodGenreCard(
     item: MoodGenre,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val tone = remember(item.stripeColor, item.title) { moodTone(item) }
-    Box(
+    MoodGenreSleeve(
+        item = item,
         modifier = modifier
             .aspectRatio(MOOD_CARD_ASPECT)
             .clip(MOOD_CARD_SHAPE)
-            .background(tone.stripe)
             .clickable(onClick = onClick),
-    ) {
+    )
+}
+
+/**
+ * A solid stripe down the left and the category's cover filling the rest,
+ * redrawn as a duotone of the stripe's colour so every card reads as one
+ * tinted sleeve rather than a photo pasted onto a swatch.
+ *
+ * Only the artwork: the caller sizes, clips and makes it clickable, which is
+ * how the TV app wraps the same sleeve in its own focus treatment.
+ */
+@Composable
+fun MoodGenreSleeve(
+    item: MoodGenre,
+    modifier: Modifier = Modifier,
+    titleStyle: TextStyle = MaterialTheme.typography.titleMedium,
+) {
+    val tone = remember(item.stripeColor, item.title) { moodTone(item) }
+    Box(modifier = modifier.background(tone.stripe)) {
         Box(
             Modifier
                 .align(Alignment.CenterEnd)
@@ -188,7 +201,7 @@ private fun MoodGenreCard(
         )
         Text(
             text = item.title,
-            style = MaterialTheme.typography.titleMedium.copy(
+            style = titleStyle.copy(
                 shadow = Shadow(Color.Black.copy(alpha = .35f), offset = Offset(0f, 1f), blurRadius = 6f),
             ),
             fontWeight = FontWeight.Bold,
@@ -255,7 +268,7 @@ private val MOOD_SPACING = 12.dp
 private val MOOD_CARD_SHAPE = RoundedCornerShape(18.dp)
 
 /** Width over height; a two-column phone row lands at about 100dp tall. */
-private const val MOOD_CARD_ASPECT = 1.72f
+const val MOOD_CARD_ASPECT = 1.72f
 
 /** How much of the card the solid stripe covers before the artwork starts. */
 private const val MOOD_STRIPE_FRACTION = .28f

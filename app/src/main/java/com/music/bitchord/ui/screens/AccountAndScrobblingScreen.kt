@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.auth.clearSpotifyWebSession
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
 import com.music.bitchord.sharedui.resources.Res

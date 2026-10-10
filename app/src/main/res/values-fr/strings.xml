@@ -462,7 +462,7 @@
     <string name="upgrade_length_slack_footer">Une tolérance plus large accepte plus de correspondances ; une tolérance plus faible est plus stricte. La valeur par défaut est de 3 secondes.</string>
     <string name="seconds_short">%1$d s</string>
     <string name="spdc_token">Jeton sp_dc</string>
-    <string name="spotify_canvas_setup">Configuration de Spotify Canvas</string>
+    <string name="spotify_canvas_setup">Configurer Spotify</string>
     <string name="spotify_canvas_setup_description">Pour utiliser Spotify Canvas, indiquez votre cookie sp_dc Spotify.</string>
     <string name="spotify_canvas_setup_steps">1. Connectez-vous sur open.spotify.com dans un navigateur.\n2. Ouvrez les outils de développement, puis Application et Cookies.\n3. Copiez la valeur du cookie sp_dc.\n4. Collez-la ci-dessous.</string>
     <string name="spotify_canvas_auto_hide">Masquer automatiquement les commandes</string>
@@ -1288,5 +1288,6 @@
     <string name="spotify_import_unmatched">%1$d titres n’ont pas été trouvés sur YouTube Music</string>
     <string name="spotify_library_subtitle">Vos playlists Spotify</string>
     <string name="spotify_sign_in">Se connecter avec Spotify</string>
+    <string name="spotify_use_spdc_token">Utiliser un jeton sp_dc</string>
     <string name="spotify_track_unavailable">Impossible de trouver ce titre sur YouTube Music</string>
 </resources>

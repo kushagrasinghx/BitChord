@@ -427,7 +427,7 @@
     <string name="upgrade_length_slack_footer">Uma tolerância maior aceita mais correspondências; uma menor é mais rigorosa. O padrão é 3 segundos.</string>
     <string name="seconds_short">%1$d s</string>
     <string name="spdc_token">Token sp_dc</string>
-    <string name="spotify_canvas_setup">Configuração do Spotify Canvas</string>
+    <string name="spotify_canvas_setup">Configurar Spotify</string>
     <string name="spotify_canvas_setup_description">Para usar o Spotify Canvas, forneça seu cookie sp_dc do Spotify.</string>
     <string name="spotify_canvas_setup_steps">1. Faça login em open.spotify.com no navegador.
 2. Abra Ferramentas de Desenvolvedor &gt; Aplicação &gt; Cookies.
@@ -1292,5 +1292,6 @@
     <string name="spotify_import_unmatched">%1$d músicas não foram encontradas no YouTube Music</string>
     <string name="spotify_library_subtitle">Suas playlists do Spotify</string>
     <string name="spotify_sign_in">Entrar com Spotify</string>
+    <string name="spotify_use_spdc_token">Usar token sp_dc</string>
     <string name="spotify_track_unavailable">Não foi possível encontrar essa música no YouTube Music</string>
 </resources>

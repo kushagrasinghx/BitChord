@@ -1,0 +1,73 @@
+name: TV
+
+# The Android TV app builds from the phone app's sources (see tv/README.md), so
+# a change under app/, shared/, sharedUi/ or native/ can break it as easily as
+# one under tv/.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tv/**'
+      - 'app/**'
+      - 'shared/**'
+      - 'sharedUi/**'
+      - 'native/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/tv.yml'
+  pull_request:
+    paths:
+      - 'tv/**'
+      - 'app/**'
+      - 'shared/**'
+      - 'sharedUi/**'
+      - 'native/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/tv.yml'
+
+concurrency:
+  group: tv-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tv:
+    name: Android TV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Write local.properties
+        run: |
+          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
+          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+
+      - run: chmod +x gradlew
+
+      - name: Build the TV dev APK
+        run: ./gradlew :tv:assembleDevDebug
+
+      - name: Upload the TV dev APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-tv-dev-debug
+          path: tv/build/outputs/apk/dev/debug/*universal*.apk
+
+      - name: Upload build reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tv-build-reports
+          path: tv/build/reports/

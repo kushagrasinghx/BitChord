@@ -449,7 +449,7 @@
     <string name="upgrade_length_slack_footer">容差越大，接受的来源匹配越多；容差越小则越严格。默认为 3 秒。</string>
     <string name="seconds_short">%1$d 秒</string>
     <string name="spdc_token">sp_dc 令牌</string>
-    <string name="spotify_canvas_setup">Spotify Canvas 设置</string>
+    <string name="spotify_canvas_setup">设置 Spotify</string>
     <string name="spotify_canvas_setup_description">要使用 Spotify Canvas，请提供你的 Spotify sp_dc cookie。</string>
     <string name="spotify_canvas_setup_steps">1. 在浏览器中登录 open.spotify.com。\n2. 打开开发者工具，然后进入“应用程序”和“Cookie”。\n3. 复制 sp_dc cookie 的值。\n4. 将其粘贴到下方。</string>
     <string name="spotify_canvas_auto_hide">自动隐藏播放控件</string>
@@ -1266,5 +1266,6 @@
     <string name="spotify_import_unmatched">%1$d 首歌曲未在 YouTube Music 上找到</string>
     <string name="spotify_library_subtitle">你的 Spotify 播放列表</string>
     <string name="spotify_sign_in">使用 Spotify 登录</string>
+    <string name="spotify_use_spdc_token">使用 sp_dc 令牌</string>
     <string name="spotify_track_unavailable">在 YouTube Music 上找不到该歌曲</string>
 </resources>

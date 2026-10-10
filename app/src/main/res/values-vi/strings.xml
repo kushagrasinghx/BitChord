@@ -488,7 +488,7 @@
     <string name="upgrade_length_slack_footer">Dung sai lớn hơn chấp nhận nhiều kết quả khớp hơn; dung sai nhỏ hơn sẽ chặt chẽ hơn. Mặc định là 3 giây.</string>
     <string name="seconds_short">%1$d giây</string>
     <string name="spdc_token">Token sp_dc</string>
-    <string name="spotify_canvas_setup">Thiết lập Spotify Canvas</string>
+    <string name="spotify_canvas_setup">Thiết lập Spotify</string>
     <string name="spotify_canvas_setup_description">Để sử dụng Spotify Canvas, hãy cung cấp cookie sp_dc trên Spotify của bạn.</string>
     <string name="spotify_canvas_setup_steps">1. Đăng nhập tại open.spotify.com trong trình duyệt.\n2. Mở Công cụ cho nhà phát triển, sau đó vào tab Application và chọn Cookies.\n3. Sao chép giá trị của cookie sp_dc.\n4. Dán vào bên dưới.</string>
     <string name="status">Trạng thái</string>
@@ -1204,5 +1204,6 @@
     <string name="spotify_import_unmatched">%1$d bài hát không tìm thấy trên YouTube Music</string>
     <string name="spotify_library_subtitle">Danh sách phát Spotify của bạn</string>
     <string name="spotify_sign_in">Đăng nhập bằng Spotify</string>
+    <string name="spotify_use_spdc_token">Dùng token sp_dc</string>
     <string name="spotify_track_unavailable">Không tìm thấy bài hát đó trên YouTube Music</string>
 </resources>

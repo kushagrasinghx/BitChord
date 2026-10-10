@@ -63,6 +63,17 @@ if ! cmp -s /tmp/Caddyfile /etc/caddy/Caddyfile; then
   mv /tmp/Caddyfile /etc/caddy/Caddyfile
   systemctl reload caddy || systemctl restart caddy
 fi
+# Hard memory cap so a runaway Caddy is killed and restarted alone rather than the
+# whole 1 GB VM thrashing swap. No soft GOMEMLIMIT: a limit below the working set
+# made the Go GC run flat out on a CPU the hypervisor was already starving.
+install -d /etc/systemd/system/caddy.service.d
+cat > /etc/systemd/system/caddy.service.d/memory.conf <<'UNIT'
+[Service]
+MemoryMax=750M
+Restart=always
+RestartSec=2
+UNIT
+systemctl daemon-reload
 
 echo "== deploy hook"
 echo "$DOMAIN" > /etc/bitchord-domain
@@ -78,6 +89,27 @@ if [ -n "${DEPLOY_PUBKEY:-}" ]; then
   echo 'deploy ALL=(root) NOPASSWD: /usr/local/sbin/bitchord-deploy' > /etc/sudoers.d/bitchord-deploy
   chmod 440 /etc/sudoers.d/bitchord-deploy && visudo -cf /etc/sudoers.d/bitchord-deploy
 fi
+
+echo "== kernel network limits"
+# The micro VM's default conntrack table is tiny (7680) and keeps an idle
+# established TCP flow for five days, which is how a crowd of phones that
+# vanish without a FIN would fill it. Give it room and a one-hour memory.
+cat > /etc/sysctl.d/90-bitchord.conf <<'SYSCTL'
+net.netfilter.nf_conntrack_max = 65536
+net.netfilter.nf_conntrack_tcp_timeout_established = 3600
+SYSCTL
+# Load the module at boot, or systemd-sysctl runs before it exists and the limit is lost.
+echo nf_conntrack > /etc/modules-load.d/nf_conntrack.conf
+sysctl --system >/dev/null 2>&1 || true
+
+echo "== swap"
+# 1 GB of RAM and no swap meant a connection spike could get Caddy OOM-killed.
+if ! swapon --show --noheadings | grep -q .; then
+  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+  grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+echo 'vm.swappiness = 1' > /etc/sysctl.d/91-bitchord-swap.conf
+sysctl -q -p /etc/sysctl.d/91-bitchord-swap.conf || true
 
 echo "== firewall"
 # Oracle's Ubuntu images ship an iptables REJECT rule that blocks everything

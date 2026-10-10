@@ -426,7 +426,7 @@
     <string name="upgrade_length_slack_footer">סבילות גדולה יותר מקבלת יותר התאמות ממקורות; סבילות קטנה יותר מחמירה יותר. ברירת המחדל היא 3 שניות.</string>
     <string name="seconds_short">%1$d שנ׳</string>
     <string name="spdc_token">אסימון sp_dc</string>
-    <string name="spotify_canvas_setup">הגדרת Spotify Canvas</string>
+    <string name="spotify_canvas_setup">הגדרת Spotify</string>
     <string name="spotify_canvas_setup_description">כדי להשתמש ב-Spotify Canvas, ספק את קובץ ה-cookie של sp_dc שלך מספוטיפיי.</string>
     <string name="spotify_canvas_setup_steps">1. היכנס בכתובת open.spotify.com בדפדפן.
 2. פתח כלים למפתחים &gt; Application &gt; Cookies.
@@ -1292,5 +1292,6 @@
     <string name="spotify_import_unmatched">%1$d שירים לא נמצאו ב-YouTube Music</string>
     <string name="spotify_library_subtitle">הפלייליסטים שלכם ב-Spotify</string>
     <string name="spotify_sign_in">התחברות עם Spotify</string>
+    <string name="spotify_use_spdc_token">שימוש באסימון sp_dc</string>
     <string name="spotify_track_unavailable">לא נמצא שיר כזה ב-YouTube Music</string>
 </resources>

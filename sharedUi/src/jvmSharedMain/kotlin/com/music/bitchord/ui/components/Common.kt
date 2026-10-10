@@ -4,9 +4,21 @@ import com.music.bitchord.ui.LocalPullToRefreshEnabled
 import com.music.bitchord.ui.AppUiHost
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.sharedui.resources.*
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import com.music.bitchord.ui.player.MESH_CYCLE_MILLIS
+import com.music.bitchord.ui.player.MeshGradientBackground
+import com.music.bitchord.ui.player.WelcomeMeshPalettes
+import com.music.bitchord.ui.player.cyclingMeshPalette
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
@@ -754,35 +766,70 @@ fun PullToRefresh(
     }
 }
 
-/** Slim dismissible-looking prompt shown atop Home while signed out. */
+/**
+ * The prompt atop Home while signed out: a card in the welcome pages' living
+ * mesh, so the one thing Home asks of a signed-out listener looks like an
+ * invitation from the app rather than a settings row that wandered in.
+ *
+ * Drawn white-on-colour in either theme, like Replay and the welcome — the
+ * mesh is the card, and white type is what sits on colour.
+ */
 @Composable
 fun SignInBanner(onSignIn: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.98f else 1f, spring(stiffness = 900f), label = "signInScale")
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = PAGE_GUTTER, vertical = 8.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onSignIn)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(RoundedCornerShape(22.dp))
+            .clickable(interactionSource = interaction, indication = null, onClick = onSignIn),
     ) {
-        Column(Modifier.weight(1f)) {
+        // A card is a few hundred dp the reader is looking straight at, which
+        // is the case the mesh lets keep moving — see its `continuous` note.
+        MeshGradientBackground(
+            palette = cyclingMeshPalette(WelcomeMeshPalettes),
+            modifier = Modifier.matchParentSize(),
+            continuous = true,
+            driftMillis = 6_000,
+            blurRadius = 36.dp,
+            colorFadeMillis = MESH_CYCLE_MILLIS,
+        )
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 18.dp)) {
             Text(
                 text = stringResource(Res.string.sign_in_youtube_music),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.W800,
+                color = Color.White,
             )
-            Text(
-                text = stringResource(Res.string.personalized_recommendations),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .padding(start = 16.dp, end = 20.dp, top = 10.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Image(
+                    painter = painterResource(Res.drawable.ic_google_g),
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(Res.string.sign_in_with_google),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.W700,
+                    color = Color.Black,
+                )
+            }
         }
-        Spacer(Modifier.width(12.dp))
-        Button(onClick = onSignIn) { Text(stringResource(Res.string.sign_in)) }
     }
 }
 

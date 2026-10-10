@@ -475,7 +475,7 @@
     <string name="upgrade_length_slack_footer">ค่าคลาดเคลื่อนที่มากขึ้นจะยอมรับการจับคู่ได้มากขึ้น ค่าที่น้อยลงจะเข้มงวดกว่า ค่าเริ่มต้นคือ 3 วินาที</string>
     <string name="seconds_short">%1$d วิ</string>
     <string name="spdc_token">โทเคน sp_dc</string>
-    <string name="spotify_canvas_setup">ตั้งค่า Spotify Canvas</string>
+    <string name="spotify_canvas_setup">ตั้งค่า Spotify</string>
     <string name="spotify_canvas_setup_description">หากต้องการใช้ Spotify Canvas ให้ระบุคุกกี้ sp_dc ของ Spotify</string>
     <string name="spotify_canvas_setup_steps">1. ลงชื่อเข้าใช้ที่ open.spotify.com ในเบราว์เซอร์\n2. เปิดเครื่องมือสำหรับนักพัฒนา จากนั้นไปที่ Application และ Cookies\n3. คัดลอกค่าของคุกกี้ sp_dc\n4. วางไว้ด้านล่าง</string>
     <string name="spotify_canvas_auto_hide">ซ่อนปุ่มควบคุมอัตโนมัติ</string>
@@ -1270,5 +1270,6 @@
     <string name="spotify_import_unmatched">ไม่พบเพลง %1$d เพลงบน YouTube Music</string>
     <string name="spotify_library_subtitle">เพลย์ลิสต์ Spotify ของคุณ</string>
     <string name="spotify_sign_in">ลงชื่อเข้าใช้ด้วย Spotify</string>
+    <string name="spotify_use_spdc_token">ใช้โทเค็น sp_dc</string>
     <string name="spotify_track_unavailable">หาเพลงนั้นบน YouTube Music ไม่พบ</string>
 </resources>

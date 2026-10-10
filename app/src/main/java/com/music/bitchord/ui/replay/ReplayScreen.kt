@@ -275,9 +275,9 @@ private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, 
 }
 
 /**
- * The three stretches a Replay can cover.
+ * The four stretches a Replay can cover.
  *
- * Months and years rather than a date range, because that is the granularity the
+ * Weeks and months rather than a date range, because that is the granularity the
  * listening is actually kept at — see [com.music.bitchord.data.stats.ListeningStats].
  * A "last 30 days" chip would have to be answered from monthly totals, which
  * would make it a lie for the first thirty days of every month.
@@ -603,6 +603,7 @@ private fun EmptyReplay(period: ReplayPeriod, dark: Boolean) {
         Spacer(Modifier.height(8.dp))
         Text(
             text = when (period) {
+                ReplayPeriod.THIS_WEEK -> stringResource(R.string.not_enough_this_week)
                 ReplayPeriod.THIS_MONTH -> stringResource(R.string.not_enough_this_month)
                 else -> stringResource(R.string.replay_empty_description)
             },

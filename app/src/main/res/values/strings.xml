@@ -119,6 +119,7 @@
     <string name="spotify">Spotify</string>
     <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
     <string name="spotify_sign_in">Sign in with Spotify</string>
+    <string name="spotify_use_spdc_token">Use sp_dc token</string>
     <string name="spotify_disconnect">Disconnect</string>
     <string name="spotify_empty_playlists">No playlists on this account</string>
     <string name="spotify_empty_tracks">This playlist has no tracks</string>
@@ -337,6 +338,8 @@
     <string name="hide_volume_bar">Hide volume bar</string>
     <string name="hide_volume_bar_subtitle">Removes the volume slider from the main player</string>
     <string name="hide_song_status">Hide Song Status</string>
+    <string name="show_queue_history">Show queue history</string>
+    <string name="show_queue_history_subtitle">Show up to 25 previously played songs above Now playing in the queue</string>
     <string name="hide_song_status_subtitle">Hides the “Playing from” or “Played by” text in the main player</string>
     <string name="off">Off</string>
     <string name="low">Low</string>
@@ -639,7 +642,7 @@
     <string name="upgrade_length_slack_footer">A larger tolerance accepts more source matches; a smaller tolerance is stricter. The default is 3 seconds.</string>
     <string name="seconds_short">%1$d s</string>
     <string name="spdc_token">sp_dc token</string>
-    <string name="spotify_canvas_setup">Spotify Canvas setup</string>
+    <string name="spotify_canvas_setup">Set up Spotify</string>
     <string name="spotify_canvas_setup_description">To use Spotify Canvas, provide your Spotify sp_dc cookie.</string>
     <string name="spotify_canvas_setup_steps">1. Sign in at open.spotify.com in a browser.\n2. Open Developer Tools, then Application and Cookies.\n3. Copy the value of the sp_dc cookie.\n4. Paste it below.</string>
     <string name="spotify_canvas_auto_hide">Auto-hide player controls</string>
@@ -694,6 +697,7 @@
     <string name="minutes_short">%1$d min</string>
     <string name="not_enough_listening">Not enough listening yet</string>
     <string name="not_enough_this_month">Play a few more songs this month to unlock your Replay.</string>
+    <string name="not_enough_this_week">Play a few more songs this week to unlock your Replay.</string>
     <string name="pinned">Pinned</string>
     <string name="replay_across">Across </string>
     <string name="replay_album_end"> held your attention.</string>
@@ -702,6 +706,7 @@
     <string name="replay_artist_end"> kept coming back.</string>
     <string name="replay_artist_focus">One artist</string>
     <string name="replay_artist_start">All month, </string>
+    <string name="replay_artist_start_week">This week, </string>
     <string name="replay_empty_description">Listen a little more and BitChord will turn your history into a Replay.</string>
     <string name="replay_genre_end"> shaped your sound.</string>
     <string name="replay_genre_focus">Your genres</string>
@@ -723,8 +728,10 @@
     <string name="replay_share_card_description">A polished card with your main listening highlights.</string>
     <string name="replay_share_summary_description">A full picture with songs, artists, albums, genres, and habits.</string>
     <string name="replay_songs_end"> filled your month.</string>
+    <string name="replay_songs_end_week"> filled your week.</string>
     <string name="replay_songs_start">In total, </string>
     <string name="replay_summary_start">Your </string>
+    <string name="replay_summary_end_week">week</string>
     <string name="saved">Saved</string>
     <string name="saved_bang">Saved!</string>
     <string name="share_my_replay">Share my Replay</string>
@@ -841,6 +848,7 @@
     <string name="play_your_replay">Play your Replay</string>
     <string name="counted_on_device_with_bitchord">Counted on this device with BitChord</string>
     <string name="this_month">This month</string>
+    <string name="replay_this_week">This week</string>
     <string name="this_year">This year</string>
     <string name="all_time">All time</string>
     <string name="switch_account">Switch account</string>
@@ -1127,4 +1135,14 @@
     <string name="local_playlist_subtitle">%1$d songs · On this device</string>
     <string name="spotify_import_empty_playlist">No songs in this playlist</string>
     <string name="spotify_library_subtitle">Your Spotify playlists</string>
+    <string name="onboarding_title">Millions of songs, stream on BitChord</string>
+    <string name="onboarding_name_prompt">What should we call you?</string>
+    <string name="onboarding_name_hint">Your name</string>
+    <string name="onboarding_name_footer">Friends see this when you Listen Together. You can change it later in Settings.</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_connect_title">Connect your YouTube account</string>
+    <string name="onboarding_connect_body">Bring your library, playlists and mixes with you, and start a Listen Together party with friends.</string>
+    <string name="onboarding_sign_in_google">Sign in with Google</string>
+    <string name="onboarding_skip_sign_in">Skip sign in</string>
+    <string name="onboarding_back">Back</string>
 </resources>

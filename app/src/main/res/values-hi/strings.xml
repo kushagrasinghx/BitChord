@@ -461,7 +461,7 @@
     <string name="upgrade_length_slack_footer">ज़्यादा छूट से ज़्यादा स्रोत मिलान स्वीकार होते हैं; कम छूट ज़्यादा सख़्त है। डिफ़ॉल्ट 3 सेकंड है।</string>
     <string name="seconds_short">%1$d से.</string>
     <string name="spdc_token">sp_dc टोकन</string>
-    <string name="spotify_canvas_setup">Spotify Canvas सेटअप</string>
+    <string name="spotify_canvas_setup">Spotify सेट अप करें</string>
     <string name="spotify_canvas_setup_description">Spotify Canvas इस्तेमाल करने के लिए, अपनी Spotify sp_dc कुकी दें।</string>
     <string name="spotify_canvas_setup_steps">1. ब्राउज़र में open.spotify.com पर साइन इन करें।\n2. Developer Tools खोलें, फिर Application और Cookies पर जाएं।\n3. sp_dc कुकी की वैल्यू कॉपी करें।\n4. इसे नीचे पेस्ट करें।</string>
     <string name="spotify_canvas_auto_hide">प्लेयर कंट्रोल अपने-आप छिपाएँ</string>
@@ -1287,5 +1287,6 @@
     <string name="spotify_import_unmatched">%1$d गाने YouTube Music पर नहीं मिले</string>
     <string name="spotify_library_subtitle">आपकी Spotify प्लेलिस्ट</string>
     <string name="spotify_sign_in">Spotify से साइन इन करें</string>
+    <string name="spotify_use_spdc_token">sp_dc टोकन इस्तेमाल करें</string>
     <string name="spotify_track_unavailable">वह गाना YouTube Music पर नहीं मिला</string>
 </resources>

@@ -80,7 +80,7 @@ private const val FALLBACK_USER_AGENT =
  * real device and the real Chrome version in there, so this doesn't rot into
  * claiming to be a two-year-old browser the next time Discord raises the floor.
  */
-private fun browserUserAgent(platformUserAgent: String?): String {
+internal fun browserUserAgent(platformUserAgent: String?): String {
     val stripped = platformUserAgent
         ?.replace("; wv", "")
         ?.replace(WEBVIEW_VERSION_TOKEN, "")

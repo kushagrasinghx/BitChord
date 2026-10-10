@@ -1997,7 +1997,6 @@ fun NowPlayingScreen(
                                 picked = lyricPicker.picks,
                                 onPickLine = lyricPicker.pick,
                                 onTogglePick = lyricPicker.toggle,
-                                centerActiveLine = !drawerFollowsListScroll,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }

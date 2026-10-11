@@ -200,4 +200,22 @@
     <string name="search_library_empty">搜尋本地音樂資料夾中的歌曲。</string>
     <string name="search_library_hint">歌曲、藝人和專輯</string>
     <string name="search_library_no_results">本地音樂中沒有與「%1$s」匹配的內容。</string>
+    <string name="reverb">殘響</string>
+    <string name="reverb_subtitle">讓音樂置身於房間、大廳或板式殘響之中</string>
+    <string name="reverb_preset_room">房間</string>
+    <string name="reverb_preset_hall">大廳</string>
+    <string name="reverb_preset_plate">板式</string>
+    <string name="reverb_preset_cathedral">大教堂</string>
+    <string name="reverb_preset_custom">自訂</string>
+    <string name="reverb_decay">衰減</string>
+    <string name="reverb_decay_help">殘響尾音衰減 60 dB 所需的時間：決定空間聽起來有多大。</string>
+    <string name="reverb_pre_delay">預延遲</string>
+    <string name="reverb_pre_delay_help">殘響開始前的靜默。間隔越長，原聲越清晰，牆壁聽起來越遠。</string>
+    <string name="reverb_damping">阻尼</string>
+    <string name="reverb_damping_help">尾音開始失去高頻的位置。越低越暗，就像柔軟表面吸收高音。</string>
+    <string name="reverb_mix">混合</string>
+    <string name="reverb_mix_help">相對於乾聲，你能聽到多少空間感。</string>
+    <string name="reverb_width">寬度</string>
+    <string name="reverb_width_help">尾音的立體聲寬度，從單聲道到全寬。</string>
+    <string name="reverb_reset">重設為預設值</string>
 </resources>

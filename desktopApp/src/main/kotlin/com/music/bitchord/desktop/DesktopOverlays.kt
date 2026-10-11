@@ -59,6 +59,7 @@ internal class DesktopOverlays {
 internal enum class DesktopSettingsPage {
     MAIN,
     EQUALIZER,
+    REVERB,
     AUDIO_OUTPUT,
     LISTEN_TOGETHER,
     LYRICS_SOURCES,

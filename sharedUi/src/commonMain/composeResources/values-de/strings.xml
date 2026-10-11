@@ -200,4 +200,22 @@
     <string name="search_library_empty">Durchsuche die Songs in deinem Ordner für lokale Musik.</string>
     <string name="search_library_hint">Songs, Künstler und Alben</string>
     <string name="search_library_no_results">Nichts in der lokalen Musik passt zu „%1$s“.</string>
+    <string name="reverb">Hall</string>
+    <string name="reverb_subtitle">Platziert die Musik in einem Raum, Saal oder einer Plate</string>
+    <string name="reverb_preset_room">Raum</string>
+    <string name="reverb_preset_hall">Saal</string>
+    <string name="reverb_preset_plate">Plate</string>
+    <string name="reverb_preset_cathedral">Kathedrale</string>
+    <string name="reverb_preset_custom">Benutzerdefiniert</string>
+    <string name="reverb_decay">Nachhall</string>
+    <string name="reverb_decay_help">Wie lange der Nachhall braucht, um um 60 dB abzuklingen: wie groß der Raum wirkt.</string>
+    <string name="reverb_pre_delay">Pre-Delay</string>
+    <string name="reverb_pre_delay_help">Stille, bevor der Hall einsetzt. Eine längere Pause hält den direkten Klang klar und rückt die Wände weiter weg.</string>
+    <string name="reverb_damping">Dämpfung</string>
+    <string name="reverb_damping_help">Ab wo der Nachhall Höhen verliert. Niedriger klingt dunkler, wie weiche Oberflächen, die Höhen schlucken.</string>
+    <string name="reverb_mix">Mischung</string>
+    <string name="reverb_mix_help">Wie viel vom Raum du im Verhältnis zum trockenen Signal hörst.</string>
+    <string name="reverb_width">Breite</string>
+    <string name="reverb_width_help">Stereobreite des Nachhalls, von Mono bis voll.</string>
+    <string name="reverb_reset">Auf Standard zurücksetzen</string>
 </resources>

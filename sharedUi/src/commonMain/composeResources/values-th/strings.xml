@@ -200,4 +200,22 @@
     <string name="search_library_empty">ค้นหาเพลงในโฟลเดอร์เพลงในเครื่องของคุณ</string>
     <string name="search_library_hint">เพลง ศิลปิน และอัลบั้ม</string>
     <string name="search_library_no_results">ไม่มีอะไรในเพลงในเครื่องตรงกับ “%1$s”</string>
+    <string name="reverb">เสียงก้อง</string>
+    <string name="reverb_subtitle">วางเพลงไว้ในห้อง ห้องโถง หรือเพลต</string>
+    <string name="reverb_preset_room">ห้อง</string>
+    <string name="reverb_preset_hall">ห้องโถง</string>
+    <string name="reverb_preset_plate">เพลต</string>
+    <string name="reverb_preset_cathedral">มหาวิหาร</string>
+    <string name="reverb_preset_custom">กำหนดเอง</string>
+    <string name="reverb_decay">การจางหาย</string>
+    <string name="reverb_decay_help">เวลาที่หางเสียงใช้ในการลดลง 60 dB: ห้องให้ความรู้สึกใหญ่แค่ไหน</string>
+    <string name="reverb_pre_delay">พรีดีเลย์</string>
+    <string name="reverb_pre_delay_help">ช่วงเงียบก่อนเสียงก้องเริ่ม ช่วงที่ยาวขึ้นช่วยให้เสียงตรงชัดเจนและผลักผนังให้ไกลออกไป</string>
+    <string name="reverb_damping">การหน่วง</string>
+    <string name="reverb_damping_help">จุดที่หางเสียงเริ่มสูญเสียเสียงแหลม ค่าต่ำจะทึบขึ้น เหมือนพื้นผิวนุ่มที่ดูดซับเสียงสูง</string>
+    <string name="reverb_mix">มิกซ์</string>
+    <string name="reverb_mix_help">ปริมาณเสียงของห้องที่ได้ยินเทียบกับสัญญาณแห้ง</string>
+    <string name="reverb_width">ความกว้าง</string>
+    <string name="reverb_width_help">การกระจายสเตอริโอของหางเสียง ตั้งแต่โมโนจนกว้างเต็มที่</string>
+    <string name="reverb_reset">รีเซ็ตเป็นค่าเริ่มต้น</string>
 </resources>

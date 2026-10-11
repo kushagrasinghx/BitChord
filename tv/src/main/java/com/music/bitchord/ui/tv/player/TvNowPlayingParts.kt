@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -332,6 +333,7 @@ internal fun TvTransport(
     upNext: @Composable () -> Unit,
 ) {
     val showStats by AppSettings.showNerdStats.collectAsState()
+    val reverbOn by AppSettings.reverbEnabled.collectAsState()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -374,6 +376,14 @@ internal fun TvTransport(
                     contentDescription = "Up Next",
                     active = upNextOpen,
                     onClick = onToggleUpNext,
+                )
+                // The same switch as Settings › Reverb, lit while it is on;
+                // the room itself is tuned there.
+                TvTransportButton(
+                    icon = Icons.Rounded.Waves,
+                    contentDescription = if (reverbOn) "Reverb On" else "Reverb Off",
+                    active = reverbOn,
+                    onClick = { AppSettings.setReverbEnabled(!reverbOn) },
                 )
                 TvTransportButton(
                     icon = Icons.Rounded.MoreHoriz,

@@ -73,6 +73,9 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
+import com.music.bitchord.sharedui.resources.Res as SharedRes
+import com.music.bitchord.sharedui.resources.reverb
 
 private val PIPELINE_ICON_TINT = Color.White.copy(alpha = 0.6f)
 
@@ -109,6 +112,7 @@ private fun bitExactVerdict(
     loudnessActive: Boolean,
     eqActive: Boolean,
     spatialActive: Boolean,
+    reverbActive: Boolean,
 ): String = when {
     // Not a fault to fix: there is no DSD output path (native DSD or DoP)
     // here, so the PCM conversion is a deviation every DSD track carries,
@@ -117,6 +121,7 @@ private fun bitExactVerdict(
     loudnessActive -> "No — loudness normalization"
     eqActive -> "No — equalizer"
     spatialActive -> "No — spatial audio"
+    reverbActive -> "No — reverb"
     outputExact -> "Yes${outputExactDetail?.let { " ($it)" }.orEmpty()}"
     else -> "No — ${outputExactDetail ?: "converted downstream"}"
 }
@@ -147,6 +152,8 @@ fun AudioPipelineDialog(
     val eqEnabled by AppSettings.equalizerEnabled.collectAsStateWithLifecycle()
     val eqPreset by AppSettings.equalizerPreset.collectAsStateWithLifecycle()
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
+    val reverbEnabled by AppSettings.reverbEnabled.collectAsStateWithLifecycle()
+    val reverb by AppSettings.reverb.collectAsStateWithLifecycle()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
@@ -364,6 +371,12 @@ fun AudioPipelineDialog(
                 "Flat"
             }
             val stereoExpandText = if (spatialAudio) "250%" else "100%"
+            val reverbText = if (reverbEnabled) {
+                val room = reverb.preset?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "Custom"
+                "$room · ${(reverb.mix * 100).roundToInt()}% wet"
+            } else {
+                stringResource(R.string.off)
+            }
             val buffersText = outputStatus.bufferSize?.let { size ->
                 val rate = outputStatus.actualSampleRateHz
                 val bytesPerSample = when (outputStatus.actualEncoding) {
@@ -412,6 +425,7 @@ fun AudioPipelineDialog(
                 PipelineRow(stringResource(R.string.pipeline_loudness_measured), loudnessMeasuredText)
                 PipelineRow(stringResource(R.string.pipeline_eq_preset), eqPresetText)
                 PipelineRow(stringResource(R.string.pipeline_stereo_expand), stereoExpandText)
+                PipelineRow(org.jetbrains.compose.resources.stringResource(SharedRes.string.reverb), reverbText)
                 PipelineRow(stringResource(R.string.pipeline_buffers), buffersText)
                 PipelineRow(stringResource(R.string.pipeline_output_api), outputStatus.sink.ifBlank { "AAudio" })
                 // The verdict, rather than the settings. Names whichever
@@ -428,6 +442,7 @@ fun AudioPipelineDialog(
                         loudnessActive = loudnessNormalization && outputStatus.loudnessGainDb != null,
                         eqActive = eqEnabled,
                         spatialActive = spatialAudio,
+                        reverbActive = reverbEnabled,
                     ),
                 )
             }

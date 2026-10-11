@@ -205,4 +205,22 @@
     <string name="import_spotify">Import Spotify</string>
     <string name="import_spotify_subtitle">From a playlist link</string>
     <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="reverb">Reverb</string>
+    <string name="reverb_subtitle">Place the music in a room, hall or plate</string>
+    <string name="reverb_preset_room">Room</string>
+    <string name="reverb_preset_hall">Hall</string>
+    <string name="reverb_preset_plate">Plate</string>
+    <string name="reverb_preset_cathedral">Cathedral</string>
+    <string name="reverb_preset_custom">Custom</string>
+    <string name="reverb_decay">Decay</string>
+    <string name="reverb_decay_help">How long the tail takes to fade by 60 dB: how big the room feels.</string>
+    <string name="reverb_pre_delay">Pre-delay</string>
+    <string name="reverb_pre_delay_help">Silence before the reverb starts. A longer gap keeps the dry sound clear and pushes the walls further away.</string>
+    <string name="reverb_damping">Damping</string>
+    <string name="reverb_damping_help">Where the tail starts losing treble. Lower is darker, like soft surfaces absorbing highs.</string>
+    <string name="reverb_mix">Mix</string>
+    <string name="reverb_mix_help">How much of the room you hear against the dry signal.</string>
+    <string name="reverb_width">Width</string>
+    <string name="reverb_width_help">Stereo spread of the tail, from mono to full width.</string>
+    <string name="reverb_reset">Reset to defaults</string>
 </resources>

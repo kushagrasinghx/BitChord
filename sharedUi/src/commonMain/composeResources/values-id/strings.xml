@@ -200,4 +200,22 @@
     <string name="search_library_empty">Cari lagu di folder Musik Lokal Anda.</string>
     <string name="search_library_hint">Lagu, Artis, dan Album</string>
     <string name="search_library_no_results">Tidak ada di Musik Lokal yang cocok dengan “%1$s”.</string>
+    <string name="reverb">Gema</string>
+    <string name="reverb_subtitle">Tempatkan musik di ruangan, aula, atau plate</string>
+    <string name="reverb_preset_room">Ruangan</string>
+    <string name="reverb_preset_hall">Aula</string>
+    <string name="reverb_preset_plate">Plate</string>
+    <string name="reverb_preset_cathedral">Katedral</string>
+    <string name="reverb_preset_custom">Kustom</string>
+    <string name="reverb_decay">Peluruhan</string>
+    <string name="reverb_decay_help">Berapa lama ekor gema meredup 60 dB: seberapa besar ruangan terasa.</string>
+    <string name="reverb_pre_delay">Pra-tunda</string>
+    <string name="reverb_pre_delay_help">Hening sebelum gema dimulai. Jeda lebih panjang menjaga suara asli tetap jernih dan menjauhkan dinding.</string>
+    <string name="reverb_damping">Peredaman</string>
+    <string name="reverb_damping_help">Titik saat ekor gema mulai kehilangan treble. Lebih rendah terdengar lebih gelap, seperti permukaan lembut yang menyerap nada tinggi.</string>
+    <string name="reverb_mix">Campuran</string>
+    <string name="reverb_mix_help">Seberapa banyak ruangan yang terdengar dibanding sinyal asli.</string>
+    <string name="reverb_width">Lebar</string>
+    <string name="reverb_width_help">Sebaran stereo ekor gema, dari mono hingga lebar penuh.</string>
+    <string name="reverb_reset">Atur ulang ke bawaan</string>
 </resources>

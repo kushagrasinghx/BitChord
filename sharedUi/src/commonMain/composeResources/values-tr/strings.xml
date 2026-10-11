@@ -200,4 +200,22 @@
     <string name="search_library_empty">Yerel Müzik klasörünüzdeki şarkıları arar.</string>
     <string name="search_library_hint">Şarkılar, Sanatçılar ve Albümler</string>
     <string name="search_library_no_results">Yerel Müzik’te “%1$s” ile eşleşen bir şey yok.</string>
+    <string name="reverb">Yankı</string>
+    <string name="reverb_subtitle">Müziği bir odaya, salona ya da plakaya yerleştirin</string>
+    <string name="reverb_preset_room">Oda</string>
+    <string name="reverb_preset_hall">Salon</string>
+    <string name="reverb_preset_plate">Plaka</string>
+    <string name="reverb_preset_cathedral">Katedral</string>
+    <string name="reverb_preset_custom">Özel</string>
+    <string name="reverb_decay">Sönüm</string>
+    <string name="reverb_decay_help">Kuyruğun 60 dB azalması için geçen süre: odanın ne kadar büyük hissettirdiği.</string>
+    <string name="reverb_pre_delay">Ön gecikme</string>
+    <string name="reverb_pre_delay_help">Yankı başlamadan önceki sessizlik. Daha uzun bir boşluk kuru sesi net tutar ve duvarları uzaklaştırır.</string>
+    <string name="reverb_damping">Sönümleme</string>
+    <string name="reverb_damping_help">Kuyruğun tizleri kaybetmeye başladığı nokta. Düşük değer, tizleri emen yumuşak yüzeyler gibi daha koyu duyulur.</string>
+    <string name="reverb_mix">Karışım</string>
+    <string name="reverb_mix_help">Kuru sinyale karşı odanın ne kadarını duyduğunuz.</string>
+    <string name="reverb_width">Genişlik</string>
+    <string name="reverb_width_help">Kuyruğun stereo genişliği, monodan tam genişliğe.</string>
+    <string name="reverb_reset">Varsayılanlara sıfırla</string>
 </resources>

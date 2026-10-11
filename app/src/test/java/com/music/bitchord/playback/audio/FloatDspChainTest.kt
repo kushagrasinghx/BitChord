@@ -3,6 +3,7 @@ package com.music.bitchord.playback.audio
 import com.music.bitchord.playback.EqCurve
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerProcessor
+import com.music.bitchord.playback.ReverbSettings
 import com.music.bitchord.playback.SpatialAudioProcessor
 import com.music.bitchord.playback.TransitionFilterProcessor
 import org.junit.Assert.assertEquals
@@ -19,6 +20,7 @@ import kotlin.math.sqrt
  * - EqualizerProcessor (FloatAudioProcessor)
  * - SpatialAudioProcessor (FloatAudioProcessor)
  * - TransitionFilterProcessor (FloatAudioProcessor)
+ * - ReverbProcessor, as a stage of the chain
  * - DspChain composite pipeline
  */
 class FloatDspChainTest {
@@ -454,5 +456,68 @@ class FloatDspChainTest {
             chain.process(block)
             assertTrue("Array reference must be preserved across iterations", block.samples === arrayRef)
         }
+    }
+
+    // ── ReverbProcessor in the DspChain ─────────────────────────────────────
+
+    /** A one-block sine, the same every call, so blocks can be compared. */
+    private fun sineBlock(frames: Int): AudioBlock {
+        val block = AudioBlock(channelCount = 2, capacityFrames = frames)
+        for (f in 0 until frames) {
+            val v = (0.3 * sin(2 * PI * 440.0 * f / sampleRate)).toFloat()
+            block.samples[f * 2] = v
+            block.samples[f * 2 + 1] = v
+        }
+        block.reset(frames)
+        return block
+    }
+
+    @Test
+    fun `reverb is bypassed bit-exactly until switched on, works live, and bows out again when switched off`() {
+        val chain = DspChain()
+        chain.configure(sampleRate, 2)
+        chain.transition.open()
+        val frames = 1024
+        val reference = sineBlock(frames).samples.copyOf()
+
+        // Off: untouched.
+        val idle = sineBlock(frames)
+        chain.process(idle)
+        assertTrue("idle chain must be bit-exact", reference.contentEquals(idle.samples))
+
+        // Switched on mid-stream, no reconfigure or flush in between: altered on the very next blocks.
+        chain.reverb.setTarget(true, ReverbSettings(mix = 0.5f))
+        var altered = false
+        repeat(20) {
+            val block = sineBlock(frames)
+            chain.process(block)
+            if (!reference.contentEquals(block.samples)) altered = true
+        }
+        assertTrue("reverb must alter the signal once on", altered)
+        assertTrue(chain.reverb.isActive)
+
+        // Switched off: a short fade, then bit-exact again.
+        chain.reverb.setTarget(false, ReverbSettings(mix = 0.5f))
+        repeat(40) { chain.process(sineBlock(frames)) }
+        assertFalse(chain.reverb.isActive)
+        val after = sineBlock(frames)
+        chain.process(after)
+        assertTrue("chain must be bit-exact again once the reverb has faded out", reference.contentEquals(after.samples))
+    }
+
+    @Test
+    fun `flushing the chain on a seek clears the reverb tail but keeps it switched on`() {
+        val chain = DspChain()
+        chain.configure(sampleRate, 2)
+        chain.transition.open()
+        chain.reverb.setTarget(true, ReverbSettings(mix = 1f, preDelayMs = 0))
+        repeat(20) { chain.process(sineBlock(1024)) }
+
+        @Suppress("DEPRECATION")
+        chain.flush()
+        val silent = AudioBlock(channelCount = 2, capacityFrames = 256).apply { reset(256) }
+        chain.process(silent)
+        assertTrue("no tail of the old position after a flush", silent.samples.all { it == 0f })
+        assertTrue(chain.reverb.isActive)
     }
 }

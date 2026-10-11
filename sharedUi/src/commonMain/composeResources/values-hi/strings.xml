@@ -200,4 +200,22 @@
     <string name="search_library_empty">आपके लोकल म्यूज़िक फ़ोल्डर के गाने खोजें.</string>
     <string name="search_library_hint">गाने, कलाकार और एल्बम</string>
     <string name="search_library_no_results">लोकल म्यूज़िक में “%1$s” से मेल खाता कुछ नहीं.</string>
+    <string name="reverb">रिवर्ब</string>
+    <string name="reverb_subtitle">संगीत को कमरे, हॉल या प्लेट में रखें</string>
+    <string name="reverb_preset_room">कमरा</string>
+    <string name="reverb_preset_hall">हॉल</string>
+    <string name="reverb_preset_plate">प्लेट</string>
+    <string name="reverb_preset_cathedral">कैथेड्रल</string>
+    <string name="reverb_preset_custom">कस्टम</string>
+    <string name="reverb_decay">डिके</string>
+    <string name="reverb_decay_help">टेल को 60 dB तक धीमा होने में कितना समय लगता है: कमरा कितना बड़ा लगता है।</string>
+    <string name="reverb_pre_delay">प्री-डिले</string>
+    <string name="reverb_pre_delay_help">रिवर्ब शुरू होने से पहले की चुप्पी। लंबा अंतर मूल ध्वनि को साफ रखता है और दीवारों को दूर ले जाता है।</string>
+    <string name="reverb_damping">डैम्पिंग</string>
+    <string name="reverb_damping_help">जहाँ से टेल ट्रेबल खोने लगती है। कम मान ज़्यादा गहरा लगता है, जैसे नरम सतहें ऊँची ध्वनियाँ सोख लेती हैं।</string>
+    <string name="reverb_mix">मिक्स</string>
+    <string name="reverb_mix_help">ड्राई सिग्नल की तुलना में आप कमरे का कितना हिस्सा सुनते हैं।</string>
+    <string name="reverb_width">चौड़ाई</string>
+    <string name="reverb_width_help">टेल का स्टीरियो फैलाव, मोनो से पूरी चौड़ाई तक।</string>
+    <string name="reverb_reset">डिफ़ॉल्ट पर रीसेट करें</string>
 </resources>

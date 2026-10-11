@@ -200,4 +200,22 @@
     <string name="search_library_empty">Поиск треков в папке локальной музыки.</string>
     <string name="search_library_hint">Треки, исполнители и альбомы</string>
     <string name="search_library_no_results">В локальной музыке нет ничего, совпадающего с «%1$s».</string>
+    <string name="reverb">Реверберация</string>
+    <string name="reverb_subtitle">Помещает музыку в комнату, зал или пластину</string>
+    <string name="reverb_preset_room">Комната</string>
+    <string name="reverb_preset_hall">Зал</string>
+    <string name="reverb_preset_plate">Пластина</string>
+    <string name="reverb_preset_cathedral">Собор</string>
+    <string name="reverb_preset_custom">Свой</string>
+    <string name="reverb_decay">Затухание</string>
+    <string name="reverb_decay_help">Сколько времени хвост затухает на 60 дБ: насколько большим кажется помещение.</string>
+    <string name="reverb_pre_delay">Предзадержка</string>
+    <string name="reverb_pre_delay_help">Тишина перед началом реверберации. Более длинная пауза сохраняет чистоту прямого звука и отодвигает стены.</string>
+    <string name="reverb_damping">Демпфирование</string>
+    <string name="reverb_damping_help">Где хвост начинает терять высокие частоты. Ниже — темнее, как мягкие поверхности, поглощающие высокие.</string>
+    <string name="reverb_mix">Микс</string>
+    <string name="reverb_mix_help">Сколько помещения вы слышите по отношению к сухому сигналу.</string>
+    <string name="reverb_width">Ширина</string>
+    <string name="reverb_width_help">Стереоширина хвоста, от моно до полной.</string>
+    <string name="reverb_reset">Сбросить по умолчанию</string>
 </resources>

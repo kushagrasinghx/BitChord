@@ -200,4 +200,22 @@
     <string name="search_library_empty">Tìm các bài hát trong thư mục Nhạc cục bộ của bạn.</string>
     <string name="search_library_hint">Bài hát, nghệ sĩ và album</string>
     <string name="search_library_no_results">Không có gì trong Nhạc cục bộ khớp với “%1$s”.</string>
+    <string name="reverb">Vang</string>
+    <string name="reverb_subtitle">Đặt âm nhạc vào một căn phòng, hội trường hoặc tấm vang</string>
+    <string name="reverb_preset_room">Phòng</string>
+    <string name="reverb_preset_hall">Hội trường</string>
+    <string name="reverb_preset_plate">Tấm vang</string>
+    <string name="reverb_preset_cathedral">Nhà thờ lớn</string>
+    <string name="reverb_preset_custom">Tùy chỉnh</string>
+    <string name="reverb_decay">Thời gian tắt</string>
+    <string name="reverb_decay_help">Thời gian để đuôi vang giảm 60 dB: căn phòng cảm giác lớn đến đâu.</string>
+    <string name="reverb_pre_delay">Độ trễ trước</string>
+    <string name="reverb_pre_delay_help">Khoảng lặng trước khi tiếng vang bắt đầu. Khoảng dài hơn giữ âm thanh gốc rõ ràng và đẩy các bức tường ra xa.</string>
+    <string name="reverb_damping">Giảm chấn</string>
+    <string name="reverb_damping_help">Điểm đuôi vang bắt đầu mất âm cao. Thấp hơn nghe tối hơn, như bề mặt mềm hấp thụ âm cao.</string>
+    <string name="reverb_mix">Trộn</string>
+    <string name="reverb_mix_help">Bạn nghe bao nhiêu tiếng vang so với tín hiệu gốc.</string>
+    <string name="reverb_width">Độ rộng</string>
+    <string name="reverb_width_help">Độ rộng stereo của đuôi vang, từ mono đến rộng tối đa.</string>
+    <string name="reverb_reset">Đặt lại mặc định</string>
 </resources>

@@ -200,4 +200,22 @@
     <string name="search_library_empty">Recherche les titres de votre dossier Musique locale.</string>
     <string name="search_library_hint">Titres, artistes et albums</string>
     <string name="search_library_no_results">Rien dans Musique locale ne correspond à « %1$s ».</string>
+    <string name="reverb">Réverbération</string>
+    <string name="reverb_subtitle">Place la musique dans une pièce, une salle ou une plaque</string>
+    <string name="reverb_preset_room">Pièce</string>
+    <string name="reverb_preset_hall">Salle</string>
+    <string name="reverb_preset_plate">Plaque</string>
+    <string name="reverb_preset_cathedral">Cathédrale</string>
+    <string name="reverb_preset_custom">Personnalisé</string>
+    <string name="reverb_decay">Déclin</string>
+    <string name="reverb_decay_help">Le temps que met la queue à baisser de 60 dB : la taille ressentie de la pièce.</string>
+    <string name="reverb_pre_delay">Pré-délai</string>
+    <string name="reverb_pre_delay_help">Silence avant le début de la réverbération. Un écart plus long garde le son direct clair et éloigne les murs.</string>
+    <string name="reverb_damping">Amortissement</string>
+    <string name="reverb_damping_help">Là où la queue commence à perdre ses aigus. Plus bas, c\'est plus sombre, comme des surfaces douces qui absorbent les aigus.</string>
+    <string name="reverb_mix">Mélange</string>
+    <string name="reverb_mix_help">La part de la pièce que vous entendez par rapport au signal sec.</string>
+    <string name="reverb_width">Largeur</string>
+    <string name="reverb_width_help">Largeur stéréo de la queue, du mono à la pleine largeur.</string>
+    <string name="reverb_reset">Rétablir les valeurs par défaut</string>
 </resources>

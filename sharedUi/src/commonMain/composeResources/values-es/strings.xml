@@ -200,4 +200,22 @@
     <string name="search_library_empty">Busca las canciones de tu carpeta de Música local.</string>
     <string name="search_library_hint">Canciones, artistas y álbumes</string>
     <string name="search_library_no_results">Nada en Música local coincide con “%1$s”.</string>
+    <string name="reverb">Reverberación</string>
+    <string name="reverb_subtitle">Coloca la música en una sala, un auditorio o una placa</string>
+    <string name="reverb_preset_room">Sala</string>
+    <string name="reverb_preset_hall">Auditorio</string>
+    <string name="reverb_preset_plate">Placa</string>
+    <string name="reverb_preset_cathedral">Catedral</string>
+    <string name="reverb_preset_custom">Personalizado</string>
+    <string name="reverb_decay">Decaimiento</string>
+    <string name="reverb_decay_help">Cuánto tarda la cola en bajar 60 dB: qué tan grande se siente la sala.</string>
+    <string name="reverb_pre_delay">Pre-retardo</string>
+    <string name="reverb_pre_delay_help">Silencio antes de que empiece la reverberación. Una pausa más larga mantiene claro el sonido directo y aleja las paredes.</string>
+    <string name="reverb_damping">Amortiguación</string>
+    <string name="reverb_damping_help">Dónde la cola empieza a perder agudos. Más bajo suena más oscuro, como superficies blandas que absorben los agudos.</string>
+    <string name="reverb_mix">Mezcla</string>
+    <string name="reverb_mix_help">Cuánto de la sala oyes frente a la señal seca.</string>
+    <string name="reverb_width">Amplitud</string>
+    <string name="reverb_width_help">Apertura estéreo de la cola, de mono a ancho completo.</string>
+    <string name="reverb_reset">Restablecer valores predeterminados</string>
 </resources>

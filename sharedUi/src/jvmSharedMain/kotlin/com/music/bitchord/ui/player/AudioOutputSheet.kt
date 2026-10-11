@@ -3,6 +3,7 @@ package com.music.bitchord.ui.player
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,8 +29,11 @@ import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Speaker
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Usb
+import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -45,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -120,6 +125,9 @@ internal fun AudioOutputSheet(
         VolumeRow(routeKey = outputs)
 
         Spacer(Modifier.height(6.dp))
+        ReverbRow()
+
+        Spacer(Modifier.height(6.dp))
         AudioPipelineRow(onClick = onOpenPipeline)
     }
 }
@@ -188,6 +196,87 @@ private fun AudioPipelineRow(onClick: () -> Unit) {
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.35f),
             modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+/**
+ * The reverb's switch, within reach of the music rather than a settings page
+ * away. Reads and writes the very setting the settings page does — see
+ * [PlayerSettingsSource.reverbEnabled] — so the two stay in step, and the
+ * engine picks the change up on its next audio block without a pause. The room
+ * itself is tuned on the settings page; this only puts the music in it or not.
+ */
+@Composable
+private fun ReverbRow() {
+    val haptics = rememberHaptics()
+    val enabled by PlayerSettings.reverbEnabled.collectAsStateWithLifecycle()
+    val toggle = { on: Boolean ->
+        haptics.play(if (on) Haptic.ToggleOn else Haptic.ToggleOff)
+        PlayerSettings.setReverbEnabled(on)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(ROW_SHAPE)
+            .background(Color.White.copy(alpha = if (enabled) 0.10f else 0.05f))
+            .toggleable(
+                value = enabled,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                role = Role.Switch,
+                onValueChange = toggle,
+            )
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = if (enabled) 0.16f else 0.08f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Waves,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = if (enabled) 1f else 0.7f),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Spacer(Modifier.width(13.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = stringResource(Res.string.reverb),
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontWeight = if (enabled) FontWeight.SemiBold else FontWeight.Normal,
+                ),
+                color = Color.White.copy(alpha = if (enabled) 1f else 0.85f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = stringResource(Res.string.reverb_subtitle),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.55f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        // Drawn only: the row is the control, so a click on the thumb and one
+        // beside it do the same thing and are announced once.
+        Switch(
+            checked = enabled,
+            onCheckedChange = null,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.Black,
+                checkedTrackColor = Color.White,
+                checkedBorderColor = Color.White,
+                uncheckedThumbColor = Color.White.copy(alpha = 0.7f),
+                uncheckedTrackColor = Color.White.copy(alpha = 0.08f),
+                uncheckedBorderColor = Color.White.copy(alpha = 0.35f),
+            ),
         )
     }
 }

@@ -14,6 +14,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.playback.ReverbSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 
 
@@ -337,6 +338,17 @@ object AppSettings {
      * makes the row say that preset's name again instead of "Custom" forever.
      */
     val equalizerPreset = MutableStateFlow(EqualizerPreset.FLAT)
+
+    /**
+     * The app's own reverb, master switch — see
+     * [com.music.bitchord.playback.ReverbProcessor]. Kept apart from
+     * [reverb] so the player's toggle flips it without touching the room the
+     * Settings page dialled in.
+     */
+    val reverbEnabled = MutableStateFlow(false)
+
+    /** The reverb's room and level. */
+    val reverb = MutableStateFlow(ReverbSettings.DEFAULT)
 
     val playbackSpeed = MutableStateFlow(1.0f)
     val themeMode = MutableStateFlow(ThemeMode.DARK)
@@ -821,6 +833,8 @@ object AppSettings {
         equalizerBalance.value = prefs.getFloat(KEY_EQ_BALANCE, 0f).coerceIn(-1f, 1f)
         equalizerBands.value = readEqualizerBands()
         equalizerPreset.value = EqualizerPreset.matching(equalizerBands.value)
+        reverbEnabled.value = prefs.getBoolean(KEY_REVERB_ENABLED, false)
+        reverb.value = ReverbSettings.decode(prefs.getString(KEY_REVERB, null))
         playbackSpeed.value = prefs.getFloat(KEY_SPEED, 1.0f)
         themeMode.value = runCatching {
             ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "DARK")
@@ -1112,6 +1126,21 @@ object AppSettings {
     fun setEqualizerEnabled(value: Boolean) {
         equalizerEnabled.value = value
         prefs.edit().putBoolean(KEY_EQ_ENABLED, value).apply()
+    }
+
+    fun setReverbEnabled(value: Boolean) {
+        reverbEnabled.value = value
+        prefs.edit().putBoolean(KEY_REVERB_ENABLED, value).apply()
+    }
+
+    /**
+     * Stored as one string, like the equaliser's bands, so a backup carries
+     * the whole room as one value.
+     */
+    fun setReverb(value: ReverbSettings) {
+        val clamped = value.clamped()
+        reverb.value = clamped
+        prefs.edit().putString(KEY_REVERB, clamped.encode()).apply()
     }
 
     fun setEqualizerMode(value: EqualizerMode) {
@@ -1962,6 +1991,8 @@ object AppSettings {
     private const val KEY_EQ_FOCUSED = "equalizer_focused"
     private const val KEY_EQ_BALANCE = "equalizer_balance"
     private const val KEY_EQ_BANDS = "equalizer_bands"
+    private const val KEY_REVERB_ENABLED = "reverb_enabled"
+    private const val KEY_REVERB = "reverb"
     private const val KEY_SPEED = "playback_speed"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_AUTOPLAY = "autoplay"

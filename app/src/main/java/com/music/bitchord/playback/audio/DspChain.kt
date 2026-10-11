@@ -4,14 +4,20 @@ import android.util.Log
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.playback.EqualizerProcessor
 import com.music.bitchord.playback.LoudnessProcessor
+import com.music.bitchord.playback.ReverbProcessor
 import com.music.bitchord.playback.SpatialAudioProcessor
 import com.music.bitchord.playback.TransitionFilterProcessor
 
 /**
  * Composite DSP chain executing BitChord's custom audio processors in their canonical sequence:
  *
- * AudioBlock(Float32) -> SpatialAudioProcessor -> EqualizerProcessor
+ * AudioBlock(Float32) -> SpatialAudioProcessor -> EqualizerProcessor -> ReverbProcessor
  *   -> TransitionFilterProcessor -> LoudnessProcessor -> AudioBlock(Float32)
+ *
+ * Reverb follows the equaliser so the room hears the listener's tone, and
+ * comes before the transition filter so a handoff's bass swap or sweep takes
+ * the tail along with the dry sound instead of leaving it behind; before
+ * loudness, too, so the limiter sees whatever energy the tail adds.
  *
  * Operates purely on in-place Float32 audio blocks without intermediate fixed-point quantization,
  * preserving full dynamic range and headroom.
@@ -24,8 +30,8 @@ import com.music.bitchord.playback.TransitionFilterProcessor
  * ## Staying out of the way
  *
  * Every stage here self-bypasses when its own setting is off, returning before
- * it reads a single sample rather than multiplying through by unity. With all
- * three idle the block leaves this class byte-identical to how it arrived,
+ * it reads a single sample rather than multiplying through by unity. With every
+ * stage idle the block leaves this class byte-identical to how it arrived,
  * which is what lets [PcmBoundary]'s power-of-two scaling round-trip 16- and
  * 24-bit integers unchanged — see `PrecisionAudioSink.publishOutputExactness`.
  */
@@ -34,6 +40,7 @@ class DspChain(
     val equalizer: EqualizerProcessor = EqualizerProcessor(),
     val transition: TransitionFilterProcessor = TransitionFilterProcessor(),
     val loudness: LoudnessProcessor = LoudnessProcessor(),
+    val reverb: ReverbProcessor = ReverbProcessor(),
 ) : FloatAudioProcessor {
 
     private var currentSampleRate: Int = 0
@@ -43,6 +50,7 @@ class DspChain(
         this.currentSampleRate = sampleRate
         spatial.configure(sampleRate, channelCount)
         equalizer.configure(sampleRate, channelCount)
+        reverb.configure(sampleRate, channelCount)
         transition.configure(sampleRate, channelCount)
         loudness.configure(sampleRate, channelCount)
     }
@@ -64,11 +72,12 @@ class DspChain(
                     val sr = currentSampleRate
                     val spatialOn = spatial.enabled
                     val eqOn = equalizer.isEnabled
+                    val reverbOn = reverb.isActive
                     val transitionOn = transition.isFiltering
                     Log.d(
                         TAG,
                         "process() #$count frames=$frames sr=$sr " +
-                            "spatial=$spatialOn eq=$eqOn transition=$transitionOn",
+                            "spatial=$spatialOn eq=$eqOn reverb=$reverbOn transition=$transitionOn",
                     )
                 } catch (_: Throwable) {
                 }
@@ -77,6 +86,7 @@ class DspChain(
 
         spatial.process(block)
         equalizer.process(block)
+        reverb.process(block.samples, block.sampleCount)
         transition.process(block)
         loudness.process(block)
     }
@@ -85,6 +95,7 @@ class DspChain(
     override fun flush() {
         spatial.flush()
         equalizer.flush()
+        reverb.reset()
         transition.flush()
         loudness.flush()
     }
@@ -93,6 +104,7 @@ class DspChain(
         processCounter = 0L
         spatial.reset()
         equalizer.reset()
+        reverb.reset()
         transition.reset()
         loudness.reset()
     }

@@ -77,6 +77,10 @@ internal fun DesktopAudioPipelineDialog(
                     if (pipeline.equalizerEnabled) DesktopStrings["on", "On"] else DesktopStrings["off", "Off"],
                 )
                 PipelineRow(
+                    DesktopStrings["reverb", "Reverb"],
+                    if (pipeline.reverbEnabled) DesktopStrings["on", "On"] else DesktopStrings["off", "Off"],
+                )
+                PipelineRow(
                     DesktopStrings["skip_silence", "Skip silence"],
                     if (pipeline.skipSilence) DesktopStrings["on", "On"] else DesktopStrings["off", "Off"],
                 )

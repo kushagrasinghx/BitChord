@@ -1726,6 +1726,11 @@ fun BitChordDesktopApp() {
     LaunchedEffect(eqEnabled, eqMode, eqToneX, eqToneY, eqFocused, eqBalance, eqBands) {
         playbackEngine.setEqualizer(eqEnabled, DesktopEqualizerSettings.curve(), eqBalance)
     }
+    val reverbEnabled by DesktopReverbSettings.enabled.collectAsState()
+    val reverbSettings by DesktopReverbSettings.settings.collectAsState()
+    LaunchedEffect(reverbEnabled, reverbSettings) {
+        playbackEngine.setReverb(reverbEnabled, reverbSettings)
+    }
     LaunchedEffect(spatialAudio, skipSilence, outputPrecision) {
         playbackEngine.setSpatialAudio(spatialAudio)
         playbackEngine.setSkipSilence(skipSilence)
@@ -3629,6 +3634,7 @@ fun BitChordDesktopApp() {
                                     onOpenLyricsSources = { overlays.settingsPage = DesktopSettingsPage.LYRICS_SOURCES },
                                     onOpenTranslationLanguage = { overlays.settingsPage = DesktopSettingsPage.TRANSLATION_LANGUAGE },
                                     onOpenEqualizer = { overlays.settingsPage = DesktopSettingsPage.EQUALIZER },
+                                    onOpenReverb = { overlays.settingsPage = DesktopSettingsPage.REVERB },
                                     onOpenAudioOutput = { overlays.settingsPage = DesktopSettingsPage.AUDIO_OUTPUT },
                                     onOpenListenTogether = { overlays.settingsPage = DesktopSettingsPage.LISTEN_TOGETHER },
                                     onShowNerdStatsChange = {
@@ -3753,6 +3759,7 @@ fun BitChordDesktopApp() {
                                     onOpenLicenses = { overlays.settingsPage = DesktopSettingsPage.LICENSES },
                                 )
                                 DesktopSettingsPage.EQUALIZER -> DesktopEqualizerDialog(onDismiss = ::goBack)
+                                DesktopSettingsPage.REVERB -> DesktopReverbDialog(onDismiss = ::goBack)
                                 DesktopSettingsPage.AUDIO_OUTPUT -> DesktopAudioOutputDialog(onDismiss = ::goBack)
                                 DesktopSettingsPage.LISTEN_TOGETHER -> DesktopListenTogetherDialog(
                                     autoplayEnabled = autoplay,
@@ -5537,6 +5544,7 @@ private fun DesktopSettingsScreen(
     onOpenLyricsSources: () -> Unit,
     onOpenTranslationLanguage: () -> Unit,
     onOpenEqualizer: () -> Unit,
+    onOpenReverb: () -> Unit,
     /** Opens the output-device picker. */
     onOpenAudioOutput: () -> Unit,
     /** Opens the listening-together party. */
@@ -5703,6 +5711,16 @@ private fun DesktopSettingsScreen(
                             DesktopStrings["d_off", "Off"]
                         },
                         onClick = onOpenEqualizer,
+                    )
+                    val reverbOn by DesktopReverbSettings.enabled.collectAsState()
+                    SettingsNavigationRow(
+                        title = DesktopStrings["reverb", "Reverb"],
+                        subtitle = if (reverbOn) {
+                            DesktopStrings["reverb_subtitle", "Place the music in a room, hall or plate"]
+                        } else {
+                            DesktopStrings["d_off", "Off"]
+                        },
+                        onClick = onOpenReverb,
                     )
                 }
             }

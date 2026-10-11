@@ -7,6 +7,8 @@ import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.TrackAnalysisState
 import com.music.bitchord.data.settings.TransitionWindow
 import com.music.bitchord.playback.EqCurve
+import com.music.bitchord.playback.ReverbProcessor
+import com.music.bitchord.playback.ReverbSettings
 import com.music.bitchord.playback.TransitionFilter
 import com.music.bitchord.playback.smart.CrossfadeMode
 import com.music.bitchord.playback.smart.TransitionPlan
@@ -664,6 +666,16 @@ class DesktopPlaybackEngine(
     private var equalizerIncoming = DesktopEqualizer()
     private var silence: DesktopSilenceSkipper? = null
 
+    /**
+     * One reverb over the whole output rather than one per side of a mix as
+     * Android has (where each player is its own sink): here both sides meet in
+     * one block before the sink, so a single tank hears the blend as a blend,
+     * its tail carries straight across the handoff, and a crossfade costs no
+     * second reverb. Last before the sink, after the speed stretch, so a
+     * changed speed doesn't stretch the room with it.
+     */
+    private val reverb = ReverbProcessor()
+
     /** The playing track's heard position, on the sink's played-frame count; see [play]. */
     private val playhead = DesktopPlayhead()
     private var fadeRemaining = 0
@@ -780,6 +792,7 @@ class DesktopPlaybackEngine(
                 skippedUs = skippedFrames.coerceAtLeast(0L) * 1_000_000.0 / rate * deck,
             )
         }
+        reverb.process(samples, count)
         sink.write(samples, count)
         framesWritten += count / sink.format.channels.coerceAtLeast(1)
         if (count > 0 && _state.value.awaitingAudio) _state.update { it.copy(awaitingAudio = false) }
@@ -1252,6 +1265,7 @@ class DesktopPlaybackEngine(
         spatialIncoming = DesktopSpatialAudio(sink.format.channels, sink.format.sampleRate)
         equalizer.configure(sink.format.channels, sink.format.sampleRate)
         equalizerIncoming.configure(sink.format.channels, sink.format.sampleRate)
+        reverb.configure(sink.format.sampleRate, sink.format.channels)
         silence = DesktopSilenceSkipper(sink.format.channels, sink.format.sampleRate)
             .apply { enabled = skipSilenceEnabled }
         outgoingFilter.configure(sink.format.channels, sink.format.sampleRate)
@@ -1288,6 +1302,7 @@ class DesktopPlaybackEngine(
         spatialIncoming = DesktopSpatialAudio(sink.format.channels, sink.format.sampleRate)
         equalizer.configure(sink.format.channels, sink.format.sampleRate)
         equalizerIncoming.configure(sink.format.channels, sink.format.sampleRate)
+        reverb.configure(sink.format.sampleRate, sink.format.channels)
         silence = DesktopSilenceSkipper(sink.format.channels, sink.format.sampleRate)
             .apply { enabled = skipSilenceEnabled }
         outgoingFilter.configure(sink.format.channels, sink.format.sampleRate)
@@ -1337,6 +1352,7 @@ class DesktopPlaybackEngine(
         // first moments of the new position.
         equalizer.reset()
         equalizerIncoming.reset()
+        reverb.reset()
         silence?.reset()
         resetPlayhead(track, millis * 1_000)
         // Cleared by [play] once the first of the new position's audio is on its way out.
@@ -1623,6 +1639,14 @@ class DesktopPlaybackEngine(
         spatialEnabled = enabled
     }
 
+    /**
+     * Aims the reverb. Safe from any thread: it glides to the new target on the next block, so
+     * switching it mid-song neither pauses playback nor clicks.
+     */
+    fun setReverb(enabled: Boolean, settings: ReverbSettings) {
+        reverb.setTarget(enabled, settings)
+    }
+
     /** Android's "Skip silence", on the same terms. */
     fun setSkipSilence(enabled: Boolean) {
         skipSilenceEnabled = enabled
@@ -1659,6 +1683,7 @@ class DesktopPlaybackEngine(
             deviceName = sink.deviceName,
             bufferBytes = sink.bufferBytes,
             equalizerEnabled = equalizerEnabled,
+            reverbEnabled = reverb.isEnabled,
             skipSilence = skipSilenceEnabled,
         )
     }

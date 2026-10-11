@@ -154,6 +154,12 @@ interface PlayerSettingsSource {
     val prioritizeSpotifyCanvas: StateFlow<Boolean>
     val reduceAnimation: StateFlow<Boolean>
     val reduceDynamicBlur: StateFlow<Boolean>
+
+    /**
+     * The reverb's master switch — the same setting as the one on the
+     * settings page, so the player's toggle and that page can never disagree.
+     */
+    val reverbEnabled: StateFlow<Boolean>
     val showNerdStats: StateFlow<Boolean>
     val smartAnalysis: StateFlow<SmartAnalysis>
     val smartFadeEnabled: StateFlow<Boolean>
@@ -169,6 +175,7 @@ interface PlayerSettingsSource {
 
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
+    fun setReverbEnabled(value: Boolean)
 }
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */

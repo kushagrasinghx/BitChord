@@ -7,6 +7,7 @@ import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -67,6 +68,7 @@ import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SurroundSound
+import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
@@ -127,6 +129,10 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.MessageState
+import com.music.bitchord.sharedui.resources.Res as SharedRes
+import com.music.bitchord.sharedui.resources.reverb
+import com.music.bitchord.sharedui.resources.reverb_subtitle
+import com.music.bitchord.ui.components.ReverbControls
 import com.music.bitchord.ui.components.SearchField
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -196,6 +202,8 @@ fun SettingsScreen(
     // which caches the codec-list walk for the life of the process.
     val dolbyAtmosSupported = DeviceCodecs.playsDolbyAtmos
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
+    val reverbEnabled by AppSettings.reverbEnabled.collectAsStateWithLifecycle()
+    val reverb by AppSettings.reverb.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -725,6 +733,35 @@ fun SettingsScreen(
                     },
                     onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
                 )
+            }
+            // The switch and the room together, the room only while the
+            // switch is on — the player's audio-output sheet carries the same
+            // switch for flipping it mid-song, and this is where it is tuned.
+            val reverbTitle = org.jetbrains.compose.resources.stringResource(SharedRes.string.reverb)
+            row(reverbTitle, "room", "hall", "plate", "cathedral", "ambience") {
+                SettingsRow(
+                    icon = Icons.Rounded.Waves,
+                    title = reverbTitle,
+                    subtitle = org.jetbrains.compose.resources.stringResource(SharedRes.string.reverb_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = reverbEnabled,
+                            onCheckedChange = AppSettings::setReverbEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setReverbEnabled(!reverbEnabled) },
+                )
+                AnimatedVisibility(visible = reverbEnabled) {
+                    ReverbControls(
+                        settings = reverb,
+                        onChange = AppSettings::setReverb,
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    )
+                }
             }
             // The system panel is not listed here as well. A device with a
             // Dolby or Dirac panel has something BitChord cannot reproduce and

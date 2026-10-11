@@ -38,6 +38,7 @@ import com.music.bitchord.ui.tv.components.TvListHeader
 import com.music.bitchord.ui.tv.components.TvListRow
 import com.music.bitchord.ui.tv.dialogs.TvAboutDialog
 import com.music.bitchord.ui.tv.dialogs.TvEqualizerDialog
+import com.music.bitchord.ui.tv.dialogs.TvReverbDialog
 import com.music.bitchord.ui.tv.dialogs.TvLyricsSourcesDialog
 import com.music.bitchord.ui.tv.dialogs.TvRefreshRateDialog
 import com.music.bitchord.ui.tv.dialogs.TvScrobbleDialog
@@ -50,7 +51,7 @@ import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
 
 // Discord Rich Presence is hidden on TV for now; TvDiscordDialog is kept for when it returns.
-private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Scrobbling, LyricsSources, Update, About }
+private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Reverb, Scrobbling, LyricsSources, Update, About }
 
 private const val DefaultBlurb = "Playback, sound and display preferences for BitChord on this TV."
 
@@ -75,6 +76,7 @@ fun TvSettingsScreen(
     val autoplay by AppSettings.autoplay.collectAsState()
     val skipSilence by AppSettings.skipSilence.collectAsState()
     val eqEnabled by AppSettings.equalizerEnabled.collectAsState()
+    val reverbEnabled by AppSettings.reverbEnabled.collectAsState()
     val spatial by TvSettings.spatialAudioEnabled.collectAsState()
     val loudness by AppSettings.loudnessNormalization.collectAsState()
     val usbDac by AppSettings.preferUsbDac.collectAsState()
@@ -190,6 +192,14 @@ fun TvSettingsScreen(
                     value = onOff(eqEnabled),
                     onFocused = { blurb = "Shape the sound with presets or seven bands of your own." },
                     onClick = { sheet = SettingsSheet.Equalizer },
+                )
+            }
+            item {
+                TvListRow(
+                    title = "Reverb",
+                    value = onOff(reverbEnabled),
+                    onFocused = { blurb = "Places the music in a room, hall, plate or cathedral, with its decay, distance and tone yours to set." },
+                    onClick = { sheet = SettingsSheet.Reverb },
                 )
             }
             item {
@@ -350,6 +360,7 @@ fun TvSettingsScreen(
         SettingsSheet.Theme -> TvThemeDialog(onDismiss = { sheet = null })
         SettingsSheet.RefreshRate -> TvRefreshRateDialog(onDismiss = { sheet = null })
         SettingsSheet.Equalizer -> TvEqualizerDialog(onDismiss = { sheet = null })
+        SettingsSheet.Reverb -> TvReverbDialog(onDismiss = { sheet = null })
         SettingsSheet.Scrobbling -> TvScrobbleDialog(onDismiss = { sheet = null })
         SettingsSheet.LyricsSources -> TvLyricsSourcesDialog(onDismiss = { sheet = null })
         SettingsSheet.Update -> update?.let { TvUpdateDialog(update = it, onDismiss = { sheet = null }) }

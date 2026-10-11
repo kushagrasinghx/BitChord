@@ -75,6 +75,7 @@
 - **Playback speed control** (0.5×–2.0×) and **skip silence**.
 - **Sleep timer** — fixed presets or "stop after this track".
 - **System equalizer** integration.
+- **Reverb** — Room, Hall, Plate and Cathedral presets with adjustable decay, pre-delay, damping, mix and width, plus a quick toggle in the player. See [docs/REVERB.md](docs/REVERB.md).
 - **Stats for nerds** — codec, bit depth, sample rate, and more on the now-playing screen.
 
     </td>

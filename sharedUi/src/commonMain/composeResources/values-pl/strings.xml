@@ -200,4 +200,22 @@
     <string name="search_library_empty">Szukaj utworów w folderze muzyki lokalnej.</string>
     <string name="search_library_hint">Utwory, wykonawcy i albumy</string>
     <string name="search_library_no_results">NIC w muzyce lokalnej nie pasuje do „%1$s”.</string>
+    <string name="reverb">Pogłos</string>
+    <string name="reverb_subtitle">Umieść muzykę w pokoju, sali lub płycie</string>
+    <string name="reverb_preset_room">Pokój</string>
+    <string name="reverb_preset_hall">Sala</string>
+    <string name="reverb_preset_plate">Płyta</string>
+    <string name="reverb_preset_cathedral">Katedra</string>
+    <string name="reverb_preset_custom">Własne</string>
+    <string name="reverb_decay">Wybrzmiewanie</string>
+    <string name="reverb_decay_help">Jak długo ogon pogłosu cichnie o 60 dB: jak duże wydaje się pomieszczenie.</string>
+    <string name="reverb_pre_delay">Pre-delay</string>
+    <string name="reverb_pre_delay_help">Cisza przed początkiem pogłosu. Dłuższa przerwa zachowuje czystość dźwięku bezpośredniego i odsuwa ściany.</string>
+    <string name="reverb_damping">Tłumienie</string>
+    <string name="reverb_damping_help">Od kiedy ogon traci wysokie tony. Niżej brzmi ciemniej, jak miękkie powierzchnie pochłaniające soprany.</string>
+    <string name="reverb_mix">Miks</string>
+    <string name="reverb_mix_help">Ile pomieszczenia słyszysz względem suchego sygnału.</string>
+    <string name="reverb_width">Szerokość</string>
+    <string name="reverb_width_help">Szerokość stereo ogona pogłosu, od mono do pełnej.</string>
+    <string name="reverb_reset">Przywróć domyślne</string>
 </resources>

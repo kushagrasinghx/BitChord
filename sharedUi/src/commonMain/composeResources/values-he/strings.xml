@@ -200,4 +200,22 @@
     <string name="search_library_empty">מחפש את השירים בתיקיית המוזיקה המקומית שלכם.</string>
     <string name="search_library_hint">שירים, אמנים ואלבומים</string>
     <string name="search_library_no_results">אין דבר במוזיקה המקומית שתואם ל-„%1$s”.</string>
+    <string name="reverb">הדהוד</string>
+    <string name="reverb_subtitle">ממקם את המוזיקה בחדר, באולם או בפלטה</string>
+    <string name="reverb_preset_room">חדר</string>
+    <string name="reverb_preset_hall">אולם</string>
+    <string name="reverb_preset_plate">פלטה</string>
+    <string name="reverb_preset_cathedral">קתדרלה</string>
+    <string name="reverb_preset_custom">מותאם אישית</string>
+    <string name="reverb_decay">דעיכה</string>
+    <string name="reverb_decay_help">כמה זמן לוקח לזנב לרדת ב־60 dB: כמה גדול החדר מרגיש.</string>
+    <string name="reverb_pre_delay">השהיה מוקדמת</string>
+    <string name="reverb_pre_delay_help">שקט לפני שההדהוד מתחיל. פער ארוך יותר שומר על הצליל הישיר צלול ומרחיק את הקירות.</string>
+    <string name="reverb_damping">ריסון</string>
+    <string name="reverb_damping_help">היכן הזנב מתחיל לאבד צלילים גבוהים. נמוך יותר נשמע כהה יותר, כמו משטחים רכים שבולעים גבוהים.</string>
+    <string name="reverb_mix">מיקס</string>
+    <string name="reverb_mix_help">כמה מהחדר שומעים לעומת האות היבש.</string>
+    <string name="reverb_width">רוחב</string>
+    <string name="reverb_width_help">פריסת הסטריאו של הזנב, ממונו ועד רוחב מלא.</string>
+    <string name="reverb_reset">איפוס לברירת המחדל</string>
 </resources>

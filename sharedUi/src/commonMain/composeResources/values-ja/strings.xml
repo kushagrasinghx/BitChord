@@ -200,4 +200,22 @@
     <string name="search_library_empty">ローカル音楽フォルダ内の曲を検索します。</string>
     <string name="search_library_hint">曲・アーティスト・アルバム</string>
     <string name="search_library_no_results">ローカル音楽に「%1$s」に一致するものはありません。</string>
+    <string name="reverb">リバーブ</string>
+    <string name="reverb_subtitle">音楽を部屋、ホール、プレートの響きに置きます</string>
+    <string name="reverb_preset_room">ルーム</string>
+    <string name="reverb_preset_hall">ホール</string>
+    <string name="reverb_preset_plate">プレート</string>
+    <string name="reverb_preset_cathedral">大聖堂</string>
+    <string name="reverb_preset_custom">カスタム</string>
+    <string name="reverb_decay">減衰時間</string>
+    <string name="reverb_decay_help">残響が60 dB下がるまでの時間。部屋の広さの感じ方を決めます。</string>
+    <string name="reverb_pre_delay">プリディレイ</string>
+    <string name="reverb_pre_delay_help">残響が始まるまでの無音時間。長いほど原音がはっきりし、壁が遠く感じられます。</string>
+    <string name="reverb_damping">ダンピング</string>
+    <string name="reverb_damping_help">残響が高音を失い始める周波数。低いほど暗く、柔らかい表面が高音を吸収するような響きになります。</string>
+    <string name="reverb_mix">ミックス</string>
+    <string name="reverb_mix_help">原音に対して部屋の響きをどれだけ聴くか。</string>
+    <string name="reverb_width">広がり</string>
+    <string name="reverb_width_help">残響のステレオの広がり。モノラルから最大まで。</string>
+    <string name="reverb_reset">デフォルトに戻す</string>
 </resources>

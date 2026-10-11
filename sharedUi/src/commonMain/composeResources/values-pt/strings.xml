@@ -200,4 +200,22 @@
     <string name="search_library_empty">Pesquise as músicas da sua pasta de Música local.</string>
     <string name="search_library_hint">Músicas, artistas e álbuns</string>
     <string name="search_library_no_results">Nada na Música local corresponde a “%1$s”.</string>
+    <string name="reverb">Reverberação</string>
+    <string name="reverb_subtitle">Coloque a música numa sala, num salão ou numa placa</string>
+    <string name="reverb_preset_room">Sala</string>
+    <string name="reverb_preset_hall">Salão</string>
+    <string name="reverb_preset_plate">Placa</string>
+    <string name="reverb_preset_cathedral">Catedral</string>
+    <string name="reverb_preset_custom">Personalizado</string>
+    <string name="reverb_decay">Decaimento</string>
+    <string name="reverb_decay_help">Quanto tempo a cauda leva para cair 60 dB: o tamanho que o ambiente parece ter.</string>
+    <string name="reverb_pre_delay">Pré-atraso</string>
+    <string name="reverb_pre_delay_help">Silêncio antes de a reverberação começar. Um intervalo maior mantém o som direto claro e afasta as paredes.</string>
+    <string name="reverb_damping">Amortecimento</string>
+    <string name="reverb_damping_help">Onde a cauda começa a perder agudos. Mais baixo soa mais escuro, como superfícies macias que absorvem os agudos.</string>
+    <string name="reverb_mix">Mistura</string>
+    <string name="reverb_mix_help">Quanto do ambiente você ouve em relação ao sinal seco.</string>
+    <string name="reverb_width">Largura</string>
+    <string name="reverb_width_help">Abertura estéreo da cauda, de mono à largura total.</string>
+    <string name="reverb_reset">Restaurar padrões</string>
 </resources>

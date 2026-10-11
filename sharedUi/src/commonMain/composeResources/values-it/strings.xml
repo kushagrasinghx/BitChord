@@ -200,4 +200,22 @@
     <string name="search_library_empty">Cerca i brani nella cartella Musica locale.</string>
     <string name="search_library_hint">Brani, artisti e album</string>
     <string name="search_library_no_results">Nulla in Musica locale corrisponde a «%1$s».</string>
+    <string name="reverb">Riverbero</string>
+    <string name="reverb_subtitle">Colloca la musica in una stanza, una sala o una piastra</string>
+    <string name="reverb_preset_room">Stanza</string>
+    <string name="reverb_preset_hall">Sala</string>
+    <string name="reverb_preset_plate">Piastra</string>
+    <string name="reverb_preset_cathedral">Cattedrale</string>
+    <string name="reverb_preset_custom">Personalizzato</string>
+    <string name="reverb_decay">Decadimento</string>
+    <string name="reverb_decay_help">Quanto impiega la coda a scendere di 60 dB: quanto sembra grande l\'ambiente.</string>
+    <string name="reverb_pre_delay">Pre-delay</string>
+    <string name="reverb_pre_delay_help">Silenzio prima che inizi il riverbero. Uno stacco più lungo mantiene chiaro il suono diretto e allontana le pareti.</string>
+    <string name="reverb_damping">Smorzamento</string>
+    <string name="reverb_damping_help">Dove la coda inizia a perdere gli acuti. Più basso è più scuro, come superfici morbide che assorbono gli acuti.</string>
+    <string name="reverb_mix">Mix</string>
+    <string name="reverb_mix_help">Quanto dell\'ambiente senti rispetto al segnale asciutto.</string>
+    <string name="reverb_width">Ampiezza</string>
+    <string name="reverb_width_help">Apertura stereo della coda, da mono a piena ampiezza.</string>
+    <string name="reverb_reset">Ripristina predefiniti</string>
 </resources>

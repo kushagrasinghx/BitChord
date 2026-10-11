@@ -590,6 +590,14 @@ class PlaybackService : MediaLibraryService() {
      */
     private val loudnessA = LoudnessProcessor().apply { gainFor = ::loudnessGainFor }
     private val loudnessB = LoudnessProcessor().apply { gainFor = ::loudnessGainFor }
+
+    /**
+     * Reverb, one per player for the reason the rest are: its tank is a few
+     * hundred milliseconds of per-sink history. Both are aimed together in
+     * [applyReverb], so a crossfade's two halves sit in the same room.
+     */
+    private val reverbA = ReverbProcessor()
+    private val reverbB = ReverbProcessor()
     private var loudnessRetryJob: Job? = null
 
     /** The platform audio session currently advertised to system audio tools. */
@@ -1586,6 +1594,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorA,
             transitionFilterA,
             loudnessA,
+            reverbA,
             ownsSession = true,
         )
         val sparePlayer = buildPlayer(
@@ -1593,6 +1602,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorB,
             transitionFilterB,
             loudnessB,
+            reverbB,
             ownsSession = false,
         )
         player = exoPlayer
@@ -2676,9 +2686,10 @@ class PlaybackService : MediaLibraryService() {
         equalizer: EqualizerProcessor,
         filter: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
+        reverb: ReverbProcessor,
         ownsSession: Boolean,
     ): ExoPlayer = ExoPlayer.Builder(this)
-        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness))
+        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness, reverb))
         .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
         .setLoadControl(farBufferingLoadControl())
         .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
@@ -5497,6 +5508,7 @@ class PlaybackService : MediaLibraryService() {
         equalizer: EqualizerProcessor,
         transition: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
+        reverb: ReverbProcessor,
     ) = object : DefaultRenderersFactory(this) {
         init {
             // Do not force PCM_FLOAT onto an OEM speaker mixer merely because
@@ -5607,7 +5619,7 @@ class PlaybackService : MediaLibraryService() {
             // them for the same reason: it belongs to the listener and
             // the whole session, while the transition filter belongs to
             // one handoff and has to have the last word on it.
-            val dspChain = DspChain(spatial, equalizer, transition, loudness)
+            val dspChain = DspChain(spatial, equalizer, transition, loudness, reverb)
             return PrecisionAudioSink(
                 delegate = defaultSink,
                 dspChain = dspChain,
@@ -5857,6 +5869,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorA,
             transitionFilterA,
             loudnessA,
+            reverbA,
             ownsSession = true,
         )
         val newSpare = buildPlayer(
@@ -5864,6 +5877,7 @@ class PlaybackService : MediaLibraryService() {
             equalizerProcessorB,
             transitionFilterB,
             loudnessB,
+            reverbB,
             ownsSession = false,
         )
         player = newActive
@@ -5875,6 +5889,7 @@ class PlaybackService : MediaLibraryService() {
         newActive.repeatMode = repeatMode
         newActive.shuffleModeEnabled = shuffleMode
         applyEqualizer()
+        applyReverb()
         applySpatialAudioEnabled()
         if (items.isNotEmpty()) {
             newActive.setMediaItems(items, index.coerceIn(items.indices), position)
@@ -5999,6 +6014,14 @@ class PlaybackService : MediaLibraryService() {
             AppSettings.spatialAudio.collect { applySpatialAudioEnabled() }
         }
         scope.launch {
+            // StateFlows, so the first emission is the stored state: the
+            // processors are aimed before the first track starts, and every
+            // later flip — Settings or the player's toggle — lands on the next
+            // audio block without touching playback.
+            combine(AppSettings.reverbEnabled, AppSettings.reverb) { _, _ -> }
+                .collect { applyReverb() }
+        }
+        scope.launch {
             AppSettings.loudnessNormalization.collect {
                 setupLoudness(player?.currentMediaItem?.mediaId)
             }
@@ -6059,6 +6082,14 @@ class PlaybackService : MediaLibraryService() {
         val balance = AppSettings.equalizerBalance.value
         equalizerProcessorA.setTuning(enabled, curve, balance)
         equalizerProcessorB.setTuning(enabled, curve, balance)
+    }
+
+    /** Aims both reverbs, for the reason [applyEqualizer] aims both equalisers. */
+    private fun applyReverb() {
+        val enabled = AppSettings.reverbEnabled.value
+        val settings = AppSettings.reverb.value
+        reverbA.setTarget(enabled, settings)
+        reverbB.setTarget(enabled, settings)
     }
 
     /**

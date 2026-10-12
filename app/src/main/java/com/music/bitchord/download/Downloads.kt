@@ -111,6 +111,9 @@ object Downloads {
 
     private val _savedMetadata = MutableStateFlow<Map<String, SavedSongMetadata>>(emptyMap())
 
+    /** videoId to saved-file metadata. Public so the auto path and UI can tell auto files apart. */
+    internal val savedMetadata: StateFlow<Map<String, SavedSongMetadata>> = _savedMetadata.asStateFlow()
+
     private val _collections = MutableStateFlow<Map<String, SavedCollection>>(emptyMap())
 
     /**
@@ -126,6 +129,28 @@ object Downloads {
 
     /** Waiting, in the order asked for. Guarded by [lock]. */
     private val pending = LinkedHashMap<String, Song>()
+
+    /**
+     * Ids in [pending]/[running] that were asked for by the automatic path.
+     * Guarded by [lock]. A manual tap on the same track wins and clears it —
+     * the user asked, so it is theirs now. The marker lives until a terminal
+     * state (recorded, failed, cancelled, deleted): taking it off when a
+     * worker merely picks the track up would make the in-flight count lie for
+     * the whole of the slowest half of every download.
+     */
+    private val autoPending = mutableSetOf<String>()
+
+    private val _autoInFlight = MutableStateFlow<Set<String>>(emptySet())
+    /**
+     * What the automatic path currently owns, queued or downloading — the
+     * number the settings row reports while it moves.
+     */
+    val autoInFlight: StateFlow<Set<String>> = _autoInFlight.asStateFlow()
+
+    /** Snapshot [autoPending] for observers; callers already hold [lock]. */
+    private fun publishAutoInFlight() {
+        _autoInFlight.value = autoPending.toSet()
+    }
 
     private val lock = Any()
 
@@ -174,10 +199,21 @@ object Downloads {
      * @param from what release this track was asked for as part of, when it was
      *   one of many. Carried no further than [DownloadSession], which is the
      *   only thing that has to say *why* forty tracks are in the queue.
+     * @param auto true when the automatic path asked, not the user. Recorded
+     *   on the file so eviction can tell them apart; a manual tap on the same
+     *   track promotes it (see below).
+     * @return true when the track was actually queued.
      */
-    fun enqueue(context: Context, song: Song, from: String? = null) {
+    fun enqueue(context: Context, song: Song, from: String? = null, auto: Boolean = false): Boolean {
         val id = song.videoId
-        if (!AppSettings.downloadsAllowedNow) {
+        if (auto && !AppSettings.autoDownloadsAllowedNow) {
+            // The gate is checked on the way into sync, but a sync spans
+            // library crawls and radio fetches: the connection may change
+            // under it. Re-check per track, silently — the background path
+            // has no button to answer on.
+            return false
+        }
+        if (!auto && !AppSettings.downloadsAllowedNow) {
             // Distinct from the duplicate-tap no-op below: nothing is in flight
             // here to leave alone, and a refusal nobody is told about reads as a
             // dead button. A download already queued or running started on a
@@ -187,11 +223,19 @@ object Downloads {
                 DownloadSession.queued(song, from)
                 fail(id, WIFI_ONLY_REFUSAL)
             }
-            return
+            return false
         }
         synchronized(lock) {
-            if (id in pending || id in running) return
+            if (id in pending || id in running) {
+                // Manual tap wins over an auto queueing: the user asked, so it
+                // is theirs now and eviction must not take it.
+                if (!auto) autoPending.remove(id)
+                publishAutoInFlight()
+                return false
+            }
             pending[id] = song
+            if (auto) autoPending.add(id) else autoPending.remove(id)
+            publishAutoInFlight()
         }
         _active.update { it + (id to DownloadState.Queued) }
         DownloadSession.queued(song, from)
@@ -204,10 +248,19 @@ object Downloads {
             // means the queue has nothing to drain it and would sit there
             // looking accepted forever.
             Log.w(TAG, "could not start the download service: ${it.message}")
-            synchronized(lock) { pending.remove(id) }
+            synchronized(lock) {
+                pending.remove(id)
+                autoPending.remove(id)
+                publishAutoInFlight()
+            }
             fail(id, "Downloads can't start right now")
+            return false
         }
+        return true
     }
+
+    /** Whether [videoId] is currently queued/running as an automatic download. */
+    internal fun isAutoInFlight(videoId: String): Boolean = synchronized(lock) { videoId in autoPending }
 
     /**
      * Drop [videoId] from the queue, or stop it if it is one of the ones
@@ -221,6 +274,8 @@ object Downloads {
     fun cancel(videoId: String) {
         val job = synchronized(lock) {
             pending.remove(videoId)
+            autoPending.remove(videoId)
+            publishAutoInFlight()
             if (videoId !in running) return@synchronized null
             running.remove(videoId)
         }
@@ -243,9 +298,17 @@ object Downloads {
     suspend fun savedUri(context: Context, videoId: String): Uri? = withContext(Dispatchers.IO) {
         val recorded = _saved.value[videoId] ?: return@withContext null
         val uri = recorded.toUri()
-        if (DownloadStore.exists(context, uri)) return@withContext uri
-        Log.d(TAG, "$videoId was downloaded but the file is gone; forgetting it")
-        forget(videoId)
+        when (DownloadStore.probe(context, uri)) {
+            DownloadStore.Presence.PRESENT -> return@withContext uri
+            DownloadStore.Presence.ABSENT -> {
+                Log.d(TAG, "$videoId was downloaded but the file is gone; forgetting it")
+                forget(videoId)
+            }
+            // An inconclusive look forgets nothing: with workers hammering
+            // IO, a failed open says nothing about the file. The row keeps
+            // its recorded uri; the next successful look settles it.
+            DownloadStore.Presence.UNKNOWN -> Unit
+        }
         null
     }
 
@@ -297,6 +360,14 @@ object Downloads {
         return null
     }
 
+    /**
+     * The rung automatic tracks actually resolve at — whatever is stored,
+     * Lossless included (~35 MB a track at resolve time).
+     */
+    fun effectiveAutoQuality(): DownloadQuality {
+        return AppSettings.autoDownloadQuality.value
+    }
+
     /** Delete the file saved for [videoId] and forget it. */
     suspend fun delete(context: Context, videoId: String): Boolean = withContext(Dispatchers.IO) {
         val uri = _saved.value[videoId]?.toUri() ?: return@withContext false
@@ -305,8 +376,24 @@ object Downloads {
         deleted
     }
 
+    /**
+     * Drop every record pointing at [videoId]'s file: a finished download is
+     * indexed under two ids (asked + fetched), and leaving the other one
+     * behind is a ghost "downloaded" row whose file is gone — and a track
+     * the automatic path then refuses to reconsider forever.
+     */
     private fun forget(videoId: String) {
-        record(saved = { it - videoId }, meta = { it - videoId })
+        val snapshot = _savedMetadata.value
+        val uri = snapshot[videoId]?.uri
+        val doomed = if (uri == null) {
+            setOf(videoId)
+        } else {
+            snapshot.filterValues { it.uri == uri }.keys
+        }
+        synchronized(lock) {
+            if (doomed.any { autoPending.remove(it) }) publishAutoInFlight()
+        }
+        record(saved = { it - doomed }, meta = { it - doomed })
     }
 
     /**
@@ -538,6 +625,11 @@ object Downloads {
         uri: Uri,
         downloadFormat: String? = null,
         artworkUri: String? = null,
+        auto: Boolean = false,
+        kbps: Int? = null,
+        codec: String? = null,
+        isDolby: Boolean = false,
+        isHiRes: Boolean = false,
     ) {
         val ids = setOf(asked.videoId, fetched.videoId)
         // MediaStore supplies this for exported downloads, but app-private and
@@ -566,6 +658,7 @@ object Downloads {
         // is both, and an album page's rows are neither.
         val album = fetched.albumName?.takeIf { it.isNotBlank() }
             ?: asked.albumName?.takeIf { it.isNotBlank() }
+        val existingAuto = ids.firstNotNullOfOrNull { _savedMetadata.value[it]?.auto } ?: false
         val metaAsked = SavedSongMetadata(
             videoId = asked.videoId,
             title = asked.title,
@@ -576,6 +669,11 @@ object Downloads {
             uri = uri.toString(),
             downloadFormat = downloadFormat,
             dateAddedSeconds = dateAddedSeconds,
+            auto = auto || existingAuto,
+            kbps = kbps,
+            codec = codec,
+            isDolby = isDolby,
+            isHiRes = isHiRes,
         )
         val metaFetched = SavedSongMetadata(
             videoId = fetched.videoId,
@@ -587,6 +685,11 @@ object Downloads {
             uri = uri.toString(),
             downloadFormat = downloadFormat,
             dateAddedSeconds = dateAddedSeconds,
+            auto = auto || existingAuto,
+            kbps = kbps,
+            codec = codec,
+            isDolby = isDolby,
+            isHiRes = isHiRes,
         )
         record(
             saved = { it + ids.associateWith { id -> uri.toString() } },
@@ -637,7 +740,7 @@ object Downloads {
             // materialise that file once, not once per alias.
             if (!seenUris.add(meta.uri)) continue
             val uri = meta.uri.toUri()
-            if (DownloadStore.exists(context, uri)) {
+            if (DownloadStore.probe(context, uri) != DownloadStore.Presence.ABSENT) {
                 val fileModifiedMillis = uri.takeIf { it.scheme == "file" }
                     ?.path
                     ?.let(::File)
@@ -794,7 +897,13 @@ object Downloads {
      * forever as already in flight.
      */
     internal fun onStopped() {
-        synchronized(lock) { running.clear() }
+        synchronized(lock) {
+            running.clear()
+            // The drain is gone with the service: anything still marked auto
+            // but no longer queued will never run, so it stops counting.
+            // Queued tracks keep their marker — they are still waiting.
+            if (autoPending.retainAll { it in pending }) publishAutoInFlight()
+        }
     }
 
     /**
@@ -823,6 +932,11 @@ object Downloads {
      */
     internal suspend fun run(context: Context, song: Song) = withContext(Dispatchers.IO) {
         val id = song.videoId
+        // Peeked, not consumed: the marker lives until the track reaches a
+        // terminal state (recorded, failed, cancelled, deleted), so the
+        // in-flight count answers "downloading" for the whole run, not just
+        // until a worker picks the track up.
+        val auto = isAutoInFlight(id)
         // Set before the lookup, not after it. Resolving where a lossless track
         // comes from is the long part of a download, and leaving the row on
         // "Queued" for all of it reads as a queue that has stopped rather than
@@ -831,13 +945,13 @@ object Downloads {
         DownloadSession.running(id, 0f)
 
         try {
-            val plan = prepare(context, song)
+            val plan = prepare(context, song, auto)
             // The manager is showing the row that was tapped, which for a music
             // video is the wrong title and the wrong cover for the file actually
             // being written. Corrected here rather than left to disagree with
             // the notification and with the Downloads page afterwards.
             DownloadSession.retitle(id, plan.track)
-            transfer(context, song, plan)
+            transfer(context, song, plan, auto)
         } catch (e: CancellationException) {
             clear(id)
             throw e
@@ -868,7 +982,7 @@ object Downloads {
      * running for a track that is still queued — or for one that gets cancelled
      * before its turn — and a preparation is not a download.
      */
-    internal suspend fun prepare(context: Context, song: Song): Prepared = withContext(Dispatchers.IO) {
+    internal suspend fun prepare(context: Context, song: Song, auto: Boolean = false): Prepared = withContext(Dispatchers.IO) {
         // Downloads preserve the exact item the listener picked. Catalogue
         // matching is a manual playback action and must not silently change a
         // download or its filename.
@@ -877,8 +991,8 @@ object Downloads {
         // and the re-resolve inside [Downloader.fetch] have to agree on
         // which rung they are fetching, and re-reading the setting per call
         // would let a change made mid-download splice two renditions into
-        // one file.
-        val quality = AppSettings.downloadQuality.value
+        // one file. Automatic tracks use the auto rung, not the manual one.
+        val quality = if (auto) effectiveAutoQuality() else AppSettings.downloadQuality.value
 
         // Asked before the lookup rather than after it, unlike the check on the
         // route's own filename below. A file already sitting in Music under a
@@ -927,14 +1041,14 @@ object Downloads {
      * commits or aborts, so a caller is free to call it a second time with a
      * freshly resolved plan without the first attempt leaving anything behind.
      */
-    private suspend fun transfer(context: Context, song: Song, plan: Prepared) {
+    private suspend fun transfer(context: Context, song: Song, plan: Prepared, auto: Boolean = false) {
         val id = song.videoId
         val track = plan.track
 
         // Already there from a previous run the record lost track of — adopt it
         // rather than writing a second copy beside it.
         plan.alreadyAt?.let { uri ->
-            remember(song, track, uri)
+            remember(song, track, uri, auto = auto)
             DownloadSession.done(id)
             clear(id)
             return
@@ -970,7 +1084,7 @@ object Downloads {
                 val alreadyThere = DownloadStore.existing(context, name)
                 if (alreadyThere != null) {
                     Log.d(TAG, "$name is already in Music; adopting it")
-                    remember(song, track, alreadyThere)
+                    remember(song, track, alreadyThere, auto = auto)
                     DownloadSession.done(id)
                     clear(id)
                     return@coroutineScope
@@ -1004,7 +1118,9 @@ object Downloads {
                             artwork = artwork?.await(),
                         )
                     }
-                    remember(song, track, savedUri, route.downloadFormat)
+                    remember(song, track, savedUri, route.downloadFormat, auto = auto,
+                        kbps = route.kbps, codec = route.codec,
+                        isDolby = route.isDolby, isHiRes = route.isHiRes)
                     DownloadSession.done(id)
                     clear(id)
                     Log.d(TAG, "saved offline ${if (manifest.dash) "DASH" else "HLS"} package for $name")
@@ -1028,7 +1144,9 @@ object Downloads {
                 val artworkUri = MediaTagger.persistArtwork(context, track.thumbnailUrl, cover)
                 val savedUri = destination.commit()
                 pending = null
-                remember(song, track, savedUri, route.downloadFormat, artworkUri)
+                remember(song, track, savedUri, route.downloadFormat, artworkUri, auto,
+                    kbps = route.kbps, codec = route.codec,
+                    isDolby = route.isDolby, isHiRes = route.isHiRes)
                 DownloadSession.done(id)
                 clear(id)
                 Log.d(TAG, "saved $name")
@@ -1066,8 +1184,17 @@ object Downloads {
         val downloadFormat: String? = null,
         val taggable: Boolean = true,
         val offlineHls: Manifest? = null,
+        /** Nominal kbps/codec, for the auto path's storage breakdown. Null when unstated. */
+        val kbps: Int? = null,
+        val codec: String? = null,
+        val isDolby: Boolean = false,
+        val isHiRes: Boolean = false,
         val write: suspend (OutputStream, (written: Long, total: Long) -> Unit) -> Unit,
     )
+
+    /** Hi-Res the way the storage bar means it: 24-bit or above 48 kHz. */
+    internal fun StreamFormat.isHiRes(): Boolean =
+        (bitDepth ?: 0) >= 24 || (sampleRateHz ?: 0) > 48_000
 
     /**
      * A stream that arrived as an index rather than as audio, and which of the
@@ -1092,7 +1219,11 @@ object Downloads {
      *   than to the middle of this one. [Downloader.fetch] resolves again after
      *   a mid-download refusal and has to ask for the same rung it started on.
      */
-    private suspend fun routeFor(context: Context, track: Song, quality: DownloadQuality): Route {
+    private suspend fun routeFor(
+        context: Context,
+        track: Song,
+        quality: DownloadQuality,
+    ): Route {
         fromSources(track, quality)?.let { (stream, storable) ->
             // A manifest is an index, not audio. Whichever kind it is, fetching
             // it as a file writes the index into something named `.flac` —
@@ -1116,6 +1247,10 @@ object Downloads {
                     mimeType = storable.mimeType,
                     describe = "${stream.format.summary} (assembled from ${if (dash) "DASH" else "HLS"})",
                     downloadFormat = stream.format.downloadBadge(),
+                    kbps = stream.format.kbps,
+                    codec = stream.format.codec,
+                    isDolby = stream.format.isDolbyAtmos,
+                    isHiRes = stream.format.isHiRes(),
                     write = { sink, onProgress ->
                         ManifestFile.write(
                             context.cacheDir, stream.url, stream.headers, dash,
@@ -1138,6 +1273,10 @@ object Downloads {
                 downloadFormat = stream.format.downloadBadge(),
                 taggable = true,
                 offlineHls = Manifest(stream.url, stream.headers, dash = dash).takeIf { packaged },
+                kbps = stream.format.kbps,
+                codec = stream.format.codec,
+                isDolby = stream.format.isDolbyAtmos,
+                isHiRes = stream.format.isHiRes(),
                 write = { sink, onProgress ->
                     Downloader.fetchDirect(stream.url, stream.headers, sink, onProgress)
                 },
@@ -1153,6 +1292,8 @@ object Downloads {
             mimeType = stream.downloadMimeType,
             describe = "${stream.kbps}kbps ${stream.mimeType}",
             downloadFormat = youtubeDownloadBadge(stream.downloadExtension, stream.kbps),
+            kbps = stream.kbps.takeIf { it > 0 },
+            codec = if (stream.downloadExtension.equals("m4a", ignoreCase = true)) "aac" else "opus",
             write = { sink, onProgress ->
                 Downloader.fetch(track.videoId, stream, quality.maxKbps, requireM4a, sink, onProgress)
             },
@@ -1231,11 +1372,17 @@ object Downloads {
     /** Back to "not downloaded" — used for success, where [saved] takes over, and for cancellation. */
     private fun clear(videoId: String) {
         _active.update { it - videoId }
+        synchronized(lock) {
+            if (autoPending.remove(videoId)) publishAutoInFlight()
+        }
     }
 
     private fun fail(videoId: String, reason: String) {
         _active.update { it + (videoId to DownloadState.Failed(reason)) }
         DownloadSession.failed(videoId, reason)
+        synchronized(lock) {
+            if (autoPending.remove(videoId)) publishAutoInFlight()
+        }
     }
 
     /**
@@ -1322,8 +1469,139 @@ object Downloads {
         if (_active.value[videoId] is DownloadState.Failed) clear(videoId)
     }
 
+    /**
+     * Keep an automatic file permanently: it becomes a normal download and
+     * eviction will never take it.
+     */
+    fun promoteToManual(videoId: String) {
+        synchronized(lock) {
+            autoPending.remove(videoId)
+            publishAutoInFlight()
+        }
+        val current = _savedMetadata.value[videoId] ?: return
+        if (!current.auto) return
+        record(meta = { map ->
+            map.mapValues { (id, meta) ->
+                if (id == videoId || meta.uri == current.uri) meta.copy(auto = false) else meta
+            }
+        }, saved = { it })
+    }
+
+    /** One restat for the whole sheet: bytes and tiers for both piles. */
+    data class StorageSnapshot(
+        val autoTiers: Map<DownloadTier, TierStat>,
+        val manualTiers: Map<DownloadTier, TierStat>,
+        val autoBytes: Long,
+    )
+
+    /**
+     * Everything [storageStats], [manualStats] and [autoBytes] answer, in a
+     * single pass — one file-descriptor open per distinct file instead of
+     * three. The sheet re-stats on every finished download, and at a few
+     * hundred files the triple walk was the whole of the visible lag.
+     * IO-bound: call off the main thread.
+     */
+    suspend fun storageSnapshot(context: Context): StorageSnapshot =
+        withContext(Dispatchers.IO) {
+            val sizes = HashMap<String, Long>()
+            for (meta in _savedMetadata.value.values) {
+                if (meta.uri in sizes) continue
+                sizes[meta.uri] = runCatching {
+                    context.contentResolver.openFileDescriptor(meta.uri.toUri(), "r")
+                        ?.use { it.statSize.takeIf { s -> s > 0 } }
+                }.getOrNull() ?: continue
+            }
+            val autoTiers = mutableMapOf<DownloadTier, TierStat>()
+            val manualTiers = mutableMapOf<DownloadTier, TierStat>()
+            val seen = mutableSetOf<String>()
+            var autoBytes = 0L
+            for (meta in _savedMetadata.value.values) {
+                if (!seen.add(meta.uri)) continue
+                val size = sizes[meta.uri] ?: continue
+                val tier = meta.tier()
+                if (meta.auto) {
+                    autoBytes += size
+                    val prev = autoTiers[tier] ?: TierStat(0L, 0)
+                    autoTiers[tier] = TierStat(prev.bytes + size, prev.count + 1)
+                } else {
+                    val prev = manualTiers[tier] ?: TierStat(0L, 0)
+                    manualTiers[tier] = TierStat(prev.bytes + size, prev.count + 1)
+                }
+            }
+            StorageSnapshot(autoTiers, manualTiers, autoBytes)
+        }
+
+    /**
+     * Storage use of automatic files only, per quality tier: bytes and
+     * distinct file count each. One file shared by two ids counts once.
+     * IO-bound: call off the main thread — the settings sheet re-stats
+     * through [storageSnapshot] instead, which answers this and both
+     * siblings in one walk.
+     */
+    suspend fun storageStats(context: Context): Map<DownloadTier, TierStat> =
+        withContext(Dispatchers.IO) {
+            val out = mutableMapOf<DownloadTier, TierStat>()
+            val seen = mutableSetOf<String>()
+            for (meta in _savedMetadata.value.values) {
+                if (!meta.auto || !seen.add(meta.uri)) continue
+                val size = runCatching {
+                    context.contentResolver.openFileDescriptor(meta.uri.toUri(), "r")
+                        ?.use { it.statSize.takeIf { s -> s > 0 } }
+                }.getOrNull() ?: continue
+                val tier = meta.tier()
+                val prev = out[tier] ?: TierStat(0L, 0)
+                out[tier] = TierStat(prev.bytes + size, prev.count + 1)
+            }
+            out
+        }
+
+    /** Storage use of hand-saved files only, same shape as [storageStats]. */
+    suspend fun manualStats(context: Context): Map<DownloadTier, TierStat> =
+        withContext(Dispatchers.IO) {
+            val out = mutableMapOf<DownloadTier, TierStat>()
+            val seen = mutableSetOf<String>()
+            for (meta in _savedMetadata.value.values) {
+                if (meta.auto || !seen.add(meta.uri)) continue
+                val size = runCatching {
+                    context.contentResolver.openFileDescriptor(meta.uri.toUri(), "r")
+                        ?.use { it.statSize.takeIf { s -> s > 0 } }
+                }.getOrNull() ?: continue
+                val tier = meta.tier()
+                val prev = out[tier] ?: TierStat(0L, 0)
+                out[tier] = TierStat(prev.bytes + size, prev.count + 1)
+            }
+            out
+        }
+
+    /** Bytes used by automatic files only. */
+    suspend fun autoBytes(context: Context): Long = withContext(Dispatchers.IO) {
+        val seen = mutableSetOf<String>()
+        var total = 0L
+        for (meta in _savedMetadata.value.values) {
+            if (!meta.auto || !seen.add(meta.uri)) continue
+            total += runCatching {
+                context.contentResolver.openFileDescriptor(meta.uri.toUri(), "r")
+                    ?.use { it.statSize.takeIf { s -> s > 0 } } ?: 0L
+            }.getOrNull() ?: 0L
+        }
+        total
+    }
+
     private const val KEY_SAVED = "downloaded_tracks"
 }
+
+/** Quality bucket for the storage breakdown bar. */
+enum class DownloadTier {
+    UNKNOWN,
+    STANDARD,
+    HIGH,
+    LOSSLESS,
+    HIRES,
+    DOLBY,
+}
+
+/** One tier's share of the downloads: bytes on disk and files counted. */
+data class TierStat(val bytes: Long, val count: Int)
 
 @kotlinx.serialization.Serializable
 internal data class SavedSongMetadata(
@@ -1344,7 +1622,38 @@ internal data class SavedSongMetadata(
     val downloadFormat: String? = null,
     /** Stable creation time for downloads that MediaStore does not index. */
     val dateAddedSeconds: Long? = null,
+    /** True when the automatic path fetched it. Manual promotion clears it. */
+    val auto: Boolean = false,
+    /** Nominal kbps when known, for the storage breakdown. */
+    val kbps: Int? = null,
+    val codec: String? = null,
+    val isDolby: Boolean = false,
+    val isHiRes: Boolean = false,
 )
+
+/** Tier for [SavedSongMetadata], best-effort for files predating quality meta. */
+internal fun SavedSongMetadata.tier(): DownloadTier {
+    if (isDolby || downloadFormat?.contains("DOLBY", ignoreCase = true) == true) return DownloadTier.DOLBY
+    if (isHiRes) return DownloadTier.HIRES
+    val fmt = downloadFormat.orEmpty()
+    val codecName = (codec ?: fmt.substringBefore("·").substringBefore(" ").trim())
+        .lowercase(java.util.Locale.ROOT)
+    if (codecName in LOSSLESS_CODECS || fmt.contains("FLAC", ignoreCase = true)) {
+        return DownloadTier.LOSSLESS
+    }
+    // Files saved before kbps was recorded still carry it in the badge
+    // ("OPUS · 160 kbps", "320 kbps"): read it back off the string.
+    val k = kbps ?: KBPS_IN_BADGE.find(fmt)?.groupValues?.getOrNull(1)?.toIntOrNull()
+    if (k != null) return if (k >= HIGH_KBPS_FLOOR) DownloadTier.HIGH else DownloadTier.STANDARD
+    if (fmt.contains("OPUS", ignoreCase = true) || fmt.contains("AAC", ignoreCase = true)) {
+        return DownloadTier.HIGH
+    }
+    return DownloadTier.UNKNOWN
+}
+
+private val KBPS_IN_BADGE = Regex("""(\d{2,4})\s*kbps""", RegexOption.IGNORE_CASE)
+private const val HIGH_KBPS_FLOOR = 300
+private val LOSSLESS_CODECS = setOf("flac", "alac", "x-flac", "wav", "aiff", "ape", "wv", "dsf", "dff")
 
 /**
  * Dates for a downloaded file-backed row.

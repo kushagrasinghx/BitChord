@@ -1267,4 +1267,5 @@
     <string name="spotify_library_subtitle">你的 Spotify 播放列表</string>
     <string name="spotify_sign_in">使用 Spotify 登入</string>
     <string name="spotify_track_unavailable">在 YouTube Music 上找不到該歌曲</string>
+    <string name="auto_downloads_status_low_battery">Paused — battery below 30%</string>
 </resources>

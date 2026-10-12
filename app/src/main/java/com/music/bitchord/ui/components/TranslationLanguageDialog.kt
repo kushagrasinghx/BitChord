@@ -114,10 +114,11 @@ fun TranslationLanguageDialog(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            modifier = Modifier
-                .width(ALERT_WIDTH)
-                .clip(shape)
+        AlertPopIn {
+            Column(
+                modifier = Modifier
+                    .width(ALERT_WIDTH)
+                    .clip(shape)
                 .then(
                     if (reduceDynamicBlur) {
                         Modifier.background(MaterialTheme.colorScheme.surface)
@@ -222,6 +223,7 @@ fun TranslationLanguageDialog(
                 emphasised = true,
                 onClick = onDismiss,
             )
+        }
         }
     }
 }

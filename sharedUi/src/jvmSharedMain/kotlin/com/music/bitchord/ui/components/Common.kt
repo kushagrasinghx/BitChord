@@ -27,6 +27,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoMode
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -724,10 +725,15 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
 @Composable
 fun DownloadedBadge(videoId: String, tint: Color, modifier: Modifier = Modifier) {
     if (videoId !in AppUi.host.downloadedIds()) return
+    // Auto-fetched rows carry the settings' auto glyph rather than the plain
+    // download check, so the Downloads page itself tells the two apart.
+    val auto = videoId in AppUi.host.autoDownloadedIds()
     Spacer(Modifier.width(8.dp))
     Icon(
-        Icons.Rounded.DownloadDone,
-        contentDescription = stringResource(Res.string.downloaded),
+        if (auto) Icons.Rounded.AutoMode else Icons.Rounded.DownloadDone,
+        contentDescription = stringResource(
+            if (auto) Res.string.auto_downloaded else Res.string.downloaded,
+        ),
         tint = tint,
         modifier = modifier.size(16.dp),
     )

@@ -128,9 +128,9 @@ object ListeningStats {
      * watching the track rather than here — see [ListeningRecorder], which holds
      * the same threshold the scrobbler uses.
      */
-    fun record(song: Song, playedMs: Long, countsAsPlay: Boolean) {
+    fun record(song: Song, playedMs: Long, countsAsPlay: Boolean, skipped: Boolean = false) {
         if (!ready) return
-        if (playedMs <= 0 && !countsAsPlay) return
+        if (playedMs <= 0 && !countsAsPlay && !skipped) return
         if (song.videoId.isBlank()) return
         val now = System.currentTimeMillis()
         val at = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())
@@ -149,7 +149,11 @@ object ListeningStats {
                 )
             }
             track.ms += playedMs
-            track.last = now
+            // A skip is a rejection, not a listen: it must not refresh
+            // recency, or the skipped track outscores everything —
+            // the recency bump outweighs the skip penalty.
+            if (playedMs > 0 || countsAsPlay) track.last = now
+            if (skipped) track.skips++
             // Filled in as it becomes known: a track queued from search reaches
             // the player with no album, and the lookup that finds one lands
             // while it is already playing. The entry was created without it.
@@ -851,10 +855,13 @@ data class TrackEntry(
     var last: Long = 0L,
     /** Per-day breakdown for weekly queries. Key: "YYYY-MM-DD". */
     var days: MutableMap<String, DayStats> = mutableMapOf(),
+    /** Times playback left within the first 30s. Defaulted so old buckets decode. */
+    var skips: Int = 0,
 ) {
     fun absorb(other: TrackEntry) {
         ms += other.ms
         plays += other.plays
+        skips += other.skips
         last = maxOf(last, other.last)
         if (album == null) album = other.album
         if (albumId == null) albumId = other.albumId

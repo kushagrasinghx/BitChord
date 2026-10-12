@@ -188,6 +188,48 @@ object DownloadStore {
         context.contentResolver.openFileDescriptor(uri, "r")?.use { true } == true
     }.getOrDefault(false)
 
+    /** What a look at [uri] actually established — see [probe]. */
+    enum class Presence {
+        /** The bytes are there. */
+        PRESENT,
+        /** Confirmed gone: no such file, no such row. The only answer that
+         * deletes a download record. */
+        ABSENT,
+        /** Anything else — a binder hiccup, FD pressure mid-batch, a resolver
+         * that threw instead of answering. Must never delete: with four
+         * workers hammering IO while a reconcile pass runs, transient
+         * failures are routine, and each one treated as "gone" wipes a file
+         * that is still on disk. */
+        UNKNOWN,
+    }
+
+    /**
+     * Like [exists], but honest about uncertainty. [exists] answers the
+     * question callers ask ("may I act as if it is here"), which fails
+     * closed; record deletion needs the opposite — certainty of absence —
+     * so it asks here instead.
+     */
+    fun probe(context: Context, uri: Uri): Presence {
+        if (uri.scheme == "file") {
+            return try {
+                val path = uri.path ?: return Presence.UNKNOWN
+                if (File(path).exists()) Presence.PRESENT else Presence.ABSENT
+            } catch (e: SecurityException) {
+                Presence.UNKNOWN
+            } catch (e: Exception) {
+                Presence.UNKNOWN
+            }
+        }
+        return try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use { Presence.PRESENT }
+                ?: Presence.ABSENT
+        } catch (e: java.io.FileNotFoundException) {
+            Presence.ABSENT
+        } catch (e: Exception) {
+            Presence.UNKNOWN
+        }
+    }
+
     fun delete(context: Context, uri: Uri): Boolean = runCatching {
         if (uri.scheme == "file") {
             uri.path?.let { path ->

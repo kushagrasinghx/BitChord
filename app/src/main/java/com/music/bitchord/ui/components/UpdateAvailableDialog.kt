@@ -1,5 +1,11 @@
 package com.music.bitchord.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,8 +26,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +68,70 @@ private val DOWNLOAD_ROW_HEIGHT = 4.dp
 
 /** How much of the card's height the release notes are allowed to fill before scrolling. */
 private val NOTES_MAX_HEIGHT = 220.dp
+
+/**
+ * The pop-in every alert card in this lineage shares: 92% scale plus fade on
+ * appearance, skipped outright when the listener asked for reduced motion.
+ * One place so the update popup, the source/language editors, the choice and
+ * confirmation alerts and the settings sheets all open the same way.
+ *
+ * Drawn with an animated scale/alpha rather than AnimatedVisibility on
+ * purpose: the card is laid out at full size from the first frame, so the
+ * window never measures an empty box and jumps when the content lands.
+ */
+@Composable
+internal fun AlertPopIn(content: @Composable () -> Unit) {
+    val reduceMotion by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    if (reduceMotion) {
+        content()
+        return
+    }
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
+    val scale by animateFloatAsState(
+        targetValue = if (shown) 1f else 0.92f,
+        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+        label = "alertPopScale",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (shown) 1f else 0f,
+        animationSpec = tween(durationMillis = 150),
+        label = "alertPopAlpha",
+    )
+    Box(
+        modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale, alpha = alpha),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+}
+
+/**
+ * Fade wrapper for the overlay hosts: `if (showX)` becomes
+ * `AlertFade(visible = showX)`, and the scrim fades out on close while the
+ * card's own pop-in covers the open. Same reduce-motion bypass. Kept to a
+ * fade — scaling a full-screen scrim reads as broken, the card already pops
+ * on the way in. 250 ms both ways, matching the system dialog windows, so
+ * overlays and dialogs feel like one family.
+ */
+@Composable
+internal fun AlertFade(
+    visible: Boolean,
+    content: @Composable () -> Unit,
+) {
+    val reduceMotion by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    if (reduceMotion) {
+        if (visible) content()
+        return
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(durationMillis = 250)),
+        exit = fadeOut(animationSpec = tween(durationMillis = 250)),
+    ) {
+        content()
+    }
+}
 
 /**
  * Once-per-launch nudge that a newer build is on GitHub Releases — the top
@@ -110,10 +184,11 @@ fun UpdateAvailableDialog(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            modifier = Modifier
-                .width(ALERT_WIDTH)
-                .clip(shape)
+        AlertPopIn {
+            Column(
+                modifier = Modifier
+                    .width(ALERT_WIDTH)
+                    .clip(shape)
                 .then(
                     if (reduceDynamicBlur) {
                         Modifier.background(MaterialTheme.colorScheme.surface)
@@ -260,6 +335,7 @@ fun UpdateAvailableDialog(
                     AlertAction(label = stringResource(R.string.remind_me_later), emphasised = false, onClick = onDismiss)
                 }
             }
+        }
         }
     }
 }

@@ -8,8 +8,15 @@ import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +26,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -35,8 +43,10 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.AutoMode
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.BlurOn
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Brightness4
 import androidx.compose.material.icons.rounded.Cached
 import androidx.compose.material.icons.rounded.Check
@@ -53,6 +63,7 @@ import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Translate
@@ -64,6 +75,7 @@ import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.SmartDisplay
 import androidx.compose.material.icons.rounded.Storage
@@ -83,6 +95,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -93,6 +107,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -117,14 +133,23 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
+import com.music.bitchord.ui.components.ALERT_CORNER
+import com.music.bitchord.ui.components.ALERT_WIDTH
+import com.music.bitchord.ui.components.AlertAction
+import com.music.bitchord.ui.components.AlertFade
+import com.music.bitchord.ui.components.AlertPopIn
+import com.music.bitchord.ui.components.AlertRule
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.MessageState
@@ -139,7 +164,14 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.AutoDownloadIntensity
+import com.music.bitchord.data.settings.AutoDownloadNetMode
+import com.music.bitchord.data.settings.AutoDownloadSource
 import com.music.bitchord.data.settings.OutputPcmMode
+import com.music.bitchord.download.AutoDownloads
+import com.music.bitchord.download.DownloadTier
+import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.TierStat
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.R
@@ -150,6 +182,8 @@ import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import java.util.Locale
@@ -225,6 +259,16 @@ fun SettingsScreen(
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
+    val autoDownloadEnabled by AppSettings.autoDownloadEnabled.collectAsStateWithLifecycle()
+    val autoDownloadSource by AppSettings.autoDownloadSource.collectAsStateWithLifecycle()
+    val autoDownloadMaxGb by AppSettings.autoDownloadMaxGb.collectAsStateWithLifecycle()
+    val autoDownloadQuality by AppSettings.autoDownloadQuality.collectAsStateWithLifecycle()
+    val autoDownloadNetMode by AppSettings.autoDownloadNetMode.collectAsStateWithLifecycle()
+    val autoDownloadIntensity by AppSettings.autoDownloadIntensity.collectAsStateWithLifecycle()
+    val batteryPct by AppSettings.batteryPct.collectAsStateWithLifecycle()
+    val isChargingNow by AppSettings.isCharging.collectAsStateWithLifecycle()
+    val batteryOkNow = isChargingNow == true || (batteryPct ?: 100) >= AppSettings.LOW_BATTERY_PCT
+    val isCharging by AppSettings.isCharging.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
@@ -274,6 +318,41 @@ fun SettingsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var picking by remember { mutableStateOf<QualityTarget?>(null) }
     var pickingDownloadQuality by remember { mutableStateOf(false) }
+    var pickingAutoDownloadQuality by remember { mutableStateOf(false) }
+    var pickingAutoDownloadNet by remember { mutableStateOf(false) }
+    var confirmClearAuto by remember { mutableStateOf(false) }
+    var showAutoHow by remember { mutableStateOf(false) }
+    var autoStatus by remember { mutableStateOf<String?>(null) }
+    var isSyncing by remember { mutableStateOf(false) }
+    val autoActiveIds by Downloads.autoInFlight.collectAsStateWithLifecycle()
+    val autoActiveCount = autoActiveIds.size
+    val settingsScope = rememberCoroutineScope()
+    // Usage label for the storage cap, refreshed whenever the sheet is open:
+    // the bytes are only worth stat-ing when somebody is looking at them.
+    var autoUsedBytes by remember { mutableLongStateOf(0L) }
+    var autoTiers by remember { mutableStateOf<Map<DownloadTier, TierStat>>(emptyMap()) }
+    var manualTiers by remember { mutableStateOf<Map<DownloadTier, TierStat>>(emptyMap()) }
+    // One pass, shared by the timer and every row that needs fresh numbers
+    // before it acts (Download now, the clear confirmation).
+    val refreshAutoStats: suspend () -> Unit = {
+        val snapshot = Downloads.storageSnapshot(context)
+        autoUsedBytes = snapshot.autoBytes
+        autoTiers = snapshot.autoTiers
+        manualTiers = snapshot.manualTiers
+    }
+    LaunchedEffect(Unit) {
+        // Stat once up front so the first frame isn't zeros; after that the
+        // record itself drives restats (finish, eviction, delete), debounced
+        // so a 50-track batch doesn't stat fifty times. No timer: with the
+        // event effect the poll only ever re-read the same numbers.
+        refreshAutoStats()
+        Downloads.savedMetadata.drop(1).debounce(1_000).collect { refreshAutoStats() }
+    }
+    // Sticky copies so AlertFade's exit plays on the card, not an empty frame.
+    var lastShowAutoHow by remember { mutableStateOf(false) }
+    var lastConfirmClearAuto by remember { mutableStateOf(false) }
+    if (showAutoHow) lastShowAutoHow = true
+    if (confirmClearAuto) lastConfirmClearAuto = true
     var pickingAutomixPerformance by remember { mutableStateOf(false) }
     // What the last export or import did, shown on the row that did it rather
     // than as a toast: a backup is the one action here whose outcome nobody can
@@ -535,6 +614,295 @@ fun SettingsScreen(
                     onCheckedChange = AppSettings::setExportDownloads,
                     subtitle = "Music/BitChord".takeIf { exportDownloads },
                 )
+            }
+            // What the hand-saved files use, same bar as the automatic one
+            // below it. Manual files answer to no cap, so this is a readout,
+            // not a budget.
+            row(stringResource(R.string.storage_breakdown_title), "storage", "quality", "space", "manual") {
+                StorageBreakdownBar(
+                    tiers = manualTiers,
+                    modifier = Modifier.padding(horizontal = ROW_INSET, vertical = 4.dp),
+                )
+            }
+        }
+
+        // Automatic downloads. Its own group, because it answers a different
+        // question from the two ceilings above: not "what does this tap cost"
+        // but "what should already be here, and how much may it use".
+        SearchableSettingsGroup(
+            search,
+            header = stringResource(R.string.auto_downloads_title),
+            // Square bottom edge only while the options card is out: on its
+            // own the switch card keeps its corners.
+            bottomRounded = !autoDownloadEnabled,
+        ) {
+            val autoEnabledTitle = stringResource(R.string.auto_downloads_enabled)
+            row(autoEnabledTitle, "auto", "offline", "automatic") {
+                SettingsRow(
+                    icon = Icons.Rounded.AutoMode,
+                    title = autoEnabledTitle,
+                    subtitle = stringResource(R.string.auto_downloads_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = autoDownloadEnabled,
+                            onCheckedChange = AppSettings::setAutoDownloadEnabled,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setAutoDownloadEnabled(!autoDownloadEnabled) },
+                )
+            }
+        }
+        // The rest lives in its own card under the switch, animated as one.
+        // It has to be a separate SearchableSettingsGroup rather than more
+        // rows behind an `if` in the group above: row() entries register
+        // while their group composes, and a conditional *inside* the group's
+        // content lambda re-runs in a scope whose list was already drawn —
+        // new rows land in a dead list and stick until an unrelated
+        // recomposition (opening any menu). That is also what freezes the
+        // automix rows today. Here the AnimatedVisibility sits above the
+        // group, so registration and draw always happen in the same pass.
+        AnimatedVisibility(
+            visible = autoDownloadEnabled,
+            enter = fadeIn(tween(300, easing = FastOutSlowInEasing)) +
+                expandVertically(
+                    tween(400, easing = FastOutSlowInEasing),
+                    expandFrom = Alignment.Top,
+                ),
+            exit = fadeOut(tween(250, easing = FastOutSlowInEasing)) +
+                shrinkVertically(
+                    tween(350, easing = FastOutSlowInEasing),
+                    shrinkTowards = Alignment.Top,
+                ),
+        ) {
+        SearchableSettingsGroup(
+            search,
+            header = null,
+            // Nearly touching the switch card above, with a square top edge
+            // to match its square bottom: one continuous section.
+            topSpacing = 2.dp,
+            topRounded = false,
+        ) {
+            val maxLabel = stringResource(
+                R.string.auto_downloads_max_value,
+                autoDownloadMaxGb.toDouble(),
+            )
+            val autoUsedLabel = formatGb(autoUsedBytes)
+            val sourceTitle = stringResource(R.string.auto_downloads_source)
+            row(sourceTitle, "liked", "songs", "algorithm", "replay", "source") {
+                SettingsRow(
+                    icon = Icons.Rounded.LibraryMusic,
+                    title = sourceTitle,
+                    trailing = {
+                        IconButton(onClick = { showAutoHow = true }) {
+                            Icon(
+                                Icons.Rounded.Info,
+                                contentDescription = stringResource(R.string.auto_downloads_how_title),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                )
+                SegmentedControl(
+                    options = listOf(
+                        stringResource(R.string.auto_download_source_liked),
+                        stringResource(R.string.auto_download_source_algorithm),
+                    ),
+                    selectedIndex = autoDownloadSource.ordinal,
+                    onSelect = { AppSettings.setAutoDownloadSource(AutoDownloadSource.entries[it]) },
+                    modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
+                )
+            }
+            val maxTitle = stringResource(R.string.auto_downloads_max)
+            var capSlider by remember(autoDownloadMaxGb) { mutableFloatStateOf(autoDownloadMaxGb) }
+            row(maxTitle, "storage", "limit", "gb", "quota") {
+                SettingsRow(
+                    icon = Icons.Rounded.SdStorage,
+                    title = maxTitle,
+                    subtitle = stringResource(R.string.auto_downloads_used, autoUsedLabel, maxLabel),
+                    value = maxLabel,
+                )
+                Slider(
+                    // Drag locally, commit on release: persisting every tick
+                    // hammers prefs for intermediate values nobody keeps.
+                    value = capSlider,
+                    onValueChange = { capSlider = it },
+                    onValueChangeFinished = { AppSettings.setAutoDownloadMaxGb(capSlider) },
+                    valueRange = AppSettings.MIN_AUTO_DOWNLOAD_GB..
+                        AppSettings.MAX_AUTO_DOWNLOAD_GB,
+                    steps = 18,
+                    modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
+                )
+            }
+            val autoQualityTitle = stringResource(R.string.auto_downloads_quality)
+            row(autoQualityTitle, "quality", "codec", divided = false) {
+                SettingsRow(
+                    icon = Icons.Rounded.HighQuality,
+                    title = autoQualityTitle,
+                    value = autoDownloadQuality.localizedLabel(),
+                    onClick = { pickingAutoDownloadQuality = true },
+                )
+            }
+            val netTitle = stringResource(R.string.auto_downloads_network)
+            row(netTitle, "wi-fi", "wifi", "network", "cellular", "charging", "battery") {
+                SettingsRow(
+                    icon = Icons.Rounded.Wifi,
+                    title = netTitle,
+                    value = autoDownloadNetMode.localizedLabel(),
+                    onClick = { pickingAutoDownloadNet = true },
+                )
+                // Says *why* it is standing still rather than just failing to
+                // fill: Wi-Fi + charging waiting on a plug looks identical to
+                // nothing happening at all otherwise. No "everything is fine"
+                // row: when it is filling there is nothing to announce, and no
+                // "off" row either — the whole group below the master switch
+                // hides while disabled, so there is nowhere to hang it.
+                // Network first, then power: a dead radio blocks every mode,
+                // and a row naming the wrong blocker sends people plugging
+                // in a cable when they need Wi-Fi.
+                if (metered == null) {
+                    SettingsRow(
+                        title = stringResource(R.string.auto_downloads_status_no_connection),
+                        subtitle = autoStatus,
+                    )
+                } else if (metered == true) {
+                    SettingsRow(
+                        title = stringResource(R.string.auto_downloads_status_waiting_wifi),
+                        subtitle = autoStatus,
+                    )
+                } else if (!AppSettings.autoDownloadsAllowedNow && autoDownloadNetMode ==
+                    AutoDownloadNetMode.WIFI_CHARGING
+                ) {
+                    SettingsRow(
+                        title = stringResource(R.string.auto_downloads_status_waiting_charging),
+                        subtitle = autoStatus,
+                    )
+                } else if (!batteryOkNow) {
+                    SettingsRow(
+                        title = stringResource(R.string.auto_downloads_status_low_battery),
+                        subtitle = autoStatus,
+                    )
+                }
+            }
+            val intensityTitle = stringResource(R.string.auto_downloads_intensity)
+            row(intensityTitle, "intensity", "batch", "battery", "amount") {
+                SettingsRow(
+                    icon = Icons.Rounded.Bolt,
+                    title = intensityTitle,
+                    subtitle = stringResource(R.string.auto_downloads_intensity_subtitle),
+                )
+                // Scales the capped rungs, never the charging one: Light
+                // halves the batch, Heavy doubles it — data runs 5/10/20 a
+                // sync across the three, plain Wi-Fi 12/25/50. The plug is
+                // what lets a queue run free.
+                SegmentedControl(
+                    options = listOf(
+                        stringResource(R.string.auto_download_intensity_light),
+                        stringResource(R.string.auto_download_intensity_moderate),
+                        stringResource(R.string.auto_download_intensity_heavy),
+                    ),
+                    selectedIndex = autoDownloadIntensity.ordinal,
+                    onSelect = { AppSettings.setAutoDownloadIntensity(AutoDownloadIntensity.entries[it]) },
+                    modifier = Modifier.padding(start = TEXT_INSET, end = ROW_INSET, bottom = 14.dp),
+                )
+            }
+            val nowTitle = stringResource(R.string.auto_downloads_now)
+            val turnOnMsg = stringResource(R.string.auto_downloads_status_turn_on)
+            val emptyMsg = stringResource(R.string.auto_downloads_status_empty)
+            val syncingMsg = stringResource(R.string.auto_downloads_status_syncing)
+            val downloadingFormat = stringResource(R.string.auto_downloads_downloading)
+            val resultFormat = stringResource(R.string.auto_downloads_result)
+            val cappedFormat = stringResource(R.string.auto_downloads_status_capped)
+            val diskFullMsg = stringResource(R.string.auto_downloads_status_disk_full)
+            val noConnectionMsg = stringResource(R.string.auto_downloads_status_no_connection)
+            val waitingWifiMsg = stringResource(R.string.auto_downloads_status_waiting_wifi)
+            val waitingChargingMsg = stringResource(R.string.auto_downloads_status_waiting_charging)
+            val lowBatteryMsg = stringResource(R.string.auto_downloads_status_low_battery)
+            row(nowTitle, "now", "start", divided = false) {
+                SettingsRow(
+                    icon = Icons.Rounded.Download,
+                    title = nowTitle,
+                    // Live while anything moves: the sync report below is a
+                    // snapshot that goes stale the moment workers pick tracks
+                    // up, and a queue that only ever says "+50 · −0" reads as
+                    // stuck. The count is automatic tracks only — the manual
+                    // queue has its own row upstairs.
+                    subtitle = when {
+                        isSyncing -> syncingMsg
+                        autoActiveCount > 0 -> downloadingFormat.format(autoActiveCount)
+                        else -> autoStatus
+                    },
+                    enabled = !isSyncing,
+                    onClick = {
+                        settingsScope.launch {
+                            // One sync at a time: a second tap mid-sync would
+                            // interleave quota and queueing with the first.
+                            // The disabled row above already swallows taps;
+                            // the flag below is what the subtitle reports.
+                            isSyncing = true
+                            autoStatus = syncingMsg
+                            try {
+                                // Always answers, even when there is nothing to do:
+                                // the complaint was that the button "does nothing".
+                                // On a fresh install that is usually the truth —
+                                // no Replay history and no likes yet — so say so.
+                                autoStatus = when (val r = AutoDownloads.sync(context)) {
+                                    is AutoDownloads.SyncResult.Done ->
+                                        if (r.enqueued == 0 && r.evicted == 0) emptyMsg
+                                        else resultFormat.format(r.enqueued, r.evicted)
+                                    is AutoDownloads.SyncResult.Capped ->
+                                        if (r.reason == AutoDownloads.CapReason.DISK) diskFullMsg
+                                        else cappedFormat.format(r.enqueued, r.evicted)
+                                    is AutoDownloads.SyncResult.Failed -> r.message
+                                    is AutoDownloads.SyncResult.Disabled -> turnOnMsg
+                                    is AutoDownloads.SyncResult.NotAllowedNow ->
+                                        if (metered == null) noConnectionMsg
+                                        else if (metered == true) waitingWifiMsg
+                                        else if (!batteryOkNow) lowBatteryMsg
+                                        else waitingChargingMsg
+                                }
+                            } finally {
+                                isSyncing = false
+                            }
+                            refreshAutoStats()
+                        }
+                    },
+                )
+            }
+            val clearTitle = stringResource(R.string.auto_downloads_clear)
+            // Always registered, dimmed when empty: gating the row() call
+            // itself would evaluate in the content-lambda scope whose list
+            // was already drawn (the master-switch saga) — and a visible but
+            // disabled row teaches where the button lives.
+            val clearEmpty = autoUsedBytes <= 0 && autoTiers.values.sumOf { it.count } <= 0
+            row(clearTitle, "remove", "delete auto", divided = false) {
+                SettingsRow(
+                    icon = Icons.Rounded.DeleteSweep,
+                    title = clearTitle,
+                    enabled = !clearEmpty,
+                    // The dialog confirms; confirming stays right here, on
+                    // this screen — nothing navigates to the Downloads page.
+                    // Restat on the way in: the event snapshot may lag a
+                    // finish that landed mid-frame, and the count it names
+                    // is the thing being confirmed.
+                    onClick = {
+                        settingsScope.launch {
+                            refreshAutoStats()
+                            confirmClearAuto = true
+                        }
+                    },
+                )
+            }
+            // What fills the cap, in the tiers the cap is spent on.
+            row(stringResource(R.string.storage_breakdown_title), "storage", "quality", "space") {
+                StorageBreakdownBar(
+                    tiers = autoTiers,
+                    modifier = Modifier.padding(horizontal = ROW_INSET, vertical = 4.dp),
+                )
+            }
             }
         }
 
@@ -1501,6 +1869,39 @@ fun SettingsScreen(
         }
     }
 
+    if (pickingAutoDownloadQuality) {
+        ModalBottomSheet(
+            onDismissRequest = { pickingAutoDownloadQuality = false },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            DownloadQualitySheet(
+                selected = autoDownloadQuality,
+                // Picker-only: Lossless stays out of the auto list,
+                // no backend clamping behind it.
+                excluded = setOf(DownloadQuality.LOSSLESS),
+                onSelect = { quality ->
+                    AppSettings.setAutoDownloadQuality(quality)
+                    pickingAutoDownloadQuality = false
+                },
+            )
+        }
+    }
+
+    if (pickingAutoDownloadNet) {
+        ModalBottomSheet(
+            onDismissRequest = { pickingAutoDownloadNet = false },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            AutoDownloadNetSheet(
+                selected = autoDownloadNetMode,
+                onSelect = { mode ->
+                    AppSettings.setAutoDownloadNetMode(mode)
+                    pickingAutoDownloadNet = false
+                },
+            )
+        }
+    }
+
     if (pickingAutomixPerformance) {
         ModalBottomSheet(
             onDismissRequest = { pickingAutomixPerformance = false },
@@ -1538,6 +1939,144 @@ fun SettingsScreen(
                 }
             },
         )
+    }
+
+    // The update popup's own lineage: narrow centered card, centered
+    // title, stacked full-width action under a hairline. Plain surface
+    // instead of Haze glass — this sheet owns no HazeState to sample, which
+    // is exactly the update dialog's own reduce-blur fallback. Body stays
+    // left-aligned: centered bullets read as decoration, not data.
+    // AlertFade on the way out too: a bare `if` deletes the tree the
+    // instant it closes, while every sibling alert fades.
+    AlertFade(visible = showAutoHow) {
+        if (!lastShowAutoHow) return@AlertFade
+        Dialog(onDismissRequest = { showAutoHow = false }) {
+            AlertPopIn {
+                Column(
+                    modifier = Modifier
+                        .width(ALERT_WIDTH)
+                        .clip(RoundedCornerShape(ALERT_CORNER))
+                        .background(MaterialTheme.colorScheme.surface),
+                ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 19.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = stringResource(R.string.auto_downloads_how_title),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.W600,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(R.string.auto_downloads_how_body),
+                        modifier = Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 17.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                AlertRule()
+                AlertAction(
+                    label = stringResource(R.string.got_it),
+                    emphasised = true,
+                    onClick = { showAutoHow = false },
+                )
+            }
+            }
+        }
+    }
+
+    // Removing *every* auto file at once is the one destructive thing in this
+    // group, so it gets the update/sources alert lineage rather than a bare
+    // dialog or a sheet: narrow centered card, the count and weight that are
+    // about to go, then stacked actions — destructive remove, cancel — with
+    // hairlines between, exactly like the source editor's buttons.
+    // Confirming deletes and stays — no navigation. Same AlertFade exit as
+    // the how-it-works card above it.
+    AlertFade(visible = confirmClearAuto) {
+        if (!lastConfirmClearAuto) return@AlertFade
+        val doomedCount = autoTiers.values.sumOf { it.count }
+        Dialog(onDismissRequest = { confirmClearAuto = false }) {
+            AlertPopIn {
+                Column(
+                    modifier = Modifier
+                        .width(ALERT_WIDTH)
+                        .clip(RoundedCornerShape(ALERT_CORNER))
+                        .background(MaterialTheme.colorScheme.surface),
+                ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 19.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = stringResource(R.string.auto_downloads_clear_title),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.W600,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(R.string.auto_downloads_clear_message),
+                        modifier = Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            lineHeight = 17.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.storage_breakdown_total,
+                            doomedCount,
+                            formatGb(autoUsedBytes),
+                        ),
+                        modifier = Modifier.padding(top = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.W600,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                AlertRule()
+                AlertAction(
+                    label = stringResource(R.string.clear),
+                    emphasised = false,
+                    destructive = true,
+                    onClick = {
+                        confirmClearAuto = false
+                        settingsScope.launch {
+                            Downloads.savedMetadata.value.values
+                                .filter { it.auto }
+                                .distinctBy { it.uri }
+                                .forEach { Downloads.delete(context, it.videoId) }
+                            refreshAutoStats()
+                        }
+                    },
+                )
+                AlertRule()
+                AlertAction(
+                    label = stringResource(R.string.cancel),
+                    emphasised = false,
+                    onClick = { confirmClearAuto = false },
+                )
+            }
+            }
+        }
     }
 
     // Asked before the picker opens rather than after a file is chosen: the
@@ -2066,6 +2605,8 @@ private fun AutomixPerformanceSheet(
 private fun DownloadQualitySheet(
     selected: DownloadQuality,
     onSelect: (DownloadQuality) -> Unit,
+    /** Rungs hidden from the list. */
+    excluded: Set<DownloadQuality> = emptySet(),
 ) {
     val haptics = LocalHapticFeedback.current
     Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
@@ -2097,7 +2638,7 @@ private fun DownloadQualitySheet(
 
         // Best first, matching [QualitySheet] — and here the best rung is also
         // the default, so the checkmark starts where the eye does.
-        DownloadQuality.entries.reversed().forEach { quality ->
+        DownloadQuality.entries.reversed().filterNot { it in excluded }.forEach { quality ->
             val chosen = quality == selected
             Row(
                 modifier = Modifier
@@ -2135,9 +2676,224 @@ private fun DownloadQualitySheet(
     }
 }
 
+/** Which connections the automatic queue may use, picked like a quality rung. */
+@Composable
+private fun AutoDownloadNetSheet(
+    selected: AutoDownloadNetMode,
+    onSelect: (AutoDownloadNetMode) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Row(
+            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Wifi,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = stringResource(R.string.auto_downloads_network),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.auto_downloads_network_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+
+        AutoDownloadNetMode.entries.forEach { mode ->
+            val chosen = mode == selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(mode)
+                    }
+                    .padding(horizontal = 22.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = mode.localizedLabel(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = stringResource(mode.detailRes()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (chosen) {
+                    Spacer(Modifier.width(12.dp))
+                    Icon(
+                        Icons.Rounded.Check,
+                        contentDescription = stringResource(R.string.selected),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AutoDownloadNetMode.localizedLabel(): String = stringResource(
+    when (this) {
+        AutoDownloadNetMode.ALWAYS -> R.string.auto_download_net_always
+        AutoDownloadNetMode.WIFI_ONLY -> R.string.auto_download_net_wifi
+        AutoDownloadNetMode.WIFI_CHARGING -> R.string.auto_download_net_wifi_charging
+    },
+)
+
+private fun AutoDownloadNetMode.detailRes(): Int = when (this) {
+    AutoDownloadNetMode.ALWAYS -> R.string.auto_download_net_always_detail
+    AutoDownloadNetMode.WIFI_ONLY -> R.string.auto_download_net_wifi_detail
+    AutoDownloadNetMode.WIFI_CHARGING -> R.string.auto_download_net_wifi_charging_detail
+}
+
+/** `1.5 GB` / `320 MB` for the storage rows (locale decimal). Pure formatting, no state. */
+private fun formatGb(bytes: Long): String {
+    if (bytes <= 0) return "0 MB"
+    val mb = bytes / (1024.0 * 1024.0)
+    if (mb < 1024) return String.format(Locale.getDefault(), "%.1f MB", mb)
+    return String.format(Locale.getDefault(), "%.1f GB", mb / 1024.0)
+}
+
+/**
+ * One stacked bar of what the downloads use, split by quality tier.
+ *
+ * Tiers come from [Downloads.storageStats]: bytes and file counts each.
+ * Nothing here fetches — the sheet re-stats on a timer while open and
+ * passes the snapshot in.
+ */
+@Composable
+private fun StorageBreakdownBar(
+    tiers: Map<DownloadTier, TierStat>,
+    modifier: Modifier = Modifier,
+) {
+    val totalBytes = tiers.values.sumOf { it.bytes }
+    val totalCount = tiers.values.sumOf { it.count }
+    Column(modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.storage_breakdown_total, totalCount, formatGb(totalBytes)),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (totalBytes <= 0) return
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            tierColor(DownloadTier.DOLBY).let { c ->
+                val f = (tiers[DownloadTier.DOLBY]?.bytes ?: 0L) / totalBytes.toFloat()
+                if (f > 0) Box(Modifier.weight(f).fillMaxHeight().background(c))
+            }
+            tierColor(DownloadTier.HIRES).let { c ->
+                val f = (tiers[DownloadTier.HIRES]?.bytes ?: 0L) / totalBytes.toFloat()
+                if (f > 0) Box(Modifier.weight(f).fillMaxHeight().background(c))
+            }
+            tierColor(DownloadTier.LOSSLESS).let { c ->
+                val f = (tiers[DownloadTier.LOSSLESS]?.bytes ?: 0L) / totalBytes.toFloat()
+                if (f > 0) Box(Modifier.weight(f).fillMaxHeight().background(c))
+            }
+            tierColor(DownloadTier.HIGH).let { c ->
+                val f = (tiers[DownloadTier.HIGH]?.bytes ?: 0L) / totalBytes.toFloat()
+                if (f > 0) Box(Modifier.weight(f).fillMaxHeight().background(c))
+            }
+            tierColor(DownloadTier.STANDARD).let { c ->
+                val f = (tiers[DownloadTier.STANDARD]?.bytes ?: 0L) / totalBytes.toFloat()
+                if (f > 0) Box(Modifier.weight(f).fillMaxHeight().background(c))
+            }
+            tierColor(DownloadTier.UNKNOWN).let { c ->
+                val f = (tiers[DownloadTier.UNKNOWN]?.bytes ?: 0L) / totalBytes.toFloat()
+                if (f > 0) Box(Modifier.weight(f).fillMaxHeight().background(c))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        tierRow(DownloadTier.DOLBY, tiers[DownloadTier.DOLBY] ?: TierStat(0, 0))
+        tierRow(DownloadTier.HIRES, tiers[DownloadTier.HIRES] ?: TierStat(0, 0))
+        tierRow(DownloadTier.LOSSLESS, tiers[DownloadTier.LOSSLESS] ?: TierStat(0, 0))
+        tierRow(DownloadTier.HIGH, tiers[DownloadTier.HIGH] ?: TierStat(0, 0))
+        tierRow(DownloadTier.STANDARD, tiers[DownloadTier.STANDARD] ?: TierStat(0, 0))
+        tierRow(DownloadTier.UNKNOWN, tiers[DownloadTier.UNKNOWN] ?: TierStat(0, 0))
+    }
+}
+
+@Composable
+private fun tierRow(tier: DownloadTier, stat: TierStat) {
+    if (stat.bytes <= 0) return
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(10.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(tierColor(tier)),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = tierLabel(tier),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f),
+        )
+        // Count left of the weight, mirroring the total line above the bar.
+        Text(
+            text = stringResource(R.string.storage_breakdown_total, stat.count, formatGb(stat.bytes)),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun tierColor(tier: DownloadTier): Color = when (tier) {
+    // Ordered loud-to-quiet down the quality ladder, every step readable on
+    // both themes and on artwork-tinted sheets. STANDARD deliberately skips
+    // surfaceVariant — the track's own colour, on which the old segment
+    // vanished — for tertiaryContainer, which parts from both neighbours.
+    DownloadTier.DOLBY -> MaterialTheme.colorScheme.primary
+    DownloadTier.HIRES -> MaterialTheme.colorScheme.secondary
+    DownloadTier.LOSSLESS -> MaterialTheme.colorScheme.tertiary
+    DownloadTier.HIGH -> MaterialTheme.colorScheme.onSurfaceVariant
+    DownloadTier.STANDARD -> MaterialTheme.colorScheme.tertiaryContainer
+    DownloadTier.UNKNOWN -> MaterialTheme.colorScheme.outlineVariant
+}
+
+@Composable
+private fun tierLabel(tier: DownloadTier): String = stringResource(
+    when (tier) {
+        DownloadTier.DOLBY -> R.string.storage_tier_dolby
+        DownloadTier.HIRES -> R.string.storage_tier_hires
+        DownloadTier.LOSSLESS -> R.string.storage_tier_lossless
+        DownloadTier.HIGH -> R.string.storage_tier_high
+        DownloadTier.STANDARD -> R.string.storage_tier_standard
+        DownloadTier.UNKNOWN -> R.string.storage_tier_unknown
+    },
+)
+
 // ---- Building blocks --------------------------------------------------------
 
 internal val GroupShape = RoundedCornerShape(14.dp)
+internal val GROUP_CORNER = 14.dp
 internal val GROUP_INSET = 16.dp
 internal val ROW_INSET = 16.dp
 internal val ICON_SIZE = 22.dp
@@ -2215,12 +2971,20 @@ private fun SearchableSettingsGroup(
     header: String? = null,
     footer: String? = null,
     topSpacing: Dp = 26.dp,
+    topRounded: Boolean = true,
+    bottomRounded: Boolean = true,
     content: @Composable SettingsGroupScope.() -> Unit,
 ) {
     val scope = SettingsGroupScope(search, header)
     scope.content()
     if (scope.entries.isEmpty()) return
-    SettingsGroup(header = header, footer = footer, topSpacing = topSpacing) {
+    SettingsGroup(
+        header = header,
+        footer = footer,
+        topSpacing = topSpacing,
+        topRounded = topRounded,
+        bottomRounded = bottomRounded,
+    ) {
         scope.entries.forEachIndexed { index, entry ->
             when {
                 index > 0 && entry.divided -> RowDivider()
@@ -2237,6 +3001,11 @@ private fun SearchableSettingsGroup(
 /**
  * One inset card of rows, with an uppercase header above and an optional
  * plain-language [footer] below. Rows are separated by [RowDivider].
+ *
+ * [topRounded]/[bottomRounded] square off one edge for cards that continue
+ * into the card below/above: two cards with square touching edges and a
+ * hairline gap read as one section, while fully rounded cards with a wide
+ * gap read as two.
  */
 @Composable
 internal fun SettingsGroup(
@@ -2244,6 +3013,8 @@ internal fun SettingsGroup(
     footer: String? = null,
     /** Room above the card, where there is no [header] to provide it. */
     topSpacing: Dp = 26.dp,
+    topRounded: Boolean = true,
+    bottomRounded: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     if (header != null) {
@@ -2265,8 +3036,21 @@ internal fun SettingsGroup(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = GROUP_INSET)
-            .clip(GroupShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .clip(
+                RoundedCornerShape(
+                    topStart = if (topRounded) GROUP_CORNER else 0.dp,
+                    topEnd = if (topRounded) GROUP_CORNER else 0.dp,
+                    bottomEnd = if (bottomRounded) GROUP_CORNER else 0.dp,
+                    bottomStart = if (bottomRounded) GROUP_CORNER else 0.dp,
+                ),
+            )
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            // Conditional rows (the auto-downloads group below its master
+            // switch, and friends) slide the card open and shut instead of
+            // popping: rows must register synchronously (see the auto group
+            // note), so the animation lives here, on the size, where every
+            // group gets it for free.
+            .animateContentSize(tween(350, easing = FastOutSlowInEasing)),
     ) {
         content()
     }

@@ -262,6 +262,7 @@ import com.music.bitchord.ui.components.TopBarDownloadButton
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.components.topBarContentPadding
 import com.music.bitchord.ui.components.AppLanguageDialog
+import com.music.bitchord.ui.components.AlertFade
 import com.music.bitchord.ui.components.TranslationLanguageDialog
 import com.music.bitchord.ui.components.LyricsSourcesDialog
 import com.music.bitchord.ui.components.ServerEditorHost
@@ -272,6 +273,8 @@ import com.music.bitchord.ui.icons.BitChordIcons
 import androidx.media3.common.Player
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.ui.player.NowPlayingScreen
+import com.music.bitchord.ui.player.AndroidPlayerHost
+import com.music.bitchord.ui.player.PlayerPlatform
 import com.music.bitchord.ui.player.PlayerSheetMotion
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
@@ -345,6 +348,10 @@ internal fun shouldSkipAfterDislike(
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The screen-capture callback is registered on an Activity, while the
+        // host the shared player reads was installed from the application — so
+        // the window it is drawn in is handed over here, where there is one.
+        (PlayerPlatform.host as? AndroidPlayerHost)?.activity = this
         enableEdgeToEdge()
         // Before the composition, so a cold launch from a widget's artwork has
         // the request already standing by the time BitChordApp first reads it.
@@ -4512,10 +4519,11 @@ private fun BitChordApp(
                     startCreating = target == null,
                     onAdd = { picked ->
                         target?.let { song ->
-                            viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
+                            viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed, queued ->
                                 // One line for the whole batch, saying the
                                 // outcome that matters most: what went in, else
-                                // that it was all there already, else that it
+                                // what is waiting for a connection, else that
+                                // it was all there already, else that it
                                 // didn't work.
                                 showQueueNotice(
                                     when {
@@ -4523,6 +4531,7 @@ private fun BitChordApp(
                                             R.plurals.added_to_playlists_notice, added, added,
                                         )
                                         added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                        queued > 0 -> context.getString(R.string.song_queued_for_playlist)
                                         alreadyThere > 0 && failed == 0 ->
                                             context.getString(R.string.song_already_in_playlist)
                                         else -> context.getString(R.string.failed)
@@ -4540,7 +4549,7 @@ private fun BitChordApp(
             }
         }
 
-        if (showSpotifyImportDialog) {
+        AlertFade(visible = showSpotifyImportDialog) {
             BackHandler { showSpotifyImportDialog = false }
             SpotifyImportAlert(
                 hazeState = hazeState,
@@ -4927,7 +4936,7 @@ private fun BitChordApp(
         }
 
         // ---- Update available (once per launch; held until the welcome is done) ----
-        if (showUpdateDialog && onboardingComplete) {
+        AlertFade(visible = showUpdateDialog && onboardingComplete) {
             updateNotice?.let { update ->
                 UpdateAvailableDialog(
                     version = update.version,
@@ -4961,7 +4970,7 @@ private fun BitChordApp(
             }
         }
 
-        if (showLyricsSources) {
+        AlertFade(visible = showLyricsSources) {
             BackHandler { showLyricsSources = false }
             LyricsSourcesDialog(
                 hazeState = hazeState,
@@ -4996,7 +5005,7 @@ private fun BitChordApp(
             )
         }
 
-        if (showAccountSelector) {
+        AlertFade(visible = showAccountSelector) {
             BackHandler { showAccountSelector = false }
             AccountProfileSelector(
                 accounts = googleAccounts,
@@ -5020,7 +5029,7 @@ private fun BitChordApp(
             )
         }
 
-        if (showAppLanguage) {
+        AlertFade(visible = showAppLanguage) {
             BackHandler { showAppLanguage = false }
             AppLanguageDialog(
                 hazeState = hazeState,
@@ -5028,7 +5037,7 @@ private fun BitChordApp(
             )
         }
 
-        if (showTranslationLanguage) {
+        AlertFade(visible = showTranslationLanguage) {
             BackHandler { showTranslationLanguage = false }
             TranslationLanguageDialog(
                 hazeState = hazeState,
@@ -5093,7 +5102,7 @@ private fun BitChordApp(
             )
         }
 
-        if (showWebDavEditor) {
+        AlertFade(visible = showWebDavEditor) {
             BackHandler { showWebDavEditor = false }
             ServerEditorHost(
                 hazeState = hazeState,
@@ -5135,7 +5144,7 @@ private fun BitChordApp(
             )
         }
 
-        if (showSmbEditor) {
+        AlertFade(visible = showSmbEditor) {
             BackHandler { showSmbEditor = false }
             ServerEditorHost(
                 hazeState = hazeState,
@@ -5306,28 +5315,35 @@ private fun BitChordApp(
         // At the root with the source editor, and for the same two reasons: it
         // is a haze card that has to sample the backdrop it is *not* inside,
         // and a full-window scrim that has to be full-window.
-        if (editingPartyServer) {
+        AlertFade(visible = editingPartyServer) {
             PartyServerEditor(
                 hazeState = hazeState,
                 onDismiss = { editingPartyServer = false },
             )
         }
 
-        editingSource?.let { config ->
-            SourceEditorAlert(
-                hazeState = hazeState,
-                config = config,
-                onDismiss = { editingSource = null },
-                onSaved = { editingSource = null },
-                onDelete = {
-                    SourceRegistry.remove(config.id)
-                    editingSource = null
-                },
-                scope = scope,
-            )
+        // Sticky last value, not remember(key): the key form would null it
+        // the instant dismissal starts, leaving the fade-out to play over
+        // an empty frame. This keeps the card for the 250 ms it takes to go.
+        var lastEditing by remember { mutableStateOf<SourceConfig?>(null) }
+        if (editingSource != null) lastEditing = editingSource
+        AlertFade(visible = editingSource != null) {
+            lastEditing?.let { config ->
+                SourceEditorAlert(
+                    hazeState = hazeState,
+                    config = config,
+                    onDismiss = { editingSource = null },
+                    onSaved = { editingSource = null },
+                    onDelete = {
+                        SourceRegistry.remove(config.id)
+                        editingSource = null
+                    },
+                    scope = scope,
+                )
+            }
         }
 
-        if (confirmJioSaavn) {
+        AlertFade(visible = confirmJioSaavn) {
             ConfirmationAlert(
                 hazeState = hazeState,
                 title = stringResource(R.string.enable_jiosaavn),

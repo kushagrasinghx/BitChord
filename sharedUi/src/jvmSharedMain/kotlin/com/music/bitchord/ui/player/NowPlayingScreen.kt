@@ -148,6 +148,7 @@ import com.music.bitchord.ui.theme.StatusBarIcons
 import com.music.bitchord.ui.theme.rememberArtworkTopBandLuminance
 import com.music.bitchord.ui.theme.topBandScrimAlpha
 import com.music.bitchord.ui.LyricsProviderState
+import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.components.optimizedHazeEffect
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
@@ -3264,9 +3265,11 @@ fun NowPlayingScreen(
                             // liking is about *this song*, and the row below is about
                             // how the queue plays. Guests get nothing to tap, since
                             // there's no account to record it against — and neither
-                            // does a local file or a finished download, which carries
-                            // no YouTube identity to rate.
-                            if (signedIn && song.localUri == null) {
+                            // does a device-local file, which carries no YouTube
+                            // identity to rate. A finished download does: its
+                            // identity sits in the download record, and the tap
+                            // applies locally first anyway (see LikeSync).
+                            if (signedIn && (song.localUri == null || song.videoId in AppUi.host.downloadedIds())) {
                                 val liked = likeStatus == LikeStatus.LIKE
                                 CircleGlyph(
                                     icon = if (liked) BitChordIcons.HeartFilled else BitChordIcons.Heart,

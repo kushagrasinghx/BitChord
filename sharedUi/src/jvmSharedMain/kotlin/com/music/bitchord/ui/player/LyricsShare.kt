@@ -184,6 +184,36 @@ internal fun rememberLyricsPicker(
     val usedChars: () -> Int = {
         picks.sumOf { index -> lines.orEmpty().getOrNull(index)?.text?.length ?: 0 }
     }
+
+    /**
+     * The card [indices] make, or null when they make none — a blank line by
+     * itself draws nothing worth sending.
+     */
+    fun cardFor(indices: Set<Int>): LyricsShareRequest? {
+        val source = lines.orEmpty()
+        val chosen = indices.sorted()
+        val picked = buildList {
+            chosen.forEachIndexed { position, index ->
+                // A jump over unchosen lines is marked on the card, so the
+                // picture says the verse was cut here rather than letting two
+                // distant halves read as if they ran on from each other.
+                if (position > 0 && index > chosen[position - 1] + 1) {
+                    add(LyricsShareLine(text = "", subText = null, isGap = true))
+                }
+                val line = source.getOrNull(index) ?: return@forEachIndexed
+                val sub = subLines?.getOrNull(index)?.text
+                add(
+                    LyricsShareLine(
+                        text = line.text,
+                        subText = sub?.takeIf { it.isNotBlank() && it != line.text },
+                    ),
+                )
+            }
+        }.filter { it.isGap || it.text.isNotBlank() }
+        if (picked.isEmpty()) return null
+        return LyricsShareRequest(song = song, artworkUrl = artworkUrl, lines = picked)
+    }
+
     val toggle: (Int) -> Unit = { index ->
         val text = lines.orEmpty().getOrNull(index)?.text
         when {
@@ -241,31 +271,7 @@ internal fun rememberLyricsPicker(
         }
     }
     val share: () -> Unit = {
-        val source = lines.orEmpty()
-        val chosen = picks.sorted()
-        val picked = buildList {
-            chosen.forEachIndexed { position, index ->
-                // A jump over unchosen lines is marked on the card, so the
-                // picture says the verse was cut here rather than letting two
-                // distant halves read as if they ran on from each other.
-                if (position > 0 && index > chosen[position - 1] + 1) {
-                    add(LyricsShareLine(text = "", subText = null, isGap = true))
-                }
-                val line = source.getOrNull(index) ?: return@forEachIndexed
-                val sub = subLines?.getOrNull(index)?.text
-                add(
-                    LyricsShareLine(
-                        text = line.text,
-                        subText = sub?.takeIf { it.isNotBlank() && it != line.text },
-                    ),
-                )
-            }
-        }.filter { it.isGap || it.text.isNotBlank() }
-        // An empty pick draws nothing worth sending, so it is simply left alone
-        // rather than putting an empty card on screen to be dismissed.
-        if (picked.isNotEmpty()) {
-            onCard(LyricsShareRequest(song = song, artworkUrl = artworkUrl, lines = picked))
-        }
+        cardFor(picks)?.let(onCard)
         cancel()
     }
 

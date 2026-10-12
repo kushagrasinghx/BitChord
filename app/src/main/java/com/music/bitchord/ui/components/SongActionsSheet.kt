@@ -27,10 +27,12 @@ import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.AutoMode
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.Downloading
@@ -41,18 +43,21 @@ import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -100,11 +105,12 @@ import java.util.Locale
  * always the fallback for "I meant to do something with this song".
  *
  * Everything that writes to the account is hidden outright when [signedIn] is
- * false rather than shown and refused. The same goes for a track that is
- * playing from a local file or a finished download (`song.localUri != null`):
- * rating, playlists, downloading it again and sharing all assume a YouTube
- * identity the file doesn't carry, so those rows drop out regardless of
- * [signedIn].
+ * false rather than shown and refused. Rating is the exception that stays:
+ * the heart applies locally the moment it is tapped and reaches YouTube with
+ * the next connection ([LikeSync]), so a finished download — which carries
+ * its YouTube identity in the download record — keeps its rows. A device
+ * local file has no identity to rate and still drops them, as do playlists
+ * and re-downloading, which need the network right now rather than later.
  *
  * [showSleepTimer] and [onShare] are the player's extras: a sleep timer isn't a
  * property of some row in a list, so it only appears where it means something.
@@ -213,8 +219,11 @@ fun SongActionsSheet(
     val liked = likeStatus == LikeStatus.LIKE
     val disliked = likeStatus == LikeStatus.DISLIKE
     // A local file or a finished download has no YouTube identity behind it to
-    // rate, save, queue into a playlist, fetch again, or share a link for.
+    // save, queue into a playlist, fetch again, or share a link for. Rating is
+    // answered separately below: a finished download carries its identity in
+    // the download record.
     val isOffline = song.localUri != null
+    val downloadedIds by Downloads.saved.collectAsStateWithLifecycle()
 
     val rows: @Composable ColumnScope.() -> Unit = {
         // Leads the list whenever it's available: which recording is playing
@@ -262,7 +271,12 @@ fun SongActionsSheet(
             GroupSeparator(palette)
         }
 
-        if (signedIn && !isOffline) {
+        // Rating stays for finished downloads: the record carries the YouTube
+        // identity, and the tap applies locally first anyway (see LikeSync).
+        // Only a device-local file drops out — there is nothing to rate.
+        // Downloaded or streamed, the heart is the heart.
+        val rateable = signedIn && (song.localUri == null || song.videoId in downloadedIds)
+        if (rateable) {
             ActionRow(
                 icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 label = if (liked) stringResource(R.string.remove_from_liked) else stringResource(R.string.like),
@@ -277,6 +291,10 @@ fun SongActionsSheet(
                 accent = palette.accent,
                 onClick = onToggleDislike,
             )
+            GroupSeparator(palette)
+        }
+
+        if (signedIn && !isOffline) {
             ActionRow(
                 icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
                 label = stringResource(R.string.add_to_playlist),
@@ -291,6 +309,20 @@ fun SongActionsSheet(
                     onClick = it,
                 )
             }
+            GroupSeparator(palette)
+        }
+
+        // Add-to-playlist for a finished download, online or off: the picker
+        // reads the cached library, and the add itself queues in PlaylistSync
+        // when there is no connection. Untouched above, where the streamed
+        // path already offers it.
+        if (signedIn && isOffline && song.videoId in downloadedIds) {
+            ActionRow(
+                icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                label = stringResource(R.string.add_to_playlist),
+                accent = palette.accent,
+                onClick = onAddToPlaylist,
+            )
             GroupSeparator(palette)
         }
 
@@ -528,6 +560,8 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
     val scope = rememberCoroutineScope()
     val active by Downloads.active.collectAsStateWithLifecycle()
     val saved by Downloads.saved.collectAsStateWithLifecycle()
+    val savedMeta by Downloads.savedMetadata.collectAsStateWithLifecycle()
+    val auto = savedMeta[song.videoId]?.auto == true
 
     // The record is a claim about a folder the user manages themselves, so it
     // is checked against the disk rather than trusted — re-checked whenever the
@@ -541,6 +575,34 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
     val recorded = saved[song.videoId]
     val file by produceState(recorded?.let(Uri::parse), song.videoId, recorded) {
         value = Downloads.savedUri(context, song.videoId)
+    }
+    // Deleting an automatic file one tap from the menu is the only
+    // destructive action in this row, and the next sync would quietly
+    // fetch the same track back — the confirm says so, and names Keep
+    // as the way to make the file permanent instead.
+    var confirmDeleteAuto by remember { mutableStateOf(false) }
+    if (confirmDeleteAuto && auto) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteAuto = false },
+            title = { Text(stringResource(R.string.auto_downloaded_badge)) },
+            text = { Text(stringResource(R.string.auto_downloads_delete_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteAuto = false
+                    scope.launch { Downloads.delete(context, song.videoId) }
+                }) {
+                    Text(
+                        stringResource(R.string.delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteAuto = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     // A failure is worth stating once. Leaving it set would have the row still
@@ -579,13 +641,84 @@ private fun DownloadRow(song: Song, palette: ArtworkPalette, isOffline: Boolean,
         )
 
         null -> if (file != null) {
-            ActionRow(
-                icon = Icons.Rounded.DownloadDone,
-                label = stringResource(R.string.saved_to_downloads),
-                value = stringResource(R.string.delete),
-                tint = palette.accent,
-                accent = palette.accent,
-            ) { scope.launch { Downloads.delete(context, song.videoId) } }
+            // One line, always: status glyph, caption, then the management
+            // icons beside it — keep, trash, and nothing else. A second row
+            // under the caption reads as a second feature rather than as the
+            // same download's buttons.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (LocalActionRowStyle.current == ActionRowStyle.Menu) {
+                            Modifier.heightIn(min = 46.dp).padding(horizontal = 18.dp, vertical = 6.dp)
+                        } else {
+                            Modifier.padding(horizontal = 22.dp, vertical = 10.dp)
+                        },
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val headerIcon = if (auto) Icons.Rounded.AutoMode else Icons.Rounded.DownloadDone
+                val headerLabel = if (auto) {
+                    stringResource(R.string.auto_downloaded_badge)
+                } else {
+                    stringResource(R.string.saved_to_downloads)
+                }
+                if (LocalActionRowStyle.current != ActionRowStyle.Menu) {
+                    Icon(
+                        imageVector = headerIcon,
+                        contentDescription = null,
+                        tint = palette.accent,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.width(18.dp))
+                }
+                Text(
+                    text = headerLabel,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (LocalActionRowStyle.current == ActionRowStyle.Menu) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onBackground
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (LocalActionRowStyle.current == ActionRowStyle.Menu) {
+                    Icon(
+                        imageVector = headerIcon,
+                        contentDescription = null,
+                        tint = palette.accent,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                } else {
+                    Spacer(Modifier.width(8.dp))
+                }
+                if (auto) {
+                    IconButton(onClick = { Downloads.promoteToManual(song.videoId) }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Save,
+                            contentDescription = stringResource(R.string.auto_downloads_keep),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+                IconButton(onClick = {
+                    // Auto files go through the confirm above; manual ones
+                    // stay one tap, exactly as before.
+                    if (auto) confirmDeleteAuto = true
+                    else scope.launch { Downloads.delete(context, song.videoId) }
+                }) {
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = stringResource(R.string.delete),
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
         } else if (!isOffline) {
             ActionRow(
                 icon = Icons.Rounded.Download,
@@ -783,6 +916,7 @@ private fun sleepTimerCountdown(): String? {
  * artwork passes the artwork's accent instead, so the row belongs to the sheet
  * it is drawn on.
  */
+
 @Composable
 internal fun ActionRow(
     icon: ImageVector,
@@ -949,3 +1083,4 @@ internal fun SheetHeading(text: String) {
         modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 16.dp, bottom = 4.dp),
     )
 }
+

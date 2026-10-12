@@ -290,6 +290,21 @@ private fun DownloadManagerRow(
 ) {
     val progress = item.progress
     val failed = progress as? DownloadProgress.Failed
+    // Where this row's file actually landed. The caption used to name
+    // Music/BitChord unconditionally, which is only true for MediaStore and
+    // legacy-public rows — app-private files (the export switch off, which
+    // is where automatic tracks always go) would claim a folder they never
+    // touched.
+    val savedUris by Downloads.saved.collectAsStateWithLifecycle()
+    val doneUri = savedUris[item.videoId]
+    val doneCaption = if (doneUri == null ||
+        doneUri.startsWith("content://") ||
+        "/Music/BitChord" in doneUri
+    ) {
+        R.string.saved_to_bitchord_folder
+    } else {
+        R.string.saved_to_app_storage
+    }
 
     Row(
         modifier = Modifier
@@ -381,7 +396,7 @@ private fun DownloadManagerRow(
                         },
                     )
                 }
-                is DownloadProgress.Done -> RowStatus(stringResource(R.string.saved_to_bitchord_folder))
+                is DownloadProgress.Done -> RowStatus(stringResource(doneCaption))
                 is DownloadProgress.Failed ->
                     RowStatus(progress.reason, MaterialTheme.colorScheme.error)
             }

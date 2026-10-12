@@ -106,10 +106,11 @@ fun LyricsSourcesDialog(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            modifier = Modifier
-                .width(ALERT_WIDTH)
-                .clip(shape)
+        AlertPopIn {
+            Column(
+                modifier = Modifier
+                    .width(ALERT_WIDTH)
+                    .clip(shape)
                 .then(
                     if (reduceDynamicBlur) {
                         Modifier.background(MaterialTheme.colorScheme.surface)
@@ -203,6 +204,7 @@ fun LyricsSourcesDialog(
             )
             AlertRule()
             AlertAction(label = stringResource(R.string.done), emphasised = true, onClick = onDismiss)
+        }
         }
     }
 

@@ -44,6 +44,7 @@ import kotlin.math.min
 object ListeningRecorder {
 
     private var currentId: String? = null
+    private var currentSong: Song? = null
     private var lastSampleAt: Long = 0L
     private var playedThisTrack: Long = 0L
     private var playCounted = false
@@ -60,9 +61,13 @@ object ListeningRecorder {
     fun onSample(song: Song, durationMs: Long) {
         val now = System.currentTimeMillis()
         if (song.videoId != currentId) {
+            // Leaving a track heard briefly and never counted: that is a skip,
+            // not listening. Filed so the auto path can penalise it.
+            recordSkipIfNeeded(now)
             // A new track anchors the clock and contributes nothing yet — see
             // the class note on undercounting.
             currentId = song.videoId
+            currentSong = song
             lastSampleAt = now
             playedThisTrack = 0L
             playCounted = false
@@ -93,17 +98,54 @@ object ListeningRecorder {
     /**
      * Playback stopped, paused, or moved on.
      *
+     * This only closes the clock — it never files a skip. A pause below
+     * 30 s is not a rejection (the track may play on to a full play), and
+     * filing one here poisoned the score permanently. Skips are filed by
+     * [onTrackChanged], which is the only place the outgoing track is
+     * known to be abandoned.
+     *
      * Forgetting the current track is what makes the *next* tick anchor rather
      * than contribute: without it, a player paused for an afternoon would hand
      * [MAX_STEP_MS] of listening to whatever was on screen when it resumed.
      */
     @Synchronized
     fun onStopped() {
+        reset()
+        ListeningStats.flush()
+    }
+
+    /**
+     * The player moved to another track (or the same one again on repeat).
+     *
+     * Unlike [onStopped], the outgoing track is known abandoned here, so a
+     * brief uncounted listen is filed as a skip before the state resets.
+     */
+    @Synchronized
+    fun onTrackChanged() {
+        recordSkipIfNeeded(System.currentTimeMillis())
+        reset()
+        ListeningStats.flush()
+    }
+
+    private fun reset() {
         currentId = null
+        currentSong = null
         playedThisTrack = 0L
         playCounted = false
         samplesSinceFlush = 0
-        ListeningStats.flush()
+    }
+
+    /**
+     * File a skip for the outgoing track when it was heard briefly and never
+     * counted as a play: started, under 30s of audio, no play threshold met.
+     * Untouched tracks (0ms, e.g. queue jumps) are not skips.
+     */
+    @Synchronized
+    private fun recordSkipIfNeeded(now: Long) {
+        val song = currentSong ?: return
+        if (playCounted) return
+        if (playedThisTrack <= 0L || playedThisTrack >= SKIP_MS) return
+        ListeningStats.record(song, 0L, false, skipped = true)
     }
 
     // ── Filling in what the queue didn't carry ──────────────────────────────
@@ -176,6 +218,9 @@ object ListeningRecorder {
 
     /** Under half a minute is not a listen, however it ended. */
     private const val PLAY_FLOOR_MS = 30_000L
+
+    /** Leaving with less than this and no counted play is a skip. */
+    private const val SKIP_MS = 30_000L
 
     /** Past four minutes, half a track is more listening than anyone disputes. */
     private const val PLAY_CEILING_MS = 4 * 60 * 1000L

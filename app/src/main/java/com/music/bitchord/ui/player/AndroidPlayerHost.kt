@@ -2,6 +2,7 @@ package com.music.bitchord.ui.player
 
 import com.music.bitchord.wear.WearBridge
 import android.content.Context
+import android.app.Activity
 import android.database.ContentObserver
 import android.media.AudioFormat
 import android.media.AudioManager
@@ -48,6 +49,20 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val main = Handler(Looper.getMainLooper())
+
+    /**
+     * The window the player is drawn in, named by [com.music.bitchord.MainActivity].
+     *
+     * A screen-capture callback is registered on an Activity and the host is
+     * installed from a Context that is not one — the application — so the
+     * window is handed over afterwards rather than assumed. Null between the
+     * application starting and the first frame, and again after the last one
+     * is gone, and neither state is an error: a capture callback is only ever
+     * asked for while the lyrics are on screen, which is only while there is
+     * a window.
+     */
+    @Volatile
+    var activity: Activity? = null
 
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas

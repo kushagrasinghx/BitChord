@@ -160,6 +160,15 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         initLastfm()
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
+        // Automatic downloads: worker slot for WIFI_CHARGING mode, plus a
+        // debounced foreground sync whenever the switches or the connections
+        // move. Delayed past startup so the first sync never races library
+        // load or stream resolution.
+        com.music.bitchord.download.AutoDownloadTriggers.install(this)
+        // Ratings and playlist adds tapped while offline: reload whatever a
+        // dead process left queued, so hearts and picker taps survive it.
+        com.music.bitchord.data.LikeSync.install(this)
+        com.music.bitchord.data.PlaylistSync.install(this)
         backgroundInit.join()
     }
 

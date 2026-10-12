@@ -31,6 +31,14 @@ interface AppUiHost {
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable
     fun downloadedIds(): Set<String>
+
+    /**
+     * Of [downloadedIds], the ones the automatic path fetched. Rows mark them
+     * with the auto glyph instead of the plain one. Defaults to none so hosts
+     * without an auto path (desktop, TV) keep compiling untouched.
+     */
+    @Composable
+    fun autoDownloadedIds(): Set<String> = emptySet()
 }
 
 object AppUi {

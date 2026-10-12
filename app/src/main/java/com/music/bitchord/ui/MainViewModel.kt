@@ -14,6 +14,8 @@ import com.music.bitchord.auth.adjacentProfile
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.LikeState
+import com.music.bitchord.data.LikeSync
+import com.music.bitchord.data.PlaylistSync
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.model.SPOTIFY_MISSING_PREFIX
 import com.music.bitchord.data.model.SPOTIFY_PENDING_PREFIX
@@ -54,6 +56,7 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
+import com.music.bitchord.download.AutoDownloads
 import com.music.bitchord.download.Downloads
 import android.util.LruCache
 import kotlinx.coroutines.Dispatchers
@@ -644,10 +647,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Sets (or clears) the thumbs rating on [videoId].
      *
-     * Written to the screen first and rolled back if YouTube refuses. A rating
-     * is a one-tap, low-stakes action taken while a song is playing; waiting
-     * on a round trip before the heart fills reads as the tap not having
-     * registered, and people tap again.
+     * Written to the screen first and rolled back if YouTube refuses — unless
+     * the failure is a dead network, in which case the tap stays and the
+     * rating goes out with the next connection ([LikeSync]). A rating is a
+     * one-tap, low-stakes action taken while a song is playing; waiting on a
+     * round trip before the heart fills reads as the tap not having
+     * registered, and people tap again. The same holds offline: a heart that
+     * un-fills itself a second later reads as broken.
      */
     fun setLike(videoId: String, status: LikeStatus) {
         if (!requireSignIn()) return
@@ -657,6 +663,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             YtMusicRepository.rate(videoId, status).fold(
                 onSuccess = {
+                    LikeSync.undefer(videoId)
+                    AutoDownloads.noteRatingChanged(videoId, status)
                     // Liked Music is now out of date either way.
                     libraryStale = true
                     if (status != LikeStatus.LIKE) dropFromLikedLists(videoId)
@@ -666,8 +674,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         status == LikeStatus.INDIFFERENT
                     if (unliked) forgetFromLibrary(videoId)
                 },
-                onFailure = {
-                    LikeState.set(videoId, previous)
+                onFailure = { e ->
+                    if (LikeSync.isOfflineFailure(e)) {
+                        LikeSync.defer(videoId, status)
+                        libraryStale = true
+                    } else {
+                        LikeState.set(videoId, previous)
+                    }
                 },
             )
         }
@@ -960,7 +973,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun addToPlaylists(
         playlists: List<UserPlaylist>,
         song: Song,
-        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
+        onResult: (added: Int, alreadyThere: Int, failed: Int, queued: Int) -> Unit =
+            { _, _, _, _ -> },
     ) {
         if (!requireSignIn() || playlists.isEmpty()) return
         viewModelScope.launch {
@@ -969,11 +983,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 outcomes.count { it == AddOutcome.ADDED },
                 outcomes.count { it == AddOutcome.ALREADY_THERE },
                 outcomes.count { it == AddOutcome.FAILED },
+                outcomes.count { it == AddOutcome.QUEUED },
             )
         }
     }
 
-    private enum class AddOutcome { ADDED, ALREADY_THERE, FAILED }
+    private enum class AddOutcome { ADDED, ALREADY_THERE, FAILED, QUEUED }
 
     private suspend fun addOne(playlist: UserPlaylist, song: Song): AddOutcome {
         val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
@@ -983,6 +998,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (known?.any { it.videoId == song.videoId } == true) return AddOutcome.ALREADY_THERE
         return YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId)).fold(
             onSuccess = { added ->
+                PlaylistSync.undefer(playlist.playlistId, song.videoId)
                 libraryStale = true
                 // The playlist's page may be open behind the picker — it is
                 // reachable from a row's own menu on it — so the track goes
@@ -990,7 +1006,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 appendToOpenPlaylist(playlist.browseId, song, added[song.videoId])
                 AddOutcome.ADDED
             },
-            onFailure = { AddOutcome.FAILED },
+            onFailure = { e ->
+                // Dead network, not a refusal: the tap is already
+                // acknowledged, the request travels with the next
+                // connection (see PlaylistSync).
+                if (LikeSync.isOfflineFailure(e)) {
+                    PlaylistSync.defer(playlist.playlistId, song.videoId)
+                    AddOutcome.QUEUED
+                } else {
+                    AddOutcome.FAILED
+                }
+            },
         )
     }
 
@@ -1438,6 +1464,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             AppSettings.webdavUrl.drop(1).collect {
                 reloadRemoteDetail(com.music.bitchord.data.webdav.WebDavConfig.BROWSE_ID)
+            }
+        }
+        viewModelScope.launch {
+            // Ratings tapped while offline wait in LikeSync; null means no
+            // active network, so null -> non-null is "we are online again".
+            AppSettings.meteredConnection.drop(1).collect { metered ->
+                if (metered == null) return@collect
+                LikeSync.flush { videoId, status ->
+                    libraryStale = true
+                    if (status != LikeStatus.LIKE) dropFromLikedLists(videoId)
+                    if (status == LikeStatus.INDIFFERENT) forgetFromLibrary(videoId)
+                }
+                // Queued playlist adds travel on the same reconnect.
+                PlaylistSync.flush { playlistId, videoId ->
+                    val browseId = "VL$playlistId"
+                    // Throws offline to stop the pass, anything else to drop
+                    // this entry and continue (see PlaylistSync.flush).
+                    val known = YtMusicRepository.allSongs(browseId).getOrThrow()
+                    if (known.none { it.videoId == videoId }) {
+                        YtMusicRepository.addToPlaylist(playlistId, listOf(videoId)).getOrThrow()
+                    }
+                    libraryStale = true
+                }
             }
         }
         viewModelScope.launch {
@@ -3229,6 +3278,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _account.value = null
         likedSyncJob?.cancel()
         LikeState.clear()
+        LikeSync.clear()
+        PlaylistSync.clear()
+        AutoDownloads.clearLikedCache()
         _playlistsLoading.value = false
         _playlists.value = emptyList()
         _playlistOwned.value = emptyMap()
@@ -3293,6 +3345,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // them would show the next signed-in user someone else's hearts.
         likedSyncJob?.cancel()
         LikeState.clear()
+        LikeSync.clear()
+        PlaylistSync.clear()
+        AutoDownloads.clearLikedCache()
         _playlists.value = emptyList()
         _playlistOwned.value = emptyMap()
         ownershipInFlight.clear()

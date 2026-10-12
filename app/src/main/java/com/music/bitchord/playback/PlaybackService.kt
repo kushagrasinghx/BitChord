@@ -109,6 +109,7 @@ import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.download.AutoDownloads
 import com.music.bitchord.download.Downloads
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
@@ -116,6 +117,7 @@ import java.util.concurrent.atomic.AtomicLong
 import com.music.bitchord.data.Http
 import com.music.bitchord.auth.SignedIn
 import com.music.bitchord.data.LikeState
+import com.music.bitchord.data.LikeSync
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.discord.DiscordRPC
@@ -1812,10 +1814,15 @@ class PlaybackService : MediaLibraryService() {
     /**
      * Whether Like is offered for [item] — the player's own rule, so no surface
      * shows a heart the player doesn't: there has to be an account to record it
-     * against, and a local file or a download has no YouTube identity to rate.
+     * against, and a device-local file has no YouTube identity to rate. A
+     * finished download does — its identity sits in the download record —
+     * and the tap applies locally first anyway (see LikeSync).
      */
-    private fun canLike(item: MediaItem?): Boolean =
-        item != null && SignedIn.state(this).value && item.toSong().localUri == null
+    private fun canLike(item: MediaItem?): Boolean {
+        if (item == null || !SignedIn.state(this).value) return false
+        val song = item.toSong()
+        return song.localUri == null || song.videoId in Downloads.saved.value.keys
+    }
 
     /** Favorite and Shuffle: the only actions shown on the phone notification. */
     private fun notificationButtons(): List<CommandButton> {
@@ -2703,15 +2710,24 @@ class PlaybackService : MediaLibraryService() {
         }
 
         // Match the player UI: update both surfaces immediately, then reconcile
-        // the optimistic state with YouTube in the background.
+        // the optimistic state with YouTube in the background. Offline the tap
+        // stays local and waits in LikeSync, same as a tap from the UI.
         LikeState.set(videoId, target)
         refreshCustomLayouts()
         favoriteActionJob = scope.launch {
             YtMusicRepository.rate(videoId, target)
+                .onSuccess {
+                    LikeSync.undefer(videoId)
+                    AutoDownloads.noteRatingChanged(videoId, target)
+                }
                 .onFailure {
-                    LikeState.set(videoId, previous)
-                    refreshCustomLayouts()
-                    TrackLog.w("BitChord", "notification favorite failed: ${it.message}", about = videoId)
+                    if (LikeSync.isOfflineFailure(it)) {
+                        LikeSync.defer(videoId, target)
+                    } else {
+                        LikeState.set(videoId, previous)
+                        refreshCustomLayouts()
+                        TrackLog.w("BitChord", "notification favorite failed: ${it.message}", about = videoId)
+                    }
                 }
         }
     }
@@ -3022,7 +3038,7 @@ class PlaybackService : MediaLibraryService() {
         // id doesn't change: repeat-one plays the same song again, and without
         // this the second play through is a continuation of the first and is
         // never counted.
-        ListeningRecorder.onStopped()
+        ListeningRecorder.onTrackChanged()
         val newSong = mediaItem?.toSong()
         val durationMs = exoPlayer.duration.takeIf { it > 0 }
         if (exoPlayer.isPlaying) {
@@ -6418,6 +6434,9 @@ class PlaybackService : MediaLibraryService() {
                 .drop(1)
                 .collect { metered ->
                     if (metered == null) return@collect
+                    // Ratings tapped while offline wait in LikeSync; a
+                    // reconnect is what sends them.
+                    LikeSync.flush { _, _ -> refreshCustomLayouts() }
                     val rpc = discordRpc ?: return@collect
                     withContext(Dispatchers.IO) { runCatching { rpc.wakeUp() } }
                     // Re-pushed rather than left to the gateway's own replay,

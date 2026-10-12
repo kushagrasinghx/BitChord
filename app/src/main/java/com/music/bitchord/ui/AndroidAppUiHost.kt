@@ -20,4 +20,10 @@ object AndroidAppUiHost : AppUiHost {
         val saved by Downloads.saved.collectAsStateWithLifecycle()
         return saved.keys
     }
+
+    @Composable
+    override fun autoDownloadedIds(): Set<String> {
+        val meta by Downloads.savedMetadata.collectAsStateWithLifecycle()
+        return meta.values.filter { it.auto }.mapTo(HashSet()) { it.videoId }
+    }
 }

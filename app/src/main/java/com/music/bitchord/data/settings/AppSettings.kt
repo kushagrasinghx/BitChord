@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
@@ -93,6 +94,40 @@ enum class DownloadQuality(
         "~35 MB",
         true,
     ),
+}
+
+/**
+ * Which connections an automatic download may use.
+ *
+ * Separate from [AppSettings.wifiOnlyDownloads] on purpose: that switch guards
+ * taps the user makes now, this one guards work the app starts on its own.
+ */
+enum class AutoDownloadNetMode {
+    ALWAYS,
+    WIFI_ONLY,
+    WIFI_CHARGING,
+}
+
+/**
+ * What the automatic queue is filled from. One or the other, picked like an
+ * output-precision rung rather than two independent toggles: the two pools
+ * overlap (a liked track with history is both), so switches would only ever
+ * argue about the same songs twice.
+ */
+enum class AutoDownloadSource {
+    LIKED,
+    ALGORITHM,
+}
+
+/**
+ * How many tracks one sync may queue on a capped connection — a multiplier
+ * on the per-mode base, not an absolute count. Charging on unmetered Wi-Fi
+ * is exempt: with power connected there is no battery to drain.
+ */
+enum class AutoDownloadIntensity(val factor: Double) {
+    LIGHT(0.5),
+    MODERATE(1.0),
+    HEAVY(2.0),
 }
 
 enum class ThemeMode(val label: String) {
@@ -211,6 +246,34 @@ object AppSettings {
 
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
+
+    /** Whether the device is currently charging. `null` until the first battery broadcast. */
+    val isCharging = MutableStateFlow<Boolean?>(null)
+
+    /** Battery level 0–100. `null` until the first battery broadcast. */
+    val batteryPct = MutableStateFlow<Int?>(null)
+
+    /**
+     * Master switch for automatic downloads. Off by default: nothing is fetched
+     * without the user opting in, and every other auto setting below is inert
+     * while this is off.
+     */
+    val autoDownloadEnabled = MutableStateFlow(false)
+
+    /** Which pool fills the automatic queue: liked songs or the algorithm. */
+    val autoDownloadSource = MutableStateFlow(AutoDownloadSource.ALGORITHM)
+
+    /** Cap for automatic downloads, in gigabytes. Eviction is LRU by last listen. */
+    val autoDownloadMaxGb = MutableStateFlow(5f)
+
+    /** File quality used only by the automatic path. Manual taps keep [downloadQuality]. */
+    val autoDownloadQuality = MutableStateFlow(DownloadQuality.HIGH)
+
+    /** Which connections the automatic path may use. */
+    val autoDownloadNetMode = MutableStateFlow(AutoDownloadNetMode.WIFI_ONLY)
+
+    /** Batch-size multiplier for capped connections (mobile data, plain Wi-Fi). */
+    val autoDownloadIntensity = MutableStateFlow(AutoDownloadIntensity.MODERATE)
 
     // `losslessAudio` used to live here, behind a "Prefer lossless" switch on
     // the Sources screen. It is gone: sources are asked for their best and each
@@ -765,6 +828,32 @@ object AppSettings {
         get() = !wifiOnlyDownloads.value || meteredConnection.value != true
 
     /**
+     * Whether the automatic path may start work on the connections in hand.
+     *
+     * `null` metered reads fail open the same way [downloadsAllowedNow] does
+     * for the network, except `WIFI_CHARGING` which needs an explicit `true`:
+     * starting a background-grade batch on an unknown power state is how a
+     * phone dies in a pocket. Unplugged under [LOW_BATTERY_PCT], everything
+     * waits — a background queue is the wrong thing to spend the last of
+     * the battery on. Plugged in, the level does not matter.
+     */
+    val autoDownloadsAllowedNow: Boolean
+        get() {
+            if (!autoDownloadEnabled.value) return false
+            if (!batteryOk) return false
+            return when (autoDownloadNetMode.value) {
+                AutoDownloadNetMode.ALWAYS -> true
+                AutoDownloadNetMode.WIFI_ONLY -> meteredConnection.value != true
+                AutoDownloadNetMode.WIFI_CHARGING ->
+                    meteredConnection.value != true && isCharging.value == true
+            }
+        }
+
+    /** False only when unplugged under [LOW_BATTERY_PCT]. Unknown level reads as fine. */
+    val batteryOk: Boolean
+        get() = isCharging.value == true || (batteryPct.value ?: 100) >= LOW_BATTERY_PCT
+
+    /**
      * [authStore] is the application's own, passed in rather than opened again:
      * each open of the encrypted store is a keystore round trip, and a second
      * one here was a measurable slice of cold start.
@@ -804,6 +893,35 @@ object AppSettings {
         migrateDownloadQuality()
         downloadQuality.value = readDownloadQuality()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
+        autoDownloadEnabled.value = prefs.getBoolean(KEY_AUTO_DOWNLOAD_ENABLED, false)
+        autoDownloadSource.value = runCatching {
+            AutoDownloadSource.valueOf(
+                prefs.getString(KEY_AUTO_DOWNLOAD_SOURCE, null) ?: AutoDownloadSource.ALGORITHM.name,
+            )
+        }.getOrDefault(AutoDownloadSource.ALGORITHM)
+        autoDownloadMaxGb.value = prefs.getFloat(KEY_AUTO_DOWNLOAD_MAX_GB, 5f)
+            .coerceIn(MIN_AUTO_DOWNLOAD_GB, MAX_AUTO_DOWNLOAD_GB)
+        autoDownloadQuality.value = runCatching {
+            DownloadQuality.valueOf(
+                prefs.getString(KEY_AUTO_DOWNLOAD_QUALITY, null) ?: DownloadQuality.HIGH.name,
+            )
+        }.getOrDefault(DownloadQuality.HIGH).let {
+            // The picker hides Lossless, so a stored one is always legacy
+            // (from the build that briefly offered it): land on High rather
+            // than estimating 35 MB a track and resolving lossless outputs.
+            if (it == DownloadQuality.LOSSLESS) DownloadQuality.HIGH else it
+        }
+        autoDownloadNetMode.value = runCatching {
+            AutoDownloadNetMode.valueOf(
+                prefs.getString(KEY_AUTO_DOWNLOAD_NET_MODE, null) ?: AutoDownloadNetMode.WIFI_ONLY.name,
+            )
+        }.getOrDefault(AutoDownloadNetMode.WIFI_ONLY)
+        autoDownloadIntensity.value = runCatching {
+            AutoDownloadIntensity.valueOf(
+                prefs.getString(KEY_AUTO_DOWNLOAD_INTENSITY, null)
+                    ?: AutoDownloadIntensity.MODERATE.name,
+            )
+        }.getOrDefault(AutoDownloadIntensity.MODERATE)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
@@ -1046,6 +1164,58 @@ object AppSettings {
                 },
             )
         }
+        watchCharging(context)
+    }
+
+    /**
+     * Track charging state and battery level for the automatic path.
+     *
+     * A sticky-broadcast read plus a receiver: no polling, the system wakes us
+     * only when the battery state changes, so an unmet condition costs nothing.
+     */
+    private fun watchCharging(context: Context) {
+        val app = context.applicationContext
+        val readSticky = {
+            runCatching {
+                val filter = android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
+                val sticky = app.registerReceiver(null, filter)
+                val status = sticky?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+                val charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                    status == android.os.BatteryManager.BATTERY_STATUS_FULL
+                val level = sticky?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                val scale = sticky?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+                val pct = if (level >= 0 && scale > 0) (level * 100 / scale) else null
+                charging to pct
+            }.getOrNull()
+        }
+        readSticky()?.let { (charging, pct) ->
+            isCharging.value = charging
+            pct?.let { batteryPct.value = it }
+        }
+        runCatching {
+            val receiver = object : android.content.BroadcastReceiver() {
+                override fun onReceive(c: Context?, intent: android.content.Intent?) {
+                    if (intent?.action != android.content.Intent.ACTION_BATTERY_CHANGED) return
+                    val status = intent.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
+                    isCharging.value =
+                        status == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                            status == android.os.BatteryManager.BATTERY_STATUS_FULL
+                    val level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+                    val scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
+                    if (level >= 0 && scale > 0) batteryPct.value = level * 100 / scale
+                }
+            }
+            // Three-arg overload: the two-arg one throws on API 34+ for a
+            // non-null receiver without an export flag (targetSdk is 36),
+            // which used to die inside runCatching and freeze charging
+            // state at its sticky-read value.
+            ContextCompat.registerReceiver(
+                app,
+                receiver,
+                android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }
     }
 
     fun setAutoplay(value: Boolean) {
@@ -1090,6 +1260,37 @@ object AppSettings {
     fun setWifiOnlyDownloads(value: Boolean) {
         wifiOnlyDownloads.value = value
         prefs.edit().putBoolean(KEY_WIFI_ONLY_DOWNLOADS, value).apply()
+    }
+
+    fun setAutoDownloadEnabled(value: Boolean) {
+        autoDownloadEnabled.value = value
+        prefs.edit().putBoolean(KEY_AUTO_DOWNLOAD_ENABLED, value).apply()
+    }
+
+    fun setAutoDownloadSource(value: AutoDownloadSource) {
+        autoDownloadSource.value = value
+        prefs.edit().putString(KEY_AUTO_DOWNLOAD_SOURCE, value.name).apply()
+    }
+
+    fun setAutoDownloadMaxGb(value: Float) {
+        val normalized = value.coerceIn(MIN_AUTO_DOWNLOAD_GB, MAX_AUTO_DOWNLOAD_GB)
+        autoDownloadMaxGb.value = normalized
+        prefs.edit().putFloat(KEY_AUTO_DOWNLOAD_MAX_GB, normalized).apply()
+    }
+
+    fun setAutoDownloadQuality(value: DownloadQuality) {
+        autoDownloadQuality.value = value
+        prefs.edit().putString(KEY_AUTO_DOWNLOAD_QUALITY, value.name).apply()
+    }
+
+    fun setAutoDownloadNetMode(value: AutoDownloadNetMode) {
+        autoDownloadNetMode.value = value
+        prefs.edit().putString(KEY_AUTO_DOWNLOAD_NET_MODE, value.name).apply()
+    }
+
+    fun setAutoDownloadIntensity(value: AutoDownloadIntensity) {
+        autoDownloadIntensity.value = value
+        prefs.edit().putString(KEY_AUTO_DOWNLOAD_INTENSITY, value.name).apply()
     }
 
     fun setCrossfadeSeconds(value: Int) {
@@ -1945,6 +2146,12 @@ object AppSettings {
     const val MIN_UPGRADE_LENGTH_SLACK_SECONDS = 0
     const val MAX_UPGRADE_LENGTH_SLACK_SECONDS = 10
 
+    const val MIN_AUTO_DOWNLOAD_GB = 1f
+    const val MAX_AUTO_DOWNLOAD_GB = 20f
+
+    /** Unplugged below this battery level, the automatic queue stands still. */
+    const val LOW_BATTERY_PCT = 30
+
     private const val DEFAULT_PERFORMANCE_REFRESH_RATE = 120
 
     private fun normalizePerformanceRefreshRate(value: Int): Int =
@@ -1956,6 +2163,12 @@ object AppSettings {
     private const val KEY_UPGRADE_LENGTH_SLACK_SECONDS = "upgrade_length_slack_seconds"
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
+    private const val KEY_AUTO_DOWNLOAD_ENABLED = "auto_download_enabled"
+    private const val KEY_AUTO_DOWNLOAD_SOURCE = "auto_download_source"
+    private const val KEY_AUTO_DOWNLOAD_MAX_GB = "auto_download_max_gb"
+    private const val KEY_AUTO_DOWNLOAD_QUALITY = "auto_download_quality"
+    private const val KEY_AUTO_DOWNLOAD_NET_MODE = "auto_download_net_mode"
+    private const val KEY_AUTO_DOWNLOAD_INTENSITY = "auto_download_intensity"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"

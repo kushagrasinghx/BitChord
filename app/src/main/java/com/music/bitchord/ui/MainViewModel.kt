@@ -58,6 +58,11 @@ import android.util.LruCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
+import com.music.bitchord.data.ArtistProfileCache
+import com.music.bitchord.data.CachedArtistProfile
+import com.music.bitchord.data.OnlineArtworkRepository
+import com.music.bitchord.ui.screens.AlbumEntry
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -87,9 +92,12 @@ import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.StreamChoice
 import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
 import com.music.bitchord.ui.screens.matchesSearch
+import com.music.bitchord.data.DebugLog as Log
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+
+private const val TAG = "BitChord"
 
 /** What the Search tab searches: YouTube Music, or the Local Music folder on this device. */
 enum class SearchSource { YOUTUBE, LIBRARY }
@@ -630,10 +638,48 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * registered, and people tap again.
      */
     fun setLike(videoId: String, status: LikeStatus) {
-        if (!requireSignIn()) return
+        val isLocal = videoId.startsWith("content://") || videoId.startsWith("file://") ||
+            videoId.startsWith("audio:") || videoId.startsWith("local:")
         val previous = likeStatusOf(videoId)
         if (previous == status) return
+
         LikeState.set(videoId, status)
+        if (isLocal) {
+            val context = getApplication<Application>()
+            LocalMediaRepository.setLocalTrackLiked(context, videoId, status)
+            if (_signedIn.value) {
+                viewModelScope.launch(Dispatchers.IO) {
+                    val localSongs = LocalMediaRepository.cachedSongsMemory ?: LocalMediaRepository.getCachedLocalMusic(context)
+                    val song = localSongs.firstOrNull { it.videoId == videoId || it.localUri == videoId || it.localPath == videoId }
+                        ?: Downloads.getDownloadedSongs(context).firstOrNull { it.videoId == videoId || it.localUri == videoId }
+                    if (song != null) {
+                        val cleanArtist = OnlineArtworkRepository.sanitizeArtist(song.artist)
+                        val cleanTitle = OnlineArtworkRepository.sanitizeTitle(song.title)
+                        val query = "$cleanArtist $cleanTitle".trim()
+                        if (query.isNotBlank()) {
+                            val matchedSong = YtMusicRepository.search(query, SearchFilter.SONGS).getOrNull()
+                                ?.firstNotNullOfOrNull { (it as? SearchResult.Track)?.song ?: (it as? SearchResult.TopTrack)?.song }
+                            if (matchedSong != null) {
+                                val ytid = matchedSong.videoId
+                                YtMusicRepository.rate(ytid, status).fold(
+                                    onSuccess = {
+                                        LikeState.set(ytid, status)
+                                        libraryStale = true
+                                        if (status != LikeStatus.LIKE) dropFromLikedLists(ytid)
+                                    },
+                                    onFailure = {
+                                        Log.w(TAG, "Failed syncing local like to YouTube: ${it.message}")
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            return
+        }
+
+        if (!requireSignIn()) return
         viewModelScope.launch {
             YtMusicRepository.rate(videoId, status).fold(
                 onSuccess = {
@@ -1402,8 +1448,54 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             AppSettings.filterNonMusicAudio.drop(1).collect {
+                val context = getApplication<Application>()
+                LocalMediaRepository.clearCache(context)
                 if (_detailStack.value.any { page -> page.browseId == "local:all" }) {
                     reloadLocalDetail("local:all")
+                }
+            }
+        }
+        viewModelScope.launch {
+            AppSettings.preventDuplicateTracks.drop(1).collect {
+                val context = getApplication<Application>()
+                LocalMediaRepository.clearCache(context)
+                if (_detailStack.value.any { page -> page.browseId == "local:all" }) {
+                    reloadLocalDetail("local:all")
+                }
+            }
+        }
+        viewModelScope.launch {
+            LocalMediaRepository.liveDiscoveredSongs.collect { batch ->
+                if (batch.isNotEmpty()) {
+                    val state = UiState.Success(batch)
+                    _librarySongs.value = state
+                    _detailStack.value = _detailStack.value.map { page ->
+                        when {
+                            page.browseId == "local:all" || page.browseId == "local:downloads" -> {
+                                page.copy(songs = state)
+                            }
+                            page.browseId.startsWith("local:album:") -> {
+                                val albumTitle = page.title
+                                val albumSongs = batch.filter { it.albumName?.equals(albumTitle, ignoreCase = true) == true }
+                                if (albumSongs.isNotEmpty()) {
+                                    val art = albumSongs.firstOrNull { it.thumbnailUrl?.startsWith("audio:") == false }?.thumbnailUrl
+                                        ?: albumSongs.firstNotNullOfOrNull { it.thumbnailUrl }
+                                    page.copy(thumbnailUrl = art ?: page.thumbnailUrl, songs = UiState.Success(albumSongs))
+                                } else page
+                            }
+                            page.browseId.startsWith("local:artist:") -> {
+                                val artistName = page.title
+                                val artistSongs = batch.filter {
+                                    com.music.bitchord.data.LocalMediaRepository.splitArtists(it.artist).any { a: String -> a.equals(artistName, ignoreCase = true) }
+                                }
+                                if (artistSongs.isNotEmpty()) {
+                                    val shelves = buildLocalArtistShelves(artistName, artistSongs)
+                                    page.copy(songs = UiState.Success(artistSongs), sections = shelves)
+                                } else page
+                            }
+                            else -> page
+                        }
+                    }
                 }
             }
         }
@@ -1960,16 +2052,50 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadLibrarySongs() {
         viewModelScope.launch {
             val context = getApplication<Application>()
-            _librarySongs.value = if (!LocalMediaRepository.hasStoragePermission(context)) {
-                UiState.Error(text(R.string.storage_required_read))
+            if (!LocalMediaRepository.hasStoragePermission(context)) {
+                _librarySongs.value = UiState.Error(text(R.string.storage_required_read))
             } else {
-                runCatching { LocalMediaRepository.getLocalMusic(context) }.fold(
-                    onSuccess = { songs ->
-                        if (songs.isEmpty()) UiState.Error(text(R.string.no_local_audio_found))
-                        else UiState.Success(songs)
-                    },
-                    onFailure = { UiState.Error(text(R.string.no_local_audio_found)) },
-                )
+                val cached = LocalMediaRepository.getCachedLocalMusic(context)
+                if (cached.isNotEmpty()) {
+                    _librarySongs.value = UiState.Success(cached)
+                } else {
+                    _librarySongs.value = runCatching { LocalMediaRepository.scanAndCacheLocalMusic(context) }.fold(
+                        onSuccess = { songs ->
+                            if (songs.isEmpty()) UiState.Error(text(R.string.no_local_audio_found))
+                            else UiState.Success(songs)
+                        },
+                        onFailure = { UiState.Error(text(R.string.no_local_audio_found)) },
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Performs an explicit, on-demand rescan of device local music,
+     * updating both the detail stack and library state.
+     */
+    fun refreshLocalMusic() {
+        viewModelScope.launch {
+            val context = getApplication<Application>()
+            if (!LocalMediaRepository.hasStoragePermission(context)) {
+                _detailStack.value = _detailStack.value.map {
+                    if (it.browseId == "local:all") {
+                        it.copy(songs = UiState.Error(text(R.string.storage_required_read)))
+                    } else it
+                }
+                return@launch
+            }
+            runCatching {
+                LocalMediaRepository.clearCache(context)
+                val fresh = LocalMediaRepository.scanAndCacheLocalMusic(context)
+                val state = if (fresh.isEmpty()) UiState.Error(text(R.string.no_local_audio_found)) else UiState.Success(fresh)
+                _detailStack.value = _detailStack.value.map {
+                    if (it.browseId == "local:all") {
+                        it.copy(songs = state)
+                    } else it
+                }
+                _librarySongs.value = state
             }
         }
     }
@@ -2365,11 +2491,409 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
          */
 
         fun browseTypeOf(browseId: String, fallback: BrowseType = BrowseType.OTHER): BrowseType = when {
+            browseId.startsWith("local:album:") -> BrowseType.ALBUM
+            browseId.startsWith("local:artist:") -> BrowseType.ARTIST
             browseId.startsWith(Downloads.PLAYLIST_PREFIX) -> BrowseType.PLAYLIST
             browseId.startsWith("UC") -> BrowseType.ARTIST
             browseId.startsWith("MPREb") || browseId.startsWith("VLOLAK") || browseId.startsWith("OLAK") -> BrowseType.ALBUM
             browseId.startsWith("VL") || browseId.startsWith("PL") -> BrowseType.PLAYLIST
             else -> fallback
+        }
+    }
+
+    val localAlbumsByKey = java.util.concurrent.ConcurrentHashMap<String, AlbumEntry>()
+
+    /**
+     * Opens an offline or downloaded album in the full [DetailScreen] release view.
+     */
+    fun openLocalAlbum(
+        title: String,
+        artist: String,
+        thumbnailUrl: String?,
+        songs: List<Song>,
+        key: String = "$title:$artist",
+    ) {
+        val sortedSongs = songs.sortedWith(
+            compareBy<Song> { it.discNumber ?: 1 }
+                .thenBy { it.trackNumber ?: Int.MAX_VALUE }
+                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title }
+        )
+        val entry = AlbumEntry(
+            title = title,
+            artist = artist,
+            thumbnailUrl = thumbnailUrl,
+            songs = sortedSongs,
+            key = key,
+        )
+        localAlbumsByKey[key] = entry
+        localAlbumsByKey["tagged:$title"] = entry
+        localAlbumsByKey[title] = entry
+        val browseId = "local:album:$key"
+        if (_detailStack.value.lastOrNull()?.browseId == browseId) return
+        _detailStack.value += DetailPage(
+            browseId = browseId,
+            title = title,
+            subtitle = artist,
+            thumbnailUrl = thumbnailUrl,
+            songs = UiState.Success(sortedSongs),
+            type = BrowseType.ALBUM,
+        )
+    }
+
+    private fun buildLocalArtistShelves(artistName: String, songs: List<Song>): List<HomeShelf> {
+        val groups = songs.groupBy { it.albumName }
+        val albumItems = mutableListOf<ShelfItem>()
+        val singleItems = mutableListOf<ShelfItem>()
+
+        for ((albumName, albumSongs) in groups) {
+            val title = albumName?.trim()?.takeIf { it.isNotEmpty() } ?: continue
+            val key = "tagged:$title"
+            val sortedAlbumSongs = albumSongs.sortedWith(
+                compareBy<Song> { it.discNumber ?: 1 }
+                    .thenBy { it.trackNumber ?: Int.MAX_VALUE }
+                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title }
+            )
+            val albumCover = sortedAlbumSongs.firstOrNull {
+                it.thumbnailUrl?.startsWith("audio:") == false
+            }?.thumbnailUrl ?: sortedAlbumSongs.firstNotNullOfOrNull { it.thumbnailUrl }
+
+            val entry = AlbumEntry(
+                title = title,
+                artist = artistName,
+                thumbnailUrl = albumCover,
+                songs = sortedAlbumSongs,
+                key = key,
+            )
+            localAlbumsByKey[key] = entry
+            localAlbumsByKey[title] = entry
+
+            val isSingleOrEp = albumSongs.size <= 2 ||
+                title.contains("single", ignoreCase = true) ||
+                title.contains("ep", ignoreCase = true)
+
+            val year = albumSongs.firstNotNullOfOrNull { s ->
+                s.localDateAddedSeconds?.let {
+                    java.text.SimpleDateFormat("yyyy", Locale.ROOT).format(java.util.Date(it * 1000))
+                }
+            }
+            val sub = if (year != null) "$year • ${albumSongs.size} tracks" else "${albumSongs.size} tracks"
+
+            val item = ShelfItem(
+                title = title,
+                subtitle = sub,
+                thumbnailUrl = albumCover,
+                videoId = null,
+                browseId = "local:album:$key",
+            )
+            if (isSingleOrEp) {
+                singleItems.add(item)
+            } else {
+                albumItems.add(item)
+            }
+        }
+
+        val shelves = mutableListOf<HomeShelf>()
+        if (albumItems.isNotEmpty()) {
+            shelves.add(HomeShelf(title = "Albums", items = albumItems))
+        }
+        if (singleItems.isNotEmpty()) {
+            shelves.add(HomeShelf(title = "Singles & EPs", items = singleItems))
+        }
+        return shelves
+    }
+
+    /**
+     * Opens an offline or local artist with the exact same visual design, dynamic palette,
+     * Apple artist hero photo, artist logo, action row, top songs, and horizontal shelves
+     * as an online artist profile, with disk caching for offline preservation.
+     */
+    fun openLocalArtist(
+        name: String,
+        songs: List<Song>,
+    ) {
+        val browseId = "local:artist:$name"
+        if (_detailStack.value.lastOrNull()?.browseId == browseId) return
+
+        val context = getApplication<Application>()
+        val cachedProfile = ArtistProfileCache.get(context, name)
+        val albumShelves = buildLocalArtistShelves(name, songs)
+
+        val sortedSongs = if (cachedProfile?.topSongTitles?.isNotEmpty() == true) {
+            val topMap = cachedProfile.topSongTitles.withIndex().associate { it.value.lowercase(Locale.ROOT) to it.index }
+            songs.sortedWith(
+                compareBy<Song> { topMap[it.title.lowercase(Locale.ROOT)] ?: Int.MAX_VALUE }
+            )
+        } else {
+            songs
+        }
+
+        val heroArt = cachedProfile?.heroUrl
+            ?: com.music.bitchord.data.canvas.AppleArtistArtRepository.cached(name)?.heroUrl
+            ?: songs.firstNotNullOfOrNull { it.thumbnailUrl }
+
+        _detailStack.value += DetailPage(
+            browseId = browseId,
+            title = name,
+            subtitle = "Artist",
+            thumbnailUrl = heroArt,
+            songs = UiState.Success(sortedSongs),
+            type = BrowseType.ARTIST,
+            sections = albumShelves,
+            description = cachedProfile?.description,
+            subscriberCountText = cachedProfile?.subscriberCountText,
+            monthlyListenerCount = cachedProfile?.monthlyListenerCount,
+        )
+
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val appleArt = com.music.bitchord.data.canvas.AppleArtistArtRepository.artFor(name)
+
+                val searchHit = YtMusicRepository.search(name, SearchFilter.ARTISTS).getOrNull()
+                    ?.filterIsInstance<SearchResult.Browse>()
+                    ?.firstOrNull()
+                    ?.item
+
+                var bio: String? = cachedProfile?.description
+                var subs: String? = cachedProfile?.subscriberCountText
+                var monthly: String? = cachedProfile?.monthlyListenerCount
+                var topTitles = cachedProfile?.topSongTitles ?: emptyList()
+                var ytHero: String? = null
+
+                if (searchHit != null) {
+                    val browseResp = com.music.bitchord.data.innertube.Innertube.browse(searchHit.browseId)
+                    val onlineArtist = com.music.bitchord.data.innertube.InnertubeParser.parseArtistPage(browseResp)
+                    bio = onlineArtist.description ?: bio
+                    subs = onlineArtist.subscriberCountText ?: subs
+                    monthly = onlineArtist.monthlyListenerCount ?: monthly
+                    ytHero = onlineArtist.thumbnailUrl
+                    if (onlineArtist.songs.isNotEmpty()) {
+                        topTitles = onlineArtist.songs.map { it.title }
+                    }
+                }
+
+                val finalHero = appleArt?.heroUrl ?: ytHero ?: heroArt
+                val updatedProfile = CachedArtistProfile(
+                    name = name,
+                    heroUrl = finalHero,
+                    logoUrl = appleArt?.logoUrl ?: cachedProfile?.logoUrl,
+                    description = bio,
+                    subscriberCountText = subs,
+                    monthlyListenerCount = monthly,
+                    topSongTitles = topTitles,
+                )
+                ArtistProfileCache.put(context, updatedProfile)
+
+                val reorderedSongs = if (topTitles.isNotEmpty()) {
+                    val orderMap = topTitles.withIndex().associate { it.value.lowercase(Locale.ROOT) to it.index }
+                    songs.sortedWith(
+                        compareBy<Song> { orderMap[it.title.lowercase(Locale.ROOT)] ?: Int.MAX_VALUE }
+                    )
+                } else {
+                    sortedSongs
+                }
+
+                withContext(Dispatchers.Main) {
+                    _detailStack.value = _detailStack.value.map { p ->
+                        if (p.browseId == browseId) {
+                            p.copy(
+                                thumbnailUrl = finalHero,
+                                songs = UiState.Success(reorderedSongs),
+                                description = bio,
+                                subscriberCountText = subs,
+                                monthlyListenerCount = monthly,
+                            )
+                        } else p
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolves missing artwork for an offline album, writes cover.jpg to disk,
+     * and persists the update across the local library and detail stack.
+     */
+    fun enhanceLocalAlbum(title: String, artist: String, songs: List<Song>) {
+        val context = getApplication<Application>()
+        android.widget.Toast.makeText(
+            context,
+            context.getString(R.string.enhancing_album_art),
+            android.widget.Toast.LENGTH_SHORT,
+        ).show()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val art = OnlineArtworkRepository.resolveAlbumArt(context, artist, title, forceRefresh = true)
+            if (art != null) {
+                if (AppSettings.saveAlbumCoverToFolder.value) {
+                    OnlineArtworkRepository.saveCoverToAlbumFolder(context, songs, art, overwrite = true)
+                }
+                val updates = mutableMapOf<String, String>()
+                for (s in songs) {
+                    updates[s.videoId] = art
+                    s.localUri?.let {
+                        updates[it] = art
+                        com.music.bitchord.data.LocalAudioCoverFetcher.invalidate(it, context)
+                    }
+                    s.localPath?.let {
+                        updates[it] = art
+                        com.music.bitchord.data.LocalAudioCoverFetcher.invalidate(it, context)
+                    }
+                }
+                LocalMediaRepository.updateSongsArtwork(context, updates)
+                withContext(Dispatchers.Main) {
+                    val updatedSongs = songs.map { it.copy(thumbnailUrl = art) }
+                    val albumKey = "tagged:$title"
+                    val entry = AlbumEntry(
+                        title = title,
+                        artist = artist,
+                        thumbnailUrl = art,
+                        songs = updatedSongs,
+                        key = albumKey,
+                    )
+                    localAlbumsByKey[albumKey] = entry
+                    localAlbumsByKey[title] = entry
+                    localAlbumsByKey["$title:$artist"] = entry
+                    _detailStack.value = _detailStack.value.map { p ->
+                        when {
+                            p.browseId.startsWith("local:album:") &&
+                                (p.title == title || p.browseId == "local:album:$albumKey" || p.browseId == "local:album:$title:$artist") -> {
+                                p.copy(thumbnailUrl = art, songs = UiState.Success(updatedSongs))
+                            }
+                            p.browseId.startsWith("local:artist:") -> {
+                                val current = (p.songs as? UiState.Success)?.data ?: return@map p
+                                val updated = current.map { s ->
+                                    val newArt = updates[s.videoId] ?: updates[s.localUri] ?: updates[s.localPath]
+                                    if (newArt != null) s.copy(thumbnailUrl = newArt) else s
+                                }
+                                val updatedShelves = buildLocalArtistShelves(p.title, updated)
+                                p.copy(songs = UiState.Success(updated), sections = updatedShelves)
+                            }
+                            p.browseId == "local:all" || p.browseId == "local:downloads" -> {
+                                val current = (p.songs as? UiState.Success)?.data ?: return@map p
+                                val updated = current.map { s ->
+                                    val newArt = updates[s.videoId] ?: updates[s.localUri] ?: updates[s.localPath]
+                                    if (newArt != null) s.copy(thumbnailUrl = newArt) else s
+                                }
+                                p.copy(songs = UiState.Success(updated))
+                            }
+                            else -> p
+                        }
+                    }
+                    val libCurrent = (_librarySongs.value as? UiState.Success)?.data
+                    if (libCurrent != null) {
+                        val updatedLib = libCurrent.map { s ->
+                            val newArt = updates[s.videoId] ?: updates[s.localUri] ?: updates[s.localPath]
+                            if (newArt != null) s.copy(thumbnailUrl = newArt) else s
+                        }
+                        _librarySongs.value = UiState.Success(updatedLib)
+                    }
+                    com.music.bitchord.ui.screens.LocalMusicDerivedCache.invalidate()
+                    coil3.SingletonImageLoader.get(context).let { loader ->
+                        loader.memoryCache?.clear()
+                    }
+                    android.widget.Toast.makeText(
+                        context,
+                        context.getString(R.string.album_art_updated),
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        context,
+                        context.getString(R.string.album_art_not_found),
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Resolves and updates artwork for an individual offline song.
+     */
+    fun enhanceSongArtwork(song: Song) {
+        val context = getApplication<Application>()
+        android.widget.Toast.makeText(
+            context,
+            context.getString(R.string.enhancing_album_art),
+            android.widget.Toast.LENGTH_SHORT,
+        ).show()
+
+        viewModelScope.launch(Dispatchers.IO) {
+            val cleanArtist = OnlineArtworkRepository.sanitizeArtist(song.artist)
+            val cleanTitle = OnlineArtworkRepository.sanitizeTitle(song.title)
+            val cleanAlbum = song.albumName?.let { OnlineArtworkRepository.sanitizeAlbum(it) }
+
+            val art = OnlineArtworkRepository.resolveSongArt(context, cleanArtist, cleanTitle, cleanAlbum, forceRefresh = true)
+                ?: (if (!cleanAlbum.isNullOrBlank()) OnlineArtworkRepository.resolveAlbumArt(context, cleanArtist, cleanAlbum, forceRefresh = true) else null)
+
+            if (art != null) {
+                if (AppSettings.saveAlbumCoverToFolder.value) {
+                    OnlineArtworkRepository.saveCoverToAlbumFolder(context, song, art, overwrite = true)
+                }
+                val updates = mutableMapOf<String, String>()
+                updates[song.videoId] = art
+                song.localUri?.let {
+                    updates[it] = art
+                    com.music.bitchord.data.LocalAudioCoverFetcher.invalidate(it, context)
+                }
+                song.localPath?.let {
+                    updates[it] = art
+                    com.music.bitchord.data.LocalAudioCoverFetcher.invalidate(it, context)
+                }
+                LocalMediaRepository.updateSongsArtwork(context, updates)
+
+                withContext(Dispatchers.Main) {
+                    _detailStack.value = _detailStack.value.map { p ->
+                        when {
+                            p.browseId.startsWith("local:artist:") -> {
+                                val current = (p.songs as? UiState.Success)?.data ?: return@map p
+                                val updated = current.map { s ->
+                                    val newArt = updates[s.videoId] ?: updates[s.localUri] ?: updates[s.localPath]
+                                    if (newArt != null) s.copy(thumbnailUrl = newArt) else s
+                                }
+                                val updatedShelves = buildLocalArtistShelves(p.title, updated)
+                                p.copy(songs = UiState.Success(updated), sections = updatedShelves)
+                            }
+                            else -> {
+                                val songs = (p.songs as? UiState.Success)?.data ?: return@map p
+                                if (songs.any { it.videoId == song.videoId || it.localUri == song.localUri || it.localPath == song.localPath }) {
+                                    p.copy(songs = UiState.Success(songs.map {
+                                        val newArt = updates[it.videoId] ?: updates[it.localUri] ?: updates[it.localPath]
+                                        if (newArt != null) it.copy(thumbnailUrl = newArt) else it
+                                    }))
+                                } else p
+                            }
+                        }
+                    }
+                    val libCurrent = (_librarySongs.value as? UiState.Success)?.data
+                    if (libCurrent != null) {
+                        val updatedLib = libCurrent.map { s ->
+                            val newArt = updates[s.videoId] ?: updates[s.localUri] ?: updates[s.localPath]
+                            if (newArt != null) s.copy(thumbnailUrl = newArt) else s
+                        }
+                        _librarySongs.value = UiState.Success(updatedLib)
+                    }
+                    com.music.bitchord.ui.screens.LocalMusicDerivedCache.invalidate()
+                    coil3.SingletonImageLoader.get(context).let { loader ->
+                        loader.memoryCache?.clear()
+                    }
+                    android.widget.Toast.makeText(
+                        context,
+                        context.getString(R.string.album_art_updated),
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        context,
+                        context.getString(R.string.album_art_not_found),
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
         }
     }
 
@@ -2429,6 +2953,40 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         ) return
         if (browseId.startsWith(SPOTIFY_PAGE_PREFIX)) {
             openSpotifyPage(browseId, title, subtitle, thumbnailUrl)
+            return
+        }
+        if (browseId.startsWith("local:album:")) {
+            val key = browseId.removePrefix("local:album:")
+            val cached = localAlbumsByKey[key] ?: localAlbumsByKey[title]
+            if (cached != null) {
+                openLocalAlbum(
+                    title = cached.title,
+                    artist = cached.artist,
+                    thumbnailUrl = cached.thumbnailUrl ?: thumbnailUrl,
+                    songs = cached.songs,
+                    key = cached.key,
+                )
+            } else {
+                val allLocal = (_librarySongs.value as? UiState.Success)?.data.orEmpty()
+                val matching = allLocal.filter { it.albumName.equals(title, ignoreCase = true) }
+                openLocalAlbum(
+                    title = title,
+                    artist = subtitle,
+                    thumbnailUrl = thumbnailUrl,
+                    songs = matching,
+                    key = key,
+                )
+            }
+            return
+        }
+        if (browseId.startsWith("local:artist:")) {
+            val artistName = browseId.removePrefix("local:artist:")
+            val context = getApplication<Application>()
+            val allSongs = (_librarySongs.value as? UiState.Success)?.data ?: LocalMediaRepository.getLocalMusic(context)
+            val matched = allSongs.filter {
+                LocalMediaRepository.splitArtists(it.artist).any { a -> a.equals(artistName, ignoreCase = true) }
+            }
+            openLocalArtist(artistName, matched)
             return
         }
         val resolved = browseTypeOf(browseId, type)
@@ -2512,9 +3070,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (!LocalMediaRepository.hasStoragePermission(context)) {
                         UiState.Error(text(R.string.storage_required_read))
                     } else {
-                        val songs = LocalMediaRepository.getLocalMusic(context)
-                        if (songs.isEmpty()) UiState.Error(text(R.string.no_local_audio_found))
-                        else UiState.Success(songs)
+                        val cached = LocalMediaRepository.getCachedLocalMusic(context)
+                        if (cached.isNotEmpty()) {
+                            UiState.Success(cached)
+                        } else {
+                            val songs = LocalMediaRepository.scanAndCacheLocalMusic(context)
+                            if (songs.isEmpty()) UiState.Error(text(R.string.no_local_audio_found))
+                            else UiState.Success(songs)
+                        }
                     }
                 }
                 resolved == BrowseType.ARTIST -> {
@@ -2710,7 +3273,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (!LocalMediaRepository.hasStoragePermission(context)) {
                         UiState.Error(text(R.string.storage_required_read))
                     } else {
-                        val songs = LocalMediaRepository.getLocalMusic(context)
+                        val songs = LocalMediaRepository.scanAndCacheLocalMusic(context)
                         if (songs.isEmpty()) UiState.Error(text(R.string.no_local_audio_found))
                         else UiState.Success(songs)
                     }
@@ -2885,6 +3448,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     LocalMediaRepository.getLocalMusic(context)
                         .ifEmpty { error(text(R.string.no_local_audio_found)) }
+                }
+                browseId.startsWith("local:album:") -> runCatching {
+                    val key = browseId.removePrefix("local:album:")
+                    val cached = localAlbumsByKey[key] ?: localAlbumsByKey[key.removePrefix("tagged:")]
+                    if (cached != null && cached.songs.isNotEmpty()) {
+                        cached.songs
+                    } else {
+                        val allSongs = (_librarySongs.value as? UiState.Success)?.data ?: LocalMediaRepository.getLocalMusic(context)
+                        val albumTitle = key.removePrefix("tagged:")
+                        val matched = allSongs.filter { it.albumName?.equals(albumTitle, ignoreCase = true) == true }
+                        matched.ifEmpty { error("Album tracks not found") }
+                    }
+                }
+                browseId.startsWith("local:artist:") -> runCatching {
+                    val artistName = browseId.removePrefix("local:artist:")
+                    val allSongs = (_librarySongs.value as? UiState.Success)?.data ?: LocalMediaRepository.getLocalMusic(context)
+                    val matched = allSongs.filter {
+                        com.music.bitchord.data.LocalMediaRepository.splitArtists(it.artist).any { a: String -> a.equals(artistName, ignoreCase = true) }
+                    }
+                    matched.ifEmpty { error("Artist tracks not found") }
                 }
                 else -> YtMusicRepository.allSongs(browseId)
             }

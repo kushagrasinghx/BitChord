@@ -119,7 +119,19 @@ data class Song(
     val playbackSourceType: PlaybackSourceType? = null,
     /** Browse id for an album, playlist, or other source page. */
     val playbackSourceId: String? = null,
+    val discNumber: Int? = null,
+    val trackNumber: Int? = null,
 ) {
+    /** Returns album name cleaned of disc markers (e.g. "The Wall (Disc 1)" -> "The Wall"). */
+    fun canonicalAlbumName(): String? {
+        val raw = albumName?.trim() ?: return null
+        if (raw.isBlank()) return null
+        return raw
+            .replace(Regex("""(?i)\s*[-–—:]\s*(?:cd|disc|disk)\s*[0-9a-z]+\b.*$"""), "")
+            .replace(Regex("""(?i)\s*[\(\[\{]\s*(?:cd|disc|disk)\s*[0-9a-z]+\s*[\)\]\}]"""), "")
+            .trim()
+            .ifBlank { raw }
+    }
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */
     val fromAutoplay: Boolean get() = queueTier == QueueTier.AUTOPLAY
 

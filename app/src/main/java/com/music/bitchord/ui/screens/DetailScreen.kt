@@ -47,6 +47,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.ui.graphics.luminance
 import com.music.bitchord.data.model.LibraryState
@@ -300,7 +301,7 @@ fun DetailScreen(
     // numbers are the sleeve's own and must not relabel themselves to match
     // wherever a sort put the row.
     val originalTrackNumbers = remember(rawSongs) {
-        rawSongs.withIndex().associate { (i, s) -> s.videoId to i + 1 }
+        rawSongs.withIndex().associate { (i, s) -> s.videoId to (s.trackNumber ?: (i + 1)) }
     }
     val isArtist = page.type == BrowseType.ARTIST
     // Whether the top release card's album is already saved isn't on the shelf
@@ -353,6 +354,9 @@ fun DetailScreen(
     // list. When no filter is active, matches contains the full running order
     // and plays the complete release/playlist from the tapped position.
     val queue = remember(matches) { matches.map { it.value } }
+    val hasMultipleDiscs = page.type == BrowseType.ALBUM && songSort == SongSort.DEFAULT && remember(matches) {
+        matches.mapNotNull { it.value.discNumber }.filter { it > 0 }.distinct().size > 1
+    }
     val suggested = remember(page.suggestedSongs, query) {
         page.suggestedSongs.matching(query).map { it.value }
     }
@@ -502,6 +506,7 @@ fun DetailScreen(
                 }
             }
 
+
             // The first release on the shelves below, pulled out as a card of its own.
             val topRelease = if (isArtist) page.sections.topRelease() else null
             if (topRelease != null) {
@@ -612,6 +617,23 @@ fun DetailScreen(
                         key = { _, entry -> "${entry.index}_${entry.value.videoId}" },
                     ) { position, entry ->
                         val song = entry.value
+                        val currentDisc = song.discNumber ?: 1
+                        val prevDisc = if (position > 0) matches[position - 1].value.discNumber ?: 1 else null
+                        val showDiscHeader = hasMultipleDiscs && (position == 0 || currentDisc != prevDisc)
+
+                        if (showDiscHeader) {
+                            DiscHeader(
+                                discNumber = currentDisc,
+                                palette = palette,
+                                modifier = Modifier.padding(
+                                    start = if (numbered) NUMBERED_ROW_DIVIDER_INSET else ROW_DIVIDER_INSET,
+                                    top = if (position == 0) 12.dp else 24.dp,
+                                    bottom = 8.dp,
+                                    end = PAGE_GUTTER,
+                                ),
+                            )
+                        }
+
                         val isCurrent = song.isSameTrackAs(currentSong)
                         SongRow(
                             song = if (numbered) {
@@ -635,7 +657,9 @@ fun DetailScreen(
                             activeTint = palette.accent,
                             searchPlayingStyle = true,
                         )
-                        if (position < matches.lastIndex) {
+                        val nextDisc = if (position < matches.lastIndex) matches[position + 1].value.discNumber ?: 1 else null
+                        val nextHasHeader = hasMultipleDiscs && nextDisc != currentDisc
+                        if (position < matches.lastIndex && !nextHasHeader) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(
                                     start = if (numbered) NUMBERED_ROW_DIVIDER_INSET else ROW_DIVIDER_INSET,
@@ -1660,7 +1684,7 @@ private fun CompactSongRow(
             )
         }
         if (downloadedTint != null) {
-            DownloadedBadge(song.videoId, downloadedTint)
+            DownloadedBadge(song.videoId, downloadedTint, song = song)
         }
         RowMoreButton(onClick = onLongPress, tint = palette.onBackgroundVariant)
     }
@@ -1720,7 +1744,7 @@ private fun SuggestedSongRow(
             )
         }
         if (downloadedTint != null) {
-            DownloadedBadge(song.videoId, downloadedTint)
+            DownloadedBadge(song.videoId, downloadedTint, song = song)
         }
         Spacer(Modifier.width(8.dp))
         Box(
@@ -1753,7 +1777,7 @@ private fun SuggestedSongRow(
 private fun List<HomeShelf>.topRelease(): ShelfItem? =
     asSequence()
         .flatMap { it.items.asSequence() }
-        .filter { it.browseId?.startsWith("MPRE") == true }
+        .filter { it.browseId?.startsWith("MPRE") == true || it.browseId?.startsWith("local:album:") == true }
         .withIndex()
         .maxWithOrNull(
             compareBy<IndexedValue<ShelfItem>> { it.value.releaseYear() ?: 0 }
@@ -2006,5 +2030,32 @@ private fun List<Song>.playtime(): String? {
         minutes <= 0 -> null
         minutes < 60 -> stringResource(R.string.minutes_short, minutes.toInt())
         else -> stringResource(R.string.hours_minutes_short, (minutes / 60).toInt(), (minutes % 60).toInt())
+    }
+}
+
+@Composable
+private fun DiscHeader(
+    discNumber: Int,
+    palette: ArtworkPalette,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Album,
+            contentDescription = null,
+            tint = palette.onBackgroundVariant.copy(alpha = 0.7f),
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Disc $discNumber",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = palette.onBackgroundVariant,
+            letterSpacing = 0.5.sp,
+        )
     }
 }

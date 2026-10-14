@@ -6,6 +6,9 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
 import java.util.Base64
 import java.util.UUID
 import java.util.prefs.Preferences
@@ -81,6 +84,35 @@ class DesktopPersistence {
     fun downloads(): List<Song> = readSongs(KEY_DOWNLOADS)
 
     fun saveDownloads(songs: List<Song>) = writeSongs(KEY_DOWNLOADS, songs)
+
+    fun downloadFolder(): Path? = string(KEY_DOWNLOAD_FOLDER)
+        .takeIf(String::isNotBlank)
+        ?.let { runCatching { Paths.get(it) }.getOrNull() }
+        ?.takeIf(Files::isDirectory)
+
+    fun setDownloadFolder(path: Path?) {
+        saveString(KEY_DOWNLOAD_FOLDER, path?.toAbsolutePath()?.toString().orEmpty())
+    }
+
+    fun downloadFolderLabel(): String = downloadFolder()?.fileName?.toString() ?: "Default (Music/BitChord)"
+
+    fun downloadOrganizeFolders(): Boolean = boolean(KEY_DOWNLOAD_ORGANIZE_FOLDERS, false)
+    fun setDownloadOrganizeFolders(value: Boolean) = saveBoolean(KEY_DOWNLOAD_ORGANIZE_FOLDERS, value)
+
+    fun downloadSaveAlbumCover(): Boolean = boolean(KEY_DOWNLOAD_SAVE_ALBUM_COVER, false)
+    fun setDownloadSaveAlbumCover(value: Boolean) = saveBoolean(KEY_DOWNLOAD_SAVE_ALBUM_COVER, value)
+
+    fun downloadSaveTrackCover(): Boolean = boolean(KEY_DOWNLOAD_SAVE_TRACK_COVER, false)
+    fun setDownloadSaveTrackCover(value: Boolean) = saveBoolean(KEY_DOWNLOAD_SAVE_TRACK_COVER, value)
+
+    fun downloadSaveLrc(): Boolean = boolean(KEY_DOWNLOAD_SAVE_LRC, false)
+    fun setDownloadSaveLrc(value: Boolean) = saveBoolean(KEY_DOWNLOAD_SAVE_LRC, value)
+
+    fun downloadCreateNomedia(): Boolean = boolean(KEY_DOWNLOAD_CREATE_NOMEDIA, true)
+    fun setDownloadCreateNomedia(value: Boolean) = saveBoolean(KEY_DOWNLOAD_CREATE_NOMEDIA, value)
+
+    fun downloadArtistSeparator(): String = string(KEY_DOWNLOAD_ARTIST_SEPARATOR, ", ").ifBlank { ", " }
+    fun setDownloadArtistSeparator(value: String) = saveString(KEY_DOWNLOAD_ARTIST_SEPARATOR, value)
 
     fun playlists(): List<DesktopPlaylist> = readLines(KEY_PLAYLISTS).mapNotNull(::decodePlaylist)
 
@@ -299,6 +331,13 @@ class DesktopPersistence {
         const val KEY_HISTORY = "history"
         const val KEY_QUEUE = "queue"
         const val KEY_DOWNLOADS = "downloads"
+        const val KEY_DOWNLOAD_FOLDER = "download_folder"
+        const val KEY_DOWNLOAD_ORGANIZE_FOLDERS = "download_organize_folders"
+        const val KEY_DOWNLOAD_SAVE_ALBUM_COVER = "download_save_album_cover"
+        const val KEY_DOWNLOAD_SAVE_TRACK_COVER = "download_save_track_cover"
+        const val KEY_DOWNLOAD_SAVE_LRC = "download_save_lrc"
+        const val KEY_DOWNLOAD_CREATE_NOMEDIA = "download_create_nomedia"
+        const val KEY_DOWNLOAD_ARTIST_SEPARATOR = "download_artist_separator"
         const val KEY_PLAYLISTS = "playlists"
         const val KEY_MODULE_INDEX_URL = "module_index_url"
         private const val KEY_ORIGINAL_VERSIONS = "original_versions"

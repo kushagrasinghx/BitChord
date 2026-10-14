@@ -67,6 +67,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -157,6 +158,7 @@ private class QueueTracks(
     val user: List<QueueTrack>,
     val context: List<QueueTrack>,
     val autoplay: List<QueueTrack>,
+    val overflowCount: Int = 0,
 ) {
     operator fun get(section: QueueSection): List<QueueTrack> = when (section) {
         QueueSection.USER -> user
@@ -165,7 +167,7 @@ private class QueueTracks(
     }
 
     companion object {
-        val EMPTY = QueueTracks(null, emptyList(), emptyList(), emptyList())
+        val EMPTY = QueueTracks(null, emptyList(), emptyList(), emptyList(), 0)
     }
 }
 
@@ -185,16 +187,19 @@ private fun splitQueue(queue: List<Song>, currentIndex: Int): QueueTracks {
         return QueueTrack(index, song, prefix + "_" + (song.queueEntryId ?: "${song.videoId}#${occurrence[index]}"))
     }
     val user = ArrayList<QueueTrack>()
-    val context = ArrayList<QueueTrack>()
+    val rawContext = ArrayList<QueueTrack>()
     val autoplay = ArrayList<QueueTrack>()
     for (index in currentIndex + 1 until queue.size) {
         when (queue[index].queueTier) {
             QueueTier.USER_QUEUE -> user += track(index, "user")
-            QueueTier.CONTEXT -> context += track(index, "context")
+            QueueTier.CONTEXT -> rawContext += track(index, "context")
             QueueTier.AUTOPLAY -> autoplay += track(index, "autoplay")
         }
     }
-    return QueueTracks(track(currentIndex, "np"), user, context, autoplay)
+    val contextLimit = 150
+    val context = if (rawContext.size > contextLimit) rawContext.take(contextLimit) else rawContext
+    val overflowCount = (rawContext.size - contextLimit).coerceAtLeast(0)
+    return QueueTracks(track(currentIndex, "np"), user, context, autoplay, overflowCount)
 }
 
 /** Placement-only item motion; see [QUEUE_ROW_MOTION]. */
@@ -331,6 +336,20 @@ internal fun InlineQueue(
                         )
                     }
                     queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onRemove)
+                    if (tracks.overflowCount > 0) {
+                        item(key = "context-overflow-indicator") {
+                            Text(
+                                text = "+ ${tracks.overflowCount} more tracks in queue",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp)
+                                    .then(queueMotion()),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
                 }
                 if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
                     item(key = "autoplay-heading") {

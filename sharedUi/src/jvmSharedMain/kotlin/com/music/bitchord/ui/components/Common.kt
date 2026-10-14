@@ -559,7 +559,7 @@ private fun SongRowContent(
             )
         }
         if (downloadedTint != null) {
-            DownloadedBadge(song.videoId, downloadedTint)
+            DownloadedBadge(song.videoId, downloadedTint, song = song)
         }
         if (selected) {
             Spacer(Modifier.width(8.dp))
@@ -710,8 +710,14 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
  * for it and the record is pruned.
  */
 @Composable
-fun DownloadedBadge(videoId: String, tint: Color, modifier: Modifier = Modifier) {
-    if (videoId !in AppUi.host.downloadedIds()) return
+fun DownloadedBadge(
+    videoId: String,
+    tint: Color,
+    modifier: Modifier = Modifier,
+    song: Song? = null,
+) {
+    val downloaded = videoId in AppUi.host.downloadedIds() || (song != null && AppUi.host.isTrackDownloaded(song))
+    if (!downloaded) return
     Spacer(Modifier.width(8.dp))
     Icon(
         Icons.Rounded.DownloadDone,

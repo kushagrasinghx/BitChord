@@ -26,6 +26,7 @@ import com.music.bitchord.playback.LastPlayed
 import com.music.bitchord.playback.OriginalVersion
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.AndroidStreamHooks
+import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
@@ -89,6 +90,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
             // all — it is the fix for canvas clips re-fetching the same few
             // seconds of video from the network on every loop.
             CanvasCache.init(this)
+            com.music.bitchord.data.canvas.AppleArtistArtRepository.init(this)
         }
         // Migration-safe: an old single cookie becomes the first encrypted
         // session, while newer installs restore the profile the listener chose.
@@ -130,6 +132,7 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
         // What's already saved to Downloads, so the song menu can say so
         // without a media-store query per row.
         Downloads.init(this)
+        PlaybackTracker.init(this)
         // The device's own listening record. Opened here rather than in
         // PlaybackService because the Replay page reads it from the UI side and
         // both live in this process — one owner, one directory.
@@ -183,6 +186,8 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory {
                 // Covers filed on the SMB share; anything else falls
                 // through to Coil's own fetchers. See SmbCoverFetcher.
                 add(SmbCoverFetcher.Factory())
+                // Embedded cover art on local audio files decoded lazily on demand
+                add(com.music.bitchord.data.LocalAudioCoverFetcher.Factory())
             }
             .memoryCache {
                 MemoryCache.Builder()

@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.PlaylistRemove
@@ -178,6 +179,8 @@ fun SongActionsSheet(
     onCopyLog: (() -> Unit)? = null,
     /** Opens the timing control offered only by the main player's menu. */
     onLyricsOffset: (() -> Unit)? = null,
+    /** Resolves and fixes missing artwork for offline songs. */
+    onEnhanceArtwork: (() -> Unit)? = null,
     /**
      * True while a lookup for this track's album/artist ids is still in
      * flight, so it isn't yet known whether "Open album" and "Open artist"
@@ -262,7 +265,7 @@ fun SongActionsSheet(
             GroupSeparator(palette)
         }
 
-        if (signedIn && !isOffline) {
+        if (onToggleLike != null && (signedIn || isOffline)) {
             ActionRow(
                 icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 label = if (liked) stringResource(R.string.remove_from_liked) else stringResource(R.string.like),
@@ -270,6 +273,9 @@ fun SongActionsSheet(
                 accent = palette.accent,
                 onClick = onToggleLike,
             )
+        }
+
+        if (signedIn && !isOffline) {
             ActionRow(
                 icon = if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt,
                 label = if (disliked) stringResource(R.string.undo_dislike) else stringResource(R.string.dislike),
@@ -352,6 +358,14 @@ fun SongActionsSheet(
                 label = stringResource(R.string.lyrics_offset),
                 accent = palette.accent,
                 onClick = it,
+            )
+        }
+        if (isOffline && onEnhanceArtwork != null) {
+            ActionRow(
+                icon = Icons.Rounded.Image,
+                label = stringResource(R.string.enhance_album_art),
+                accent = palette.accent,
+                onClick = onEnhanceArtwork,
             )
         }
         if (!isOffline) {

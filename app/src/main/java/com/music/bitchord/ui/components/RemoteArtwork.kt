@@ -14,19 +14,16 @@ import com.music.bitchord.data.remote.RemoteArtworkStore
  * A drawable art URL for [song]: its own thumbnail when it has one, else the
  * embedded picture pulled out of the remote file and cached — else null.
  *
- * The extraction only ever runs for remote-library tracks with no thumbnail;
- * every other row resolves synchronously to what it already had, so this is
- * safe to call from shared components like [SongRow] that draw every library
- * in the app. Keyed on the track id, so a recycled row re-resolves instead
- * of flashing a stranger's cover.
+ * The extraction only ever runs for remote-library tracks (WebDAV/SMB) with no thumbnail;
+ * every other row resolves synchronously to what it already had.
  */
 @Composable
 fun rememberRemoteArtworkUrl(song: Song?): String? {
     val context = LocalContext.current
-    val key = song?.videoId
+    val key = song?.localUri ?: song?.localPath ?: song?.videoId
     var resolved by remember(key) { mutableStateOf(song?.thumbnailUrl) }
     LaunchedEffect(key) {
-        if (song != null && song.thumbnailUrl == null &&
+        if (song != null && resolved.isNullOrBlank() &&
             (song.videoId.startsWith("webdav:") || song.videoId.startsWith("smb:"))
         ) {
             resolved = RemoteArtworkStore.resolveArt(context, song)
@@ -34,3 +31,4 @@ fun rememberRemoteArtworkUrl(song: Song?): String? {
     }
     return resolved
 }
+

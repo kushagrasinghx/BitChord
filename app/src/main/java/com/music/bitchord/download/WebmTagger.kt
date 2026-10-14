@@ -55,8 +55,9 @@ object WebmTagger {
         coverMime: String,
         /** The A2 form, under a name of this app's own — see [WORD_LYRICS_FIELD]. */
         wordLyrics: String? = null,
+        albumArtist: String? = null,
     ): ByteArray = runCatching {
-        insert(bytes, buildTail(title, artist, album, lyrics, cover, coverMime, wordLyrics))
+        insert(bytes, buildTail(title, artist, album, lyrics, cover, coverMime, wordLyrics, albumArtist))
     }.getOrDefault(bytes)
 
     private fun insert(bytes: ByteArray, tail: ByteArray): ByteArray {
@@ -100,6 +101,7 @@ object WebmTagger {
         cover: ByteArray?,
         coverMime: String,
         wordLyrics: String?,
+        albumArtist: String? = null,
     ): ByteArray {
         var out = ByteArray(0)
 
@@ -107,6 +109,7 @@ object WebmTagger {
         if (title.isNotBlank()) simple += simpleTag("TITLE", title)
         if (artist.isNotBlank()) simple += simpleTag("ARTIST", artist)
         if (!album.isNullOrBlank()) simple += simpleTag("ALBUM", album)
+        if (!albumArtist.isNullOrBlank()) simple += simpleTag("ALBUM_ARTIST", albumArtist)
         // `LYRICS` is Matroska's own name for the field, and `TagString` is a
         // UTF-8 element with an explicit length — so the LRC's newlines need no
         // escaping and there is no ceiling worth worrying about here.

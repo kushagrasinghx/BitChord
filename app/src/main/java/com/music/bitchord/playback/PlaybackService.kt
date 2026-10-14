@@ -120,6 +120,7 @@ import com.music.bitchord.data.discord.discordAudioQualityLine
 import com.music.bitchord.data.innertube.PlaybackTracker
 import com.music.bitchord.data.stats.ListeningRecorder
 import com.music.bitchord.data.innertube.PlayerClient
+import com.music.bitchord.data.OnlineArtworkRepository
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
@@ -959,7 +960,9 @@ class PlaybackService : MediaLibraryService() {
             )
             // Prune consumed USER_QUEUE entries when playback enters CONTEXT,
             // keeping the timeline clean and ensuring REPEAT_MODE_ALL loops only CONTEXT items.
-            QueueCoordinator.consumePlayedUserQueue(exoPlayer)
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                QueueCoordinator.consumePlayedUserQueue(exoPlayer)
+            }
 
             // The queue moving on by itself. Nobody pressed anything, but it
             // is still this device deciding what the party plays next, and no
@@ -2653,6 +2656,30 @@ class PlaybackService : MediaLibraryService() {
         // the optimistic state with YouTube in the background.
         LikeState.set(videoId, target)
         refreshCustomLayouts()
+
+        val isLocal = videoId.startsWith("content://") || videoId.startsWith("file://") ||
+            videoId.startsWith("audio:") || videoId.startsWith("local:")
+        if (isLocal) {
+            LocalMediaRepository.setLocalTrackLiked(this, videoId, target)
+            val current = player?.currentMediaItem?.toSong()
+            if (current != null) {
+                favoriteActionJob = scope.launch(Dispatchers.IO) {
+                    val cleanArtist = OnlineArtworkRepository.sanitizeArtist(current.artist)
+                    val cleanTitle = OnlineArtworkRepository.sanitizeTitle(current.title)
+                    val query = "$cleanArtist $cleanTitle".trim()
+                    if (query.isNotBlank()) {
+                        val matchedSong = YtMusicRepository.search(query, SearchFilter.SONGS).getOrNull()
+                            ?.firstNotNullOfOrNull { (it as? SearchResult.Track)?.song ?: (it as? SearchResult.TopTrack)?.song }
+                        if (matchedSong != null) {
+                            YtMusicRepository.rate(matchedSong.videoId, target)
+                                .onSuccess { LikeState.set(matchedSong.videoId, target) }
+                        }
+                    }
+                }
+            }
+            return
+        }
+
         favoriteActionJob = scope.launch {
             YtMusicRepository.rate(videoId, target)
                 .onFailure {
@@ -2819,8 +2846,12 @@ class PlaybackService : MediaLibraryService() {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
+    private val matchedLocalVideoIdCache = ConcurrentHashMap<String, String>()
+
     private fun registerCurrentPlay() {
-        player?.currentMediaItem?.mediaId?.let(PlaybackTracker::onPlaying)
+        val song = player?.currentMediaItem?.toSong() ?: return
+        val mediaId = player?.currentMediaItem?.mediaId ?: song.videoId
+        PlaybackTracker.onPlaying(mediaId, song.title, song.artist)
     }
 
     /**
@@ -2885,16 +2916,18 @@ class PlaybackService : MediaLibraryService() {
         // made every one of those paths progressively more expensive.
         val expiredHistory = queueHistoryTrimCount(exoPlayer.currentMediaItemIndex)
         if (expiredHistory > 0) {
-            if (exoPlayer.repeatMode == Player.REPEAT_MODE_ALL) {
-                // Repeat-all still means the whole queue. Rotate history that
-                // has fallen out of the visible 25-song window to the end
-                // instead of deleting it; it becomes upcoming again in the
-                // same order and the loop can continue indefinitely.
-                repeat(expiredHistory) {
-                    exoPlayer.moveMediaItem(0, exoPlayer.mediaItemCount - 1)
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                if (exoPlayer.repeatMode == Player.REPEAT_MODE_ALL) {
+                    // Repeat-all still means the whole queue. Rotate history that
+                    // has fallen out of the visible 25-song window to the end
+                    // instead of deleting it; it becomes upcoming again in the
+                    // same order and the loop can continue indefinitely.
+                    repeat(expiredHistory) {
+                        exoPlayer.moveMediaItem(0, exoPlayer.mediaItemCount - 1)
+                    }
+                } else {
+                    exoPlayer.removeMediaItems(0, expiredHistory)
                 }
-            } else {
-                exoPlayer.removeMediaItems(0, expiredHistory)
             }
         }
         // A *different* track is a clean slate for [recoverFrom], and so is the

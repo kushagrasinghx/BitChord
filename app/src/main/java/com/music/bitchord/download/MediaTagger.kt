@@ -8,6 +8,7 @@ import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.Http
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.ByteArrayOutputStream
@@ -39,6 +40,21 @@ object MediaTagger {
 
     private const val TAG = "BitChord"
 
+    fun resolveArtistsString(song: Song): String {
+        val separator = AppSettings.downloadArtistSeparator.value
+        val fromArtists = if (song.artists.isNotEmpty()) {
+            song.artists.map { it.name.trim() }.filter { it.isNotEmpty() }.joinToString(separator)
+        } else ""
+        return fromArtists.takeIf { it.isNotEmpty() }
+            ?: song.artist.trim().takeIf { it.isNotEmpty() }
+            ?: "Unknown Artist"
+    }
+
+    fun resolveAlbumArtistString(song: Song): String =
+        song.artists.firstOrNull()?.name?.trim()?.takeIf { it.isNotEmpty() }
+            ?: song.artist.trim().takeIf { it.isNotEmpty() }
+            ?: "Unknown Artist"
+
     /** Long side of the embedded cover — plenty for a lock screen or a car head unit, without ballooning the file. */
     private const val COVER_MAX_SIDE = 1000
 
@@ -66,7 +82,7 @@ object MediaTagger {
      * a half-written one: a WAV's metadata lives in RIFF chunks that a good
      * number of players ignore outright.
      */
-    private val TAGGABLE = setOf("m4a", "webm", "flac")
+    private val TAGGABLE = setOf("m4a", "mp4", "webm", "flac")
 
     /**
      * Whether a file of [extension] gets tags at all.
@@ -83,18 +99,13 @@ object MediaTagger {
     /** Fetch artwork before publication so batch downloads can overlap it with audio. */
     internal fun artworkFor(context: Context, track: Song): Artwork? {
         val thumbnailUrl = track.thumbnailUrl
-        if (thumbnailUrl.isNullOrBlank()) {
-            // Said out loud rather than returned as a quiet null. An album's own
-            // track rows carry no artwork — the release is billed once in the
-            // header — so a row that gets this far without having the release's
-            // cover filled in on the way (`MainViewModel.withArtwork`, and again
-            // at the tap in `MainActivity.startDownload`) saves a file with no
-            // cover in it, permanently and without complaint. This line is how
-            // that gets noticed.
-            Log.d(TAG, "no artwork url for ${track.videoId}; saving it without a cover")
-            return null
+        if (!thumbnailUrl.isNullOrBlank()) {
+            cachedArtwork(context, thumbnailUrl)?.let { return it }
         }
-        cachedArtwork(context, thumbnailUrl)?.let { return it }
+        val collectionArt = Downloads.collections.value.values.firstOrNull { track.videoId in it.videoIds }?.thumbnailUrl
+        if (!collectionArt.isNullOrBlank()) {
+            cachedArtwork(context, collectionArt)?.let { return it }
+        }
         return fetchCover(track)
     }
 
@@ -199,7 +210,7 @@ object MediaTagger {
         taggingLock.withLock { embedNow(context, uri, track, extension, lyrics, artwork) }
     }
 
-    private fun embedNow(
+    private suspend fun embedNow(
         context: Context,
         uri: Uri,
         track: Song,
@@ -207,70 +218,65 @@ object MediaTagger {
         lyrics: LyricsTag.Embeddable?,
         artwork: Artwork?,
     ) {
-        // The portable field and this app's own. Split here rather than inside
-        // each tagger so all three agree on which string goes where.
         val plain = lyrics?.plain
         val words = lyrics?.enhanced
-
-        // FLAC is the format worth not doing in memory, and the only one that
-        // can be done any other way — see [tagFlacStreaming].
+        val resolvedArtist = resolveArtistsString(track)
+        val resolvedAlbumArtist = resolveAlbumArtistString(track)
+        
+        // Restore FLAC streaming optimization to prevent OOM
         if (extension == "flac" &&
-            tagFlacStreaming(context, uri, track, plain, words, artwork)
+            tagFlacStreaming(context, uri, track, plain, words, artwork, resolvedArtist, resolvedAlbumArtist)
         ) {
             return
         }
 
-        val original = readAll(context, uri) ?: return
-        val tagged = runCatching {
-            when (extension) {
-                // Indexed first: a fragmented file saved without a `sidx`
-                // plays but cannot seek. Returns [original] when it has
-                // nothing to add, so the identity check below still holds.
-                "m4a" -> Mp4Tagger.tag(
-                    Mp4Sidx.ensure(original),
-                    track.title,
-                    track.artist,
-                    track.albumName,
-                    plain,
-                    artwork?.bytes,
-                    coverIsPng = false,
+        // If webm, fall back to custom tagger since jaudiotagger doesn't support mkv/webm
+        if (extension == "webm") {
+            val original = readAll(context, uri) ?: return
+            val tagged = runCatching {
+                WebmTagger.tag(
+                    bytes = original,
+                    title = track.title,
+                    artist = resolvedArtist,
+                    album = track.albumName,
+                    lyrics = plain,
+                    cover = artwork?.bytes,
+                    coverMime = artwork?.mime ?: "image/jpeg",
                     wordLyrics = words,
+                    albumArtist = resolvedAlbumArtist,
                 )
-                "flac" -> FlacTagger.tag(
-                    original,
-                    track.title,
-                    track.artist,
-                    track.albumName,
-                    plain,
-                    artwork?.bytes,
-                    artwork?.mime ?: "image/jpeg",
-                    wordLyrics = words,
-                )
-                else -> WebmTagger.tag(
-                    original,
-                    track.title,
-                    track.artist,
-                    track.albumName,
-                    plain,
-                    artwork?.bytes,
-                    artwork?.mime ?: "image/jpeg",
-                    wordLyrics = words,
-                )
+            }.getOrDefault(original)
+            if (tagged !== original) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    writeAll(context, uri, tagged)
+                }
             }
-        }.onFailure {
-            // Named, because the two things that land here are the two things
-            // the user actually notices going missing. An OutOfMemoryError on a
-            // large lossless file is the common one and reads as a track that
-            // simply saved without its cover or its words.
-            Log.w(TAG, "could not build tags for ${track.videoId} (${original.size}B $extension): $it")
-        }.getOrNull() ?: return
-
-        // Every tagger hands back the same array reference when there was
-        // nothing safe to do — cheaper than a byte comparison, and exact
-        // where it matters: it means "don't touch the file that just finished
-        // downloading" rather than "these bytes happen to be equal".
-        if (tagged === original) return
-        writeAll(context, uri, tagged)
+            return
+        }
+        
+        // 3. M4A / MP4 custom tagger (in-place binary box insertion, zero ImageIO/AWT dependency)
+        if (extension == "m4a" || extension == "mp4") {
+            val original = readAll(context, uri) ?: return
+            val tagged = runCatching {
+                Mp4Tagger.tag(
+                    bytes = original,
+                    title = track.title,
+                    artist = resolvedArtist,
+                    album = track.albumName,
+                    lyrics = plain,
+                    cover = artwork?.bytes,
+                    coverIsPng = artwork?.mime == "image/png",
+                    wordLyrics = words,
+                    albumArtist = resolvedAlbumArtist,
+                )
+            }.getOrDefault(original)
+            if (tagged !== original) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    writeAll(context, uri, tagged)
+                }
+            }
+            return
+        }
     }
 
     /**
@@ -308,6 +314,8 @@ object MediaTagger {
         lyrics: String?,
         wordLyrics: String?,
         artwork: Artwork?,
+        resolvedArtist: String,
+        resolvedAlbumArtist: String,
     ): Boolean {
         val head = readPrefix(context, uri, FLAC_HEAD_BYTES) ?: return false
         // Short of the cap means the read hit the end of the file, so this *is*
@@ -315,14 +323,15 @@ object MediaTagger {
         // prefix that was cut too fine.
         val wholeFile = head.size < FLAC_HEAD_BYTES
         val rewrite = FlacTagger.header(
-            head,
-            track.title,
-            track.artist,
-            track.albumName,
-            lyrics,
-            artwork?.bytes,
-            artwork?.mime ?: "image/jpeg",
+            head = head,
+            title = track.title,
+            artist = resolvedArtist,
+            album = track.albumName,
+            lyrics = lyrics,
+            cover = artwork?.bytes,
+            coverMime = artwork?.mime ?: "image/jpeg",
             wordLyrics = wordLyrics,
+            albumArtist = resolvedAlbumArtist,
         ) ?: return wholeFile
 
         val temp = File(context.cacheDir, "tagging-${track.videoId.hashCode()}-${System.nanoTime()}.flac")
@@ -354,8 +363,10 @@ object MediaTagger {
             val sink = if (uri.scheme == "file") {
                 File(requireNotNull(uri.path)).outputStream()
             } else {
-                context.contentResolver.openOutputStream(uri, "wt")
-                    ?: error("could not open $uri for writing")
+                val stream = runCatching { context.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
+                    ?: runCatching { context.contentResolver.openOutputStream(uri, "rwt") }.getOrNull()
+                    ?: context.contentResolver.openOutputStream(uri, "w")
+                stream ?: error("could not open $uri for writing")
             }
             sink.use { source.copyTo(it, COPY_BUFFER) }
         }
@@ -405,13 +416,34 @@ object MediaTagger {
     }
 
     private fun fetchCover(track: Song): Artwork? {
-        val url = track.artworkAt(1200) ?: return null
-        return fetchCover(url, track.videoId)
+        val highRes = track.artworkAt(1200)
+        if (!highRes.isNullOrBlank()) {
+            fetchCover(highRes, track.videoId)?.let { return it }
+        }
+        val rawThumb = track.thumbnailUrl
+        if (!rawThumb.isNullOrBlank() && rawThumb != highRes) {
+            fetchCover(rawThumb, track.videoId)?.let { return it }
+        }
+        val collectionArt = Downloads.collections.value.values.firstOrNull { track.videoId in it.videoIds }?.thumbnailUrl
+        if (!collectionArt.isNullOrBlank() && collectionArt != rawThumb && collectionArt != highRes) {
+            fetchCover(collectionArt, track.videoId)?.let { return it }
+        }
+        if (track.videoId.isNotBlank()) {
+            fetchCover("https://i.ytimg.com/vi/${track.videoId}/maxresdefault.jpg", track.videoId)?.let { return it }
+            fetchCover("https://i.ytimg.com/vi/${track.videoId}/hqdefault.jpg", track.videoId)?.let { return it }
+            fetchCover("https://i.ytimg.com/vi/${track.videoId}/mqdefault.jpg", track.videoId)?.let { return it }
+        }
+        return null
     }
 
     private fun fetchCover(url: String, logId: String): Artwork? {
         return runCatching {
-            val request = okhttp3.Request.Builder().url(url).build()
+            val request = okhttp3.Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
+                .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+                .header("Referer", "https://music.youtube.com/")
+                .build()
             Http.client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching null
                 val raw = response.body?.bytes() ?: return@runCatching null
@@ -449,7 +481,10 @@ object MediaTagger {
             if (uri.scheme == "file") {
                 File(requireNotNull(uri.path)).writeBytes(bytes)
             } else {
-                context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
+                val stream = runCatching { context.contentResolver.openOutputStream(uri, "wt") }.getOrNull()
+                    ?: runCatching { context.contentResolver.openOutputStream(uri, "rwt") }.getOrNull()
+                    ?: context.contentResolver.openOutputStream(uri, "w")
+                stream?.use { it.write(bytes) } ?: error("Could not open stream for $uri")
             }
         }.onFailure { Log.w(TAG, "could not write tags to $uri: ${it.message}") }
     }

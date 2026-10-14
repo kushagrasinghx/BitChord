@@ -1,0 +1,173 @@
+name: Build Test APK
+
+on:
+  push:
+    branches:
+      - feature-local-indexing
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup local.properties
+        run: |
+          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
+          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Dev Debug APK
+        run: |
+          set -o pipefail
+          ./gradlew assembleDevDebug --stacktrace 2>&1 | tee build.log
+
+      - name: Show Compiler Errors on Failure
+        if: always()
+        run: |
+          if [ -f build.log ]; then
+            echo "==== COMPILER / BUILD ERRORS (GREP) ===="
+            grep -E "(e: |error:|FAILED|FAILURE:|Compilation error)" build.log -B 2 -A 5 | head -n 100 || true
+            echo "==== GRADLE BUILD LOG (LAST 150 LINES) ===="
+            tail -n 150 build.log
+          fi
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-log
+          path: build.log
+
+      - name: Prepare APKs
+        run: |
+          mkdir -p dist-apk
+          if [ -d app/build/outputs/apk ]; then
+            echo "All generated APKs:"
+            find app/build/outputs/apk -name "*.apk" -ls
+
+            for f in $(find app/build/outputs/apk -name "*.apk"); do
+              base=$(basename "$f")
+              if [[ "$base" == *"universal"* ]]; then
+                cp "$f" dist-apk/BitChord-dev-debug.apk
+              elif [[ "$base" == *"arm64"* ]]; then
+                cp "$f" dist-apk/BitChord-dev-arm64-v8a-debug.apk
+              fi
+            done
+
+            # Fallback: ensure BitChord-dev-debug.apk is present
+            if [ ! -f dist-apk/BitChord-dev-debug.apk ]; then
+              first_apk=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+              if [ -n "$first_apk" ]; then
+                cp "$first_apk" dist-apk/BitChord-dev-debug.apk
+              fi
+            fi
+          fi
+
+          echo "Prepared release APKs:"
+          ls -lh dist-apk/
+
+          if [ ! -f dist-apk/BitChord-dev-debug.apk ]; then
+            echo "::error::BitChord-dev-debug.apk was not generated. Check the Gradle build log above."
+            exit 1
+          fi
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-dev-debug-apk
+          path: dist-apk/*
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Clean up any stale release/tag assets from older runs
+          gh release delete test-build --yes --cleanup-tag || true
+
+          # Create a fresh test-build release pointing to current commit with raw APK files (no zip!)
+          gh release create test-build dist-apk/* \
+            --target ${{ github.sha }} \
+            --title "BitChord Dev Test Build" \
+            --notes "### Direct Download Links (No Zip Required)
+          - **[BitChord-dev-debug.apk](https://github.com/iamtatenda/BitChord/releases/download/test-build/BitChord-dev-debug.apk)** (Universal dev build, package \`com.dev.bitchord\` - installs side-by-side with official app)
+          - **[BitChord-dev-arm64-v8a-debug.apk](https://github.com/iamtatenda/BitChord/releases/download/test-build/BitChord-dev-arm64-v8a-debug.apk)** (Slim 64-bit ARM build)
+          - **[BitChord-windows-setup.exe](https://github.com/iamtatenda/BitChord/releases/download/test-build/BitChord-windows-setup.exe)** (Windows 64-bit installer)
+
+          Built from branch \`feature-local-indexing\` (${{ github.sha }})." \
+            --prerelease
+
+  build-windows:
+    name: Build Windows App
+    runs-on: windows-latest
+    needs: [build-apk]
+    continue-on-error: true
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: WiX Toolset 3 & MinGW Toolchain
+        shell: pwsh
+        run: |
+          "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $url = "https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip"
+          Invoke-WebRequest -Uri $url -OutFile wix.zip
+          Expand-Archive wix.zip -DestinationPath "$env:RUNNER_TEMP\wix"
+          "$env:RUNNER_TEMP\wix" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Setup local.properties
+        shell: bash
+        run: |
+          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
+          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+
+      - name: Build Windows Setup EXE
+        shell: pwsh
+        run: |
+          .\gradlew.bat :desktopApp:packageExe "-Pbitchord.version=1.8.0-test"
+
+      - name: Prepare Windows Executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist-win | Out-Null
+          $exe = Get-ChildItem desktopApp/build/compose/binaries/main/exe/*.exe | Select-Object -First 1
+          if ($exe) {
+            Copy-Item $exe.FullName dist-win/BitChord-windows-setup.exe
+          }
+          Get-ChildItem dist-win | Format-Table Name, Length
+
+      - name: Upload Windows Setup to Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if (Test-Path dist-win/BitChord-windows-setup.exe) {
+            gh release upload test-build dist-win/BitChord-windows-setup.exe --clobber
+          }

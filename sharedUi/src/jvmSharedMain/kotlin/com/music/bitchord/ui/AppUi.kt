@@ -2,6 +2,7 @@ package com.music.bitchord.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewType
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,8 @@ interface AppUiHost {
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable
     fun downloadedIds(): Set<String>
+
+    fun isTrackDownloaded(song: Song): Boolean = false
 }
 
 object AppUi {

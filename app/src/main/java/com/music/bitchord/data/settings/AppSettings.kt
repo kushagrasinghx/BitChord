@@ -15,6 +15,7 @@ import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 
 
 /**
@@ -120,6 +121,11 @@ enum class LocalMusicSort {
     TITLE_DESC,
     DATE_ADDED,
     DATE_MODIFIED,
+    MOST_PLAYED,
+    RECENTLY_PLAYED,
+    ARTIST_ASC,
+    DURATION_ASC,
+    DURATION_DESC,
 }
 
 /**
@@ -207,7 +213,14 @@ object AppSettings {
      * HLS downloads always stay private because they are a playlist package,
      * not one portable audio file.
      */
-    val exportDownloads = MutableStateFlow(false)
+    val exportDownloads = MutableStateFlow(true)
+    val downloadFolderUri = MutableStateFlow<String?>(null)
+    val downloadArtistSeparator = MutableStateFlow(", ")
+    val downloadOrganizeFolders = MutableStateFlow(false)
+    val downloadSaveAlbumCover = MutableStateFlow(true)
+    val downloadSaveTrackCover = MutableStateFlow(false)
+    val downloadCreateNomedia = MutableStateFlow(true)
+    val downloadSaveLrcLyrics = MutableStateFlow(true)
 
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
@@ -543,6 +556,18 @@ object AppSettings {
     /** Hides short clips, recorder output and non-music formats from Local Music. */
     val filterNonMusicAudio = MutableStateFlow(true)
 
+    /** Combines duplicate files and titles across multiple folders or storage volumes (Namida parity). */
+    val preventDuplicateTracks = MutableStateFlow(true)
+
+    /** Automatically search and download missing album art online during background indexing. Default false to prevent unexpected network/disk activity. */
+    val autoDiscoverArtwork = MutableStateFlow(false)
+
+    /** Save downloaded album art directly to the album folder as cover.jpg for third-party players (Poweramp, Namida). Default false to protect phone gallery from being flooded with cover images. */
+    val saveAlbumCoverToFolder = MutableStateFlow(false)
+
+    /** Only display whole releases downloaded as albums/playlists in the Downloads Albums tab; prevents loose tracks from flooding the view. */
+    val noLocalAlbums = MutableStateFlow(true)
+
     val localMusicSort = MutableStateFlow(LocalMusicSort.TITLE_ASC)
     val downloadedMusicSort = MutableStateFlow(LocalMusicSort.TITLE_ASC)
     val localMusicViewType = MutableStateFlow(LibraryViewType.LIST)
@@ -753,6 +778,11 @@ object AppSettings {
         com.music.bitchord.data.spotify.LocalPlaylistStore.init(context)
         readAll()
         watchConnection(context)
+        if (downloadCreateNomedia.value) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                com.music.bitchord.download.DownloadStore.cleanupGalleryImages(context)
+            }
+        }
     }
 
     /**
@@ -782,7 +812,14 @@ object AppSettings {
         migrateDownloadQuality()
         downloadQuality.value = readDownloadQuality()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
-        exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
+        exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, true)
+        downloadFolderUri.value = prefs.getString(KEY_DOWNLOAD_FOLDER_URI, null)?.takeIf { it.isNotBlank() }
+        downloadArtistSeparator.value = prefs.getString(KEY_DOWNLOAD_ARTIST_SEPARATOR, ", ").orEmpty().ifEmpty { ", " }
+        downloadOrganizeFolders.value = prefs.getBoolean(KEY_DOWNLOAD_ORGANIZE_FOLDERS, false)
+        downloadSaveAlbumCover.value = prefs.getBoolean(KEY_DOWNLOAD_SAVE_ALBUM_COVER, true)
+        downloadSaveTrackCover.value = prefs.getBoolean(KEY_DOWNLOAD_SAVE_TRACK_COVER, false)
+        downloadCreateNomedia.value = prefs.getBoolean(KEY_DOWNLOAD_CREATE_NOMEDIA, true)
+        downloadSaveLrcLyrics.value = prefs.getBoolean(KEY_DOWNLOAD_SAVE_LRC_LYRICS, true)
         crossfadeSeconds.value = prefs.getInt(KEY_CROSSFADE, 0)
         smartFadeEnabled.value = prefs.getBoolean(KEY_SMART_FADE, false)
         automixPerformanceMode.value = runCatching {
@@ -879,6 +916,10 @@ object AppSettings {
         spotifySpdcToken.value = prefs.getString(KEY_SPOTIFY_SPDC_TOKEN, "").orEmpty()
         replayGenres.value = prefs.getBoolean(KEY_REPLAY_GENRES, true)
         filterNonMusicAudio.value = prefs.getBoolean(KEY_FILTER_NON_MUSIC_AUDIO, true)
+        preventDuplicateTracks.value = prefs.getBoolean(KEY_PREVENT_DUPLICATE_TRACKS, true)
+        autoDiscoverArtwork.value = prefs.getBoolean(KEY_AUTO_DISCOVER_ARTWORK, false)
+        saveAlbumCoverToFolder.value = prefs.getBoolean(KEY_SAVE_ALBUM_COVER_TO_FOLDER, false)
+        noLocalAlbums.value = prefs.getBoolean(KEY_NO_LOCAL_ALBUMS, true)
         localMusicSort.value = readLocalMusicSort(KEY_LOCAL_MUSIC_SORT)
         downloadedMusicSort.value = readLocalMusicSort(KEY_DOWNLOADED_MUSIC_SORT)
         localMusicViewType.value = readLibraryViewType(KEY_LOCAL_MUSIC_VIEW_TYPE)
@@ -1505,6 +1546,50 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_EXPORT_DOWNLOADS, value).apply()
     }
 
+    fun setDownloadFolderUri(value: String?) {
+        val normalized = value?.trim()?.takeIf { it.isNotBlank() }
+        downloadFolderUri.value = normalized
+        val editor = prefs.edit()
+        if (normalized != null) {
+            editor.putString(KEY_DOWNLOAD_FOLDER_URI, normalized)
+            setExportDownloads(true)
+        } else {
+            editor.remove(KEY_DOWNLOAD_FOLDER_URI)
+        }
+        editor.apply()
+    }
+
+    fun setDownloadArtistSeparator(value: String) {
+        val safe = value.ifEmpty { ", " }
+        downloadArtistSeparator.value = safe
+        prefs.edit().putString(KEY_DOWNLOAD_ARTIST_SEPARATOR, safe).apply()
+    }
+
+    fun setDownloadOrganizeFolders(value: Boolean) {
+        downloadOrganizeFolders.value = value
+        prefs.edit().putBoolean(KEY_DOWNLOAD_ORGANIZE_FOLDERS, value).apply()
+    }
+
+    fun setDownloadSaveAlbumCover(value: Boolean) {
+        downloadSaveAlbumCover.value = value
+        prefs.edit().putBoolean(KEY_DOWNLOAD_SAVE_ALBUM_COVER, value).apply()
+    }
+
+    fun setDownloadSaveTrackCover(value: Boolean) {
+        downloadSaveTrackCover.value = value
+        prefs.edit().putBoolean(KEY_DOWNLOAD_SAVE_TRACK_COVER, value).apply()
+    }
+
+    fun setDownloadCreateNomedia(value: Boolean) {
+        downloadCreateNomedia.value = value
+        prefs.edit().putBoolean(KEY_DOWNLOAD_CREATE_NOMEDIA, value).apply()
+    }
+
+    fun setDownloadSaveLrcLyrics(value: Boolean) {
+        downloadSaveLrcLyrics.value = value
+        prefs.edit().putBoolean(KEY_DOWNLOAD_SAVE_LRC_LYRICS, value).apply()
+    }
+
     fun setLastfmPrimaryArtistOnly(value: Boolean) {
         lastfmPrimaryArtistOnly.value = value
         prefs.edit().putBoolean(KEY_LASTFM_PRIMARY_ARTIST_ONLY, value).apply()
@@ -1625,6 +1710,26 @@ object AppSettings {
     fun setFilterNonMusicAudio(value: Boolean) {
         filterNonMusicAudio.value = value
         prefs.edit().putBoolean(KEY_FILTER_NON_MUSIC_AUDIO, value).apply()
+    }
+
+    fun setPreventDuplicateTracks(value: Boolean) {
+        preventDuplicateTracks.value = value
+        prefs.edit().putBoolean(KEY_PREVENT_DUPLICATE_TRACKS, value).apply()
+    }
+
+    fun setAutoDiscoverArtwork(value: Boolean) {
+        autoDiscoverArtwork.value = value
+        prefs.edit().putBoolean(KEY_AUTO_DISCOVER_ARTWORK, value).apply()
+    }
+
+    fun setSaveAlbumCoverToFolder(value: Boolean) {
+        saveAlbumCoverToFolder.value = value
+        prefs.edit().putBoolean(KEY_SAVE_ALBUM_COVER_TO_FOLDER, value).apply()
+    }
+
+    fun setNoLocalAlbums(value: Boolean) {
+        noLocalAlbums.value = value
+        prefs.edit().putBoolean(KEY_NO_LOCAL_ALBUMS, value).apply()
     }
 
     fun setLocalMusicSort(value: LocalMusicSort) {
@@ -1895,6 +2000,7 @@ object AppSettings {
         "downloaded_tracks_metadata",
         "downloaded_collections",
         KEY_LOCAL_MUSIC_FOLDER_URI,
+        KEY_DOWNLOAD_FOLDER_URI,
         KEY_LAST_VERSION_CODE,
     )
 
@@ -1923,6 +2029,13 @@ object AppSettings {
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
+    private const val KEY_DOWNLOAD_FOLDER_URI = "download_folder_uri"
+    private const val KEY_DOWNLOAD_ARTIST_SEPARATOR = "download_artist_separator"
+    private const val KEY_DOWNLOAD_ORGANIZE_FOLDERS = "download_organize_folders"
+    private const val KEY_DOWNLOAD_SAVE_ALBUM_COVER = "download_save_album_cover"
+    private const val KEY_DOWNLOAD_SAVE_TRACK_COVER = "download_save_track_cover"
+    private const val KEY_DOWNLOAD_CREATE_NOMEDIA = "download_create_nomedia"
+    private const val KEY_DOWNLOAD_SAVE_LRC_LYRICS = "download_save_lrc_lyrics"
     private const val KEY_LOSSLESS = "lossless_audio"
     private const val KEY_CROSSFADE = "crossfade_seconds"
     private const val KEY_SMART_FADE = "smart_fade_enabled"
@@ -1978,6 +2091,10 @@ object AppSettings {
     private const val KEY_PAXSENIX_API_KEY = "paxsenix_api_key"
     private const val KEY_REPLAY_GENRES = "replay_genres"
     private const val KEY_FILTER_NON_MUSIC_AUDIO = "filter_non_music_audio"
+    private const val KEY_PREVENT_DUPLICATE_TRACKS = "prevent_duplicate_tracks"
+    private const val KEY_AUTO_DISCOVER_ARTWORK = "auto_discover_artwork"
+    private const val KEY_SAVE_ALBUM_COVER_TO_FOLDER = "save_album_cover_to_folder"
+    private const val KEY_NO_LOCAL_ALBUMS = "no_local_albums"
     private const val KEY_SHOW_CACHE_FOLDER = "show_cache_folder"
     private const val KEY_LOCAL_MUSIC_SORT = "local_music_sort"
     private const val KEY_DOWNLOADED_MUSIC_SORT = "downloaded_music_sort"

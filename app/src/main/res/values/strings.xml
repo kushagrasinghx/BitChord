@@ -353,6 +353,15 @@
     <string name="download_quality_subtitle">%1$s per track, whatever the connection</string>
     <string name="filter_non_music_audio">Filter non-music audio</string>
     <string name="filter_non_music_audio_subtitle">Hides clips under 30 seconds, WAV files, voice notes, recordings and system sounds</string>
+    <string name="prevent_duplicate_tracks">Prevent duplicate tracks</string>
+    <string name="prevent_duplicate_tracks_subtitle">Combines identical files and titles found across multiple folders or storage volumes</string>
+    <string name="indexing_library_progress">Indexing library (%1$d tracks found)…</string>
+    <string name="indexing_library_searching">Indexing library…</string>
+    <string name="refresh_library">Refresh library</string>
+    <string name="view_online_artist">Online Profile</string>
+    <string name="view_online_album">Online Album</string>
+    <string name="more_tracks_in_queue">+ %1$d more songs in queue</string>
+    <string name="in_local_library">In Local Library</string>
     <string name="performance">Performance</string>
     <string name="high_performance_mode">High performance mode</string>
     <string name="high_performance_subtitle">Uses full animations and blur, and requests a higher display refresh rate</string>
@@ -761,6 +770,17 @@
     <string name="sort_date_added_oldest">Date added (oldest first)</string>
     <string name="sort_date_added_toggle">Date added</string>
     <string name="sort_date_modified">Date modified (newest first)</string>
+    <string name="sort_most_played">Most played</string>
+    <string name="sort_recently_played">Recently played</string>
+    <string name="sort_artist_name">Artist (A to Z)</string>
+    <string name="sort_duration_shortest">Duration (shortest first)</string>
+    <string name="sort_duration_longest">Duration (longest first)</string>
+    <string name="auto_discover_artwork">Auto-download missing album artwork</string>
+    <string name="auto_discover_artwork_subtitle">Search online for high-res album covers when indexing local tracks</string>
+    <string name="save_cover_to_folder">Save cover.jpg to album folders</string>
+    <string name="save_cover_to_folder_subtitle">Export album covers directly into music folders for external players (Poweramp, Namida)</string>
+    <string name="no_local_albums_setting_title">Only show complete downloaded albums</string>
+    <string name="no_local_albums_setting_subtitle">Prevent loose individual songs from flooding the Albums tab with single-track albums</string>
     <string name="sort_default">Default order</string>
     <string name="sort_library">Sort</string>
     <string name="sort_songs">Sort songs</string>
@@ -1127,4 +1147,31 @@
     <string name="local_playlist_subtitle">%1$d songs · On this device</string>
     <string name="spotify_import_empty_playlist">No songs in this playlist</string>
     <string name="spotify_library_subtitle">Your Spotify playlists</string>
+
+    <!-- Download Customization & Metadata Storage (Refreezer Parity) -->
+    <string name="download_customization_title">Download Settings</string>
+    <string name="download_customization_subtitle">Folder structure, covers, lyrics and artist tags</string>
+    <string name="download_storage_section">Storage &amp; Folders</string>
+    <string name="download_folder_title">Download folder</string>
+    <string name="download_folder_default">Default (Music/BitChord)</string>
+    <string name="download_folder_custom_desc">Custom storage directory via Storage Access Framework</string>
+    <string name="download_folder_reset">Reset to default folder</string>
+    <string name="download_organize_folders_title">Organize in folders</string>
+    <string name="download_organize_folders_desc">Save tracks in &lt;Artist&gt;/&lt;Album&gt;/ folders</string>
+    <string name="download_create_nomedia_title">Create .nomedia file</string>
+    <string name="download_create_nomedia_desc">Hide downloaded artwork and tracks from gallery apps</string>
+    <string name="download_metadata_section">Metadata &amp; Companion Files</string>
+    <string name="download_save_album_cover_title">Save album cover</string>
+    <string name="download_save_album_cover_desc">Save cover.jpg in album folders for local players</string>
+    <string name="download_save_track_cover_title">Save track cover</string>
+    <string name="download_save_track_cover_desc">Save &lt;title&gt;.jpg alongside each song</string>
+    <string name="download_save_lrc_title">Save synced lyrics (.lrc)</string>
+    <string name="download_save_lrc_desc">Export line-synced lyrics for offline players</string>
+    <string name="download_artist_separator_title">Artist separator</string>
+    <string name="download_artist_separator_desc">Delimiter for multiple artists across audio tags</string>
+    <string name="download_export_active_folder">Saving to %1$s</string>
+    <string name="enhance_album_art">Find missing album art</string>
+    <string name="enhancing_album_art">Finding album artwork…</string>
+    <string name="album_art_updated">Album artwork updated</string>
+    <string name="album_art_not_found">Could not find artwork for this album</string>
 </resources>

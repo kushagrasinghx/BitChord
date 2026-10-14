@@ -890,8 +890,9 @@ object Downloads {
         // or its AAC, and adopting the wrong one would quietly answer a request
         // for lossless with a transcode.
         if (quality.keepsLossless) {
+            val subfolder = DownloadStore.resolveSubfolder(track)
             LOSSLESS_EXTENSIONS.firstNotNullOfOrNull { extension ->
-                DownloadStore.existing(context, DownloadStore.fileNameFor(track, extension))
+                DownloadStore.existing(context, DownloadStore.fileNameFor(track, extension), subfolder)
             }?.let { uri ->
                 return@withContext Prepared(song.videoId, track, route = null, alreadyAt = uri)
             }
@@ -966,8 +967,9 @@ object Downloads {
                     artwork = async { MediaTagger.artworkFor(context, track) }
                 }
 
+                val subfolder = DownloadStore.resolveSubfolder(track)
                 val name = DownloadStore.fileNameFor(track, route.extension)
-                val alreadyThere = DownloadStore.existing(context, name)
+                val alreadyThere = DownloadStore.existing(context, name, subfolder)
                 if (alreadyThere != null) {
                     Log.d(TAG, "$name is already in Music; adopting it")
                     remember(song, track, alreadyThere)
@@ -1011,7 +1013,7 @@ object Downloads {
                     return@coroutineScope
                 }
 
-                val destination = DownloadStore.begin(context, name, route.mimeType)
+                val destination = DownloadStore.begin(context, name, route.mimeType, subfolder)
                 pending = destination
                 destination.openStream().use { sink ->
                     route.write(sink) { written, total ->
@@ -1028,6 +1030,60 @@ object Downloads {
                 val artworkUri = MediaTagger.persistArtwork(context, track.thumbnailUrl, cover)
                 val savedUri = destination.commit()
                 pending = null
+
+                // Save companion files (refreezer parity)
+                val trackStem = name.substringBeforeLast('.')
+                if (AppSettings.downloadSaveLrcLyrics.value && words != null) {
+                    val lrcContent = words.plain?.takeIf { it.isNotBlank() } ?: words.enhanced
+                    if (!lrcContent.isNullOrBlank()) {
+                        DownloadStore.writeCompanion(
+                            context,
+                            subfolder,
+                            "$trackStem.lrc",
+                            lrcContent.toByteArray(Charsets.UTF_8),
+                            "text/plain"
+                        )
+                    }
+                }
+                if (AppSettings.downloadCreateNomedia.value) {
+                    DownloadStore.writeCompanion(
+                        context,
+                        null,
+                        ".nomedia",
+                        ByteArray(0),
+                        "application/octet-stream"
+                    )
+                    if (!subfolder.isNullOrEmpty()) {
+                        DownloadStore.writeCompanion(
+                            context,
+                            subfolder,
+                            ".nomedia",
+                            ByteArray(0),
+                            "application/octet-stream"
+                        )
+                    }
+                }
+                if (AppSettings.downloadSaveAlbumCover.value && cover != null) {
+                    if (!subfolder.isNullOrEmpty() && !track.albumName.isNullOrBlank()) {
+                        DownloadStore.writeCompanion(
+                            context,
+                            subfolder,
+                            "cover.jpg",
+                            cover.bytes,
+                            cover.mime
+                        )
+                    }
+                }
+                if (AppSettings.downloadSaveTrackCover.value && cover != null) {
+                    DownloadStore.writeCompanion(
+                        context,
+                        subfolder,
+                        "$trackStem.jpg",
+                        cover.bytes,
+                        cover.mime
+                    )
+                }
+
                 remember(song, track, savedUri, route.downloadFormat, artworkUri)
                 DownloadSession.done(id)
                 clear(id)
@@ -1146,7 +1202,7 @@ object Downloads {
         // MediaStore.Audio refuses audio/webm on affected Android versions.
         // Keep Opus for app-private downloads, but pin exported downloads to
         // AAC-in-MP4 for both the initial resolve and any mid-transfer retry.
-        val requireM4a = AppSettings.exportDownloads.value
+        val requireM4a = AppSettings.exportDownloads.value || !AppSettings.downloadFolderUri.value.isNullOrBlank()
         val stream = StreamResolver.resolveForDownload(track.videoId, quality.maxKbps, requireM4a)
         return Route(
             extension = stream.downloadExtension,

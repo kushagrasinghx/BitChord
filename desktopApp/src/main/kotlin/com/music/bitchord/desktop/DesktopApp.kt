@@ -6114,22 +6114,184 @@ private fun DesktopSettingsScreen(
                 }
             }
             if (section == DesktopSettingsSection.DOWNLOADS) item {
+                val persistence = remember { DesktopPersistence() }
+                var downloadFolderLabel by remember { mutableStateOf(persistence.downloadFolderLabel()) }
+                var organizeFolders by remember { mutableStateOf(persistence.downloadOrganizeFolders()) }
+                var saveAlbumCover by remember { mutableStateOf(persistence.downloadSaveAlbumCover()) }
+                var saveTrackCover by remember { mutableStateOf(persistence.downloadSaveTrackCover()) }
+                var saveLrc by remember { mutableStateOf(persistence.downloadSaveLrc()) }
+                var createNomedia by remember { mutableStateOf(persistence.downloadCreateNomedia()) }
+                var artistSeparator by remember { mutableStateOf(persistence.downloadArtistSeparator()) }
+                var showSeparatorDialog by remember { mutableStateOf(false) }
+
                 SettingsGroup(DesktopStrings["download_channel_name", "Downloads"]) {
                     if (settingsRowVisible(DesktopStrings["download_channel_name", "Downloads"])) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        listOf("STANDARD" to "Standard", "HIGH" to "High", "LOSSLESS" to "Lossless").forEach { (value, label) ->
-                            FilterChip(
-                                colors = desktopChipColors(),
-                                selected = downloadQuality == value,
-                                onClick = { onDownloadQualityChange(value) },
-                                label = { Text(label) },
-                            )
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf("STANDARD" to "Standard", "HIGH" to "High", "LOSSLESS" to "Lossless").forEach { (value, label) ->
+                                FilterChip(
+                                    colors = desktopChipColors(),
+                                    selected = downloadQuality == value,
+                                    onClick = { onDownloadQualityChange(value) },
+                                    label = { Text(label) },
+                                )
+                            }
                         }
                     }
+
+                    SettingsRow(
+                        icon = Icons.Rounded.Folder,
+                        title = DesktopStrings["download_folder_title", "Download folder"],
+                        subtitle = downloadFolderLabel,
+                    ) {
+                        val chosen = runCatching {
+                            val chooser = javax.swing.JFileChooser(persistence.downloadFolder()?.toFile() ?: java.io.File(System.getProperty("user.home")))
+                            chooser.fileSelectionMode = javax.swing.JFileChooser.DIRECTORIES_ONLY
+                            chooser.dialogTitle = DesktopStrings["download_folder_title", "Download folder"]
+                            if (chooser.showOpenDialog(null) == javax.swing.JFileChooser.APPROVE_OPTION) {
+                                chooser.selectedFile?.toPath()
+                            } else null
+                        }.getOrNull()
+                        if (chosen != null) {
+                            persistence.setDownloadFolder(chosen)
+                            downloadFolderLabel = persistence.downloadFolderLabel()
+                        }
                     }
+
+                    if (persistence.downloadFolder() != null) {
+                        SettingsRow(
+                            icon = BitChordIcons.Library,
+                            title = DesktopStrings["download_folder_reset", "Reset to default folder"],
+                            subtitle = DesktopStrings["download_folder_default", "Default (Music/BitChord)"],
+                        ) {
+                            persistence.setDownloadFolder(null)
+                            downloadFolderLabel = persistence.downloadFolderLabel()
+                        }
+                    }
+
+                    SettingsToggle(
+                        title = DesktopStrings["download_organize_folders_title", "Organize in folders"],
+                        subtitle = DesktopStrings["download_organize_folders_desc", "Save tracks in <Artist>/<Album>/ folders"],
+                        checked = organizeFolders,
+                        onCheckedChange = {
+                            organizeFolders = it
+                            persistence.setDownloadOrganizeFolders(it)
+                        },
+                    )
+
+                    SettingsToggle(
+                        title = DesktopStrings["download_create_nomedia_title", "Create .nomedia file"],
+                        subtitle = DesktopStrings["download_create_nomedia_desc", "Hide downloaded artwork and tracks from gallery apps"],
+                        checked = createNomedia,
+                        onCheckedChange = {
+                            createNomedia = it
+                            persistence.setDownloadCreateNomedia(it)
+                        },
+                    )
+
+                    SettingsToggle(
+                        title = DesktopStrings["download_save_album_cover_title", "Save album cover"],
+                        subtitle = DesktopStrings["download_save_album_cover_desc", "Save cover.jpg in album folders for local players"],
+                        checked = saveAlbumCover,
+                        onCheckedChange = {
+                            saveAlbumCover = it
+                            persistence.setDownloadSaveAlbumCover(it)
+                        },
+                    )
+
+                    SettingsToggle(
+                        title = DesktopStrings["download_save_track_cover_title", "Save track cover"],
+                        subtitle = DesktopStrings["download_save_track_cover_desc", "Save <title>.jpg alongside each song"],
+                        checked = saveTrackCover,
+                        onCheckedChange = {
+                            saveTrackCover = it
+                            persistence.setDownloadSaveTrackCover(it)
+                        },
+                    )
+
+                    SettingsToggle(
+                        title = DesktopStrings["download_save_lrc_title", "Save synced lyrics (.lrc)"],
+                        subtitle = DesktopStrings["download_save_lrc_desc", "Export line-synced lyrics for offline players"],
+                        checked = saveLrc,
+                        onCheckedChange = {
+                            saveLrc = it
+                            persistence.setDownloadSaveLrc(it)
+                        },
+                    )
+
+                    val separatorLabel = when (artistSeparator) {
+                        ", " -> "Comma (, )"
+                        " / " -> "Slash ( / )"
+                        "; " -> "Semicolon (; )"
+                        " & " -> "Ampersand ( & )"
+                        " • " -> "Bullet ( • )"
+                        " | " -> "Pipe ( | )"
+                        else -> artistSeparator
+                    }
+
+                    SettingsNavigationRow(
+                        title = DesktopStrings["download_artist_separator_title", "Artist separator"],
+                        subtitle = separatorLabel,
+                        onClick = { showSeparatorDialog = true },
+                    )
+                }
+
+                if (showSeparatorDialog) {
+                    val separators = listOf(
+                        ", " to "Comma (, )",
+                        " / " to "Slash ( / )",
+                        "; " to "Semicolon (; )",
+                        " & " to "Ampersand ( & )",
+                        " • " to "Bullet ( • )",
+                        " | " to "Pipe ( | )",
+                    )
+                    AlertDialog(
+                        onDismissRequest = { showSeparatorDialog = false },
+                        title = { Text(DesktopStrings["download_artist_separator_title", "Artist separator"]) },
+                        text = {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                separators.forEach { (sep, label) ->
+                                    val isSelected = sep == artistSeparator
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .desktopRowClickable {
+                                                artistSeparator = sep
+                                                persistence.setDownloadArtistSeparator(sep)
+                                                showSeparatorDialog = false
+                                            }
+                                            .padding(vertical = 10.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            modifier = Modifier.weight(1f),
+                                            color = if (isSelected) DesktopAccent else Color.Unspecified,
+                                        )
+                                        if (isSelected) {
+                                            Icon(
+                                                BitChordIcons.Check,
+                                                contentDescription = null,
+                                                tint = DesktopAccent,
+                                                modifier = Modifier.size(18.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { showSeparatorDialog = false }) {
+                                Text(DesktopStrings["cancel", "Cancel"])
+                            }
+                        },
+                    )
                 }
             }
             if (section == DesktopSettingsSection.SOURCES) item {

@@ -107,6 +107,99 @@ class MediaTaggerTest {
     }
 
     @Test
+    fun `mp4 tagging replaces existing udta atom in-place without duplicate udta boxes`() {
+        val mdatPayload = ByteArray(24) { (it + 1).toByte() }
+        val ftyp = box("ftyp", ByteArray(8))
+        val oldUdtaPayload = "OLD_METADATA_DUMMY_UDTA".toByteArray(Charsets.UTF_8)
+        val oldUdta = box("udta", oldUdtaPayload)
+
+        fun moovWithUdtaAndStco(offset: Int): ByteArray {
+            val stcoPayload = ByteArray(12)
+            stcoPayload[7] = 1 // entry_count = 1
+            u32(offset).copyInto(stcoPayload, 8)
+            val stco = box("stco", stcoPayload)
+            val stbl = box("stbl", stco)
+            val minf = box("minf", stbl)
+            val mdia = box("mdia", minf)
+            val trak = box("trak", mdia)
+            return box("moov", trak + oldUdta)
+        }
+
+        val moovPlaceholder = moovWithUdtaAndStco(0)
+        val mdatPayloadOffset = ftyp.size + moovPlaceholder.size + 8
+        val moov = moovWithUdtaAndStco(mdatPayloadOffset)
+        val mdat = box("mdat", mdatPayload)
+        val original = ftyp + moov + mdat
+
+        val cover = byteArrayOf(1, 2, 3, 4)
+        val tagged = Mp4Tagger.tag(original, "New Title", "New Artist", "New Album", null, cover, coverIsPng = false)
+
+        assertNotSame(original, tagged)
+        // Ensure old udta content is replaced
+        assertEquals(-1, tagged.indexOfBytes(oldUdtaPayload))
+
+        // Ensure there is only one "udta" box in tagged output
+        val firstUdta = tagged.indexOfBytes("udta".toByteArray(Charsets.US_ASCII))
+        assertTrue(firstUdta >= 0)
+        val secondUdta = tagged.indexOfBytes("udta".toByteArray(Charsets.US_ASCII), from = firstUdta + 4)
+        assertEquals(-1, secondUdta)
+
+        // Delta should be tagged.size - original.size
+        val delta = tagged.size - original.size
+        val newOffset = mdatPayloadOffset + delta
+        assertArrayEquals(mdatPayload, tagged.copyOfRange(newOffset, newOffset + mdatPayload.size))
+
+        val stcoTypePos = tagged.indexOfBytes("stco".toByteArray(Charsets.US_ASCII))
+        assertTrue(stcoTypePos >= 0)
+        val entryOffsetPos = stcoTypePos + 4 + 4 + 4
+        assertEquals(newOffset.toLong(), readU32(tagged, entryOffsetPos))
+
+        assertTrue(tagged.indexOfBytes("New Title".toByteArray(Charsets.UTF_8)) >= 0)
+        assertTrue(tagged.indexOfBytes("New Artist".toByteArray(Charsets.UTF_8)) >= 0)
+        assertTrue(tagged.indexOfBytes(cover) >= 0)
+    }
+
+    @Test
+    fun `mp4 tagging updates co64 64-bit chunk offsets properly`() {
+        val mdatPayload = ByteArray(16) { 0x42 }
+        val ftyp = box("ftyp", ByteArray(8))
+
+        fun moovWithCo64(offset: Long): ByteArray {
+            val co64Payload = ByteArray(16)
+            co64Payload[7] = 1 // entry_count = 1
+            for (i in 0..7) {
+                co64Payload[8 + i] = ((offset ushr (56 - i * 8)) and 0xFF).toByte()
+            }
+            val co64 = box("co64", co64Payload)
+            val stbl = box("stbl", co64)
+            val minf = box("minf", stbl)
+            val mdia = box("mdia", minf)
+            val trak = box("trak", mdia)
+            return box("moov", trak)
+        }
+
+        val moovPlaceholder = moovWithCo64(0L)
+        val mdatPayloadOffset = (ftyp.size + moovPlaceholder.size + 8).toLong()
+        val moov = moovWithCo64(mdatPayloadOffset)
+        val mdat = box("mdat", mdatPayload)
+        val original = ftyp + moov + mdat
+
+        val tagged = Mp4Tagger.tag(original, "Co64 Title", "Artist", null, null, null, false)
+        assertNotSame(original, tagged)
+        val delta = tagged.size - original.size
+        val newOffset = mdatPayloadOffset + delta
+
+        val co64TypePos = tagged.indexOfBytes("co64".toByteArray(Charsets.US_ASCII))
+        assertTrue(co64TypePos >= 0)
+        val entryOffsetPos = co64TypePos + 12
+        var readOffset = 0L
+        for (i in 0..7) {
+            readOffset = (readOffset shl 8) or (tagged[entryOffsetPos + i].toLong() and 0xFF)
+        }
+        assertEquals(newOffset, readOffset)
+    }
+
+    @Test
     fun `mp4 tagging is a no-op without a moov box`() {
         val bytes = box("ftyp", ByteArray(8)) + box("mdat", ByteArray(16))
         val tagged = Mp4Tagger.tag(bytes, "Title", "Artist", null, null, null, false)

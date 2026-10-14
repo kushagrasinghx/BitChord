@@ -121,6 +121,7 @@ import com.music.bitchord.auth.DiscordLoginScreen
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YtMusicLoginScreen
 import com.music.bitchord.data.AppUpdateChecker
+import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.data.listentogether.ListenTogether
@@ -809,6 +810,9 @@ private fun BitChordApp(
     val savedDownloads by Downloads.saved.collectAsStateWithLifecycle()
     val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
     val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
+    val preventDuplicateTracks by AppSettings.preventDuplicateTracks.collectAsStateWithLifecycle()
+    val isLocalIndexing by LocalMediaRepository.isIndexing.collectAsStateWithLifecycle()
+    val localIndexedCount by LocalMediaRepository.indexedCount.collectAsStateWithLifecycle()
     val webdavUrl by AppSettings.webdavUrl.collectAsStateWithLifecycle()
     val smbHost by AppSettings.smbHost.collectAsStateWithLifecycle()
     val librarySort by AppSettings.librarySort.collectAsStateWithLifecycle()
@@ -857,7 +861,14 @@ private fun BitChordApp(
             viewModel.reloadLocalDetail(open)
         }
     }
-    LaunchedEffect(localMusicFolderUri, filterNonMusicAudio) {
+    LaunchedEffect(Unit) {
+        val liked = LocalMediaRepository.getLikedTrackIds(context)
+        if (liked.isNotEmpty()) {
+            LikeState.seedLiked(liked)
+        }
+    }
+    LaunchedEffect(localMusicFolderUri, filterNonMusicAudio, preventDuplicateTracks) {
+        viewModel.loadLibrarySongs()
         if (detail?.browseId == "local:all") {
             viewModel.reloadLocalDetail("local:all")
         }
@@ -1264,7 +1275,19 @@ private fun BitChordApp(
         // never will); those can't be queued, so play the rest in their order.
         if (allSongs.getOrNull(allIndex)?.isUnresolvedSpotify == true) return@playFrom
         val songs = allSongs.filterNot { it.isUnresolvedSpotify }
-        val index = songs.indexOf(allSongs.getOrNull(allIndex)).coerceAtLeast(0)
+        val rawIndex = songs.indexOf(allSongs.getOrNull(allIndex)).coerceAtLeast(0)
+        // If the context is massive (like an 8,000+ local music library), window it
+        // around the tapped song so ExoPlayer and Binder transactions stay lightweight
+        // without dropping audio responsiveness.
+        val (contextSongs, index) = if (songs.size > 200) {
+            val preceding = 50
+            val following = 150
+            val start = (rawIndex - preceding).coerceAtLeast(0)
+            val end = (rawIndex + following).coerceAtMost(songs.size)
+            songs.subList(start, end) to (rawIndex - start)
+        } else {
+            songs to rawIndex
+        }
         playRequestGeneration++
         activeRadioSeed = null
         scope.launch {
@@ -1275,7 +1298,7 @@ private fun BitChordApp(
             val currentIndex = c.currentMediaItemIndex
 
             if (ListenTogether.state.value.inParty) {
-                val selectedSong = songs.getOrNull(index) ?: return@launch
+                val selectedSong = contextSongs.getOrNull(index) ?: return@launch
                 val party = ListenTogether.state.value
                 val partyQueue = party.queue.items
                 val partyIndex = partyQueueIndexOf(party.queue, party.playback, party.playback.track?.videoId)
@@ -1294,7 +1317,7 @@ private fun BitChordApp(
                 val result = QueueCoordinator.buildContextQueue(
                     currentTimeline = currentTimeline,
                     currentIndex = currentIndex,
-                    newContextSongs = songs,
+                    newContextSongs = contextSongs,
                     selectedIndex = index,
                     contextSource = source,
                 )
@@ -1904,16 +1927,43 @@ private fun BitChordApp(
             Toast.makeText(context, context.getString(R.string.storage_required_read), Toast.LENGTH_SHORT).show()
         }
     }
+    val manageStorageLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        if (LocalMediaRepository.hasStoragePermission(context)) {
+            viewModel.reloadLocalDetail("local:all")
+            viewModel.reloadLocalDetail("local:downloads")
+            viewModel.loadLibrarySongs()
+        }
+    }
     val mediaPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         Manifest.permission.READ_MEDIA_AUDIO
     } else {
         Manifest.permission.READ_EXTERNAL_STORAGE
     }
+    val requestStoragePermission: () -> Unit = {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !android.os.Environment.isExternalStorageManager()) {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+            try {
+                manageStorageLauncher.launch(intent)
+            } catch (e: Exception) {
+                try {
+                    manageStorageLauncher.launch(android.content.Intent(android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                } catch (e2: Exception) {
+                    mediaPermissionLauncher.launch(mediaPermission)
+                }
+            }
+        } else {
+            mediaPermissionLauncher.launch(mediaPermission)
+        }
+    }
     // The Search tab's Library source reads the Local Music folder, so it asks
     // for the same permission opening that folder does.
     val onSearchSourceChange: (SearchSource) -> Unit = { source ->
         if (source == SearchSource.LIBRARY && !LocalMediaRepository.hasStoragePermission(context)) {
-            mediaPermissionLauncher.launch(mediaPermission)
+            requestStoragePermission()
         }
         viewModel.setSearchSource(source)
     }
@@ -1926,7 +1976,7 @@ private fun BitChordApp(
                 return@let
             }
             if ((id == "local:all" || id == "local:downloads") && !LocalMediaRepository.hasStoragePermission(context)) {
-                mediaPermissionLauncher.launch(mediaPermission)
+                requestStoragePermission()
             }
             // Left set rather than cleared: a card opened from a shelf's
             // "Show all" page stacks a detail page over it exactly as one
@@ -2822,6 +2872,27 @@ private fun BitChordApp(
                             isDownloads = page.browseId == "local:downloads",
                             currentSong = player.song,
                             isPlaying = player.isPlaying,
+                            isIndexing = isLocalIndexing,
+                            indexedCount = localIndexedCount,
+                            onRefresh = { viewModel.refreshLocalMusic() },
+                            onOpenAlbum = { entry ->
+                                viewModel.openLocalAlbum(
+                                    title = entry.title,
+                                    artist = entry.artist,
+                                    thumbnailUrl = entry.thumbnailUrl,
+                                    songs = entry.songs,
+                                    key = entry.key,
+                                )
+                            },
+                            onOpenArtist = { name, songs ->
+                                viewModel.openLocalArtist(name, songs)
+                            },
+                            onOpenOnlineArtist = { name ->
+                                openByName(null, name, null, BrowseType.ARTIST)
+                            },
+                            onOpenOnlineAlbum = { title, artist ->
+                                openByName(null, title, artist, BrowseType.ALBUM)
+                            },
                             onDeleteDownloads = { selected ->
                                 scope.launch {
                                     selected.forEach { song -> Downloads.delete(context, song.videoId) }
@@ -2844,9 +2915,10 @@ private fun BitChordApp(
                             onSongSwipe = onSongSwipe,
                             onShuffle = { songs ->
                                 QueueShuffle.enableForNextQueue()
+                                val playList = if (songs.size > 200) songs.shuffled().take(200) else songs
                                 playFrom(
-                                    songs,
-                                    songs.indices.random(),
+                                    playList,
+                                    playList.indices.random(),
                                     QueueSource(page.title, PlaybackSourceType.BROWSE, page.browseId),
                                 )
                             },
@@ -4203,6 +4275,12 @@ private fun BitChordApp(
                 onOpenArtist = { id ->
                     openPage(id, song.artist, context.getString(R.string.artist), BrowseType.ARTIST)
                 },
+                onEnhanceArtwork = if (song.localUri != null) {
+                    {
+                        songActions = null
+                        viewModel.enhanceSongArtwork(song)
+                    }
+                } else null,
                 // Only the player's copy of a track is ever missing these
                 // and backfilling — a row opened from a list already has
                 // whatever ids it's ever going to have.
@@ -4531,6 +4609,11 @@ private fun BitChordApp(
                             },
                     )
                 }.takeIf { remote },
+                onEnhanceMetadata = if (!remote && target.type == BrowseType.ALBUM) {
+                    act { songs ->
+                        viewModel.enhanceLocalAlbum(target.title, target.subtitle, songs)
+                    }
+                } else null,
                 // The same link a share off YouTube Music's own overflow
                 // gives — built from the browse id rather than fetched,
                 // since nothing about it depends on the tracks or the
@@ -5293,7 +5376,10 @@ private fun SongSort.localizedLabel(): String = when (this) {
  * gets. See [Downloads.PLAYLIST_PREFIX] for why they share a namespace at all.
  */
 private fun String?.isDeviceFolder(): Boolean =
-    this != null && startsWith("local:") && !startsWith(Downloads.PLAYLIST_PREFIX)
+    this != null && startsWith("local:") &&
+        !startsWith(Downloads.PLAYLIST_PREFIX) &&
+        !startsWith("local:album:") &&
+        !startsWith("local:artist:")
 
 /**
  * Whether [videoId] is the track playing, and is known to be playing YouTube's

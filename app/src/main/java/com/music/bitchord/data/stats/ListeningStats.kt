@@ -322,6 +322,53 @@ object ListeningStats {
             .getOrNull()
     }
 
+    @Volatile
+    private var cachedPlayCounts: Map<String, Int>? = null
+    @Volatile
+    private var cachedLastPlayed: Map<String, Long>? = null
+    private var cachedPlayCountsVersion = -1L
+
+    /**
+     * Map of track ID to play count across all history buckets.
+     */
+    fun allTrackPlayCounts(): Map<String, Int> {
+        if (!ready) return emptyMap()
+        if (cachedPlayCountsVersion == version && cachedPlayCounts != null) return cachedPlayCounts!!
+        val counts = HashMap<String, Int>()
+        synchronized(lock) {
+            open?.tracks?.values?.forEach { counts[it.id] = (counts[it.id] ?: 0) + it.plays }
+        }
+        months().forEach { month ->
+            read(month.toString())?.tracks?.forEach { track ->
+                counts[track.id] = (counts[track.id] ?: 0) + track.plays
+            }
+        }
+        cachedPlayCounts = counts
+        cachedPlayCountsVersion = version
+        return counts
+    }
+
+    /**
+     * Map of track ID to last played timestamp (epoch ms) across all history buckets.
+     */
+    fun allTrackLastPlayed(): Map<String, Long> {
+        if (!ready) return emptyMap()
+        if (cachedPlayCountsVersion == version && cachedLastPlayed != null) return cachedLastPlayed!!
+        val lastTimes = HashMap<String, Long>()
+        synchronized(lock) {
+            open?.tracks?.values?.forEach {
+                if (it.last > (lastTimes[it.id] ?: 0L)) lastTimes[it.id] = it.last
+            }
+        }
+        months().forEach { month ->
+            read(month.toString())?.tracks?.forEach { track ->
+                if (track.last > (lastTimes[track.id] ?: 0L)) lastTimes[track.id] = track.last
+            }
+        }
+        cachedLastPlayed = lastTimes
+        return lastTimes
+    }
+
     // ── Housekeeping ────────────────────────────────────────────────────────
 
     /**

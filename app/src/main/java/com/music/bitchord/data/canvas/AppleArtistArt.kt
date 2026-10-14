@@ -4,9 +4,11 @@ import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.Http
 import androidx.compose.ui.graphics.Color
 import com.music.bitchord.ui.theme.ArtworkKeyColors
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONArray
@@ -56,7 +58,8 @@ fun AppleArtistArt.keyColors() = ArtworkKeyColors(Color(background), Color(accen
 object AppleArtistArtRepository {
 
     private const val TAG = "AppleArtistArt"
-    private const val CACHE_SIZE = 64
+    private const val CACHE_SIZE = 256
+    private const val DISK_CACHE_FILE = "apple_artist_art_cache.json"
     private const val HERO_WIDTH = 1200
     private const val LOGO_WIDTH = 1000
     private const val USER_AGENT =
@@ -68,6 +71,85 @@ object AppleArtistArtRepository {
     private val cache = object : LinkedHashMap<String, Entry>(CACHE_SIZE, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Entry>) =
             size > CACHE_SIZE
+    }
+
+    private var cacheDir: java.io.File? = null
+    private val diskLock = Any()
+    private var diskLoaded = false
+
+    fun init(context: android.content.Context) {
+        cacheDir = context.filesDir
+        loadFromDisk()
+    }
+
+    private fun loadFromDisk() {
+        if (diskLoaded) return
+        val dir = cacheDir ?: return
+        val file = java.io.File(dir, DISK_CACHE_FILE)
+        if (!file.exists()) {
+            diskLoaded = true
+            return
+        }
+        runCatching {
+            val text = file.readText(Charsets.UTF_8)
+            val json = JSONObject(text)
+            synchronized(cache) {
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    val obj = json.optJSONObject(k)
+                    if (obj != null) {
+                        val heroUrl = obj.optString("heroUrl").takeIf { it.isNotBlank() }
+                        if (heroUrl != null) {
+                            val art = AppleArtistArt(
+                                heroUrl = heroUrl,
+                                logoUrl = obj.optString("logoUrl").takeIf { it.isNotBlank() },
+                                logoAspect = obj.optDouble("logoAspect", 1.0).toFloat(),
+                                videoUrl = obj.optString("videoUrl").takeIf { it.isNotBlank() },
+                                background = obj.optInt("bg"),
+                                accent = obj.optInt("accent"),
+                                keyColor = obj.optInt("keyColor").takeIf { it != 0 },
+                            )
+                            cache[k] = Entry(art)
+                        }
+                    }
+                }
+            }
+            diskLoaded = true
+        }.onFailure { Log.w(TAG, "Failed reading $DISK_CACHE_FILE: ${it.message}") }
+    }
+
+    private fun saveToDisk() {
+        val dir = cacheDir ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            synchronized(diskLock) {
+                runCatching {
+                    val json = JSONObject()
+                    synchronized(cache) {
+                        for ((k, entry) in cache) {
+                            val art = entry.art ?: continue
+                            val obj = JSONObject().apply {
+                                put("heroUrl", art.heroUrl)
+                                if (art.logoUrl != null) put("logoUrl", art.logoUrl)
+                                put("logoAspect", art.logoAspect)
+                                if (art.videoUrl != null) put("videoUrl", art.videoUrl)
+                                put("bg", art.background)
+                                put("accent", art.accent)
+                                if (art.keyColor != null) put("keyColor", art.keyColor)
+                            }
+                            json.put(k, obj)
+                        }
+                    }
+                    val tmp = java.io.File(dir, "$DISK_CACHE_FILE.tmp")
+                    val target = java.io.File(dir, DISK_CACHE_FILE)
+                    tmp.writeText(json.toString(), Charsets.UTF_8)
+                    if (tmp.exists()) {
+                        if (target.exists()) target.delete()
+                        tmp.renameTo(target)
+                    }
+                }.onFailure { Log.w(TAG, "Failed writing $DISK_CACHE_FILE: ${it.message}") }
+            }
+        }
     }
 
     private val _updates = MutableStateFlow(0)
@@ -86,6 +168,7 @@ object AppleArtistArtRepository {
      */
     fun cached(artistName: String): AppleArtistArt? {
         val key = artistName.normalized()
+        loadFromDisk()
         return synchronized(cache) { cache[key] }?.art
     }
 
@@ -93,6 +176,7 @@ object AppleArtistArtRepository {
     suspend fun artFor(artistName: String): AppleArtistArt? {
         val key = artistName.normalized()
         if (key.isEmpty()) return null
+        loadFromDisk()
         synchronized(cache) { cache[key] }?.let { return it.art }
 
         // Null here is a network hiccup, not an answer — only a settled result
@@ -103,6 +187,7 @@ object AppleArtistArtRepository {
                 .getOrNull()
         } ?: return null
         synchronized(cache) { cache[key] = entry }
+        if (entry.art != null) saveToDisk()
         _updates.value++
         return entry.art
     }
@@ -114,16 +199,22 @@ object AppleArtistArtRepository {
         ) ?: return null
         val results = JSONObject(search).optJSONArray("results") ?: JSONArray()
         var page: String? = null
+        var fallbackPage: String? = null
         for (i in 0 until results.length()) {
             val r = results.getJSONObject(i)
-            if (r.optString("artistName").normalized() == key) {
-                // The link carries the artist's slug; the bare id answers with
-                // a redirect to it, one more round trip for the same page.
-                page = r.optString("artistLinkUrl").substringBefore('?').takeIf { it.isNotBlank() }
-                    ?: r.optLong("artistId").takeIf { it > 0 }?.let { "https://music.apple.com/us/artist/$it" }
+            val candidate = r.optString("artistName").normalized()
+            val candidateUrl = r.optString("artistLinkUrl").substringBefore('?').takeIf { it.isNotBlank() }
+                ?: r.optLong("artistId").takeIf { it > 0 }?.let { "https://music.apple.com/us/artist/$it" }
+            if (candidate == key) {
+                page = candidateUrl
                 break
+            } else if (fallbackPage == null && candidateUrl != null &&
+                (candidate.startsWith(key) || key.startsWith(candidate) || candidate.contains(key))
+            ) {
+                fallbackPage = candidateUrl
             }
         }
+        if (page == null) page = fallbackPage
         if (page == null) return Entry(null)
 
         val html = get(page) ?: return null

@@ -37,6 +37,10 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- All files access for high-speed indexing across device and SD card storage (Namida/Poweramp parity) -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
     <!--
       Only for API 28 and below. From 29 the app writes to the shared Music
@@ -50,6 +54,7 @@
     <application
         android:name=".BitChordApplication"
         android:allowBackup="true"
+        android:requestLegacyExternalStorage="true"
         android:appCategory="audio"
         android:usesCleartextTraffic="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

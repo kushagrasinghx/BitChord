@@ -26,7 +26,7 @@ object TidalCanvas {
     private const val SEARCH = "https://api.tidal.com/v1/search"
 
     /** The token Tidal's public embed player ships; read-only, no account. */
-    private const val EMBED_TOKEN = "vNVdglQOjFJJGG2U"
+    internal const val EMBED_TOKEN = "vNVdglQOjFJJGG2U"
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 

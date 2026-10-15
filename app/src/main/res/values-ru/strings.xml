@@ -1266,7 +1266,15 @@
     <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
 
 
-
+    <string name="debrid_editor_title">Debrid</string>
+    <string name="debrid_editor_subtitle">Bit-exact cached audio via your debrid account</string>
+    <string name="debrid_api_key">Debrid API key</string>
+    <string name="debrid_api_key_required">Debrid API key required</string>
+    <string name="debrid_key_hint">Paste your Debrid API key</string>
+    <string name="debrid_key_note">Find it on your debrid provider’s settings page. Stored encrypted on this device, never uploaded anywhere else.</string>
+    <string name="debrid_connected">Connected</string>
+    <string name="debrid_rejected">That key was rejected</string>
+    <string name="debrid_clear_key">Clear key</string>
 
 
 
@@ -1320,4 +1328,6 @@
     <string name="spotify_library_subtitle">Ваши плейлисты Spotify</string>
     <string name="spotify_sign_in">Войти через Spotify</string>
     <string name="spotify_track_unavailable">Не удалось найти этот трек на YouTube Music</string>
+    <string name="chinese_simplified">Китайский (упрощённый)</string>
+    <string name="chinese_traditional">Китайский (традиционный)</string>
 </resources>

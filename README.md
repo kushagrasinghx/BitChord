@@ -59,6 +59,7 @@
 - **Discord Rich Presence** — in-app login, live track/artist/album and progress.
 - **Scrobbling** to Last.fm and ListenBrainz.
 - **Pluggable sources** — add, edit, test and health-check module sources.
+- **Debrid streaming** — bit-exact cached audio through your own debrid account.
 
     </td>
     <td width="50%" valign="top">

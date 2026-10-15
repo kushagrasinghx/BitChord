@@ -1160,6 +1160,16 @@
     <string name="prioritize_spotify_canvas">Ưu tiên Spotify Canvas</string>
     <string name="prioritize_spotify_canvas_subtitle">Thử Spotify trước Apple Music và các nhà cung cấp ảnh bìa động khác</string>
 
+    <string name="debrid_editor_title">Debrid</string>
+    <string name="debrid_editor_subtitle">Âm thanh gốc từ bộ nhớ đệm qua tài khoản debrid của bạn</string>
+    <string name="debrid_api_key">Khóa API debrid</string>
+    <string name="debrid_api_key_required">Cần có khóa API debrid</string>
+    <string name="debrid_key_hint">Dán khóa API debrid của bạn</string>
+    <string name="debrid_key_note">Lấy khóa trong trang cài đặt của nhà cung cấp debrid. Khóa được lưu mã hóa trên thiết bị, không gửi đi đâu khác.</string>
+    <string name="debrid_connected">Đã kết nối</string>
+    <string name="debrid_rejected">Khóa này đã bị từ chối</string>
+    <string name="debrid_clear_key">Xóa khóa</string>
+
     <string name="source_needs_lossless_output">Cần đầu ra lossless · hãy dùng thiết bị hỗ trợ lossless</string>
     <string name="source_needs_lossless_bt_codec">Cần đầu ra lossless · Bluetooth đang dùng %1$s; hãy dùng thiết bị hỗ trợ lossless</string>
     <string name="source_needs_lossless_bt_unknown">Cần đầu ra lossless · không xác định được codec Bluetooth đang dùng</string>
@@ -1205,4 +1215,6 @@
     <string name="spotify_library_subtitle">Danh sách phát Spotify của bạn</string>
     <string name="spotify_sign_in">Đăng nhập bằng Spotify</string>
     <string name="spotify_track_unavailable">Không tìm thấy bài hát đó trên YouTube Music</string>
+    <string name="chinese_simplified">Tiếng Trung (Giản thể)</string>
+    <string name="chinese_traditional">Tiếng Trung (Phồn thể)</string>
 </resources>

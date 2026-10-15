@@ -1092,6 +1092,16 @@
 
     <string name="card_songs_format">%1$s songs</string>
 
+    <string name="debrid_editor_title">Debrid</string>
+    <string name="debrid_editor_subtitle">Bit-exact cached audio via your debrid account</string>
+    <string name="debrid_api_key">Debrid API key</string>
+    <string name="debrid_api_key_required">Debrid API key required</string>
+    <string name="debrid_key_hint">Paste your Debrid API key</string>
+    <string name="debrid_key_note">Find it on your debrid provider’s settings page. Stored encrypted on this device, never uploaded anywhere else.</string>
+    <string name="debrid_connected">Connected</string>
+    <string name="debrid_rejected">That key was rejected</string>
+    <string name="debrid_clear_key">Clear key</string>
+
     <string name="source_needs_lossless_output">Needs a lossless output · use a lossless supported device</string>
     <string name="source_needs_lossless_bt_codec">Needs a lossless output · Bluetooth is on %1$s; use a lossless supported device</string>
     <string name="source_needs_lossless_bt_unknown">Needs a lossless output · can’t tell which Bluetooth codec is in use</string>

@@ -439,8 +439,14 @@ class PoTokenWebView private constructor(
 
     companion object {
         private const val TAG = "PoTokenWebView"
-        private const val GOOGLE_API_KEY = "AIzaSyDyT5W0Jh49F30Pqqtyfdf7pDLFKLJoAnw"
-        private const val REQUEST_KEY = "O43z0dpjhgX20SCx4KAo"
+        /**
+         * BotGuard credentials, supplied locally and never committed — see
+         * the BOTGUARD_* keys in build.gradle.kts. Empty means PO-token
+         * minting is unavailable and callers fall back to other clients;
+         * a fresh checkout builds and runs without them.
+         */
+        private val GOOGLE_API_KEY: String get() = BuildConfig.BOTGUARD_API_KEY
+        private val REQUEST_KEY: String get() = BuildConfig.BOTGUARD_REQUEST_KEY
         private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
                 "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.3"
         private const val JS_INTERFACE = "PoTokenWebView"
@@ -455,6 +461,11 @@ class PoTokenWebView private constructor(
         private val httpClient: OkHttpClient get() = Http.client
 
         suspend fun getNewPoTokenGenerator(context: Context): PoTokenWebView {
+            if (GOOGLE_API_KEY.isBlank() || REQUEST_KEY.isBlank()) {
+                throw PoTokenException(
+                    "BotGuard API keys are not configured; PO-token minting is disabled",
+                )
+            }
             var created: PoTokenWebView? = null
             try {
                 return withTimeout(INIT_TIMEOUT_MS) {

@@ -35,6 +35,24 @@ val lastfmSecret: String = (
     ).trim()
 
 /*
+ * BotGuard (PO-token) credentials. Secret, unlike the listen server above:
+ * committed source must not contain them — secret scanners flag the key
+ * pattern on sight. Empty is a supported state, not a broken build: PO-token
+ * minting reports unavailable and extraction falls back to non-PoToken
+ * clients, so a fresh checkout without these lines builds and runs.
+ */
+val botguardApiKey: String = (
+    localProps.getProperty("BOTGUARD_API_KEY")
+        ?: System.getenv("BOTGUARD_API_KEY")
+        ?: ""
+    ).trim()
+val botguardRequestKey: String = (
+    localProps.getProperty("BOTGUARD_REQUEST_KEY")
+        ?: System.getenv("BOTGUARD_REQUEST_KEY")
+        ?: ""
+    ).trim()
+
+/*
  * Where Listen Together's party server lives. Not a credential — it is a public
  * URL, and every device in a party has to be pointed at the same one — but it is
  * deployment-specific rather than a property of the source, which is what puts
@@ -88,6 +106,9 @@ android {
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "LASTFM_SECRET", "\"${lastfmSecret.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        // BotGuard credentials are supplied locally and never committed.
+        buildConfigField("String", "BOTGUARD_API_KEY", "\"${botguardApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "BOTGUARD_REQUEST_KEY", "\"${botguardRequestKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField(
             "String",
             "LISTEN_TOGETHER_SERVER",

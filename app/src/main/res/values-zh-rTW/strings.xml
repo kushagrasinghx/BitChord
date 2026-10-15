@@ -1269,4 +1269,23 @@
     <string name="spotify_track_unavailable">在 YouTube Music 上找不到該歌曲</string>
     <string name="lyrics_original_title">用原標題搜歌詞</string>
     <string name="lyrics_original_title_desc">先還原 YouTube 原標題再搜歌詞，翻譯過的標題也能找到</string>
+<string name="debrid_api_key">Debrid API key</string>
+    
+<string name="debrid_api_key_required">Debrid API key required</string>
+    
+<string name="debrid_clear_key">Clear key</string>
+
+    
+<string name="debrid_connected">Connected</string>
+    
+<string name="debrid_editor_subtitle">Bit-exact cached audio via your debrid account</string>
+    
+<string name="debrid_editor_title">Debrid</string>
+    
+<string name="debrid_key_hint">Paste your Debrid API key</string>
+    
+<string name="debrid_key_note">Find it on your debrid provider’s settings page. Stored encrypted on this device, never uploaded anywhere else.</string>
+    
+<string name="debrid_rejected">That key was rejected</string>
+    
 </resources>

@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Extension
@@ -118,6 +119,8 @@ fun SourcesScreen(
     onEditWebDav: () -> Unit,
     /** As [onEditWebDav], for the SMB share editor. */
     onEditSmb: () -> Unit,
+    /** Opens the debrid key editor for a debrid source. Raised like [onEditSource]. */
+    onEditDebrid: (SourceConfig) -> Unit,
     /** Opens the full-window warning before JioSaavn is opted into. */
     onConfirmJioSaavn: () -> Unit,
     modifier: Modifier = Modifier,
@@ -135,6 +138,7 @@ fun SourcesScreen(
     val smbShare by AppSettings.smbShare.collectAsStateWithLifecycle()
     val smbUsername by AppSettings.smbUsername.collectAsStateWithLifecycle()
     val smbPassword by AppSettings.smbPassword.collectAsStateWithLifecycle()
+    val debridApiKey by AppSettings.debridApiKey.collectAsStateWithLifecycle()
 
     /** Last known reachability per source, filled in as the probes come back. */
     val health = remember { mutableStateMapOf<String, SourceHealth>() }
@@ -145,8 +149,9 @@ fun SourcesScreen(
     // was any good, and the only place a manifest that fails validation gets to
     // say why. Except an addon waiting on a lossless output: it is not to be
     // contacted at all until one is connected, and connecting one re-runs this.
-    val probeKey = configs.filter { it.kind.needsServer }
-        .joinToString { "${it.id}@${it.baseUrl}@${it.checkValidLossless}" } + "@${losslessOutput.capable}"
+    // A debrid row gets its key validated live, for the same reason.
+    val probeKey = configs.filter { it.kind.needsServer || it.kind == SourceKind.DEBRID }
+        .joinToString { "${it.id}@${it.baseUrl}@${it.checkValidLossless}@$debridApiKey" } + "@${losslessOutput.capable}"
     LaunchedEffect(probeKey) {
         configs.filter { it.kind.needsServer && it.isComplete && !it.awaitsLosslessOutput }.forEach { config ->
             val source = SourceRegistry.instance(config.id) ?: return@forEach
@@ -169,6 +174,15 @@ fun SourcesScreen(
                 if (named != null && named != config.label) {
                     SourceRegistry.update(config.copy(label = named))
                 }
+            }
+        }
+        // Debrid rows validate their key live — the only feedback that a key
+        // just pasted in was any good, short of playing a track through it.
+        configs.filter { it.kind == SourceKind.DEBRID && it.isComplete }.forEach { config ->
+            val source = SourceRegistry.instance(config.id) ?: return@forEach
+            health[config.id] = withContext(Dispatchers.IO) {
+                runCatching { source.health() }
+                    .getOrElse { SourceHealth.Unreachable(it.message ?: "Failed") }
             }
         }
     }
@@ -247,7 +261,12 @@ fun SourcesScreen(
                         // Anything the user configured is theirs to edit or
                         // delete. JioSaavn and YouTube have no address to
                         // change, so a tap on them would open an empty editor.
-                        onClick = if (config.kind.needsServer) ({ onEditSource(config) }) else null,
+                        // Debrid opens its key editor instead.
+                        onClick = when {
+                            config.kind.needsServer -> ({ onEditSource(config) })
+                            config.kind == SourceKind.DEBRID -> ({ onEditDebrid(config) })
+                            else -> null
+                        },
                         // YouTube gets no switch at all — see
                         // [SourceRegistry.setEnabled] for why one would be a lie.
                         onToggle = if (config.kind == SourceKind.YOUTUBE) {
@@ -794,6 +813,7 @@ private fun SourceRow(
                 SourceKind.CUSTOM_MODULE -> Icons.Rounded.Extension
                 SourceKind.MODULE -> Icons.Rounded.Extension
                 SourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq // or some other icon
+                SourceKind.DEBRID -> Icons.Rounded.Download
                 SourceKind.YOUTUBE -> Icons.Rounded.PlayCircle
             },
             contentDescription = null,
@@ -895,6 +915,8 @@ private fun AudioQuality.localizedLabel(): String = stringResource(
 private fun SourceConfig.statusLine(health: SourceHealth?): String = when {
     !isComplete -> stringResource(R.string.source_setup_required)
     kind == SourceKind.JIOSAAVN -> stringResource(R.string.jiosaavn_mismatch_warning)
+    kind == SourceKind.DEBRID && AppSettings.debridApiKey.value.isBlank() ->
+        stringResource(R.string.debrid_api_key_required)
     health is SourceHealth.Ok -> listOfNotNull(
         health.detail,
         kind.labels.take(3).joinToString(" · "),

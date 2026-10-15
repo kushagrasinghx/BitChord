@@ -138,6 +138,25 @@ enum class SourceKind(
     ),
 
     /**
+     * Cached torrents through the listener's own debrid account,
+     * today, further providers behind the same row tomorrow.
+     *
+     * A catalogue is matched on the metadata service, then the debrid cache
+     * is asked for the exact files by hash: a hit is bit-exact audio the
+     * service never has to stream itself. Needs an API key, entered on the
+     * row's editor, so it seeds off like JioSaavn until one is given.
+     */
+    DEBRID(
+        label = "Debrid",
+        detail = "Bit-exact cached audio via your debrid account. Needs an API key.",
+        labels = listOf("Lossless", "FLAC", "Cached"),
+        needsServer = false,
+        canServeLossless = true,
+        worthPrefetching = true,
+        rank = 2,
+    ),
+
+    /**
      * The source the app was built on, listed here so it always has a fixed
      * place: second, behind the module source. It cannot be removed — see
      * [SourceRegistry]. Nothing else in the app can supply a home feed, a

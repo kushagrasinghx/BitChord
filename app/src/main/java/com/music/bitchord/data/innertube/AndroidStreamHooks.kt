@@ -53,9 +53,15 @@ object AndroidStreamHooks {
         val prefs = app.getSharedPreferences("innertubex_player_config", Context.MODE_PRIVATE)
         // BotGuard PoTokens minted in a hidden WebView; what WEB_REMIX needs for age-restricted tracks.
         val webViewSupported by lazy { runCatching { CookieManager.getInstance() }.isSuccess }
+        // No BotGuard keys configured (fresh checkout without local.properties):
+        // report unavailable so extraction falls back to non-PoToken clients
+        // instead of throwing into the extraction library.
+        val botGuardConfigured by lazy {
+            BuildConfig.BOTGUARD_API_KEY.isNotBlank() && BuildConfig.BOTGUARD_REQUEST_KEY.isNotBlank()
+        }
         val poTokens = PoTokenGenerator(
             createMinter = { PoTokenWebView.getNewPoTokenGenerator(app) },
-            available = { webViewSupported },
+            available = { webViewSupported && botGuardConfigured },
         )
         InnerTubeXResolver.init(
             filesDir = app.filesDir,

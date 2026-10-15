@@ -1225,6 +1225,15 @@
 
     <string name="card_songs_format">%1$s songs</string>
 
+    <string name="debrid_editor_title">Debrid</string>
+    <string name="debrid_editor_subtitle">Bit-exact cached audio via your debrid account</string>
+    <string name="debrid_api_key">Debrid API key</string>
+    <string name="debrid_api_key_required">Debrid API key required</string>
+    <string name="debrid_key_hint">Paste your Debrid API key</string>
+    <string name="debrid_key_note">Find it on your debrid provider’s settings page. Stored encrypted on this device, never uploaded anywhere else.</string>
+    <string name="debrid_connected">Connected</string>
+    <string name="debrid_rejected">That key was rejected</string>
+    <string name="debrid_clear_key">Clear key</string>
 
     <string name="source_needs_lossless_output">ต้องใช้เอาต์พุตแบบ lossless · ใช้อุปกรณ์ที่รองรับ lossless</string>
     <string name="source_needs_lossless_bt_codec">ต้องใช้เอาต์พุตแบบ lossless · Bluetooth ใช้ %1$s อยู่ ใช้อุปกรณ์ที่รองรับ lossless</string>
@@ -1271,4 +1280,6 @@
     <string name="spotify_library_subtitle">เพลย์ลิสต์ Spotify ของคุณ</string>
     <string name="spotify_sign_in">ลงชื่อเข้าใช้ด้วย Spotify</string>
     <string name="spotify_track_unavailable">หาเพลงนั้นบน YouTube Music ไม่พบ</string>
+    <string name="chinese_simplified">จีน (ตัวย่อ)</string>
+    <string name="chinese_traditional">จีน (ตัวเต็ม)</string>
 </resources>

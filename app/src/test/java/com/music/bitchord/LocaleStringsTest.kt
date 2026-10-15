@@ -56,12 +56,28 @@ class LocaleStringsTest(private val tag: String) {
 
     @Test
     fun strings_containsAllBaseKeys() {
-        val localeFile = File(resDir, "values-$tag/strings.xml")
-        assertTrue("values-$tag/strings.xml must exist", localeFile.exists())
-
-        val missingKeys = baseKeys - translatableKeys(parse(localeFile))
+        // BCP 47 tags don't map 1:1 to resource dirs: zh-TW lives in
+        // values-zh-rTW and zh-CN falls back to values-zh. Resolve the real
+        // dir the same way Android does — exact tag, then language-region,
+        // then bare language — instead of demanding a dir per tag.
+        val candidates = buildList {
+            add(File(resDir, "values-$tag/strings.xml"))
+            if ("-" in tag) {
+                val lang = tag.substringBefore("-")
+                val region = tag.substringAfter("-").uppercase()
+                add(File(resDir, "values-$lang-r$region/strings.xml"))
+                add(File(resDir, "values-$lang/strings.xml"))
+            }
+        }
+        val localeFile = candidates.firstOrNull { it.exists() }
         assertTrue(
-            "values-$tag/strings.xml is missing ${missingKeys.size} keys from values/strings.xml: $missingKeys",
+            "no strings file found for $tag (tried ${candidates.map { it.name }})",
+            localeFile != null,
+        )
+
+        val missingKeys = baseKeys - translatableKeys(parse(localeFile!!))
+        assertTrue(
+            "${localeFile.parentFile.name}/strings.xml is missing ${missingKeys.size} keys from values/strings.xml: $missingKeys",
             missingKeys.isEmpty(),
         )
     }

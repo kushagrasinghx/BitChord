@@ -24,6 +24,15 @@ cp -a "$APP_DIR_SRC/." "$APPDIR/usr/"
 cat > "$APPDIR/AppRun" <<'APPRUN'
 #!/bin/sh
 HERE="$(dirname "$(readlink -f "$0")")"
+
+# Java AWT can keep rendering at the old surface size after niri maximizes an
+# XWayland window. The non-reparenting hint fixes that path. Keep it scoped to
+# niri so GNOME, KDE and other desktops retain their existing Java behaviour.
+desktop_hint="$(printf '%s:%s:%s' "${XDG_CURRENT_DESKTOP:-}" "${XDG_SESSION_DESKTOP:-}" "${NIRI_SOCKET:+niri}" | tr '[:upper:]' '[:lower:]')"
+case "$desktop_hint" in
+    *niri*) export _JAVA_AWT_WM_NONREPARENTING=1 ;;
+esac
+
 exec "$HERE/usr/bin/BitChord" "$@"
 APPRUN
 chmod +x "$APPDIR/AppRun"

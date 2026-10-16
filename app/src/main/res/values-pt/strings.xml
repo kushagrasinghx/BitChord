@@ -1359,4 +1359,13 @@
     <string name="wear_os_code_hint">Código de pareamento</string>
     <string name="wear_os_done">Concluir</string>
     <string name="signed_by">Assinado por %1$s</string>
+    <string name="song_info">Informações da música</string>
+    <string name="song_info_album">Álbum</string>
+    <string name="song_info_release_date">Data de lançamento</string>
+    <string name="song_info_views">Reproduções / visualizações</string>
+    <string name="song_info_likes">Curtidas</string>
+    <string name="song_info_comments">Comentários</string>
+    <string name="song_info_unavailable">Não disponível</string>
+    <string name="song_info_error">Não foi possível carregar algumas informações.</string>
+    <string name="song_info_retry">Tentar novamente</string>
 </resources>

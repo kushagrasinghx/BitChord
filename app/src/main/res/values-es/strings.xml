@@ -1326,4 +1326,13 @@
     <string name="wear_os_code_hint">Código de vinculación</string>
     <string name="wear_os_done">Hecho</string>
     <string name="signed_by">Firmado por %1$s</string>
+    <string name="song_info">Información de la canción</string>
+    <string name="song_info_album">Álbum</string>
+    <string name="song_info_release_date">Fecha de lanzamiento</string>
+    <string name="song_info_views">Reproducciones / visualizaciones</string>
+    <string name="song_info_likes">Me gusta</string>
+    <string name="song_info_comments">Comentarios</string>
+    <string name="song_info_unavailable">No disponible</string>
+    <string name="song_info_error">No se pudo cargar parte de la información.</string>
+    <string name="song_info_retry">Reintentar</string>
 </resources>

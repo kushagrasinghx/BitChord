@@ -1271,4 +1271,13 @@
     <string name="wear_os_code_hint">Mã ghép nối</string>
     <string name="wear_os_done">Xong</string>
     <string name="signed_by">Được ký bởi %1$s</string>
+    <string name="song_info">Thông tin bài hát</string>
+    <string name="song_info_album">Album</string>
+    <string name="song_info_release_date">Ngày phát hành</string>
+    <string name="song_info_views">Lượt phát / lượt xem</string>
+    <string name="song_info_likes">Lượt thích</string>
+    <string name="song_info_comments">Bình luận</string>
+    <string name="song_info_unavailable">Không có thông tin</string>
+    <string name="song_info_error">Không thể tải một số thông tin.</string>
+    <string name="song_info_retry">Thử lại</string>
 </resources>

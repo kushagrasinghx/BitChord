@@ -1331,4 +1331,13 @@
     <string name="wear_os_code_hint">Kode pemasangan</string>
     <string name="wear_os_done">Selesai</string>
     <string name="signed_by">Ditandatangani oleh %1$s</string>
+    <string name="song_info">Info lagu</string>
+    <string name="song_info_album">Album</string>
+    <string name="song_info_release_date">Tanggal rilis</string>
+    <string name="song_info_views">Pemutaran / penayangan</string>
+    <string name="song_info_likes">Suka</string>
+    <string name="song_info_comments">Komentar</string>
+    <string name="song_info_unavailable">Tidak tersedia</string>
+    <string name="song_info_error">Sebagian informasi tidak dapat dimuat.</string>
+    <string name="song_info_retry">Coba lagi</string>
 </resources>

@@ -1355,4 +1355,13 @@
     <string name="wear_os_code_hint">Code d’association</string>
     <string name="wear_os_done">Terminé</string>
     <string name="signed_by">Signé par %1$s</string>
+    <string name="song_info">Informations sur le titre</string>
+    <string name="song_info_album">Album</string>
+    <string name="song_info_release_date">Date de sortie</string>
+    <string name="song_info_views">Écoutes / vues</string>
+    <string name="song_info_likes">Mentions J’aime</string>
+    <string name="song_info_comments">Commentaires</string>
+    <string name="song_info_unavailable">Non disponible</string>
+    <string name="song_info_error">Certaines informations n’ont pas pu être chargées.</string>
+    <string name="song_info_retry">Réessayer</string>
 </resources>

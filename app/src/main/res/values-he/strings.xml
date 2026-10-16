@@ -1359,4 +1359,13 @@
     <string name="wear_os_code_hint">קוד צימוד</string>
     <string name="wear_os_done">סיום</string>
     <string name="signed_by">נחתם על ידי %1$s</string>
+    <string name="song_info">מידע על השיר</string>
+    <string name="song_info_album">אלבום</string>
+    <string name="song_info_release_date">תאריך יציאה</string>
+    <string name="song_info_views">השמעות / צפיות</string>
+    <string name="song_info_likes">לייקים</string>
+    <string name="song_info_comments">תגובות</string>
+    <string name="song_info_unavailable">לא זמין</string>
+    <string name="song_info_error">לא ניתן לטעון חלק מהמידע.</string>
+    <string name="song_info_retry">ניסיון חוזר</string>
 </resources>

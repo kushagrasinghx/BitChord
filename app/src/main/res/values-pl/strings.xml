@@ -1394,4 +1394,13 @@
     <string name="wear_os_code_hint">Kod parowania</string>
     <string name="wear_os_done">Gotowe</string>
     <string name="signed_by">Podpisano przez %1$s</string>
+    <string name="song_info">Informacje o utworze</string>
+    <string name="song_info_album">Album</string>
+    <string name="song_info_release_date">Data wydania</string>
+    <string name="song_info_views">Odtworzenia / wyświetlenia</string>
+    <string name="song_info_likes">Polubienia</string>
+    <string name="song_info_comments">Komentarze</string>
+    <string name="song_info_unavailable">Niedostępne</string>
+    <string name="song_info_error">Nie udało się wczytać części informacji.</string>
+    <string name="song_info_retry">Spróbuj ponownie</string>
 </resources>

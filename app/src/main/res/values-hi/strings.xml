@@ -1354,4 +1354,13 @@
     <string name="wear_os_code_hint">पेयरिंग कोड</string>
     <string name="wear_os_done">हो गया</string>
     <string name="signed_by">%1$s द्वारा हस्ताक्षरित</string>
+    <string name="song_info">गाने की जानकारी</string>
+    <string name="song_info_album">एल्बम</string>
+    <string name="song_info_release_date">रिलीज़ की तारीख</string>
+    <string name="song_info_views">प्ले / व्यू</string>
+    <string name="song_info_likes">पसंद</string>
+    <string name="song_info_comments">टिप्पणियाँ</string>
+    <string name="song_info_unavailable">उपलब्ध नहीं</string>
+    <string name="song_info_error">कुछ जानकारी लोड नहीं हो सकी।</string>
+    <string name="song_info_retry">फिर से कोशिश करें</string>
 </resources>

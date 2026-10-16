@@ -1250,6 +1250,15 @@
     <string name="spotify_sign_in">Spotify ile oturum aç</string>
     <string name="spotify_use_spdc_token">sp_dc token\'ı kullan</string>
     <string name="spotify_track_unavailable">O şarkı YouTube Music’de bulunamadı</string>
+    <string name="song_info">Şarkı Bilgisi</string>
+    <string name="song_info_album">Albüm</string>
+    <string name="song_info_release_date">Yayın tarihi</string>
+    <string name="song_info_views">Dinlenme / görüntülenme</string>
+    <string name="song_info_likes">Beğeniler</string>
+    <string name="song_info_comments">Yorumlar</string>
+    <string name="song_info_unavailable">Mevcut değil</string>
+    <string name="song_info_error">Bazı bilgiler yüklenemedi.</string>
+    <string name="song_info_retry">Tekrar dene</string>
     <string name="artist_signatures">Sanatçı imzaları</string>
     <string name="artist_signatures_subtitle">Apple Music\'te başlık logosu yokken el yazısı imza gösterir</string>
     <string name="artist_signatures_url">İmza API URL\'si</string>

@@ -1293,4 +1293,13 @@
     <string name="wear_os_code_hint">Codice di associazione</string>
     <string name="wear_os_done">Fine</string>
     <string name="signed_by">Firmato da %1$s</string>
+    <string name="song_info">Informazioni sul brano</string>
+    <string name="song_info_album">Album</string>
+    <string name="song_info_release_date">Data di uscita</string>
+    <string name="song_info_views">Riproduzioni / visualizzazioni</string>
+    <string name="song_info_likes">Mi piace</string>
+    <string name="song_info_comments">Commenti</string>
+    <string name="song_info_unavailable">Non disponibile</string>
+    <string name="song_info_error">Impossibile caricare alcune informazioni.</string>
+    <string name="song_info_retry">Riprova</string>
 </resources>

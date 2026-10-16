@@ -1386,4 +1386,13 @@
     <string name="wear_os_code_hint">Код подключения</string>
     <string name="wear_os_done">Готово</string>
     <string name="signed_by">Подпись: %1$s</string>
+    <string name="song_info">Информация о песне</string>
+    <string name="song_info_album">Альбом</string>
+    <string name="song_info_release_date">Дата выпуска</string>
+    <string name="song_info_views">Прослушивания / просмотры</string>
+    <string name="song_info_likes">Отметки «Нравится»</string>
+    <string name="song_info_comments">Комментарии</string>
+    <string name="song_info_unavailable">Недоступно</string>
+    <string name="song_info_error">Не удалось загрузить часть информации.</string>
+    <string name="song_info_retry">Повторить</string>
 </resources>

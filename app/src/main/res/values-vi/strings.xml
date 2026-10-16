@@ -275,6 +275,15 @@
     <string name="animated_cover_art_subtitle">Phát video vòng lặp mà một số bản phát hành cung cấp thay vì ảnh tĩnh</string>
     <string name="miscellaneous_footer">Khi bật, việc đóng ứng dụng khỏi màn hình ứng dụng gần đây cũng sẽ dừng phát nhạc.</string>
     <string name="dont_repeat_songs_subtitle">Tự động phát sẽ không gợi ý bài hát đã phát hoặc đã được gợi ý trong phiên này</string>
+    <string name="block_explicit">Chặn bài hát nhạy cảm</string>
+    <string name="block_explicit_subtitle">Bỏ qua các bài hát được đánh dấu nhạy cảm trong Tự động phát, radio và hàng đợi. Cho phép từng bài từ menu của bài đó</string>
+    <string name="allow_explicit_song">Cho phép bài hát nhạy cảm này</string>
+    <string name="block_explicit_song">Chặn lại bài hát nhạy cảm này</string>
+    <string name="explicit_song_skipped">Đã bỏ qua bài hát nhạy cảm</string>
+    <string name="explicit_song_blocked">Bài hát nhạy cảm</string>
+    <string name="explicit_song_blocked_message">“%1$s” được gắn nhãn nhạy cảm và bộ lọc của bạn đang chặn bài này.</string>
+    <string name="allow_this_song">Cho phép bài hát này</string>
+    <string name="turn_off_blocking">Tắt chặn</string>
     <string name="download_quality_subtitle">%1$s mỗi bài, bất kể loại kết nối</string>
     <string name="filter_non_music_audio">Lọc âm thanh không phải nhạc</string>
     <string name="filter_non_music_audio_subtitle">Ẩn các đoạn âm thanh dưới 30 giây, tệp WAV, ghi âm giọng nói, bản thu âm và âm thanh hệ thống</string>

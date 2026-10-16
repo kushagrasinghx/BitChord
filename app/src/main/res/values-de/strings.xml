@@ -243,6 +243,15 @@
     <string name="full_screen_cover_art_subtitle">Zieht das Cover bis an die Ränder des Players statt es quadratisch darzustellen</string>
     <string name="animated_cover_art_subtitle">Spielt das Endlosvideo ab, das manche Veröffentlichungen anstelle eines Standbilds mitbringen</string>
     <string name="dont_repeat_songs_subtitle">Die automatische Wiedergabe schlägt in dieser Sitzung keinen bereits gespielten oder vorgeschlagenen Song erneut vor</string>
+    <string name="block_explicit">Explizite Songs sperren</string>
+    <string name="block_explicit_subtitle">Als explizit markierte Songs in automatischer Wiedergabe, Radio und Warteschlange überspringen. Einzelne Songs über ihr Menü erlauben</string>
+    <string name="allow_explicit_song">Diesen expliziten Song erlauben</string>
+    <string name="block_explicit_song">Diesen expliziten Song wieder sperren</string>
+    <string name="explicit_song_skipped">Expliziter Song übersprungen</string>
+    <string name="explicit_song_blocked">Expliziter Song</string>
+    <string name="explicit_song_blocked_message">„%1$s“ ist als explizit markiert und wird von deinem Filter gesperrt.</string>
+    <string name="allow_this_song">Diesen Song erlauben</string>
+    <string name="turn_off_blocking">Sperre ausschalten</string>
     <string name="download_quality_subtitle">%1$s pro Track, unabhängig von der Verbindung</string>
     <string name="filter_non_music_audio">Nicht-Musik-Audio filtern</string>
     <string name="filter_non_music_audio_subtitle">Blendet Clips unter 30 Sekunden, WAV-Dateien, Sprachnotizen, Aufnahmen und Systemtöne aus</string>

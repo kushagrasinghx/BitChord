@@ -238,6 +238,15 @@
     <string name="full_screen_cover_art_subtitle">Membuat sampul memenuhi tepi pemutar alih-alih berbentuk persegi</string>
     <string name="animated_cover_art_subtitle">Memutar video berulang yang disertakan beberapa rilisan alih-alih sampul diam</string>
     <string name="dont_repeat_songs_subtitle">Putar Otomatis tidak akan menyarankan lagu yang sudah diputar atau disarankan dalam sesi ini</string>
+    <string name="block_explicit">Blokir lagu eksplisit</string>
+    <string name="block_explicit_subtitle">Lewati lagu bertanda eksplisit di Putar Otomatis, radio, dan antrean Anda. Izinkan satu lagu dari menunya</string>
+    <string name="allow_explicit_song">Izinkan lagu eksplisit ini</string>
+    <string name="block_explicit_song">Blokir lagu eksplisit ini lagi</string>
+    <string name="explicit_song_skipped">Lagu eksplisit dilewati</string>
+    <string name="explicit_song_blocked">Lagu eksplisit</string>
+    <string name="explicit_song_blocked_message">“%1$s” ditandai eksplisit dan diblokir oleh filter Anda.</string>
+    <string name="allow_this_song">Izinkan lagu ini</string>
+    <string name="turn_off_blocking">Matikan pemblokiran</string>
     <string name="download_quality_subtitle">%1$s per trek, apa pun koneksinya</string>
     <string name="filter_non_music_audio">Filter audio non-musik</string>
     <string name="filter_non_music_audio_subtitle">Menyembunyikan klip di bawah 30 detik, file WAV, catatan suara, rekaman, dan suara sistem</string>

@@ -46,17 +46,29 @@ fun ExplicitSongTitle(
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
+    maxLines: Int = 1,
+) = ExplicitTitle(song.title, song.isExplicit == true, style, color, modifier, maxLines)
+
+/** [ExplicitSongTitle] for a title that isn't a [Song]'s, such as a Home card's. */
+@Composable
+fun ExplicitTitle(
+    title: String,
+    explicit: Boolean,
+    style: TextStyle,
+    color: Color,
+    modifier: Modifier = Modifier,
+    maxLines: Int = 1,
 ) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (song.isExplicit == true) {
+        if (explicit) {
             ExplicitBadge(color)
             Spacer(Modifier.width(6.dp))
         }
         Text(
-            text = song.title,
+            text = title,
             style = style,
             color = color,
-            maxLines = 1,
+            maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )

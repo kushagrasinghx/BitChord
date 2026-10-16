@@ -244,6 +244,15 @@
     <string name="full_screen_cover_art_subtitle">מותח את העטיפה עד לקצוות הנגן במקום עטיפה מרובעת</string>
     <string name="animated_cover_art_subtitle">מנגן את סרטון הלופ שמגיע עם חלק מההוצאות במקום עטיפה סטטית</string>
     <string name="dont_repeat_songs_subtitle">ההשמעה האוטומטית לא תציע שיר שכבר הושמע או הוצע בהפעלה הנוכחית</string>
+    <string name="block_explicit">חסימת שירים בוטים</string>
+    <string name="block_explicit_subtitle">דילוג על שירים שמסומנים כבוטים בניגון אוטומטי, ברדיו ובתור. אפשר לאשר שיר מהתפריט שלו</string>
+    <string name="allow_explicit_song">לאפשר את השיר הבוטה הזה</string>
+    <string name="block_explicit_song">לחסום שוב את השיר הבוטה הזה</string>
+    <string name="explicit_song_skipped">דילגנו על שיר בוטה</string>
+    <string name="explicit_song_blocked">שיר בוטה</string>
+    <string name="explicit_song_blocked_message">״%1$s״ מסומן כבוטה והסינון שלכם חוסם אותו.</string>
+    <string name="allow_this_song">לאפשר את השיר הזה</string>
+    <string name="turn_off_blocking">כיבוי החסימה</string>
     <string name="download_quality_subtitle">%1$s לרצועה, ללא קשר לחיבור</string>
     <string name="filter_non_music_audio">סנן שמע שאינו מוזיקה</string>
     <string name="filter_non_music_audio_subtitle">מסתיר קטעים קצרים מ-30 שניות, קבצי WAV, הודעות קוליות, הקלטות וצלילי מערכת</string>

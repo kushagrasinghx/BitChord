@@ -243,6 +243,15 @@
     <string name="full_screen_cover_art_subtitle">चौकोर स्लीव के बजाय कवर को प्लेयर के किनारों तक ले जाता है</string>
     <string name="animated_cover_art_subtitle">स्थिर स्लीव के बजाय कुछ रिलीज़ में मौजूद लूपिंग वीडियो चलाता है</string>
     <string name="dont_repeat_songs_subtitle">ऑटोप्ले इस सेशन में पहले से चलाया या सुझाया गया गाना दोबारा सुझाव नहीं देगा</string>
+    <string name="block_explicit">स्पष्ट गाने ब्लॉक करें</string>
+    <string name="block_explicit_subtitle">ऑटोप्ले, रेडियो और आपकी कतार में स्पष्ट चिह्नित गाने छोड़ें। किसी गाने को उसके मेनू से अनुमति दें</string>
+    <string name="allow_explicit_song">इस स्पष्ट गाने की अनुमति दें</string>
+    <string name="block_explicit_song">इस स्पष्ट गाने को फिर से ब्लॉक करें</string>
+    <string name="explicit_song_skipped">स्पष्ट गाना छोड़ा गया</string>
+    <string name="explicit_song_blocked">स्पष्ट गाना</string>
+    <string name="explicit_song_blocked_message">“%1$s” स्पष्ट चिह्नित है और आपका फ़िल्टर इसे ब्लॉक कर रहा है।</string>
+    <string name="allow_this_song">इस गाने की अनुमति दें</string>
+    <string name="turn_off_blocking">ब्लॉक करना बंद करें</string>
     <string name="download_quality_subtitle">%1$s प्रति ट्रैक, कनेक्शन चाहे जो भी हो</string>
     <string name="filter_non_music_audio">गैर-संगीत ऑडियो फ़िल्टर करें</string>
     <string name="filter_non_music_audio_subtitle">30 सेकंड से छोटे क्लिप, WAV फ़ाइलें, वॉइस नोट्स, रिकॉर्डिंग और सिस्टम साउंड छिपाता है</string>

@@ -238,6 +238,15 @@
     <string name="full_screen_cover_art_subtitle">正方形のジャケットの代わりにカバーをプレイヤーの端まで広げます</string>
     <string name="animated_cover_art_subtitle">静止画のジャケットの代わりに一部のリリースが持つループ動画を再生します</string>
     <string name="dont_repeat_songs_subtitle">オートプレイは、このセッションで既に再生または提案された曲を再度提案しません</string>
+    <string name="block_explicit">露骨な表現を含む曲をブロック</string>
+    <string name="block_explicit_subtitle">オートプレイ、ラジオ、キューで露骨な表現を含む曲をスキップします。曲のメニューから個別に許可できます</string>
+    <string name="allow_explicit_song">この曲を許可</string>
+    <string name="block_explicit_song">この曲を再びブロック</string>
+    <string name="explicit_song_skipped">露骨な表現を含む曲をスキップしました</string>
+    <string name="explicit_song_blocked">露骨な表現を含む曲</string>
+    <string name="explicit_song_blocked_message">「%1$s」は露骨な表現を含む曲として指定されており、フィルターでブロックされています。</string>
+    <string name="allow_this_song">この曲を許可</string>
+    <string name="turn_off_blocking">ブロックをオフにする</string>
     <string name="download_quality_subtitle">接続にかかわらず、1トラックあたり%1$s</string>
     <string name="filter_non_music_audio">音楽以外の音声を除外</string>
     <string name="filter_non_music_audio_subtitle">30秒未満のクリップ、WAVファイル、ボイスメモ、録音、システム音を非表示にします</string>

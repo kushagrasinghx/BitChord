@@ -122,6 +122,7 @@ object YtMusicRepository {
                     thumbnailUrl = it.thumbnailUrl,
                     videoId = it.videoId,
                     browseId = null,
+                    isExplicit = it.isExplicit,
                 )
             },
         )

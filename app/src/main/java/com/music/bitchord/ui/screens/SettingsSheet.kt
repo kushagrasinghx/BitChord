@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Explicit
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.FilterAlt
@@ -245,6 +246,7 @@ fun SettingsScreen(
     val showQueueHistory by AppSettings.showQueueHistory.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
+    val blockExplicit by AppSettings.blockExplicit.collectAsStateWithLifecycle()
     val preferMusicOnly by AppSettings.preferMusicOnly.collectAsStateWithLifecycle()
     val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
     val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
@@ -1333,6 +1335,25 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },
+                )
+            }
+            val blockExplicitTitle = stringResource(R.string.block_explicit)
+            row(blockExplicitTitle, "explicit", "radio", "suggestions") {
+                SettingsRow(
+                    icon = Icons.Rounded.Explicit,
+                    title = blockExplicitTitle,
+                    subtitle = stringResource(R.string.block_explicit_subtitle),
+                    trailing = {
+                        Switch(
+                            checked = blockExplicit,
+                            onCheckedChange = AppSettings::setBlockExplicit,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setBlockExplicit(!blockExplicit) },
                 )
             }
             val stopMusicOnCloseTitle = stringResource(R.string.stop_music_on_close)

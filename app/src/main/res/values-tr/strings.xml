@@ -268,6 +268,15 @@
     <string name="full_screen_cover_art_subtitle">Kapağı kare bir kılıf yerine oynatıcının kenarlarına kadar uzatır</string>
     <string name="animated_cover_art_subtitle">Bazı sürümlerin geldiği döngülü videoyu sabit bir kılıf yerine oynatır</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay bu oturumda zaten çalınmış veya önerilmiş bir şarkıyı önermez</string>
+    <string name="block_explicit">Müstehcen şarkıları engelle</string>
+    <string name="block_explicit_subtitle">Müstehcen olarak işaretlenen şarkıları AutoPlay, radyo ve sıranda atla. Bir şarkıya menüsünden izin ver</string>
+    <string name="allow_explicit_song">Bu müstehcen şarkıya izin ver</string>
+    <string name="block_explicit_song">Bu müstehcen şarkıyı yeniden engelle</string>
+    <string name="explicit_song_skipped">Müstehcen şarkı atlandı</string>
+    <string name="explicit_song_blocked">Müstehcen şarkı</string>
+    <string name="explicit_song_blocked_message">“%1$s” müstehcen olarak işaretli ve filtreniz onu engelliyor.</string>
+    <string name="allow_this_song">Bu şarkıya izin ver</string>
+    <string name="turn_off_blocking">Engellemeyi kapat</string>
     <string name="download_quality_subtitle">Bağlantı ne olursa olsun parça başına %1$s</string>
     <string name="filter_non_music_audio">Müzik olmayan sesleri filtrele</string>
     <string name="filter_non_music_audio_subtitle">30 saniyeden kısa klipleri, WAV dosyalarını, sesli notları, kayıtları ve sistem seslerini gizler</string>

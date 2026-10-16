@@ -25,9 +25,10 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
  * back. Gating on this is the difference between "cheap while visible" and
  * "cheap", and it costs nothing on screen.
  *
- * RESUMED rather than STARTED: a paused-but-visible activity is one behind a
- * dialog or in the background half of split screen, which is not a case worth
- * animating for either.
+ * Android requires RESUMED: a paused-but-visible activity is one behind a
+ * dialog or in the background half of split screen. Desktop requires STARTED:
+ * a visible window stays STARTED when another window has focus, and its lyrics
+ * should keep animating. A stopped window still suspends this work.
  *
  * Playback itself is not gated on this and must not be — audio comes from
  * [com.music.bitchord.playback.PlaybackService], which is a foreground service
@@ -37,17 +38,20 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 fun rememberIsForeground(): Boolean {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var foreground by remember(lifecycle) {
-        mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+        mutableStateOf(lifecycle.currentState.isForeground())
     }
     DisposableEffect(lifecycle) {
         // Every event rather than ON_RESUME/ON_PAUSE alone: the state is read
         // back off the lifecycle instead of inferred from which event arrived,
         // so there is no transition this can be left out of step by.
         val observer = LifecycleEventObserver { owner, _ ->
-            foreground = owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+            foreground = owner.lifecycle.currentState.isForeground()
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
     return foreground
 }
+
+/** Platform-specific lifecycle threshold for visible UI work. */
+internal expect fun Lifecycle.State.isForeground(): Boolean

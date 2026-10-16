@@ -628,6 +628,8 @@ object InnertubeParser {
                 .o("watchEndpoint").s("videoId")
             ?: return null
 
+        if (renderer.isPrivateUpload()) UploadedTracks.mark(videoId)
+
         val columns = renderer.a("flexColumns").orEmpty()
         val title = columns.getOrNull(0)
             .o("musicResponsiveListItemFlexColumnRenderer").o("text").runs()
@@ -1499,6 +1501,18 @@ private fun JsonElement?.findString(key: String): String? = when (this) {
     is JsonArray -> firstNotNullOfOrNull { it.findString(key) }
     else -> null
 }
+
+/** Whether [key] appears as an object key anywhere in the subtree. */
+private fun JsonElement?.hasKey(key: String): Boolean = when (this) {
+    is JsonObject -> containsKey(key) || values.any { it.hasKey(key) }
+    is JsonArray -> any { it.hasKey(key) }
+    else -> false
+}
+
+/** Whether a track row is one of the signed-in user's own uploads. */
+private fun JsonObject.isPrivateUpload(): Boolean =
+    hasKey("musicDeletePrivatelyOwnedEntityCommand") ||
+        findString("musicVideoType")?.contains("PRIVATELY_OWNED", ignoreCase = true) == true
 
 private fun JsonElement?.runs(): String =
     this.a("runs")?.joinToString("") { it.s("text").orEmpty() }.orEmpty()

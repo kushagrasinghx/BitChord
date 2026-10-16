@@ -210,6 +210,10 @@ object InnerTubeXResolver {
      * [maxKbps] only chooses between its smallest and best rungs, and
      * [requireM4a] asks for its best AAC-in-MP4.
      *
+     * [uploaded] says [videoId] is one of the signed-in user's own uploads. That
+     * changes which clients InnerTubeX will use — authenticated ones only, login
+     * cookies first, no embedded fallback — see [UploadedTracks].
+     *
      * @return a stream for [videoId], or null when every client InnerTubeX would
      *   try is refused or [skipClients] has ruled it out.
      * @throws com.metrolist.innertubex.extraction.StreamResolveException with a
@@ -220,13 +224,15 @@ object InnerTubeXResolver {
         maxKbps: Int,
         skipClients: Set<String> = emptySet(),
         requireM4a: Boolean = false,
+        uploaded: Boolean = false,
     ): Extracted? {
         innerTube.cookie = Innertube.cookie
         innerTube.visitorData = Innertube.ensureVisitorData()
         innerTube.locale = YouTubeLocale(gl = Innertube.currentRegion, hl = Innertube.currentLanguage)
         val stream = extractor.extract(
             videoId = videoId,
-            hints = ContentHints().withStreamCapabilities(allowHls = false, allowSabr = false, allowBoundedRange = true),
+            hints = ContentHints(isUploaded = true.takeIf { uploaded })
+                .withStreamCapabilities(allowHls = false, allowSabr = false, allowBoundedRange = true),
             excludedClients = excludedFor(videoId) + skipClients,
             audioQuality = when {
                 requireM4a -> AudioQuality.MP4

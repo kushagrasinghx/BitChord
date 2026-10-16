@@ -20,6 +20,11 @@ import (
 )
 
 func setupTestServer() *httptest.Server {
+	// Fresh create budget per server: createLimiter is process-global keyed
+	// by client IP, and every test dials from 127.0.0.1 — without a reset,
+	// earlier tests consume the per-minute create budget and later party
+	// creations fail with 429 (TestWebSocketTokenAsSubprotocol).
+	createLimiter = newIPRateLimiter(time.Minute, config.CreateRatePerMinute, config.RateLimitMaxEntries)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", handleRoot)
 	mux.HandleFunc("GET /healthz", handleHealthz)

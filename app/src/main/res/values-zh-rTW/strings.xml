@@ -1324,4 +1324,11 @@
     <string name="wear_os_code_hint">配對碼</string>
     <string name="wear_os_done">完成</string>
     <string name="spotify_use_spdc_token">使用 sp_dc 權杖</string>
+    <string name="artist_signatures">藝術家簽名</string>
+    <string name="artist_signatures_subtitle">當 Apple Music 沒有標題徽標時顯示手寫簽名</string>
+    <string name="artist_signatures_url">簽名 API URL</string>
+    <string name="artist_signatures_url_hint">https://signatures.example.com</string>
+    <string name="artist_signatures_unconfigured">尚未設定 — 點選以設定 API URL</string>
+    <string name="artist_signatures_test_failed">無法連接至此 URL 的 API</string>
+    <string name="signed_by">簽署者：%1$s</string>
 </resources>

@@ -74,6 +74,12 @@ internal object DesktopUpdateChecker {
         val suffixes = when {
             DesktopPlatform.isWindows -> listOf("-windows-x64-setup.exe")
             DesktopPlatform.isLinux -> listOf(".AppImage", "-linux-amd64.deb")
+            DesktopPlatform.isMac -> {
+                val arch = System.getProperty("os.arch").lowercase()
+                val isArm = arch == "aarch64" || arch == "arm64"
+                if (isArm) listOf("-macos-arm64.dmg", "-macos-arm64.pkg", "-macos-arm64.zip")
+                else listOf("-macos-x64.dmg", "-macos-x64.pkg", "-macos-x64.zip")
+            }
             else -> return null
         }
         val assets = release["assets"]?.jsonArray?.mapNotNull { it as? JsonObject }.orEmpty()

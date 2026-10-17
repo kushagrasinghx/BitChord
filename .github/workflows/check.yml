@@ -100,8 +100,16 @@ jobs:
             shared/build/reports/tests/
 
   desktop-macos:
-    name: Desktop · macOS
-    runs-on: macos-latest
+    name: Desktop · macOS (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+          - os: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -135,7 +143,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-macos-test-reports
+          name: desktop-macos-${{ matrix.arch }}-test-reports
           path: |
             desktopApp/build/reports/tests/
             shared/build/reports/tests/

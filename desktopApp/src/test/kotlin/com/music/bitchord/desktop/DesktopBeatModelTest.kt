@@ -17,6 +17,13 @@ class DesktopBeatModelTest {
             println("analysis library unavailable — skipping")
             return
         }
+        val isOrtNativeAvailable = runCatching {
+            OrtEnvironment.getEnvironment()
+        }.isSuccess
+        if (!isOrtNativeAvailable) {
+            println("ONNX Runtime native library is unavailable on this architecture (${System.getProperty("os.name")} ${System.getProperty("os.arch")}) — skipping")
+            return
+        }
         val model = File(DesktopAnalysisRuntime.modelPath(BeatTracker.MODEL_ASSET))
         assertTrue(model.isFile && model.length() > 0, "the model was not unpacked")
 

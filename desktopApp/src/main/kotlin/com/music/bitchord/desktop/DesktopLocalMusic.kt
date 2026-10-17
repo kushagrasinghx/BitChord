@@ -45,6 +45,7 @@ object DesktopLocalMusic {
 
     fun setFolder(path: Path?) {
         DesktopPersistence().saveString(KEY_LOCAL_MUSIC_FOLDER, path?.toAbsolutePath()?.toString().orEmpty())
+        DesktopLocalArtwork.clearCache()
     }
 
     /** What the Local Music settings row says underneath its title. */
@@ -127,7 +128,7 @@ object DesktopLocalMusic {
             videoId = "local:$identity",
             title = parsed.title,
             artist = parsed.artist,
-            thumbnailUrl = null,
+            thumbnailUrl = DesktopLocalArtwork.artworkUri(absolutePath),
             localUri = absolutePath.toUri().toString(),
             localPath = absolutePath.toString(),
             localDateAddedSeconds = added.epochSecond,

@@ -197,6 +197,14 @@
     <string name="skip_silence">無音をスキップ</string>
     <string name="skip_silence_subtitle">1秒より長い無音部分をカットします</string>
     <string name="skip_silence_float_subtitle">32ビット浮動小数点出力では使用できません</string>
+    <string name="tempo">テンポ</string>
+    <string name="tempo_subtitle">速く・遅く、音程はそのまま</string>
+    <string name="tempo_decrease">テンポを下げる</string>
+    <string name="tempo_increase">テンポを上げる</string>
+    <string name="pitch">ピッチ</string>
+    <string name="pitch_subtitle">高く・低く、テンポはそのまま</string>
+    <string name="pitch_decrease">ピッチを下げる</string>
+    <string name="pitch_increase">ピッチを上げる</string>
     <string name="equalizer">イコライザー</string>
     <string name="equalizer_subtitle">デバイスのシステムパネル</string>
     <string name="show_nerd_stats">技術情報を表示</string>

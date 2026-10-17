@@ -203,6 +203,14 @@
     <string name="skip_silence">דילוג על שקט</string>
     <string name="skip_silence_subtitle">קיצוץ הפסקות ארוכות משנייה</string>
     <string name="skip_silence_float_subtitle">לא זמין בפלט float של 32 סיביות</string>
+    <string name="tempo">קצב</string>
+    <string name="tempo_subtitle">מהיר יותר או איטי יותר, באותו גובה צליל</string>
+    <string name="tempo_decrease">הפחתת קצב</string>
+    <string name="tempo_increase">הגברת קצב</string>
+    <string name="pitch">גובה צליל</string>
+    <string name="pitch_subtitle">גבוה יותר או נמוך יותר, באותה מהירות</string>
+    <string name="pitch_decrease">הורדת גובה צליל</string>
+    <string name="pitch_increase">העלאת גובה צליל</string>
     <string name="equalizer">אקולייזר</string>
     <string name="equalizer_subtitle">פאנל המערכת של המכשיר שלך</string>
     <string name="show_nerd_stats">הצגת נתונים לחנונים</string>

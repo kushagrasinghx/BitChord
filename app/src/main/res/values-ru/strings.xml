@@ -212,6 +212,14 @@
     <string name="skip_silence">Пропускать тишину</string>
     <string name="skip_silence_subtitle">Обрезает паузы длиннее секунды</string>
     <string name="skip_silence_float_subtitle">Недоступно при 32-битном выводе с плавающей точкой</string>
+    <string name="tempo">Темп</string>
+    <string name="tempo_subtitle">Быстрее или медленнее, высота звука не меняется</string>
+    <string name="tempo_decrease">Уменьшить темп</string>
+    <string name="tempo_increase">Увеличить темп</string>
+    <string name="pitch">Высота тона</string>
+    <string name="pitch_subtitle">Выше или ниже, темп не меняется</string>
+    <string name="pitch_decrease">Понизить высоту тона</string>
+    <string name="pitch_increase">Повысить высоту тона</string>
     <string name="equalizer">Эквалайзер</string>
     <string name="equalizer_subtitle">Системная панель вашего устройства</string>
     <string name="show_nerd_stats">Показывать техническую статистику</string>

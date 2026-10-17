@@ -197,6 +197,14 @@
     <string name="skip_silence">跳過靜音</string>
     <string name="skip_silence_subtitle">裁剪超過一秒的靜音間隙</string>
     <string name="skip_silence_float_subtitle">32 位浮點輸出時不可用</string>
+    <string name="tempo">速度</string>
+    <string name="tempo_subtitle">加快或減慢，音高不變</string>
+    <string name="tempo_decrease">降低速度</string>
+    <string name="tempo_increase">提高速度</string>
+    <string name="pitch">音高</string>
+    <string name="pitch_subtitle">升高或降低，速度不變</string>
+    <string name="pitch_decrease">降低音高</string>
+    <string name="pitch_increase">升高音高</string>
     <string name="equalizer">均衡器</string>
     <string name="equalizer_subtitle">裝置的系統面板</string>
     <string name="show_nerd_stats">顯示技術統計資訊</string>

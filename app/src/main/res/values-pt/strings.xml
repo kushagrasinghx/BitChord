@@ -204,6 +204,14 @@
     <string name="skip_silence">Pular silêncio</string>
     <string name="skip_silence_subtitle">Corta pausas maiores que um segundo</string>
     <string name="skip_silence_float_subtitle">Indisponível com saída float de 32 bits</string>
+    <string name="tempo">Tempo</string>
+    <string name="tempo_subtitle">Mais rápido ou mais lento, com a mesma afinação</string>
+    <string name="tempo_decrease">Diminuir o tempo</string>
+    <string name="tempo_increase">Aumentar o tempo</string>
+    <string name="pitch">Afinação</string>
+    <string name="pitch_subtitle">Mais agudo ou mais grave, mantendo o tempo</string>
+    <string name="pitch_decrease">Abaixar a afinação</string>
+    <string name="pitch_increase">Subir a afinação</string>
     <string name="equalizer">Equalizador</string>
     <string name="equalizer_subtitle">O painel do sistema do seu dispositivo</string>
     <string name="show_nerd_stats">Mostrar estatísticas técnicas</string>

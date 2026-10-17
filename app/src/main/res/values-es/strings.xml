@@ -212,6 +212,14 @@
     <string name="skip_silence">Omitir silencios</string>
     <string name="skip_silence_subtitle">Recorta pausas de más de un segundo</string>
     <string name="skip_silence_float_subtitle">No disponible con salida float de 32 bits</string>
+    <string name="tempo">Tempo</string>
+    <string name="tempo_subtitle">Más rápido o más lento, con la misma tonalidad</string>
+    <string name="tempo_decrease">Disminuir el tempo</string>
+    <string name="tempo_increase">Aumentar el tempo</string>
+    <string name="pitch">Tonalidad</string>
+    <string name="pitch_subtitle">Más agudo o más grave, sin cambiar el tempo</string>
+    <string name="pitch_decrease">Bajar la tonalidad</string>
+    <string name="pitch_increase">Subir la tonalidad</string>
     <string name="equalizer">Ecualizador</string>
     <string name="equalizer_subtitle">El panel de audio del sistema</string>
     <string name="show_nerd_stats">Mostrar datos técnicos</string>

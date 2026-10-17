@@ -242,6 +242,14 @@
     <string name="skip_silence">Salta i silenzi</string>
     <string name="skip_silence_subtitle">Taglia le pause più lunghe di un secondo</string>
     <string name="skip_silence_float_subtitle">Non disponibile con uscita float a 32 bit</string>
+    <string name="tempo">Tempo</string>
+    <string name="tempo_subtitle">Più veloce o più lento, con la stessa intonazione</string>
+    <string name="tempo_decrease">Diminuisci il tempo</string>
+    <string name="tempo_increase">Aumenta il tempo</string>
+    <string name="pitch">Intonazione</string>
+    <string name="pitch_subtitle">Più acuto o più grave, con lo stesso tempo</string>
+    <string name="pitch_decrease">Abbassa l\'intonazione</string>
+    <string name="pitch_increase">Alza l\'intonazione</string>
     <string name="equalizer">Equalizzatore</string>
     <string name="equalizer_subtitle">Il pannello di sistema del tuo dispositivo</string>
     <string name="show_nerd_stats">Mostra statistiche per nerd</string>

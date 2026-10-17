@@ -224,6 +224,14 @@
     <string name="skip_silence">Sessizliği atla</string>
     <string name="skip_silence_subtitle">Bir saniyeden uzun boşlukları kırp</string>
     <string name="skip_silence_float_subtitle">32 bit float çıkışta kullanılamaz</string>
+    <string name="tempo">Tempo</string>
+    <string name="tempo_subtitle">Daha hızlı veya daha yavaş, ses tonu değişmeden</string>
+    <string name="tempo_decrease">Tempoyu azalt</string>
+    <string name="tempo_increase">Tempoyu artır</string>
+    <string name="pitch">Ses tonu</string>
+    <string name="pitch_subtitle">Daha yüksek veya daha düşük, tempo aynı kalır</string>
+    <string name="pitch_decrease">Ses tonunu düşür</string>
+    <string name="pitch_increase">Ses tonunu yükselt</string>
     <string name="equalizer">Ekolayzır</string>
     <string name="equalizer_subtitle">Cihazınızın sistem paneli</string>
     <string name="show_nerd_stats">Meraklılar için istatistikleri göster</string>

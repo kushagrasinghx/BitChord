@@ -218,6 +218,14 @@
     <string name="skip_silence">ข้ามช่วงเงียบ</string>
     <string name="skip_silence_subtitle">ตัดช่วงเงียบที่นานกว่าหนึ่งวินาที</string>
     <string name="skip_silence_float_subtitle">ใช้ไม่ได้กับเอาต์พุตแบบ float 32 บิต</string>
+    <string name="tempo">เทมโป</string>
+    <string name="tempo_subtitle">เร็วขึ้นหรือช้าลง โดยไม่เปลี่ยนเสียงสูงต่ำ</string>
+    <string name="tempo_decrease">ลดเทมโป</string>
+    <string name="tempo_increase">เพิ่มเทมโป</string>
+    <string name="pitch">ความสูงของเสียง</string>
+    <string name="pitch_subtitle">สูงขึ้นหรือต่ำลง โดยไม่เปลี่ยนจังหวะ</string>
+    <string name="pitch_decrease">ลดความสูงของเสียง</string>
+    <string name="pitch_increase">เพิ่มความสูงของเสียง</string>
     <string name="equalizer">อีควอไลเซอร์</string>
     <string name="equalizer_subtitle">แผงควบคุมของระบบในอุปกรณ์ของคุณ</string>
     <string name="show_nerd_stats">แสดงสถิติเชิงลึก</string>

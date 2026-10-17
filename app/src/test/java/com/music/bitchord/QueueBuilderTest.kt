@@ -70,6 +70,33 @@ class QueueBuilderTest {
     }
 
     @Test
+    fun `the original cut is preferred when the radio batch also contains its remix`() {
+        val extra = QueueBuilder.extend(
+            existing = emptyList(),
+            candidates = listOf(
+                song("remix", "Kiss It Better (R3hab Remix)", "Rihanna"),
+                song("original", "Kiss It Better", "Rihanna"),
+            ),
+            limit = 1,
+        )
+        assertEquals(listOf("original"), extra.map { it.videoId })
+    }
+
+    @Test
+    fun `no repeat excludes a remix of a song already heard this session`() {
+        val extra = QueueBuilder.extend(
+            existing = listOf(song("original", "Kiss It Better", "Rihanna")),
+            candidates = listOf(
+                song("remix", "Kiss It Better (R3hab Remix)", "Rihanna"),
+                song("fresh", "Needed Me", "Rihanna"),
+            ),
+            limit = 10,
+            avoidAlternateVersions = true,
+        )
+        assertEquals(listOf("fresh"), extra.map { it.videoId })
+    }
+
+    @Test
     fun `same title from a different artist is a different song`() {
         assertFalse(
             QueueBuilder.isSameRecording(

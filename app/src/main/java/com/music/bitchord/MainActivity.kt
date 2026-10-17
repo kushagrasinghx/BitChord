@@ -1517,6 +1517,7 @@ private fun BitChordApp(
                     existing = listOf(seed),
                     seedSong = seed,
                     limit = INITIAL_RADIO_TRACKS,
+                    avoidAlternateVersions = AppSettings.dontRepeatSuggestions.value,
                 ).getOrElse {
                     if (request == playRequestGeneration) {
                         Toast.makeText(context, R.string.couldnt_load_tracks, Toast.LENGTH_SHORT).show()

@@ -34,7 +34,12 @@ object QueueBuilder {
      * The subset of [candidates] worth appending after [existing]: nothing
      * already queued, nothing repeated, at most [limit] tracks.
      */
-    fun extend(existing: List<Song>, candidates: List<Song>, limit: Int): List<Song> {
+    fun extend(
+        existing: List<Song>,
+        candidates: List<Song>,
+        limit: Int,
+        avoidAlternateVersions: Boolean = false,
+    ): List<Song> {
         val taken = existing.toMutableList()
         val perArtist = mutableMapOf<String, Int>()
         val seedArtists = existing.lastOrNull()?.artist?.let(::artistSet).orEmpty()
@@ -46,11 +51,17 @@ object QueueBuilder {
         // that no title match will catch it. The catalogue cut is the one a
         // music app wants; videos only stand in when there is nothing else.
         val songsOnly = candidates.filterNot { it.isVideo }
-        val ordered = songsOnly.ifEmpty { candidates }
+        // The normal release gets first pick over a remix when both are in the
+        // watch queue. Keep the source's order within each group.
+        val ordered = (songsOnly.ifEmpty { candidates }).sortedBy { isRemix(it.title) }
 
         for (candidate in ordered) {
             if (out.size >= limit) break
-            if (taken.any { isSameRecording(it, candidate) }) continue
+            if (taken.any {
+                    isSameRecording(it, candidate) ||
+                        (avoidAlternateVersions && isSameSongAcrossMixVersions(it, candidate))
+                }
+            ) continue
 
             val artists = artistSet(candidate.artist)
             val key = artists.minOrNull()
@@ -88,6 +99,36 @@ object QueueBuilder {
     }
 
     /**
+     * Whether two entries belong to the same title family under the no-repeat
+     * preference. Version subtitles and remix artists vary between uploads,
+     * e.g. "Savage Love (Laxed - Siren Beat)" by Jawsh 685 / Jason Derulo
+     * versus "Savage Love" credited to Viral DJs.
+     */
+    private fun isSameSongAcrossMixVersions(a: Song, b: Song): Boolean {
+        val leftTitle = mixFamilyTitle(a.title)
+        if (leftTitle.isEmpty() || leftTitle != mixFamilyTitle(b.title)) return false
+        // Equal bare titles with no version marker can be different songs by
+        // different artists. Keep the ordinary artist guard for that case;
+        // once a subtitle/version annotation differs, treat it as an alternate
+        // cut even if the remix/cover upload has different billing.
+        if (normalisedTitle(a.title) == normalisedTitle(b.title) &&
+            !isRemix(a.title) && !isRemix(b.title)
+        ) {
+            val leftArtists = artistSet(a.artist)
+            val rightArtists = artistSet(b.artist)
+            return leftArtists.isEmpty() || rightArtists.isEmpty() || leftArtists.any { it in rightArtists }
+        }
+        return true
+    }
+
+    private fun isRemix(title: String): Boolean = MIX_LABEL.containsMatchIn(title)
+
+    /** Removes version subtitles from title-family comparisons only. */
+    private fun mixFamilyTitle(title: String): String = normalisedTitle(
+        title.replace(VERSION_PARENTHETICAL, " "),
+    ).replace(TRAILING_MIX_LABEL, "").trim()
+
+    /**
      * `Kesariya (From "Brahmastra") | Official Video` and `Kesariya` are one
      * recording as far as a queue is concerned. Remix and cover markers are
      * deliberately left in — those really are different tracks.
@@ -112,6 +153,15 @@ object QueueBuilder {
             """|\(from[^)]*\)""" +
             """|\[[^]]*]""" +
             """|\b(?:official (?:video|audio|music video)|lyrical video|full video|4k video)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val MIX_LABEL = Regex(
+        """\b(?:remix|re[\s-]?mix|(?:club|extended|dance|radio|house|dub|vip)\s+mix)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    private val VERSION_PARENTHETICAL = Regex("""\s*[\(\[][^)\]]*[)\]]""")
+    private val TRAILING_MIX_LABEL = Regex(
+        """\s+(?:(?:[\p{L}\p{N}'’&.]+\s+){0,4})?(?:remix|re[\s-]?mix|mix)\s*$""",
         RegexOption.IGNORE_CASE,
     )
     private val TOPIC = Regex("""\s*-\s*topic\b""", RegexOption.IGNORE_CASE)

@@ -13,7 +13,7 @@ This document records decisions that were already made. Don't reopen them; where
   - `web/extension`: the browser extension.
   - `web/shared`: TypeScript types and protocol code used by both.
   - Use one package manager (pnpm workspaces) across all three.
-- **The Kotlin code is the specification.** Every feature below has a working implementation in `shared/`, `app/`, `desktopApp/` or `backend/`. Read it before writing the TypeScript version.
+- **The Kotlin code is the specification.** Every feature below has a working implementation in `shared/`, `app/` or `backend/`. Read it before writing the TypeScript version.
   - Port the reference behaviour faithfully first. Simplify only once you have evidence a piece is unnecessary. In this codebase, lines that looked redundant have more than once turned out to be the actual fix.
 - **Probe real responses before writing a parser.** Before writing parsers for InnerTube, addons, lyric providers or Spotify, capture a real response and save it under `web/fixtures/`.
   - A lenient JSON parser turns a wrong envelope into an empty list instead of an error, so test against those captured fixtures.

@@ -3386,7 +3386,7 @@ private fun BitChordApp(
                 when (settingsSubScreen.takeUnless { showDiscord || showSpotify }) {
                     "account_scrobbling" -> {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().nestedScroll(navBarScroll),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             AccountAndScrobblingScreen(
@@ -3413,7 +3413,7 @@ private fun BitChordApp(
                     }
                     "sources" -> {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().nestedScroll(navBarScroll),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             SourcesScreen(
@@ -3427,7 +3427,7 @@ private fun BitChordApp(
                     }
                     "wear_os" -> {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().nestedScroll(navBarScroll),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             WearOsScreen(contentPadding = listPadding)
@@ -3435,7 +3435,7 @@ private fun BitChordApp(
                     }
                     "listen_together" -> {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().nestedScroll(navBarScroll),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             ListenTogetherScreen(
@@ -3458,7 +3458,7 @@ private fun BitChordApp(
                     }
                     "equalizer" -> {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier.fillMaxSize().nestedScroll(navBarScroll),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             EqualizerScreen(contentPadding = listPadding)
@@ -3467,7 +3467,7 @@ private fun BitChordApp(
                     "replay" -> {
                         if (showReplay && !showReplayShare) {
                             Surface(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxSize().nestedScroll(navBarScroll),
                                 color = MaterialTheme.colorScheme.background,
                             ) {
                                 ReplayScreen(

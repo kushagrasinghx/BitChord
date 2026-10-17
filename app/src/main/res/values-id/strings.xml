@@ -197,6 +197,14 @@
     <string name="skip_silence">Lewati keheningan</string>
     <string name="skip_silence_subtitle">Memotong jeda lebih dari satu detik</string>
     <string name="skip_silence_float_subtitle">Tidak tersedia pada output float 32-bit</string>
+    <string name="tempo">Tempo</string>
+    <string name="tempo_subtitle">Lebih cepat atau lebih lambat, dengan nada yang sama</string>
+    <string name="tempo_decrease">Kurangi tempo</string>
+    <string name="tempo_increase">Tambah tempo</string>
+    <string name="pitch">Nada</string>
+    <string name="pitch_subtitle">Lebih tinggi atau lebih rendah, dengan tempo yang sama</string>
+    <string name="pitch_decrease">Turunkan nada</string>
+    <string name="pitch_increase">Naikkan nada</string>
     <string name="equalizer">Equalizer</string>
     <string name="equalizer_subtitle">Panel sistem perangkat Anda</string>
     <string name="show_nerd_stats">Tampilkan statistik teknis</string>

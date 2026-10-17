@@ -202,6 +202,14 @@
     <string name="skip_silence">Stille überspringen</string>
     <string name="skip_silence_subtitle">Kürzt Pausen länger als eine Sekunde</string>
     <string name="skip_silence_float_subtitle">Bei 32-Bit-Float-Ausgabe nicht verfügbar</string>
+    <string name="tempo">Tempo</string>
+    <string name="tempo_subtitle">Schneller oder langsamer, bei gleicher Tonhöhe</string>
+    <string name="tempo_decrease">Tempo verringern</string>
+    <string name="tempo_increase">Tempo erhöhen</string>
+    <string name="pitch">Tonhöhe</string>
+    <string name="pitch_subtitle">Höher oder tiefer, bei gleichem Tempo</string>
+    <string name="pitch_decrease">Tonhöhe senken</string>
+    <string name="pitch_increase">Tonhöhe anheben</string>
     <string name="equalizer">Equalizer</string>
     <string name="equalizer_subtitle">Das Systempanel deines Geräts</string>
     <string name="show_nerd_stats">Technische Details anzeigen</string>

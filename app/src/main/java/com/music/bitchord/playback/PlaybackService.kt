@@ -2099,6 +2099,8 @@ class PlaybackService : MediaLibraryService() {
             // Advanced Automix blend the active player is still easing off its
             // beatmatch stretch, and copying that would keep it for good.
             standbyPlayer.setPlaybackSpeed(AppSettings.playbackSpeed.value)
+            standbyPlayer.playbackParameters =
+                standbyPlayer.playbackParameters.withPitch(AppSettings.playbackPitchFactor)
             standbyPlayer.volume = 0f
             standbyPlayer.setMediaItems(newItems, currentIndex, alignedStartPos)
             spareLoudness().track(mediaId, nextMediaIdOf(standbyPlayer))
@@ -6250,6 +6252,10 @@ class PlaybackService : MediaLibraryService() {
     private fun applySettings(player: ExoPlayer) {
         player.skipSilenceEnabled = AppSettings.skipSilence.value
         player.setPlaybackSpeed(AppSettings.playbackSpeed.value)
+        // Pitch is the other half of the same playback parameters. Its own
+        // call so the speed line above keeps the shape it has; together they
+        // land before the player is handed anything to play.
+        player.playbackParameters = player.playbackParameters.withPitch(AppSettings.playbackPitchFactor)
         // Restore persisted shuffle and repeat states on startup. Assign both
         // values: Android can destroy and recreate the service while retaining
         // this process, so QueueShuffle's process-wide object may still hold
@@ -6600,6 +6606,17 @@ class PlaybackService : MediaLibraryService() {
             AppSettings.playbackSpeed.collect { speed ->
                 if (crossfade?.isTransitioning() == true) return@collect
                 crossfade?.applyPlaybackSpeed(speed) ?: eachPlayer { it.setPlaybackSpeed(speed) }
+            }
+        }
+        scope.launch {
+            // Pitch gets no transition guard, unlike speed above: the
+            // [CrossfadeController] beatmatch rides on setPlaybackSpeed,
+            // which leaves pitch where it is, so nothing here can fight a
+            // blend in flight — writing the setting lands on both players,
+            // each keeping whatever speed it currently has.
+            AppSettings.playbackPitch.collect {
+                val factor = AppSettings.playbackPitchFactor
+                eachPlayer { it.playbackParameters = it.playbackParameters.withPitch(factor) }
             }
         }
         scope.launch {

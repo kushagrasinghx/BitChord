@@ -202,6 +202,14 @@
     <string name="skip_silence">खामोशी छोड़ें</string>
     <string name="skip_silence_subtitle">एक सेकंड से लंबे गैप को काटता है</string>
     <string name="skip_silence_float_subtitle">32-बिट फ़्लोट आउटपुट पर उपलब्ध नहीं</string>
+    <string name="tempo">गति</string>
+    <string name="tempo_subtitle">तेज़ या धीमा, पिच वैसी ही रहती है</string>
+    <string name="tempo_decrease">गति कम करें</string>
+    <string name="tempo_increase">गति बढ़ाएँ</string>
+    <string name="pitch">पिच</string>
+    <string name="pitch_subtitle">ऊँचा या नीचा, गति वैसी ही रहती है</string>
+    <string name="pitch_decrease">पिच कम करें</string>
+    <string name="pitch_increase">पिच बढ़ाएँ</string>
     <string name="equalizer">इक्वलाइज़र</string>
     <string name="equalizer_subtitle">आपके डिवाइस का सिस्टम पैनल</string>
     <string name="show_nerd_stats">टेक्निकल आंकड़े दिखाएं</string>

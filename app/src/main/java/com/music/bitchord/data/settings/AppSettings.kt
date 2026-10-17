@@ -15,6 +15,8 @@ import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlin.math.pow
+import kotlin.math.roundToInt
 
 
 /**
@@ -339,6 +341,22 @@ object AppSettings {
     val equalizerPreset = MutableStateFlow(EqualizerPreset.FLAT)
 
     val playbackSpeed = MutableStateFlow(1.0f)
+
+    /**
+     * Pitch shift for playback, in semitones — whole numbers, because that is
+     * how a key change is counted, and the settings row steps through them one
+     * at a time. Zero is no shift. The players play back at a ratio rather
+     * than a semitone count, which [playbackPitchFactor] builds from this.
+     */
+    val playbackPitch = MutableStateFlow(0f)
+
+    /** How far the pitch can be moved in either direction, in semitones. */
+    const val PITCH_LIMIT_SEMITONES = 12f
+
+    /** [playbackPitch] as the ratio Media3's playback parameters take. */
+    val playbackPitchFactor: Float
+        get() = 2f.pow(playbackPitch.value / 12f)
+
     val themeMode = MutableStateFlow(ThemeMode.DARK)
 
     /** Keep playing similar music once the queue runs out. */
@@ -846,6 +864,9 @@ object AppSettings {
         equalizerBands.value = readEqualizerBands()
         equalizerPreset.value = EqualizerPreset.matching(equalizerBands.value)
         playbackSpeed.value = prefs.getFloat(KEY_SPEED, 1.0f)
+        playbackPitch.value = prefs.getFloat(KEY_PITCH, 0f)
+            .roundToInt().toFloat()
+            .coerceIn(-PITCH_LIMIT_SEMITONES, PITCH_LIMIT_SEMITONES)
         themeMode.value = runCatching {
             ThemeMode.valueOf(prefs.getString(KEY_THEME, null) ?: "DARK")
         }.getOrDefault(ThemeMode.DARK)
@@ -1203,6 +1224,13 @@ object AppSettings {
     fun setPlaybackSpeed(value: Float) {
         playbackSpeed.value = value
         prefs.edit().putFloat(KEY_SPEED, value).apply()
+    }
+
+    fun setPlaybackPitch(value: Float) {
+        val clamped = value.roundToInt().toFloat()
+            .coerceIn(-PITCH_LIMIT_SEMITONES, PITCH_LIMIT_SEMITONES)
+        playbackPitch.value = clamped
+        prefs.edit().putFloat(KEY_PITCH, clamped).apply()
     }
 
     fun setShowNerdStats(value: Boolean) {
@@ -2010,6 +2038,7 @@ object AppSettings {
     private const val KEY_EQ_BALANCE = "equalizer_balance"
     private const val KEY_EQ_BANDS = "equalizer_bands"
     private const val KEY_SPEED = "playback_speed"
+    private const val KEY_PITCH = "playback_pitch"
     private const val KEY_THEME = "theme_mode"
     private const val KEY_AUTOPLAY = "autoplay"
     private const val KEY_SHUFFLE_ENABLED = "shuffle_enabled"

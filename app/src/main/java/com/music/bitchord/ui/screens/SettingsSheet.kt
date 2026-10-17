@@ -35,6 +35,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.BarChart
@@ -63,14 +64,17 @@ import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.MotionPhotosOff
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlaylistPlay
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
@@ -87,6 +91,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -203,6 +208,8 @@ fun SettingsScreen(
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
+    val playbackSpeed by AppSettings.playbackSpeed.collectAsStateWithLifecycle()
+    val playbackPitch by AppSettings.playbackPitch.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
     // A property of the hardware, so it is read once rather than remembered
     // against a key that can never change — see [DeviceCodecs.playsDolbyAtmos],
@@ -740,6 +747,45 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
+                )
+            }
+            // Tempo and pitch sit above the equaliser on purpose: they decide
+            // how the track is played, and the equaliser below then shapes
+            // what comes out. Each moves in fixed steps rather than on a
+            // slider — a knob you tap is a knob you can put back.
+            val tempoTitle = stringResource(R.string.tempo)
+            row(tempoTitle, "speed", "tempo", "bpm", "rate") {
+                val slower = stepTempo(playbackSpeed, -1)
+                val faster = stepTempo(playbackSpeed, 1)
+                StepperRow(
+                    icon = Icons.Rounded.Speed,
+                    title = tempoTitle,
+                    subtitle = stringResource(R.string.tempo_subtitle),
+                    value = formatTempo(playbackSpeed),
+                    onDecrease = { AppSettings.setPlaybackSpeed(slower) },
+                    onIncrease = { AppSettings.setPlaybackSpeed(faster) },
+                    decreaseEnabled = slower < playbackSpeed,
+                    increaseEnabled = faster > playbackSpeed,
+                    decreaseLabel = stringResource(R.string.tempo_decrease),
+                    increaseLabel = stringResource(R.string.tempo_increase),
+                )
+            }
+            val pitchTitle = stringResource(R.string.pitch)
+            row(pitchTitle, "pitch", "key", "semitone", "transpose") {
+                val limit = AppSettings.PITCH_LIMIT_SEMITONES
+                val lower = (playbackPitch - 1f).coerceIn(-limit, limit)
+                val higher = (playbackPitch + 1f).coerceIn(-limit, limit)
+                StepperRow(
+                    icon = Icons.Rounded.MusicNote,
+                    title = pitchTitle,
+                    subtitle = stringResource(R.string.pitch_subtitle),
+                    value = formatPitch(playbackPitch),
+                    onDecrease = { AppSettings.setPlaybackPitch(lower) },
+                    onIncrease = { AppSettings.setPlaybackPitch(higher) },
+                    decreaseEnabled = lower < playbackPitch,
+                    increaseEnabled = higher > playbackPitch,
+                    decreaseLabel = stringResource(R.string.pitch_decrease),
+                    increaseLabel = stringResource(R.string.pitch_increase),
                 )
             }
             // The system panel is not listed here as well. A device with a
@@ -2665,6 +2711,126 @@ internal fun SliderRow(
             modifier = Modifier.padding(start = ICON_SIZE + ICON_GAP),
         )
     }
+}
+
+/**
+ * A setting that moves in fixed steps: glyph, label, and the current value
+ * flanked by a decrement and an increment button — "increase and decrease"
+ * as the whole control, so nobody has to hunt for where the value sits on a
+ * slider. Buttons at the ends of their range dim rather than silently do
+ * nothing.
+ */
+@Composable
+internal fun StepperRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    value: String,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    decreaseEnabled: Boolean,
+    increaseEnabled: Boolean,
+    decreaseLabel: String,
+    increaseLabel: String,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .padding(horizontal = ROW_INSET, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.size(ICON_SIZE),
+        )
+        Spacer(Modifier.width(ICON_GAP))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        StepButton(
+            icon = Icons.Rounded.Remove,
+            label = decreaseLabel,
+            enabled = decreaseEnabled,
+            onClick = onDecrease,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            modifier = Modifier.width(56.dp),
+        )
+        StepButton(
+            icon = Icons.Rounded.Add,
+            label = increaseLabel,
+            enabled = increaseEnabled,
+            onClick = onIncrease,
+        )
+    }
+}
+
+/** One tap target on a [StepperRow], dimmed while it has nowhere left to go. */
+@Composable
+private fun StepButton(
+    icon: ImageVector,
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .size(40.dp)
+            .alpha(if (enabled) 1f else 0.35f),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+/** Tempo bounds for the stepper: half speed to double, in 5% jumps. */
+private const val TEMPO_MIN = 0.5f
+private const val TEMPO_MAX = 2.0f
+private const val TEMPO_STEP = 0.05f
+
+/**
+ * [current] moved one [direction] step (−1 or +1), rounded onto whole 5%
+ * rungs so repeated taps cannot land between them, then clamped to
+ * [TEMPO_MIN]..[TEMPO_MAX]. Answers [current] unchanged when there is
+ * nowhere left to go — which is how the row decides a button is spent.
+ */
+private fun stepTempo(current: Float, direction: Int): Float =
+    (((current + direction * TEMPO_STEP) * 100f).roundToInt() / 100f)
+        .coerceIn(TEMPO_MIN, TEMPO_MAX)
+
+/** "1.00×" — two decimals so every rung reads at the same width. */
+private fun formatTempo(speed: Float): String = String.format(Locale.ROOT, "%.2f×", speed)
+
+/** Whole semitones, signed: "0 st", "+3 st", "-7 st". */
+private fun formatPitch(semitones: Float): String {
+    val st = semitones.roundToInt()
+    return if (st > 0) "+$st st" else "$st st"
 }
 
 /** Sign out: centered, accent-coloured, no glyph — the shape of a real one. */

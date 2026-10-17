@@ -268,6 +268,14 @@
     <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
     <string name="smart_version_alignment">Smart audio alignment</string>
     <string name="smart_version_alignment_subtitle">Analyze audio waveforms to match the exact corresponding playback moment</string>
+    <string name="tempo">Tempo</string>
+    <string name="tempo_subtitle">Faster or slower, at the same pitch</string>
+    <string name="tempo_decrease">Decrease tempo</string>
+    <string name="tempo_increase">Increase tempo</string>
+    <string name="pitch">Pitch</string>
+    <string name="pitch_subtitle">Higher or lower, at the same speed</string>
+    <string name="pitch_decrease">Lower pitch</string>
+    <string name="pitch_increase">Raise pitch</string>
     <string name="equalizer">Equalizer</string>
     <string name="equalizer_subtitle">Tone, seven bands and balance</string>
     <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>

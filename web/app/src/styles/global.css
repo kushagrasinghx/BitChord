@@ -63,9 +63,11 @@ button:disabled {
   cursor: default;
 }
 
-input {
+input,
+select {
   font: inherit;
   color: inherit;
+  color-scheme: light dark;
 }
 
 img {

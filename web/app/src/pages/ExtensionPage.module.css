@@ -241,6 +241,16 @@
   font: var(--body);
 }
 
+.select {
+  color-scheme: light dark;
+  cursor: pointer;
+}
+
+.select option {
+  background-color: var(--opaqueShelfBG);
+  color: var(--systemPrimary);
+}
+
 /* Settings: rows that open a page of their own. */
 .linkRow {
   width: 100%;

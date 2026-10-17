@@ -1324,4 +1324,11 @@
     <string name="wear_os_unsupported">安装到手表需要这部手机运行 Android 11 或更高版本。</string>
     <string name="wear_os_code_hint">配对码</string>
     <string name="wear_os_done">完成</string>
+    <string name="artist_signatures">艺术家签名</string>
+    <string name="artist_signatures_subtitle">当 Apple Music 没有标题标志时显示手写签名</string>
+    <string name="artist_signatures_url">签名 API URL</string>
+    <string name="artist_signatures_url_hint">https://signatures.example.com</string>
+    <string name="artist_signatures_unconfigured">未配置 — 点击设置 API URL</string>
+    <string name="artist_signatures_test_failed">无法访问该 URL 的 API</string>
+    <string name="signed_by">由 %1$s 签名</string>
 </resources>

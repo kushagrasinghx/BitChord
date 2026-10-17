@@ -4676,7 +4676,17 @@ private fun BitChordApp(
             val playlist = target.browseId
                 ?.takeIf { signedIn && ownedPlaylists[it] == true }
                 ?.let { id -> playlists.firstOrNull { it.browseId == id } }
-            val remote = target.browseId?.startsWith("local:") == false
+            // True for any real YouTube Music browse id, and also for Spotify
+            // playlists saved on this device ("local:playlist:sp_local_…") —
+            // those carry real YouTube video ids that can be downloaded just
+            // like a remote playlist.  The device-folder ids ("local:downloads",
+            // "local:all", …) are not downloadable and stay false.
+            val remote = target.browseId.let { id ->
+                id != null && (
+                    !id.startsWith("local:") ||
+                    id.startsWith("local:playlist:sp_local_")
+                )
+            }
             val pinnedPlaylists by AppSettings.pinnedPlaylists.collectAsStateWithLifecycle()
             val pinnableId = target.browseId?.takeIf { target.type == BrowseType.PLAYLIST }
             BrowseActionsSheet(

@@ -184,6 +184,7 @@ export function score(candidate: MatchCandidate, target: MatchTarget): number | 
   const isTitleMatch =
     wanted.core === got.core ||
     romajiOf(wanted.core) === romajiOf(got.core) ||
+    isTranslationMatch(wanted, got) ||
     (!([...wanted.core].length <= 3 || [...got.core].length <= 3) &&
       (wanted.core.includes(got.core) || got.core.includes(wanted.core)));
   if (!isTitleMatch) return null;
@@ -308,7 +309,33 @@ function classify(segment: string, versions: Set<string>, context: Set<string>):
     marks.forEach((m) => versions.add(m));
     return;
   }
-  words.filter((w) => [...w].length > 2 && !NOISE_WORDS.has(w)).forEach((w) => context.add(w));
+  // A single CJK syllable is a whole title: the length gate exists
+  // for Latin glue words and must not drop it.
+  words.filter((w) => ([...w].length > 2 || CJK.test(w)) && !NOISE_WORDS.has(w)).forEach((w) => context.add(w));
+}
+
+function containsCJKChar(text: string): boolean {
+  return CJK.test(text);
+}
+
+/**
+ * Whether a bracketed aside is the same title in another script rather
+ * than packaging around it. True when one core is CJK-only, the other is
+ * Latin, and either core appears in the other's aside. Same-script asides
+ * never qualify.
+ */
+export function isTranslationMatch(wanted: TitleParts, got: TitleParts): boolean {
+  const wantedCJK = containsCJKChar(wanted.core) && !hasFilingLatin(wanted.core);
+  const gotCJK = containsCJKChar(got.core) && !hasFilingLatin(got.core);
+  const wantedLatin = hasFilingLatin(wanted.core);
+  const gotLatin = hasFilingLatin(got.core);
+  if ((wantedCJK && gotLatin) || (gotCJK && wantedLatin)) {
+    if (wanted.context.has(got.core)) return true;
+    if (got.context.has(wanted.core)) return true;
+    if ([...wanted.context].join('') === got.core) return true;
+    if ([...got.context].join('') === wanted.core) return true;
+  }
+  return false;
 }
 
 function isArtistName(text: string, artist: string): boolean {

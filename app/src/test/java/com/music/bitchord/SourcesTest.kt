@@ -1424,6 +1424,36 @@ class SourcesTest {
         )
     }
 
+    /** A CJK head with its Latin filing in brackets is the same title, not packaging. */
+    @Test
+    fun `matches a bracketed CJK translation against its Latin filing`() {
+        assertTrue(
+            matches(
+                song("Love", "Singer", "2:53"),
+                title = "愛(Love)",
+                artist = "Singer",
+                durationSec = 174,
+            ),
+        )
+        assertTrue(
+            matches(
+                song("Love (愛)", "Singer", "2:53"),
+                title = "愛",
+                artist = "Singer",
+                durationSec = 174,
+            ),
+        )
+        // Same-script packaging must not rescue a different title.
+        assertFalse(
+            matches(
+                song("Film Name", "Some Artist", "4:07"),
+                title = "Song Name (From \"Film Name\")",
+                artist = "Singer",
+                durationSec = 247,
+            ),
+        )
+    }
+
     /** The take marker may live on the release: title "KALYANI" + album "KALYANI (Remix)". */
     @Test
     fun `accepts the remix single whose marker lives on the album`() {

@@ -206,15 +206,18 @@ object TrackMatcher {
         val wanted = parseTitle(target.title, target.artist)
         val got = parseTitle(candidate.title, candidate.artist)
         if (wanted.core.isBlank() || got.core.isBlank()) return null
-        // Same word, different script: katakana コイコガレ vs romaji
-        // koikogare. Hepburn transliteration bridges kana; kanji has no
-        // algorithmic reading and stays exact-only (mixed titles carry their
-        // romaji tail instead, and English loans like ドア/door don't
-        // transliterate to each other either). Past that, a guarded
-        // containment absorbs minor punctuation and symbol differences.
+        // Same word, different script: katakana vs romaji is bridged by
+        // Hepburn transliteration; kanji has no algorithmic reading and stays
+        // exact-only. Past that, a guarded containment absorbs minor
+        // punctuation and symbol differences. A bracketed translation is the
+        // same title in another script: the bracket word lives in
+        // [TitleParts.context], so a core appearing verbatim as the other
+        // side's context is accepted — but only across scripts (CJK-only vs
+        // Latin), so same-script packaging never rescues a different title.
         val isTitleMatch = when {
             wanted.core == got.core -> true
             romajiOf(wanted.core) == romajiOf(got.core) -> true
+            isTranslationMatch(wanted, got) -> true
             wanted.core.length <= 3 || got.core.length <= 3 -> false
             else -> wanted.core.contains(got.core) || got.core.contains(wanted.core)
         }
@@ -427,14 +430,7 @@ object TrackMatcher {
         // words. Standard word splitting and non-alphanumeric filtering fragment
         // these titles into empty or broken strings, so CJK titles keep their
         // raw character sequence intact (stripping only punctuation and whitespace).
-        val containsCJK = text.any {
-            Character.UnicodeBlock.of(it) in setOf(
-                Character.UnicodeBlock.HIRAGANA,
-                Character.UnicodeBlock.KATAKANA,
-                Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,
-                Character.UnicodeBlock.HANGUL_SYLLABLES
-            )
-        }
+        val containsCJK = text.any { Character.UnicodeBlock.of(it) in CJK_BLOCKS }
 
         var words = text.split(WORD_SPLIT)
             .map { it.replace(NON_ALNUM, "") }
@@ -497,7 +493,37 @@ object TrackMatcher {
             versions += marks
             return
         }
-        context += words.filter { it.length > 2 && it !in NOISE_WORDS }
+        // A single CJK syllable is a whole title: the length gate exists
+        // for Latin glue words and must not drop it.
+        context += words.filter { (it.length > 2 || containsCJKChar(it)) && it !in NOISE_WORDS }
+    }
+
+    /**
+     * Whether a bracketed aside is the same title in another script rather
+     * than packaging around it.
+     *
+     * True when one core is CJK-only, the other is Latin, and either core
+     * appears verbatim in the other's aside (single word) or the aside
+     * joins to it (spaced CJK). Same-script asides never qualify.
+     */
+    internal fun isTranslationMatch(wanted: TitleParts, got: TitleParts): Boolean {
+        val wantedCJK = containsCJKChar(wanted.core) && !hasFilingLatin(wanted.core)
+        val gotCJK = containsCJKChar(got.core) && !hasFilingLatin(got.core)
+        val wantedLatin = hasFilingLatin(wanted.core)
+        val gotLatin = hasFilingLatin(got.core)
+        // Either core appearing in the other's aside covers both orders:
+        // Latin in the CJK row's brackets, and CJK in the Latin row's brackets.
+        if ((wantedCJK && gotLatin) || (gotCJK && wantedLatin)) {
+            if (got.core in wanted.context) return true
+            if (wanted.core in got.context) return true
+            if (wanted.context.joinToString("") == got.core) return true
+            if (got.context.joinToString("") == wanted.core) return true
+        }
+        return false
+    }
+
+    private fun containsCJKChar(text: String): Boolean = text.any {
+        Character.UnicodeBlock.of(it) in CJK_BLOCKS
     }
 
     /** Whether [text] is nothing but (part of) [artist] — the "Artist - Title" upload shape. */
@@ -812,6 +838,13 @@ object TrackMatcher {
 
     private const val BRACKET_PASSES = 3
     private const val DASH_PASSES = 3
+
+    private val CJK_BLOCKS = setOf(
+        Character.UnicodeBlock.HIRAGANA,
+        Character.UnicodeBlock.KATAKANA,
+        Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS,
+        Character.UnicodeBlock.HANGUL_SYLLABLES,
+    )
 
     private val BRACKETED = Regex("""[(\[]([^()\[\]]*)[)\]]""")
     private val DASH = Regex("""\s+[-–—|]+\s+""")

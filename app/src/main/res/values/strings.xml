@@ -1004,6 +1004,7 @@
     <string name="miscellaneous_footer">When enabled, closing the app from the recent apps screen will also stop music playback.</string>
 
     <string name="export_compatible_downloads">Export compatible downloads</string>
+    <string name="auto_download_playlists">Auto-download new playlist songs</string>
 
     <string name="output_precision">Output precision</string>
 

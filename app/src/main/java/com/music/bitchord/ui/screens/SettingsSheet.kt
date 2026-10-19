@@ -238,6 +238,7 @@ fun SettingsScreen(
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
+    val autoDownloadPlaylists by AppSettings.autoDownloadPlaylists.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
@@ -541,6 +542,14 @@ fun SettingsScreen(
                     checked = wifiOnlyDownloads,
                     onCheckedChange = AppSettings::setWifiOnlyDownloads,
                     badge = stringResource(R.string.blocking).takeIf { wifiOnlyDownloads && metered == true },
+                )
+            }
+            val autoDownloadTitle = stringResource(R.string.auto_download_playlists)
+            row(autoDownloadTitle, "playlist", "new songs", divided = false) {
+                SettingsSubRow(
+                    title = autoDownloadTitle,
+                    checked = autoDownloadPlaylists,
+                    onCheckedChange = AppSettings::setAutoDownloadPlaylists,
                 )
             }
             val exportDownloadsTitle = stringResource(R.string.export_compatible_downloads)

@@ -409,6 +409,20 @@ object Downloads {
         }
     }
 
+    /**
+     * Track [song], just added to a downloaded playlist, and download it with the
+     * rest: appended to the record — the end is where YouTube files it — and
+     * queued. A no-op for a playlist that was never downloaded whole.
+     */
+    fun autoDownload(context: Context, browseId: String, song: Song) {
+        if (!AppSettings.autoDownloadPlaylists.value) return
+        val bare = browseId.removePrefix("VL")
+        val record = _collections.value.values
+            .firstOrNull { it.playlist && it.id.removePrefix("VL") == bare } ?: return
+        recordCollections { it + (record.id to record.copy(videoIds = (record.videoIds + song.videoId).distinct())) }
+        if (song.videoId !in _saved.value) enqueue(context, song, record.title)
+    }
+
     /** Replace a collection's remote artwork URL with its durable local copy. */
     fun rememberCollectionArtwork(id: String, thumbnailUrl: String) {
         recordCollections { current ->

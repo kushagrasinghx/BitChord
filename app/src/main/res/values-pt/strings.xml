@@ -852,6 +852,7 @@
     <string name="dolby_atmos_unavailable">Este dispositivo não suporta Atmos, as músicas tocarão na versão padrão</string>
 
     <string name="export_compatible_downloads">Exportar downloads compatíveis</string>
+    <string name="auto_download_playlists">Baixar automaticamente novas músicas da playlist</string>
 
     <string name="legacy_mesh_gradient">Gradiente de malha clássico</string>
 

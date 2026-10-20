@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BackwardIcon,
   ForwardIcon,
@@ -17,6 +17,7 @@ import { useLyrics } from '@/lyrics/useLyrics';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { Lcd } from './Lcd';
+import { nextVolumeFromWheel } from './wheelVolume';
 
 const control = 'grid place-items-center rounded-[6px] disabled:opacity-40';
 // Shuffle and repeat: secondary, and the key colour when on, as Apple's toggles.
@@ -37,6 +38,36 @@ const slider = [
 ].join(' ');
 
 /**
+ * Mouse-wheel volume over the control: React registers onWheel as a passive
+ * listener, so preventDefault there would be ignored and the page would
+ * scroll behind the pill — this native listener opts out with
+ * { passive: false }. The page only stops scrolling while the wheel actually
+ * changes the volume; at the limit the wheel goes back to the page. Each
+ * step calls onStep (it opens the slider, so the level shows while it
+ * moves), and reading the store via getState keeps the handler free of
+ * stale volume/mute values — setVolume also clears mute, so scrolling up
+ * while muted unmutes.
+ */
+function useVolumeWheel(onStep: () => void) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      const { volume, setVolume } = usePlayer.getState();
+      const next = nextVolumeFromWheel(volume, e.deltaY);
+      if (next === volume) return;
+      e.preventDefault();
+      onStep();
+      setVolume(next);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [onStep]);
+  return ref;
+}
+
+/**
  * Apple's volume control: the speaker mutes, and hovering it slides the level
  * in where the other actions were (they fade out while it's open).
  */
@@ -46,8 +77,9 @@ function VolumeControl({ open, onOpen }: { open: boolean; onOpen: () => void }) 
   const setVolume = usePlayer((s) => s.setVolume);
   const toggleMute = usePlayer((s) => s.toggleMute);
   const level = muted ? 0 : volume;
+  const wheelRef = useVolumeWheel(onOpen);
   return (
-    <>
+    <span ref={wheelRef}>
       <input
         className={slider}
         data-open={open || undefined}
@@ -71,7 +103,7 @@ function VolumeControl({ open, onOpen }: { open: boolean; onOpen: () => void }) 
       >
         <VolumeIcon level={level} size={20} />
       </button>
-    </>
+    </span>
   );
 }
 

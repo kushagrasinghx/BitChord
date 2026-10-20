@@ -39,6 +39,15 @@ class PlayerDock {
     private var miniArt: LayoutCoordinates? = null
     private var miniArtCorner: Dp = 8.dp
 
+    /** Both mini-player styles put the cover in a Row inside the clickable Box. */
+    fun containsMiniPlayer(screenPosition: Offset): Boolean {
+        val coordinates = miniArt?.takeIf { it.isAttached }
+            ?.parentLayoutCoordinates?.parentLayoutCoordinates
+            ?.takeIf { it.isAttached } ?: return false
+        val local = coordinates.screenToLocal(screenPosition)
+        return Rect(Offset.Zero, coordinates.size.toSize()).contains(local)
+    }
+
     /**
      * How far the player sheet sits below fully open, in pixels. Set by the
      * host while the sheet is up, null while it is not. `NaN` before the sheet

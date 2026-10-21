@@ -51,6 +51,7 @@
 - **Offline downloads** — save tracks with embedded metadata.
 - **Local music library** integration.
 - **Background playback** via a proper foreground media session.
+- **BitChord TV & Android TV** — Leanback interface with lossless audio upgrade support for TV music video playlists (see [ISSUES.md](ISSUES.md)).
 - **Apple-like lyrics animation** — credit to [binimum](https://github.com/binimum/am-lyrics).
 
 #### Connectivity & Accounts
@@ -95,6 +96,13 @@
 Grab the latest signed APK from the [Releases](https://github.com/kushagrasinghx/BitChord/releases) page. Sideloading requires enabling "Install unknown apps" for whichever app you download it with.
 
 For the Windows and Linux desktop app, see [DESKTOP.md](DESKTOP.md).
+
+### BitChord TV & Lossless Audio Upgrade
+BitChord TV is optimized for Android TV and Fire TV devices with Leanback navigation and autonomous lossless playback:
+- **Zero-Configuration Lossless Audio:** Prebuilt integration with lossless providers (Lossless Bridge, Qobuz, Deezer) out-of-the-box.
+- **Smart Video-to-Audio Drift Compensation:** Automatic handling of video intro/outro duration drift (up to 90 seconds) for music videos such as Rihanna's *Diamonds* and Justin Bieber's *Love Yourself*.
+- **Sub-15ms Cold-Load Home Feed:** Instant disk caching for all Home feed rows.
+- Detailed architecture and resolution notes are documented in [ISSUES.md](ISSUES.md).
 
 </div>
 

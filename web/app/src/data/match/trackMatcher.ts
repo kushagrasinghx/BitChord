@@ -119,9 +119,12 @@ const sameSet = <T>(a: Set<T>, b: Set<T>) => a.size === b.size && [...a].every((
 const union = <T>(...sets: Iterable<T>[]) => new Set(sets.flatMap((s) => [...s]));
 const intersect = <T>(a: Set<T>, b: Set<T>) => new Set([...a].filter((x) => b.has(x)));
 
+const CAMEL_CASE = /([\p{Ll}])([\p{Lu}])/gu;
+
 export function normalize(text: string): string {
   return text
     .normalize('NFKC')
+    .replace(CAMEL_CASE, "$1 $2")
     .toLowerCase()
     .replaceAll('&', ' and ')
     .replace(CJK_OPEN, '(')
@@ -150,8 +153,10 @@ export function searchableTitle(title: string, artist = ''): string {
   return [...parts.words, ...parts.versions].join(' ');
 }
 
+const VEVO_SUFFIX = /(?:\bvevo\b|vevo$)/gi;
+
 export function primaryArtist(artist: string): string {
-  return normalize(artist).split(ARTIST_SEPARATORS)[0]?.trim() ?? '';
+  return normalize(artist).replace(VEVO_SUFFIX, '').split(ARTIST_SEPARATORS)[0]?.trim() ?? '';
 }
 
 export function sharesArtist(wanted: string, got: string): boolean {
@@ -451,7 +456,7 @@ function artistScore(wanted: string, got: string): number | null {
 /** The credited artists, each as its own list of words; a Set in Kotlin, de-duplicated here. */
 export function artistNames(value: string): string[][] {
   const seen = new Map<string, string[]>();
-  for (const name of normalize(value).split(ARTIST_SEPARATORS)) {
+  for (const name of normalize(value).replace(VEVO_SUFFIX, '').split(ARTIST_SEPARATORS)) {
     const words = name.split(WORD_SPLIT).map(strip).filter((w) => [...w].length > 1);
     if (words.length) seen.set(words.join(' '), words);
   }

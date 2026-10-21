@@ -112,6 +112,11 @@ object YtMusicRepository {
         }
 
         val allSongs = ytSongs.distinctBy { it.videoId }.take(RECENT_LIMIT)
+        allSongs.forEach { s ->
+            com.music.bitchord.data.sources.TrackMatcher.secondsOf(s.durationText)?.let {
+                com.music.bitchord.data.sources.KnownTrackDurations.put(s.videoId, it)
+            }
+        }
         if (allSongs.isEmpty()) return null
         return HomeShelf(
             title = RECENT_TITLE,

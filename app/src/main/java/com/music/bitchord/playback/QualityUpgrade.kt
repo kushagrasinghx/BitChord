@@ -206,7 +206,7 @@ object QualityUpgrade {
         // lookup that was still running got cancelled outright the moment
         // YouTube won the race, so a 320kbps source never finished and never
         // played. [SourceResolver.upgradeFor] applies the real quality bar.
-        if (target.title.isBlank() || target.isVideo ||
+        if (target.title.isBlank() ||
             mediaId in refused ||
             !SourceResolver.canSubstituteForYouTube()
         ) {
@@ -277,9 +277,7 @@ object QualityUpgrade {
      * entry and the settings; nothing here touches the network.
      */
     fun couldStillUpgrade(mediaId: String, uri: Uri?): Boolean {
-        if (uri == null || uri.getQueryParameter("v") == null ||
-            uri.getQueryParameter("m") == "1"
-        ) return false
+        if (uri == null || uri.getQueryParameter("v") == null) return false
         // Already upgraded: this *is* the better copy. Except when the listener
         // has asked by hand, where the marker is on a *reverted* item and
         // saying "this is the copy that was chosen" is the very thing being
@@ -466,7 +464,7 @@ object QualityUpgrade {
                 val late = runCatching { lookup.await() }.getOrNull()
                 if (late != null &&
                     SourceResolver.worthSwapping(late.format, waiting.playing) &&
-                    SourceResolver.sameRecordingAs(late.durationSec, effectiveDurationSec)
+                    SourceResolver.sameRecordingAs(late.durationSec, effectiveDurationSec, isVideoOrigin = waiting.target.isVideo)
                 ) {
                     found = late
                     if (needsLosslessFollowUp(late.format)) {

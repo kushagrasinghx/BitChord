@@ -1171,6 +1171,12 @@ class PlaybackService : MediaLibraryService() {
             publishNerdStats()
             currentAudioInputFormat = format
             applyOutputRoute()
+            this@PlaybackService.player?.let { p ->
+                val id = eventTime.mediaId()
+                if (id != null && QualityUpgrade.couldStillUpgrade(id, p.currentMediaItem?.localConfiguration?.uri)) {
+                    lookForBetterCopy(p)
+                }
+            }
         }
 
         /**
@@ -1188,6 +1194,7 @@ class PlaybackService : MediaLibraryService() {
         ) {
             val cutAt = swapCutAt ?: return
             swapCutAt = null
+            publishNerdStats()
             TrackLog.d(
                 "BitChord",
                 "swap seam: ${SystemClock.elapsedRealtime() - cutAt}ms of silence",
@@ -1204,6 +1211,7 @@ class PlaybackService : MediaLibraryService() {
         override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) {
             val cutAt = swapCutAt ?: return
             if (state == Player.STATE_READY) {
+                publishNerdStats()
                 TrackLog.d(
                     "BitChord",
                     "swap leg: ready ${SystemClock.elapsedRealtime() - cutAt}ms after the cut",
@@ -1529,8 +1537,7 @@ class PlaybackService : MediaLibraryService() {
                 // Only substituted, non-lossless choices need this. A pinned
                 // YouTube URL has no source result to promote, and a lossless
                 // module result already satisfies the request.
-                if (StreamChoice.isSubstitute(videoId) &&
-                    serving.format.isLossless != true &&
+                if (serving.format.isLossless != true &&
                     QualityUpgrade.couldStillUpgrade(videoId, dataSpec.uri)
                 ) {
                     val pending = QualityUpgrade.settledForLess(
@@ -4256,7 +4263,7 @@ class PlaybackService : MediaLibraryService() {
             // a null. It is genuinely not known yet at some of the moments
             // this is called from: a queue advance runs its transition before
             // the item it moved onto has finished preparing.
-            val playingSeconds = withTimeoutOrNull(DURATION_SETTLE_MS) {
+            val playingSeconds = withTimeoutOrNull(2_000L) {
                 while (true) {
                     val ms = withContext(Dispatchers.Main) {
                         this@PlaybackService.player
@@ -4264,11 +4271,15 @@ class PlaybackService : MediaLibraryService() {
                             ?.duration
                             ?: 0L
                     }
-                    if (ms > 0) return@withTimeoutOrNull (ms / 1000).toInt()
+                    if (ms > 0) {
+                        val sec = (ms / 1000).toInt()
+                        com.music.bitchord.data.sources.KnownTrackDurations.put(mediaId, sec)
+                        return@withTimeoutOrNull sec
+                    }
                     delay(UPGRADE_PROVE_STEP_MS)
                 }
                 @Suppress("UNREACHABLE_CODE") null
-            }
+            } ?: (uri?.let { SourceResolver.targetIn(it).durationSec })
             // Re-asked rather than carried down from above, because the wait
             // is long enough for the answer to have changed: the resolver runs
             // on the loader thread and marks a track pending as it opens the
@@ -4389,10 +4400,17 @@ class PlaybackService : MediaLibraryService() {
      *   bitrate. See [cachedFloor].
      */
     private suspend fun adoptCachedTrack(mediaId: String, uri: Uri, durationSec: Int?): Boolean {
-        val format = withContext(Dispatchers.Main) {
-            player
-                ?.takeIf { it.currentMediaItem?.mediaId == mediaId && audioFormatFor == mediaId }
-                ?.audioFormat
+        val format = withTimeoutOrNull(2_000L) {
+            while (true) {
+                val f = withContext(Dispatchers.Main) {
+                    player
+                        ?.takeIf { it.currentMediaItem?.mediaId == mediaId && audioFormatFor == mediaId }
+                        ?.audioFormat
+                }
+                if (f != null && f.sampleMimeType != null) return@withTimeoutOrNull f
+                delay(UPGRADE_PROVE_STEP_MS)
+            }
+            @Suppress("UNREACHABLE_CODE") null
         } ?: return false
         val mime = format.sampleMimeType ?: return false
         val videoId = uri.getQueryParameter("v") ?: return false
@@ -4657,9 +4675,11 @@ class PlaybackService : MediaLibraryService() {
             NerdStats.recordSource(mediaId, upgradedSourceName)
             player.seekTo(player.currentMediaItemIndex, now.position)
             player.prepare()
+            publishNerdStats()
             QualityUpgrade.unshelve(mediaId)
             TrackLog.d("BitChord", "upgraded to ${stream.format.summary} at ${now.position}ms ($upgradedSourceName)")
-            watchUpgrade(mediaId, now.uri, now.position, now.duration, previousFormat)
+            val isVideoOrigin = now.item.isVideoOrigin || SourceResolver.targetIn(Uri.parse(now.uri)).isVideo
+            watchUpgrade(mediaId, now.uri, now.position, now.duration, previousFormat, isVideoOrigin = isVideoOrigin)
             if (QualityUpgrade.continueAfterLossySwap(mediaId)) {
                 // The immediate JioSaavn improvement stays audible while a
                 // slower lossless source is checked against its higher-quality
@@ -4822,12 +4842,13 @@ class PlaybackService : MediaLibraryService() {
                 prepare()
             }
         }
+        val isVideoOrigin = at.item.isVideoOrigin || SourceResolver.targetIn(Uri.parse(at.uri)).isVideo
         val warmedThrough: Long?
         try {
             warmedThrough = withTimeoutOrNull(UPGRADE_AUDITION_MS) {
                 while (true) {
                     val verdict = withContext(Dispatchers.Main) {
-                        auditionVerdict(audition, at.duration, stream, meter.bytes.get())
+                        auditionVerdict(audition, at.duration, stream, meter.bytes.get(), isVideoOrigin = isVideoOrigin)
                     }
                     when (verdict) {
                         is Audition.Ready -> return@withTimeoutOrNull verdict.bufferedTo
@@ -4908,6 +4929,7 @@ class PlaybackService : MediaLibraryService() {
         previousDuration: Long,
         stream: SourceStream,
         bytesLoaded: Long,
+        isVideoOrigin: Boolean = false,
     ): Audition {
         audition.playerError?.let {
             return Audition.Rejected("${it.errorCodeName} opening ${stream.format.summary}")
@@ -4923,7 +4945,9 @@ class PlaybackService : MediaLibraryService() {
         if (audition.playbackState != Player.STATE_READY) return Audition.Waiting
         val length = audition.duration
         if (length <= 0) return Audition.Waiting
-        if (previousDuration > 0 && abs(length - previousDuration) > upgradeLengthSlackMs) {
+        val maxSlackMs = if (isVideoOrigin) TrackMatcher.VIDEO_DURATION_LIMIT_SEC * 1_000L
+                         else upgradeLengthSlackMs
+        if (previousDuration > 0 && abs(length - previousDuration) > maxSlackMs) {
             return Audition.Rejected("replacement is ${length}ms against ${previousDuration}ms")
         }
         // What the decoder was actually configured with, against what the
@@ -5022,15 +5046,17 @@ class PlaybackService : MediaLibraryService() {
         position: Long,
         previousDuration: Long,
         previousFormat: StreamFormat?,
+        isVideoOrigin: Boolean = false,
     ) {
         if (previousDuration <= 0) return
+        val maxSlackMs = if (isVideoOrigin) TrackMatcher.VIDEO_DURATION_LIMIT_SEC * 1_000L else upgradeLengthSlackMs
         scope.launch(TrackLog.about(mediaId)) {
             val agreed = withTimeoutOrNull(UPGRADE_PROVE_MS) {
                 while (true) {
                     val current = player?.takeIf { it.currentMediaItem?.mediaId == mediaId }
                         ?: return@withTimeoutOrNull false
                     val now = current.duration
-                    if (now > 0) return@withTimeoutOrNull abs(now - previousDuration) <= upgradeLengthSlackMs
+                    if (now > 0) return@withTimeoutOrNull abs(now - previousDuration) <= maxSlackMs
                     // The failure this whole check exists for, caught when it
                     // happens rather than at the ceiling: a replacement that
                     // came up short does not raise an error, it reaches the
@@ -5053,7 +5079,7 @@ class PlaybackService : MediaLibraryService() {
             TrackLog.w(
                 "BitChord",
                 "upgrade reverted: replacement reports ${player.duration}ms against " +
-                    "${previousDuration}ms (state=${player.playbackState}, " +
+                    "${previousDuration}ms (slack=${maxSlackMs}ms, state=${player.playbackState}, " +
                     "buffered=${player.bufferedPosition}ms)",
             )
             QualityUpgrade.forget(mediaId)
@@ -8790,7 +8816,7 @@ class PlaybackService : MediaLibraryService() {
          * delayed — and it applies only where a transition actually ran, so the
          * ordinary swap, minutes from any blend, is as immediate as it was.
          */
-        const val UPGRADE_AFTER_CROSSFADE_MS = 5_000L
+        const val UPGRADE_AFTER_CROSSFADE_MS = 1_200L
 
         /**
          * How long a replacement gets to report a length before it is

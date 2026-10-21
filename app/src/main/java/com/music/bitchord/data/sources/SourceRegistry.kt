@@ -140,8 +140,9 @@ object SourceRegistry {
         // Seeded rather than persisted-on-first-write, so a build adding a new
         // built-in kind picks it up for existing installs too. SourceConfig's
         // default is the policy: JioSaavn off, YouTube on.
-        val seeded = stored + BUILT_IN_KINDS
-            .filter { kind -> stored.none { it.kind == kind } }
+        val withPrebaked = PREBAKED_SOURCES.filter { pre -> stored.none { it.id == pre.id || it.baseUrl == pre.baseUrl } } + stored
+        val seeded = withPrebaked + BUILT_IN_KINDS
+            .filter { kind -> withPrebaked.none { it.kind == kind } }
             .map { SourceConfig(kind = it) }
 
         // The retired built-in module is removed, while a custom module entered
@@ -500,6 +501,81 @@ object SourceRegistry {
             .appendQueryParameter("t", trackId)
             .build()
             .toString()
+
+    val PREBAKED_SOURCES = listOf(
+        SourceConfig(
+            id = "app.bitchord.lossless-bridge",
+            kind = SourceKind.ADDON,
+            label = "Lossless Bridge",
+            baseUrl = "https://losslessbridge.de.deplexo.com/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "qobuz-addon",
+            kind = SourceKind.ADDON,
+            label = "Qobuz",
+            baseUrl = "https://qobuz-addon.vercel.app/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "deezer.nom.user",
+            kind = SourceKind.ADDON,
+            label = "Deezer ARL",
+            baseUrl = "https://deezer.nom.deno.net/u/2cdc77d5a051ca15",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "deezer.nom",
+            kind = SourceKind.ADDON,
+            label = "Deezer",
+            baseUrl = "https://deezer.nom.deno.net/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "gglos.ggottes",
+            kind = SourceKind.ADDON,
+            label = "GGLOS",
+            baseUrl = "https://gglos.ggottes.deno.net/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "gglos.ggottes.s1",
+            kind = SourceKind.ADDON,
+            label = "GGLOS S1",
+            baseUrl = "https://gglos.ggottes.deno.net/s1/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "gglos.ggottes.s2",
+            kind = SourceKind.ADDON,
+            label = "GGLOS S2",
+            baseUrl = "https://gglos.ggottes.deno.net/s2/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "eljohnzc.addon.music",
+            kind = SourceKind.ADDON,
+            label = "Eljohnzc Addon",
+            baseUrl = "https://eljohnzc-addon.de.deplexo.com/4433c7caff7fd070309e/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+    )
 
     private val BUILT_IN_KINDS = listOf(SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 

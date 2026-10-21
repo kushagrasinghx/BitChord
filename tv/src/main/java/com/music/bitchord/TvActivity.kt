@@ -66,27 +66,25 @@ class TvActivity : ComponentActivity() {
         MusicLink.consume(intent)
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Fire TV Home button pressed or navigated away - close app and free memory
+        exitAndFreeMemory()
+    }
+
     override fun onDestroy() {
-        // Closing the app (back out of Home, or the task being swiped away)
-        // pauses the music rather than leaving it playing behind the launcher.
         if (isFinishing) {
-            runCatching {
-                val future = androidx.media3.session.MediaController.Builder(
-                    applicationContext,
-                    androidx.media3.session.SessionToken(
-                        applicationContext,
-                        android.content.ComponentName(
-                            applicationContext,
-                            com.music.bitchord.playback.PlaybackService::class.java,
-                        ),
-                    ),
-                ).buildAsync()
-                future.addListener({
-                    runCatching { future.get().run { pause(); release() } }
-                }, androidx.core.content.ContextCompat.getMainExecutor(applicationContext))
-            }
+            exitAndFreeMemory()
         }
         super.onDestroy()
         TvRefreshRateController.detach()
+    }
+
+    private fun exitAndFreeMemory() {
+        runCatching {
+            stopService(Intent(this, com.music.bitchord.playback.PlaybackService::class.java))
+        }
+        finishAffinity()
+        android.os.Process.killProcess(android.os.Process.myPid())
     }
 }

@@ -145,14 +145,19 @@ object SourceResolver {
      * loader thread with nothing but a DataSpec in hand — see
      * [toMediaItem][com.music.bitchord.playback.toMediaItem].
      */
-    fun targetIn(uri: Uri) = TrackMatcher.Target(
-        title = uri.getQueryParameter("n").orEmpty(),
-        artist = uri.getQueryParameter("a").orEmpty(),
-        durationSec = uri.getQueryParameter("d")?.toIntOrNull(),
-        album = uri.getQueryParameter("l"),
-        isExplicit = uri.getQueryParameter("e")?.let { it == "1" },
-        isVideo = uri.getQueryParameter("m") == "1",
-    )
+    fun targetIn(uri: Uri): TrackMatcher.Target {
+        val videoId = uri.getQueryParameter("v")
+        val dur = uri.getQueryParameter("d")?.toIntOrNull()
+            ?: videoId?.let { KnownTrackDurations.get(it) }
+        return TrackMatcher.Target(
+            title = uri.getQueryParameter("n").orEmpty(),
+            artist = uri.getQueryParameter("a").orEmpty(),
+            durationSec = dur,
+            album = uri.getQueryParameter("l"),
+            isExplicit = uri.getQueryParameter("e")?.let { it == "1" },
+            isVideo = uri.getQueryParameter("m") == "1",
+        )
+    }
 
     /**
      * @param target is what a cross-source match is made on. Without it the
@@ -320,16 +325,25 @@ object SourceResolver {
      * to YouTube, which is what the caller would have done anyway: nothing has
      * been pinned, so the ordinary resolve at playback time is untouched.
      */
-    suspend fun prefetchSubstitute(target: TrackMatcher.Target): SourceStream? {
-        if (target.title.isBlank() || target.isVideo) return null
+    suspend fun prefetchSubstitute(target: TrackMatcher.Target, videoId: String? = null): SourceStream? {
+        if (target.title.isBlank()) return null
         val active = SourceRegistry.activeForPlayback()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
-        val quick = rankedAbove(youtube.configId, active).filter { it.kind.worthPrefetching }
-        if (quick.isEmpty()) return null
-        val (source, stream) = bestAcross(quick, target, requestForNow()) ?: return null
+        val candidates = rankedAbove(youtube.configId, active).filter {
+            it.kind.worthPrefetching || it.kind.canServeLossless
+        }
+        if (candidates.isEmpty()) return null
+        val dur = target.durationSec
+        val enrichedTarget = if (dur == null || dur <= 0) {
+            val known = videoId?.let { KnownTrackDurations.get(it) }
+            if (known != null && known > 0) target.copy(durationSec = known) else target
+        } else {
+            target
+        }
+        val (source, stream) = bestAcross(candidates, enrichedTarget, requestForNow()) ?: return null
         TrackLog.d(
             TAG,
-            "warmed: '${target.title}' from ${source.displayName} at ${stream.format.summary}",
+            "warmed: '${enrichedTarget.title}' from ${source.displayName} at ${stream.format.summary}",
         )
         return stream
     }
@@ -390,7 +404,7 @@ object SourceResolver {
         playing: StreamFormat? = null,
         servedBy: String? = null,
     ): SourceStream? {
-        if (target.title.isBlank() || target.durationSec == null || target.isVideo) return null
+        if (target.title.isBlank() || target.durationSec == null) return null
         val request = requestForNow()
         val active = SourceRegistry.activeForPlayback()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
@@ -718,10 +732,19 @@ object SourceResolver {
      * Either side being unknown is a no. An unverifiable length is not a
      * length that agrees, and the cost of being wrong here is a listener's
      * song replaced mid-play by a different cut of it.
+     *
+     * @param isVideoOrigin true when the currently-playing stream came from a
+     *   music video. Visual intros/outros on the video container can make its
+     *   runtime substantially longer than the audio master on Qobuz or Tidal
+     *   (e.g. Diamonds: 283 s video / 225 s FLAC = 58 s drift; Love Yourself:
+     *   272 s video / 233 s FLAC = 39 s drift). For these items the same
+     *   [TrackMatcher.VIDEO_DURATION_LIMIT_SEC] ceiling used during live
+     *   ranking is applied here so a valid FLAC upgrade is not rejected.
      */
-    fun sameRecordingAs(candidateSec: Int?, playingSec: Int?): Boolean {
+    fun sameRecordingAs(candidateSec: Int?, playingSec: Int?, isVideoOrigin: Boolean = false): Boolean {
         if (candidateSec == null || playingSec == null) return false
-        return kotlin.math.abs(candidateSec - playingSec) <= UPGRADE_DRIFT_SEC
+        val limit = if (isVideoOrigin) TrackMatcher.VIDEO_DURATION_LIMIT_SEC else UPGRADE_DRIFT_SEC
+        return kotlin.math.abs(candidateSec - playingSec) <= limit
     }
 
     /**
@@ -929,8 +952,18 @@ object SourceResolver {
             // song; a runtime that agrees this closely is one recording, and
             // nothing else is worth cutting a listener's audio for — or filing
             // on their device under the name of the track they asked for.
+            //
+            // For video-origin targets the container runtime includes visual
+            // intro/outro footage not present on the audio master (e.g. the
+            // 50 s cinematic intro on Diamonds, or the spoken-word segment on
+            // Love Yourself). TrackMatcher.VIDEO_DURATION_LIMIT_SEC (90 s) is
+            // the already-validated ceiling for this in ranked(); using the
+            // same constant here prevents the upgrade path from discarding a
+            // valid Qobuz FLAC (225 s) when the video container says 283 s.
             if (strictLength) {
-                matches = matches.filter { TrackMatcher.withinSeconds(it, target, UPGRADE_DRIFT_SEC) }
+                val driftSec = if (target.isVideo) TrackMatcher.VIDEO_DURATION_LIMIT_SEC
+                               else UPGRADE_DRIFT_SEC
+                matches = matches.filter { TrackMatcher.withinSeconds(it, target, driftSec) }
             }
             if (matches.isEmpty()) continue
             return streamBest(source, matches, target, request)

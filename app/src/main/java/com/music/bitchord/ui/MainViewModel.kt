@@ -1419,11 +1419,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         startSuggestPipeline()
         startTypeaheadMediaPipeline()
         loadHome()
-        loadExplore()
-        if (_signedIn.value) {
-            loadLibrary()
-            loadAccount()
-            loadPlaylists()
+        viewModelScope.launch {
+            // Prioritize Home feed network bandwidth and UI rendering on launch
+            kotlinx.coroutines.delay(1200)
+            loadExplore()
+            if (_signedIn.value) {
+                loadLibrary()
+                loadAccount()
+                loadPlaylists()
+            }
         }
         viewModelScope.launch {
             // drop(1): the current value is just the count so far, not a play.
@@ -1632,7 +1636,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadHome() {
         val identity = listenerKey()
         val generation = homeLoadGeneration.incrementAndGet()
-        _home.value = UiState.Loading
+        // Serve cached Home feed immediately for near-instant UI load on startup
+        if (_home.value !is UiState.Success) {
+            viewModelScope.launch {
+                val cached = com.music.bitchord.data.HomeFeedCache.read(getApplication())
+                if (cached != null && isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
+                    _home.value = UiState.Success(cached)
+                }
+            }
+        }
         homeContinuation = null
         homeSeenTitles.clear()
         _homeLoadingMore.value = false
@@ -1713,7 +1725,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         val added = shelves.withoutRepeatsOf(existing)
             .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-        if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
+        if (added.isNotEmpty()) {
+            val updated = existing + added
+            _home.value = UiState.Success(updated)
+            viewModelScope.launch { com.music.bitchord.data.HomeFeedCache.write(getApplication(), updated) }
+        }
     }
 
     /** Refreshes the core feed without blanking the current Play page first. */

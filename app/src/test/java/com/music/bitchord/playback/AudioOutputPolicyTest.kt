@@ -98,6 +98,34 @@ class AudioOutputPolicyTest {
     }
 
     @Test
+    fun bluetoothHiResCodecEnablesFloatRegardlessOfRequestedMode() {
+        assertTrue(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.PCM_16,
+                routeKind = AudioRouting.Kind.BLUETOOTH,
+                advertisesPcmFloat = false,
+                bluetoothCodecBitDepth = 24,
+            ),
+        )
+        assertFalse(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.PCM_16,
+                routeKind = AudioRouting.Kind.BLUETOOTH,
+                advertisesPcmFloat = false,
+                bluetoothCodecBitDepth = 16,
+            ),
+        )
+        assertFalse(
+            AudioOutputPolicy.shouldUseFloatOutput(
+                OutputPcmMode.FLOAT_32,
+                routeKind = AudioRouting.Kind.PHONE,
+                advertisesPcmFloat = true,
+                bluetoothCodecBitDepth = 24,
+            ),
+        )
+    }
+
+    @Test
     fun routeAwarePcm16AlwaysReturnsFalse() {
         assertFalse(
             AudioOutputPolicy.shouldUseFloatOutput(

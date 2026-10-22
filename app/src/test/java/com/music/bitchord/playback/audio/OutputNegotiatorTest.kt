@@ -13,6 +13,7 @@ package com.music.bitchord.playback.audio
 import android.media.AudioFormat
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.playback.AudioRouting
+import com.music.bitchord.playback.audio.bluetooth.BluetoothTelemetry
 import com.music.bitchord.playback.audio.usb.DirectUsbProbeResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -98,6 +99,63 @@ class OutputNegotiatorTest {
         )
         assertEquals(PcmEncoding.PCM_16BIT, btPcm16Only.output.encoding)
         assertEquals(FallbackReason.ROUTE_LIMITATION, btPcm16Only.output.fallbackReason)
+    }
+
+    @Test
+    fun bluetoothHiResCodecNegotiatesFloatWithoutAdvertisedFloat() {
+        val ldac24 = BluetoothTelemetry(
+            isConnected = true,
+            codecName = "LDAC",
+            sampleRateHz = 96000,
+            bitDepth = 24,
+            isAuthoritative = true,
+        )
+        val result = OutputNegotiator.negotiate(
+            source = flac96kHz24BitSource,
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 96000,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.BLUETOOTH,
+            deviceName = "Sony WH-1000XM4",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT),
+            advertisedSampleRates = listOf(44100, 48000),
+            requestedMode = OutputPcmMode.PCM_16,
+            bluetoothTelemetry = ldac24,
+            delegateSupportsFloat = true,
+        )
+        assertEquals(PcmEncoding.PCM_FLOAT, result.output.encoding)
+        assertEquals(FallbackReason.NONE, result.output.fallbackReason)
+
+        val unconfirmed = OutputNegotiator.negotiate(
+            source = flac96kHz24BitSource,
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 96000,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.BLUETOOTH,
+            deviceName = "Sony WH-1000XM4",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT),
+            advertisedSampleRates = listOf(44100, 48000),
+            requestedMode = OutputPcmMode.PCM_16,
+            bluetoothTelemetry = ldac24.copy(isAuthoritative = false),
+            delegateSupportsFloat = true,
+        )
+        assertEquals(PcmEncoding.PCM_16BIT, unconfirmed.output.encoding)
+
+        val noFloatSink = OutputNegotiator.negotiate(
+            source = flac96kHz24BitSource,
+            decoderName = "c2.android.flac.decoder",
+            sampleRateHz = 96000,
+            channelCount = 2,
+            routeKind = AudioRouting.Kind.BLUETOOTH,
+            deviceName = "Sony WH-1000XM4",
+            advertisedEncodings = listOf(AudioFormat.ENCODING_PCM_16BIT),
+            advertisedSampleRates = listOf(44100, 48000),
+            requestedMode = OutputPcmMode.PCM_16,
+            bluetoothTelemetry = ldac24,
+            delegateSupportsFloat = false,
+        )
+        assertEquals(PcmEncoding.PCM_16BIT, noFloatSink.output.encoding)
+        assertTrue(noFloatSink.output.fallbackDetail!!.contains("24-bit"))
     }
 
     @Test

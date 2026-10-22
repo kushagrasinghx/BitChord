@@ -308,8 +308,13 @@ object OutputNegotiator {
 
         // 4. External Route Advertised Capabilities (Normal AudioTrack with framework mixing)
         // Check Float32 advertised:
-        val canUseFloat = AudioOutputPolicy.shouldUseFloatOutput(requestedMode, routeKind, advertisesFloat) &&
-            delegateSupportsFloat
+        val btCodecBitDepth = bluetoothTelemetry?.takeIf { it.isAuthoritative }?.bitDepth
+        val canUseFloat = AudioOutputPolicy.shouldUseFloatOutput(
+            requestedMode,
+            routeKind,
+            advertisesFloat,
+            bluetoothCodecBitDepth = btCodecBitDepth,
+        ) && delegateSupportsFloat
         if (canUseFloat) {
             return OutputDescriptor(
                 transport = TransportType.AUDIO_TRACK,
@@ -361,10 +366,12 @@ object OutputNegotiator {
             }
             routeKind == AudioRouting.Kind.BLUETOOTH -> {
                 val btSummary = bluetoothTelemetry?.codecName?.let { " ($it)" }.orEmpty()
-                Pair(
-                    FallbackReason.ROUTE_LIMITATION,
-                    "Bluetooth route$btSummary advertises 16-bit PCM only",
-                )
+                val detail = if ((btCodecBitDepth ?: 0) > 16) {
+                    "Bluetooth route$btSummary runs at $btCodecBitDepth-bit, but float output is unavailable"
+                } else {
+                    "Bluetooth route$btSummary advertises 16-bit PCM only"
+                }
+                Pair(FallbackReason.ROUTE_LIMITATION, detail)
             }
             requestedMode == OutputPcmMode.FLOAT_32 -> {
                 Pair(

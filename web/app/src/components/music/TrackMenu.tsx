@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, ListEnd, ListPlus, ListStart, MoreHorizontal, Star } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import {
   useAddToPlaylist,
@@ -100,9 +100,21 @@ function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void 
  * The ⋯ button at the end of a track row (report §14): Play Next and Add to
  * Queue for everyone; Favorite and Add to Playlist signed in.
  */
-export function TrackMenu({ track, className }: { track: Track; className?: string }) {
+export function TrackMenu({
+  track,
+  className,
+  onOpenChange,
+}: {
+  track: Track;
+  className?: string;
+  /** Told when the menu opens and closes; most mounts don't need to know. */
+  onOpenChange?: (open: boolean) => void;
+}) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = useCallback(() => setAnchor(null), []);
+  useEffect(() => {
+    onOpenChange?.(anchor !== null);
+  }, [anchor, onOpenChange]);
   return (
     <>
       <button

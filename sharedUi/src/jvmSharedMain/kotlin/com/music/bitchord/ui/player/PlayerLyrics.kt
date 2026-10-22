@@ -111,6 +111,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -171,6 +173,19 @@ private fun isRtl(text: String): Boolean {
 private fun textDirectionFor(text: String): androidx.compose.ui.text.style.TextDirection {
     return if (isRtl(text)) androidx.compose.ui.text.style.TextDirection.Rtl
     else androidx.compose.ui.text.style.TextDirection.Ltr
+}
+
+private val PersianLyricFont = FontFamily(Font(Res.font.vazirmatn_regular))
+
+/** Use Vazirmatn for Persian/Arabic-script lyrics without changing Latin lyrics. */
+private fun lyricFontStyle(style: TextStyle, text: String): TextStyle {
+    val usesArabicScript = text.any { ch ->
+        val code = ch.code
+        code in 0x0600..0x06FF || code in 0x0750..0x077F ||
+            code in 0x08A0..0x08FF || code in 0xFB50..0xFDFF ||
+            code in 0xFE70..0xFEFF
+    }
+    return if (usesArabicScript) style.copy(fontFamily = PersianLyricFont) else style
 }
 
 /** Whether this text should align to the right end of its box. */
@@ -2495,6 +2510,7 @@ private fun PanelVoice(
     rise: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val lyricStyle = remember(style, line.text) { lyricFontStyle(style, line.text) }
     // The line being sung is white; every other one — sung or still to come —
     // takes the sleeve's tint, as the rest of the player's secondary text does
     // (see [LocalPlayerTint]). Faded across the handover rather than cut, so a
@@ -2521,7 +2537,7 @@ private fun PanelVoice(
         SweptLyricLine(
             line = line,
             clock = clock,
-            style = style,
+            style = lyricStyle,
             dimAlpha = tail,
             modifier = modifier,
             glowAlpha = glowAlpha,
@@ -2545,7 +2561,7 @@ private fun PanelVoice(
         SweptLyricLine(
             line = line,
             clock = clock,
-            style = style,
+            style = lyricStyle,
             dimAlpha = tail,
             modifier = modifier,
             glowAlpha = 0f,
@@ -2573,7 +2589,7 @@ private fun PanelVoice(
         var layout by remember(line.text) { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = line.text,
-            style = style,
+            style = lyricStyle,
             color = color.copy(alpha = lit),
             onTextLayout = { layout = it },
             modifier = modifier.lyricParticles(layout, translationProgress, room).padding(room),

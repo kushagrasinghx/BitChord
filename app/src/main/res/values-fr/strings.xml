@@ -244,6 +244,15 @@
     <string name="full_screen_cover_art_subtitle">Étend la pochette jusqu\'aux bords du lecteur au lieu d\'un carré</string>
     <string name="animated_cover_art_subtitle">Lit la vidéo en boucle que proposent certaines sorties au lieu d\'une pochette fixe</string>
     <string name="dont_repeat_songs_subtitle">La lecture automatique ne proposera pas une chanson déjà jouée ou suggérée pendant cette session</string>
+    <string name="block_explicit">Bloquer les titres explicites</string>
+    <string name="block_explicit_subtitle">Ignore les titres marqués explicites dans la lecture automatique, la radio et votre file d’attente. Autorisez-en un depuis son menu</string>
+    <string name="allow_explicit_song">Autoriser ce titre explicite</string>
+    <string name="block_explicit_song">Bloquer à nouveau ce titre explicite</string>
+    <string name="explicit_song_skipped">Titre explicite ignoré</string>
+    <string name="explicit_song_blocked">Titre explicite</string>
+    <string name="explicit_song_blocked_message">« %1$s » est marqué explicite et votre filtre le bloque.</string>
+    <string name="allow_this_song">Autoriser ce titre</string>
+    <string name="turn_off_blocking">Désactiver le blocage</string>
     <string name="download_quality_subtitle">%1$s par piste, quelle que soit la connexion</string>
     <string name="filter_non_music_audio">Filtrer l\'audio non musical</string>
     <string name="filter_non_music_audio_subtitle">Masque les extraits de moins de 30 secondes, les fichiers WAV, les notes vocales, les enregistrements et les sons système</string>

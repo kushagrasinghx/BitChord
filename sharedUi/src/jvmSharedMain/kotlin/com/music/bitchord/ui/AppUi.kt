@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.LibraryViewType
+import com.music.bitchord.ui.components.ExplicitPrompt
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -27,6 +28,15 @@ interface AppUiHost {
 
     /** How a Library "Show all" grid is ordered. */
     val librarySort: StateFlow<LibrarySort>
+
+    /** "Block explicit songs": explicit rows are greyed out and ask before playing. */
+    val blockExplicit: StateFlow<Boolean>
+
+    /** Video ids of explicit songs allowed past [blockExplicit]. */
+    val explicitAllowed: StateFlow<Set<String>>
+
+    /** Shows the app's alert for a tapped blocked explicit song. */
+    fun askExplicitBlocked(prompt: ExplicitPrompt)
 
     /** Video ids of the tracks already downloaded, for the mark on their rows. */
     @Composable

@@ -256,6 +256,15 @@
     <string name="full_screen_cover_art_subtitle">Lleva la portada a los bordes del reproductor en lugar de mostrarla cuadrada</string>
     <string name="animated_cover_art_subtitle">Reproduce el video en bucle que incluyen algunos lanzamientos</string>
     <string name="dont_repeat_songs_subtitle">La reproducción automática no sugerirá una canción ya reproducida o sugerida en esta sesión</string>
+    <string name="block_explicit">Bloquear canciones explícitas</string>
+    <string name="block_explicit_subtitle">Omite las canciones marcadas como explícitas en la reproducción automática, la radio y tu cola. Permite una desde su menú</string>
+    <string name="allow_explicit_song">Permitir esta canción explícita</string>
+    <string name="block_explicit_song">Volver a bloquear esta canción explícita</string>
+    <string name="explicit_song_skipped">Canción explícita omitida</string>
+    <string name="explicit_song_blocked">Canción explícita</string>
+    <string name="explicit_song_blocked_message">«%1$s» está marcada como explícita y tu filtro la bloquea.</string>
+    <string name="allow_this_song">Permitir esta canción</string>
+    <string name="turn_off_blocking">Desactivar el bloqueo</string>
     <string name="download_quality_subtitle">%1$s por pista, sin importar la conexión</string>
     <string name="filter_non_music_audio">Filtrar audios que no son música</string>
     <string name="filter_non_music_audio_subtitle">Oculta clips de menos de 30 segundos, archivos WAV, notas de voz, grabaciones y sonidos del sistema</string>

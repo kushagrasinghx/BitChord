@@ -342,6 +342,11 @@ fun SongRow(
      * songs folder's per-track download button. Null on every other list.
      */
     trailing: (@Composable () -> Unit)? = null,
+    /**
+     * The song is explicit and "Block explicit songs" is keeping it from
+     * playing: the row is greyed out, and a tap asks before playing it.
+     */
+    explicitBlocked: Boolean = isExplicitBlocked(song),
 ) {
     SwipeToQueueBox(
         onSwipeToQueue = onSwipeToQueue,
@@ -349,7 +354,7 @@ fun SongRow(
     ) {
         SongRowContent(
             song = song,
-            onClick = onClick,
+            onClick = explicitGatedClick(song, explicitBlocked, onClick),
             onLongPress = onLongPress,
             onMore = onMore ?: onLongPress,
             modifier = if (onSwipeToQueue != null) Modifier.background(rowBackground) else modifier,
@@ -363,6 +368,7 @@ fun SongRow(
             selected = selected,
             showSourceQuality = showSourceQuality,
             trailing = trailing,
+            explicitBlocked = explicitBlocked,
         )
     }
 }
@@ -504,6 +510,7 @@ private fun SongRowContent(
     selected: Boolean = false,
     showSourceQuality: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
+    explicitBlocked: Boolean = false,
 ) {
     val titleColor by animateColorAsState(
         targetValue = if (isCurrent) activeTint else MaterialTheme.colorScheme.onBackground,
@@ -520,7 +527,7 @@ private fun SongRowContent(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .alpha(if (unavailable) 0.45f else 1f)
+            .alpha(if (unavailable || explicitBlocked) BLOCKED_ROW_ALPHA else 1f)
             .background(activeBackground)
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .contextClick(onMore ?: onLongPress)

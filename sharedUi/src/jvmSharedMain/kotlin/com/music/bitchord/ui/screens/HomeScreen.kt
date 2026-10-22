@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.components.BLOCKED_ROW_ALPHA
+import com.music.bitchord.ui.components.ExplicitTitle
 import com.music.bitchord.ui.components.contextClick
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.sharedui.resources.*
@@ -11,6 +13,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import com.music.bitchord.ui.components.explicitGatedClick
+import com.music.bitchord.ui.components.isExplicitBlocked
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +51,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -417,15 +422,18 @@ private fun RecentTrackRow(
     onLongPress: (() -> Unit)?,
     isCurrent: Boolean,
     isPlaying: Boolean,
+    explicitBlocked: Boolean = isExplicitBlocked(item),
 ) {
     CompactTrackRow(
         title = item.title,
         subtitle = item.subtitle,
         thumbnailUrl = item.thumbnailUrl,
-        onClick = onClick,
+        onClick = explicitGatedClick(item, explicitBlocked, onClick),
         onLongPress = onLongPress,
         isCurrent = isCurrent,
         isPlaying = isPlaying,
+        isExplicit = item.isExplicit == true,
+        explicitBlocked = explicitBlocked,
     )
 }
 
@@ -443,10 +451,15 @@ fun CompactTrackRow(
     onLongPress: (() -> Unit)?,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
+    /** Draws the explicit badge before the title, as song rows do. */
+    isExplicit: Boolean = false,
+    /** Greys the row out; see [isExplicitBlocked]. */
+    explicitBlocked: Boolean = false,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(if (explicitBlocked) BLOCKED_ROW_ALPHA else 1f)
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .contextClick(onLongPress)
             .padding(vertical = 4.dp),
@@ -467,12 +480,11 @@ fun CompactTrackRow(
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = title,
+            ExplicitTitle(
+                title = title,
+                explicit = isExplicit,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (isCurrent) PlayingAccent else MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = subtitle,
@@ -788,14 +800,19 @@ private fun HeroCard(
     modifier: Modifier = Modifier,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
+    explicitBlocked: Boolean = isExplicitBlocked(item),
 ) {
     Box(
         modifier = modifier
+            .alpha(if (explicitBlocked) BLOCKED_ROW_ALPHA else 1f)
             .aspectRatio(HERO_CARD_RATIO)
             .clip(RoundedCornerShape(18.dp))
             .thumbnailBorder(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+            .longPressMenuClickable(
+                onClick = explicitGatedClick(item, explicitBlocked, onClick),
+                onLongClick = onLongPress,
+            )
             .contextClick(onLongPress),
     ) {
         AsyncImage(
@@ -816,12 +833,11 @@ private fun HeroCard(
                 )
                 .padding(start = 16.dp, end = 16.dp, top = 34.dp, bottom = 14.dp),
         ) {
-            Text(
-                text = item.title,
+            ExplicitTitle(
+                title = item.title,
+                explicit = item.isExplicit == true,
                 style = MaterialTheme.typography.titleLarge,
                 color = if (isCurrent) PlayingAccent else Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
             )
             if (item.subtitle.isNotBlank()) {
                 val displaySubtitle = localizeCardSubtitle(item.subtitle)
@@ -978,10 +994,15 @@ internal fun ShelfCard(
     isPinned: Boolean = false,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
+    explicitBlocked: Boolean = isExplicitBlocked(item),
 ) {
     Column(
         modifier = modifier
-            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+            .alpha(if (explicitBlocked) BLOCKED_ROW_ALPHA else 1f)
+            .longPressMenuClickable(
+                onClick = explicitGatedClick(item, explicitBlocked, onClick),
+                onLongClick = onLongPress,
+            )
             .contextClick(onLongPress),
     ) {
         when (item.browseId) {
@@ -1061,12 +1082,11 @@ internal fun ShelfCard(
                 )
                 Spacer(Modifier.width(4.dp))
             }
-            Text(
-                text = item.title,
+            ExplicitTitle(
+                title = item.title,
+                explicit = item.isExplicit == true,
                 style = MaterialTheme.typography.titleMedium,
                 color = if (isCurrent) PlayingAccent else MaterialTheme.colorScheme.onBackground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
             )
         }

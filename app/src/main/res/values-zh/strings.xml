@@ -238,6 +238,15 @@
     <string name="full_screen_cover_art_subtitle">让封面延伸至播放器边缘，而不是显示为方形</string>
     <string name="animated_cover_art_subtitle">播放部分发行版自带的循环视频，而不是静态封面</string>
     <string name="dont_repeat_songs_subtitle">自动播放不会在本次会话中重复推荐已播放或已推荐过的歌曲</string>
+    <string name="block_explicit">屏蔽露骨歌曲</string>
+    <string name="block_explicit_subtitle">在自动播放、电台和播放队列中跳过标记为露骨的歌曲。可在歌曲菜单中单独允许</string>
+    <string name="allow_explicit_song">允许这首露骨歌曲</string>
+    <string name="block_explicit_song">重新屏蔽这首露骨歌曲</string>
+    <string name="explicit_song_skipped">已跳过露骨歌曲</string>
+    <string name="explicit_song_blocked">露骨歌曲</string>
+    <string name="explicit_song_blocked_message">“%1$s”被标记为露骨，你的过滤器正在屏蔽它。</string>
+    <string name="allow_this_song">允许这首歌曲</string>
+    <string name="turn_off_blocking">关闭屏蔽</string>
     <string name="download_quality_subtitle">无论何种网络连接，每首曲目均为%1$s</string>
     <string name="filter_non_music_audio">过滤非音乐音频</string>
     <string name="filter_non_music_audio_subtitle">隐藏时长低于 30 秒的片段、WAV 文件、语音备忘录、录音和系统提示音</string>

@@ -253,6 +253,15 @@
     <string name="full_screen_cover_art_subtitle">Растягивает обложку до краёв плеера вместо квадратного варианта</string>
     <string name="animated_cover_art_subtitle">Воспроизводит зацикленное видео, которое есть у некоторых релизов вместо неподвижной обложки</string>
     <string name="dont_repeat_songs_subtitle">Автовоспроизведение не будет предлагать уже сыгранную или предложенную в этой сессии песню</string>
+    <string name="block_explicit">Блокировать откровенные песни</string>
+    <string name="block_explicit_subtitle">Пропускать песни с пометкой «откровенное» в автовоспроизведении, радио и очереди. Разрешить песню можно в её меню</string>
+    <string name="allow_explicit_song">Разрешить эту откровенную песню</string>
+    <string name="block_explicit_song">Снова блокировать эту откровенную песню</string>
+    <string name="explicit_song_skipped">Откровенная песня пропущена</string>
+    <string name="explicit_song_blocked">Откровенная песня</string>
+    <string name="explicit_song_blocked_message">«%1$s» помечена как откровенная, и ваш фильтр её блокирует.</string>
+    <string name="allow_this_song">Разрешить эту песню</string>
+    <string name="turn_off_blocking">Отключить блокировку</string>
     <string name="download_quality_subtitle">%1$s за трек, независимо от соединения</string>
     <string name="filter_non_music_audio">Фильтровать немузыкальное аудио</string>
     <string name="filter_non_music_audio_subtitle">Скрывает клипы короче 30 секунд, файлы WAV, голосовые заметки, записи и системные звуки</string>

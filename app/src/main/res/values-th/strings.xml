@@ -262,6 +262,15 @@
     <string name="full_screen_cover_art_subtitle">ขยายปกอัลบั้มเต็มขอบเครื่องเล่นแทนปกสี่เหลี่ยมจัตุรัส</string>
     <string name="animated_cover_art_subtitle">เล่นวิดีโอวนซ้ำที่บางผลงานมีให้แทนปกนิ่ง</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay จะไม่แนะนำเพลงที่เล่นหรือแนะนำไปแล้วในเซสชันนี้</string>
+    <string name="block_explicit">บล็อกเพลงที่ไม่เหมาะสม</string>
+    <string name="block_explicit_subtitle">ข้ามเพลงที่ทำเครื่องหมายว่าไม่เหมาะสมในการเล่นอัตโนมัติ วิทยุ และคิวของคุณ อนุญาตเพลงได้จากเมนูของเพลง</string>
+    <string name="allow_explicit_song">อนุญาตเพลงนี้</string>
+    <string name="block_explicit_song">บล็อกเพลงนี้อีกครั้ง</string>
+    <string name="explicit_song_skipped">ข้ามเพลงที่ไม่เหมาะสมแล้ว</string>
+    <string name="explicit_song_blocked">เพลงที่ไม่เหมาะสม</string>
+    <string name="explicit_song_blocked_message">“%1$s” ถูกทำเครื่องหมายว่าไม่เหมาะสมและตัวกรองของคุณกำลังบล็อกอยู่</string>
+    <string name="allow_this_song">อนุญาตเพลงนี้</string>
+    <string name="turn_off_blocking">ปิดการบล็อก</string>
     <string name="download_quality_subtitle">%1$s ต่อแทร็ก ไม่ว่าการเชื่อมต่อจะเป็นแบบใด</string>
     <string name="filter_non_music_audio">กรองเสียงที่ไม่ใช่เพลง</string>
     <string name="filter_non_music_audio_subtitle">ซ่อนคลิปสั้นกว่า 30 วินาที ไฟล์ WAV บันทึกเสียง การอัดเสียง และเสียงระบบ</string>

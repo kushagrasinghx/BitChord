@@ -696,6 +696,49 @@ fun ConfirmationAlert(
 }
 
 /**
+ * A tap on a song "Block explicit songs" is keeping from playing: allow this
+ * song, turn blocking off (either one then plays it), or leave it.
+ */
+@OptIn(ExperimentalHazeMaterialsApi::class)
+@Composable
+fun ExplicitBlockedAlert(
+    hazeState: HazeState,
+    title: String,
+    onAllow: () -> Unit,
+    onTurnOffBlocking: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertScaffold(hazeState = hazeState, onDismiss = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 19.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = stringResource(R.string.explicit_song_blocked),
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp, fontWeight = FontWeight.W600),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = stringResource(R.string.explicit_song_blocked_message, title),
+                modifier = Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 17.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+        }
+        AlertRule()
+        AlertAction(label = stringResource(R.string.allow_this_song), emphasised = true, onClick = onAllow)
+        AlertRule()
+        AlertAction(label = stringResource(R.string.turn_off_blocking), emphasised = false, onClick = onTurnOffBlocking)
+        AlertRule()
+        AlertAction(label = stringResource(R.string.cancel), emphasised = false, onClick = onDismiss)
+    }
+}
+
+/**
  * Single-select list, ticked like [LyricsSourcesDialog] rather than with radio
  * buttons — same reasoning: a column of Material radios would be the one
  * Material thing left on an otherwise Apple-shaped alert.

@@ -245,6 +245,15 @@
     <string name="full_screen_cover_art_subtitle">Estende a capa até as bordas do player em vez de um quadrado</string>
     <string name="animated_cover_art_subtitle">Reproduz o vídeo em loop que alguns lançamentos trazem em vez de uma capa estática</string>
     <string name="dont_repeat_songs_subtitle">A reprodução automática não sugerirá uma música já tocada ou sugerida nesta sessão</string>
+    <string name="block_explicit">Bloquear músicas explícitas</string>
+    <string name="block_explicit_subtitle">Pula músicas marcadas como explícitas na reprodução automática, no rádio e na sua fila. Permita uma pelo menu dela</string>
+    <string name="allow_explicit_song">Permitir esta música explícita</string>
+    <string name="block_explicit_song">Bloquear esta música explícita de novo</string>
+    <string name="explicit_song_skipped">Música explícita pulada</string>
+    <string name="explicit_song_blocked">Música explícita</string>
+    <string name="explicit_song_blocked_message">“%1$s” está marcada como explícita e seu filtro a está bloqueando.</string>
+    <string name="allow_this_song">Permitir esta música</string>
+    <string name="turn_off_blocking">Desativar bloqueio</string>
     <string name="download_quality_subtitle">%1$s por faixa, independentemente da conexão</string>
     <string name="filter_non_music_audio">Filtrar áudio não musical</string>
     <string name="filter_non_music_audio_subtitle">Oculta clipes com menos de 30 segundos, arquivos WAV, notas de voz, gravações e sons do sistema</string>

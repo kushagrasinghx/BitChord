@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -199,6 +200,50 @@ class SharedCallsTest {
         }
         assertEquals("flac", answer.getOrNull())
         assertEquals(1, calls.get())
+    }
+
+    /**
+     * The other half of the test above, and the failure that one does not
+     * cover: the abandoned request *fails*.
+     *
+     * A caller that is cancelled never runs the cleanup at the end of [SharedCalls.get],
+     * but the request it started keeps running in the shared scope — that is
+     * the point of the scope. When it comes back with a failure there is then
+     * nobody left to drop the entry, and the next caller reads that failure as
+     * the answer for the whole window. Seen in the field as a `CACHE HIT`
+     * logged in the same millisecond as a timeout: one bad minute at an addon
+     * turned into ten minutes of instant failures for that query.
+     */
+    @Test
+    fun `a failure is not kept when its only caller was cancelled`() = runBlocking {
+        val calls = AtomicInteger()
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val shared = shared<String>(ttlMs = 60_000)
+
+        val abandoning = scope().launch {
+            shared.get("q", { "" }) {
+                calls.incrementAndGet()
+                started.complete(Unit)
+                release.await()
+                Result.failure(IllegalStateException("timeout"))
+            }
+        }
+        started.await()
+        abandoning.cancelAndJoin()
+        release.complete(Unit)
+
+        // Nothing may be left holding that failure: the next caller has to be
+        // able to ask again rather than be handed the same answer.
+        withTimeout(5_000) {
+            while (shared.size() != 0) delay(10)
+        }
+        val answer = shared.get("q", { "" }) {
+            calls.incrementAndGet()
+            Result.success("flac")
+        }
+        assertEquals("flac", answer.getOrNull())
+        assertEquals(2, calls.get())
     }
 
     @Test

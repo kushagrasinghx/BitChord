@@ -6,6 +6,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * One in-flight-or-recent answer per key, shared by everyone who asks for it.
@@ -88,14 +89,25 @@ internal class SharedCalls<T>(
                 live
             } else {
                 if (entries.size >= MAX_ENTRIES) prune()
-                Pending(scope.async { produce() }, now()).also { entries[key] = it }
+                val failed = AtomicBoolean(false)
+                val work = scope.async { produce().also { if (it.isFailure) failed.set(true) } }
+                Pending(work, now()).also { pending ->
+                    entries[key] = pending
+                    // Dropped where the *work* finishes rather than where a
+                    // caller returns, because the caller that started it is one
+                    // designed to give up: a cancellation skips the cleanup on
+                    // the way out, and the request it left behind can still come
+                    // back a failure with nobody to remove it — which then reads
+                    // as the answer for the rest of [ttlMs]. Identity, so a retry
+                    // that has already replaced this entry is not thrown away
+                    // along with the failure it replaced.
+                    work.invokeOnCompletion { cause ->
+                        if (cause != null || failed.get()) entries.remove(key, pending)
+                    }
+                }
             }
         }
-        return entry.work.await().also { result ->
-            // By identity, so a retry that has already replaced this entry is
-            // not thrown away along with the failure it replaced.
-            if (result.isFailure) entries.remove(key, entry)
-        }
+        return entry.work.await()
     }
 
     /** Everything held, dropped — the configuration it was all about is gone. */

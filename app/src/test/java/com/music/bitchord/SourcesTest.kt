@@ -1370,6 +1370,32 @@ class SourcesTest {
     }
 
     @Test
+    fun `drops a Portuguese guest credit from the query`() {
+        assertEquals(
+            listOf("o mundo é mal froid", "o mundo é mal"),
+            TrackMatcher.queries(TrackMatcher.Target("O Mundo É Mal (part. Clara Lima)", "Froid")),
+        )
+        // A numbered part is the title, not a guest credit.
+        assertEquals(
+            "song part",
+            TrackMatcher.queries(TrackMatcher.Target("Song (Part 1)", "")).single(),
+        )
+        // Neither is an English title that merely starts with the word.
+        assertEquals(
+            listOf("part of me"),
+            TrackMatcher.queries(TrackMatcher.Target("Part of Me", "")),
+        )
+    }
+
+    @Test
+    fun `ignores a YouTube type label in the artist slot`() {
+        assertEquals(
+            "lud session 2",
+            TrackMatcher.queries(TrackMatcher.Target("Lud Session 2", "Música")).single(),
+        )
+    }
+
+    @Test
     fun `has nothing to ask for without a title`() {
         assertTrue(TrackMatcher.queries(TrackMatcher.Target("", "Atif Aslam")).isEmpty())
     }

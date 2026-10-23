@@ -105,8 +105,10 @@ object TrackMatcher {
         parseTitle(title, artist).let { (it.words + it.versions).joinToString(" ") }
 
     /** The first credited artist — who a catalogue is most likely to file the track under. */
-    internal fun primaryArtist(artist: String): String =
-        normalize(artist).split(ARTIST_SEPARATORS).firstOrNull()?.trim().orEmpty()
+    internal fun primaryArtist(artist: String): String {
+        val primary = normalize(artist).split(ARTIST_SEPARATORS).firstOrNull()?.trim().orEmpty()
+        return primary.takeUnless { it in YOUTUBE_TYPE_LABELS }.orEmpty()
+    }
 
     /** Whether both credits name at least one of the same artists. */
     fun sharesArtist(wanted: String, got: String): Boolean {
@@ -375,6 +377,15 @@ object TrackMatcher {
         val versions = sortedSetOf<String>()
         val context = mutableSetOf<String>()
         var text = normalize(raw)
+
+        // A guest credit printed in Portuguese — YouTube Music Brazil writes
+        // "O Mundo É Mal (part. Clara Lima)" — is a feat. credit, and `part`
+        // alone is a [VERSION_WORDS] marker: left to the bracket pass, the
+        // aside comes back out as the query "… part", a word no catalogue
+        // files a track under. The dot is what tells it apart from an English
+        // title ("Part of Me"), and a numeral after it is still the title
+        // ("Part. 2").
+        text = text.replace(PT_BR_FEATURING, " ")
 
         // Bracketed asides, innermost first: "(From "Satyamev Jayate")",
         // "[Official Audio]", "(Live at Wembley)".
@@ -816,6 +827,17 @@ object TrackMatcher {
     private val BRACKETED = Regex("""[(\[]([^()\[\]]*)[)\]]""")
     private val DASH = Regex("""\s+[-–—|]+\s+""")
     private val FEATURING = Regex("""\b(feat|ft|featuring|with)\b.*""")
+    /**
+     * The Portuguese spelling of the same credit, see [parseTitle]. Only the
+     * dotted form and an explicit `part esp.` count: an undotted `part` is
+     * English often enough ("Part of Me") to empty a real title. A numeral or
+     * roman numeral after the marker is still the title ("Part. 2", "Part II"),
+     * and `parte` is a different word.
+     */
+    private val PT_BR_FEATURING = Regex(
+        """\bpart\.\s+(?!(?:\d|[ivx]+\b))[^)\]]*[)\]]?|\bpart\s+(?:esp\.?|especial)\b[^)\]]*[)\]]?""",
+        RegexOption.IGNORE_CASE,
+    )
     /** `~` and the wave dash `〜` join words in Japanese titles ("真夜中のドア〜stay"). */
     private val WORD_SPLIT = Regex("""[\s.·~〜]+""")
     /**
@@ -918,6 +940,11 @@ object TrackMatcher {
         "radioversion", "radioedit", "stereoversion", "monoversion",
         "studioversion", "fullversion", "standardversion", "explicitversion",
         "deluxeversion", "originaltrack",
+    )
+
+    /** Where YouTube Music prints a type instead of an artist: "… — Música". */
+    private val YOUTUBE_TYPE_LABELS = setOf(
+        "música", "musica", "vídeo", "video", "song", "album", "álbum", "artista", "artist",
     )
 
     /** Packaging words, worth nothing as a tie-break because everything has them. */

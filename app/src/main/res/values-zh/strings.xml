@@ -208,6 +208,12 @@
     <string name="reduce_dynamic_blur_subtitle">在整个应用中用纯色填充替代磨砂玻璃效果</string>
     <string name="full_screen_cover_art">全屏封面</string>
     <string name="animated_cover_art">动态封面</string>
+    <string name="artist_signatures">歌手签名</string>
+    <string name="artist_signatures_subtitle">当 Apple Music 没有标题标志时，显示手写签名</string>
+    <string name="artist_signatures_url">签名 API 地址</string>
+    <string name="artist_signatures_url_hint">https://signatures.example.com</string>
+    <string name="artist_signatures_unconfigured">未配置 · 点按设置 API 地址</string>
+    <string name="artist_signatures_test_failed">无法访问该地址的 API</string>
     <string name="synced_lyrics">同步歌词</string>
     <string name="synced_lyrics_subtitle">随着演唱在播放器上高亮显示歌词</string>
     <string name="lyrics_sources">歌词来源</string>
@@ -1324,4 +1330,5 @@
     <string name="wear_os_unsupported">安装到手表需要这部手机运行 Android 11 或更高版本。</string>
     <string name="wear_os_code_hint">配对码</string>
     <string name="wear_os_done">完成</string>
+    <string name="signed_by">签名：%1$s</string>
 </resources>

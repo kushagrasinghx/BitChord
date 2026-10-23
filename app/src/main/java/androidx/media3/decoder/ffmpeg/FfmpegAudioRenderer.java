@@ -204,8 +204,14 @@ public final class FfmpegAudioRenderer extends DecoderAudioRenderer<FfmpegAudioD
         // AC-3 is always 16-bit, so there's no point using floating point. Assume that it's worth
         // using for all other formats.
         return !MimeTypes.AUDIO_AC3.equals(inputFormat.sampleMimeType);
-      case SINK_FORMAT_UNSUPPORTED:
       case SINK_FORMAT_SUPPORTED_WITH_TRANSCODING:
+        // For formats that can carry >16-bit audio (such as FLAC or ALAC), output float
+        // if the sink supports it (even via internal transcoding), so the decoder does
+        // not truncate 24-bit samples down to 16-bit PCM. PrecisionAudioSink ingests Float32
+        // directly into its DSP pipeline and preserves 24-bit precision to the output.
+        return MimeTypes.AUDIO_FLAC.equals(inputFormat.sampleMimeType)
+            || MimeTypes.AUDIO_ALAC.equals(inputFormat.sampleMimeType);
+      case SINK_FORMAT_UNSUPPORTED:
       default:
         // Always prefer 16-bit PCM if the sink does not provide direct support for floating point.
         return false;

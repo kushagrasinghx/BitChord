@@ -37,6 +37,7 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
+import androidx.media3.decoder.ffmpeg.FfmpegLibrary
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -6127,30 +6128,39 @@ class PlaybackService : MediaLibraryService() {
             // embellishes it, since it is the only AudioTrack encoding Media3
             // will open that carries a 24-bit sample intact.
             setEnableAudioFloatOutput(configuredFloatOutput)
-            // c2.sec.flac.decoder produces one extra 232.2ms timestamp
-            // advance per decoded buffer when Media3 requests float PCM.
-            // Decode FLAC through the platform software codec on affected Samsung devices.
+            // Android's platform FLAC decoders (e.g. c2.android.flac.decoder)
+            // only output 16-bit PCM integer, truncating 24-bit streams down to 16-bit,
+            // while Samsung's c2.sec.flac.decoder also has severe timestamp advance
+            // issues (+232.2ms per buffer) when float PCM is requested.
+            // When FFmpeg is available and supports FLAC, bypass the platform
+            // decoders so FfmpegAudioRenderer decodes FLAC as Float32, preserving
+            // full 24-bit precision without truncation.
             setMediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-                val selector = if (mimeType == MimeTypes.AUDIO_FLAC) {
-                    MediaCodecSelector.PREFER_SOFTWARE
+                if (mimeType == MimeTypes.AUDIO_FLAC && FfmpegLibrary.isAvailable() && FfmpegLibrary.supportsFormat(mimeType)) {
+                    emptyList()
                 } else {
-                    MediaCodecSelector.DEFAULT
-                }
-                val candidates = selector.getDecoderInfos(
-                    mimeType,
-                    requiresSecureDecoder,
-                    requiresTunnelingDecoder,
-                )
-                if (mimeType == MimeTypes.AUDIO_FLAC) {
-                    candidates.filterNot { AudioOutputPolicy.isUnsafeFloatFlacDecoder(it.name) }
-                } else {
-                    candidates
+                    val selector = if (mimeType == MimeTypes.AUDIO_FLAC) {
+                        MediaCodecSelector.PREFER_SOFTWARE
+                    } else {
+                        MediaCodecSelector.DEFAULT
+                    }
+                    val candidates = selector.getDecoderInfos(
+                        mimeType,
+                        requiresSecureDecoder,
+                        requiresTunnelingDecoder,
+                    )
+                    if (mimeType == MimeTypes.AUDIO_FLAC) {
+                        candidates.filterNot { AudioOutputPolicy.isUnsafeFloatFlacDecoder(it.name) }
+                    } else {
+                        candidates
+                    }
                 }
             }
         }
 
-        // FFmpeg after the MediaCodec renderer, so it only gets a track no
-        // platform decoder takes: ALAC everywhere, and AC-4 and Dolby Digital
+        // FFmpeg after the MediaCodec renderer, so it handles FLAC (preserving
+        // 24-bit audio depth via Float32 without platform decoder truncation) as well
+        // as tracks no platform decoder takes: ALAC everywhere, and AC-4 and Dolby Digital
         // (Plus, Atmos) on phones without Dolby's own decoder. Atmos then plays
         // as its 5.1 bed, folded down to stereo — the object layer needs
         // Dolby's decoder, which is the only thing that can read it.

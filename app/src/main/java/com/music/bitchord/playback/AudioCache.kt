@@ -77,6 +77,12 @@ object AudioCache {
     private const val TAG = "BitChord"
 
     /**
+     * True when caching is fully disabled (cache limit set to 0).
+     */
+    val isCacheDisabled: Boolean
+        get() = AppSettings.audioCacheLimitBytes.value == AppSettings.DISABLED_CACHE_LIMIT_BYTES
+
+    /**
      * The disk budget, straight from [AppSettings] — 512MB by default, roughly
      * 150 tracks at the highest bitrate offered, adjustable up to 10GB — or
      * unlimited — from Settings. Least-recently-used entries are dropped past it, so it's a
@@ -1213,6 +1219,8 @@ object AudioCache {
         android.util.Log.d("BCFetchDebug", "prefetchQueue: head ${pendingQueue.firstOrNull()} -> ${mediaIds.firstOrNull()}")
         pendingQueue = mediaIds
         job?.cancel()
+        // When caching is fully disabled, skip all read-ahead work.
+        if (isCacheDisabled) return
         // Both halves of the read-ahead below go through [StreamResolver],
         // which speaks YouTube ids and nothing else. A source-backed track
         // handed to it resolves to a failure, so filtering here saves a dead

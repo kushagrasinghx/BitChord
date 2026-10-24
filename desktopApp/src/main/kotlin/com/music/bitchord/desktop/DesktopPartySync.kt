@@ -482,7 +482,8 @@ internal class DesktopPartySync(
                     if (queued.videoId == currentVideoId) currentDurationMs else 0L,
                 )
             }
-            return tracks to tracks.indexOfFirst { it.videoId == currentVideoId }
+            // Not looked up by id again: a song queued twice would point the party at the played copy.
+            return tracks to projectedCurrent
         }
     }
 }

@@ -42,6 +42,22 @@ class DesktopPartySyncTest {
     }
 
     @Test
+    fun `party queue publish points at the copy that is playing when a song is queued twice`() {
+        val a = Song("a", "A", "Artist", null)
+        val b = Song("b", "B", "Artist", null)
+
+        val (published, index) = queueForPartyPublish(
+            songs = listOf(a, b, a),
+            currentIndex = 2,
+            currentVideoId = "a",
+            currentDurationMs = 1L,
+        )
+
+        assertEquals(listOf("a", "b", "a"), published.map(PartyTrack::videoId))
+        assertEquals(2, index)
+    }
+
+    @Test
     fun `party queue publish caps upcoming songs like the phone`() {
         val songs = listOf(Song("current", "Current", "Artist", null)) +
             (1..40).map {

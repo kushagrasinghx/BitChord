@@ -22,6 +22,8 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
+import com.music.bitchord.device.DeviceProfile
+import com.music.bitchord.device.DeviceRegistry
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +43,9 @@ data class BluetoothTelemetry(
     val isAuthoritative: Boolean = false,
     val lastUpdatedMs: Long = 0L,
 ) {
+    val deviceProfile: DeviceProfile?
+        get() = DeviceRegistry.identify(deviceName)
+
     val isHighRes: Boolean
         get() = (sampleRateHz != null && sampleRateHz > 48000) || (bitDepth != null && bitDepth > 16)
 

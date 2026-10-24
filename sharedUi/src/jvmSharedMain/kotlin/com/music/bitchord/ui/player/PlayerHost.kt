@@ -108,6 +108,14 @@ interface PlayerHost {
     @Composable
     fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) = Unit
 
+    /** Extra controls for the connected output (e.g. earbuds). Empty where the platform has none. */
+    @Composable
+    fun OutputExtras() = Unit
+
+    /** Icon of the connected output when it has extra controls; null hides the player button. */
+    @Composable
+    fun OutputExtrasPainter(): androidx.compose.ui.graphics.painter.Painter? = null
+
     /**
      * Whether lines can be put on a share card here. False hides the pick mode
      * altogether rather than offering a mode with nowhere to put its result.

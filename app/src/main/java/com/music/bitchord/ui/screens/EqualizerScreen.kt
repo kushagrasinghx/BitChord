@@ -271,6 +271,7 @@ fun EqualizerScreen(
             )
         }
 
+        BudsNoiseControlSection(outputStatus.bluetoothTelemetry?.deviceProfile)
         Spacer(Modifier.height(32.dp))
     }
 
@@ -475,7 +476,7 @@ private fun signed(value: Int): String = if (value > 0) "+$value" else value.toS
 
 /** A row that is one of a set, ticked when it is the one in force. */
 @Composable
-private fun ChoiceRow(
+internal fun ChoiceRow(
     label: String,
     selected: Boolean,
     enabled: Boolean,

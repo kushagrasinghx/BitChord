@@ -750,6 +750,38 @@ internal fun CircleGlyph(
     }
 }
 
+/** [CircleGlyph] drawn from a [Painter] (a bitmap, say) instead of an ImageVector. */
+@Composable
+internal fun CirclePainterGlyph(
+    painter: androidx.compose.ui.graphics.painter.Painter,
+    contentDescription: String,
+    onClick: () -> Unit,
+    haptic: Haptic = Haptic.Tap,
+) {
+    val haptics = rememberHaptics()
+    Box(
+        modifier = Modifier
+            .size(34.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                haptics.play(haptic)
+                onClick()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = Color.White,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
 /**
  * Transport / bottom glyphs. The circular clip belongs on the touch target,
  * never on the [Icon] — clipping the icon itself shaves the corners off wide

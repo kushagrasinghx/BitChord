@@ -12,6 +12,10 @@ import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
+import com.music.bitchord.R
+import com.music.bitchord.device.DeviceFamily
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
@@ -133,6 +137,20 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         // watch picks the queue up from where the phone's player is.
         if (CastController.state.value.casting) CastController.disconnect(resumeHere = false)
         WearBridge.selectWatchOutput()
+    }
+
+    @Composable
+    override fun OutputExtras() = BudsOutputPanel()
+
+    @Composable
+    override fun OutputExtrasPainter(): Painter? {
+        val status by AudioOutputStatus.current.collectAsStateWithLifecycle()
+        val family = status.bluetoothTelemetry?.deviceProfile?.family
+        return when {
+            family == DeviceFamily.GALAXY_BUDS3_PRO -> painterResource(R.drawable.buds3_pro)
+            family?.isGalaxyBuds == true -> painterResource(R.drawable.buds2)
+            else -> null
+        }
     }
 
     override val outputFormat: StateFlow<OutputFormatUi> by lazy {

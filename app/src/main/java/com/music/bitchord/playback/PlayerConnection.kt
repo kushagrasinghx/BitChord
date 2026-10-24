@@ -189,6 +189,26 @@ fun MediaController.swapToVersion(targetSong: Song) {
 }
 
 /**
+ * Sends a version swap and restores playback if resolving that version paused
+ * a track the listener was playing.
+ *
+ * The service decides whether to resume by reading `playWhenReady` when the
+ * swap arrives. An automatic swap has already paused to resolve the other
+ * version, so the service reads false and a prepared stream stays paused
+ * unless the caller resumes it. Both failure paths in `switchToMusicOnly` and
+ * `switchToVideo` already do that; routing their success paths through this
+ * helper gives them the same behaviour.
+ */
+internal fun finishVersionSwap(
+    resumeAfterResolution: Boolean,
+    swap: () -> Unit,
+    play: () -> Unit,
+) {
+    swap()
+    if (resumeAfterResolution) play()
+}
+
+/**
  * The credited artists, read back out of the two parallel lists they travel in.
  *
  * A `Song` is a data class and a `MediaItem`'s extras are a `Bundle`, which

@@ -196,6 +196,7 @@ import com.music.bitchord.playback.autoplayEnabledFor
 import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.playback.beginRadioQueue
 import com.music.bitchord.playback.commitRadioQueue
+import com.music.bitchord.playback.finishVersionSwap
 import com.music.bitchord.playback.fromAutoplay
 import com.music.bitchord.playback.hasYouTubeOriginal
 import com.music.bitchord.playback.loadAutoplayTracks
@@ -1285,7 +1286,11 @@ private fun BitChordApp(
             // The same line in the finally is the catch-all for every path
             // that never got this far, where nothing else would release it.
             if (holdUntilAligned) AppSettings.versionAlignmentInProgress.value = false
-            c.swapToVersion(target)
+            finishVersionSwap(
+                resumeAfterResolution = resumeAfterResolution,
+                swap = { c.swapToVersion(target) },
+                play = c::play,
+            )
         } finally {
             if (holdUntilAligned) AppSettings.versionAlignmentInProgress.value = false
             switchingAudioVersion = false
@@ -1354,7 +1359,11 @@ private fun BitChordApp(
             // music-only path above: the service owns the flag from here, and
             // the finally only exists for the paths that never send.
             if (holdUntilAligned) AppSettings.versionAlignmentInProgress.value = false
-            c.swapToVersion(target)
+            finishVersionSwap(
+                resumeAfterResolution = resumeAfterResolution,
+                swap = { c.swapToVersion(target) },
+                play = c::play,
+            )
         } finally {
             if (holdUntilAligned) AppSettings.versionAlignmentInProgress.value = false
             switchingAudioVersion = false

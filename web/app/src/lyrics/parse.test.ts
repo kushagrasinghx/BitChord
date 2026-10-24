@@ -48,6 +48,9 @@ describe('LRC', () => {
   it('decodes HTML entities', () => {
     expect(decodeEntities('don&#x27;t &amp; won&#39;t')).toBe("don't & won't");
   });
+  it('leaves an entity that names no character as written', () => {
+    expect(decodeEntities('&#99999999999; &#x110000; &#128293;')).toBe('&#99999999999; &#x110000; \u{1F525}');
+  });
 });
 
 describe('karaoke (QRC/YRC)', () => {

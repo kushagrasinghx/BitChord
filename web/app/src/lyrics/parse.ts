@@ -20,11 +20,14 @@ import {
 // ---- EnhancedLrc.decodeEntities -------------------------------------------------------------
 
 /** SimpMusic and friends serve HTML-escaped text; "&#x27;" would otherwise be sung literally. */
+/** fromCodePoint throws past U+10FFFF, which would take the whole lookup down: keep such an entity as written. */
+const codePoint = (entity: string, value: number) => (value <= 0x10ffff ? String.fromCodePoint(value) : entity);
+
 export function decodeEntities(text: string): string {
   if (!text.includes('&')) return text;
   return text
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (entity, hex: string) => codePoint(entity, Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (entity, dec: string) => codePoint(entity, Number(dec)))
     .replace(/&apos;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/&nbsp;/g, ' ')

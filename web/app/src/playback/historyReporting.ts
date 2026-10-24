@@ -5,7 +5,7 @@ import { getBridge } from '@/extension/bridge';
 import { extensionQueryKey } from '@/extension/useExtension';
 import { ensureYtAuth } from '@/extension/useYtAuth';
 import { queryClient } from '@/lib/queryClient';
-import { getAudio, usePlayer } from '@/state/player';
+import { getAudio, onTrackEnded, usePlayer } from '@/state/player';
 import { getSignedInnertube } from './youtube/innertube';
 import { trackLog } from './trackLog';
 
@@ -241,6 +241,14 @@ export function startHistoryReporting(): () => void {
       opening = null;
     }
   });
+  // Played to the end: closed here, as the phone's track transition closes it. A repeat-one
+  // loop keeps the same video, so it is only a new play this way, and the queue's last song
+  // gets its closing report instead of reading as abandoned at the last 30 s sample.
+  const offEnded = onTrackEnded(() => {
+    const audio = getAudio();
+    if (session && audio) session.heard = Math.max(session.heard, audio.currentTime);
+    close();
+  });
   const timer = setInterval(sample, SAMPLE_MS);
   const onHide = () => {
     if (document.visibilityState === 'hidden' && session) void flush(session, session.heard);
@@ -249,6 +257,7 @@ export function startHistoryReporting(): () => void {
   return () => {
     offPlayer();
     offSettings();
+    offEnded();
     clearInterval(timer);
     document.removeEventListener('visibilitychange', onHide);
     close();

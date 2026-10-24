@@ -229,7 +229,14 @@ export function parseLrc(lrc: string): LyricLine[] {
   for (const raw of lrc.split(/\r?\n/)) {
     const match = LRC_STAMP.exec(raw);
     if (!match) continue;
-    let body = raw.slice((match.index ?? 0) + match[0].length);
+    // `[00:12.00][00:45.00]Chorus` is one line sung at each stamp: the compressed form for a repeat.
+    const stamps = [match];
+    let end = match.index + match[0].length;
+    for (let next = LRC_STAMP.exec(raw.slice(end)); next?.index === 0; next = LRC_STAMP.exec(raw.slice(end))) {
+      stamps.push(next);
+      end += next[0].length;
+    }
+    let body = raw.slice(end);
     let alignment: LyricLine['alignment'] = 'start';
     if (body.startsWith(ALIGNMENT_MARKER)) {
       body = body.slice(ALIGNMENT_MARKER.length);
@@ -246,12 +253,14 @@ export function parseLrc(lrc: string): LyricLine[] {
         raw: body.slice((mark.index ?? 0) + mark[0].length, until),
       };
     });
-    all.push(
-      line(stamp(match[1]!, match[2]!, match[3]!), body.replace(WORD_STAMP, '').trim(), {
-        words: marks.length ? wordsFromRuns(runs) : [],
-        alignment,
-      }),
-    );
+    for (const at of stamps) {
+      all.push(
+        line(stamp(at[1]!, at[2]!, at[3]!), body.replace(WORD_STAMP, '').trim(), {
+          words: marks.length ? wordsFromRuns(runs) : [],
+          alignment,
+        }),
+      );
+    }
   }
   all.sort((a, b) => a.timeMs - b.timeMs);
   const kept = all.filter((l, index) => {

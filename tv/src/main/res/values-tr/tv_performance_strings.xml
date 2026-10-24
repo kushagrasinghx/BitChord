@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_performance_title">Performans</string>
+    <string name="tv_performance_auto">Otomatik (%1$s)</string>
+    <string name="tv_performance_smooth">Akıcı</string>
+    <string name="tv_performance_standard">Standart</string>
+    <string name="tv_performance_description">Otomatik, TV kutunuza uyum sağlar. Akıcı mod sabit kapak ve sade arka plan kullanır. Değiştirmek için seçin.</string>
+    <string name="tv_performance_motion_off">Kapalı (Akıcı)</string>
+    <string name="tv_performance_motion_description">Hareketli kapak için Standart performansı seçin. Kapak tercihiniz korunur.</string>
+</resources>

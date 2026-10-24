@@ -7,6 +7,7 @@ import java.security.SecureRandom
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.music.bitchord.ui.tv.performance.TvPerformanceMode
 
 /**
  * The Android TV app's own preferences. They live in the same preferences file
@@ -31,6 +32,7 @@ object TvSettings {
     val tvLyricsCanvasEnabled = MutableStateFlow(true)
     val tvVideoAuto1080p = MutableStateFlow(true)
     val tvNavLayout = MutableStateFlow("left_rail")
+    val tvPerformanceMode = MutableStateFlow(TvPerformanceMode.AUTO)
 
     /** UI density/scale multiplier for the TV layout: 0.8 (Small) → 1.0 (Normal) → 1.2 (Large) → 1.4 (XL). */
     val tvUiScale = MutableStateFlow(1.0f)
@@ -53,6 +55,7 @@ object TvSettings {
         tvLyricsCanvasEnabled.value = prefs.getBoolean(KEY_TV_LYRICS_CANVAS, true)
         tvVideoAuto1080p.value = prefs.getBoolean(KEY_TV_VIDEO_AUTO_1080P, true)
         tvNavLayout.value = prefs.getString(KEY_TV_NAV_LAYOUT, "left_rail") ?: "left_rail"
+        tvPerformanceMode.value = TvPerformanceMode.fromStored(prefs.getString(KEY_TV_PERFORMANCE_MODE, null))
     }
 
     fun init(context: Context) {
@@ -66,6 +69,11 @@ object TvSettings {
     fun setTvFontFamily(fontId: String) {
         tvFontFamily.value = fontId
         save { putString(KEY_TV_FONT, fontId) }
+    }
+
+    fun setTvPerformanceMode(mode: TvPerformanceMode) {
+        tvPerformanceMode.value = mode
+        save { putString(KEY_TV_PERFORMANCE_MODE, mode.name) }
     }
 
     fun setTvUiScale(scale: Float) {
@@ -282,4 +290,5 @@ object TvSettings {
     private const val KEY_TV_LYRICS_CANVAS = "tv_lyrics_canvas"
     private const val KEY_TV_VIDEO_AUTO_1080P = "tv_video_auto_1080p"
     private const val KEY_TV_NAV_LAYOUT = "tv_nav_layout"
+    private const val KEY_TV_PERFORMANCE_MODE = "tv_performance_mode"
 }

@@ -81,8 +81,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.zIndex
 import coil3.compose.AsyncImage
+import coil3.compose.rememberConstraintsSizeResolver
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import coil3.size.Size
+import coil3.size.SizeResolver
+import coil3.size.pxOrElse
 import com.music.bitchord.data.model.MoodGenre
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
@@ -91,6 +98,8 @@ import com.music.bitchord.ui.screens.MoodGenreSleeve
 import com.music.bitchord.ui.tv.theme.TvDimensions
 import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
+import com.music.bitchord.ui.tv.performance.rememberTvPerformanceProfile
+import com.music.bitchord.ui.tv.performance.capTvArtworkDimensions
 import kotlin.math.floor
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -392,7 +401,28 @@ fun TvArtwork(
     px: Int = 544,
     glyph: ImageVector = Icons.Rounded.MusicNote,
 ) {
-    val model = remember(url, px) { url.artworkAt(px) ?: url }
+    val profile = rememberTvPerformanceProfile()
+    val context = LocalContext.current
+    val requestedPx = px.coerceIn(1, profile.artworkMaxPx)
+    val constraintsSize = rememberConstraintsSizeResolver()
+    val cappedSize = remember(constraintsSize, requestedPx) {
+        SizeResolver {
+            val measured = constraintsSize.size()
+            val (width, height) = capTvArtworkDimensions(
+                measured.width.pxOrElse { requestedPx },
+                measured.height.pxOrElse { requestedPx },
+                requestedPx,
+            )
+            Size(width, height)
+        }
+    }
+    val model = remember(url, requestedPx, profile.artworkCrossfadeMs, context, cappedSize) {
+        ImageRequest.Builder(context)
+            .data(url.artworkAt(requestedPx) ?: url)
+            .size(cappedSize)
+            .crossfade(profile.artworkCrossfadeMs)
+            .build()
+    }
     Box(
         modifier = modifier
             .clip(shape)
@@ -405,12 +435,12 @@ fun TvArtwork(
             tint = Color.White.copy(alpha = 0.22f),
             modifier = Modifier.fillMaxSize(0.34f),
         )
-        if (!model.isNullOrBlank()) {
+        if (!url.isNullOrBlank()) {
             AsyncImage(
                 model = model,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().then(constraintsSize),
             )
         }
     }

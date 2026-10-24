@@ -67,6 +67,13 @@ jobs:
 
       - run: chmod +x gradlew
 
+      - name: Test the TV measurement collector
+        shell: pwsh
+        run: ./tv/tools/tests/Measure-TvBox.Tests.ps1
+
+      - name: Test TV settings and performance policy
+        run: ./gradlew :tv:testDevDebugUnitTest
+
       - name: Build the TV dev APK
         run: ./gradlew :tv:assembleDevDebug
 

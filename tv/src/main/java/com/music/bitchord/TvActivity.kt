@@ -17,6 +17,7 @@ import com.music.bitchord.ui.theme.BitChordTheme
 import com.music.bitchord.ui.tv.TvApp
 import com.music.bitchord.ui.tv.display.TvRefreshRateController
 import com.music.bitchord.ui.tv.theme.BitChordTvTheme
+import com.music.bitchord.ui.tv.performance.TvPerformanceProvider
 
 /**
  * Dedicated TV Activity for Android TV, Google TV, and Fire TV devices.
@@ -37,18 +38,20 @@ class TvActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
 
         setContent {
-            BitChordTvTheme {
-                // The phone's Material theme too, so the components shared with
-                // it (lyrics, mood sleeves) are set in SF Pro on its type scale.
-                BitChordTheme(darkTheme = true) {
-                    val mediaController = rememberMediaController()
-                    val playerState = rememberPlayerState(mediaController)
+            TvPerformanceProvider {
+                BitChordTvTheme {
+                    // The phone's Material theme too, so the components shared with
+                    // it (lyrics, mood sleeves) are set in SF Pro on its type scale.
+                    BitChordTheme(darkTheme = true) {
+                        val mediaController = rememberMediaController()
+                        val playerState = rememberPlayerState(mediaController)
 
-                    TvApp(
-                        viewModel = viewModel,
-                        mediaController = mediaController,
-                        playerState = playerState,
-                    )
+                        TvApp(
+                            viewModel = viewModel,
+                            mediaController = mediaController,
+                            playerState = playerState,
+                        )
+                    }
                 }
             }
         }

@@ -85,6 +85,7 @@ import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.TvSettings
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.ic_dolby_atmos
@@ -102,6 +103,9 @@ import com.music.bitchord.ui.tv.components.TvArtwork
 import com.music.bitchord.ui.tv.components.TvButton
 import com.music.bitchord.ui.tv.components.TvRow
 import com.music.bitchord.ui.tv.components.TvLockup
+import com.music.bitchord.ui.tv.components.rememberDominantCardColor
+import com.music.bitchord.ui.tv.performance.TvPerformanceProfile
+import com.music.bitchord.ui.tv.performance.rememberTvPerformanceProfile
 import com.music.bitchord.ui.tv.components.tvClick
 import com.music.bitchord.ui.tv.components.tvInitialFocus
 import com.music.bitchord.ui.tv.components.tvLift
@@ -117,14 +121,24 @@ import java.util.Locale
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * The artwork's colours, smeared into the phone's moving mesh, darkened a touch
- * so white type always reads over it.
+ * Constrained boxes use a static tint: no full-screen RenderEffect or mesh decode.
  */
 @Composable
 fun TvPlayerBackground(
     artworkUrl: String?,
     modifier: Modifier = Modifier,
 ) {
+    val profile = rememberTvPerformanceProfile()
+    val reduceBlur by AppSettings.reduceDynamicBlur.collectAsState()
+    if (profile == TvPerformanceProfile.SMOOTH || reduceBlur) {
+        val tint = rememberDominantCardColor(artworkUrl)
+        Box(
+            modifier = modifier.fillMaxSize().background(
+                Brush.verticalGradient(listOf(tint, Color(0xFF101012))),
+            ),
+        )
+        return
+    }
     val mesh = rememberArtworkMesh(imageUrl = artworkUrl)
     Box(modifier = modifier.fillMaxSize()) {
         ArtworkMeshBackdrop(
@@ -164,10 +178,14 @@ internal fun TvNowPlayingStage(
 ) {
     // While the transport is up the lyrics fade out above it rather than run under it.
     val underControls by animateFloatAsState(if (controlsVisible) 1f else 0f, tween(320), label = "lyricsFade")
+    val profile = rememberTvPerformanceProfile()
     val canvasEnabled by AppSettings.animatedCanvas.collectAsState()
-    var canvas by remember(song.videoId) { mutableStateOf<CanvasArtwork?>(null) }
-    LaunchedEffect(song.videoId, canvasEnabled) {
-        canvas = if (canvasEnabled) CanvasRepository.canvasFor(song) else null
+    val canvasInLyrics by TvSettings.tvLyricsCanvasEnabled.collectAsState()
+    val useCanvas = profile.allowsCanvas(canvasEnabled, showLyrics, canvasInLyrics)
+    var canvas by remember(song.videoId, useCanvas) { mutableStateOf<CanvasArtwork?>(null) }
+    LaunchedEffect(song.videoId, useCanvas) {
+        // Key changes cancel a pending lookup; disabled canvas creates neither requests nor a player.
+        canvas = if (useCanvas) CanvasRepository.canvasFor(song) else null
     }
     val side by animateFloatAsState(if (showLyrics) 1f else 0f, tween(520), label = "artToSide")
 
@@ -192,13 +210,15 @@ internal fun TvNowPlayingStage(
                     scaleY = scale
                     translationX = lerp(0f, (sideStart - centredX).toPx(), side)
                     translationY = lerp(0f, (sideY - centredY).toPx(), side)
-                    shadowElevation = 29.dp.toPx()
+                    shadowElevation = profile.artworkShadowDp.dp.toPx()
                     this.shape = shape
                     clip = true
                 },
         ) {
-            TvArtwork(url = song.thumbnailUrl, px = 720, shape = RectangleShape, modifier = Modifier.fillMaxSize())
-            canvas?.let { CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize()) }
+            TvArtwork(url = song.thumbnailUrl, px = profile.artworkMaxPx, shape = RectangleShape, modifier = Modifier.fillMaxSize())
+            if (useCanvas) {
+                canvas?.let { CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize()) }
+            }
         }
 
         // With the transport away, the song is named under the cover: the title and

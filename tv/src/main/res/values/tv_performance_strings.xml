@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_performance_title">Performance</string>
+    <string name="tv_performance_auto">Automatic (%1$s)</string>
+    <string name="tv_performance_smooth">Smooth</string>
+    <string name="tv_performance_standard">Standard</string>
+    <string name="tv_performance_description">Automatic adapts to your TV box. Smooth uses still artwork and simpler backgrounds. Select to change.</string>
+    <string name="tv_performance_motion_off">Off (Smooth)</string>
+    <string name="tv_performance_motion_description">Choose Standard performance to use motion artwork. Your artwork preference is saved.</string>
+</resources>

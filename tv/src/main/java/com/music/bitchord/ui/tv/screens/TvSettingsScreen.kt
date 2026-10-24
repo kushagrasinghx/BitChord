@@ -24,9 +24,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.BuildConfig
+import com.music.bitchord.R
 import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.TvSettings
@@ -48,6 +50,9 @@ import com.music.bitchord.ui.tv.personalization.AppThemeOption
 import com.music.bitchord.ui.tv.theme.TvDimensions
 import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
+import com.music.bitchord.ui.tv.performance.TvPerformanceMode
+import com.music.bitchord.ui.tv.performance.TvPerformanceProfile
+import com.music.bitchord.ui.tv.performance.rememberTvPerformanceProfile
 
 // Discord Rich Presence is hidden on TV for now; TvDiscordDialog is kept for when it returns.
 private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Scrobbling, LyricsSources, Update, About }
@@ -88,6 +93,19 @@ fun TvSettingsScreen(
     val refreshRate by TvRefreshRateController.preference.collectAsState()
     val reduceMotion by AppSettings.reduceAnimation.collectAsState()
     val reduceTransparency by AppSettings.reduceDynamicBlur.collectAsState()
+    val performanceMode by TvSettings.tvPerformanceMode.collectAsState()
+    val profile = rememberTvPerformanceProfile()
+    val smoothLabel = stringResource(R.string.tv_performance_smooth)
+    val standardLabel = stringResource(R.string.tv_performance_standard)
+    val profileLabel = if (profile == TvPerformanceProfile.SMOOTH) smoothLabel else standardLabel
+    val performanceLabel = when (performanceMode) {
+        TvPerformanceMode.AUTO -> stringResource(R.string.tv_performance_auto, profileLabel)
+        TvPerformanceMode.SMOOTH -> smoothLabel
+        TvPerformanceMode.STANDARD -> standardLabel
+    }
+    val performanceDescription = stringResource(R.string.tv_performance_description)
+    val motionBlockedLabel = stringResource(R.string.tv_performance_motion_off)
+    val motionBlockedDescription = stringResource(R.string.tv_performance_motion_description)
 
     var blurb by remember { mutableStateOf(DefaultBlurb) }
     var sheet by remember { mutableStateOf<SettingsSheet?>(null) }
@@ -240,17 +258,29 @@ fun TvSettingsScreen(
             item {
                 TvListRow(
                     title = "Motion Artwork",
-                    value = onOff(canvas),
-                    onFocused = { blurb = "Plays a song's looping video artwork behind the player, when it has one." },
-                    onClick = { AppSettings.setAnimatedCanvas(!canvas) },
+                    value = if (profile.motionArtworkAllowed) onOff(canvas) else motionBlockedLabel,
+                    onFocused = {
+                        blurb = if (profile.motionArtworkAllowed) {
+                            "Plays a song's looping video artwork behind the player, when it has one."
+                        } else motionBlockedDescription
+                    },
+                    onClick = {
+                        if (profile.motionArtworkAllowed) AppSettings.setAnimatedCanvas(!canvas)
+                    },
                 )
             }
             item {
                 TvListRow(
                     title = "Motion Artwork in Lyrics",
-                    value = onOff(lyricsCanvas),
-                    onFocused = { blurb = "Keeps the video artwork playing behind full-screen lyrics." },
-                    onClick = { TvSettings.setTvLyricsCanvasEnabled(!lyricsCanvas) },
+                    value = if (profile.motionArtworkAllowed) onOff(lyricsCanvas) else motionBlockedLabel,
+                    onFocused = {
+                        blurb = if (profile.motionArtworkAllowed) {
+                            "Keeps the video artwork playing alongside lyrics."
+                        } else motionBlockedDescription
+                    },
+                    onClick = {
+                        if (profile.motionArtworkAllowed) TvSettings.setTvLyricsCanvasEnabled(!lyricsCanvas)
+                    },
                 )
             }
             item {
@@ -263,6 +293,17 @@ fun TvSettingsScreen(
             }
 
             item { TvListHeader("Display") }
+            item {
+                TvListRow(
+                    title = stringResource(R.string.tv_performance_title),
+                    value = performanceLabel,
+                    onFocused = { blurb = performanceDescription },
+                    onClick = {
+                        val modes = TvPerformanceMode.entries
+                        TvSettings.setTvPerformanceMode(modes[(performanceMode.ordinal + 1) % modes.size])
+                    },
+                )
+            }
             item {
                 TvListRow(
                     title = "Appearance",

@@ -1,6 +1,5 @@
 package com.music.bitchord.ui.player
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +53,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.sharedui.resources.*
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
@@ -151,7 +152,7 @@ private fun AudioPipelineRow(onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = 0.05f))
+            .vibrantBackground(Color.White.copy(alpha = 0.05f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -166,14 +167,14 @@ private fun AudioPipelineRow(onClick: () -> Unit) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f)),
+                .vibrantBackground(Color.White.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Rounded.GraphicEq,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(20.dp).vibrancy(),
             )
         }
         Spacer(Modifier.width(13.dp))
@@ -184,6 +185,7 @@ private fun AudioPipelineRow(onClick: () -> Unit) {
                 color = Color.White.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -192,13 +194,14 @@ private fun AudioPipelineRow(onClick: () -> Unit) {
                 color = Color.White.copy(alpha = 0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
         }
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(20.dp).vibrancy(),
         )
     }
 }
@@ -216,7 +219,7 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = if (casting) 0.10f else 0.05f))
+            .vibrantBackground(Color.White.copy(alpha = if (casting) 0.10f else 0.05f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -231,14 +234,14 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = if (casting) 0.16f else 0.08f)),
+                .vibrantBackground(Color.White.copy(alpha = if (casting) 0.16f else 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = if (casting) Icons.Rounded.CastConnected else Icons.Rounded.Cast,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = if (casting) 1f else 0.7f),
-                modifier = Modifier.size(21.dp),
+                modifier = Modifier.size(21.dp).vibrancy(),
             )
         }
         Spacer(Modifier.width(13.dp))
@@ -251,6 +254,7 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
                 color = Color.White.copy(alpha = if (casting) 1f else 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -265,13 +269,14 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
                 color = Color.White.copy(alpha = 0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
         }
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(20.dp).vibrancy(),
         )
     }
 }
@@ -289,7 +294,7 @@ private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = if (active) 0.10f else 0.05f))
+            .vibrantBackground(Color.White.copy(alpha = if (active) 0.10f else 0.05f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -305,14 +310,14 @@ private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = if (active) 0.16f else 0.08f)),
+                .vibrantBackground(Color.White.copy(alpha = if (active) 0.16f else 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Rounded.Watch,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = if (active) 1f else 0.7f),
-                modifier = Modifier.size(21.dp),
+                modifier = Modifier.size(21.dp).vibrancy(),
             )
         }
         Spacer(Modifier.width(13.dp))
@@ -325,6 +330,7 @@ private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
                 color = Color.White.copy(alpha = if (active) 1f else 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
             Spacer(Modifier.height(2.dp))
             Text(
@@ -333,6 +339,7 @@ private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
                 color = Color.White.copy(alpha = 0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
         }
         if (active) {
@@ -362,7 +369,7 @@ private fun OutputRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = if (active) 0.10f else 0.05f))
+            .vibrantBackground(Color.White.copy(alpha = if (active) 0.10f else 0.05f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -378,14 +385,14 @@ private fun OutputRow(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = if (active) 0.16f else 0.08f)),
+                .vibrantBackground(Color.White.copy(alpha = if (active) 0.16f else 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = iconFor(device),
                 contentDescription = null,
                 tint = Color.White.copy(alpha = if (active) 1f else 0.7f),
-                modifier = Modifier.size(21.dp),
+                modifier = Modifier.size(21.dp).vibrancy(),
             )
         }
         Spacer(Modifier.width(13.dp))
@@ -398,6 +405,7 @@ private fun OutputRow(
                 color = Color.White.copy(alpha = if (active) 1f else 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
             if (active) {
                 Spacer(Modifier.height(2.dp))
@@ -405,6 +413,7 @@ private fun OutputRow(
                     text = stringResource(Res.string.audio_output_playing),
                     style = MaterialTheme.typography.labelMedium,
                     color = Color.White.copy(alpha = 0.55f),
+                    modifier = Modifier.vibrancy(),
                 )
             }
         }
@@ -458,7 +467,7 @@ private fun VolumeRow(routeKey: Any) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = 0.05f))
+            .vibrantBackground(Color.White.copy(alpha = 0.05f))
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -466,7 +475,7 @@ private fun VolumeRow(routeKey: Any) {
             imageVector = if (level > 0f) Icons.AutoMirrored.Rounded.VolumeUp else Icons.AutoMirrored.Rounded.VolumeOff,
             contentDescription = null,
             tint = Color.White.copy(alpha = 0.6f),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(20.dp).vibrancy(),
         )
         Spacer(Modifier.width(12.dp))
         ThinSlider(

@@ -767,7 +767,7 @@ private fun ChoiceRow(
             .fillMaxWidth()
             .heightIn(min = ACTION_HEIGHT)
             // iOS washes the whole row instead of drawing a ripple inside it.
-            .background(
+            .vibrantBackground(
                 if (pressed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f) else Color.Transparent,
             )
             .clickable(
@@ -789,6 +789,7 @@ private fun ChoiceRow(
                     text = detail,
                     style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                    modifier = Modifier.vibrancy(MaterialTheme.colorScheme.onSurface),
                 )
             }
         }

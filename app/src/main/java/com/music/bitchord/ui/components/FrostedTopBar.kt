@@ -39,10 +39,12 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -58,6 +60,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -312,13 +315,20 @@ fun FrostedTopBar(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .then(if (accessory != null) Modifier.fillMaxWidth().padding(start = edge) else Modifier)
-                    // Same outer edge as the navbar; PILL_INSET below is
-                    // internal padding around the icons, not extra margin.
+                    // The page's gutter (the navbar keeps Apple's wider one);
+                    // the pill's inset below is internal padding around the
+                    // icons, not extra margin.
                     .padding(end = edge),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (accessory != null) {
-                    Box(Modifier.weight(1f)) { accessory() }
+                    Box(Modifier.weight(1f)) {
+                        if (useFloatingChrome) {
+                            ArtworkPageAccessory(hazeState = backButtonHazeState, content = accessory)
+                        } else {
+                            accessory()
+                        }
+                    }
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
                 if (useFloatingChrome) {
@@ -344,8 +354,9 @@ private fun ArtworkPageBackButton(
     val shape = CircleShape
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val glassArea = remember { GlassArea() }
     val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
-        glassContentColor()
+        glassContentColor(glassArea)
     } else {
         MaterialTheme.colorScheme.onSurface
     }
@@ -353,13 +364,15 @@ private fun ArtworkPageBackButton(
     IconButton(
         onClick = onClick,
         modifier = modifier
-            .size(44.dp)
+            .size(TOP_CONTROL_SIZE)
             .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
     ) {
         Icon(
             Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = stringResource(R.string.back),
             tint = contentColor,
+            // What is under the glyph, not the whole circle round it.
+            modifier = Modifier.glassArea(glassArea),
         )
     }
 }
@@ -371,8 +384,12 @@ private fun ArtworkPageActions(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Row(
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val glass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+    val glassArea = remember { GlassArea() }
+    ActionsRow(
         modifier = modifier
+            .glassArea(glassArea)
             .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
@@ -383,31 +400,113 @@ private fun ArtworkPageActions(
                     stiffness = Spring.StiffnessMediumLow,
                 ),
             )
-            // One 48dp profile target with no inset is a true 48x48 circle.
-            // Once another action exists, restore the navbar's PILL_INSET at
-            // both edges. This is layout padding inside the surface, not an
+            // One profile target with no inset is a true circle, the back
+            // button's size. Once another action exists, Apple's inset opens at
+            // both ends. This is layout padding inside the surface, not an
             // outer margin, so BAR_GUTTER remains unchanged.
             .artworkActionEdgePadding(),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        content()
+        // Apple's pill is as tall as its back button, 44pt, where the actions'
+        // own 48dp touch targets stood it 4dp taller than the circle beside it.
+        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
+            if (glass) {
+                // The actions are set in the theme's onSurface and primary, each in
+                // its own place; on glass both follow what the pill is showing.
+                val glassContent = glassContentColor(glassArea)
+                MaterialTheme(
+                    colorScheme = MaterialTheme.colorScheme.copy(onSurface = glassContent, primary = glassContent),
+                    content = content,
+                )
+            } else {
+                content()
+            }
+        }
     }
 }
 
 /**
- * Navbar edge padding that collapses only for the profile-only state.
+ * The actions side by side, centred on the pill's height, with Apple's gap
+ * between each and the one before it.
  *
- * Invisible/animating action slots can measure between zero and 48dp, so the
- * natural content width—not the number of emitted composables—is the reliable
- * source of truth. At exactly one icon target the pill stays circular; above
- * that it gains the same inset as the navbar while retaining fully round ends.
+ * Each gap opens with the width of the action after it, so one sliding in from
+ * nothing — the download ring — brings its gap with it rather than the row
+ * jumping by a gap's width the frame it appears.
+ */
+@Composable
+private fun ActionsRow(modifier: Modifier, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0, minHeight = 0)) }
+        val target = TOP_CONTROL_SIZE.roundToPx()
+        val gap = ACTION_GAP.toPx()
+        val gaps = placeables.mapIndexed { index, placeable ->
+            if (index == 0) 0 else (gap * (placeable.width.toFloat() / target).coerceIn(0f, 1f)).roundToInt()
+        }
+        val width = placeables.sumOf { it.width } + gaps.sum()
+        val height = placeables.maxOfOrNull { it.height } ?: 0
+        layout(width, height) {
+            var x = 0
+            placeables.forEachIndexed { index, placeable ->
+                x += gaps[index]
+                placeable.placeRelative(x, (height - placeable.height) / 2)
+                x += placeable.width
+            }
+        }
+    }
+}
+
+/**
+ * The bar's accessory — the Search tab's field — on the same surface as the
+ * controls either side of it, at their height: a squircle pill of the bar's
+ * glass, its glyphs and words in what the glass shows.
+ */
+@Composable
+private fun ArtworkPageAccessory(hazeState: HazeState?, content: @Composable () -> Unit) {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val glass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
+    val glassArea = remember { GlassArea() }
+    val shape = remember { SquirclePillShape() }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(TOP_CONTROL_SIZE)
+            .glassArea(glassArea)
+            .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
+    ) {
+        CompositionLocalProvider(LocalSearchFieldOnSurface provides true) {
+            if (glass) {
+                val glassContent = glassContentColor(glassArea)
+                MaterialTheme(
+                    colorScheme = MaterialTheme.colorScheme.copy(
+                        onBackground = glassContent,
+                        onSurfaceVariant = glassContent.copy(alpha = ACCESSORY_HINT_ALPHA),
+                        primary = glassContent,
+                    ),
+                    content = content,
+                )
+            } else {
+                content()
+            }
+        }
+    }
+}
+
+/** The field's hint and glyphs on glass, against its typed text at full strength. */
+private const val ACCESSORY_HINT_ALPHA = 0.6f
+
+/**
+ * Edge padding that collapses only for the profile-only state.
+ *
+ * Invisible/animating action slots can measure between zero and a full target,
+ * so the natural content width—not the number of emitted composables—is the
+ * reliable source of truth. At exactly one icon target the pill stays circular;
+ * above that it gains Apple's inset while retaining fully round ends.
  */
 private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable, constraints ->
     val placeable = measurable.measure(constraints.copy(minWidth = 0))
-    val oneActionWidth = 48.dp.roundToPx()
+    val oneActionWidth = TOP_CONTROL_SIZE.roundToPx()
     val extraActionFraction = ((placeable.width - oneActionWidth).toFloat() / oneActionWidth)
         .coerceIn(0f, 1f)
-    val edgePadding = (PILL_INSET.roundToPx() * extraActionFraction).roundToInt()
+    val edgePadding = (ACTION_EDGE_INSET.roundToPx() * extraActionFraction).roundToInt()
     val width = (placeable.width + edgePadding * 2).coerceIn(constraints.minWidth, constraints.maxWidth)
 
     layout(width, placeable.height) {
@@ -427,21 +526,24 @@ private fun artworkPageSurface(
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
 
     return Modifier
-        .clip(shape)
         .then(
             when {
-                useLiquidGlass -> Modifier.liquidGlass(shape)
-                reduceDynamicBlur || hazeState == null -> Modifier.background(container)
-                else -> Modifier.optimizedHazeEffect(
+                // Clipped after the glass, not before: it draws its outline just
+                // outside its edge.
+                useLiquidGlass -> Modifier.liquidGlass(shape).clip(shape)
+                reduceDynamicBlur || hazeState == null -> Modifier.clip(shape).background(container)
+                else -> Modifier.clip(shape).optimizedHazeEffect(
                     state = hazeState,
                     style = HazeMaterials.regular(container),
                 )
             },
         )
-        // Keep the same explicit hairline as FloatingBottomBar. Liquid glass
-        // also has its refractive highlight, but the navbar retains this edge
-        // so these surfaces do as well.
-        .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+        // The same explicit hairline as FloatingBottomBar, and dropped with it
+        // under liquid glass: that brings its own edge, and the bars do not
+        // wear both.
+        .then(
+            if (useLiquidGlass && !reduceDynamicBlur) Modifier else Modifier.border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape),
+        )
 }
 
 /**
@@ -464,7 +566,7 @@ fun TopBarAccountButton(
 ) {
     val translation = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
-    // Wrapped in an IconButton so it keeps the 48dp target, the ripple and the
+    // Wrapped in an IconButton so it keeps the touch target, the ripple and the
     // spacing every other action in this bar has.
     IconButton(
         onClick = onClick,
@@ -590,6 +692,20 @@ private fun RefreshPuck(refreshing: Boolean, pullFraction: () -> Float, modifier
 }
 
 private val PUCK_SIZE = 40.dp
+
+/**
+ * The floating top controls' height — the back circle and the actions pill
+ * alike — and each action's slot in the pill: Apple's 44pt.
+ */
+private val TOP_CONTROL_SIZE = 44.dp
+
+/**
+ * Between two actions in the pill, and from each end to the action there,
+ * measured off Apple Music's share-and-more pill: 101pt wide, its glyphs
+ * centred 23.4pt in from the ends and 54pt apart.
+ */
+private val ACTION_GAP = 10.dp
+private val ACTION_EDGE_INSET = 1.5.dp
 
 /** How far below the bar's edge the puck rests while a refresh runs. */
 private val PUCK_REST = 16.dp

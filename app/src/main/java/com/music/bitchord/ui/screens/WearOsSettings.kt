@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.ui.components.PillTextField
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.wear.WatchAppStatus
 import com.music.bitchord.wear.WatchEntry
 import com.music.bitchord.wear.WatchInstaller
@@ -273,7 +274,7 @@ private fun Step(number: Int, text: String) {
             modifier = Modifier
                 .size(22.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f)),
+                .vibrantBackground(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center,
         ) {
             Text(

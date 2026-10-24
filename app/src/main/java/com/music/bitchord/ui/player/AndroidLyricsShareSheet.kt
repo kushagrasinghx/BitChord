@@ -3,7 +3,6 @@ package com.music.bitchord.ui.player
 import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +37,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.music.bitchord.R
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.replay.ShareAction
@@ -103,7 +104,7 @@ internal fun AndroidLyricsShareSheet(
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.7f),
                 textAlign = TextAlign.Start,
-                modifier = Modifier.fillMaxWidth().padding(start = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 4.dp).vibrancy(),
             )
 
             val bitmap = image
@@ -118,11 +119,11 @@ internal fun AndroidLyricsShareSheet(
             if (bitmap == null) {
                 Box(
                     modifier = preview
-                        .background(Color.White.copy(alpha = 0.06f)),
+                        .vibrantBackground(Color.White.copy(alpha = 0.06f)),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(26.dp),
+                        modifier = Modifier.size(26.dp).vibrancy(),
                         strokeWidth = 2.5.dp,
                         color = Color.White.copy(alpha = 0.75f),
                     )

@@ -426,10 +426,11 @@ private fun SharedTransitionScope.InlineBar(
     // With an accessory the row spans the full width ([tab][accessory][standalone],
     // iOS 26 Apple Music style); without one, the cluster is packed and centered.
     Row(
-        horizontalArrangement = Arrangement.spacedBy(sizes.componentSpacing),
+        horizontalArrangement = Arrangement.spacedBy(sizes.inlineComponentSpacing),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .padding(sizes.inlineBarPadding)
             .then(if (accessory == null) Modifier.wrapContentWidth() else Modifier)
             .height(IntrinsicSize.Max)
     ) {
@@ -504,8 +505,10 @@ private fun SharedTransitionScope.InlineTab(
                 color = colors.backgroundColor,
                 shape = shapes.tabBarShape
             )
-            .clip(shapes.tabBarShape)
+            // The surface before the clip: a glass surface draws its outline
+            // just outside its edge, and the clip would cut that away.
             .then(tabBarContentModifier())
+            .clip(shapes.tabBarShape)
             .clickable(
                 onClick = {
                     onInlineTabClick()
@@ -563,8 +566,8 @@ private fun SharedTransitionScope.InlineStandaloneTab(
                 color = colors.backgroundColor,
                 shape = shapes.standaloneTabShape
             )
-            .clip(shapes.standaloneTabShape)
             .then(tabBarContentModifier())
+            .clip(shapes.standaloneTabShape)
             .clickable(
                 onClick = standaloneTab.onClick,
                 indication = standaloneTab.indication?.invoke(),
@@ -841,8 +844,8 @@ private fun SharedTransitionScope.ExpandedTabs(
                         color = colors.backgroundColor,
                         shape = shapes.tabBarShape
                     )
-                    .clip(shapes.tabBarShape)
                     .then(tabBarContentModifier())
+                    .clip(shapes.tabBarShape)
                     .padding(contentPadding)
                     .animateContentSize()
             ) {
@@ -1013,8 +1016,8 @@ private fun SharedTransitionScope.ExpandedStandaloneTab(
                 color = colors.backgroundColor,
                 shape = shapes.standaloneTabShape
             )
-            .clip(shapes.standaloneTabShape)
             .then(tabBarContentModifier())
+            .clip(shapes.standaloneTabShape)
             .clickable(
                 onClick = standaloneTab.onClick,
                 indication = standaloneTab.indication?.invoke(),
@@ -1099,7 +1102,7 @@ private fun Modifier.animateEnterExitTab(
             }
         }
 
-        // 12dp, down from the library's 50. A tab glyph is 25dp across, so a 50dp
+        // 12dp, down from the library's 50. A tab glyph is 28dp across, so a 50dp
         // radius is twice the thing it is blurring — everything past about half
         // the element's width has already dissolved it to nothing and is spent
         // on a wider and wider sample of empty space. 12 reaches the same nothing
@@ -1239,6 +1242,8 @@ data class FloatingTabBarSizes(
     val tabExpandedContentPadding: PaddingValues,
     val componentSpacing: Dp,
     val tabSpacing: Dp,
+    val inlineComponentSpacing: Dp = componentSpacing,
+    val inlineBarPadding: PaddingValues = PaddingValues(),
 )
 
 /**
@@ -1292,6 +1297,8 @@ object FloatingTabBarDefaults {
      * @param tabExpandedContentPadding the padding applied to tabs in expanded state
      * @param componentSpacing the spacing between components
      * @param tabSpacing the spacing between tabs in expanded state
+     * @param inlineComponentSpacing the spacing between components in inline state
+     * @param inlineBarPadding padding around the whole bar in inline state, inside the bar's own
      */
     @Composable
     fun sizes(
@@ -1300,12 +1307,16 @@ object FloatingTabBarDefaults {
         tabExpandedContentPadding: PaddingValues = PaddingValues(vertical = 6.dp, horizontal = 20.dp),
         componentSpacing: Dp = 8.dp,
         tabSpacing: Dp = 0.dp,
+        inlineComponentSpacing: Dp = componentSpacing,
+        inlineBarPadding: PaddingValues = PaddingValues(),
     ): FloatingTabBarSizes = FloatingTabBarSizes(
         tabBarContentPadding = tabBarContentPadding,
         tabInlineContentPadding = tabInlineContentPadding,
         tabExpandedContentPadding = tabExpandedContentPadding,
         componentSpacing = componentSpacing,
         tabSpacing = tabSpacing,
+        inlineComponentSpacing = inlineComponentSpacing,
+        inlineBarPadding = inlineBarPadding,
     )
 
     /**

@@ -1,6 +1,5 @@
 package com.music.bitchord.ui.player
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -39,6 +38,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.ui.LyricsProviderState
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
@@ -117,7 +118,7 @@ private fun LyricsProviderRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(ROW_SHAPE)
-            .background(Color.White.copy(alpha = if (current) 0.10f else 0.05f))
+            .vibrantBackground(Color.White.copy(alpha = if (current) 0.10f else 0.05f))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -133,32 +134,32 @@ private fun LyricsProviderRow(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = if (current) 0.16f else 0.08f)),
+                .vibrantBackground(Color.White.copy(alpha = if (current) 0.16f else 0.08f)),
             contentAlignment = Alignment.Center,
         ) {
             when {
                 state == LyricsProviderState.FETCHING -> CircularProgressIndicator(
                     color = Color.White.copy(alpha = 0.8f),
                     strokeWidth = 2.dp,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(20.dp).vibrancy(),
                 )
                 current || state == LyricsProviderState.FOUND -> Icon(
                     imageVector = Icons.Rounded.Check,
                     contentDescription = null,
                     tint = Color.White.copy(alpha = if (current) 1f else 0.75f),
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(21.dp).vibrancy(),
                 )
                 state == LyricsProviderState.NOT_FOUND -> Icon(
                     imageVector = Icons.Rounded.Close,
                     contentDescription = null,
                     tint = Color.White.copy(alpha = 0.4f),
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(20.dp).vibrancy(),
                 )
                 else -> Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
                     tint = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(20.dp).vibrancy(),
                 )
             }
         }
@@ -172,6 +173,7 @@ private fun LyricsProviderRow(
                 color = Color.White.copy(alpha = if (current) 1f else 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
             Text(
                 text = status,
@@ -179,6 +181,7 @@ private fun LyricsProviderRow(
                 color = Color.White.copy(alpha = if (current) 0.7f else 0.5f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(),
             )
         }
     }

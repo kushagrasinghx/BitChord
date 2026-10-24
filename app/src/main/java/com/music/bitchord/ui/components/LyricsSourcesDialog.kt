@@ -254,7 +254,7 @@ private fun SyllableSyncToggle(checked: Boolean, onToggle: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = ACTION_HEIGHT)
-            .background(
+            .vibrantBackground(
                 if (pressed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f) else Color.Transparent,
             )
             .clickable(
@@ -275,6 +275,7 @@ private fun SyllableSyncToggle(checked: Boolean, onToggle: () -> Unit) {
                 text = stringResource(R.string.prioritize_syllable_lyrics_subtitle),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
+                modifier = Modifier.vibrancy(MaterialTheme.colorScheme.onSurface),
             )
         }
         Spacer(Modifier.width(10.dp))
@@ -502,6 +503,7 @@ private fun ReorderableSourceList(
                             modifier = Modifier
                                 .padding(horizontal = 6.dp)
                                 .size(18.dp)
+                                .vibrancy(MaterialTheme.colorScheme.onSurface)
                                 // A constant key on purpose — see the note above.
                                 // The row this coroutine belongs to is now pinned
                                 // by [key], so nothing about a reorder should ever
@@ -544,6 +546,7 @@ private fun ReorderableSourceList(
                                     .copy(alpha = if (toggleable) 1f else 0.5f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                                modifier = if (toggleable) Modifier else Modifier.vibrancy(MaterialTheme.colorScheme.onSurface),
                             )
                             Text(
                                 text = source.detail,
@@ -551,6 +554,7 @@ private fun ReorderableSourceList(
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.vibrancy(MaterialTheme.colorScheme.onSurface),
                             )
                         }
                         Spacer(Modifier.width(10.dp))

@@ -38,6 +38,8 @@ import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.cancel
 import com.music.bitchord.sharedui.resources.lyrics_share_pick_limit
 import com.music.bitchord.sharedui.resources.share
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.Haptics
 import com.music.bitchord.ui.haptics.rememberHaptics
@@ -373,7 +375,7 @@ private fun RowScope.PickAction(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(background)
+            .vibrantBackground(background)
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 15.dp),
         horizontalArrangement = Arrangement.Center,
@@ -383,7 +385,7 @@ private fun RowScope.PickAction(
             imageVector = icon,
             contentDescription = null,
             tint = foreground,
-            modifier = Modifier.size(19.dp),
+            modifier = Modifier.size(19.dp).vibrancy(foreground),
         )
         Spacer(Modifier.width(10.dp))
         Text(
@@ -393,6 +395,7 @@ private fun RowScope.PickAction(
             color = foreground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.vibrancy(foreground),
         )
     }
 }

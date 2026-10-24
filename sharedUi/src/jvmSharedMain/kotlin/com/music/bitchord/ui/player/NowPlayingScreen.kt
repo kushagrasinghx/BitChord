@@ -7,6 +7,8 @@ import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.constrain
 import androidx.compose.ui.unit.Constraints
+import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
+import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.sharedui.resources.*
 
@@ -150,6 +152,8 @@ import com.music.bitchord.ui.theme.rememberArtworkTopBandLuminance
 import com.music.bitchord.ui.theme.topBandScrimAlpha
 import com.music.bitchord.ui.LyricsProviderState
 import com.music.bitchord.ui.components.optimizedHazeEffect
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -2498,7 +2502,7 @@ fun NowPlayingScreen(
                                 .graphicsLayer { alpha = spotifyChromeAlpha }
                                 .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
                                 .clip(RoundedCornerShape(3.dp))
-                                .background(LocalPlayerTint.current.copy(alpha = 0.70f)),
+                                .vibrantBackground(LocalPlayerTint.current.copy(alpha = 0.70f)),
                         )
                         // [p] is the shared album-to-panel transition. Keeping this in
                         // composition until its final frame gives the caption a real
@@ -3043,16 +3047,14 @@ fun NowPlayingScreen(
                                     drawContent()
                                     val shown = sleeveShown()
                                     if (shown > 0f) {
-                                        // Eased (smoothstep) rather than linear: a linear
-                                        // fade has a visible corner where it starts and
-                                        // where it ends.
                                         drawRect(
+                                            // Along smootherstep, not a straight ramp,
+                                            // so neither end of the dissolve shows as a line.
                                             brush = Brush.verticalGradient(
-                                                0.00f to Color.Black,
-                                                0.25f to Color.Black.copy(alpha = 1f - shown * 0.156f),
-                                                0.50f to Color.Black.copy(alpha = 1f - shown * 0.5f),
-                                                0.75f to Color.Black.copy(alpha = 1f - shown * 0.844f),
-                                                1.00f to Color.Black.copy(alpha = 1f - shown),
+                                                colorStops = Array(FADE_CURVE_STOPS + 1) { i ->
+                                                    val t = i / FADE_CURVE_STOPS.toFloat()
+                                                    t to Color.Black.copy(alpha = 1f - shown * smootherStep(t))
+                                                },
                                                 startY = size.height * (1f - HERO_FADE_FRACTION),
                                                 endY = size.height,
                                             ),
@@ -3116,6 +3118,7 @@ fun NowPlayingScreen(
                                         tint = Color.White.copy(alpha = 0.35f),
                                         modifier = Modifier
                                             .size(40.dp)
+                                            .vibrancy()
                                             .graphicsLayer {
                                                 val scale = 1f - 0.5f * p()
                                                 scaleX = scale
@@ -3437,6 +3440,7 @@ fun NowPlayingScreen(
                                     label = "playerCredits",
                                 ) {
                                     val scrolling = scrolls()
+                                    val artistColor = LocalPlayerTint.current.copy(alpha = 0.55f)
                                     Column {
                                         MarqueeText(
                                             text = song.title,
@@ -3445,8 +3449,10 @@ fun NowPlayingScreen(
                                             ),
                                             color = Color.White,
                                             enabled = scrolling,
-                                            leading = if (song.isExplicit == true) {
-                                                { ExplicitBadge(color = Color.White) }
+                                            // After the title, in the artist line's
+                                            // colour and vibrancy, as Apple sets it.
+                                            trailing = if (song.isExplicit == true) {
+                                                { ExplicitBadge(color = artistColor, modifier = Modifier.vibrancy(artistColor)) }
                                             } else {
                                                 null
                                             },
@@ -3464,7 +3470,7 @@ fun NowPlayingScreen(
                                                 fontWeight = FontWeight.W500,
                                                 fontSize = 20.sp,
                                             ),
-                                            color = LocalPlayerTint.current.copy(alpha = 0.55f),
+                                            color = artistColor,
                                             enabled = scrolling,
                                             // A title that's also scrolling gets to go first —
                                             // starting together reads as clutter, so the artist

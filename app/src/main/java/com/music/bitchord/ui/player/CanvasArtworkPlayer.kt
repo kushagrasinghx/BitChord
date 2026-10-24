@@ -48,6 +48,8 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
+import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.rememberIsForeground
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.music.bitchord.data.Http
@@ -721,13 +723,17 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
             super.dispatchDraw(canvas)
             return
         }
+        // Along smootherstep, the same dissolve the still artwork's banner uses,
+        // so neither end of it shows as a line across the video.
         val shader = gradient?.takeIf { gradientHeight == height } ?: LinearGradient(
             0f,
             endY * (1f - fade),
             0f,
             endY,
-            android.graphics.Color.BLACK,
-            android.graphics.Color.TRANSPARENT,
+            IntArray(FADE_CURVE_STOPS + 1) { i ->
+                android.graphics.Color.argb(1f - smootherStep(i / FADE_CURVE_STOPS.toFloat()), 0f, 0f, 0f)
+            },
+            FloatArray(FADE_CURVE_STOPS + 1) { i -> i / FADE_CURVE_STOPS.toFloat() },
             Shader.TileMode.CLAMP,
         ).also {
             gradient = it

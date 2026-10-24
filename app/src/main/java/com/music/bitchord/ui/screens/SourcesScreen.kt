@@ -78,6 +78,7 @@ import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.ui.components.AddonEditorAlert
+import com.music.bitchord.ui.components.vibrancy
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -535,6 +536,7 @@ private fun ReorderableAddons(
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                         modifier = Modifier
                             .size(20.dp)
+                            .vibrancy(MaterialTheme.colorScheme.onSurface)
                             // A constant key on purpose: the row is pinned by
                             // [key] above, so nothing about a reorder should
                             // restart this coroutine.

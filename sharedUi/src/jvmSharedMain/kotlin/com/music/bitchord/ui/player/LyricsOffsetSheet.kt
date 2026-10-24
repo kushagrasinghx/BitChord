@@ -55,6 +55,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.utils.containSheetGestures
 import com.music.bitchord.ui.components.optimizedHazeEffect
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
@@ -159,7 +161,7 @@ internal fun LyricsOffsetSheet(
                         .padding(bottom = 12.dp)
                         .size(width = 36.dp, height = 4.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.25f)),
+                        .vibrantBackground(Color.White.copy(alpha = 0.25f)),
                 )
                 Text(
                     text = stringResource(Res.string.lyrics_offset),
@@ -176,14 +178,15 @@ internal fun LyricsOffsetSheet(
                     color = Color.White.copy(alpha = 0.55f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 4.dp, top = 3.dp, bottom = 14.dp),
+                        .padding(start = 4.dp, top = 3.dp, bottom = 14.dp)
+                        .vibrancy(),
                 )
 
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(ControlShape)
-                        .background(Color.White.copy(alpha = 0.05f))
+                        .vibrantBackground(Color.White.copy(alpha = 0.05f))
                         .padding(horizontal = 12.dp, vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -237,7 +240,8 @@ internal fun LyricsOffsetSheet(
                             haptics.play(Haptic.Tap)
                             PlayerSettings.setLyricsOffsetMs(0)
                         }
-                        .padding(horizontal = 18.dp, vertical = 9.dp),
+                        .padding(horizontal = 18.dp, vertical = 9.dp)
+                        .vibrancy(),
                 )
             }
         }
@@ -260,6 +264,7 @@ private fun OffsetButton(
             text = label,
             style = MaterialTheme.typography.titleLarge,
             color = Color.White.copy(alpha = if (enabled) 0.85f else 0.25f),
+            modifier = Modifier.vibrancy(),
         )
     }
 }

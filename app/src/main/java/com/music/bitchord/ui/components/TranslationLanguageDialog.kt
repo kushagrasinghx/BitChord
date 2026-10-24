@@ -208,7 +208,8 @@ fun TranslationLanguageDialog(
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 18.dp),
+                                .padding(vertical = 18.dp)
+                                .vibrancy(MaterialTheme.colorScheme.onSurface),
                         )
                     }
                 }
@@ -239,7 +240,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
             imageVector = Icons.Rounded.Search,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(16.dp).vibrancy(MaterialTheme.colorScheme.onSurface),
         )
         Spacer(Modifier.width(8.dp))
         Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -248,6 +249,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
                     text = stringResource(R.string.search_languages),
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.vibrancy(MaterialTheme.colorScheme.onSurface),
                 )
             }
             BasicTextField(
@@ -280,7 +282,7 @@ private fun LanguageChoiceRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = ACTION_HEIGHT)
-            .background(
+            .vibrantBackground(
                 if (pressed) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.09f) else Color.Transparent,
             )
             .clickable(
@@ -305,6 +307,7 @@ private fun LanguageChoiceRow(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(MaterialTheme.colorScheme.onSurface),
             )
         }
         Spacer(Modifier.width(10.dp))

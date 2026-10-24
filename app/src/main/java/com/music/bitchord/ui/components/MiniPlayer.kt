@@ -3,7 +3,6 @@ package com.music.bitchord.ui.components
 import com.music.bitchord.R
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
@@ -48,7 +47,6 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -401,7 +399,7 @@ fun MiniPlayer(
                     )
                 },
             )
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
+            .vibrantBorder(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
             // Deliberately silent: the whole bar is the target, so it catches
             // stray taps meant for the page behind it, and the sheet rising is
             // its own confirmation. The glyphs on it still buzz.
@@ -451,17 +449,19 @@ fun MiniPlayer(
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
+                // The badge in the artist line's colour and a long line faded
+                // out at its end, as on the glass bar's mini player.
                 ExplicitSongTitle(
                     song = song,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
+                    badgeColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fadeOverflow = true,
                 )
-                Text(
+                FadingLine(
                     text = song.artist,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
             if (isLoading) {
@@ -524,6 +524,8 @@ internal fun MiniPlayerNextGlyph(tint: Color) {
         tint = tint,
         modifier = Modifier
             .size(NEXT_GLYPH_SIZE)
+            // Dimmed while the controls are locked, and added onto the bar then.
+            .then(if (tint.alpha < 1f) Modifier.vibrancy(tint) else Modifier)
             .graphicsLayer { scaleY = 0.85f },
     )
 }

@@ -4,8 +4,12 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.unit.isSpecified
@@ -83,6 +87,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -109,6 +114,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.music.bitchord.ui.components.LINE_FADE
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.graphics.fadingEdges
+import com.music.bitchord.ui.components.vibrantBackground
+import com.music.bitchord.ui.components.vibrantBlendMode
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -241,11 +251,13 @@ internal fun PlayerScrubber(
                     text = formatTime((shown * durationMs).toLong()),
                     style = MaterialTheme.typography.labelMedium,
                     color = LocalPlayerTint.current.copy(alpha = 0.55f),
+                    modifier = Modifier.vibrancy(LocalPlayerTint.current),
                 )
                 Text(
                     text = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
                     style = MaterialTheme.typography.labelMedium,
                     color = LocalPlayerTint.current.copy(alpha = 0.55f),
+                    modifier = Modifier.vibrancy(LocalPlayerTint.current),
                 )
             }
             // Pinned to the box's own centre rather than squeezed into the gap
@@ -277,7 +289,9 @@ internal fun PlayerScrubber(
 private fun MixingLabel(pulse: MixPulse, modifier: Modifier = Modifier) {
     Text(
         text = stringResource(Res.string.mixing),
-        modifier = modifier.graphicsLayer { alpha = pulse.cover * pulse.alpha(1f, restShare = MIXING_LABEL_REST) },
+        modifier = modifier
+            .vibrancy(LocalPlayerTint.current)
+            .graphicsLayer { alpha = pulse.cover * pulse.alpha(1f, restShare = MIXING_LABEL_REST) },
         style = MaterialTheme.typography.labelMedium.copy(
             fontWeight = FontWeight.Medium,
             fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
@@ -527,7 +541,7 @@ internal fun VolumeRow(
             Icons.AutoMirrored.Rounded.VolumeDown,
             contentDescription = null,
             tint = LocalPlayerTint.current.copy(alpha = 0.5f),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(20.dp).vibrancy(LocalPlayerTint.current),
         )
         Spacer(Modifier.width(10.dp))
         ThinSlider(
@@ -543,7 +557,7 @@ internal fun VolumeRow(
             Icons.AutoMirrored.Rounded.VolumeUp,
             contentDescription = null,
             tint = LocalPlayerTint.current.copy(alpha = 0.5f),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(20.dp).vibrancy(LocalPlayerTint.current),
         )
     }
 }
@@ -703,10 +717,12 @@ internal fun PlayerActionRow(
 /**
  * Translucent circular button used for the track menu and the like control.
  *
- * [active] brightens the disc rather than only the glyph: this sits on album
- * artwork of any colour, and a white icon on a white-ish sleeve has no tint
- * change left to make. The filled star carries the state as a shape too —
- * see [BitChordIcons.StarFilled].
+ * Off, a glyph on a faint disc. [active] reverses it, the way Apple's favourite
+ * button turns: the disc fills and the glyph — the filled star, see
+ * [BitChordIcons.StarFilled] — is cut out of it, so the artwork shows through
+ * the shape. It used to brighten the disc behind the same white glyph, which
+ * on a pale sleeve washed the two together. Both discs are added plus-lighter,
+ * at Apple's strengths, so they take the artwork's colour as its controls do.
  */
 @Composable
 internal fun CircleGlyph(
@@ -717,15 +733,18 @@ internal fun CircleGlyph(
     haptic: Haptic = Haptic.Tap,
 ) {
     val haptics = rememberHaptics()
-    val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else 0.18f,
-        label = "glyphDisc",
+    val tint = LocalPlayerTint.current
+    val fill by animateFloatAsState(
+        targetValue = if (active) 1f else 0f,
+        label = "glyphFill",
     )
     Box(
         modifier = Modifier
             .size(34.dp)
             .clip(CircleShape)
-            .background(LocalPlayerTint.current.copy(alpha = discAlpha))
+            // Faded out by alpha rather than a layer's, so the disc stays added
+            // onto the artwork all the way through the turn.
+            .vibrantBackground(tint.copy(alpha = GLYPH_DISC_ALPHA * (1f - fill)))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -743,12 +762,51 @@ internal fun CircleGlyph(
             Icon(
                 imageVector = glyph,
                 contentDescription = contentDescription,
-                tint = LocalPlayerTint.current,
+                tint = tint.copy(alpha = 1f - fill),
                 modifier = Modifier.size(19.dp),
             )
         }
+        if (fill > 0f) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        alpha = fill
+                        // Its own buffer, so the cut-out erases the disc and
+                        // nothing under it; then added onto the artwork.
+                        compositingStrategy = CompositingStrategy.Offscreen
+                        blendMode = vibrantBlendMode(tint)
+                    }
+                    .drawBehind { drawCircle(tint.copy(alpha = ACTIVE_GLYPH_DISC_ALPHA)) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.Black,
+                    modifier = Modifier.size(19.dp).cutOut(),
+                )
+            }
+        }
     }
 }
+
+/** Erases this content's shape from the layer it is drawn into. */
+private fun Modifier.cutOut(): Modifier = drawWithContent {
+    drawIntoCanvas { canvas ->
+        canvas.saveLayer(Rect(Offset.Zero, size), Paint().apply { blendMode = BlendMode.DstOut })
+        drawContent()
+        canvas.restore()
+    }
+}
+
+/**
+ * The glyph disc's strength, off and on, added plus-lighter: measured off
+ * Apple Music's player, about 0.15 behind its "…" and 0.46 behind a starred
+ * favourite.
+ */
+private const val GLYPH_DISC_ALPHA = 0.18f
+private const val ACTIVE_GLYPH_DISC_ALPHA = 0.46f
 
 /**
  * Transport / bottom glyphs. The circular clip belongs on the touch target,
@@ -792,6 +850,7 @@ private fun TransportGlyph(
             tint = Color.White.copy(alpha = alpha),
             modifier = Modifier
                 .size(size)
+                .vibrancy()
                 .then(if (heightScale != 1f) Modifier.graphicsLayer { scaleY = heightScale } else Modifier),
         )
     }
@@ -867,7 +926,7 @@ private fun Pill(
         modifier = modifier
             .height(BOTTOM_ACTION_SIZE)
             .clip(CircleShape)
-            .background(LocalPlayerTint.current.copy(alpha = 0.12f))
+            .vibrantBackground(LocalPlayerTint.current.copy(alpha = 0.12f))
             .animateContentSize(
                 animationSpec = spring(
                     dampingRatio = 0.82f,
@@ -885,7 +944,7 @@ private fun PillDivider() {
         Modifier
             .width(1.dp)
             .fillMaxHeight()
-            .background(LocalPlayerTint.current.copy(alpha = 0.20f)),
+            .vibrantBackground(LocalPlayerTint.current.copy(alpha = 0.20f)),
     )
 }
 
@@ -1010,7 +1069,7 @@ private fun PillSegment(
         modifier = Modifier
             .width(width)
             .height(BOTTOM_ACTION_SIZE)
-            .background(if (highlighted) LocalPlayerTint.current.copy(alpha = 0.14f) else Color.Transparent)
+            .vibrantBackground(if (highlighted) LocalPlayerTint.current.copy(alpha = 0.14f) else Color.Transparent)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -1051,7 +1110,7 @@ private fun PillSegment(
                             imageVector = currentIcon,
                             contentDescription = null,
                             tint = tint,
-                            modifier = Modifier.size(currentSize),
+                            modifier = Modifier.size(currentSize).vibrancy(tint),
                         )
                     }
                     if (trailingLabel != null) {
@@ -1061,6 +1120,7 @@ private fun PillSegment(
                             color = tint,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
+                            modifier = Modifier.vibrancy(tint),
                         )
                     }
                 }
@@ -1070,6 +1130,7 @@ private fun PillSegment(
                     color = tint,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold,
+                    modifier = Modifier.vibrancy(tint),
                 )
             }
         }
@@ -1144,7 +1205,7 @@ internal fun OutputCaption(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
-            modifier = captionModifier,
+            modifier = captionModifier.vibrancy(LocalPlayerTint.current),
         )
     }
 }
@@ -1229,7 +1290,7 @@ private fun BottomGlyph(
         modifier = Modifier
             .size(BOTTOM_ACTION_SIZE)
             .clip(CircleShape)
-            .background(
+            .vibrantBackground(
                 if (highlighted) LocalPlayerTint.current.copy(alpha = 0.20f) else Color.Transparent,
             )
             .clickable(
@@ -1252,7 +1313,7 @@ private fun BottomGlyph(
                 imageVector = icon,
                 contentDescription = null,
                 tint = tint,
-                modifier = Modifier.size(26.dp),
+                modifier = Modifier.size(26.dp).vibrancy(tint),
             )
         } else if (label != null) {
             Text(
@@ -1260,6 +1321,7 @@ private fun BottomGlyph(
                 color = tint,
                 fontSize = 19.sp,
                 fontWeight = FontWeight.Bold,
+                modifier = Modifier.vibrancy(tint),
             )
         }
     }
@@ -1312,8 +1374,13 @@ internal const val MARQUEE_ARTIST_STAGGER_MS = 3_000L
  * before going again. [onOverflowChange] reports whether this line is scrolling
  * at all, so a sibling line can decide whether it needs to stagger behind it.
  *
- * With [enabled] false the line is a plain ellipsised one — no copies, no
- * animation, nothing left running off screen.
+ * A line too long for its width fades out at its end rather than stopping at
+ * a hard edge, as Apple's does, and once it is crawling at its start too — see
+ * [marqueeFade]. [trailing] sits after the line, outside the crawl, where
+ * Apple puts the explicit badge.
+ *
+ * With [enabled] false the line holds still at its start — no copies, no
+ * animation, nothing left running off screen — and only fades at its end.
  */
 @Composable
 internal fun MarqueeText(
@@ -1323,38 +1390,24 @@ internal fun MarqueeText(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     startDelayMillis: Long = 0L,
-    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
     onOverflowChange: (Boolean) -> Unit = {},
 ) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (leading != null) {
-            leading()
-            Spacer(Modifier.width(6.dp))
-        }
-        if (!enabled) {
-            Text(
-                text = text,
-                style = style,
-                color = color,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            return@Row
-        }
         BoxWithConstraints(Modifier.weight(1f, fill = false).clipToBounds()) {
             val maxWidthPx = constraints.maxWidth
             val layout = remember(text, style, maxWidthPx) {
                 textMeasurer.measure(text = text, style = style, maxLines = 1, softWrap = false)
             }
             val overflowing = layout.size.width > maxWidthPx
-            LaunchedEffect(overflowing) { onOverflowChange(overflowing) }
+            val crawls = enabled && overflowing
+            LaunchedEffect(crawls) { onOverflowChange(crawls) }
 
             // One whole copy plus the gap behind it: that is the distance at
             // which the second copy is sitting exactly where the first was.
-            val travelPx = if (overflowing) {
+            val travelPx = if (crawls) {
                 layout.size.width + with(density) { MARQUEE_GAP.roundToPx() }
             } else {
                 0
@@ -1383,19 +1436,47 @@ internal fun MarqueeText(
                 // the text is truncated during its own measurement and sliding
                 // it sideways just moves an already-cut string.
                 modifier = Modifier
+                    .marqueeFade(overflowing, travelPx) { offsetX.value }
                     .wrapContentWidth(align = Alignment.Start, unbounded = true)
                     .offset { IntOffset(offsetX.value.roundToInt(), 0) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 MarqueeLine(text = text, style = style, color = color)
-                if (overflowing) {
+                if (crawls) {
                     Spacer(Modifier.width(MARQUEE_GAP))
                     MarqueeLine(text = text, style = style, color = color)
                 }
             }
         }
+        if (trailing != null) {
+            Spacer(Modifier.width(6.dp))
+            trailing()
+        }
     }
 }
+
+/**
+ * A marquee line's fades, where it [overflows] its box: out at its end always,
+ * and at its start while it is away from its resting place — in over the first
+ * fade's width of a pass of [travelPx] and back out over the last, by when the
+ * copy chasing it has arrived where it started. [offset] is read as it draws.
+ */
+private fun Modifier.marqueeFade(overflows: Boolean, travelPx: Int, offset: () -> Float): Modifier =
+    if (!overflows) {
+        this
+    } else {
+        composed {
+            val fadePx = with(LocalDensity.current) { LINE_FADE.toPx() }
+            fadingEdges(
+                LINE_FADE,
+                start = {
+                    val moved = -offset()
+                    minOf(moved, travelPx - moved) / fadePx
+                },
+                end = { 1f },
+            )
+        }
+    }
 
 /** One copy of a marquee's line, laid out at its full width rather than clipped. */
 @Composable
@@ -1453,11 +1534,7 @@ internal fun ArtistCreditsMarquee(
     val textMeasurer = rememberTextMeasurer()
     val segments = remember(text, credits) { creditSegments(text, credits) }
 
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        if (!enabled) {
-            CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
-            return@Row
-        }
+    Row(modifier = modifier.vibrancy(color), verticalAlignment = Alignment.CenterVertically) {
         BoxWithConstraints(Modifier.weight(1f, fill = false).clipToBounds()) {
             val maxWidthPx = constraints.maxWidth
             // Measured as one string, exactly as the single-line version measured
@@ -1467,7 +1544,8 @@ internal fun ArtistCreditsMarquee(
                 textMeasurer.measure(text = text, style = style, maxLines = 1, softWrap = false)
             }
             val overflowing = layout.size.width > maxWidthPx
-            val travelPx = if (overflowing) {
+            val crawls = enabled && overflowing
+            val travelPx = if (crawls) {
                 layout.size.width + with(density) { MARQUEE_GAP.roundToPx() }
             } else {
                 0
@@ -1491,12 +1569,13 @@ internal fun ArtistCreditsMarquee(
 
             Row(
                 modifier = Modifier
+                    .marqueeFade(overflowing, travelPx) { offsetX.value }
                     .wrapContentWidth(align = Alignment.Start, unbounded = true)
                     .offset { IntOffset(offsetX.value.roundToInt(), 0) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
-                if (overflowing) {
+                if (crawls) {
                     Spacer(Modifier.width(MARQUEE_GAP))
                     CreditLine(segments = segments, style = style, color = color, onOpenArtist = onOpenArtist)
                 }
@@ -1710,7 +1789,7 @@ private fun LosslessLabel(
             painter = iconPainter,
             contentDescription = null,
             tint = tint,
-            modifier = if (iconSize.isSpecified) Modifier.size(iconSize) else Modifier,
+            modifier = (if (iconSize.isSpecified) Modifier.size(iconSize) else Modifier).vibrancy(tint),
         )
         Spacer(Modifier.width(4.dp))
         if (animated) {
@@ -1725,6 +1804,7 @@ private fun LosslessLabel(
                 color = LocalPlayerTint.current.copy(alpha = 0.45f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(LocalPlayerTint.current),
             )
         }
     }
@@ -1777,6 +1857,7 @@ private fun ShimmerText(
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
+            .vibrancy(tint)
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
             .drawWithContent {
                 drawContent()

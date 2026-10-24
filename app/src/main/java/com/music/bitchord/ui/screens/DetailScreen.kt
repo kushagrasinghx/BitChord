@@ -14,7 +14,21 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-import com.music.bitchord.ui.components.liquidGlassRim
+import com.music.bitchord.ui.components.isLiquidGlassActive
+import com.music.bitchord.ui.components.LocalAppBackdrop
+import com.music.bitchord.ui.components.LocalBackdropLuminance
+import com.music.bitchord.ui.components.LocalGlassFloor
+import com.music.bitchord.ui.components.GlassArea
+import com.music.bitchord.ui.components.glassArea
+import com.music.bitchord.ui.components.glassContentColor
+import com.music.bitchord.ui.components.rememberBackdropLuminance
+import com.music.bitchord.ui.components.GLASS_EDGE_COLOR
+import com.music.bitchord.ui.components.GLASS_EDGE_WIDTH
+import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
+import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
+import com.music.bitchord.ui.components.continuous
+import com.music.bitchord.ui.components.FadingText
+import com.music.bitchord.ui.components.liquidGlass
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +81,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,6 +110,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -103,6 +119,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -110,6 +127,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
@@ -166,8 +184,10 @@ import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
 import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.SearchPlayingBars
 import com.music.bitchord.ui.components.libraryGrid
-import com.music.bitchord.ui.components.lightweightLiquidGlass
 import com.music.bitchord.ui.components.thumbnailBorder
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
+import com.music.bitchord.ui.components.vibrantBorder
 import com.music.bitchord.ui.components.detailSkeleton
 import com.music.bitchord.ui.components.topBarContentPadding
 import com.music.bitchord.ui.components.trackColumnWidth
@@ -520,7 +540,18 @@ fun DetailScreen(
             // dissolve, so it takes the same [ArtworkPalette.background] the
             // bars at either end of the screen are already fading into.
             val pageColor = if (isArtist) palette.wash else palette.background
-            BoxWithConstraints(Modifier.fillMaxSize().background(pageColor)) {
+            // The page's background on its own, under the list, for the glass
+            // controls in the list to sample. The app's backdrop is the whole
+            // page, those controls included, and a control drawing the layer
+            // it is being recorded into is a cycle.
+            val pageGlass = if (pageSamplesGlass()) rememberLayerBackdrop() else null
+            val pageLuminance = pageGlass?.let { rememberBackdropLuminance(it) }
+            CompositionLocalProvider(
+                LocalAppBackdrop provides (pageGlass ?: LocalAppBackdrop.current),
+                LocalGlassFloor provides (pageGlass ?: LocalGlassFloor.current),
+                LocalBackdropLuminance provides (pageLuminance ?: LocalBackdropLuminance.current),
+            ) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
                 // Measured rather than read off the window. The player runs
                 // full-screen at every window size, so this page's own width in
                 // landscape is the *whole* window. Straight off that width, the ratio hands back
@@ -539,16 +570,23 @@ fun DetailScreen(
                 // both need to agree on its height without being able to ask each
                 // other — see [artHeight]. A release has no such layer: its sleeve
                 // is an ordinary item at the top of the list.
-                if (isArtist) {
-                    PageBackground(
-                        page = page,
-                        palette = palette,
-                        canvas = canvas,
-                        artHeight = artHeight,
-                        listState = listState,
-                        heroUrl = appleArt?.heroUrl,
-                        modifier = Modifier.matchParentSize(),
-                    )
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .then(if (pageGlass != null) Modifier.layerBackdrop(pageGlass) else Modifier)
+                        .background(pageColor),
+                ) {
+                    if (isArtist) {
+                        PageBackground(
+                            page = page,
+                            palette = palette,
+                            canvas = canvas,
+                            artHeight = artHeight,
+                            listState = listState,
+                            heroUrl = appleArt?.heroUrl,
+                            modifier = Modifier.matchParentSize(),
+                        )
+                    }
                 }
 
                 if (reorder != null) {
@@ -865,6 +903,7 @@ fun DetailScreen(
                 }
 
     }
+            }
 } else {
     ArtistShelfGridPage(
         shelf = targetShelf,
@@ -1133,7 +1172,7 @@ private fun DetailSearchField(
             .height(46.dp)
             .clip(PILL_SHAPE)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), PILL_SHAPE)
+            .vibrantBorder(0.5.dp, Color.White.copy(alpha = 0.10f), PILL_SHAPE)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1573,26 +1612,27 @@ private fun ActionPill(
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
     val haptics = rememberHaptics()
-    val content = if (filled) Color.Black else MaterialTheme.colorScheme.onSurface
+    val area = remember { GlassArea() }
+    val content = if (filled) Color.Black else detailGlassContent(area)
     Row(
         modifier = modifier
             .height(size)
-            .clip(CircleShape)
             .then(
                 if (filled) {
-                    Modifier.background(Color.White)
+                    Modifier.background(Color.White, CircleShape)
                 } else {
-                    Modifier
-                        .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
-                        .liquidGlassRim(CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+                    Modifier.detailGlass(CircleShape)
                 },
             )
+            // After the surface: glass draws its outline just outside its edge.
+            .clip(CircleShape)
             .clickable {
                 haptics.play(Haptic.Resume)
                 onClick()
             }
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 24.dp)
+            // Inside the padding: what is under the glyph and the label.
+            .glassArea(area),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1684,16 +1724,14 @@ private fun CircleIconButton(
     enabled: Boolean = true,
 ) {
     val haptics = rememberHaptics()
+    val area = remember { GlassArea() }
     Box(
         modifier = Modifier
             .size(size)
             .alpha(if (enabled) 1f else DISABLED_ACTION_ALPHA)
+            .detailGlass(CircleShape)
+            // After the surface: glass draws its outline just outside its edge.
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
-            // The glass rim the floating bars wear, with Liquid Glass on. Rim
-            // only: over the page's flat tint a blurred fill would look the same.
-            .liquidGlassRim(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
             .clickable(enabled = enabled) {
                 haptics.play(haptic)
                 onClick()
@@ -1703,8 +1741,9 @@ private fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(size * 0.44f),
+            tint = detailGlassContent(area),
+            // What is under the glyph, not the whole circle round it.
+            modifier = Modifier.size(size * 0.44f).glassArea(area),
         )
     }
 }
@@ -1751,10 +1790,16 @@ private fun StatChip(icon: ImageVector, text: String, palette: ArtworkPalette) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .lightweightLiquidGlass(
-                shape = CircleShape,
-                fallbackColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+            .then(
+                if (pageSamplesGlass()) {
+                    Modifier.liquidGlass(CircleShape)
+                } else {
+                    Modifier
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), CircleShape)
+                        .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, CircleShape)
+                },
             )
+            .clip(CircleShape)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
         Icon(
@@ -1805,7 +1850,7 @@ private fun SignedByCaption(
         textAlign = textAlign,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        modifier = modifier,
+        modifier = modifier.vibrancy(palette.onBackground),
     )
 }
 
@@ -2116,7 +2161,13 @@ private fun ShelfItem.recentLabel(): Int {
 
 /**
  * The artist page's top-release card: sleeve, what it is and when, and its
- * title, in a rounded glass panel the width of the page.
+ * title, in a squircle panel the width of the page.
+ *
+ * Proportioned off Apple Music's: a 24pt continuous corner, a 96pt sleeve 12pt
+ * in from the edge, the text 12pt after it, and a 32pt add button 19pt in
+ * from the end. The panel is Apple's own surface, a plus-lighter veil with a
+ * light hairline — tried in the page's glass, it pulled the eye — and the add
+ * button, being a button, is the page's glass (see [detailGlass]).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -2130,64 +2181,79 @@ private fun TopReleaseCard(
     /** Null hides the button. */
     onToggleSaved: (() -> Unit)?,
 ) {
-    val shape = RoundedCornerShape(28.dp)
-    val coverShape = RoundedCornerShape(12.dp)
+    val shape = remember { RoundedCornerShape(TOP_RELEASE_CORNER).continuous() }
+    // Concentric with the panel: its corner less the inset the sleeve sits at.
+    val coverShape = remember { RoundedCornerShape(TOP_RELEASE_CORNER - TOP_RELEASE_INSET).continuous() }
     val haptics = rememberHaptics()
+    val hasButton = onToggleSaved != null && saved != null
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ARTIST_CONTENT_GUTTER)
             .padding(bottom = 22.dp)
-            // A light veil rather than the dark glass: Apple's containers read
-            // slightly white against the page, and a dark panel reads as a hole.
-            .clip(shape)
-            .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), shape)
-            .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), shape)
+            .vibrantBackground(Color.White.copy(alpha = LIGHT_FILL_ALPHA), shape)
+            .lightReleaseEdge(shape)
             .clip(shape)
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
-            .padding(16.dp),
+            .padding(
+                start = TOP_RELEASE_INSET,
+                top = TOP_RELEASE_INSET,
+                bottom = TOP_RELEASE_INSET,
+                end = if (hasButton) 19.dp else TOP_RELEASE_INSET,
+            ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
             model = item.thumbnailUrl.artworkAt(CARD_ART_PX),
             contentDescription = null,
             modifier = Modifier
-                .size(88.dp)
+                .size(96.dp)
                 .clip(coverShape)
                 .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_COVER_EDGE_ALPHA), coverShape)
                 .background(palette.elevated),
         )
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
+            // The lines either side of the title in the player's secondary
+            // treatment, the artist line's: the page's own colour, partly
+            // transparent and added plus-lighter onto the panel.
+            val secondary = palette.onBackground.copy(alpha = TOP_RELEASE_SECONDARY_ALPHA)
             Text(
                 text = item.subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = palette.onBackgroundVariant,
+                color = secondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.vibrancy(palette.onBackground),
             )
-            Text(
+            // Faded out at the end of its last line, as the player's title is,
+            // and set a little tighter than the scale for when it takes two.
+            FadingText(
                 text = item.title,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleLarge.copy(
+                    lineHeight = TOP_RELEASE_TITLE_LINE_HEIGHT,
+                    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+                ),
                 color = palette.onBackground,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = stringResource(item.recentLabel()),
                 style = MaterialTheme.typography.bodyMedium,
-                color = palette.onBackgroundVariant,
+                color = secondary,
                 maxLines = 1,
+                modifier = Modifier.vibrancy(palette.onBackground),
             )
         }
         if (onToggleSaved != null && saved != null) {
             Spacer(Modifier.width(10.dp))
+            val area = remember { GlassArea() }
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(32.dp)
+                    .detailGlass(CircleShape)
+                    // After the surface: glass draws its outline just outside its edge.
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
-                    .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
                     .clickable {
                         haptics.play(if (saved) Haptic.ToggleOff else Haptic.ToggleOn)
                         onToggleSaved()
@@ -2199,21 +2265,67 @@ private fun TopReleaseCard(
                     contentDescription = stringResource(
                         if (saved) R.string.remove_from_library else R.string.add_to_library,
                     ),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(22.dp),
+                    tint = detailGlassContent(area),
+                    modifier = Modifier.size(17.dp).glassArea(area),
                 )
             }
         }
     }
 }
 
-/** The white veil under Apple-style containers and their buttons. */
+/** The top-release panel's continuous corner, and the inset its sleeve sits at. */
+private val TOP_RELEASE_CORNER = 24.dp
+private val TOP_RELEASE_INSET = 12.dp
+
+/** The panel's secondary lines, at the player's artist line's strength. */
+private const val TOP_RELEASE_SECONDARY_ALPHA = 0.55f
+
+/** The panel's title on two lines: a little under titleLarge's natural 24sp. */
+private val TOP_RELEASE_TITLE_LINE_HEIGHT = 22.sp
+
+/** The white veil under Apple-style containers and their buttons, added onto the page. */
 private const val LIGHT_FILL_ALPHA = 0.07f
 /** A side button this user can't use — a guest's Add or Subscribe. */
 private const val DISABLED_ACTION_ALPHA = 0.38f
 
 /** Brighter than the default 0.15 hairlines, as on Apple Music's own card. */
 private const val TOP_RELEASE_EDGE_ALPHA = 0.10f
+
+/** The light hairline round those containers and buttons, added onto the page like the veil. */
+private fun Modifier.lightReleaseEdge(shape: Shape): Modifier =
+    vibrantBorder(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), shape)
+
+/**
+ * Whether the page's glass controls sample it: liquid glass on and supported,
+ * and dynamic blur not reduced — the test the app's own backdrop is recorded
+ * under, so nothing samples a layer that is not being drawn.
+ */
+@Composable
+private fun pageSamplesGlass(): Boolean {
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    return isLiquidGlassActive() && !reduceDynamicBlur
+}
+
+/**
+ * The page's own glass controls, in the floating bars' own compositing while
+ * the page's background is recorded for them — sampled, blurred, saturated and
+ * lifted, with the same rim — and in the light veil and hairline otherwise.
+ */
+@Composable
+private fun Modifier.detailGlass(shape: CornerBasedShape): Modifier =
+    if (pageSamplesGlass()) {
+        liquidGlass(shape)
+    } else {
+        vibrantBackground(Color.White.copy(alpha = LIGHT_FILL_ALPHA), shape).lightReleaseEdge(shape)
+    }
+
+/**
+ * Glyph colour on a [detailGlass] control at [area]: turning dark over a light
+ * page while it is glass — see [glassContentColor] — and the theme's otherwise.
+ */
+@Composable
+private fun detailGlassContent(area: GlassArea): Color =
+    if (pageSamplesGlass()) glassContentColor(area) else MaterialTheme.colorScheme.onSurface
 private const val TOP_RELEASE_COVER_EDGE_ALPHA = 0.215f
 
 @OptIn(ExperimentalFoundationApi::class)

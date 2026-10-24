@@ -73,6 +73,8 @@ import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.stats.ReplaySummary
+import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
 import com.music.bitchord.ui.player.rememberArtworkColors
@@ -417,7 +419,7 @@ private fun StoryChrome(
                 painter = painterResource(R.drawable.ic_logo),
                 contentDescription = null,
                 tint = Color.White.copy(alpha = 0.9f),
-                modifier = Modifier.size(width = 26.dp, height = 17.dp),
+                modifier = Modifier.size(width = 26.dp, height = 17.dp).vibrancy(),
             )
             Spacer(Modifier.width(7.dp))
             Text(
@@ -425,6 +427,7 @@ private fun StoryChrome(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.W700,
                 color = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.vibrancy(),
             )
         }
     }
@@ -436,7 +439,7 @@ private fun Segment(fraction: Float, modifier: Modifier = Modifier) {
         modifier
             .height(2.5.dp)
             .clip(RoundedCornerShape(2.dp))
-            .background(Color.White.copy(alpha = 0.28f)),
+            .vibrantBackground(Color.White.copy(alpha = 0.28f)),
     ) {
         Box(
             Modifier
@@ -490,7 +493,7 @@ private fun StoryPage(
                 Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.18f))
+                    .vibrantBackground(Color.White.copy(alpha = 0.18f))
                     .clickable { onShare(page) },
                 contentAlignment = Alignment.Center,
             ) {
@@ -529,7 +532,8 @@ private fun Headline(parts: List<HeadlineRun>) {
         style = MaterialTheme.typography.displayLarge,
         fontSize = 30.sp,
         lineHeight = 37.sp,
-        modifier = Modifier.fillMaxWidth(),
+        // All white: the bold runs stay pure white, the rest is added onto the card.
+        modifier = Modifier.fillMaxWidth().vibrancy(),
     )
 }
 
@@ -545,6 +549,7 @@ private fun ColumnScope.Intro(summary: ReplaySummary, headline: List<HeadlineRun
         text = stringResource(R.string.replay_private_counting),
         style = MaterialTheme.typography.bodyMedium,
         color = Color.White.copy(alpha = 0.5f),
+        modifier = Modifier.vibrancy(),
     )
 }
 
@@ -587,6 +592,7 @@ private fun ColumnScope.Minutes(summary: ReplaySummary, headline: List<HeadlineR
         },
         style = MaterialTheme.typography.bodyLarge,
         color = Color.White.copy(alpha = 0.62f),
+        modifier = Modifier.vibrancy(),
     )
 }
 
@@ -630,6 +636,7 @@ private fun ColumnScope.Leaderboard(
                     color = Color.White.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.vibrancy(),
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -641,6 +648,7 @@ private fun ColumnScope.Leaderboard(
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.55f),
+                modifier = Modifier.vibrancy(),
             )
         }
     }
@@ -660,12 +668,13 @@ private fun ColumnScope.Leaderboard(
                 color = Color.White.copy(alpha = 0.92f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).vibrancy(),
             )
             Text(
                 text = formatListening(context, row.ms),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.vibrancy(),
             )
         }
     }
@@ -692,6 +701,7 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
         text = formatListening(context, lead.ms),
         style = MaterialTheme.typography.titleMedium,
         color = Color.White.copy(alpha = 0.6f),
+        modifier = Modifier.vibrancy(),
     )
     Spacer(Modifier.height(22.dp))
     rows.drop(1).forEach { row ->
@@ -705,12 +715,13 @@ private fun ColumnScope.Genres(summary: ReplaySummary, headline: List<HeadlineRu
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.W600,
                 color = Color.White.copy(alpha = 0.85f),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).vibrancy(),
             )
             Text(
                 text = formatListening(context, row.ms),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.45f),
+                modifier = Modifier.vibrancy(),
             )
         }
     }
@@ -750,6 +761,7 @@ private fun BigStat(value: String, label: String) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = Color.White.copy(alpha = 0.58f),
+            modifier = Modifier.vibrancy(),
         )
     }
 }
@@ -768,6 +780,7 @@ private fun ColumnScope.Recap(summary: ReplaySummary, headline: List<HeadlineRun
         text = stringResource(R.string.tap_share_for_picture),
         style = MaterialTheme.typography.bodyLarge,
         color = Color.White.copy(alpha = 0.55f),
+        modifier = Modifier.vibrancy(),
     )
 }
 
@@ -781,7 +794,7 @@ private fun RecapLine(label: String, value: String) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = Color.White.copy(alpha = 0.5f),
-            modifier = Modifier.width(96.dp),
+            modifier = Modifier.width(96.dp).vibrancy(),
         )
         Text(
             text = value,
@@ -819,7 +832,7 @@ private fun Cover(
             modifier = base,
         )
         fallbackText.isNotBlank() -> Box(base) { InitialTile(fallbackText, size, shape) }
-        else -> Box(base.background(Color.White.copy(alpha = 0.10f)))
+        else -> Box(base.vibrantBackground(Color.White.copy(alpha = 0.10f)))
     }
 }
 

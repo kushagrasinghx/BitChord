@@ -71,9 +71,12 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val reduceDynamicBlur get() = AppSettings.reduceDynamicBlur
         override val showNerdStats get() = AppSettings.showNerdStats
         override val smartAnalysis get() = AppSettings.smartAnalysis
+        override val automixDetail get() = AppSettings.automixDetail
         override val smartFadeEnabled get() = AppSettings.smartFadeEnabled
         override val smartMixInProgress get() = AppSettings.smartMixInProgress
         override val smartMixBlend get() = AppSettings.smartMixBlend
+        override val smartMixView get() = AppSettings.smartMixView
+        override val smartMixProgress get() = AppSettings.smartMixProgress
         override val smartTransitionWindow get() = AppSettings.smartTransitionWindow
         override val spotifyCanvasAutoHide get() = AppSettings.spotifyCanvasAutoHide
         override val syncedLyrics get() = AppSettings.syncedLyrics
@@ -90,6 +93,18 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
 
     @Composable
     override fun CanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) = AndroidCanvasVideo(spec, modifier)
+
+    override val musicVideoSupported: Boolean get() = true
+
+    @Composable
+    override fun MusicVideo(videoId: String, fit: Boolean, onRenderedChanged: (Boolean) -> Unit, modifier: Modifier) =
+        AndroidMusicVideo(videoId, fit, onRenderedChanged, modifier)
+
+    override val musicVideoAspect: StateFlow<Float> get() = MusicVideoEngine.aspect
+
+    override val musicVideoQuality: StateFlow<MusicVideoQualityUi> get() = MusicVideoEngine.quality
+
+    override fun setMusicVideoQuality(height: Int?) = MusicVideoEngine.setQuality(height)
 
     @Composable
     override fun rememberRemoteArtworkUrl(song: Song?): String? =

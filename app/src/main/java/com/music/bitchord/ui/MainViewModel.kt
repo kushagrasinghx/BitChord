@@ -15,6 +15,19 @@ import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.TopPicks
+import com.music.bitchord.data.AppleArtistPhotos
+import com.music.bitchord.data.model.ArtistRef
+import com.music.bitchord.data.model.TopPick
+import com.music.bitchord.data.stats.ListeningStats
+import com.music.bitchord.data.stats.ReplayPeriod
+import android.util.Log
+import java.io.File
+import java.time.LocalDate
+import java.time.LocalDateTime
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
+import kotlin.coroutines.cancellation.CancellationException
 import com.music.bitchord.data.model.SPOTIFY_MISSING_PREFIX
 import com.music.bitchord.data.model.SPOTIFY_PENDING_PREFIX
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
@@ -90,6 +103,7 @@ import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.BoundedContextRequests
+import com.music.bitchord.playback.DirectSourceGate
 import com.music.bitchord.playback.contextEntryKey
 import com.music.bitchord.playback.StreamChoice
 import com.music.bitchord.ui.screens.CACHE_FOLDER_BROWSE_ID
@@ -143,6 +157,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _homeRecentlyPlayedLoading = MutableStateFlow(false)
     val homeRecentlyPlayedLoading: StateFlow<Boolean> = _homeRecentlyPlayedLoading.asStateFlow()
     private val homeLoadGeneration = AtomicLong(0L)
+
+    /**
+     * Home's "Top Picks for You" row: null until built, empty if there was
+     * nothing to build it from. Declared ahead of [init] for the same reason
+     * as [homeContinuation] — [loadHome] reaches it synchronously.
+     */
+    private val _topPicks = MutableStateFlow<List<TopPick>?>(null)
+    val topPicks: StateFlow<List<TopPick>?> = _topPicks.asStateFlow()
+    private val _topPicksLoading = MutableStateFlow(false)
+    val topPicksLoading: StateFlow<Boolean> = _topPicksLoading.asStateFlow()
+    private var topPicksJob: Job? = null
 
     private val _explore = MutableStateFlow<UiState<List<MoodGenreSection>>>(UiState.Loading)
     val explore: StateFlow<UiState<List<MoodGenreSection>>> = _explore.asStateFlow()
@@ -1432,7 +1457,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         startSuggestPipeline()
         startTypeaheadMediaPipeline()
         loadHome()
-        loadExplore()
+        // Explore waits for its tab (see [onExploreShown]): its category list
+        // and the dozen-odd artwork browses after it went out at launch with
+        // Home's own requests, to the same host, for a page not yet opened.
         if (_signedIn.value) {
             loadLibrary()
             loadAccount()
@@ -1568,8 +1595,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun loadExplore() {
+        exploreRequested = true
         _explore.value = UiState.Loading
         viewModelScope.launch { fetchExplore() }
+    }
+
+    private var exploreRequested = false
+
+    /** Call when the Explore tab becomes visible; loads it the first time. */
+    fun onExploreShown() {
+        if (!exploreRequested) loadExplore()
     }
 
     private suspend fun fetchExplore() {
@@ -1655,6 +1690,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // out: it has its own skeleton at the head of the page rather than the
         // one at the tail.
         _homePendingShelves.value = 1 + YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.size
+        loadTopPicks(identity, rebuild = false)
         viewModelScope.launch {
             launch {
                 try {
@@ -1702,6 +1738,94 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
+     * Puts the Top Picks row on screen. A row lasts one hour of the clock —
+     * 3:00 to 4:00, not sixty minutes from whenever it was first built — and
+     * the first open in a new hour builds the next one. Until that's ready the
+     * last row stays up, so Home never waits on it; within the hour an open
+     * makes no requests for it at all. [rebuild] builds one regardless.
+     */
+    private fun loadTopPicks(identity: String?, rebuild: Boolean) {
+        topPicksJob?.cancel()
+        val file = File(getApplication<Application>().filesDir, TOP_PICKS_FILE)
+        val slot = topPicksSlot()
+        topPicksJob = viewModelScope.launch {
+            val stored = withContext(Dispatchers.IO) {
+                runCatching { file.takeIf { it.exists() }?.readText() }.getOrNull()?.let(TopPicks::decode)
+            }?.takeIf { it.listener == identity && it.picks.isNotEmpty() }
+            stored?.let { AppleArtistPhotos.seed(it.photos) }
+            if (stored != null) {
+                _topPicks.value = stored.picks
+                topPicksSlotShown = stored.day
+            } else if (!rebuild) {
+                _topPicks.value = null
+            }
+            if (!rebuild && stored?.day == slot) {
+                _topPicksLoading.value = false
+                return@launch
+            }
+            _topPicksLoading.value = _topPicks.value == null
+            val picks = buildTopPicks()?.takeIf { it.isNotEmpty() }
+            if (identity != listenerKey()) return@launch
+            _topPicksLoading.value = false
+            if (picks == null) {
+                if (_topPicks.value == null) _topPicks.value = emptyList()
+                return@launch
+            }
+            _topPicks.value = picks
+            topPicksSlotShown = slot
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    file.writeText(TopPicks.encode(TopPicks.Stored(identity, slot, picks, AppleArtistPhotos.snapshot())))
+                }
+            }
+        }
+    }
+
+    /** The hour the row on screen was built in, e.g. `2026-10-21T15`. */
+    private var topPicksSlotShown: String? = null
+
+    /**
+     * Called when the app comes back to the foreground: if the clock has
+     * crossed into a new hour since the row on screen was built, build the
+     * next one. A no-op otherwise, and while one is building.
+     */
+    fun refreshTopPicksIfStale() {
+        if (topPicksJob?.isActive == true) return
+        if (topPicksSlotShown == null || topPicksSlotShown == topPicksSlot()) return
+        loadTopPicks(listenerKey(), rebuild = false)
+    }
+
+    /** Which hour of the clock [now] falls in: the date and the hour, 00 to 23. */
+    private fun topPicksSlot(now: LocalDateTime = LocalDateTime.now()): String =
+        "${now.toLocalDate()}T%02d".format(now.hour)
+
+    private suspend fun buildTopPicks(): List<TopPick>? {
+        // Home's first page may already hold the account's mixes; give it a
+        // moment to land so the builder reads them off it instead of asking.
+        val shelves = withTimeoutOrNull(8_000L) { _home.first { it !is UiState.Loading } }
+            .let { (it as? UiState.Success)?.data.orEmpty() }
+        return try {
+            TopPicks.build(shelves, localTaste())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("BitChord", "topPicks failed: ${e.message}")
+            null
+        }
+    }
+
+    /** This app's own Replay chart for the month — Top Picks' second opinion, and all it has signed out. */
+    private suspend fun localTaste(): TopPicks.LocalTaste {
+        val month = runCatching { ListeningStats.summary(ReplayPeriod.THIS_MONTH) }.getOrNull()
+            ?: return TopPicks.LocalTaste()
+        return TopPicks.LocalTaste(
+            artists = month.artists.take(10).map { ArtistRef(name = it.title, browseId = it.browseId) },
+            songs = month.songs.take(5).map { it.song },
+            genres = month.genres.take(3).map { it.title },
+        )
+    }
+
+    /**
      * One of the parallel first-page requests has finished. Ignored once a newer
      * load has taken over, which has already reset the count for its own fan-out.
      */
@@ -1733,6 +1857,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Refreshes the core feed without blanking the current Play page first. */
     private suspend fun refreshHome(identity: String?) = coroutineScope {
         val recent = if (_signedIn.value) async { YtMusicRepository.homeRecentlyPlayed() } else null
+        // Top Picks keeps to its hour; a pull refreshes the feed, not the
+        // picks, unless the hour has already turned over.
+        if (topPicksJob?.isActive != true) loadTopPicks(identity, rebuild = false)
         YtMusicRepository.home().onSuccess { feed ->
             if (identity != listenerKey()) return@onSuccess
             homeContinuation = feed.continuation
@@ -2361,6 +2488,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 is SearchResult.Browse -> null
             }
         } ?: return
+        // Direct Source Stream fetches nothing before it is played. Warming
+        // here would also pin JioSaavn's quick answer ahead of the addon.
+        if (DirectSourceGate.isActive()) return
         viewModelScope.launch {
             runCatching {
                 val audio = song
@@ -2396,6 +2526,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        /** Today's Top Picks row, kept so the next launch paints it before any request. */
+        private const val TOP_PICKS_FILE = "top_picks_v4.json"
+
         /** Per-addon budget for the Addons search tab; a slow addon is left out, not waited on. */
         private const val ADDON_SEARCH_TIMEOUT_MS = 12_000L
         private const val ADDON_SEARCH_LIMIT = 20

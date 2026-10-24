@@ -72,6 +72,24 @@ actual fun HideStatusBar(hidden: Boolean) {
     }
 }
 
+@Composable
+actual fun HideSystemBars(hidden: Boolean) {
+    val view = LocalView.current
+    if (view.isInEditMode) return
+    val window = findWindow(view) ?: return
+    DisposableEffect(window, hidden) {
+        if (!hidden) return@DisposableEffect onDispose {}
+        val controller = WindowCompat.getInsetsController(window, view)
+        val behavior = controller.systemBarsBehavior
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        onDispose {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = behavior
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 actual fun stableStatusBarInsets(): WindowInsets = WindowInsets.statusBarsIgnoringVisibility

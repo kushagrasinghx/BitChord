@@ -1,7 +1,10 @@
 package com.music.bitchord.data.canvas
 
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.AppleCatalogue
 import com.music.bitchord.data.Http
+import com.music.bitchord.data.model.DetailPage
+import com.music.bitchord.data.model.UiState
 import androidx.compose.ui.graphics.Color
 import com.music.bitchord.ui.theme.ArtworkKeyColors
 import kotlinx.coroutines.Dispatchers
@@ -49,9 +52,12 @@ fun AppleArtistArt.keyColors() = ArtworkKeyColors(Color(background), Color(accen
  * an API Apple publishes, so every step here treats a surprise as "no art" —
  * the YouTube header is always underneath.
  *
- * A search will happily return somebody else, so an answer is only taken when
- * the name Apple gives back is the name that was asked for. Most artists have
- * no logo; those, and every miss, are cached so a revisit costs nothing.
+ * A name is not an identity: Apple has a "Krsna" who is not YouTube's KR$NA,
+ * and a search will happily return either. So a same-named Apple artist is only
+ * taken when their catalogue shares a song or release title with the YouTube
+ * page's own ([appleCatalogue]). Answers are cached per YouTube browse id,
+ * since two channels with one name can deserve different answers. Most artists
+ * have no logo; those, and every miss, are cached so a revisit costs nothing.
  */
 object AppleArtistArtRepository {
 
@@ -80,34 +86,45 @@ object AppleArtistArtRepository {
     val updates: StateFlow<Int> = _updates
 
     /**
-     * What is already known for [artistName], without a request — null for a
-     * name never looked up *and* for one known to have nothing, which is the
-     * same thing to a caller that is only deciding what to draw first.
+     * What is already known for the YouTube artist [browseId], without a
+     * request — null for a page never looked up *and* for one known to have
+     * nothing, which is the same thing to a caller that is only deciding what
+     * to draw first.
      */
-    fun cached(artistName: String): AppleArtistArt? {
-        val key = artistName.normalized()
-        return synchronized(cache) { cache[key] }?.art
-    }
+    fun cached(browseId: String): AppleArtistArt? =
+        synchronized(cache) { cache[browseId] }?.art
 
-    /** The header art for [artistName], or null when Apple has none. Never throws. */
-    suspend fun artFor(artistName: String): AppleArtistArt? {
+    /**
+     * The header art for the YouTube artist [browseId], billed as [artistName],
+     * or null when Apple has none — or none that provably is this artist.
+     * [catalogue] gives the page's own song and release titles, and is only
+     * asked on a cache miss since it may cost a page fetch; with none, nothing
+     * can be proved and nothing is asked. Never throws.
+     */
+    suspend fun artFor(
+        browseId: String,
+        artistName: String,
+        catalogue: suspend () -> Collection<String>,
+    ): AppleArtistArt? {
         val key = artistName.normalized()
         if (key.isEmpty()) return null
-        synchronized(cache) { cache[key] }?.let { return it.art }
+        synchronized(cache) { cache[browseId] }?.let { return it.art }
+        val titles = AppleCatalogue.keys(runCatching { catalogue() }.getOrDefault(emptyList()))
+        if (titles.isEmpty()) return null
 
         // Null here is a network hiccup, not an answer — only a settled result
         // (including a genuine "no logo") is worth remembering.
         val entry = withContext(Dispatchers.IO) {
-            runCatching { lookup(artistName, key) }
+            runCatching { lookup(artistName, key, titles) }
                 .onFailure { Log.d(TAG, "lookup failed for $artistName: $it") }
                 .getOrNull()
         } ?: return null
-        synchronized(cache) { cache[key] = entry }
+        synchronized(cache) { cache[browseId] = entry }
         _updates.value++
         return entry.art
     }
 
-    private fun lookup(artistName: String, key: String): Entry? {
+    private fun lookup(artistName: String, key: String, titles: Set<String>): Entry? {
         val search = get(
             "https://itunes.apple.com/search?term=${URLEncoder.encode(artistName, "UTF-8")}" +
                 "&entity=musicArtist&limit=5",
@@ -116,13 +133,19 @@ object AppleArtistArtRepository {
         var page: String? = null
         for (i in 0 until results.length()) {
             val r = results.getJSONObject(i)
-            if (r.optString("artistName").normalized() == key) {
-                // The link carries the artist's slug; the bare id answers with
-                // a redirect to it, one more round trip for the same page.
-                page = r.optString("artistLinkUrl").substringBefore('?').takeIf { it.isNotBlank() }
-                    ?: r.optLong("artistId").takeIf { it > 0 }?.let { "https://music.apple.com/us/artist/$it" }
-                break
+            if (r.optString("artistName").normalized() != key) continue
+            val id = r.optLong("artistId").takeIf { it > 0 } ?: continue
+            // Every same-named candidate is checked, not just the first: the one
+            // Apple ranks highest is often the wrong one of two.
+            if (!AppleCatalogue.sharesTitles(id, titles)) {
+                Log.d(TAG, "$artistName: Apple ${r.optString("artistName")} ($id) shares no titles, skipped")
+                continue
             }
+            // The link carries the artist's slug; the bare id answers with
+            // a redirect to it, one more round trip for the same page.
+            page = r.optString("artistLinkUrl").substringBefore('?').takeIf { it.isNotBlank() }
+                ?: "https://music.apple.com/us/artist/$id"
+            break
         }
         if (page == null) return Entry(null)
 
@@ -210,8 +233,12 @@ object AppleArtistArtRepository {
         }
     }
 
-    /** Case, accents and punctuation are not what makes two names different. */
-    private fun String.normalized(): String =
-        java.text.Normalizer.normalize(lowercase(Locale.ROOT), java.text.Normalizer.Form.NFD)
-            .filter { it.isLetterOrDigit() }
+    private fun String.normalized(): String = AppleCatalogue.matchKey(this)
 }
+
+/**
+ * The titles an artist page vouches for, as the evidence
+ * [AppleArtistArtRepository.artFor] checks Apple's artist against.
+ */
+fun DetailPage.appleCatalogue(): List<String> =
+    AppleCatalogue.titlesOf((songs as? UiState.Success)?.data.orEmpty(), sections)

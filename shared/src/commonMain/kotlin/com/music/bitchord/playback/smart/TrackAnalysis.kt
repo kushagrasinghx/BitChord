@@ -21,6 +21,9 @@
 
 package com.music.bitchord.playback.smart
 
+import kotlin.math.log10
+import kotlin.math.pow
+
 /**
  * Stored offline analysis for one track, in that track's own timeline seconds.
  *
@@ -91,6 +94,26 @@ data class TrackAnalysis(
     val vocalActivityMask: List<Double> = emptyList(),
     /** Whole-track vocal likelihood, distinct from the per-sample [vocalActivityMask]. */
     val vocalProbability: Double = 0.0,
+
+    /**
+     * Beat This!'s grid over the opening (what the track is mixed *in* on) and
+     * over its last minute (what it is mixed *out* on), kept apart. One grid
+     * cannot fit both: a breakdown that comes back half a beat off breaks any
+     * single fit. Null where the model found too few beats there.
+     */
+    val headBeats: BeatSide? = null,
+    val tailBeats: BeatSide? = null,
+    /**
+     * The open-unmix model's own output over each window it ran on, unresampled.
+     * Unlike [vocalActivityMask] this says where nothing was measured, which is
+     * what a loop must not be cut from. See [LoopMix.maskStats].
+     */
+    val vocalWindows: List<CurveWindow> = emptyList(),
+    /**
+     * RMS level over the same windows, at [LEVEL_FRAME_RATE]: fine enough to
+     * judge one bar's loudness, which the 240-point [energyCurve] is not.
+     */
+    val levelWindows: List<CurveWindow> = emptyList(),
 ) {
     /**
      * Whether this analysis actually describes a track, as opposed to standing
@@ -164,3 +187,37 @@ enum class TransitionTier {
     /** The evidence supports nothing beyond an equal-power fade at the analyzed anchor. */
     PLAIN_CROSSFADE,
 }
+
+/**
+ * The model's beats over one stretch of a track, in its own seconds.
+ * [bpm] is the tempo across them; [confidence] the grid's, 0..1.
+ */
+data class BeatSide(
+    val beats: List<Double>,
+    val downbeats: List<Double>,
+    val bpm: Double,
+    val confidence: Double,
+)
+
+/** Frames per second of [TrackAnalysis.levelWindows]. */
+const val LEVEL_FRAME_RATE = 10.0
+
+/**
+ * One curve over one analysed window: [values] at [frameRate] per second from
+ * [startTime] (track seconds). The vocal model's output (0..1, compared against
+ * [VOCAL_ACTIVE_THRESHOLD]), or the RMS level.
+ */
+class CurveWindow(
+    val startTime: Double,
+    val frameRate: Double,
+    val values: FloatArray,
+) {
+    val endTime: Double get() = startTime + values.size / frameRate
+}
+
+/** A level window's value for an RMS: -60..0 dBFS onto 0..1, so hundredths are 0.6 dB steps. */
+fun levelFromRms(rms: Double): Double =
+    if (rms <= 1e-3) 0.0 else ((20 * log10(rms) + 60) / 60).coerceIn(0.0, 1.0)
+
+/** The RMS a [levelFromRms] value stands for. */
+fun rmsFromLevel(level: Double): Double = if (level <= 0) 0.0 else 10.0.pow((level * 60 - 60) / 20)

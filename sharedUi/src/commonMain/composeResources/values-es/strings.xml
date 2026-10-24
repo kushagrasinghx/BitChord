@@ -189,8 +189,6 @@
     <string name="sign_in">Iniciar sesión</string>
     <string name="sign_in_youtube_music">Iniciar sesión en YouTube Music</string>
     <string name="subscriptions">Suscripciones</string>
-    <string name="switch_to_grid_view">Cambiar a vista de cuadrícula</string>
-    <string name="switch_to_list_view">Cambiar a vista de lista</string>
     <string name="your_replay">Tu Replay</string>
     <string name="your_listening_experience">Tu experiencia musical</string>
     <string name="default_replay_holder">Oyente de BitChord</string>

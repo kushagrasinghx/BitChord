@@ -27,6 +27,16 @@ sealed interface AppRoute {
 
     /** A Library shelf's "Show all" — its own cards laid out again as a grid. */
     data class LibraryShowAll(val shelf: HomeShelf) : AppRoute
+
+    /**
+     * An artist page's "Show all" for one shelf. Not a page of its own: the
+     * artist page draws the shelf in place, so this only records that it is
+     * open — which is what lets an album opened from it come back to it.
+     */
+    data class ArtistShelf(val browseId: String, val shelf: HomeShelf) : AppRoute
+
+    /** Find Your Mood's Show all: every mood and activity, as a grid. */
+    data object Moods : AppRoute
 }
 
 /**

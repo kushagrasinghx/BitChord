@@ -208,7 +208,9 @@ object QualityUpgrade {
         // played. [SourceResolver.upgradeFor] applies the real quality bar.
         if (target.title.isBlank() || target.isVideo ||
             mediaId in refused ||
-            !SourceResolver.canSubstituteForYouTube()
+            !SourceResolver.canSubstituteForYouTube() ||
+            // Direct Source Stream plays one stream per track and never swaps.
+            DirectSourceGate.isActive()
         ) {
             inFlight?.cancel()
             return false
@@ -286,6 +288,9 @@ object QualityUpgrade {
         // overruled — see [askByHand].
         if (mediaId !in handAsked && uri.getQueryParameter(MARKER) != null) return false
         if (mediaId in asked || mediaId in refused || pending.containsKey(mediaId)) return false
+        // Direct Source Stream never swaps on its own. Asking by hand still
+        // works: that is the listener overruling the copy, not a background hunt.
+        if (mediaId !in handAsked && DirectSourceGate.isActive()) return false
         // Same widening as [settledForLess]: a track playing off the cache is
         // worth a second look whenever anything outranks YouTube, not only
         // when lossless was asked for.

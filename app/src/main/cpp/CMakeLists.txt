@@ -48,6 +48,22 @@ target_link_libraries(bitchord_analysis ${log-lib})
 # unaffected. APK-side alignment of uncompressed .so files is handled by AGP.
 target_link_options(bitchord_analysis PRIVATE "-Wl,-z,max-page-size=16384")
 
+# Automix's loop mix: two Signalsmith Stretch decks looping whole bars on a
+# ramping tempo, rendered inside the outgoing player's audio sink. Signalsmith
+# Stretch and its FFT (signalsmith-linear) are MIT and header-only, vendored
+# under native/third_party. Fast-math is safe here (nothing in it depends on
+# exact IEEE behaviour) and lets the STFT's complex arithmetic vectorise.
+add_library(bitchord_loopmix SHARED
+    ${BITCHORD_NATIVE_DIR}/loopmix/loop_mix_renderer.cpp
+    jni/loopmix_jni.cpp
+)
+target_include_directories(bitchord_loopmix PRIVATE
+    ${BITCHORD_NATIVE_DIR}
+    ${BITCHORD_NATIVE_DIR}/third_party
+)
+target_compile_options(bitchord_loopmix PRIVATE -O3 -ffast-math -fvisibility=hidden -Wno-unused-parameter)
+target_link_options(bitchord_loopmix PRIVATE "-Wl,-z,max-page-size=16384")
+
 # DSD playback (DSF/DFF). The decimator turns 1-bit DSD into float PCM for
 # DsdExtractor; DST is the lossless compression SACD rips use inside DFF.
 # DST is LGPL (see dsd/dst/NOTICE.md), so it is a library of its own that can

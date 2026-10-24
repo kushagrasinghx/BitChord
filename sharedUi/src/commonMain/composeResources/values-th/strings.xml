@@ -189,8 +189,6 @@
     <string name="sign_in">ลงชื่อเข้าใช้</string>
     <string name="sign_in_youtube_music">ลงชื่อเข้าใช้ YouTube Music</string>
     <string name="subscriptions">Subscriptions</string>
-    <string name="switch_to_grid_view">สลับเป็นมุมมองกริด</string>
-    <string name="switch_to_list_view">สลับเป็นมุมมองรายการ</string>
     <string name="your_replay">Replay ของคุณ</string>
     <string name="your_listening_experience">ประสบการณ์การฟังของคุณ</string>
     <string name="default_replay_holder">ผู้ฟัง BitChord</string>

@@ -78,7 +78,11 @@ import kotlin.random.Random
  * as the old backdrop draws — would be thirty-six full-screen radial gradients.
  */
 @Immutable
-class ArtworkMesh internal constructor(internal val image: ImageBitmap)
+class ArtworkMesh internal constructor(
+    internal val image: ImageBitmap,
+    /** The mean of the sleeve's bottom edge — the one colour a flat backdrop holds. */
+    internal val edge: Color,
+)
 
 /**
  * One pre-blurred bitmap for the full-cover player backdrop.
@@ -316,6 +320,13 @@ fun ArtworkMeshBackdrop(
      * several times a second.
      */
     blurRadius: Dp = 32.dp,
+    /**
+     * Holds the artwork's bottom edge down the whole screen, darkening as it
+     * goes, instead of hanging the mesh under it. What a full-bleed square
+     * cover wants: the art dissolves into its own last colour, and that colour
+     * deepens towards the controls, with no blobs in between.
+     */
+    flat: Boolean = false,
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -350,7 +361,7 @@ fun ArtworkMeshBackdrop(
         }
         incoming = next
         fade.snapTo(0f)
-        fade.animateTo(1f, tween(MESH_FADE_MS, easing = FastOutSlowInEasing))
+        fade.animateTo(1f, tween(if (flat) FLAT_FADE_MS else MESH_FADE_MS, easing = FastOutSlowInEasing))
         shown = next
         incoming = null
     }
@@ -371,10 +382,20 @@ fun ArtworkMeshBackdrop(
             .then(if (canBlur) Modifier.blur(blurRadius) else Modifier),
     ) {
         val seamY = seam.toPx().coerceIn(0f, size.height)
-        shown?.let { drawMesh(it, seamY, alpha = 1f) }
+        shown?.let { drawMesh(it, seamY, alpha = 1f, flat = flat) }
         // Read here rather than in composition: an Animatable read inside a
         // draw lambda invalidates the drawing and leaves composition out of it.
-        incoming?.let { drawMesh(it, seamY, alpha = fade.value) }
+        incoming?.let { drawMesh(it, seamY, alpha = fade.value, flat = flat) }
+
+        if (flat) {
+            // Starts above the seam, behind the part of the artwork that is
+            // already dissolving, so the dark comes in as one continuous ramp.
+            val from = seamY * FLAT_DARKEN_START
+            drawRect(
+                brush = easedRamp(Color.Black, FLAT_DARKEN_END, from, size.height),
+                topLeft = androidx.compose.ui.geometry.Offset(0f, from),
+            )
+        }
 
         // Enough of a scrim to keep white text off a bright sleeve, and no
         // more. The old backdrop needed a heavier one because it lightened
@@ -396,10 +417,35 @@ fun ArtworkMeshBackdrop(
  * first row held from there up. Two draws of one small texture, both stretched
  * by the sampler.
  */
-private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float) {
+private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float, flat: Boolean) {
     if (alpha <= 0.001f) return
     val image = mesh.image
     val width = size.width.roundToInt()
+
+    if (flat) {
+        // One colour — the sleeve's edge mean — takes over the whole screen, so
+        // nothing is stretched down it. The edge row itself only shows behind
+        // and just under the sleeve, where it lets each column's colour carry
+        // on from the art, then gives way to that one colour.
+        drawRect(color = mesh.edge, alpha = alpha)
+        val band = (seamY + size.height * FLAT_BLEND_BELOW_SEAM).coerceAtMost(size.height)
+        drawImage(
+            image = image,
+            srcOffset = IntOffset.Zero,
+            srcSize = IntSize(image.width, 1),
+            dstOffset = IntOffset.Zero,
+            dstSize = IntSize(width, band.roundToInt()),
+            alpha = alpha,
+            filterQuality = FilterQuality.Low,
+        )
+        val from = (seamY * FLAT_DARKEN_START).coerceAtMost(band)
+        drawRect(
+            brush = easedRamp(mesh.edge, alpha, from, band),
+            topLeft = androidx.compose.ui.geometry.Offset(0f, from),
+            size = androidx.compose.ui.geometry.Size(size.width, band - from),
+        )
+        return
+    }
 
     // Above the seam: the sleeve's bottom edge, held. Skipped when the seam is
     // at the very top, where there is no such stretch to fill.
@@ -426,6 +472,37 @@ private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float) {
         filterQuality = FilterQuality.Low,
     )
 }
+
+/**
+ * A vertical ramp of [color] from clear at [startY] to [maxAlpha] at [endY], eased
+ * at both ends. A plain two-stop gradient is linear, and the eye finds the corner
+ * where a linear ramp starts — a visible edge to the dark — so this follows a
+ * smoothstep instead and has no corner to find.
+ */
+private fun easedRamp(color: Color, maxAlpha: Float, startY: Float, endY: Float): Brush =
+    Brush.verticalGradient(
+        0.00f to color.copy(alpha = 0f),
+        0.25f to color.copy(alpha = maxAlpha * 0.156f),
+        0.50f to color.copy(alpha = maxAlpha * 0.5f),
+        0.75f to color.copy(alpha = maxAlpha * 0.844f),
+        1.00f to color.copy(alpha = maxAlpha),
+        startY = startY,
+        endY = endY,
+    )
+
+/**
+ * How long the flat backdrop takes to change colour on a skip. The colours are
+ * read in tens of milliseconds once the cover has arrived, so most of what
+ * reads as the backdrop being slow is this crossfade, not the work behind it.
+ */
+private const val FLAT_FADE_MS = 350
+
+/** Where the flat backdrop's darkening begins (fraction of the seam) and how dark it ends. */
+private const val FLAT_DARKEN_START = 0.5f
+private const val FLAT_DARKEN_END = 0.62f
+
+/** How far below the seam (fraction of the screen) the edge row's colour variation lasts. */
+private const val FLAT_BLEND_BELOW_SEAM = 0.10f
 
 /** Drawn only until an artwork has been read — never a colour anyone chose. */
 private val FallbackBackdrop = Color(0xFF121212)
@@ -633,7 +710,20 @@ private fun meshOf(source: ImageBitmap, seed: Int): ArtworkMesh? {
         argb((red[cell] / n).toInt(), (green[cell] / n).toInt(), (blue[cell] / n).toInt()).lifted()
     }
     val texels = grid.rotatedBelowSeam(cols, rows, seed).resampled(cols, rows, MESH_TEX)
-    return ArtworkMesh(imageBitmapOf(texels, MESH_TEX, MESH_TEX))
+    return ArtworkMesh(imageBitmapOf(texels, MESH_TEX, MESH_TEX), edgeMean(grid, cols))
+}
+
+/** The mean of the grid's first row, the sleeve's bottom edge. */
+private fun edgeMean(grid: IntArray, cols: Int): Color {
+    var r = 0
+    var g = 0
+    var b = 0
+    for (x in 0 until cols) {
+        r += (grid[x] shr 16) and 0xFF
+        g += (grid[x] shr 8) and 0xFF
+        b += grid[x] and 0xFF
+    }
+    return Color(argb(r / cols, g / cols, b / cols))
 }
 
 /**

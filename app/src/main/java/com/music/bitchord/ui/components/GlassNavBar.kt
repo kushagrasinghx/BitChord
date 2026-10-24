@@ -61,6 +61,10 @@ import com.music.bitchord.ui.components.floatingtabbar.FloatingTabBarScrollConne
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.player.AndroidMusicVideo
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.fillMaxSize
 
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
@@ -126,8 +130,8 @@ fun GlassNavBar(
 
     // A factory, not a value — see the note in FloatingTabBar's header. Each of
     // the three surfaces gets its own glass modifier and so its own shape cache.
-    val barTint = glassBarTint()
-    val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape, surfaceTint = barTint) }
+    // The theme's own glass tint, as the liquid top bar has it — no white wash.
+    val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape) }
 
     FloatingTabBar(
         selectedTabKey = selectedIndex,
@@ -359,17 +363,37 @@ private fun GlassNowPlaying(
                     vertical = if (isInline) 4.dp else 8.dp,
                 ),
         ) {
-            AsyncImage(
-                model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                contentDescription = null,
+            // A music video plays in the cover's place at its own 16:9, as in
+            // the floating mini player; the full player takes it over when up.
+            val artWidth by animateDpAsState(
+                targetValue = if (song.isVideo) artSize * (16f / 9f) else artSize,
+                label = "glassMiniArtWidth",
+            )
+            Box(
                 modifier = Modifier
-                    .size(artSize)
+                    .size(width = artWidth, height = artSize)
                     // Whichever of the two densities is on screen is the one
                     // the player flies to: only one is composed at rest.
                     .playerDockArt(dock, artCorner)
                     .clip(RoundedCornerShape(artCorner))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
+            ) {
+                AsyncImage(
+                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (song.isVideo) {
+                    AndroidMusicVideo(
+                        videoId = song.videoId,
+                        fit = false,
+                        onRenderedChanged = {},
+                        modifier = Modifier.fillMaxSize(),
+                        priority = 0,
+                    )
+                }
+            }
             Spacer(Modifier.width(if (isInline) 8.dp else 10.dp))
             if (isInline) {
                 Text(

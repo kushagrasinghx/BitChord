@@ -189,8 +189,6 @@
     <string name="sign_in">התחברות</string>
     <string name="sign_in_youtube_music">התחברות ל-YouTube Music</string>
     <string name="subscriptions">מנויים</string>
-    <string name="switch_to_grid_view">מעבר לתצוגת רשת</string>
-    <string name="switch_to_list_view">מעבר לתצוגת רשימה</string>
     <string name="your_replay">ה-Replay שלך</string>
     <string name="your_listening_experience">חווית ההאזנה שלך</string>
     <string name="default_replay_holder">מאזין BitChord</string>

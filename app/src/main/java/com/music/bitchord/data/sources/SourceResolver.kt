@@ -271,6 +271,44 @@ object SourceResolver {
     }
 
     /**
+     * The addons Direct Source Stream plays from: enabled, inside the
+     * connection's ceiling, and ranked above YouTube — in rank order.
+     *
+     * Ranked above, not merely enabled, because that is what keys a YouTube
+     * id's cache entry apart from YouTube's own Opus (`#alt` — see
+     * [canSubstituteForYouTube]). An addon below YouTube writing into the
+     * plain entry is the mixed-file corruption [StreamChoice][com.music.bitchord.playback.StreamChoice]
+     * exists to prevent.
+     */
+    fun directAddons(): List<MusicSource> {
+        val active = SourceRegistry.activeForPlayback()
+        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return emptyList()
+        return rankedAbove(youtube.configId, active).filter { it.kind == SourceKind.ADDON }
+    }
+
+    /**
+     * The addon copy of a YouTube-queued track, for Direct Source Stream — or
+     * null when no addon has it.
+     *
+     * [substituteForYouTube] without the race: only addons are asked, and the
+     * caller waits for them instead of starting on YouTube and swapping up.
+     * The first acceptable answer still wins (see [bestAcross]), so two addons
+     * cost the quicker one's time, not the slower one's.
+     */
+    suspend fun directStream(target: TrackMatcher.Target): SourceStream? {
+        if (target.title.isBlank() || target.isVideo) return null
+        val addons = directAddons()
+        if (addons.isEmpty()) return null
+        val (source, stream) = bestAcross(addons, target, requestForNow()) ?: return null
+        TrackLog.d(
+            TAG,
+            "direct: '${target.title}' from ${source.displayName} at ${stream.format.summary}" +
+                if (stream.belowRequest) " (below request)" else "",
+        )
+        return stream
+    }
+
+    /**
      * The reliable last rung for a source-backed queue item whose chosen stream
      * failed in the player.
      *

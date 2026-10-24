@@ -63,6 +63,10 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.player.AndroidMusicVideo
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.animation.core.animateDpAsState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -338,6 +342,9 @@ internal fun Modifier.playerDockArt(dock: PlayerDock?, corner: Dp): Modifier {
         .graphicsLayer { alpha = if (dock.coversMiniArt) 0f else 1f }
 }
 
+/** The mini player's cover for a music video: 16:9 at the cover's 40dp height. */
+private val VIDEO_ART_WIDTH = 71.dp
+
 /** Frosted mini player that rides just above the floating tab bar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -409,16 +416,39 @@ fun MiniPlayer(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AsyncImage(
-                model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
-                contentDescription = null,
+            // A music video plays here at its own 16:9, as the web player's
+            // mini player does, rather than cropped into the square cover.
+            val artWidth by animateDpAsState(
+                targetValue = if (song.isVideo) VIDEO_ART_WIDTH else 40.dp,
+                label = "miniArtWidth",
+            )
+            Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(width = artWidth, height = 40.dp)
                     .playerDockArt(dock, ART_CORNER)
                     .clip(RoundedCornerShape(ART_CORNER))
                     .thumbnailBorder(RoundedCornerShape(ART_CORNER))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
-            )
+            ) {
+                AsyncImage(
+                    model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                // A music video keeps playing in the cover's place, cropped to
+                // it, as the web player's mini player does — the full player,
+                // when it is up, takes the picture over.
+                if (song.isVideo) {
+                    AndroidMusicVideo(
+                        videoId = song.videoId,
+                        fit = false,
+                        onRenderedChanged = {},
+                        modifier = Modifier.fillMaxSize(),
+                        priority = 0,
+                    )
+                }
+            }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 ExplicitSongTitle(

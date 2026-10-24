@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -44,6 +46,8 @@ import com.music.bitchord.auth.YouTubeProfile
 import com.music.bitchord.data.settings.AppSettings
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 
@@ -65,6 +69,23 @@ fun AccountProfileSelector(
     var managing by remember { mutableStateOf(false) }
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val shape = MaterialTheme.shapes.extraLarge
+    val surface = MaterialTheme.colorScheme.surface
+    val dark = surface.luminance() < 0.5f
+    // The thin material lets too much of the page through behind the text. Dark
+    // mode gets a black wash over it; light mode a white one, which keeps the
+    // dark text readable over a busy cover instead of muddying it.
+    val material = HazeMaterials.thin(surface)
+    val style = remember(material, dark) {
+        HazeStyle(
+            backgroundColor = material.backgroundColor,
+            tints = material.tints + HazeTint(
+                if (dark) Color.Black.copy(alpha = 0.38f) else Color.White.copy(alpha = 0.40f),
+            ),
+            blurRadius = material.blurRadius,
+            noiseFactor = material.noiseFactor,
+            fallbackTint = material.fallbackTint,
+        )
+    }
     Column(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = .48f))
             .clickable(onClick = onDismiss),
@@ -84,9 +105,17 @@ fun AccountProfileSelector(
                     } else {
                         Modifier.optimizedHazeEffect(
                             state = hazeState,
-                            style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
+                            style = style,
                         )
                     },
+                )
+                // The same hairline the mini player and the nav bar wear.
+                .border(
+                    0.5.dp,
+                    // White on dark like the bars; a light surface has nothing
+                    // for a white hairline to show against.
+                    if (dark) Color.White.copy(alpha = 0.10f) else Color.Black.copy(alpha = 0.10f),
+                    shape,
                 )
                 .clickable(onClick = {}),
         ) {

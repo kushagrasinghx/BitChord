@@ -189,8 +189,6 @@
     <string name="sign_in">ログイン</string>
     <string name="sign_in_youtube_music">YouTube Musicにログイン</string>
     <string name="subscriptions">登録チャンネル</string>
-    <string name="switch_to_grid_view">グリッド表示に切り替え</string>
-    <string name="switch_to_list_view">リスト表示に切り替え</string>
     <string name="your_replay">あなたのReplay</string>
     <string name="your_listening_experience">あなたの再生体験</string>
     <string name="default_replay_holder">BitChordリスナー</string>

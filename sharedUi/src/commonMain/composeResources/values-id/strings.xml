@@ -189,8 +189,6 @@
     <string name="sign_in">Masuk</string>
     <string name="sign_in_youtube_music">Masuk ke YouTube Music</string>
     <string name="subscriptions">Langganan</string>
-    <string name="switch_to_grid_view">Beralih ke tampilan grid</string>
-    <string name="switch_to_list_view">Beralih ke tampilan daftar</string>
     <string name="your_replay">Replay Anda</string>
     <string name="your_listening_experience">Pengalaman mendengarkan Anda</string>
     <string name="default_replay_holder">Pendengar BitChord</string>

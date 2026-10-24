@@ -41,8 +41,8 @@ buildscript {
  * No "v" in the name — the in-app updater reads it as a number; the "v" is the
  * release tag's alone.
  */
-extra["bitchordVersionCode"] = 29
-extra["bitchordVersionName"] = "1.8.1"
+extra["bitchordVersionCode"] = 31
+extra["bitchordVersionName"] = "1.9"
 
 /*
  * Bump this by hand before cutting each sideloaded test build ("beta2",
@@ -63,7 +63,7 @@ extra["bitchordVersionName"] = "1.8.1"
  * the phone compares the watch's installed APK with the one it carries, so a
  * beta watch app shows "Update available" as soon as the phone has the release.
  */
-extra["bitchordBetaSuffix"] = ""
+extra["bitchordBetaSuffix"] = "beta1"
 
 plugins {
     id("com.android.application") version "8.10.1" apply false

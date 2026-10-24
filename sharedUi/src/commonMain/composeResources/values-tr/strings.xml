@@ -189,8 +189,6 @@
     <string name="sign_in">Giriş yap</string>
     <string name="sign_in_youtube_music">YouTube Music\'e giriş yap</string>
     <string name="subscriptions">Abonelikler</string>
-    <string name="switch_to_grid_view">Izgara görünümüne geç</string>
-    <string name="switch_to_list_view">Liste görünümüne geç</string>
     <string name="your_replay">Replay\'in</string>
     <string name="your_listening_experience">Dinleme deneyimin</string>
     <string name="default_replay_holder">BitChord dinleyicisi</string>

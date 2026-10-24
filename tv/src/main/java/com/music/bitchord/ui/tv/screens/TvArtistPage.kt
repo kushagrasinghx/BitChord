@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.canvas.AppleArtistArt
 import com.music.bitchord.data.canvas.AppleArtistArtRepository
+import com.music.bitchord.data.canvas.appleCatalogue
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.HomeShelf
@@ -108,12 +109,14 @@ internal fun TvArtistContent(
 
     // Apple Music's photo and title logo for this artist, found by name, as the
     // phone does. YouTube's own picture stands in until — and unless — it lands.
-    var appleArt by remember(title) { mutableStateOf(AppleArtistArtRepository.cached(title)) }
-    LaunchedEffect(title, page?.songs is UiState.Loading) {
-        // A title that is still a whole credit ("A, B & C") finds nobody; wait
-        // for the page to settle on the one name.
+    var appleArt by remember(page?.browseId) {
+        mutableStateOf(page?.browseId?.let(AppleArtistArtRepository::cached))
+    }
+    LaunchedEffect(page?.browseId, title, page?.songs is UiState.Loading) {
+        // A title that is still a whole credit ("A, B & C") finds nobody, and
+        // Apple's match is confirmed against the page's songs; wait for both.
         if (page != null && page.songs !is UiState.Loading) {
-            appleArt = AppleArtistArtRepository.artFor(title) ?: appleArt
+            appleArt = AppleArtistArtRepository.artFor(page.browseId, title) { page.appleCatalogue() } ?: appleArt
         }
     }
 

@@ -258,6 +258,63 @@ object InnerTubeXResolver {
         return extracted
     }
 
+    /** A music video's picture: a video-only stream, and the identity its fetch has to wear. */
+    class VideoStream(
+        val videoId: String,
+        val url: String,
+        val width: Int,
+        val height: Int,
+        val mimeType: String,
+        val headers: Map<String, String>,
+        /** Every height this video is offered at, largest first — what a quality picker lists. */
+        val heights: List<Int>,
+    ) {
+        val aspect: Float get() = if (height > 0) width.toFloat() / height else 0f
+    }
+
+    /**
+     * The picture for [videoId], at most [maxHeight] tall, for the player to
+     * show over its own audio — as the web player's videoDeck does. The audio
+     * this resolves alongside is ignored: the main player already has its own.
+     *
+     * @return null when InnerTubeX found no video-only stream, which for a
+     *   catalogue track (a still image as its "video") is the normal answer.
+     */
+    suspend fun extractVideo(videoId: String, maxHeight: Int): VideoStream? {
+        innerTube.cookie = Innertube.cookie
+        innerTube.visitorData = Innertube.ensureVisitorData()
+        innerTube.locale = YouTubeLocale(gl = Innertube.currentRegion, hl = Innertube.currentLanguage)
+        val stream = extractor.extract(
+            videoId = videoId,
+            hints = ContentHints(wantVideo = true, maxVideoHeight = maxHeight)
+                .withStreamCapabilities(allowHls = false, allowSabr = false, allowBoundedRange = true),
+            excludedClients = excludedFor(videoId),
+            audioQuality = AudioQuality.LOW,
+            clientPlaybackNonce = generateClientPlaybackNonce(),
+        ) ?: return null
+        val url = stream.videoUrl ?: return null
+        val width = stream.videoWidth ?: 0
+        val height = stream.videoHeight ?: 0
+        val mime = stream.videoMimeType.orEmpty()
+        TrackLog.d(
+            TAG,
+            "video: ${width}x$height $mime ${stream.videoCodecs.orEmpty()} via ${stream.clientName}",
+            about = videoId,
+        )
+        return VideoStream(
+            videoId = videoId,
+            url = url,
+            width = width,
+            height = height,
+            mimeType = mime,
+            headers = stream.headers,
+            heights = (stream.availableVideoHeights.orEmpty() + height)
+                .filter { it > 0 }
+                .distinct()
+                .sortedDescending(),
+        )
+    }
+
     /** Headers the media fetch for [url] must carry, when InnerTubeX minted it. */
     fun headersFor(url: String): Map<String, String>? = minted[url]?.headers
 

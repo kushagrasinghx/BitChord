@@ -30,6 +30,12 @@ data class CanvasArtwork(
     val artist: String? = null,
     val album: String? = null,
     val source: CanvasSource = CanvasSource.OTHER,
+    /**
+     * The same clip framed 3:4, when the provider has one. Only the phone
+     * player takes it (it runs the clip under the whole screen); everywhere
+     * else keeps the square [url].
+     */
+    val portraitUrl: String? = null,
 ) {
     /**
      * Whether this clip really belongs to the track we asked about.

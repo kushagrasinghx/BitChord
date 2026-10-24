@@ -189,8 +189,6 @@
     <string name="sign_in">登入</string>
     <string name="sign_in_youtube_music">登入 YouTube Music</string>
     <string name="subscriptions">訂閱</string>
-    <string name="switch_to_grid_view">切換到網格檢視</string>
-    <string name="switch_to_list_view">切換到列表檢視</string>
     <string name="your_replay">你的 Replay</string>
     <string name="your_listening_experience">你的收聽體驗</string>
     <string name="default_replay_holder">BitChord 聽眾</string>

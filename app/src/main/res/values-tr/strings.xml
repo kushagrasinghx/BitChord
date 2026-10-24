@@ -1012,9 +1012,7 @@
 
     <string name="settings_search_empty">“%1$s” ile eşleşen ayar yok</string>
 
-    <string name="prefer_music_only">Yalnızca müzik sürümünü tercih et</string>
 
-    <string name="prefer_music_only_subtitle">Müzik videolarında, katalogdaki ses sürümü bulunup yüklenirken video ayrıntılarını gösterir</string>
     <string name="smart_version_alignment">Akıllı ses hizalama</string>
     <string name="smart_version_alignment_subtitle">Tam karşılık gelen çalma anını bulmak için ses dalga biçimlerini analiz eder</string>
 
@@ -1328,4 +1326,7 @@
     <string name="wear_os_code_hint">Eşleme kodu</string>
     <string name="wear_os_done">Bitti</string>
     <string name="signed_by">%1$s tarafından imzalandı</string>
+    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="no_video_version">No video version found for this song</string>
+    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
 </resources>

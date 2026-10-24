@@ -29,6 +29,7 @@ import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
+import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.download.Downloads
 import kotlinx.coroutines.CoroutineScope
@@ -1307,6 +1308,59 @@ object AudioCache {
                 }
             }
         }
+    }
+
+    private var directJob: Job? = null
+
+    /**
+     * Direct Source Stream's read-ahead: one track, the next, started once the
+     * playing one is inside [DirectSourceGate.WINDOW_MS] of its transition.
+     *
+     * Resolves the track the way playback will — the addon first, YouTube when
+     * no addon has it — pins the answer in [StreamChoice] so the player's own
+     * open lands on the same stream, and caches the first [PRELOAD_BYTES] of
+     * it. Only the head: the player reads the rest itself a few seconds later,
+     * so fetching more here would only download it twice.
+     *
+     * The pin is skipped when something is already pinned. The player may
+     * have got there first and settled on YouTube after the addon timed out,
+     * and an addon answer arriving late must not be written over that half-
+     * filled entry — see [StreamChoice].
+     */
+    fun prefetchDirect(upcoming: Upcoming) {
+        directJob?.cancel()
+        val id = upcoming.mediaId
+        // A source-backed row resolves through its own source when opened, and
+        // a downloaded or reverted track never reads this entry at all.
+        if (SourceRegistry.parseTrackKey(id) != null || id in Downloads.saved.value || OriginalVersion.isPinned(id)) {
+            directJob = null
+            return
+        }
+        directJob = scope.launch(TrackLog.about(id)) {
+            if (StreamChoice.of(id) == null) {
+                val addon = runCatching { DirectSourceGate.lookup(id, upcoming.target) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                    .getOrNull()
+                val stream = addon ?: runCatching {
+                    val url = StreamResolver.resolve(id)
+                    SourceStream(url, headers = StreamResolver.mediaHeadersFor(url))
+                }
+                    .onFailure {
+                        if (it is kotlinx.coroutines.CancellationException) throw it
+                        TrackLog.d(TAG, "direct read-ahead could not resolve $id: ${it.message}", about = id)
+                    }
+                    .getOrNull()
+                    ?: return@launch
+                if (StreamChoice.of(id) == null) StreamChoice.remember(id, stream, substituted = addon != null)
+            }
+            fetch(id, 0, PRELOAD_BYTES)
+        }
+    }
+
+    /** Drops [prefetchDirect]'s work for a track the queue has moved away from. */
+    fun cancelDirect() {
+        directJob?.cancel()
+        directJob = null
     }
 
     /**

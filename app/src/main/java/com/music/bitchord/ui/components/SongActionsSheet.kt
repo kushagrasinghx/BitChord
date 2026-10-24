@@ -231,6 +231,12 @@ fun SongActionsSheet(
     // A local file or a finished download has no YouTube identity behind it to
     // rate, save, queue into a playlist, fetch again, or share a link for.
     val isOffline = song.localUri != null
+    // BitChord downloads are tracked in the saved map by videoId; external
+    // local files have a localUri but their videoId is a content URI, not a
+    // YouTube id, so they never appear here.  This lets us distinguish type B
+    // (BitChord download) from type C (external local file).
+    val savedByVideoId by Downloads.saved.collectAsStateWithLifecycle()
+    val isBitChordDownload = song.videoId in savedByVideoId.keys
 
     val rows: @Composable ColumnScope.() -> Unit = {
         // Leads the list whenever it's available: which recording is playing
@@ -284,7 +290,12 @@ fun SongActionsSheet(
             GroupSeparator(palette)
         }
 
-        if (signedIn && !isOffline) {
+        // Guests get nothing to tap, since there's no account to record it
+        // against. Local/offline tracks can't be rated on YouTube's server,
+        // but the like state is still tracked locally via LikeState.
+        // External local files (type C) are excluded: only streamed songs (A)
+        // and BitChord-downloaded songs (B) get these actions.
+        if (signedIn && (!isOffline || isBitChordDownload)) {
             ActionRow(
                 icon = if (liked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 label = if (liked) stringResource(R.string.remove_from_liked) else stringResource(R.string.like),
@@ -387,7 +398,7 @@ fun SongActionsSheet(
                 onClick = it,
             )
         }
-        if (!isOffline) {
+        if (!isOffline || isBitChordDownload) {
             onShare?.let {
                 ActionRow(Icons.Rounded.Share, stringResource(R.string.share), accent = palette.accent, onClick = it)
             }

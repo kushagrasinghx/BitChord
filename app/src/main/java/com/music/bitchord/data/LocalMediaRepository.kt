@@ -483,3 +483,7 @@ object LocalMediaRepository {
         return String.format(Locale.ROOT, "%d:%02d", minutes, secs)
     }
 }
+
+/** True when this song is a BitChord download (its videoId is in the saved map). */
+fun Song.isBitChordDownload(): Boolean =
+    videoId in Downloads.saved.value.keys

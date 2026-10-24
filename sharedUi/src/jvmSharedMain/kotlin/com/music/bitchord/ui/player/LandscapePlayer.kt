@@ -414,6 +414,8 @@ internal fun LandscapeCredits(
     song: Song,
     signedIn: Boolean,
     likeStatus: LikeStatus,
+    /** True when this is a BitChord-downloaded track (videoId in the saved map). */
+    isBitChordDownload: Boolean,
     /** The menu glyph is briefly the undo arrow after a quality upgrade. */
     showRevertCue: Boolean,
     onToggleLike: () -> Unit,
@@ -461,9 +463,11 @@ internal fun LandscapeCredits(
         }
         Spacer(Modifier.width(10.dp))
         // Same gate as the portrait player's: no account to like against for a
-        // guest, and no YouTube identity to rate a local file or a finished
-        // download against either.
-        if (signedIn && song.localUri == null) {
+        // guest. Local files and finished downloads have no YouTube identity to
+        // rate on the server, but the like state is still tracked locally via
+        // LikeState. External local files (type C) are excluded: only streamed
+        // songs (A) and BitChord-downloaded songs (B) get this button.
+        if (signedIn && (song.localUri == null || isBitChordDownload)) {
             val liked = likeStatus == LikeStatus.LIKE
             CircleGlyph(
                 icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,

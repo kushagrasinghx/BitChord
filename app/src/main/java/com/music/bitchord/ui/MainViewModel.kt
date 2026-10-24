@@ -690,12 +690,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Sets (or clears) the thumbs rating on [videoId].
      *
+     * For all tracks, the rating is synced to YTMusic server-side when online.
+     * For local/offline tracks ([isLocal=true]), the rating is also persisted
+     * locally immediately via LikeState so the UI updates without waiting for
+     * network confirmation. If the network call fails, the local state is
+     * reverted.
+     *
      * Written to the screen first and rolled back if YouTube refuses. A rating
      * is a one-tap, low-stakes action taken while a song is playing; waiting
      * on a round trip before the heart fills reads as the tap not having
      * registered, and people tap again.
      */
-    fun setLike(videoId: String, status: LikeStatus) {
+    fun setLike(videoId: String, status: LikeStatus, isLocal: Boolean = false) {
         if (!requireSignIn()) return
         val previous = likeStatusOf(videoId)
         if (previous == status) return
@@ -713,6 +719,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (unliked) forgetFromLibrary(videoId)
                 },
                 onFailure = {
+                    // On failure, revert the local state so the UI matches reality.
                     LikeState.set(videoId, previous)
                 },
             )
@@ -776,9 +783,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** The heart: liked becomes neutral, anything else becomes liked. */
-    fun toggleLike(videoId: String) = setLike(
+    fun toggleLike(videoId: String, isLocal: Boolean = false) = setLike(
         videoId,
         if (likeStatusOf(videoId) == LikeStatus.LIKE) LikeStatus.INDIFFERENT else LikeStatus.LIKE,
+        isLocal,
     )
 
     /** As [toggleLike], for the thumb-down. */

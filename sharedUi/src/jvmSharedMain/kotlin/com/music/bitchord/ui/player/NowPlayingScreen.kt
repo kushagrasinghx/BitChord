@@ -667,6 +667,8 @@ fun NowPlayingScreen(
     shuffleEnabled: Boolean,
     autoplayEnabled: Boolean,
     signedIn: Boolean,
+    /** True when this is a BitChord-downloaded track (videoId in the saved map). */
+    isBitChordDownload: Boolean,
     accountName: String?,
     likeStatus: LikeStatus,
     onToggleLike: () -> Unit,
@@ -1969,6 +1971,7 @@ fun NowPlayingScreen(
                                 LandscapeCredits(
                                     song = song,
                                     signedIn = signedIn,
+                                    isBitChordDownload = isBitChordDownload,
                                     likeStatus = likeStatus,
                                     showRevertCue = showRevertCue,
                                     onToggleLike = onToggleLike,
@@ -3479,11 +3482,13 @@ fun NowPlayingScreen(
                             Spacer(Modifier.width(10.dp))
                             // Beside the credits rather than down in the toggle row:
                             // liking is about *this song*, and the row below is about
-                            // how the queue plays. Guests get nothing to tap, since
-                            // there's no account to record it against — and neither
-                            // does a local file or a finished download, which carries
-                            // no YouTube identity to rate.
-                            if (signedIn && song.localUri == null) {
+                            // Guests get nothing to tap, since there's no account to
+                            // record it against. Local files and finished downloads
+                            // have no YouTube identity to rate on the server, but the
+                            // like state is still tracked locally via LikeState.
+                            // External local files (type C) are excluded: only streamed
+                            // songs (A) and BitChord-downloaded songs (B) get this button.
+                            if (signedIn && (song.localUri == null || isBitChordDownload)) {
                                 val liked = likeStatus == LikeStatus.LIKE
                                 CircleGlyph(
                                     icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,

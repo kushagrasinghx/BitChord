@@ -180,6 +180,7 @@
     <string name="italian">Italienisch</string>
     <string name="turkish">Türkisch</string>
     <string name="thai">Thailändisch</string>
+    <string name="korean">Koreanisch</string>
     <string name="show_all">Alle anzeigen</string>
     <string name="grid_view">Raster</string>
     <string name="list_view">Liste</string>

@@ -45,6 +45,7 @@ private const val PLAYER = "player"
 private const val QUEUE = "queue"
 private const val MORE = "more"
 private const val OUTPUT = "output"
+private const val LYRICS = "lyrics"
 
 /** Player at the root; Up Next and More swipe away back to it, as every watch app does. */
 @Composable
@@ -65,6 +66,7 @@ fun WearApp(link: PhoneLink) {
                     link = link,
                     openQueue = { nav.navigate(QUEUE) },
                     openMore = { nav.navigate(MORE) },
+                    openLyrics = { nav.navigate(LYRICS) },
                 )
             }
             composable(QUEUE) {
@@ -82,6 +84,14 @@ fun WearApp(link: PhoneLink) {
             composable(MORE) {
                 MoreScreen(np = np, link = link, onOpenOutput = { nav.navigate(OUTPUT) })
             }
+            composable(LYRICS) {
+                LyricsScreen(
+                    np = np,
+                    onPrevious = link::previous,
+                    onNext = link::next,
+                    onTogglePlay = link::togglePlay,
+                )
+            }
             composable(OUTPUT) {
                 // Straight back to the player once a choice is made.
                 OutputScreen(link = link, onDone = { nav.popBackStack(PLAYER, inclusive = false) })
@@ -93,7 +103,12 @@ fun WearApp(link: PhoneLink) {
 }
 
 @Composable
-private fun PlayerRoute(link: PhoneLink, openQueue: () -> Unit, openMore: () -> Unit) {
+private fun PlayerRoute(
+    link: PhoneLink,
+    openQueue: () -> Unit,
+    openMore: () -> Unit,
+    openLyrics: () -> Unit,
+) {
     val state by link.link.collectAsStateWithLifecycle()
     val heard by link.heard.collectAsStateWithLifecycle()
     val np by link.nowPlaying.collectAsStateWithLifecycle()
@@ -109,6 +124,7 @@ private fun PlayerRoute(link: PhoneLink, openQueue: () -> Unit, openMore: () -> 
             seekTo = link::seekTo,
             openQueue = openQueue,
             openMore = openMore,
+            openLyrics = openLyrics,
         )
     }
 

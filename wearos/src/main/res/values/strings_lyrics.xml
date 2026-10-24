@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_lyrics">Lyrics</string>
+    <string name="wear_lyrics_waiting">Play a song in BitChord on your phone. Tap to reconnect.</string>
+    <string name="wear_lyrics_loading">Loading lyrics</string>
+    <string name="wear_lyrics_none">No synced lyrics for this song.</string>
+    <string name="wear_lyrics_stale">Phone not responding</string>
+    <string name="wear_lyrics_stale_tap">Phone not responding. Tap to retry.</string>
+</resources>

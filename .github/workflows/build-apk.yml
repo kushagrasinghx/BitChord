@@ -1,0 +1,97 @@
+name: Build phone APK (with watch app inside)
+
+# One phone APK; the watch APK is built and bundled into it by :app itself (bundleWearApk).
+# Secrets KEYSTORE_B64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD present -> prodRelease,
+# signed with your key. Otherwise (or with force_debug) prodDebug with a throw-away debug key.
+
+on:
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: "Prod = com.music.bitchord (replaces the official app), Dev = com.dev.bitchord (installs next to it)"
+        type: choice
+        options: [Prod, Dev]
+        default: Prod
+      force_debug:
+        description: "Build a debug-signed APK even if signing secrets exist"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install NDK (with retries)
+        run: |
+          NDK=$(grep -oP 'ndkVersion\s*=\s*"\K[^"]+' app/build.gradle.kts | head -1)
+          NDK=${NDK:-27.0.12077973}
+          echo "NDK version: $NDK"
+          SDKM=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -1)
+          yes | "$SDKM" --licenses > /dev/null || true
+          for attempt in 1 2 3 4; do
+            if "$SDKM" --install "ndk;$NDK" && [ -f "$ANDROID_HOME/ndk/$NDK/source.properties" ]; then
+              echo "NDK $NDK installed"
+              exit 0
+            fi
+            echo "NDK install failed (attempt $attempt), retrying in 15s..."
+            rm -rf "$ANDROID_HOME/ndk/$NDK" "$ANDROID_HOME/.temp" 2>/dev/null || true
+            sleep 15
+          done
+          echo "NDK $NDK could not be installed"
+          exit 1
+
+      - name: Signing
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          FORCE_DEBUG: ${{ inputs.force_debug }}
+          FLAVOR: ${{ inputs.flavor || 'Prod' }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ "$FORCE_DEBUG" != "true" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > release.keystore
+            printf 'storeFile=release.keystore\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+              "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+            echo "task=:app:assemble${FLAVOR}Release" >> "$GITHUB_OUTPUT"
+            echo "Building prodRelease, signed with the repository secret key"
+          else
+            echo "task=:app:assemble${FLAVOR}Debug" >> "$GITHUB_OUTPUT"
+            echo "Building prodDebug (debug key)"
+          fi
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build
+        run: ./gradlew ${{ steps.signing.outputs.task }} --stacktrace --console=plain
+
+      - name: Show what was built
+        run: |
+          find app/build/outputs/apk -name '*.apk' -exec ls -lh {} \;
+          find app/build -name 'BitChordWear.apk' -exec ls -lh {} \; | head -3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-phone-with-watch-app
+          path: app/build/outputs/apk/**/*.apk
+          if-no-files-found: error

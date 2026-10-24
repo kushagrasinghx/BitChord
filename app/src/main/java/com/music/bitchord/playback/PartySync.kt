@@ -756,11 +756,10 @@ class PartySync(
         // the full list is not — it parses a metadata bundle per track — and
         // this runs on every pause and every seek, on a queue that can be
         // hundreds long.
-        val rawLocalItems = (0 until exo.mediaItemCount)
-            .map { exo.getMediaItemAt(it) }
-            .filterNot { it.mediaId.startsWith("content://") || it.mediaId.startsWith("file://") }
+        val allItems = (0 until exo.mediaItemCount).map { exo.getMediaItemAt(it) }
+        val rawLocalItems = allItems.filterNot { it.mediaId.isDeviceUri() }
 
-        val rawTrackIndex = rawLocalItems.indexOfFirst { it.mediaId == track.videoId }
+        val rawTrackIndex = indexWithoutDeviceFiles(allItems.map { it.mediaId }, exo.currentMediaItemIndex)
         val localItems = if (rawTrackIndex >= 0) {
             val pastAndCurrent = rawLocalItems.subList(0, rawTrackIndex + 1)
             val upcoming = rawLocalItems.subList(rawTrackIndex + 1, rawLocalItems.size)
@@ -771,7 +770,7 @@ class PartySync(
         }
 
         val localIds = localItems.map { it.mediaId }
-        val trackIndex = localIds.indexOf(track.videoId)
+        val trackIndex = if (rawTrackIndex >= 0) rawTrackIndex else localIds.indexOf(track.videoId)
         val clampedIds = if (trackIndex >= 0) {
             val upcomingEnd = (trackIndex + 1 + MAX_PARTY_UPCOMING_QUEUE).coerceAtMost(localIds.size)
             localIds.subList(0, upcomingEnd)
@@ -1098,8 +1097,22 @@ class PartySync(
  * whose whole identity is a `content://` or `file://` URI is unshareable — that
  * URI names a row in this device's media store and nothing at all anywhere else.
  */
-private fun Song.isDeviceFile(): Boolean =
-    videoId.startsWith("content://") || videoId.startsWith("file://")
+private fun Song.isDeviceFile(): Boolean = videoId.isDeviceUri()
+
+private fun String.isDeviceUri(): Boolean = startsWith("content://") || startsWith("file://")
+
+/**
+ * Where the item at [currentIndex] lands once this device's own files are left
+ * out of [mediaIds], or -1 when it is one of them.
+ *
+ * By position, never by id: the timeline is the party's queue, history and all,
+ * so a song queued again is in it twice. Looking it up by id found the played
+ * copy, and the next publish pointed the whole party back at it.
+ */
+internal fun indexWithoutDeviceFiles(mediaIds: List<String>, currentIndex: Int): Int {
+    if (currentIndex !in mediaIds.indices || mediaIds[currentIndex].isDeviceUri()) return -1
+    return mediaIds.subList(0, currentIndex).count { !it.isDeviceUri() }
+}
 
 internal fun Song.toPartyTrack(playerDurationMs: Long): PartyTrack = PartyTrack(
     videoId = videoId,

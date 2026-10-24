@@ -66,7 +66,6 @@ import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.animation.core.animateDpAsState
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -342,9 +341,6 @@ internal fun Modifier.playerDockArt(dock: PlayerDock?, corner: Dp): Modifier {
         .graphicsLayer { alpha = if (dock.coversMiniArt) 0f else 1f }
 }
 
-/** The mini player's cover for a music video: 16:9 at the cover's 40dp height. */
-private val VIDEO_ART_WIDTH = 71.dp
-
 /** Frosted mini player that rides just above the floating tab bar. */
 @OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
@@ -416,15 +412,11 @@ fun MiniPlayer(
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // A music video plays here at its own 16:9, as the web player's
-            // mini player does, rather than cropped into the square cover.
-            val artWidth by animateDpAsState(
-                targetValue = if (song.isVideo) VIDEO_ART_WIDTH else 40.dp,
-                label = "miniArtWidth",
-            )
+            // Videos now fill the same 1:1 slot as audio covers; ContentScale.Crop
+            // center-crops them to the square. The full player still shows video.
             Box(
                 modifier = Modifier
-                    .size(width = artWidth, height = 40.dp)
+                    .size(40.dp)
                     .playerDockArt(dock, ART_CORNER)
                     .clip(RoundedCornerShape(ART_CORNER))
                     .thumbnailBorder(RoundedCornerShape(ART_CORNER))

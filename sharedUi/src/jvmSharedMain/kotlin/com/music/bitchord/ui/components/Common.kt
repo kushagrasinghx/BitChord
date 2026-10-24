@@ -159,12 +159,10 @@ val FLOATING_BAR_MAX_WIDTH = 440.dp
 val SHELF_CARD_WIDTH = 150.dp
 
 /**
- * A track's thumbnail box at [height]: square for a song, 16:9 at the same
- * height for a music video — its picture's own shape, as YouTube Music lists
- * one, rather than a still cropped into a square.
+ * A track's thumbnail box at [height]: square for all songs — videos are
+ * center-cropped to fill the slot, just like audio covers.
  */
-fun Modifier.trackArtSize(height: Dp, isVideo: Boolean): Modifier =
-    if (isVideo) size(width = height * (16f / 9f), height = height) else size(height)
+fun Modifier.trackArtSize(height: Dp, isVideo: Boolean): Modifier = size(height)
 
 /** Share of the row a lead-shelf card takes, so the next one peeks in past it. */
 private const val HERO_CARD_FRACTION = 0.70f

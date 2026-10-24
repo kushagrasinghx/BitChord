@@ -85,7 +85,8 @@ object DesktopLyricsClient {
         // player's manual search asks the same track's providers under a typed
         // query, and a cache keyed only on the id would hand back the earlier
         // automatic answer and look as though the search had done nothing.
-        val cacheKey = "${song.videoId}|$durationMs|${song.title}|${song.artist}|${only.orEmpty()}"
+        val prioritizeSyllables = persistence.boolean(KEY_PRIORITIZE_SYLLABLES, false)
+        val cacheKey = cacheKey(song, durationMs, only, asked, prioritizeSyllables)
         cache[cacheKey]?.takeIf { System.currentTimeMillis() - it.createdAt < CACHE_TTL_MS }?.let { return it.result }
 
         // A downloaded or local file carries its own words; asking servers for a string already
@@ -102,7 +103,7 @@ object DesktopLyricsClient {
                 album = song.albumName,
                 sources = asked.toSet(),
                 order = asked,
-                prioritizeSyllableSync = persistence.boolean(KEY_PRIORITIZE_SYLLABLES, false),
+                prioritizeSyllableSync = prioritizeSyllables,
                 onSourceStarted = onSourceStarted,
                 onSourceResult = { source, result -> onSourceResult?.invoke(source, result != null) },
             )
@@ -115,6 +116,20 @@ object DesktopLyricsClient {
         cache[cacheKey] = Cached(System.currentTimeMillis(), result)
         return result
     }
+
+    /**
+     * What a cached answer is filed under. The sources asked, their order and the syllable
+     * preference all change which answer wins, so a change in Settings must not be met with
+     * the answer picked under the old ones.
+     */
+    internal fun cacheKey(
+        song: Song,
+        durationMs: Long,
+        only: String?,
+        asked: List<LyricsSource>,
+        prioritizeSyllables: Boolean,
+    ): String = "${song.videoId}|$durationMs|${song.title}|${song.artist}|${only.orEmpty()}|" +
+        "${asked.joinToString(",") { it.name }}|$prioritizeSyllables"
 
     /** The words inside the file this track plays from, when it plays from one. */
     private fun embedded(song: Song): List<LyricLine>? {

@@ -60,7 +60,7 @@ object LocaleTags {
     fun ytGl(appTag: String): String {
         return when (normalizeAppTag(appTag)) {
             ZH_HANT -> "TW"
-            ZH_HANS -> "CN"
+            ZH_HANS -> "SG"
             else -> "US"
         }
     }

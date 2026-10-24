@@ -367,9 +367,20 @@
     cursor: default;
   }
 
-  input {
+  input,
+  select {
     font: inherit;
     color: inherit;
+  }
+
+  select {
+    color-scheme: light dark;
+    cursor: pointer;
+  }
+
+  select option {
+    background-color: var(--opaqueShelfBG);
+    color: var(--systemPrimary);
   }
 
   img {

@@ -2,7 +2,7 @@ import { Check } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
-export type MenuPlacement = 'above-start' | 'below-end';
+export type MenuPlacement = 'above-start' | 'above-end' | 'below-end' | 'below-start' | 'auto';
 
 interface MenuProps {
   /** The element the menu opens from. */
@@ -18,22 +18,42 @@ interface MenuProps {
  * items, hairline separators, red for destructive items. Closes on Escape, a
  * click outside, or a scroll of the page under it.
  */
-export function Menu({ anchor, placement = 'below-end', onClose, label, children }: MenuProps) {
+export function Menu({ anchor, placement = 'auto', onClose, label, children }: MenuProps) {
   const panel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<React.CSSProperties>({ visibility: 'hidden' });
 
   useLayoutEffect(() => {
     const rect = anchor.getBoundingClientRect();
     const gap = 6;
-    setPosition(
-      placement === 'above-start'
-        ? { left: Math.max(8, rect.left), bottom: window.innerHeight - rect.top + gap, maxHeight: rect.top - 2 * gap }
-        : {
-            right: Math.max(8, window.innerWidth - rect.right),
-            top: rect.bottom + gap,
-            maxHeight: window.innerHeight - rect.bottom - 2 * gap,
-          },
-    );
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const isAbove =
+      placement === 'above-start' ||
+      placement === 'above-end' ||
+      (placement === 'auto' && spaceBelow < 380 && spaceAbove > spaceBelow);
+    const isStart =
+      placement === 'above-start' ||
+      placement === 'below-start' ||
+      (placement === 'auto' && rect.left < window.innerWidth - rect.right);
+
+    const pos: React.CSSProperties = {};
+    if (isStart) {
+      pos.left = Math.max(8, rect.left);
+      pos.maxWidth = Math.min(340, window.innerWidth - Math.max(8, rect.left) - 8);
+    } else {
+      pos.right = Math.max(8, window.innerWidth - rect.right);
+      pos.maxWidth = Math.min(340, rect.right - 8);
+    }
+
+    if (isAbove) {
+      pos.bottom = window.innerHeight - rect.top + gap;
+      pos.maxHeight = Math.min(520, rect.top - 2 * gap);
+    } else {
+      pos.top = rect.bottom + gap;
+      pos.maxHeight = Math.min(520, window.innerHeight - rect.bottom - 2 * gap);
+    }
+
+    setPosition(pos);
   }, [anchor, placement]);
 
   useEffect(() => {
@@ -70,7 +90,7 @@ export function Menu({ anchor, placement = 'below-end', onClose, label, children
       <div
         ref={panel}
         // Apple's amp-contextual-menu (report §8).
-        className="fixed z-(--z-contextual-menus) max-w-[300px] min-w-[185px] animate-menu-in overflow-y-auto rounded-[10px] bg-thick-material p-[5px] shadow-[0_0_0_0.5px_var(--vibrantDivider),0_10px_40px_var(--glassMaterialShadowColor)] [backdrop-filter:saturate(2.2)_blur(32px)]"
+        className="fixed z-(--z-contextual-menus) w-[280px] max-w-[340px] min-w-[200px] animate-menu-in overflow-y-auto rounded-[12px] bg-thin-material p-[5px] shadow-[0_0_0_0.5px_var(--vibrantDivider),0_10px_40px_var(--glassMaterialShadowColor)] [backdrop-filter:saturate(1)_blur(10px)]"
         style={position}
         role="menu"
         aria-label={label}

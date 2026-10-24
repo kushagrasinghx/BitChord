@@ -1,6 +1,16 @@
-import { ChevronLeft, ChevronRight, ListEnd, ListPlus, ListStart, MoreHorizontal, Star } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Disc3,
+  ListEnd,
+  ListPlus,
+  ListStart,
+  MoreHorizontal,
+  Star,
+} from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
+import { useNavigate } from 'react-router';
+import { Menu, MenuHeader, MenuItem, MenuSeparator, type MenuPlacement } from '@/components/Menu';
 import {
   useAddToPlaylist,
   useLikeStatus,
@@ -16,7 +26,7 @@ function PlaylistChoices({ videoId, onDone, onBack }: { videoId: string; onDone:
   const add = useAddToPlaylist();
   return (
     <>
-      <MenuItem icon={<ChevronLeft size={14} />} onSelect={onBack}>
+      <MenuItem icon={<ChevronLeft size={15} />} onSelect={onBack}>
         Back
       </MenuItem>
       <MenuSeparator />
@@ -28,7 +38,7 @@ function PlaylistChoices({ videoId, onDone, onBack }: { videoId: string; onDone:
       )}
       {options.isError && (
         <MenuItem disabled onSelect={() => {}}>
-          Couldn’t load your playlists
+          Couldn’t load playlists
         </MenuItem>
       )}
       {options.data?.length === 0 && (
@@ -51,58 +61,105 @@ function PlaylistChoices({ videoId, onDone, onBack }: { videoId: string; onDone:
   );
 }
 
-/** Favorite and Add to Playlist: the account's actions, signed in only. */
-function AccountItems({ track, onClose, onPlaylists }: { track: Track; onClose: () => void; onPlaylists: () => void }) {
-  const status = useLikeStatus(track.videoId);
-  const setLiked = useSetLiked();
-  const liked = status.data === 'LIKE';
-  return (
-    <>
-      <MenuSeparator />
-      <MenuItem
-        icon={<Star size={15} fill={liked ? 'currentColor' : 'none'} />}
-        disabled={status.isPending}
-        onSelect={() => {
-          setLiked.mutate({ videoId: track.videoId, liked: !liked });
-          onClose();
-        }}
-      >
-        {liked ? 'Unfavorite' : 'Favorite'}
-      </MenuItem>
-      <MenuItem icon={<ListPlus size={15} />} trailing={<ChevronRight size={14} />} onSelect={onPlaylists}>
-        Add to Playlist
-      </MenuItem>
-    </>
-  );
-}
-
 function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void }) {
   const [view, setView] = useState<'main' | 'playlists'>('main');
+  const navigate = useNavigate();
   const signedIn = useSignedIn();
+  const likeStatus = useLikeStatus(track.videoId);
+  const setLiked = useSetLiked();
+
+  const liked = likeStatus.data === 'LIKE';
+
   if (view === 'playlists') {
     return <PlaylistChoices videoId={track.videoId} onDone={onClose} onBack={() => setView('main')} />;
   }
+
   const { playNext, addToQueue } = usePlayer.getState();
+
+  const handleToggleLike = () => {
+    setLiked.mutate({ videoId: track.videoId, liked: !liked });
+  };
+
+  const handlePlayNext = () => {
+    onClose();
+    playNext([track]);
+  };
+
+  const handleAddToQueue = () => {
+    onClose();
+    addToQueue([track]);
+  };
+
+  const handleOpenAlbum = () => {
+    onClose();
+    if (track.album?.id) {
+      navigate(`/album/${encodeURIComponent(track.album.id)}`);
+    } else {
+      navigate(`/search?q=${encodeURIComponent(track.album?.name || track.title)}`);
+    }
+  };
+
   return (
     <>
-      <MenuItem icon={<ListStart size={15} />} onSelect={() => (onClose(), playNext([track]))}>
-        Play Next
+      {/* 1. Favorite / Unfavorite */}
+      <MenuItem
+        icon={<Star size={15} fill={liked ? 'currentColor' : 'none'} className={liked ? 'text-key' : ''} />}
+        disabled={!signedIn || likeStatus.isPending}
+        onSelect={handleToggleLike}
+      >
+        {liked ? 'Unfavorite' : 'Favorite'}
       </MenuItem>
-      <MenuItem icon={<ListEnd size={15} />} onSelect={() => (onClose(), addToQueue([track]))}>
-        Add to Queue
+
+      {/* 2. Add to playlist */}
+      <MenuItem
+        icon={<ListPlus size={15} />}
+        trailing={<ChevronRight size={14} />}
+        disabled={!signedIn}
+        onSelect={() => setView('playlists')}
+      >
+        Add to playlist
       </MenuItem>
-      {signedIn && <AccountItems track={track} onClose={onClose} onPlaylists={() => setView('playlists')} />}
+
+      <MenuSeparator />
+
+      {/* 3. Play next */}
+      <MenuItem icon={<ListStart size={15} />} onSelect={handlePlayNext}>
+        Play next
+      </MenuItem>
+
+      {/* 4. Add to queue */}
+      <MenuItem icon={<ListEnd size={15} />} onSelect={handleAddToQueue}>
+        Add to queue
+      </MenuItem>
+
+      <MenuSeparator />
+
+      {/* 5. Open album */}
+      <MenuItem icon={<Disc3 size={15} />} onSelect={handleOpenAlbum}>
+        Open album
+      </MenuItem>
     </>
   );
 }
 
 /**
- * The ⋯ button at the end of a track row (report §14): Play Next and Add to
- * Queue for everyone; Favorite and Add to Playlist signed in.
+ * The ⋯ button offering track options:
+ * Favorite, Add to playlist, Play next, Add to queue, Open album.
  */
-export function TrackMenu({ track, className }: { track: Track; className?: string }) {
+export function TrackMenu({
+  track,
+  className,
+  placement = 'auto',
+  iconSize = 18,
+}: {
+  track: Track;
+  className?: string;
+  placement?: MenuPlacement;
+  iconSize?: number;
+}) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = useCallback(() => setAnchor(null), []);
+
   return (
     <>
       <button
@@ -117,10 +174,10 @@ export function TrackMenu({ track, className }: { track: Track; className?: stri
         }}
         onDoubleClick={(event) => event.stopPropagation()}
       >
-        <MoreHorizontal size={18} strokeWidth={2} />
+        <MoreHorizontal size={iconSize} strokeWidth={2} />
       </button>
       {anchor && (
-        <Menu anchor={anchor} onClose={close} label={track.title}>
+        <Menu anchor={anchor} placement={placement} onClose={close} label={track.title}>
           <TrackMenuItems track={track} onClose={close} />
         </Menu>
       )}

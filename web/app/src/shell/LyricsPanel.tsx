@@ -11,6 +11,7 @@ import type { SourceState } from '@/lyrics/repository';
 import { enabledSources } from '@/lyrics/settings';
 import { sourceById, type LyricsSourceId } from '@/lyrics/sources';
 import { useLyrics, useLyricsUi } from '@/lyrics/useLyrics';
+import { useLyricsOffset } from '@/state/lyricsOffset';
 import { getAudio, usePlayer } from '@/state/player';
 import { LyricsSettings } from './LyricsSettings';
 
@@ -160,15 +161,17 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
     let frame = 0;
     const tick = () => {
       const now = performance.now();
+      const offset = useLyricsOffset.getState().offsetMs;
       // The reading and its stamp are taken together.
-      el.currentTime = clock.frame(now, Math.trunc(audio.currentTime * 1000), now, discontinuity);
+      el.currentTime = Math.max(0, clock.frame(now, Math.trunc(audio.currentTime * 1000), now, discontinuity) + offset);
       frame = requestAnimationFrame(tick);
     };
     const hold = () => {
       cancelAnimationFrame(frame);
+      const offset = useLyricsOffset.getState().offsetMs;
       const ms = audio.currentTime * 1000;
       clock.hold(ms, performance.now());
-      el.currentTime = ms;
+      el.currentTime = Math.max(0, ms + offset);
     };
     const resume = () => {
       cancelAnimationFrame(frame);

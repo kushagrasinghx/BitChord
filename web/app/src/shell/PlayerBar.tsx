@@ -13,6 +13,7 @@ import {
   VolumeIcon,
 } from '@/components/icons/Transport';
 import { FavoriteButton } from '@/components/music/FavoriteButton';
+import { TrackMenu } from '@/components/music/TrackMenu';
 import { useLyrics } from '@/lyrics/useLyrics';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
@@ -83,6 +84,22 @@ export function PlayerBar() {
   const hasLyrics = !!lyrics.data || sidePanel === 'lyrics';
   const hasTrack = usePlayer((s) => s.nowPlaying !== null);
   const videoId = usePlayer((s) => s.nowPlaying?.videoId ?? null);
+  const currentTrack = usePlayer((s) => {
+    const entry = s.queue[s.index]?.track;
+    if (entry && entry.videoId === s.nowPlaying?.videoId) return entry;
+    if (!s.nowPlaying) return null;
+    return {
+      videoId: s.nowPlaying.videoId,
+      title: s.nowPlaying.title,
+      artists: s.nowPlaying.artist ? [{ name: s.nowPlaying.artist, id: null }] : [],
+      album: null,
+      durationSec: s.nowPlaying.durationSec,
+      explicit: false,
+      thumbnail: s.nowPlaying.artworkUrl,
+      index: null,
+      plays: null,
+    };
+  });
   const playing = usePlayer((s) => s.status === 'playing' || s.status === 'buffering');
   const hasNext = usePlayer((s) => s.index + 1 < s.queue.length || s.repeat !== 'off' || (s.autoplay && s.index >= 0));
   const shuffle = usePlayer((s) => s.shuffle);
@@ -139,6 +156,9 @@ export function PlayerBar() {
           }}
         >
           <FavoriteButton videoId={videoId} className={fading} />
+          {currentTrack && (
+            <TrackMenu track={currentTrack} className={fading} placement="above-end" iconSize={16} />
+          )}
           {hasLyrics && (
             <button
               className={fading}

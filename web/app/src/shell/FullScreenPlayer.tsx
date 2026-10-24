@@ -15,7 +15,9 @@ import {
 } from '@/components/icons/Transport';
 import { ExplicitBadge } from '@/components/music/ExplicitBadge';
 import { FavoriteButton } from '@/components/music/FavoriteButton';
+import { TrackMenu } from '@/components/music/TrackMenu';
 import { albumHref } from '@/components/music/links';
+import type { Track } from '@/data/music/types';
 import { MotionArtwork } from '@/components/music/MotionArtwork';
 import { VideoSurface } from '@/components/music/VideoSurface';
 import { useTrackMotion } from '@/data/apple/motionArt';
@@ -344,11 +346,31 @@ export function FullScreenPlayer() {
                 )}
               </span>
             </div>
-            <FavoriteButton
-              videoId={nowPlaying.videoId}
-              className="grid size-8 flex-none place-items-center rounded-full bg-quinary text-primary hover:bg-quaternary"
-              size={18}
-            />
+            <div className="flex flex-none items-center gap-2">
+              <FavoriteButton
+                videoId={nowPlaying.videoId}
+                className="grid size-8 flex-none place-items-center rounded-full bg-quinary text-primary hover:bg-quaternary"
+                size={18}
+              />
+              <TrackMenu
+                track={
+                  track ?? {
+                    videoId: nowPlaying.videoId,
+                    title: nowPlaying.title,
+                    artists: nowPlaying.artist ? [{ name: nowPlaying.artist, id: null }] : [],
+                    album: null,
+                    durationSec: nowPlaying.durationSec,
+                    explicit: false,
+                    thumbnail: nowPlaying.artworkUrl,
+                    index: null,
+                    plays: null,
+                  }
+                }
+                className="grid size-8 flex-none place-items-center rounded-full bg-quinary text-primary hover:bg-quaternary"
+                placement="above-end"
+                iconSize={18}
+              />
+            </div>
           </div>
 
           <Scrubber />

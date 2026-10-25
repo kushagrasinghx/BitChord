@@ -16,11 +16,13 @@ import org.junit.Test
 class BoundedContextPersistenceTest {
 
     private lateinit var prefs: FakeSharedPreferences
+    private lateinit var progressPrefs: FakeSharedPreferences
 
     @Before
     fun setUp() {
         prefs = FakeSharedPreferences()
-        BoundedContextPersistence.initForTesting(prefs)
+        progressPrefs = FakeSharedPreferences()
+        BoundedContextPersistence.initForTesting(prefs, progressPrefs)
     }
 
     @Test
@@ -287,14 +289,55 @@ class BoundedContextPersistenceTest {
             sourceSnapshot = context(canonical, source),
         )
 
-        BoundedContextPersistence.saveImmediately(state)
+        BoundedContextPersistence.save(state)
+        val snapshotFile = prefs.getAll()
         BoundedContextPersistence.savePlaybackState("stale", 99_000L)
         assertEquals(1_000L, requireNotNull(BoundedContextPersistence.load()).positionMs)
         BoundedContextPersistence.savePlaybackState("current", 2_000L)
         assertEquals(2_000L, requireNotNull(BoundedContextPersistence.load()).positionMs)
-        BoundedContextPersistence.clearImmediately()
+        assertEquals(snapshotFile, prefs.getAll())
+        BoundedContextPersistence.initForTesting(prefs, progressPrefs)
+        assertEquals(2_000L, requireNotNull(BoundedContextPersistence.load()).positionMs)
+        BoundedContextPersistence.clear()
         assertTrue(prefs.getAll().isEmpty())
+        assertTrue(progressPrefs.getAll().isEmpty())
         assertNull(BoundedContextPersistence.load())
+    }
+
+    @Test
+    fun `legacy bounded snapshot and scalar progress migrate together`() {
+        val source = QueueSource("Release", PlaybackSourceType.BROWSE, "release-1")
+        val canonical = List(2) { song("track-$it") }
+        val state = state(
+            canonical,
+            source,
+            QueueWindow(2).startAt(0).snapshot(),
+            entries = listOf(entry("current", QueueTier.CONTEXT, 0, 0L)),
+            currentIndex = 0,
+            positionMs = 1_000L,
+            sourceSnapshot = context(canonical, source),
+        )
+        prefs.edit()
+            .putString("state", requireNotNull(BoundedContextPersistence.encode(state)))
+            .putString("current_entry_id", "current")
+            .putLong("position", 8_000L)
+            .commit()
+        val writer = QueuedPlaybackWriter()
+        BoundedContextPersistence.initForTesting(prefs, progressPrefs, writer)
+        assertEquals(8_000L, requireNotNull(BoundedContextPersistence.load()).positionMs)
+
+        BoundedContextPersistence.savePlaybackState("current", 9_000L)
+        val durable = BoundedContextPersistence.flush()
+        assertFalse(durable.isDone)
+        writer.runAll()
+        assertTrue(durable.get())
+        assertFalse(prefs.contains("position"))
+        assertFalse(prefs.contains("current_entry_id"))
+        BoundedContextPersistence.initForTesting(prefs, progressPrefs)
+        val restored = requireNotNull(BoundedContextPersistence.load())
+        assertEquals(9_000L, restored.positionMs)
+        assertEquals(state.entries, restored.entries)
+        assertEquals(state.window, restored.window)
     }
 
     @Test

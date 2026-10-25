@@ -1,0 +1,61 @@
+name: Automix override v1 (test + dev APK)
+
+# Chay tay: tab Actions -> "Automix override v1" -> Run workflow.
+# Workflow chep 3 file moi + 1 ban va vao ban sao tam cua repo tren may chu,
+# chay test, build APK dev debug. Khong commit gi vao repo cua ban.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the Automix override changes
+        run: |
+          echo "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" | base64 -d | tar -xz
+          patch -p1 < automix-override-v1.patch
+          rm automix-override-v1.patch
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Write local.properties
+        run: |
+          echo "LASTFM_API_KEY=" > local.properties
+          echo "LASTFM_SECRET=" >> local.properties
+          echo "LISTEN_TOGETHER_SERVER=" >> local.properties
+
+      - run: chmod +x gradlew
+
+      - name: Shared tests (includes the new override tests)
+        run: ./gradlew :shared:jvmTest
+
+      - name: App unit tests
+        run: ./gradlew testDevDebugUnitTest
+
+      - name: Build the dev APK
+        run: ./gradlew assembleDevDebug
+
+      - name: Upload the dev APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-dev-debug-automix-override
+          path: app/build/outputs/apk/dev/debug/*.apk
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            shared/build/reports/tests/
+            app/build/reports/tests/

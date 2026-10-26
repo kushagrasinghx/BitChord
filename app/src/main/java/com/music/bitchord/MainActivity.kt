@@ -345,6 +345,9 @@ import com.music.bitchord.ui.theme.SystemBarIcons
 import com.music.bitchord.ui.utils.guardSheetFromContentTouches
 import com.music.bitchord.ui.utils.rememberIosOverscrollFactory
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
+import com.music.bitchord.ui.performance.FrameDiagnostics
+import com.music.bitchord.ui.performance.FrameDiagnosticWindow
+import com.music.bitchord.ui.performance.supportedPerformanceRefreshRates
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -388,6 +391,9 @@ class MainActivity : AppCompatActivity() {
             val composeView = LocalView.current
             LaunchedEffect(highPerformance, performanceRefreshRate, composeView) {
                 applyPerformanceMode(highPerformance, performanceRefreshRate, composeView)
+            }
+            FrameDiagnosticWindow(window, composeView, "main") {
+                applyPerformanceMode(AppSettings.highPerformanceMode.value, AppSettings.performanceRefreshRate.value, composeView)
             }
             val darkTheme = when (theme) {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
@@ -448,13 +454,16 @@ class MainActivity : AppCompatActivity() {
      * hardware limits, which is why Settings describes this as a preference.
      */
     private fun applyPerformanceMode(enabled: Boolean, refreshRate: Int, composeView: View) {
-        val supportedRefreshRate = composeView.display.resolvePerformanceRefreshRate(refreshRate)
+        val forceHigh = FrameDiagnostics.forceHighRefresh
+        val active = enabled || forceHigh
+        val supportedRefreshRate = if (forceHigh) composeView.display.supportedPerformanceRefreshRates().max()
+            else composeView.display.resolvePerformanceRefreshRate(refreshRate)
         window.attributes = window.attributes.apply {
-            preferredRefreshRate = if (enabled) supportedRefreshRate.toFloat() else 0f
+            preferredRefreshRate = if (active) supportedRefreshRate.toFloat() else 0f
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            window.setFrameRatePowerSavingsBalanced(!enabled)
-            composeView.requestedFrameRate = if (enabled) {
+            window.setFrameRatePowerSavingsBalanced(!active)
+            composeView.requestedFrameRate = if (active) {
                 supportedRefreshRate.toFloat()
             } else {
                 View.REQUESTED_FRAME_RATE_CATEGORY_DEFAULT
@@ -5530,7 +5539,9 @@ private fun AppSessionState.PlayerSheetHost(
             // Keeps a sheet still "settling" after a lyrics or queue
             // scroll from taking the next touch meant for that list.
             // See [PlayerSheetMotion.attachWindow].
-            val sheetWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+            val sheetView = LocalView.current
+            val sheetWindow = (sheetView.parent as? DialogWindowProvider)?.window
+            FrameDiagnosticWindow(sheetWindow, sheetView, "nowPlaying")
             DisposableEffect(sheetWindow, reducePlayerMotion) {
                 if (!reducePlayerMotion) motion.attachWindow(sheetWindow)
                 onDispose { }

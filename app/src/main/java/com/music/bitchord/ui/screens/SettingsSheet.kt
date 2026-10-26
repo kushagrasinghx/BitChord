@@ -3,6 +3,8 @@ package com.music.bitchord.ui.screens
 import com.music.bitchord.wear.WatchInstaller
 import android.content.Context
 import android.content.Intent
+import com.music.bitchord.BuildConfig
+import com.music.bitchord.ui.performance.FrameDiagnosticsActivity
 import android.media.AudioFormat
 import android.media.audiofx.AudioEffect
 import android.net.Uri
@@ -1054,6 +1056,17 @@ fun SettingsScreen(
         }
 
         SearchableSettingsGroup(search, header = stringResource(R.string.performance)) {
+            if (BuildConfig.PERFORMANCE_DIAGNOSTICS) {
+                row("Frame diagnostics", "jank", "frames", "diagnostics") {
+                    SettingsRow(
+                        icon = BitChordIcons.Performance,
+                        title = "Frame diagnostics",
+                        subtitle = "Record and share frame timings; compare rendering and refresh rate.",
+                        trailing = { Chevron() },
+                        onClick = { context.startActivity(Intent(context, FrameDiagnosticsActivity::class.java)) },
+                    )
+                }
+            }
             val highPerformanceModeTitle = stringResource(R.string.high_performance_mode)
             row(highPerformanceModeTitle, "frame rate", "refresh rate", "hz", "battery", "smooth") {
                 SettingsRow(

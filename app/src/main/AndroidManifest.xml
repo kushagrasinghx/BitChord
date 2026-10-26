@@ -70,6 +70,13 @@
         android:theme="@style/Theme.BitChord"
         tools:targetApi="34">
 
+        <profileable android:shell="${performanceDiagnostics}" tools:targetApi="29" />
+
+        <activity
+            android:name=".ui.performance.FrameDiagnosticsActivity"
+            android:enabled="${performanceDiagnostics}"
+            android:exported="false" />
+
         <!--
           One UI 7+ only routes an app's ongoing notification to Live
           Notifications / the Now Bar if the app opts in here. Ignored by every

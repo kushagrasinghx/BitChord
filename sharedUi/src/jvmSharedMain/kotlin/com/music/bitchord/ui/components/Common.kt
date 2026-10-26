@@ -8,6 +8,7 @@ import com.music.bitchord.sharedui.resources.*
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.animation.core.animateFloatAsState
@@ -82,6 +83,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.style.TextAlign
@@ -708,9 +712,9 @@ fun Modifier.hangIntoGutter(outset: Dp): Modifier = layout { measurable, constra
 
 @Composable
 fun SearchPlayingBars(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "search playing bars")
     val heights = listOf(0.38f, 0.78f, 0.52f).mapIndexed { index, minimum ->
-        val transition = rememberInfiniteTransition(label = "search playing bar $index")
-        val height by transition.animateFloat(
+        transition.animateFloat(
             initialValue = minimum,
             targetValue = 1f - (index * 0.12f),
             animationSpec = infiniteRepeatable(
@@ -724,7 +728,6 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
             ),
             label = "search bar height $index",
         )
-        height
     }
     // The plate is a fixed square so only the bars move, never the box around them.
     Box(
@@ -734,18 +737,16 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
             .background(Color.Black.copy(alpha = 0.52f)),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
-            modifier = Modifier.height(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            heights.forEach { height ->
-                Box(
-                    Modifier
-                        .width(3.dp)
-                        .height(14.dp * height)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.White),
+        // Read animation state in drawing: a moving 3dp bar does not need to
+        // recompose or remeasure its row at display refresh rate.
+        Canvas(Modifier.size(width = 13.dp, height = 14.dp)) {
+            heights.forEachIndexed { index, height ->
+                val barHeight = size.height * height.value
+                drawRoundRect(
+                    color = Color.White,
+                    topLeft = Offset(index * 5.dp.toPx(), size.height - barHeight),
+                    size = Size(3.dp.toPx(), barHeight),
+                    cornerRadius = CornerRadius(2.dp.toPx()),
                 )
             }
         }

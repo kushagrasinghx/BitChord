@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,22 +40,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.annotation.RequiresApi
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
 import com.music.bitchord.ui.graphics.FADE_CURVE_STOPS
 import com.music.bitchord.ui.graphics.smootherStep
 import com.music.bitchord.ui.rememberIsForeground
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import com.music.bitchord.data.Http
 import com.music.bitchord.data.canvas.CanvasArtwork
-import com.music.bitchord.data.canvas.CanvasCache
+import com.music.bitchord.ui.performance.FrameDiagnostics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.ceil
@@ -188,41 +180,16 @@ internal fun AndroidCanvasArtworkPlayer(
     val currentPresentationAlpha by rememberUpdatedState(presentationAlpha)
     val reportAspect by rememberUpdatedState(onAspectRatioChanged)
 
-    val player = remember {
-        ExoPlayer.Builder(context)
-            // Shares the app's one OkHttp client, as everything that fetches
-            // over the network here does — and wrapped in CanvasCache so a
-            // loop past the first is read off disk rather than re-fetched;
-            // see that object's doc for why this matters far more here than
-            // it would for a clip played once.
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(CanvasCache.dataSourceFactory(OkHttpDataSource.Factory(Http.client))),
-            )
-            .build()
-            .apply {
-                volume = 0f
-                repeatMode = Player.REPEAT_MODE_ONE
-                trackSelectionParameters = trackSelectionParameters.buildUpon()
-                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
-                    .apply { CanvasPlaybackLimits.maxFrameRate?.let(::setMaxVideoFrameRate) }
-                    .build()
-            }
-    }
-
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onVideoSizeChanged(videoSize: VideoSize) {
-                val width = videoSize.width * videoSize.pixelWidthHeightRatio
-                val aspect = if (width.isFinite() && width > 0f && videoSize.height > 0) {
-                    width / videoSize.height
-                } else 0f
+    val session = remember(context) {
+        CanvasVideoSession(
+            context = context,
+            onAspect = { aspect ->
                 if (aspect != clipAspect) rendered = false
                 clipAspect = aspect
                 reportAspect(aspect)
                 textureView?.applyContentTransform(clipAspect, currentContentMode, currentAlignPortraitTop)
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
+            },
+            onPlaybackError = {
                 // One retry, at the other rendition. If that is the one that
                 // just failed there is nowhere left to go: leave the still
                 // art up rather than looping through a broken URL.
@@ -232,12 +199,17 @@ internal fun AndroidCanvasArtworkPlayer(
                 } else {
                     rendered = false
                 }
-            }
-        }
-        player.addListener(listener)
+            },
+            onFailure = { failure ->
+                rendered = false
+                Log.w(TAG, "Artwork video failed", failure)
+            },
+        )
+    }
+
+    DisposableEffect(session) {
         onDispose {
-            player.removeListener(listener)
-            player.release()
+            FrameDiagnostics.measure("BitChord.canvasDispose") { session.close() }
         }
     }
 
@@ -245,10 +217,7 @@ internal fun AndroidCanvasArtworkPlayer(
         rendered = false
         clipAspect = 0f
         reportAspect(0f)
-        val item = MediaItem.Builder().setUri(url)
-        mimeTypeOf(url)?.let { item.setMimeType(it) }
-        player.setMediaItem(item.build())
-        player.prepare()
+        session.prepare(url, mimeTypeOf(url))
     }
 
     // Gated on the app being on screen as well as on the caller's own state.
@@ -266,7 +235,7 @@ internal fun AndroidCanvasArtworkPlayer(
     // a surface ready and `onRenderedFirstFrame()` fires naturally.
     val foreground = rememberIsForeground()
     LaunchedEffect(foreground, pausedForTransition) {
-        player.playWhenReady = foreground && !pausedForTransition
+        session.setPlaying(foreground && !pausedForTransition)
     }
 
     // Repaint onto a surface that has just been handed back. A TextureView's
@@ -279,9 +248,7 @@ internal fun AndroidCanvasArtworkPlayer(
         if (surfaceGeneration == 0) return@LaunchedEffect
         rendered = false
         val before = frameTick
-        if (player.playbackState != Player.STATE_IDLE) {
-            player.seekTo(player.currentPosition)
-        }
+        session.repaint()
         delay(REPAINT_TIMEOUT_MS)
         if (frameTick == before) {
             rendered = false
@@ -363,20 +330,11 @@ internal fun AndroidCanvasArtworkPlayer(
                 // visible underneath for the length of the fade.
                 isOpaque = false
                 this.alpha = 0f
-                player.setVideoTextureView(this)
-                // setVideoTextureView installs ExoPlayer's own listener, and
-                // the player has to keep it — it is how the surface reaches
-                // the video renderer at all. So wrap it rather than replace
-                // it: everything is passed straight through, and the one
-                // callback that matters here is noted on the way past.
-                //
-                // Asking the lifecycle instead would be simpler and wrong. The
-                // surface comes back on the first traversal after the activity
-                // is visible, which is *after* ON_RESUME — a repaint fired
-                // there lands on the placeholder surface and the real one
-                // arrives blank a moment later.
-                val delegate = surfaceTextureListener
+                // Own the surface instead of forwarding to Media3's UI-thread
+                // TextureView listener: destroying that listener can wait for
+                // codec initialization or renderer shutdown for tens of ms.
                 surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                    private val leases = java.util.IdentityHashMap<SurfaceTexture, VideoOutputLease<android.view.Surface>>()
                     /** Whether the next surface is a replacement for one taken away. */
                     private var replacing = false
 
@@ -385,7 +343,7 @@ internal fun AndroidCanvasArtworkPlayer(
                         width: Int,
                         height: Int,
                     ) {
-                        delegate?.onSurfaceTextureAvailable(surface, width, height)
+                        leases[surface] = session.attach(surface)
                         // The first surface needs nothing: prepare() paints it.
                         if (!replacing) return
                         replacing = false
@@ -398,31 +356,38 @@ internal fun AndroidCanvasArtworkPlayer(
                         width: Int,
                         height: Int,
                     ) {
-                        delegate?.onSurfaceTextureSizeChanged(surface, width, height)
                         if (currentContentMode == CanvasContentMode.FIT_PORTRAIT && clipAspect in 0f..1f) {
                             rendered = false
                         }
                     }
 
-                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-                        replacing = true
-                        Log.d(TAG, "surface destroyed, rendered=$rendered")
-                        // The old buffer is gone now, not when/if ExoPlayer
-                        // later reports another first frame. Restore the still
-                        // artwork immediately so an empty replacement surface
-                        // can never become the only visible artwork layer.
-                        rendered = false
-                        return delegate?.onSurfaceTextureDestroyed(surface) ?: true
-                    }
+                    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean =
+                        FrameDiagnostics.measure("BitChord.canvasSurfaceDestroyed") {
+                            replacing = true
+                            Log.d(TAG, "surface destroyed, rendered=$rendered")
+                            // The old buffer is gone now, not when/if ExoPlayer
+                            // later reports another first frame. Restore the still
+                            // artwork immediately so an empty replacement surface
+                            // can never become the only visible artwork layer.
+                            rendered = false
+                            val lease = leases.remove(surface)
+                            if (lease != null) {
+                                session.detach(lease)
+                                // The control thread releases this texture only
+                                // after the decoder has stopped using its Surface.
+                                false
+                            } else {
+                                true
+                            }
+                        }
 
                     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-                        delegate?.onSurfaceTextureUpdated(surface)
                         // This callback is the proof that the current
                         // TextureView, rather than some previously destroyed
                         // surface, contains a drawable video buffer.
                         // In portrait-fit mode the frame is not handed to the
                         // still artwork until its aspect and transform are ready.
-                        if (!rendered) {
+                        if (!session.isClosed && !rendered) {
                             val transformed = textureView?.applyContentTransform(
                                 clipAspect, currentContentMode, currentAlignPortraitTop,
                             ) == true
@@ -501,6 +466,15 @@ internal fun AndroidCanvasArtworkPlayer(
  * it already had; the next tick will have one.
  */
 private fun TextureView.captureAt(
+    maxPx: Int,
+    clipAspect: Float,
+    contentMode: CanvasContentMode,
+    alignPortraitTop: Boolean,
+): Bitmap? = com.music.bitchord.ui.performance.FrameDiagnostics.measure("BitChord.artworkCapture") {
+    captureFrameAt(maxPx, clipAspect, contentMode, alignPortraitTop)
+}
+
+private fun TextureView.captureFrameAt(
     maxPx: Int,
     clipAspect: Float,
     contentMode: CanvasContentMode,
@@ -763,24 +737,28 @@ private fun mimeTypeOf(url: String): String? {
 /** The phone's decoder behind [CanvasArtworkPlayer] — see [PlayerHost.CanvasVideo]. */
 @Composable
 internal fun AndroidCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
-    AndroidCanvasArtworkPlayer(
-        canvas = spec.canvas,
-        isPlaying = spec.isPlaying,
-        modifier = modifier,
-        contentMode = spec.contentMode,
-        alignPortraitTop = spec.alignPortraitTop,
-        onAspectRatioChanged = spec.onAspectRatioChanged,
-        portraitRevealBounds = spec.portraitRevealBounds,
-        presentationAlpha = spec.presentationAlpha,
-        onRenderedChanged = spec.onRenderedChanged,
-        onFrameCaptured = spec.onFrameCaptured,
-        refreshFrameEveryMs = spec.refreshFrameEveryMs,
-        frameCapturePx = spec.frameCapturePx,
-        onCoverChanged = spec.onCoverChanged,
-        bottomFade = spec.bottomFade,
-        bottomFadeEndPx = spec.bottomFadeEndPx,
-        pausedForTransition = spec.pausedForTransition,
-    )
+    // AndroidView's factory/listener closes over a clip's state. A new clip
+    // must not keep callbacks or surface leases from the previous one.
+    key(spec.canvas) {
+        AndroidCanvasArtworkPlayer(
+            canvas = spec.canvas,
+            isPlaying = spec.isPlaying,
+            modifier = modifier,
+            contentMode = spec.contentMode,
+            alignPortraitTop = spec.alignPortraitTop,
+            onAspectRatioChanged = spec.onAspectRatioChanged,
+            portraitRevealBounds = spec.portraitRevealBounds,
+            presentationAlpha = spec.presentationAlpha,
+            onRenderedChanged = spec.onRenderedChanged,
+            onFrameCaptured = spec.onFrameCaptured,
+            refreshFrameEveryMs = spec.refreshFrameEveryMs,
+            frameCapturePx = spec.frameCapturePx,
+            onCoverChanged = spec.onCoverChanged,
+            bottomFade = spec.bottomFade,
+            bottomFadeEndPx = spec.bottomFadeEndPx,
+            pausedForTransition = spec.pausedForTransition,
+        )
+    }
 }
 
 /**

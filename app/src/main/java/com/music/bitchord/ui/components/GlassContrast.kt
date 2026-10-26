@@ -35,8 +35,11 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
+import com.music.bitchord.BuildConfig
+import com.music.bitchord.ui.performance.FrameDiagnostics
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.ceil
 import kotlinx.coroutines.delay
@@ -139,12 +142,14 @@ fun rememberBackdropLuminance(backdrop: LayerBackdrop): BackdropLuminance {
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(luminance, density, layoutDirection, lifecycle) {
+    val diagnostics = if (BuildConfig.PERFORMANCE_DIAGNOSTICS) FrameDiagnostics.mode.collectAsStateWithLifecycle().value else null
+    LaunchedEffect(luminance, density, layoutDirection, lifecycle, diagnostics?.noReadback) {
+        if (diagnostics?.noReadback == true) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             snapshotFlow { luminance.readers > 0 }.collectLatest { read ->
                 while (read) {
                     try {
-                        luminance.sample(density, layoutDirection)
+                        FrameDiagnostics.measureSuspending("BitChord.glassReadback") { luminance.sample(density, layoutDirection) }
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {

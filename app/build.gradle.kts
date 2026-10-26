@@ -55,6 +55,7 @@ val listenTogetherServer: String = (
 
 // See the root build.gradle.kts: one version for the phone and its watch app.
 val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
+val performanceDiagnostics = providers.gradleProperty("bitchord.performanceDiagnostics").orNull == "true"
 
 android {
     namespace = "com.music.bitchord"
@@ -69,6 +70,8 @@ android {
         targetSdk = 36
         versionCode = rootProject.extra["bitchordVersionCode"] as Int
         versionName = rootProject.extra["bitchordVersionName"] as String
+        buildConfigField("boolean", "PERFORMANCE_DIAGNOSTICS", performanceDiagnostics.toString())
+        manifestPlaceholders["performanceDiagnostics"] = performanceDiagnostics.toString()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -284,6 +287,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    // Already present at runtime through Compose; diagnostics also uses its public verifier API.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // ---- Media playback: Media3 / ExoPlayer ----

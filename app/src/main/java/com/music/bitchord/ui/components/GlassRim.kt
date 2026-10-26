@@ -2,7 +2,7 @@ package com.music.bitchord.ui.components
 
 import android.graphics.BlurMaskFilter
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.CacheDrawModifierNode
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -16,9 +16,18 @@ import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.Shader
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.addOutline
+import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.node.DelegatingNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.platform.InspectorInfo
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
@@ -67,48 +76,110 @@ import androidx.compose.ui.unit.dp
  * in and out without recomposing.
  */
 internal fun Modifier.glassRim(shape: Shape, alpha: () -> Float = FullRim): Modifier =
-    drawWithCache {
-        val body = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache)) }
-        val rim = rims(body, GLASS_RIM_DEPTH.toPx())
-        val glow = rims(body, GLASS_GLOW_DEPTH.toPx())
-        // The rim's own colour comes from a top-to-bottom gradient rather than
-        // the paint, so it can run out before it wraps too far down the ends.
-        val rimGain = blurredPaint(BlendMode.ColorDodge, GLASS_RIM_BLUR.toPx()).apply {
-            shader = rimReach(size.height, gainGrey(GLASS_RIM_GAIN))
-        }
-        val rimLight = blurredPaint(BlendMode.Plus, GLASS_RIM_BLUR.toPx()).apply {
-            shader = rimReach(size.height, Color.White)
-        }
-        val glowGain = blurredPaint(BlendMode.ColorDodge, GLASS_GLOW_BLUR.toPx())
-        val glowLight = blurredPaint(BlendMode.Plus, GLASS_GLOW_BLUR.toPx())
-        // Twice the width, centred on the edge and clipped to the outside half.
-        val outline = Stroke(width = GLASS_OUTLINE_WIDTH.toPx() * 2f)
-        val outlineBrush = Brush.horizontalGradient(
-            *outlineStops(size).map { (at, opacity) -> at to Color.Black.copy(alpha = opacity) }.toTypedArray(),
-            startX = 0f,
-            endX = size.width,
-        )
+    this.then(GlassRimElement(shape, alpha))
+
+private data class GlassRimElement(val shape: Shape, val alpha: () -> Float) : ModifierNodeElement<GlassRimNode>() {
+    override fun create() = GlassRimNode(shape, alpha)
+    override fun update(node: GlassRimNode) = node.update(shape, alpha)
+    override fun InspectorInfo.inspectableProperties() { name = "glassRim" }
+}
+
+private class GlassRimNode(private var shape: Shape, private var alpha: () -> Float) : DelegatingNode() {
+    // Updating an opacity callback should redraw, not rebuild paths, blur
+    // filters and gradients. Size, density and layout direction changes are
+    // still handled by the delegated cache node.
+    override val shouldAutoInvalidate = false
+
+    private val drawing: CacheDrawModifierNode = delegate(CacheDrawModifierNode {
+        val geometry = GlassRimGeometry(shape, size, layoutDirection, this)
         onDrawWithContent {
             drawContent()
             val strength = alpha().coerceIn(0f, 1f)
             if (strength <= 0f) return@onDrawWithContent
-            clipPath(body) {
-                glowGain.color = gainGrey(GLASS_GLOW_GAIN).copy(alpha = strength)
-                glowLight.color = Color.White.copy(alpha = GLASS_GLOW_ALPHA * strength)
-                rimGain.alpha = strength
-                rimLight.alpha = GLASS_RIM_ALPHA * strength
+            clipPath(geometry.body) {
                 drawIntoCanvas {
-                    it.drawPath(glow, glowGain)
-                    it.drawPath(glow, glowLight)
-                    it.drawPath(rim, rimGain)
-                    it.drawPath(rim, rimLight)
+                    geometry.drawLights(it.nativeCanvas, strength)
                 }
             }
-            clipPath(body, ClipOp.Difference) {
-                drawPath(body, outlineBrush, alpha = strength, style = outline)
-            }
+            geometry.drawOutline(this, strength)
+        }
+    })
+
+    fun update(shape: Shape, alpha: () -> Float) {
+        if (this.shape != shape) {
+            this.shape = shape
+            drawing.invalidateDrawCache()
+        }
+        if (this.alpha !== alpha) {
+            this.alpha = alpha
+            drawing.invalidateDraw()
         }
     }
+}
+
+/** Also used by offscreen render checks, without constructing an app screen. */
+internal class GlassRimGeometry(shape: Shape, size: Size, direction: LayoutDirection, density: Density) {
+    val body: Path
+    private val rim: Path
+    private val glow: Path
+    private val rimGain: Paint
+    private val rimLight: Paint
+    private val glowGain: Paint
+    private val glowLight: Paint
+    private val outline: Stroke
+    private val outlineBrush: Brush
+    private var lastStrength = Float.NaN
+
+    init {
+        with(density) {
+            body = Path().apply { addOutline(shape.createOutline(size, direction, density)) }
+            rim = rims(body, GLASS_RIM_DEPTH.toPx())
+            glow = rims(body, GLASS_GLOW_DEPTH.toPx())
+            val rimBlur = GLASS_RIM_BLUR.toPx()
+            val glowBlur = GLASS_GLOW_BLUR.toPx()
+            // The rim's own colour comes from a top-to-bottom gradient rather than
+            // the paint, so it can run out before it wraps too far down the ends.
+            rimGain = blurredPaint(BlendMode.ColorDodge, rimBlur).apply {
+                shader = rimReach(size.height, gainGrey(GLASS_RIM_GAIN))
+            }
+            rimLight = blurredPaint(BlendMode.Plus, rimBlur).apply {
+                shader = rimReach(size.height, Color.White)
+            }
+            glowGain = blurredPaint(BlendMode.ColorDodge, glowBlur)
+            glowLight = blurredPaint(BlendMode.Plus, glowBlur)
+            // Twice the width, centred on the edge and clipped to the outside half.
+            outline = Stroke(width = GLASS_OUTLINE_WIDTH.toPx() * 2f)
+            outlineBrush = Brush.horizontalGradient(
+                *outlineStops(size).map { (at, opacity) -> at to Color.Black.copy(alpha = opacity) }.toTypedArray(),
+                startX = 0f,
+                endX = size.width,
+            )
+        }
+    }
+
+    private fun updateStrength(strength: Float) {
+        if (lastStrength == strength) return
+        lastStrength = strength
+        glowGain.color = gainGrey(GLASS_GLOW_GAIN).copy(alpha = strength)
+        glowLight.color = Color.White.copy(alpha = GLASS_GLOW_ALPHA * strength)
+        rimGain.alpha = strength
+        rimLight.alpha = GLASS_RIM_ALPHA * strength
+    }
+
+    fun drawLights(canvas: android.graphics.Canvas, strength: Float) {
+        updateStrength(strength)
+        canvas.drawPath(glow.asAndroidPath(), glowGain.asFrameworkPaint())
+        canvas.drawPath(glow.asAndroidPath(), glowLight.asFrameworkPaint())
+        canvas.drawPath(rim.asAndroidPath(), rimGain.asFrameworkPaint())
+        canvas.drawPath(rim.asAndroidPath(), rimLight.asFrameworkPaint())
+    }
+
+    fun drawOutline(scope: DrawScope, strength: Float) = with(scope) {
+        clipPath(body, ClipOp.Difference) {
+            drawPath(body, outlineBrush, alpha = strength, style = outline)
+        }
+    }
+}
 
 private val FullRim = { 1f }
 

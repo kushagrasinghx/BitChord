@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="connecting">Conectando…</string>
+    <string name="no_phone_title">Celular não conectado</string>
+    <string name="no_phone_body">Abra o BitChord no seu celular e mantenha-o perto do relógio.</string>
+    <string name="retry">Tentar novamente</string>
+    <string name="nothing_playing">Nada tocando</string>
+    <string name="nothing_playing_body">Reproduza algo no BitChord no seu celular.</string>
+    <string name="resume">Retomar</string>
+    <string name="up_next">A seguir</string>
+    <string name="queue_empty">Nada a seguir</string>
+    <string name="loading">Carregando…</string>
+    <string name="playing_now">Tocando agora</string>
+    <string name="more">Mais</string>
+    <string name="shuffle">Aleatório</string>
+    <string name="repeat">Repetir</string>
+    <string name="repeat_off">Desativado</string>
+    <string name="repeat_all">Todas</string>
+    <string name="repeat_one">Uma música</string>
+    <string name="on">Ativado</string>
+    <string name="off">Desativado</string>
+    <string name="love">Curtir</string>
+    <string name="loved">Curtida</string>
+    <string name="volume">Volume</string>
+    <string name="on_phone">No celular</string>
+    <string name="play">Tocar</string>
+    <string name="pause">Pausar</string>
+    <string name="next">Próxima</string>
+    <string name="previous">Anterior</string>
+    <string name="output">Saída</string>
+    <string name="this_watch">Este relógio</string>
+    <string name="watch_speaker">Alto-falante ou fones do relógio</string>
+    <string name="on_phone_output">No celular</string>
+    <string name="phone_speaker">Alto-falante do celular</string>
+    <string name="wired_headphones">Fones de ouvido com fio</string>
+    <string name="usb_audio">Áudio USB</string>
+    <string name="hdmi">HDMI</string>
+    <string name="other_output">Outra saída</string>
+    <string name="moving_to_watch">Transferindo para o relógio…</string>
+    <string name="update_channel">Atualizações</string>
+    <string name="update_ready">Atualização do BitChord pronta</string>
+    <string name="update_tap">Toque para instalar a atualização a partir do seu celular.</string>
+</resources>

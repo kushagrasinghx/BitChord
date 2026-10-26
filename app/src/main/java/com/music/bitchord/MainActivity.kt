@@ -105,10 +105,12 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -291,6 +293,8 @@ import com.music.bitchord.ui.screens.MoodGridPage
 import com.music.bitchord.ui.player.NowPlayingScreen
 import com.music.bitchord.ui.player.MusicVideoEngine
 import com.music.bitchord.ui.player.PlayerSheetMotion
+import com.music.bitchord.ui.player.PlayerOverlayHost
+import com.music.bitchord.ui.player.PlayerSheetShape
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.window.DialogWindowProvider
@@ -2621,7 +2625,13 @@ private fun AppSessionState.Content(
         // the feed, the frosted bars, the tab row — becomes the left half of
         // a row, and the player is the right. Off a tablet the row has the
         // one child it always had and changes nothing.
-        Row(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxSize().then(
+                if (showNowPlaying && playerSong != null && !reducePlayerMotion) {
+                    Modifier.clearAndSetSemantics { }.focusProperties { canFocus = false }
+                } else Modifier,
+            ),
+        ) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(
                     // Whatever is on top of the back stack — see [AppNavigator].
@@ -5454,6 +5464,24 @@ private fun AppSessionState.PlayerSheetHost(
     reducePlayerMotion: Boolean,
     content: @Composable (Song) -> Unit,
 ) {
+    if (reducePlayerMotion) {
+        ModalPlayerSheetHost(song, dock, motion, reducePlayerMotion, content)
+    } else {
+        PlayerOverlayHost(visible = showNowPlaying && song != null, dock = dock, motion = motion) {
+            song?.let { content(it) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppSessionState.ModalPlayerSheetHost(
+    song: Song?,
+    dock: PlayerDock,
+    motion: PlayerSheetMotion,
+    reducePlayerMotion: Boolean,
+    content: @Composable (Song) -> Unit,
+) {
     val currentReduceMotion by rememberUpdatedState(reducePlayerMotion)
     val playerRaised = showNowPlaying && song != null
 
@@ -5856,22 +5884,6 @@ private val PLAYER_PULL_FLING_VELOCITY = 400.dp
 
 /** M3's own scrim strength, which the player's dim stands in for. */
 private const val PLAYER_SCRIM_ALPHA = 0.32f
-
-/**
- * The player sheet's shape: square, as [RectangleShape] was, but reaching a
- * whole sheet's height above the sheet's top edge.
- *
- * The sheet's Surface clips its content to this shape, and on the way down to
- * the mini player the artwork travels ahead of the sheet carrying it — up
- * above the sheet's top edge, where a plain rectangle cut it off mid-air,
- * leaving only its lower part to arrive in the bar. Nothing else is drawn
- * outside the sheet (its background is transparent and it casts no shadow),
- * so at rest this is the rectangle it replaces.
- */
-private object PlayerSheetShape : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
-        Outline.Rectangle(Rect(0f, -size.height, size.width, size.height))
-}
 
 private const val TAB_HOME = 0
 private const val TAB_EXPLORE = 1

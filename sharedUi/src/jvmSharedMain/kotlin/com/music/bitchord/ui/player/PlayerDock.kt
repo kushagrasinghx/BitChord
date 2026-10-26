@@ -19,9 +19,9 @@ import androidx.compose.ui.unit.toSize
  *
  * Opening and closing the player is one movement on screen: the sheet's
  * artwork travels between its own place and the mini player's cover while the
- * rest of the player fades — see the sleeve in [NowPlayingScreen]. The two are
- * in different windows on a phone (the player is a modal sheet over the page),
- * so nothing here is shared layout; it is the two ends of the movement, each
+ * rest of the player fades — see the sleeve in [NowPlayingScreen]. The host can
+ * use the activity's window or a modal window, so nothing here assumes shared
+ * layout; it is the two ends of the movement, each
  * reported by the side that owns it, and met in screen coordinates.
  *
  * Read in layout and draw only. Nothing in it is worth a recomposition: a

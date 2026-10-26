@@ -67,6 +67,8 @@ class BackdropLuminance internal constructor(
 ) {
     /** How many glass controls are reading; nothing is sampled while there are none. */
     internal var readers by mutableIntStateOf(0)
+    /** Root-page contrast is frozen while the full-screen player covers it. */
+    internal var samplingEnabled by mutableStateOf(true)
 
     /** Bumped with every fresh sample, so a reader looks at its region again. */
     internal var samples by mutableIntStateOf(0)
@@ -146,7 +148,7 @@ fun rememberBackdropLuminance(backdrop: LayerBackdrop): BackdropLuminance {
     LaunchedEffect(luminance, density, layoutDirection, lifecycle, diagnostics?.noReadback) {
         if (diagnostics?.noReadback == true) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            snapshotFlow { luminance.readers > 0 }.collectLatest { read ->
+            snapshotFlow { luminance.readers > 0 && luminance.samplingEnabled }.collectLatest { read ->
                 while (read) {
                     try {
                         FrameDiagnostics.measureSuspending("BitChord.glassReadback") { luminance.sample(density, layoutDirection) }

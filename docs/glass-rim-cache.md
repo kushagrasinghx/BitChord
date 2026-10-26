@@ -25,3 +25,7 @@ The optimized [ARM64 production APK](../output/BitChord-1.9-rim-cache-arm64.apk)
 Size: 67,794,560 bytes. SHA-256: `b459bb102dc61fc30a0261083344d04efcb15701dc66554fd451f787a4796b44`. [Build metadata](../output/rim-cache-build.json).
 
 The build used one Gradle worker, a 3 GB heap and in-process Kotlin compilation through command-line overrides. Existing user changes to `gradle.properties` were not edited or included in the commit. The build emits the same R8/Kotlin metadata warnings as earlier successful production builds.
+
+## Subsequent user result
+
+The user later tried this APK and reported persistent frame drops and worse perceived jank, including slow-motion behavior in places. The cache change has no demonstrated smoothness benefit. The [following batch](glass-without-readback.md) removes contrast readback and reuses unchanged effect chains while retaining the material rendering.

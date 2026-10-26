@@ -354,9 +354,8 @@ private fun ArtworkPageBackButton(
     val shape = CircleShape
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
-    val glassArea = remember { GlassArea() }
     val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
-        glassContentColor(glassArea)
+        glassContentColor()
     } else {
         MaterialTheme.colorScheme.onSurface
     }
@@ -371,8 +370,6 @@ private fun ArtworkPageBackButton(
             Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = stringResource(R.string.back),
             tint = contentColor,
-            // What is under the glyph, not the whole circle round it.
-            modifier = Modifier.glassArea(glassArea),
         )
     }
 }
@@ -386,10 +383,8 @@ private fun ArtworkPageActions(
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val glass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
-    val glassArea = remember { GlassArea() }
     ActionsRow(
         modifier = modifier
-            .glassArea(glassArea)
             .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
@@ -410,9 +405,8 @@ private fun ArtworkPageActions(
         // own 48dp touch targets stood it 4dp taller than the circle beside it.
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
             if (glass) {
-                // The actions are set in the theme's onSurface and primary, each in
-                // its own place; on glass both follow what the pill is showing.
-                val glassContent = glassContentColor(glassArea)
+                // Glass actions share the theme's solid foreground tint.
+                val glassContent = glassContentColor()
                 MaterialTheme(
                     colorScheme = MaterialTheme.colorScheme.copy(onSurface = glassContent, primary = glassContent),
                     content = content,
@@ -457,24 +451,22 @@ private fun ActionsRow(modifier: Modifier, content: @Composable () -> Unit) {
 /**
  * The bar's accessory — the Search tab's field — on the same surface as the
  * controls either side of it, at their height: a squircle pill of the bar's
- * glass, its glyphs and words in what the glass shows.
+ * glass, its glyphs and words using the theme's foreground tint.
  */
 @Composable
 private fun ArtworkPageAccessory(hazeState: HazeState?, content: @Composable () -> Unit) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val glass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
-    val glassArea = remember { GlassArea() }
     val shape = remember { SquirclePillShape() }
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(TOP_CONTROL_SIZE)
-            .glassArea(glassArea)
             .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
     ) {
         CompositionLocalProvider(LocalSearchFieldOnSurface provides true) {
             if (glass) {
-                val glassContent = glassContentColor(glassArea)
+                val glassContent = glassContentColor()
                 MaterialTheme(
                     colorScheme = MaterialTheme.colorScheme.copy(
                         onBackground = glassContent,

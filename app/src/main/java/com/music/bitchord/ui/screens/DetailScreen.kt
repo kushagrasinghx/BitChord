@@ -16,12 +16,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import com.music.bitchord.ui.components.isLiquidGlassActive
 import com.music.bitchord.ui.components.LocalAppBackdrop
-import com.music.bitchord.ui.components.LocalBackdropLuminance
 import com.music.bitchord.ui.components.LocalGlassFloor
-import com.music.bitchord.ui.components.GlassArea
-import com.music.bitchord.ui.components.glassArea
 import com.music.bitchord.ui.components.glassContentColor
-import com.music.bitchord.ui.components.rememberBackdropLuminance
 import com.music.bitchord.ui.components.GLASS_EDGE_COLOR
 import com.music.bitchord.ui.components.GLASS_EDGE_WIDTH
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
@@ -545,11 +541,9 @@ fun DetailScreen(
             // page, those controls included, and a control drawing the layer
             // it is being recorded into is a cycle.
             val pageGlass = if (pageSamplesGlass()) rememberLayerBackdrop() else null
-            val pageLuminance = pageGlass?.let { rememberBackdropLuminance(it) }
             CompositionLocalProvider(
                 LocalAppBackdrop provides (pageGlass ?: LocalAppBackdrop.current),
                 LocalGlassFloor provides (pageGlass ?: LocalGlassFloor.current),
-                LocalBackdropLuminance provides (pageLuminance ?: LocalBackdropLuminance.current),
             ) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 // Measured rather than read off the window. The player runs
@@ -1612,8 +1606,7 @@ private fun ActionPill(
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
     val haptics = rememberHaptics()
-    val area = remember { GlassArea() }
-    val content = if (filled) Color.Black else detailGlassContent(area)
+    val content = if (filled) Color.Black else detailGlassContent()
     Row(
         modifier = modifier
             .height(size)
@@ -1630,9 +1623,7 @@ private fun ActionPill(
                 haptics.play(Haptic.Resume)
                 onClick()
             }
-            .padding(horizontal = 24.dp)
-            // Inside the padding: what is under the glyph and the label.
-            .glassArea(area),
+            .padding(horizontal = 24.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1724,7 +1715,6 @@ private fun CircleIconButton(
     enabled: Boolean = true,
 ) {
     val haptics = rememberHaptics()
-    val area = remember { GlassArea() }
     Box(
         modifier = Modifier
             .size(size)
@@ -1741,9 +1731,8 @@ private fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = detailGlassContent(area),
-            // What is under the glyph, not the whole circle round it.
-            modifier = Modifier.size(size * 0.44f).glassArea(area),
+            tint = detailGlassContent(),
+            modifier = Modifier.size(size * 0.44f),
         )
     }
 }
@@ -2247,7 +2236,6 @@ private fun TopReleaseCard(
         }
         if (onToggleSaved != null && saved != null) {
             Spacer(Modifier.width(10.dp))
-            val area = remember { GlassArea() }
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -2265,8 +2253,8 @@ private fun TopReleaseCard(
                     contentDescription = stringResource(
                         if (saved) R.string.remove_from_library else R.string.add_to_library,
                     ),
-                    tint = detailGlassContent(area),
-                    modifier = Modifier.size(17.dp).glassArea(area),
+                    tint = detailGlassContent(),
+                    modifier = Modifier.size(17.dp),
                 )
             }
         }
@@ -2320,12 +2308,11 @@ private fun Modifier.detailGlass(shape: CornerBasedShape): Modifier =
     }
 
 /**
- * Glyph colour on a [detailGlass] control at [area]: turning dark over a light
- * page while it is glass — see [glassContentColor] — and the theme's otherwise.
+ * Foreground tint for a [detailGlass] control, matched to the glass theme.
  */
 @Composable
-private fun detailGlassContent(area: GlassArea): Color =
-    if (pageSamplesGlass()) glassContentColor(area) else MaterialTheme.colorScheme.onSurface
+private fun detailGlassContent(): Color =
+    if (pageSamplesGlass()) glassContentColor() else MaterialTheme.colorScheme.onSurface
 private const val TOP_RELEASE_COVER_EDGE_ALPHA = 0.215f
 
 @OptIn(ExperimentalFoundationApi::class)

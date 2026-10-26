@@ -113,11 +113,6 @@ fun GlassNavBar(
     // this shape, and a fresh RoundedCornerShape each pass means a fresh factory
     // lambda, which the tab bar sees as a changed argument and recomposes on.
     val pillShape = remember { RoundedCornerShape(percent = 50) }
-    // Each tab reads what the glass shows behind its own glyph, and the mini
-    // player and the Search circle read their own surfaces. One reading over
-    // the whole bar averaged a bright cover under one tab in with the dark page
-    // under the rest, and rarely turned anything dark.
-    val tabAreas = remember(tabs.size) { List(tabs.size) { GlassArea() } }
     val haptics = rememberHaptics()
 
     // The tab content lambdas below are captured once per contentKey and held
@@ -230,7 +225,6 @@ fun GlassNavBar(
     ) {
         tabs.forEachIndexed { index, tab ->
             val isSelected = index == selectedIndex
-            val area = tabAreas[index]
             val onClick = {
                 if (!isSelected) haptics.play(Haptic.Select)
                 currentOnTabSelected(index)
@@ -239,12 +233,12 @@ fun GlassNavBar(
                 standaloneTab(
                     key = index,
                     icon = {
-                        val tint = tabTint(area, isSelected)
+                        val tint = tabTint(isSelected)
                         Icon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
                             tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE).glassArea(area).vibrancy(tint),
+                            modifier = Modifier.size(TAB_ICON_SIZE).vibrancy(tint),
                         )
                     },
                     onClick = onClick,
@@ -253,16 +247,16 @@ fun GlassNavBar(
                 tab(
                     key = index,
                     icon = {
-                        val tint = tabTint(area, isSelected)
+                        val tint = tabTint(isSelected)
                         Icon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
                             tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE).glassArea(area).vibrancy(tint),
+                            modifier = Modifier.size(TAB_ICON_SIZE).vibrancy(tint),
                         )
                     },
                     title = {
-                        val tint = tabTint(area, isSelected)
+                        val tint = tabTint(isSelected)
                         Text(
                             text = tab.label,
                             style = tabLabelStyle(),
@@ -282,10 +276,10 @@ fun GlassNavBar(
     }
 }
 
-/** A tab's glyph and label colour, read off what the glass shows behind its icon. */
+/** A tab's glyph and label colour, matched to the glass theme. */
 @Composable
-private fun tabTint(area: GlassArea, selected: Boolean): Color {
-    val content = glassContentColor(area)
+private fun tabTint(selected: Boolean): Color {
+    val content = glassContentColor()
     return if (selected) content else content.copy(alpha = 0.65f)
 }
 
@@ -327,9 +321,7 @@ private fun GlassNowPlaying(
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "accessoryPressScale",
     )
-
-    val glassArea = remember { GlassArea() }
-    val contentColor = glassContentColor(glassArea)
+    val contentColor = glassContentColor()
 
     val titleStyle = MaterialTheme.typography.titleMedium.copy(
         fontSize = ACCESSORY_TITLE_SIZE,
@@ -429,11 +421,9 @@ private fun GlassNowPlaying(
                 }
             }
             Spacer(Modifier.width(if (isInline) 8.dp else 9.dp))
-            // Everything after the artwork, which is the region the glyphs and
-            // the words read the glass under: the sleeve covers what is behind it.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f).glassArea(glassArea),
+                modifier = Modifier.weight(1f),
             ) {
                 // Title and artist at both densities, as Apple Music has them, in its
                 // small, openly spaced type (see [ACCESSORY_TITLE_SIZE]). The inline

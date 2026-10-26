@@ -76,8 +76,7 @@ fun rememberGlassFloor(color: Color): Backdrop {
  * The glass shows the track over [LocalGlassFloor] — sampled, saturated and
  * lifted like every other glass surface, with the same rim. Both are flat, so
  * the sample is drawn rather than recorded: nothing here takes a layer of the
- * page. Labels sit above the glass in [glassContentColor], read off what the
- * control is over.
+ * page. Labels sit above the glass in the theme's [glassContentColor].
  *
  * Segments share the track evenly while every label fits its share, take what
  * their labels need and split what is left while the labels fit together, and
@@ -107,15 +106,13 @@ fun GlassSegmentedControl(
         }
     }
     val underGlass = rememberBackdrop(floor, drawTrack)
-    val area = remember { GlassArea() }
-    val content = glassContentColor(area)
+    val content = glassContentColor()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val selected = selectedIndex.takeIf { it in options.indices }
 
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .glassArea(area)
             .clip(TrackShape)
             .vibrantBackground(trackColor),
     ) {

@@ -36,6 +36,7 @@ import com.music.bitchord.ui.components.backdrop.drawBackdrop
 import com.music.bitchord.ui.components.backdrop.effects.blur
 import com.music.bitchord.ui.components.backdrop.effects.colorControls
 import com.music.bitchord.ui.components.backdrop.effects.lens
+import com.music.bitchord.ui.components.backdrop.internal.ShapeProvider
 import com.music.bitchord.ui.components.backdrop.shadow.Shadow
 import androidx.compose.ui.unit.dp
 
@@ -80,17 +81,6 @@ private const val SURFACE_OPACITY = 0.4f
  */
 private val LIGHT_GLASS_TINT = Color(0xFFFAFAFA)
 private const val DARK_GLASS_LIFT = 0.08f
-
-/**
- * How bright glass shows a backdrop of relative luminance [under]: dark glass
- * adds [DARK_GLASS_LIFT] on top of it, light glass veils it in [LIGHT_GLASS_TINT].
- */
-internal fun glassLuminanceOver(under: Float, light: Boolean): Float =
-    if (light) {
-        under * (1f - SURFACE_OPACITY) + LIGHT_GLASS_TINT.luminance() * SURFACE_OPACITY
-    } else {
-        under + DARK_GLASS_LIFT
-    }
 
 private fun DrawScope.drawGlassFill(light: Boolean, shape: Shape) {
     val outline = shape.createOutline(size, layoutDirection, this)
@@ -182,6 +172,9 @@ fun Modifier.liquidGlass(
             .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
     }
     val glassShape = remember(shape) { shape.continuous() }
+    // The fill uses the same outline on each scrolling frame. Keep its path
+    // until the shape, size or drawing environment changes.
+    val fillShape = remember(glassShape) { ShapeProvider { glassShape }.shape }
     val backdrop = LocalAppBackdrop.current
     val exportedBackdrop = LocalGlassExport.current
     val density = LocalDensity.current
@@ -212,7 +205,7 @@ fun Modifier.liquidGlass(
         highlight = null,
         shadow = { Shadow.Default },
         onDrawSurface = {
-            if (surfaceTint != null) drawRect(color = surfaceTint, size = size) else drawGlassFill(light, glassShape)
+            if (surfaceTint != null) drawRect(color = surfaceTint, size = size) else drawGlassFill(light, fillShape)
         },
         exportedBackdrop = exportedBackdrop,
         backdropScale = GLASS_RESOLUTION_SCALE,

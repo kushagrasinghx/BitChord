@@ -13,7 +13,9 @@ import androidx.annotation.FloatRange
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ColorMatrixColorFilter
+import androidx.compose.ui.graphics.RenderEffect
 import com.music.bitchord.ui.components.backdrop.BackdropEffectScope
+import com.music.bitchord.ui.components.backdrop.cachedEffect
 import com.music.bitchord.ui.components.backdrop.internal.ColorFilterEffect
 import com.music.bitchord.ui.components.backdrop.isRenderEffectSupported
 
@@ -24,15 +26,19 @@ fun BackdropEffectScope.colorFilter(colorFilter: ColorFilter) {
 }
 
 fun BackdropEffectScope.opacity(@FloatRange(from = 0.0, to = 1.0) alpha: Float) {
-    val colorMatrix = ColorMatrix(
-        floatArrayOf(
-            1f, 0f, 0f, 0f, 0f,
-            0f, 1f, 0f, 0f, 0f,
-            0f, 0f, 1f, 0f, 0f,
-            0f, 0f, 0f, alpha, 0f
+    if (!isRenderEffectSupported()) return
+    val input = renderEffect
+    renderEffect = cachedEffect(OpacityKey(input, alpha)) {
+        val colorMatrix = ColorMatrix(
+            floatArrayOf(
+                1f, 0f, 0f, 0f, 0f,
+                0f, 1f, 0f, 0f, 0f,
+                0f, 0f, 1f, 0f, 0f,
+                0f, 0f, 0f, alpha, 0f
+            )
         )
-    )
-    colorFilter(ColorMatrixColorFilter(colorMatrix))
+        ColorFilterEffect(input, ColorMatrixColorFilter(colorMatrix))
+    }
 }
 
 fun BackdropEffectScope.colorControls(
@@ -43,9 +49,17 @@ fun BackdropEffectScope.colorControls(
     if (brightness == 0f && contrast == 1f && saturation == 1f) {
         return
     }
-
-    colorFilter(colorControlsColorFilter(brightness, contrast, saturation))
+    if (!isRenderEffectSupported()) return
+    val input = renderEffect
+    renderEffect = cachedEffect(ColorControlsKey(input, brightness, contrast, saturation)) {
+        ColorFilterEffect(input, colorControlsColorFilter(brightness, contrast, saturation))
+    }
 }
+
+private data class OpacityKey(val input: RenderEffect?, val alpha: Float)
+private data class ColorControlsKey(
+    val input: RenderEffect?, val brightness: Float, val contrast: Float, val saturation: Float,
+)
 
 private val VibrantColorFilter = colorControlsColorFilter(saturation = 1.5f)
 

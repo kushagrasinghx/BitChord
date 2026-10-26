@@ -24,6 +24,7 @@ internal class ShapeProvider(val shapeBlock: () -> Shape) {
     private var _size: Size = Size.Unspecified
     private var _layoutDirection: LayoutDirection? = null
     private var _density: Float? = null
+    private var _fontScale: Float? = null
 
     val innerShape
         get() = shapeBlock()
@@ -40,10 +41,13 @@ internal class ShapeProvider(val shapeBlock: () -> Shape) {
                 _shape = shape
                 _outline = null
             }
-            if (_outline == null || _size != size || _layoutDirection != layoutDirection || _density != density.density) {
+            if (_outline == null || _size != size || _layoutDirection != layoutDirection ||
+                _density != density.density || _fontScale != density.fontScale
+            ) {
                 _size = size
                 _layoutDirection = layoutDirection
                 _density = density.density
+                _fontScale = density.fontScale
                 _outline = shape.createOutline(size, layoutDirection, density)
             }
 

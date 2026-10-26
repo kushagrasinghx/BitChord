@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.dp
 import com.music.bitchord.ui.performance.FrameDiagnostics
 import com.music.bitchord.ui.utils.guardSheetFromContentTouches
 import com.music.bitchord.R
-import com.music.bitchord.ui.components.LocalBackdropLuminance
 
 /**
  * A full-screen player in the activity's existing window. Reusable UI nodes
@@ -61,11 +60,6 @@ internal fun PlayerOverlayHost(
     motion: PlayerSheetMotion,
     content: @Composable () -> Unit,
 ) {
-    val luminance = LocalBackdropLuminance.current
-    DisposableEffect(luminance, visible) {
-        luminance?.samplingEnabled = !visible
-        onDispose { luminance?.samplingEnabled = true }
-    }
     var visited by remember { mutableStateOf(false) }
     SideEffect { if (visible) visited = true }
     if (!visible && !visited) return

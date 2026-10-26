@@ -29,7 +29,6 @@ import org.json.JSONObject
 internal enum class DiagnosticMode(
     val title: String,
     val description: String,
-    val noReadback: Boolean = false,
     val noBlur: Boolean = false,
     val noArtwork: Boolean = false,
     val highRefresh: Boolean = false,
@@ -37,9 +36,8 @@ internal enum class DiagnosticMode(
     val noLiveBackground: Boolean = false,
 ) {
     BASELINE("Baseline", "Current rendering and refresh-rate settings."),
-    LIGHT("Light rendering + high refresh", "Disable dynamic blur, glass pixel readback and motion artwork; use the static artwork background and request the highest rate on both windows. Keep UI transitions.", true, true, true, true, noLiveBackground = true),
+    LIGHT("Light rendering + high refresh", "Disable dynamic blur and motion artwork; use the static artwork background and request the highest rate. Keep UI transitions.", noBlur = true, noArtwork = true, highRefresh = true, noLiveBackground = true),
     HIGH_REFRESH("Highest refresh rate only", "Keep rendering unchanged; request the highest supported rate on the main and player windows.", highRefresh = true),
-    NO_READBACK("No glass pixel readback", "Keep the glass and blur; hold glyph contrast instead of copying GPU pixels every 150 ms.", noReadback = true),
     NO_BLUR("No dynamic blur", "Keep navigation and transitions; temporarily fill blurred surfaces solid.", noBlur = true),
     NO_ARTWORK("No motion artwork", "Use still covers instead of looping Canvas / motion artwork.", noArtwork = true),
     NO_ANIMATION("Reduce UI animation", "Temporarily enable Reduce animation without changing the refresh-rate preference.", noAnimation = true),

@@ -277,6 +277,7 @@ private class DrawBackdropNode(
         }
 
     private var graphicsLayer: GraphicsLayer? = null
+    private var effectsDirty = true
 
     // Vendored change: upstream renders the surface's content offscreen. Its
     // label and glyph layers then blend against a transparent buffer instead of
@@ -398,8 +399,9 @@ private class DrawBackdropNode(
     override fun ContentDrawScope.draw() {
         // Read so that [redraw] invalidates the layer this is drawn into.
         drawVersion
-        if (effectScope.update(this, backdropScale)) {
-            updateEffects()
+        if (effectScope.update(this, backdropScale) || effectsDirty) {
+            observeEffects()
+            effectsDirty = false
         }
 
         onDrawBehind?.invoke(this)
@@ -433,10 +435,13 @@ private class DrawBackdropNode(
 
     override fun onObservedReadsChanged() {
         invalidateDrawCache()
+        redraw()
     }
 
     fun invalidateDrawCache() {
-        observeEffects()
+        // Build once with the draw's current size/density, rather than once
+        // during an update using old geometry and again on the next draw.
+        effectsDirty = true
     }
 
     private fun observeEffects() {
@@ -455,7 +460,7 @@ private class DrawBackdropNode(
         val graphicsContext = requireGraphicsContext()
         graphicsLayer = graphicsContext.createGraphicsLayer()
 
-        observeEffects()
+        effectsDirty = true
     }
 
     override fun onDetach() {
@@ -466,6 +471,7 @@ private class DrawBackdropNode(
         }
 
         effectScope.reset()
+        effectsDirty = true
         layoutCoordinates = null
         exportedBackdrop?.layerCoordinates = null
     }

@@ -27,7 +27,10 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Velocity
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sign
@@ -56,11 +59,13 @@ private fun rubberBand(rawDistance: Float, containerPx: Float): Float {
  * It replaces Android's stretch/glow with a UIScrollView-like rubber band during a
  * drag, then critically damps the content back to its resting position on release.
  */
-private class IosOverscrollEffect : OverscrollEffect {
+internal class IosOverscrollEffect : OverscrollEffect {
     private val rawPullX = mutableFloatStateOf(0f)
     private val rawPullY = mutableFloatStateOf(0f)
     private var containerWidthPx = 0f
     private var containerHeightPx = 0f
+    private var settling: Job? = null
+    private var gestureGeneration = 0L
 
     override val isInProgress: Boolean
         get() = rawPullX.floatValue != 0f || rawPullY.floatValue != 0f
@@ -70,6 +75,10 @@ private class IosOverscrollEffect : OverscrollEffect {
         source: NestedScrollSource,
         performScroll: (Offset) -> Offset,
     ): Offset {
+        if (source == NestedScrollSource.UserInput) {
+            gestureGeneration++
+            cancelSettle()
+        }
         // When pulling back from an existing stretch, settle the stretch before
         // allowing the list itself to scroll. This keeps the motion continuous.
         val paidX = payDown(rawPullX, delta.x)
@@ -99,14 +108,34 @@ private class IosOverscrollEffect : OverscrollEffect {
         velocity: Velocity,
         performFling: suspend (Velocity) -> Velocity,
     ) {
+        val generation = ++gestureGeneration
+        cancelSettle()
         val consumed = performFling(velocity)
+        // Compose can finish the old fling after a new drag has taken over.
+        // That fling must not start a bounce underneath the new finger.
+        if (generation != gestureGeneration) return
         val leftover = velocity - consumed
         if (!isInProgress && leftover == Velocity.Zero) return
 
         coroutineScope {
-            launch { settle(rawPullX, leftover.x) }
-            launch { settle(rawPullY, leftover.y) }
+            val animation = coroutineContext.job
+            settling = animation
+            try {
+                joinAll(
+                    launch { settle(rawPullX, leftover.x) },
+                    launch { settle(rawPullY, leftover.y) },
+                )
+            } finally {
+                if (settling === animation) settling = null
+            }
         }
+    }
+
+    private fun cancelSettle() {
+        // This spring runs after performFling releases the list's scroll mutex,
+        // so starting a new list drag does not cancel it automatically.
+        settling?.cancel()
+        settling = null
     }
 
     private fun payDown(pull: MutableFloatState, delta: Float): Float {

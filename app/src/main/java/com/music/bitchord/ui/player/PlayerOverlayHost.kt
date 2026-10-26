@@ -29,6 +29,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -145,8 +146,8 @@ internal fun PlayerOverlayHost(
             snackbarHost = {},
             containerColor = Color.Transparent,
             sheetContent = {
-                Box(
-                    Modifier.fillMaxSize()
+                Layout(
+                    modifier = Modifier.fillMaxSize()
                         .offset { IntOffset(0, motion.contentOffsetPx()) }
                         .guardSheetFromContentTouches(sheet)
                         .layout { measurable, constraints ->
@@ -159,11 +160,13 @@ internal fun PlayerOverlayHost(
                                 layout(placeable.width, placeable.height) { placeable.place(0, 0) }
                             }
                         },
-                ) {
-                    ReusableContentHost(active = visible) {
-                        CompositionLocalProvider(LocalPlayerDock provides dock) { content() }
-                    }
-                }
+                    content = {
+                        ReusableContentHost(active = visible) {
+                            CompositionLocalProvider(LocalPlayerDock provides dock) { content() }
+                        }
+                    },
+                    measurePolicy = remember(visible) { PlayerContentMeasurePolicy(visible) },
+                )
             },
         ) {
             Box(

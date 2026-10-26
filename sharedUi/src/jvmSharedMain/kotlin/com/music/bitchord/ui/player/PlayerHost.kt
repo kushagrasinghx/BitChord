@@ -341,7 +341,7 @@ class CanvasVideoSpec(
     val portraitRevealBounds: IntSize,
     val presentationAlpha: () -> Float,
     val onRenderedChanged: (Boolean) -> Unit,
-    val onFrameCaptured: (ImageBitmap) -> Unit,
+    val onFrameCaptured: ((ImageBitmap) -> Unit)?,
     val refreshFrameEveryMs: Long?,
     val frameCapturePx: Int,
     val onCoverChanged: (Float) -> Unit,
@@ -365,7 +365,8 @@ fun CanvasArtworkPlayer(
     portraitRevealBounds: IntSize = IntSize.Zero,
     presentationAlpha: () -> Float = { 1f },
     onRenderedChanged: (Boolean) -> Unit = {},
-    onFrameCaptured: (ImageBitmap) -> Unit = {},
+    /** Null leaves the clip on the GPU; supply a callback only when its pixels are needed. */
+    onFrameCaptured: ((ImageBitmap) -> Unit)? = null,
     refreshFrameEveryMs: Long? = null,
     frameCapturePx: Int = CANVAS_FRAME_CAPTURE_PX,
     onCoverChanged: (Float) -> Unit = {},

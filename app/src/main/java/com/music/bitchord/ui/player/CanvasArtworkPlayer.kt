@@ -94,8 +94,8 @@ internal fun AndroidCanvasArtworkPlayer(
     presentationAlpha: () -> Float = { 1f },
     /** Fires once the clip has an actual frame on screen, and again if it drops back to none. */
     onRenderedChanged: (Boolean) -> Unit = {},
-    /** A single frame off the playing clip, for callers that want to re-tint around it. */
-    onFrameCaptured: (ImageBitmap) -> Unit = {},
+    /** A frame for re-tinting around the clip; null avoids GPU readback entirely. */
+    onFrameCaptured: ((ImageBitmap) -> Unit)? = null,
     /**
      * Keep calling [onFrameCaptured] every so many milliseconds instead of
      * only once — for a caller re-tinting its backdrop off a playing clip,
@@ -258,16 +258,29 @@ internal fun AndroidCanvasArtworkPlayer(
     val reportRendered by rememberUpdatedState(onRenderedChanged)
     LaunchedEffect(rendered) {
         reportRendered(rendered)
-        if (!rendered) return@LaunchedEffect
+    }
+
+    val reportFrame by rememberUpdatedState(onFrameCaptured)
+    val currentFrameCapturePx by rememberUpdatedState(frameCapturePx)
+    // Keep an unserved first-frame request through a pause, without creating
+    // another request whenever an already captured clip becomes active again.
+    var initialCapturePending by remember(rendered, onFrameCaptured != null) { mutableStateOf(true) }
+    // Home/detail videos have no frame consumer. Visible playback and its
+    // fade still run normally, without copying a texture into an unused bitmap.
+    val captureEnabled = rendered && foreground && !pausedForTransition && onFrameCaptured != null
+    LaunchedEffect(captureEnabled) {
+        if (!captureEnabled || !initialCapturePending) return@LaunchedEffect
         // Let the surface actually paint the frame that just triggered this
         // before reading it back — grabbing it the instant the callback fires
         // can still catch the previous, empty buffer.
         withFrameMillis { }
+        val receive = reportFrame ?: return@LaunchedEffect
         val view = textureView ?: return@LaunchedEffect
-        val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
+        initialCapturePending = false
+        val bitmap = view.captureAt(currentFrameCapturePx, clipAspect, currentContentMode, currentAlignPortraitTop)
         if (bitmap != null) {
             Log.d(TAG, "frame captured after rendered=true, size=${bitmap.width}x${bitmap.height}")
-            onFrameCaptured(bitmap.asImageBitmap())
+            receive(bitmap.asImageBitmap())
         } else {
             Log.w(TAG, "frame capture returned null after rendered=true")
         }
@@ -275,20 +288,20 @@ internal fun AndroidCanvasArtworkPlayer(
 
     // The opt-in follow-up to the capture above, for a caller that asked for
     // one — see [refreshFrameEveryMs]. A separate effect rather than a loop
-    // folded into the one above: that one is keyed on [rendered] so it fires
-    // again on every fade-in, and this one only needs to start once a fade-in
-    // has actually happened and then keep going for as long as it holds.
-    LaunchedEffect(rendered, refreshFrameEveryMs, frameCapturePx, clipAspect, contentMode, alignPortraitTop) {
+    // folded into the one above: the first capture runs once per rendered
+    // cycle/consumer, and this loop retains its requested refresh cadence.
+    LaunchedEffect(captureEnabled, refreshFrameEveryMs, frameCapturePx, clipAspect, contentMode, alignPortraitTop) {
+        if (!captureEnabled) return@LaunchedEffect
         val interval = refreshFrameEveryMs ?: return@LaunchedEffect
         Log.d(TAG, "periodic frame refresh started, interval=$interval")
-        if (!rendered) return@LaunchedEffect
         while (isActive) {
             delay(interval)
+            val receive = reportFrame ?: return@LaunchedEffect
             val view = textureView ?: continue
             val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
             if (bitmap != null) {
                 Log.d(TAG, "periodic frame captured, size=${bitmap.width}x${bitmap.height}")
-                onFrameCaptured(bitmap.asImageBitmap())
+                receive(bitmap.asImageBitmap())
             } else {
                 Log.w(TAG, "periodic frame capture returned null")
             }

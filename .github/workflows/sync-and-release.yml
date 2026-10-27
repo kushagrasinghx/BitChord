@@ -1,0 +1,307 @@
+name: Auto Sync Upstream & Release
+
+on:
+  schedule:
+    # Run every 6 hours to check for upstream commits
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force build & release for current commit even if already released'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-and-release
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Check & Sync Upstream
+    runs-on: ubuntu-latest
+    outputs:
+      needs_release: ${{ steps.version_info.outputs.needs_release }}
+      tag_name: ${{ steps.version_info.outputs.tag_name }}
+      release_title: ${{ steps.version_info.outputs.release_title }}
+      is_prerelease: ${{ steps.version_info.outputs.is_prerelease }}
+      short_sha: ${{ steps.version_info.outputs.short_sha }}
+      full_sha: ${{ steps.version_info.outputs.full_sha }}
+      version_name: ${{ steps.version_info.outputs.version_name }}
+      new_commits_count: ${{ steps.sync_step.outputs.new_commits_count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch from upstream
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/kushagrasinghx/BitChord.git || true
+          git fetch upstream main --tags
+
+      - name: Compare commits and merge upstream
+        id: sync_step
+        run: |
+          LOCAL_SHA=$(git rev-parse HEAD)
+          UPSTREAM_SHA=$(git rev-parse upstream/main)
+          NEW_COUNT=$(git rev-list --count HEAD..upstream/main)
+
+          echo "Local commit: $LOCAL_SHA"
+          echo "Upstream main commit: $UPSTREAM_SHA"
+          echo "New commits available from upstream: $NEW_COUNT"
+
+          if [ "$NEW_COUNT" -gt 0 ]; then
+            echo "Merging $NEW_COUNT new commit(s) from upstream..."
+            git merge upstream/main --no-edit -m "chore(sync): merge upstream commits up to ${UPSTREAM_SHA:0:7}"
+            git push origin main --tags
+            echo "synced=true" >> "$GITHUB_OUTPUT"
+            echo "new_commits_count=$NEW_COUNT" >> "$GITHUB_OUTPUT"
+          else
+            echo "Fork is up-to-date with upstream."
+            echo "synced=false" >> "$GITHUB_OUTPUT"
+            echo "new_commits_count=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine version tag and release requirement
+        id: version_info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION_NAME=$(python3 -c "import re; m = re.search(r'bitchordVersionName\D+(\d+\.\d+(\.\d+)?)', open('build.gradle.kts').read()); print(m.group(1))")
+          BETA_SUFFIX=$(python3 -c "import re; m = re.search(r'bitchordBetaSuffix\s*=\s*\"([^\"]*)\"', open('build.gradle.kts').read()); print(m.group(1) if m else '')")
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          FULL_SHA=$(git rev-parse HEAD)
+
+          # Check if current commit matches an exact upstream tag
+          EXACT_TAG=$(git tag --points-at HEAD | head -n1 || true)
+
+          if [ -n "$EXACT_TAG" ]; then
+            TAG_NAME="$EXACT_TAG"
+            RELEASE_TITLE="BitChord $EXACT_TAG"
+            IS_PRERELEASE="false"
+          elif [ -n "$BETA_SUFFIX" ]; then
+            TAG_NAME="v${VERSION_NAME}-${BETA_SUFFIX}-${SHORT_SHA}"
+            RELEASE_TITLE="BitChord v${VERSION_NAME}-${BETA_SUFFIX} (${SHORT_SHA})"
+            IS_PRERELEASE="true"
+          else
+            TAG_NAME="v${VERSION_NAME}-${SHORT_SHA}"
+            RELEASE_TITLE="BitChord v${VERSION_NAME} (${SHORT_SHA})"
+            IS_PRERELEASE="false"
+          fi
+
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "release_title=$RELEASE_TITLE" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "full_sha=$FULL_SHA" >> "$GITHUB_OUTPUT"
+
+          # Check if this release already exists on the fork
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists."
+            if [ "${{ github.event.inputs.force_release }}" = "true" ]; then
+              echo "force_release is true; proceeding with build and release."
+              echo "needs_release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "No new release needed."
+              echo "needs_release=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "Release $TAG_NAME does not exist yet; new release will be built."
+            echo "needs_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Generate release notes
+          RECENT_COMMITS=$(git log -n 10 --pretty=format:"- [%h](https://github.com/kushagrasinghx/BitChord/commit/%H) %s (%an)")
+          SYNC_DATE=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          python3 -c "
+          template = '''## BitChord {release_title}
+
+Automated build from upstream [kushagrasinghx/BitChord](https://github.com/kushagrasinghx/BitChord).
+
+- **Commit:** [\`{short_sha}\`](https://github.com/kushagrasinghx/BitChord/commit/{full_sha})
+- **Base Version:** \`{version_name}\`
+- **Sync Date:** {sync_date}
+
+### Recent Upstream Commits
+{recent_commits}
+
+### Download APKs
+| Target | Asset | Description |
+|---|---|---|
+| 📱 **Phone (Universal)** | \`BitChord-{tag_name}.apk\` | Recommended for all phones & tablets |
+| 📱 Phone (arm64-v8a) | \`BitChord-{tag_name}_arm64-v8a.apk\` | Optimized for 64-bit devices |
+| 📱 Phone (armeabi-v7a) | \`BitChord-{tag_name}_armeabi-v7a.apk\` | Legacy 32-bit devices |
+| 📱 Phone (x86_64) | \`BitChord-{tag_name}_x86_64.apk\` | Android emulators & Chromebooks |
+| 📺 **Android TV** | \`BitChordTV-{tag_name}.apk\` | Universal Android TV package |
+| 📺 TV (splits) | \`BitChordTV-{tag_name}_*.apk\` | Architecture-specific TV packages |
+| ⌚ WearOS | \`BitChordWear-{tag_name}.apk\` | WearOS smartwatch companion (if built) |
+
+---
+*Automatic build provided by BitChord fork workflow.*
+'''
+          content = template.format(
+              release_title='''$RELEASE_TITLE''',
+              short_sha='''$SHORT_SHA''',
+              full_sha='''$FULL_SHA''',
+              version_name='''$VERSION_NAME''',
+              sync_date='''$SYNC_DATE''',
+              recent_commits='''$RECENT_COMMITS''',
+              tag_name='''$TAG_NAME'''
+          )
+          with open('release_notes.md', 'w') as f:
+              f.write(content)
+          "
+
+      - name: Upload release notes artifact
+        if: steps.version_info.outputs.needs_release == 'true' || github.event.inputs.force_release == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release_notes.md
+
+  build-and-release:
+    name: Build & Release APKs
+    needs: sync
+    if: needs.sync.outputs.needs_release == 'true' || github.event.inputs.force_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Keystore and local.properties
+        run: |
+          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
+          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+          echo "LISTEN_TOGETHER_SERVER=${{ secrets.LISTEN_TOGETHER_SERVER }}" >> local.properties
+
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Using configured repository release keystore..."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks
+            {
+              echo "storeFile=bitchord-release.jks"
+              echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
+              echo "keyAlias=${{ secrets.KEY_ALIAS }}"
+              echo "keyPassword=${{ secrets.KEY_PASSWORD }}"
+            } > keystore.properties
+          else
+            echo "No KEYSTORE_BASE64 secret found; generating automatic fallback release keystore..."
+            keytool -genkey -v -keystore bitchord-release.jks \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias bitchord \
+              -dname "CN=BitChord, OU=BitChord, O=BitChord, L=Unknown, S=Unknown, C=US" \
+              -storepass bitchord123 -keypass bitchord123
+            {
+              echo "storeFile=bitchord-release.jks"
+              echo "storePassword=bitchord123"
+              echo "keyAlias=bitchord"
+              echo "keyPassword=bitchord123"
+            } > keystore.properties
+          fi
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Phone, TV and WearOS Release APKs
+        run: ./gradlew assembleProdRelease :tv:assembleProdRelease
+
+      - name: Download release notes artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+
+      - name: Package release assets
+        run: |
+          mkdir -p release_assets
+          TAG="${{ needs.sync.outputs.tag_name }}"
+
+          # 1. Phone APKs (universal + splits)
+          for f in app/build/outputs/apk/prod/release/*.apk; do
+            [ -f "$f" ] || continue
+            case "$f" in
+              *universal*) cp "$f" "release_assets/BitChord-${TAG}.apk" ;;
+              *arm64-v8a*) cp "$f" "release_assets/BitChord-${TAG}_arm64-v8a.apk" ;;
+              *armeabi-v7a*) cp "$f" "release_assets/BitChord-${TAG}_armeabi-v7a.apk" ;;
+              *x86_64*) cp "$f" "release_assets/BitChord-${TAG}_x86_64.apk" ;;
+            esac
+          done
+
+          # Fallback for universal if filename was not *universal*
+          if [ ! -f "release_assets/BitChord-${TAG}.apk" ]; then
+            main_apk=$(ls app/build/outputs/apk/prod/release/*.apk 2>/dev/null | grep -v 'arm64' | grep -v 'armeabi' | grep -v 'x86' | head -n1 || true)
+            if [ -n "$main_apk" ] && [ -f "$main_apk" ]; then
+              cp "$main_apk" "release_assets/BitChord-${TAG}.apk"
+            fi
+          fi
+
+          # 2. TV APKs (universal + splits)
+          for f in tv/build/outputs/apk/prod/release/*.apk; do
+            [ -f "$f" ] || continue
+            case "$f" in
+              *universal*) cp "$f" "release_assets/BitChordTV-${TAG}.apk" ;;
+              *arm64-v8a*) cp "$f" "release_assets/BitChordTV-${TAG}_arm64-v8a.apk" ;;
+              *armeabi-v7a*) cp "$f" "release_assets/BitChordTV-${TAG}_armeabi-v7a.apk" ;;
+              *x86_64*) cp "$f" "release_assets/BitChordTV-${TAG}_x86_64.apk" ;;
+            esac
+          done
+
+          if [ ! -f "release_assets/BitChordTV-${TAG}.apk" ]; then
+            main_tv=$(ls tv/build/outputs/apk/prod/release/*.apk 2>/dev/null | grep -v 'arm64' | grep -v 'armeabi' | grep -v 'x86' | head -n1 || true)
+            if [ -n "$main_tv" ] && [ -f "$main_tv" ]; then
+              cp "$main_tv" "release_assets/BitChordTV-${TAG}.apk"
+            fi
+          fi
+
+          # 3. WearOS APK (if built)
+          for f in wearos/build/outputs/apk/prod/release/*.apk; do
+            [ -f "$f" ] || continue
+            cp "$f" "release_assets/BitChordWear-${TAG}.apk"
+          done
+
+          # 4. Generate SHA256 checksums
+          cd release_assets
+          sha256sum *.apk > sha256sums.txt
+          cd ..
+
+          echo "Prepared release assets:"
+          ls -lh release_assets/
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.sync.outputs.tag_name }}"
+          TITLE="${{ needs.sync.outputs.release_title }}"
+          IS_PRE="${{ needs.sync.outputs.is_prerelease }}"
+
+          PRE_FLAG=""
+          if [ "$IS_PRE" = "true" ]; then
+            PRE_FLAG="--prerelease"
+          else
+            PRE_FLAG="--latest"
+          fi
+
+          echo "Publishing release $TAG: $TITLE"
+          gh release create "$TAG" release_assets/* \
+            --title "$TITLE" \
+            --notes-file release_notes.md \
+            $PRE_FLAG

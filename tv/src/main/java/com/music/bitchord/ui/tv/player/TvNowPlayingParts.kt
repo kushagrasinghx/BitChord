@@ -84,6 +84,7 @@ import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.sharedui.resources.Res
@@ -290,6 +291,7 @@ internal fun TvNowPlayingStage(
                         isPlaying = isPlaying,
                         onSeekToLine = onSeek,
                         centerFocus = true,
+                        durationMs = song.durationMillis(),
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

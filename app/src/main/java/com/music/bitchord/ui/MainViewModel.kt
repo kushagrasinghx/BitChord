@@ -1,6 +1,7 @@
 package com.music.bitchord.ui
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.music.bitchord.R
@@ -2536,6 +2537,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         /** How many Spotify tracks are looked up on YouTube Music at once. */
         private const val SPOTIFY_MATCH_PARALLELISM = 6
 
+        /** The shortest gap between two batches of Spotify matches going up on the page. */
+        private const val SPOTIFY_MATCH_PUBLISH_MS = 250L
+
         /**
          * How long a keystroke waits before the typeahead is asked about it.
          *
@@ -2869,25 +2873,63 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             val gate = Semaphore(SPOTIFY_MATCH_PARALLELISM)
-            coroutineScope {
-                tracks.forEachIndexed { index, track ->
-                    launch {
-                        gate.withPermit {
-                            if (!open()) return@withPermit
-                            val match = runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
-                            val found = match?.copy(thumbnailUrl = match.thumbnailUrl ?: track.imageUrl)
-                                ?: track.asPendingSong().let {
-                                    it.copy(videoId = SPOTIFY_MISSING_PREFIX + track.id)
+            // Matches land in a buffer and go up together, at most once every
+            // [SPOTIFY_MATCH_PUBLISH_MS]. Swapping each one in as it arrived
+            // copied the whole list and re-ran the page per track — on a long
+            // playlist, quadratic work and a recomposition from the root a few
+            // dozen times a second. All of this runs on the view model's main
+            // dispatcher, so the buffer needs no lock.
+            val matched = HashMap<Int, Song>()
+            var lastPublish = 0L
+            var publishQueued = false
+            fun publishMatches() {
+                lastPublish = SystemClock.uptimeMillis()
+                if (matched.isEmpty()) return
+                val batch = HashMap(matched)
+                matched.clear()
+                _detailStack.value = _detailStack.value.map { page ->
+                    val list = (page.songs as? UiState.Success<List<Song>>)?.data
+                    if (page.browseId == browseId && list != null && batch.keys.any { it < list.size }) {
+                        val updated = list.toMutableList()
+                        batch.forEach { (index, found) -> if (index < updated.size) updated[index] = found }
+                        page.copy(songs = UiState.Success(updated))
+                    } else page
+                }
+            }
+            try {
+                coroutineScope {
+                    tracks.forEachIndexed { index, track ->
+                        launch {
+                            gate.withPermit {
+                                if (!open()) return@withPermit
+                                val match = runCatching { SpotifyImporter.matchTrack(track) }.getOrNull()
+                                val found = match?.copy(thumbnailUrl = match.thumbnailUrl ?: track.imageUrl)
+                                    ?: track.asPendingSong().let {
+                                        it.copy(videoId = SPOTIFY_MISSING_PREFIX + track.id)
+                                    }
+                                matched[index] = found
+                                // The first match after a quiet spell goes up at
+                                // once; the rest wait for the window to close.
+                                val wait = lastPublish + SPOTIFY_MATCH_PUBLISH_MS - SystemClock.uptimeMillis()
+                                if (wait <= 0) {
+                                    publishMatches()
+                                } else if (!publishQueued) {
+                                    publishQueued = true
+                                    this@coroutineScope.launch {
+                                        delay(wait)
+                                        publishQueued = false
+                                        publishMatches()
+                                    }
                                 }
-                            _detailStack.value = _detailStack.value.map { page ->
-                                val list = (page.songs as? UiState.Success<List<Song>>)?.data
-                                if (page.browseId == browseId && list != null && index < list.size) {
-                                    page.copy(songs = UiState.Success(list.toMutableList().also { it[index] = found }))
-                                } else page
                             }
                         }
                     }
                 }
+            } finally {
+                // Whatever is still buffered — the tail of a finished run, or
+                // what had arrived when the page was closed or the scope
+                // cancelled. A page no longer on the stack is simply not found.
+                publishMatches()
             }
         }
     }

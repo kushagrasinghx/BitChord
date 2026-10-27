@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.SystemClock
 import com.music.bitchord.data.DebugLog as Log
 import androidx.core.content.ContextCompat
 import com.music.bitchord.data.innertube.StreamResolver
@@ -35,6 +36,7 @@ import kotlinx.serialization.json.Json
 import java.io.OutputStream
 import java.io.File
 import java.util.Locale
+import kotlin.math.abs
 
 /** Where a track is between "not on this device" and "on it". */
 sealed interface DownloadState {
@@ -1025,11 +1027,7 @@ object Downloads {
 
                 val manifest = route.offlineHls
                 if (manifest != null) {
-                    val onSegment: (Long, Long) -> Unit = { written, total ->
-                        val fraction = written.toFloat() / total
-                        _active.update { it + (id to DownloadState.Running(fraction)) }
-                        DownloadSession.running(id, fraction)
-                    }
+                    val onSegment = progressReporter(id)
                     val savedUri = if (manifest.dash) {
                         OfflineDash.save(
                             context = context,
@@ -1061,11 +1059,7 @@ object Downloads {
                 val destination = DownloadStore.begin(context, name, route.mimeType)
                 pending = destination
                 destination.openStream().use { sink ->
-                    route.write(sink) { written, total ->
-                        val fraction = written.toFloat() / total
-                        _active.update { it + (id to DownloadState.Running(fraction)) }
-                        DownloadSession.running(id, fraction)
-                    }
+                    route.write(sink, progressReporter(id))
                 }
                 val words = lyrics?.await()
                 val cover = artwork?.await()
@@ -1093,6 +1087,40 @@ object Downloads {
             artwork?.cancel()
         }
     }
+
+    /**
+     * [id]'s progress callback, thinned out before it reaches [_active] and
+     * [DownloadSession].
+     *
+     * A transfer reports on every socket read — dozens of times a second per
+     * track, four tracks at once — and each report copied both flows, so every
+     * screen watching them recomposed nearly every frame for a bar that had
+     * moved a pixel. Only a whole percentage point, or [PROGRESS_INTERVAL_MS]
+     * of any movement, is passed on, and the last byte always is. The zero goes
+     * up from [run] before the transfer starts, and the outcome through
+     * [DownloadSession.done] or [fail], neither of which comes through here.
+     *
+     * One track's callback is only ever called from that track's worker, in
+     * order, so the two fields need no lock.
+     */
+    private fun progressReporter(id: String): (written: Long, total: Long) -> Unit {
+        var published = 0f
+        var publishedAt = SystemClock.uptimeMillis()
+        return { written, total ->
+            val fraction = written.toFloat() / total
+            val now = SystemClock.uptimeMillis()
+            val moved = abs(fraction - published)
+            if (written >= total || moved >= 0.01f || (moved > 0f && now - publishedAt >= PROGRESS_INTERVAL_MS)) {
+                published = fraction
+                publishedAt = now
+                _active.update { it + (id to DownloadState.Running(fraction)) }
+                DownloadSession.running(id, fraction)
+            }
+        }
+    }
+
+    /** See [progressReporter]. */
+    private const val PROGRESS_INTERVAL_MS = 200L
 
     /**
      * One resolved download: what to call the file, what to tell the store it

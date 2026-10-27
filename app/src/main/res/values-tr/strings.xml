@@ -1329,8 +1329,7 @@
     <string name="wear_os_code_hint">Eşleme kodu</string>
     <string name="wear_os_done">Bitti</string>
     <string name="signed_by">%1$s tarafından imzalandı</string>
-    <string name="no_audio_version">No audio version found for this video</string>
-    <string name="no_video_version">No video version found for this song</string>
+    <string name="no_audio_version">No audio version found for this video</string>    <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
     <string name="opened_file">Açılan dosya</string>
     <string name="folders">Klasörler</string>
@@ -1345,4 +1344,9 @@
     <string name="progressive_blur">Kademeli bulanıklık</string>
     <string name="remove_from_history">Geçmişten kaldır</string>
     <string name="remove_from_history_failed">Geçmişten kaldırılamadı</string>
+=======
+    <string name="save_as_playlist">Çalma listesi olarak kaydet</string>
+    <string name="save_queue_as_playlist">Sırayı çalma listesi olarak kaydet</string>
+    <string name="save_radio_as_playlist">Radyoyu çalma listesi olarak kaydet</string>
+    <string name="playlist_created">Çalma listesi oluşturuldu: %1$s</string>
 </resources>

@@ -1340,8 +1340,7 @@
     <string name="wear_os_code_hint">Kode pemasangan</string>
     <string name="wear_os_done">Selesai</string>
     <string name="signed_by">Ditandatangani oleh %1$s</string>
-    <string name="song_info">Info lagu</string>
-    <string name="song_info_album">Album</string>
+    <string name="song_info">Info lagu</string>    <string name="song_info_album">Album</string>
     <string name="song_info_release_date">Tanggal rilis</string>
     <string name="song_info_views">Pemutaran / penayangan</string>
     <string name="song_info_likes">Suka</string>
@@ -1365,4 +1364,9 @@
     <string name="progressive_blur">Blur progresif</string>
     <string name="remove_from_history">Hapus dari riwayat</string>
     <string name="remove_from_history_failed">Tidak dapat menghapus dari riwayat</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

@@ -1368,8 +1368,7 @@
     <string name="wear_os_code_hint">קוד צימוד</string>
     <string name="wear_os_done">סיום</string>
     <string name="signed_by">נחתם על ידי %1$s</string>
-    <string name="song_info">מידע על השיר</string>
-    <string name="song_info_album">אלבום</string>
+    <string name="song_info">מידע על השיר</string>    <string name="song_info_album">אלבום</string>
     <string name="song_info_release_date">תאריך יציאה</string>
     <string name="song_info_views">השמעות / צפיות</string>
     <string name="song_info_likes">לייקים</string>
@@ -1393,4 +1392,9 @@
     <string name="progressive_blur">טשטוש הדרגתי</string>
     <string name="remove_from_history">הסרה מההיסטוריה</string>
     <string name="remove_from_history_failed">לא ניתן להסיר מההיסטוריה</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

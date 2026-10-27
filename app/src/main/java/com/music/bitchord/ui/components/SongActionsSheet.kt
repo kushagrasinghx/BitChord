@@ -151,6 +151,7 @@ fun SongActionsSheet(
     onToggleLike: () -> Unit,
     onToggleDislike: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onSaveQueueAsPlaylist: (() -> Unit)? = null,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -346,6 +347,19 @@ fun SongActionsSheet(
                 accent = palette.accent,
                 onClick = onAddToPlaylist,
             )
+            onSaveQueueAsPlaylist?.let {
+                val label = if (song.radioName != null) {
+                    stringResource(R.string.save_radio_as_playlist)
+                } else {
+                    stringResource(R.string.save_queue_as_playlist)
+                }
+                ActionRow(
+                    icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                    label = label,
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
             onRemoveFromPlaylist?.let {
                 ActionRow(
                     icon = Icons.Rounded.PlaylistRemove,

@@ -198,4 +198,7 @@
     <string name="search_library_empty">Поиск треков в папке локальной музыки.</string>
     <string name="search_library_hint">Треки, исполнители и альбомы</string>
     <string name="search_library_no_results">В локальной музыке нет ничего, совпадающего с «%1$s».</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
 </resources>

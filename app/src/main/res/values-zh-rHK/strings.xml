@@ -1274,8 +1274,7 @@
     <string name="spotify_library_subtitle">你的 Spotify 播放列表</string>
     <string name="spotify_sign_in">使用 Spotify 登入</string>
     <string name="spotify_track_unavailable">在 YouTube Music 上找不到該歌曲</string>
-    <string name="no_audio_version">No audio version found for this video</string>
-    <string name="no_video_version">No video version found for this song</string>
+    <string name="no_audio_version">No audio version found for this video</string>    <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
     <string name="opened_file">已開啟的檔案</string>
     <string name="folders">資料夾</string>
@@ -1365,4 +1364,9 @@
     <string name="wear_os_done">完成</string>
     <string name="signed_by">由 %1$s 簽名</string>
     <string name="find_your_mood">尋找你的心情</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

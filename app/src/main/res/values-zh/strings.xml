@@ -1340,8 +1340,7 @@
     <string name="artist_signatures_unconfigured">未配置 — 点击设置 API URL</string>
     <string name="artist_signatures_test_failed">无法访问该 URL 的 API</string>
     <string name="signed_by">由 %1$s 签名</string>
-    <string name="song_info">歌曲信息</string>
-    <string name="song_info_album">专辑</string>
+    <string name="song_info">歌曲信息</string>    <string name="song_info_album">专辑</string>
     <string name="song_info_release_date">发行日期</string>
     <string name="song_info_views">播放 / 观看次数</string>
     <string name="song_info_likes">点赞数</string>
@@ -1365,4 +1364,9 @@
     <string name="progressive_blur">渐进模糊</string>
     <string name="remove_from_history">从历史记录中移除</string>
     <string name="remove_from_history_failed">无法从历史记录中移除</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

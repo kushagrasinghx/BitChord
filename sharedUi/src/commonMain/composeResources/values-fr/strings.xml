@@ -198,4 +198,7 @@
     <string name="search_library_empty">Recherche les titres de votre dossier Musique locale.</string>
     <string name="search_library_hint">Titres, artistes et albums</string>
     <string name="search_library_no_results">Rien dans Musique locale ne correspond à « %1$s ».</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
 </resources>

@@ -1346,8 +1346,7 @@
     <string name="wear_os_code_hint">รหัสจับคู่</string>
     <string name="wear_os_done">เสร็จสิ้น</string>
     <string name="signed_by">ลงนามโดย %1$s</string>
-    <string name="song_info">ข้อมูลเพลง</string>
-    <string name="song_info_album">อัลบั้ม</string>
+    <string name="song_info">ข้อมูลเพลง</string>    <string name="song_info_album">อัลบั้ม</string>
     <string name="song_info_release_date">วันที่เผยแพร่</string>
     <string name="song_info_views">จำนวนการเล่น / การดู</string>
     <string name="song_info_likes">การกดชอบ</string>
@@ -1371,4 +1370,9 @@
     <string name="progressive_blur">เบลอแบบไล่ระดับ</string>
     <string name="remove_from_history">นำออกจากประวัติ</string>
     <string name="remove_from_history_failed">นำออกจากประวัติไม่ได้</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

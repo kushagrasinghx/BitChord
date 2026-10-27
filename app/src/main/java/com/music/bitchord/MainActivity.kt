@@ -663,6 +663,8 @@ private fun BitChordApp(
     // Separate from [songActions] so the menu can close behind it — the picker
     // is the next step, not a second sheet stacked on the first.
     var playlistTarget by remember { mutableStateOf<Song?>(null) }
+    var playlistTargetSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var playlistTargetDefaultTitle by remember { mutableStateOf<String?>(null) }
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
@@ -1662,6 +1664,24 @@ private fun BitChordApp(
             title,
         )
     }
+    val saveQueueAsPlaylist: () -> Unit = {
+        val currentTimeline = player.queue.takeIf { it.isNotEmpty() }
+            ?: controller?.let { c -> (0 until c.mediaItemCount).map { c.getMediaItemAt(it).toSong() } }
+            ?: emptyList()
+        val songs = currentTimeline.distinctBy { it.videoId }.ifEmpty {
+            listOfNotNull(player.song)
+        }
+        if (songs.isNotEmpty()) {
+            viewModel.loadPlaylists()
+            playlistTarget = null
+            playlistTargetSongs = songs
+            val currentSong = player.song
+            val radioName = currentSong?.radioName ?: activeRadioSeed?.second
+            playlistTargetDefaultTitle = radioName?.let { "$it Radio" }
+                ?: currentSong?.let { "${it.title} Radio" }
+                ?: context.getString(R.string.save_radio_as_playlist)
+        }
+    }
     val addToQueue: (Song) -> Unit = { song ->
         scope.launch {
             if (refusedByHost()) return@launch
@@ -2508,6 +2528,7 @@ private fun BitChordApp(
             },
             onRemoveFromQueue = { controller?.removeMediaItem(it) },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
+            onSaveQueue = saveQueueAsPlaylist,
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
             // The enriched copy, not player.song — otherwise the menu
             // hides the album and artist rows even once their browse
@@ -4430,6 +4451,10 @@ private fun BitChordApp(
                         playlistTarget = song
                     }
                 },
+                onSaveQueueAsPlaylist = if (fromPlayer || player.queue.isNotEmpty()) ({
+                    songActions = null
+                    saveQueueAsPlaylist()
+                }) else null,
                 onRemoveFromPlaylist = editable?.let {
                     {
                         songActions = null
@@ -4632,10 +4657,14 @@ private fun BitChordApp(
         // One sheet for both, because they are one decision: the list of
         // playlists with a way to make another. `creatingPlaylist` opens it
         // straight onto the form, which is what the Library tile means.
-        if (playlistTarget != null || creatingPlaylist) {
+        if (playlistTarget != null || playlistTargetSongs != null || creatingPlaylist) {
             val target = playlistTarget
+            val targetSongs = playlistTargetSongs
+            val defaultTitle = playlistTargetDefaultTitle
             val dismiss = {
                 playlistTarget = null
+                playlistTargetSongs = null
+                playlistTargetDefaultTitle = null
                 creatingPlaylist = false
             }
             ModalBottomSheet(
@@ -4646,10 +4675,25 @@ private fun BitChordApp(
                     playlists = playlists,
                     loading = playlistsLoading,
                     song = target,
-                    startCreating = target == null,
+                    songs = targetSongs,
+                    defaultTitle = defaultTitle,
+                    startCreating = target == null && targetSongs == null,
                     onAdd = { picked ->
-                        target?.let { song ->
-                            viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
+                        if (targetSongs != null) {
+                            viewModel.addSongsToPlaylists(picked, targetSongs) { added, alreadyThere, failed ->
+                                showQueueNotice(
+                                    when {
+                                        added > 0 -> context.resources.getQuantityString(
+                                            R.plurals.added_to_playlists_notice, added, added,
+                                        )
+                                        alreadyThere > 0 && failed == 0 ->
+                                            context.getString(R.string.song_already_in_playlist)
+                                        else -> context.getString(R.string.failed)
+                                    },
+                                )
+                            }
+                        } else if (target != null) {
+                            viewModel.addToPlaylists(picked, target) { added, alreadyThere, failed ->
                                 // One line for the whole batch, saying the
                                 // outcome that matters most: what went in, else
                                 // that it was all there already, else that it
@@ -4670,7 +4714,27 @@ private fun BitChordApp(
                         dismiss()
                     },
                     onCreate = { title, privacy ->
-                        viewModel.createPlaylist(title, privacy, target)
+                        if (targetSongs != null) {
+                            viewModel.createPlaylistWithVideoIds(
+                                title = title,
+                                privacy = privacy,
+                                videoIds = targetSongs.map { it.videoId },
+                                songs = targetSongs,
+                            ) { browseId, pTitle, savedLocally ->
+                                showQueueNotice(
+                                    context.getString(
+                                        if (savedLocally && signedIn) R.string.spotify_import_local_fallback
+                                        else R.string.playlist_created,
+                                        pTitle,
+                                    ),
+                                )
+                                browseId?.let { id ->
+                                    viewModel.openDetail(id, pTitle, "${targetSongs.size} songs", targetSongs.firstOrNull()?.thumbnailUrl)
+                                }
+                            }
+                        } else {
+                            viewModel.createPlaylist(title, privacy, target)
+                        }
                         dismiss()
                     },
                 )

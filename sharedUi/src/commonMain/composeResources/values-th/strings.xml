@@ -198,4 +198,7 @@
     <string name="search_library_empty">ค้นหาเพลงในโฟลเดอร์เพลงในเครื่องของคุณ</string>
     <string name="search_library_hint">เพลง ศิลปิน และอัลบั้ม</string>
     <string name="search_library_no_results">ไม่มีอะไรในเพลงในเครื่องตรงกับ “%1$s”</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
 </resources>

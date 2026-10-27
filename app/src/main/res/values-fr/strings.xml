@@ -1364,8 +1364,7 @@
     <string name="wear_os_code_hint">Code d\'association</string>
     <string name="wear_os_done">Terminé</string>
     <string name="signed_by">Signé par %1$s</string>
-    <string name="song_info">Informations sur le titre</string>
-    <string name="song_info_album">Album</string>
+    <string name="song_info">Informations sur le titre</string>    <string name="song_info_album">Album</string>
     <string name="song_info_release_date">Date de sortie</string>
     <string name="song_info_views">Écoutes / vues</string>
     <string name="song_info_likes">Mentions J’aime</string>
@@ -1389,4 +1388,9 @@
     <string name="progressive_blur">Flou progressif</string>
     <string name="remove_from_history">Retirer de l\'historique</string>
     <string name="remove_from_history_failed">Impossible de retirer de l\'historique</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

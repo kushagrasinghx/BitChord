@@ -198,4 +198,7 @@
     <string name="search_library_empty">ローカル音楽フォルダ内の曲を検索します。</string>
     <string name="search_library_hint">曲・アーティスト・アルバム</string>
     <string name="search_library_no_results">ローカル音楽に「%1$s」に一致するものはありません。</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
 </resources>

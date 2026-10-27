@@ -1363,8 +1363,7 @@
     <string name="wear_os_code_hint">पेयरिंग कोड</string>
     <string name="wear_os_done">हो गया</string>
     <string name="signed_by">%1$s द्वारा हस्ताक्षरित</string>
-    <string name="song_info">गाने की जानकारी</string>
-    <string name="song_info_album">एल्बम</string>
+    <string name="song_info">गाने की जानकारी</string>    <string name="song_info_album">एल्बम</string>
     <string name="song_info_release_date">रिलीज़ की तारीख</string>
     <string name="song_info_views">प्ले / व्यू</string>
     <string name="song_info_likes">पसंद</string>
@@ -1388,4 +1387,9 @@
     <string name="progressive_blur">क्रमिक ब्लर</string>
     <string name="remove_from_history">इतिहास से हटाएँ</string>
     <string name="remove_from_history_failed">इतिहास से नहीं हटाया जा सका</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

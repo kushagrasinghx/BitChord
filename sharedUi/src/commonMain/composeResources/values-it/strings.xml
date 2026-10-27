@@ -198,4 +198,7 @@
     <string name="search_library_empty">Cerca i brani nella cartella Musica locale.</string>
     <string name="search_library_hint">Brani, artisti e album</string>
     <string name="search_library_no_results">Nulla in Musica locale corrisponde a «%1$s».</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
 </resources>

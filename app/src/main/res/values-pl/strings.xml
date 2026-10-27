@@ -1403,8 +1403,7 @@
     <string name="wear_os_code_hint">Kod parowania</string>
     <string name="wear_os_done">Gotowe</string>
     <string name="signed_by">Podpisano przez %1$s</string>
-    <string name="song_info">Informacje o utworze</string>
-    <string name="song_info_album">Album</string>
+    <string name="song_info">Informacje o utworze</string>    <string name="song_info_album">Album</string>
     <string name="song_info_release_date">Data wydania</string>
     <string name="song_info_views">Odtworzenia / wyświetlenia</string>
     <string name="song_info_likes">Polubienia</string>
@@ -1428,4 +1427,9 @@
     <string name="progressive_blur">Stopniowe rozmycie</string>
     <string name="remove_from_history">Usuń z historii</string>
     <string name="remove_from_history_failed">Nie udało się usunąć z historii</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

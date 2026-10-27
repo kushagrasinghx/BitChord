@@ -1341,8 +1341,7 @@
     <string name="wear_os_code_hint">ペア設定コード</string>
     <string name="wear_os_done">完了</string>
     <string name="signed_by">%1$s のサイン</string>
-    <string name="song_info">曲の情報</string>
-    <string name="song_info_album">アルバム</string>
+    <string name="song_info">曲の情報</string>    <string name="song_info_album">アルバム</string>
     <string name="song_info_release_date">リリース日</string>
     <string name="song_info_views">再生回数 / 視聴回数</string>
     <string name="song_info_likes">高評価</string>
@@ -1366,4 +1365,9 @@
     <string name="progressive_blur">段階的なぼかし</string>
     <string name="remove_from_history">履歴から削除</string>
     <string name="remove_from_history_failed">履歴から削除できませんでした</string>
+=======
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

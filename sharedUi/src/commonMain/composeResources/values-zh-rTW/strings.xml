@@ -198,4 +198,7 @@
     <string name="search_library_empty">搜尋本地音樂資料夾中的歌曲。</string>
     <string name="search_library_hint">歌曲、藝人和專輯</string>
     <string name="search_library_no_results">本地音樂中沒有與「%1$s」匹配的內容。</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
 </resources>

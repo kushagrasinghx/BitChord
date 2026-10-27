@@ -240,6 +240,11 @@ internal fun TvNowPlayingStage(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                TvQualityLine(
+                    showStats = true,
+                    compact = true,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
 
@@ -653,7 +658,11 @@ internal fun formatClock(ms: Long): String {
  * from what's actually decoding, and with Stats for Nerds on, the stream itself.
  */
 @Composable
-private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
+private fun TvQualityLine(
+    showStats: Boolean,
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val snapshot by NerdStats.current.collectAsState()
     val stats = snapshot ?: return
     val label = when {
@@ -662,7 +671,9 @@ private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
         stats.isLossless -> "Lossless"
         else -> null
     }
-    val detail = if (showStats) streamDetail(stats) else null
+    val detail = if (showStats) {
+        if (compact) streamDetailCompact(stats) else streamDetail(stats)
+    } else null
     if (label == null && detail.isNullOrBlank()) return
     Row(
         modifier = modifier,
@@ -697,6 +708,18 @@ private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
             Text(text = detail, style = TvType.Caption, color = TvGlass.TextTertiary, maxLines = 1)
         }
     }
+}
+
+private fun streamDetailCompact(s: NerdStats.Snapshot): String {
+    val rate = s.sampleRateHz
+    val depth = s.bitDepth
+    val format = when {
+        depth != null && rate != null -> "$depth-bit / ${khz(rate)}"
+        rate != null -> khz(rate)
+        else -> null
+    }
+    val bitrate = s.bitrateKbps?.takeIf { it > 0 }?.let { "$it kbps" }
+    return listOfNotNull(format, bitrate).joinToString(" • ")
 }
 
 private fun streamDetail(s: NerdStats.Snapshot): String {

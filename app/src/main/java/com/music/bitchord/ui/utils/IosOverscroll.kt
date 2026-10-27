@@ -41,6 +41,8 @@ private const val maxBounceVelocity = 10_000f
 private const val highVelocityThreshold = 5_000f
 private const val normalBounceStiffness = 247f
 private const val fastBounceStiffness = 130f
+private const val flingPullReleaseMultiplier = 4f
+private const val freshPullThresholdPx = 0.5f
 
 /**
  * Converts raw pull distance to UIKit's self-limiting rubber-band curve.
@@ -79,10 +81,12 @@ internal class IosOverscrollEffect : OverscrollEffect {
             gestureGeneration++
             cancelSettle()
         }
-        // When pulling back from an existing stretch, settle the stretch before
-        // allowing the list itself to scroll. This keeps the motion continuous.
-        val paidX = payDown(rawPullX, delta.x)
-        val paidY = payDown(rawPullY, delta.y)
+        // A fling should clear existing stretch quickly, before its decay
+        // spends its momentum there. Foundation's native effect uses the same
+        // multiplier. Finger-driven recovery remains one-to-one.
+        val releaseMultiplier = if (source == NestedScrollSource.SideEffect) flingPullReleaseMultiplier else 1f
+        val paidX = payDown(rawPullX, delta.x, releaseMultiplier)
+        val paidY = payDown(rawPullY, delta.y, releaseMultiplier)
         val remaining = Offset(delta.x - paidX, delta.y - paidY)
         val consumed = performScroll(remaining)
         val leftover = remaining - consumed
@@ -92,11 +96,14 @@ internal class IosOverscrollEffect : OverscrollEffect {
         var stretchedX = 0f
         var stretchedY = 0f
         if (source == NestedScrollSource.UserInput) {
-            if (leftover.x != 0f) {
+            // Small rounding remainders must not create phantom edge tension
+            // during otherwise ordinary scrolling. Once a real pull exists,
+            // keep following even subpixel finger movement continuously.
+            if (leftover.x != 0f && (rawPullX.floatValue != 0f || abs(leftover.x) > freshPullThresholdPx)) {
                 rawPullX.floatValue += leftover.x
                 stretchedX = leftover.x
             }
-            if (leftover.y != 0f) {
+            if (leftover.y != 0f && (rawPullY.floatValue != 0f || abs(leftover.y) > freshPullThresholdPx)) {
                 rawPullY.floatValue += leftover.y
                 stretchedY = leftover.y
             }
@@ -138,13 +145,18 @@ internal class IosOverscrollEffect : OverscrollEffect {
         settling = null
     }
 
-    private fun payDown(pull: MutableFloatState, delta: Float): Float {
+    private fun payDown(pull: MutableFloatState, delta: Float, releaseMultiplier: Float): Float {
         val current = pull.floatValue
         if (current == 0f || delta == 0f || sign(current) == sign(delta)) return 0f
-        val target = current + delta
-        val next = if (sign(target) != sign(current)) 0f else target
-        pull.floatValue = next
-        return next - current
+        val target = current + delta * releaseMultiplier
+        return if (sign(target) != sign(current)) {
+            pull.floatValue = 0f
+            -current / releaseMultiplier
+        } else {
+            pull.floatValue = target
+            // Return input units exactly when all of this delta was used.
+            delta
+        }
     }
 
     private suspend fun settle(pull: MutableFloatState, leftoverVelocity: Float) {

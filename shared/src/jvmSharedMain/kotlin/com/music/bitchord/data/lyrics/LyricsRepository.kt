@@ -284,6 +284,13 @@ object LyricsRepository {
         isrcs.put(videoId, isrc)
     }
 
+    /** Clears any remembered recording for [videoId], e.g. when track duration shifts on lossless upgrade. */
+    fun forget(videoId: String) {
+        if (videoId.isNotEmpty()) {
+            isrcs.remove(videoId)
+        }
+    }
+
     /**
      * Documents fetched during one lookup, by URL, so two sources after the
      * same file make one request between them. That is the ordinary case, not

@@ -127,6 +127,7 @@ import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.scrobbling.ListenBrainzManager
@@ -7339,20 +7340,36 @@ class PlaybackService : MediaLibraryService() {
         super.onDestroy()
     }
 
+    private var serviceLyricsFor: String? = null
+    private var serviceLyricsDurationMs: Long = 0L
+
     private fun loadLyricsForCurrentTrack() {
         val currentSong = player?.currentMediaItem?.toSong() ?: run {
             serviceLyrics = null
+            serviceLyricsFor = null
+            serviceLyricsDurationMs = 0L
             stopLyricsTicker()
             return
         }
 
         if (!AppSettings.syncedLyrics.value) {
             serviceLyrics = null
+            serviceLyricsFor = null
+            serviceLyricsDurationMs = 0L
             stopLyricsTicker()
             return
         }
 
-        val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0 } ?: 0L
+        val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0 } ?: currentSong.durationMillis()
+        val durationDelta = kotlin.math.abs(trackDurationMs - serviceLyricsDurationMs)
+        if (serviceLyricsFor == currentSong.videoId && trackDurationMs > 0L && durationDelta <= 3000L && serviceLyrics != null) {
+            return
+        }
+        if (serviceLyricsFor == currentSong.videoId && durationDelta > 3000L) {
+            LyricsRepository.forget(currentSong.videoId)
+        }
+        serviceLyricsFor = currentSong.videoId
+        serviceLyricsDurationMs = trackDurationMs
 
         serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {

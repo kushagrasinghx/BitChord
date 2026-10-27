@@ -24,7 +24,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.repository == 'kushagrasinghx/BitChord' || (secrets.ORACLE_DEPLOY_KEY != '' && secrets.ORACLE_HOST != '')
+    if: github.repository == 'kushagrasinghx/BitChord'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to the Oracle VM

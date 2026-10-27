@@ -118,6 +118,7 @@ fun SongActionsMenu(
     onToggleLike: () -> Unit,
     onToggleDislike: () -> Unit,
     onAddToPlaylist: () -> Unit,
+    onSaveQueueAsPlaylist: (() -> Unit)? = null,
     onOpenAlbum: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -295,6 +296,19 @@ fun SongActionsMenu(
                 ActionRow(
                     icon = SfIcons.RemoveFromPlaylist,
                     label = stringResource(R.string.remove_from_playlist),
+                    accent = palette.accent,
+                    onClick = it,
+                )
+            }
+            onSaveQueueAsPlaylist?.let {
+                val label = if (song.radioName != null) {
+                    stringResource(R.string.save_radio_as_playlist)
+                } else {
+                    stringResource(R.string.save_queue_as_playlist)
+                }
+                ActionRow(
+                    icon = SfIcons.AddToPlaylist,
+                    label = label,
                     accent = palette.accent,
                     onClick = it,
                 )

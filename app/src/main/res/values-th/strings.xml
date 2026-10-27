@@ -1353,8 +1353,7 @@
     <string name="wear_os_code_hint">รหัสจับคู่</string>
     <string name="wear_os_done">เสร็จสิ้น</string>
     <string name="signed_by">ลงนามโดย %1$s</string>
-    <string name="song_info">ข้อมูลเพลง</string>
-    <string name="song_info_album">อัลบั้ม</string>
+    <string name="song_info">ข้อมูลเพลง</string>    <string name="song_info_album">อัลบั้ม</string>
     <string name="song_info_release_date">วันที่เผยแพร่</string>
     <string name="song_info_views">จำนวนการเล่น / การดู</string>
     <string name="song_info_likes">การกดชอบ</string>
@@ -1419,4 +1418,8 @@
     <string name="bit_perfect_status_inexact">%1$s · ไม่ตรงทุกบิต: แหล่งนี้ไม่ใช่ PCM แบบไม่สูญเสียคุณภาพ</string>
     <string name="bit_perfect_status_waiting">กำลังรอแทร็กแบบไม่สูญเสียคุณภาพบนเอาต์พุตที่รองรับ</string>
     <string name="bit_perfect_status_unavailable">ไม่พร้อมใช้งานสำหรับแทร็กนี้ (%1$s)</string>
+    <string name="save_as_playlist">บันทึกเป็นเพลย์ลิสต์</string>
+    <string name="save_queue_as_playlist">บันทึกคิวเป็นเพลย์ลิสต์</string>
+    <string name="save_radio_as_playlist">บันทึกวิทยุเป็นเพลย์ลิสต์</string>
+    <string name="playlist_created">สร้างเพลย์ลิสต์แล้ว: %1$s</string>
 </resources>

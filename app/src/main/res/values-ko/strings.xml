@@ -1286,4 +1286,8 @@
     <string name="bit_perfect_status_inexact">%1$s · 정확하지 않음: 이 소스는 무손실 PCM이 아닙니다</string>
     <string name="bit_perfect_status_waiting">지원되는 출력에서 무손실 트랙을 기다리는 중</string>
     <string name="bit_perfect_status_unavailable">이 트랙에서 사용할 수 없음(%1$s)</string>
+    <string name="save_as_playlist">재생목록으로 저장</string>
+    <string name="save_queue_as_playlist">대기열을 재생목록으로 저장</string>
+    <string name="save_radio_as_playlist">라디오를 재생목록으로 저장</string>
+    <string name="playlist_created">재생목록 \"%1$s\" 생성됨</string>
 </resources>

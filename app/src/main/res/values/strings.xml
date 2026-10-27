@@ -1296,8 +1296,11 @@
     <string name="wear_os_code_hint">Pairing code</string>
     <string name="wear_os_done">Done</string>
     <string name="signed_by">Signed by %1$s</string>
-    <string name="find_your_mood">Find Your Mood</string>
-    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="find_your_mood">Find Your Mood</string>    <string name="no_audio_version">No audio version found for this video</string>
     <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
+    <string name="playlist_created">Playlist created: %1$s</string>
 </resources>

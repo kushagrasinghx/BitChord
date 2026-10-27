@@ -1287,8 +1287,7 @@
     <string name="wear_os_code_hint">Mã ghép nối</string>
     <string name="wear_os_done">Xong</string>
     <string name="signed_by">Được ký bởi %1$s</string>
-    <string name="song_info">Thông tin bài hát</string>
-    <string name="song_info_album">Album</string>
+    <string name="song_info">Thông tin bài hát</string>    <string name="song_info_album">Album</string>
     <string name="song_info_release_date">Ngày phát hành</string>
     <string name="song_info_views">Lượt phát / lượt xem</string>
     <string name="song_info_likes">Lượt thích</string>
@@ -1353,4 +1352,8 @@
     <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
     <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
     <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
+    <string name="save_as_playlist">Lưu thành danh sách phát</string>
+    <string name="save_queue_as_playlist">Lưu hàng đợi thành danh sách phát</string>
+    <string name="save_radio_as_playlist">Lưu radio thành danh sách phát</string>
+    <string name="playlist_created">Đã tạo danh sách phát: %1$s</string>
 </resources>

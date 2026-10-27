@@ -78,6 +78,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -307,6 +308,8 @@ fun DetailScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
+    /** Whether this page is visible and its decorative artwork may animate. */
+    artworkMotion: Boolean = true,
     activeShelf: HomeShelf? = null,
     onActiveShelfChange: (HomeShelf?) -> Unit = {},
     /**
@@ -577,6 +580,7 @@ fun DetailScreen(
                             canvas = canvas,
                             artHeight = artHeight,
                             listState = listState,
+                            artworkMotion = artworkMotion && activeShelf == null,
                             heroUrl = appleArt?.heroUrl,
                             modifier = Modifier.matchParentSize(),
                         )
@@ -1417,6 +1421,7 @@ private fun PageBackground(
     canvas: CanvasArtwork?,
     artHeight: Dp,
     listState: LazyListState,
+    artworkMotion: Boolean,
     heroUrl: String? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -1443,14 +1448,20 @@ private fun PageBackground(
                     .background(palette.elevated),
             )
 
-            // Above the still art but below the scrim, so the scrim that
-            // settles the header into the page still sits over it. Always
-            // running: unlike the player's sleeve there is no transport here
-            // to follow, and the page is only up while it's being read.
+            // Above the still art but below the scrim. The background remains
+            // composed after scrolling away, so pause its decoder while hidden
+            // without replacing the session or the last rendered frame.
             canvas?.let { clip ->
+                val artHeightPx = with(LocalDensity.current) { artHeight.toPx() }
+                // Observe only crossings of the image's lower edge, rather
+                // than recomposing the video for every pixel of list movement.
+                val artworkVisible by remember(listState, artHeightPx) {
+                    derivedStateOf { listState.headerTop(artHeightPx) + artHeightPx > 0f }
+                }
                 CanvasArtworkPlayer(
                     canvas = clip,
                     isPlaying = true,
+                    pausedForTransition = !artworkMotion || !artworkVisible,
                     modifier = Modifier.matchParentSize(),
                 )
             }

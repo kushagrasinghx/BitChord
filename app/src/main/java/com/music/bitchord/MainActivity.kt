@@ -3017,6 +3017,7 @@ private fun AppSessionState.Content(
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
                                 listState = pageDetailListState,
+                                artworkMotion = artworkMotion && page.browseId == detail?.browseId,
                                 activeShelf = detailActiveShelf,
                                 onActiveShelfChange = { detailActiveShelf = it },
                                 // Album/playlist playback hands the page snapshot to

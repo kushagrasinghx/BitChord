@@ -2228,14 +2228,18 @@ fun NowPlayingScreen(
                             // Compose layer around it.
                             presentationAlpha = { (1f - 2f * p()).coerceIn(0f, 1f) * dockFade() },
                             onRenderedChanged = { canvasRendered = it },
-                            onFrameCaptured = {
-                                if (!clipFullscreen && !tabletArtworkBackdrop &&
-                                    !lyricsOpen && !queueOpen && !queueDragging
-                                ) canvasFrame = it
+                            // No consumer means no initial texture readback either;
+                            // a callback that discards its frame would still request one.
+                            // Panel/transition pauses already suspend capture without
+                            // resetting the served first-frame request on return.
+                            onFrameCaptured = if (
+                                clipFullscreen || tabletArtworkBackdrop
+                            ) null else {
+                                { canvasFrame = it }
                             },
                             // The full-screen Spotify video has no mesh to re-tint.
-                            // Keeping this null also removes the old three-second GPU
-                            // readback cadence from this provider alone.
+                            // Other clips retain their existing refresh cadence while
+                            // the frame-derived backdrop is visible.
                             refreshFrameEveryMs = if (
                                 clipFullscreen || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
                                 queueDragging || dockMoving
@@ -3181,10 +3185,8 @@ fun NowPlayingScreen(
                                         pausedForTransition = lyricsOpen || queueOpen || queueDragging ||
                                             collapseStarted || dockMoving,
                                         onRenderedChanged = { canvasRendered = it },
-                                        onFrameCaptured = {
-                                            if (!tabletArtworkBackdrop && !lyricsOpen && !queueOpen) {
-                                                canvasFrame = it
-                                            }
+                                        onFrameCaptured = if (tabletArtworkBackdrop) null else {
+                                            { canvasFrame = it }
                                         },
                                         refreshFrameEveryMs = if (
                                             tabletArtworkBackdrop || lyricsOpen || queueOpen || dockMoving

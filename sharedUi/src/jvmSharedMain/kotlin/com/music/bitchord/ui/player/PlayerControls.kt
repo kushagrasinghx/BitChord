@@ -308,6 +308,10 @@ private const val UPGRADING_PULSE_MS = 900
 /** The label dips only to half between beats: text fading further stops reading as a word. */
 private const val MIXING_LABEL_REST = 0.5f
 
+/** The lossless shine: one sweep across the word, then a still spell before the next. */
+private const val SHIMMER_SWEEP_MS = 3_000
+private const val SHIMMER_REST_MS = 5_000L
+
 /**
  * Sp over labelMedium for the quality badge and what stands in for it. Was a
  * whole point at SemiBold, which shouted next to the timestamps either side.
@@ -1811,8 +1815,8 @@ private fun LosslessLabel(
 }
 
 /**
- * "Lossless", with a highlight band sweeping left to right across it every
- * three seconds — confirmed, not just claimed, so it's worth the shine.
+ * "Lossless", with a highlight band sweeping left to right across it now and
+ * then — confirmed, not just claimed, so it's worth the shine.
  *
  * The band's width is measured off the text itself via [onSizeChanged]
  * rather than assumed, so the sweep always clears the word fully at both
@@ -1832,16 +1836,19 @@ private fun ShimmerText(
     ),
     baseAlpha: Float = 0.55f,
 ) {
-    val transition = rememberInfiniteTransition(label = "lossless-shimmer")
-    val progress = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 3_000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "lossless-shimmer-progress",
-    )
+    // A sweep and then a rest, not an endless loop. An infinite transition asks
+    // for every frame for as long as the badge is up — a whole lossless track,
+    // paused or not — and each of those frames is a frame of the whole player.
+    // Between sweeps the band rests off the word's end, where the text is
+    // already its plain tint, and nothing is drawn at all.
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            progress.snapTo(0f)
+            progress.animateTo(1f, tween(SHIMMER_SWEEP_MS, easing = LinearEasing))
+            delay(SHIMMER_REST_MS)
+        }
+    }
     val tint = LocalPlayerTint.current
     val baseColor = tint.copy(alpha = baseAlpha)
     // The glyphs are laid out and drawn once, in the plain tint, and the moving

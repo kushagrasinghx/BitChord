@@ -79,9 +79,11 @@ private val FootFade = Brush.verticalGradient(
 @Composable
 fun TopFadeBlur(
     hazeState: HazeState,
-    pageColor: Color,
+    /** Read here rather than by the caller — see [BottomFadeScrim]'s note. */
+    pageColor: () -> Color,
     modifier: Modifier = Modifier,
 ) {
+    val backgroundColor = pageColor()
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -96,7 +98,7 @@ fun TopFadeBlur(
                 drawRect(FootFade, blendMode = BlendMode.DstIn)
             }
             .hazeEffect(state = hazeState) {
-                backgroundColor = pageColor
+                this.backgroundColor = backgroundColor
                 tints = emptyList()
                 blurRadius = BLUR_MAX
                 noiseFactor = 0f

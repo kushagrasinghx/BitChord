@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -103,6 +104,50 @@ fun rememberArtworkPalette(
     artPx: Int = CARD_ART_PX,
     keyColors: ArtworkKeyColors? = null,
 ): ArtworkPalette {
+    val (target, spec) = artworkPaletteTarget(imageUrl, dark, artPx, keyColors)
+    return ArtworkPalette(
+        background = animateColorAsState(target.background, spec, label = "tintBackground").value,
+        wash = animateColorAsState(target.wash, spec, label = "tintWash").value,
+        elevated = animateColorAsState(target.elevated, spec, label = "tintElevated").value,
+        accent = animateColorAsState(target.accent, spec, label = "tintAccent").value,
+        onBackground = animateColorAsState(target.onBackground, spec, label = "tintOn").value,
+        onBackgroundVariant = animateColorAsState(
+            target.onBackgroundVariant, spec, label = "tintOnVariant",
+        ).value,
+        divider = animateColorAsState(target.divider, spec, label = "tintDivider").value,
+    )
+}
+
+/**
+ * [rememberArtworkPalette]'s [ArtworkPalette.background] alone, crossfading the
+ * same way, as a state for the caller to read where it draws.
+ *
+ * For a caller that wants the one colour and is too big to recompose for it.
+ * A colour read off [rememberArtworkPalette] is read in its caller's own
+ * scope, so every frame of a crossfade re-ran the whole caller — the app's
+ * root, for the bars that fade into a detail page's colour. Read through
+ * this state inside the bars instead, a frame of the fade reaches the bars
+ * and nothing else.
+ */
+@Composable
+fun rememberArtworkBackground(
+    imageUrl: String?,
+    dark: Boolean = MaterialTheme.colorScheme.background.luminance() < 0.5f,
+    artPx: Int = CARD_ART_PX,
+    keyColors: ArtworkKeyColors? = null,
+): State<Color> {
+    val (target, spec) = artworkPaletteTarget(imageUrl, dark, artPx, keyColors)
+    return animateColorAsState(target.background, spec, label = "tintBackground")
+}
+
+/** What [rememberArtworkPalette] is fading towards, and how. */
+@Composable
+private fun artworkPaletteTarget(
+    imageUrl: String?,
+    dark: Boolean,
+    artPx: Int,
+    keyColors: ArtworkKeyColors?,
+): Pair<ArtworkPalette, AnimationSpec<Color>> {
     val scheme = MaterialTheme.colorScheme
     val reduceAnimation by PlayerPlatform.host.settings.reduceAnimation.collectAsStateWithLifecycle()
     // Always asked, so the composable call is unconditional; handed nothing to
@@ -129,17 +174,7 @@ fun rememberArtworkPalette(
     } else {
         tween(TINT_FADE_MS)
     }
-    return ArtworkPalette(
-        background = animateColorAsState(target.background, spec, label = "tintBackground").value,
-        wash = animateColorAsState(target.wash, spec, label = "tintWash").value,
-        elevated = animateColorAsState(target.elevated, spec, label = "tintElevated").value,
-        accent = animateColorAsState(target.accent, spec, label = "tintAccent").value,
-        onBackground = animateColorAsState(target.onBackground, spec, label = "tintOn").value,
-        onBackgroundVariant = animateColorAsState(
-            target.onBackgroundVariant, spec, label = "tintOnVariant",
-        ).value,
-        divider = animateColorAsState(target.divider, spec, label = "tintDivider").value,
-    )
+    return target to spec
 }
 
 /**

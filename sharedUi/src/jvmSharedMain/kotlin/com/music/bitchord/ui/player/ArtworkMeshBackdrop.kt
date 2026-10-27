@@ -16,15 +16,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.RenderEffect
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import coil3.compose.LocalPlatformContext
 import com.music.bitchord.ui.graphics.argbPixels
 import com.music.bitchord.ui.graphics.forPixelAccess
@@ -366,26 +369,53 @@ fun ArtworkMeshBackdrop(
         incoming = null
     }
 
+    // Outside the blur, so it is a flat opaque floor rather than something the
+    // blur can thin out. The player is a sheet with the app's own pages behind
+    // it and every pixel here has to be opaque: an earlier pass blurred with
+    // `BlurredEdgeTreatment.Unbounded`, whose decal tiling fades alpha inwards
+    // from each edge over the whole blur radius, and the library showed through
+    // down both sides and along the bottom. The layers below clamp instead,
+    // which cannot lose alpha — this is only here so nothing downstream can
+    // reintroduce the bug.
+    Box(modifier = modifier.fillMaxSize().background(fallback)) {
+        // Each mesh blurred in a layer of its own, and the crossfade is the
+        // incoming layer's alpha. Blurred together in one layer, every frame
+        // of a fade changed what that layer held and the full-screen blur ran
+        // again on each of them; apart, each mesh is blurred once, when it
+        // arrives, and a fade frame only composites two finished textures.
+        // The picture is the same: the blur is linear, so blurring each and
+        // mixing them is mixing them and blurring the mix.
+        val blurPx = if (canBlur) with(LocalDensity.current) { blurRadius.toPx() } else 0f
+        val effect = remember(blurPx) {
+            if (blurPx > 0f) BlurEffect(blurPx, blurPx, TileMode.Clamp) else null
+        }
+        shown?.let { MeshLayer(it, seam, flat, effect) { 1f } }
+        // Read in the layer, not here: an Animatable read in a layer block
+        // updates the layer's alpha and leaves composition and drawing out.
+        incoming?.let { MeshLayer(it, seam, flat, effect) { fade.value } }
+    }
+}
+
+/** One mesh, its darkening and its scrim, blurred by [effect] and shown at [alpha]. */
+@Composable
+private fun MeshLayer(
+    mesh: ArtworkMesh,
+    seam: Dp,
+    flat: Boolean,
+    effect: RenderEffect?,
+    alpha: () -> Float,
+) {
     Canvas(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            // Outside the blur, so it is a flat opaque floor rather than
-            // something the blur can thin out. The player is a sheet with the
-            // app's own pages behind it and every pixel here has to be opaque:
-            // an earlier pass blurred with `BlurredEdgeTreatment.Unbounded`,
-            // whose decal tiling fades alpha inwards from each edge over the
-            // whole blur radius, and the library showed through down both sides
-            // and along the bottom. The default treatment clamps instead, which
-            // cannot lose alpha — this is only here so nothing downstream can
-            // reintroduce the bug.
-            .background(fallback)
-            .then(if (canBlur) Modifier.blur(blurRadius) else Modifier),
+            .graphicsLayer {
+                this.alpha = alpha()
+                renderEffect = effect
+                clip = effect != null
+            },
     ) {
         val seamY = seam.toPx().coerceIn(0f, size.height)
-        shown?.let { drawMesh(it, seamY, alpha = 1f, flat = flat) }
-        // Read here rather than in composition: an Animatable read inside a
-        // draw lambda invalidates the drawing and leaves composition out of it.
-        incoming?.let { drawMesh(it, seamY, alpha = fade.value, flat = flat) }
+        drawMesh(mesh, seamY, alpha = 1f, flat = flat)
 
         if (flat) {
             // Starts above the seam, behind the part of the artwork that is

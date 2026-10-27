@@ -116,6 +116,28 @@ class PlayerDock {
     // player: a full redraw, liquid glass and all, for a cover that hadn't
     // changed.
     private val coversMiniArtState = derivedStateOf { attached && openFraction() > 0f }
+
+    /**
+     * Whether the player hides the page entirely: all the way up, and in its
+     * portrait shape, whose black floor is opaque edge to edge. The landscape
+     * player's floor is the artwork's blur, which nothing promises is opaque.
+     *
+     * The host stops drawing the page while this holds. Everything under the
+     * player — the feed, the glass bars, the top blur — otherwise went on
+     * redrawing behind it on every frame the player animated, and each glass
+     * surface re-ran its whole sample, blur and lens for a page no one could
+     * see. Derived, like [coversMiniArt], so the page hears about it when it
+     * flips and not on every frame of the sheet's travel.
+     */
+    val coversPage: Boolean
+        get() = coversPageState.value
+
+    // Under a pixel rather than exactly zero: a sheet at rest can sit a
+    // fraction of a pixel off its anchor, and a cover that waited for zero
+    // would never come.
+    private val coversPageState = derivedStateOf {
+        attached && sheetTravel > 0f && (offset()?.let { it < 1f } == true)
+    }
 }
 
 /** The [PlayerDock] around the player, if its host has a mini player to dock into. */

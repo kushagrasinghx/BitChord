@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
@@ -490,7 +491,7 @@ private fun CardMotion(
         modifier = modifier,
         bottomFade = bottomFade,
         onCoverChanged = onCover,
-        pausedForTransition = !LocalArtworkMotion.current,
+        pausedForTransition = !LocalArtworkMotion.current || LocalFeedScrolling.current(),
     )
 }
 
@@ -507,6 +508,19 @@ private const val BACKDROP_SOURCE_PX = 160
  * frame and picks up again when the page is back.
  */
 val LocalArtworkMotion = compositionLocalOf { true }
+
+/**
+ * Whether the page under Top Picks' and Find Your Mood's clips is scrolling.
+ * Each clip is a decoder of its own and a texture redrawn at its frame rate,
+ * paid on top of every frame the scroll is already drawing, so the clips hold
+ * their frame while the page moves and play on once it stops. Only the clips:
+ * the drawn station and mood covers keep moving, as they cost nothing a
+ * scrolling frame isn't drawing anyway.
+ *
+ * A reader rather than a value, so a scroll starting and stopping reaches the
+ * clips that read it and not the page that provides it.
+ */
+val LocalFeedScrolling = staticCompositionLocalOf<() -> Boolean> { { false } }
 
 /**
  * Whether Top Picks may load its pictures yet. Off while Home is still
@@ -1401,7 +1415,10 @@ fun MoodGridPage(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     artworkMotion: Boolean = true,
-) = CompositionLocalProvider(LocalArtworkMotion provides artworkMotion) {
+) = CompositionLocalProvider(
+    LocalArtworkMotion provides artworkMotion,
+    LocalFeedScrolling provides remember(gridState) { { gridState.isScrollInProgress } },
+) {
     BoxWithConstraints(modifier.fillMaxSize()) {
         val grid = libraryGrid(maxWidth - PAGE_GUTTER * 2)
         LazyVerticalGrid(

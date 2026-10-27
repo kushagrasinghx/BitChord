@@ -169,6 +169,7 @@ fun HomeScreen(
     CompositionLocalProvider(
         LocalArtworkMotion provides (artworkMotion && feedReady),
         LocalArtworkImages provides feedReady,
+        LocalFeedScrolling provides remember(listState) { { listState.isScrollInProgress } },
     ) {
 
     PullToRefresh(

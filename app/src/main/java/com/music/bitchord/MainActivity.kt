@@ -295,6 +295,7 @@ import com.music.bitchord.ui.player.PlayerOverlayHost
 import com.music.bitchord.ui.player.PlayerSheetShape
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Outline
@@ -340,7 +341,7 @@ import com.music.bitchord.ui.replay.ReplayStories
 import com.music.bitchord.ui.replay.ReplayStoryPage
 import com.music.bitchord.ui.replay.rememberReplayState
 import com.music.bitchord.ui.theme.BitChordTheme
-import com.music.bitchord.ui.theme.rememberArtworkPalette
+import com.music.bitchord.ui.theme.rememberArtworkBackground
 import com.music.bitchord.data.canvas.AppleArtistArtRepository
 import com.music.bitchord.data.canvas.keyColors
 import com.music.bitchord.ui.theme.SystemBarIcons
@@ -2258,7 +2259,9 @@ private fun AppSessionState.Content(
         topDetail?.takeIf { it.type == BrowseType.ARTIST }
             ?.let { AppleArtistArtRepository.cached(it.browseId) }
     }
-    val detailPalette = rememberArtworkPalette(
+    // A state, read by the bars that fade into it rather than here: read here,
+    // each frame of its crossfade re-ran this whole function.
+    val detailBackground = rememberArtworkBackground(
         imageUrl = detailApple?.heroUrl ?: topDetail?.thumbnailUrl,
         keyColors = detailApple?.keyColors(),
     )
@@ -2290,13 +2293,18 @@ private fun AppSessionState.Content(
         links = YtMusicRepository.trackLinks(current.videoId).getOrNull()
         linksLoading = false
     }
-    val playerSong = player.song?.let { current ->
-        val extra = links?.takeIf { it.videoId == current.videoId } ?: return@let current
-        current.copy(
-            artistId = current.artistId ?: extra.artistId,
-            albumId = current.albumId ?: extra.albumId,
-            albumName = current.albumName ?: extra.albumName,
-        )
+    // Remembered: a copy made fresh on every pass of this function is a new
+    // Song each time, and the player, handed one, recomposed in full whenever
+    // anything at all recomposed the root.
+    val playerSong = remember(player.song, links) {
+        player.song?.let { current ->
+            val extra = links?.takeIf { it.videoId == current.videoId } ?: return@let current
+            current.copy(
+                artistId = current.artistId ?: extra.artistId,
+                albumId = current.albumId ?: extra.albumId,
+                albumName = current.albumName ?: extra.albumName,
+            )
+        }
     }
     // The three-dot menu snapshots the track into songActions when it's opened,
     // so a menu opened before the lookup above resolves would otherwise be
@@ -2626,6 +2634,10 @@ private fun AppSessionState.Content(
             Modifier.fillMaxSize().then(
                 if (showNowPlaying && playerSong != null && !reducePlayerMotion) {
                     Modifier.clearAndSetSemantics { }.focusProperties { canFocus = false }
+                        // Not drawn at all while the player covers it — see
+                        // [PlayerDock.coversPage]. Read in draw, so only the
+                        // flip itself redraws, not each frame of the sheet.
+                        .drawWithContent { if (!playerDock.coversPage) drawContent() }
                 } else Modifier,
             ),
         ) {
@@ -3486,10 +3498,9 @@ private fun AppSessionState.Content(
                         detail.type == BrowseType.PLAYLIST ||
                         detail.type == BrowseType.ARTIST) &&
                     !isLocalDetail
-                val chromePageColor = if (isDetailVisible) {
-                    detailPalette.background
-                } else {
-                    MaterialTheme.colorScheme.background
+                val themeBackground = MaterialTheme.colorScheme.background
+                val chromePageColor: () -> Color = remember(isDetailVisible, detailBackground, themeBackground) {
+                    if (isDetailVisible) detailBackground::value else { { themeBackground } }
                 }
                 // Apple's scroll edge: what passes up under the status bar and the
                 // controls is blurred — hardest at the top, none just below the

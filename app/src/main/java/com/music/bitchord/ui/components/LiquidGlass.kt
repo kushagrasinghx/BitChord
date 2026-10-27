@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.backdrop.Backdrop
+import com.music.bitchord.ui.components.backdrop.BackdropEffectScope
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.drawBackdrop
 import com.music.bitchord.ui.components.backdrop.effects.blur
@@ -164,6 +165,8 @@ fun Modifier.liquidGlass(
     shape: CornerBasedShape,
     /** Drawn over the glass in place of the theme's default tint, when set. */
     surfaceTint: Color? = null,
+    /** The group's shared sample, for a surface that is one of a group — see [GlassStrip]. */
+    strip: GlassStrip? = LocalGlassStrip.current,
 ): Modifier {
     if (!isGlassSupported()) return this
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -175,7 +178,9 @@ fun Modifier.liquidGlass(
     // The fill uses the same outline on each scrolling frame. Keep its path
     // until the shape, size or drawing environment changes.
     val fillShape = remember(glassShape) { ShapeProvider { glassShape }.shape }
-    val backdrop = LocalAppBackdrop.current
+    // Under a strip the page is already sampled, saturated and blurred for the
+    // whole group, and this surface only bends its own piece of it.
+    val backdrop = strip ?: LocalAppBackdrop.current
     val exportedBackdrop = LocalGlassExport.current
     val density = LocalDensity.current
     val blurPx = with(density) { BLUR_RADIUS_DP.dp.toPx() } * GLASS_RESOLUTION_SCALE
@@ -183,16 +188,15 @@ fun Modifier.liquidGlass(
     val lensAmountPx = with(density) { (LENS_AMOUNT * LENS_MAX_DP).dp.toPx() } * GLASS_RESOLUTION_SCALE
     val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
 
-    // The rim ahead of the backdrop, so it draws over the glass it edges. The
-    // clip between them is what cuts the glass to the continuous shape: the
-    // backdrop node draws its sample and fill unclipped, and callers clip to
-    // the plain shape, which left a sliver of glass outside the rim's outline.
-    return glassRim(glassShape).clip(glassShape).drawBackdrop(
-        backdrop = backdrop,
-        shape = { glassShape },
-        effects = {
-            colorControls(saturation = BACKDROP_SATURATION)
-            blur(blurPx)
+    // Every block handed on below is remembered. Built fresh on each pass, they
+    // made the backdrop, shadow and rim elements compare unequal whenever the
+    // caller recomposed — a bar recomposing for any reason updated every node
+    // of its glass, dropped its outline and drew it all again.
+    val shapeBlock = remember(glassShape) { { glassShape } }
+    val sampled = strip == null
+    val effects: BackdropEffectScope.() -> Unit = remember(sampled, blurPx, lensHeightPx, lensAmountPx) {
+        {
+            if (sampled) sampleEffects(blurPx)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 lens(
                     refractionHeight = lensHeightPx,
@@ -201,13 +205,46 @@ fun Modifier.liquidGlass(
                     chromaticAberration = true,
                 )
             }
-        },
-        highlight = null,
-        shadow = { Shadow.Default },
-        onDrawSurface = {
+        }
+    }
+    val onDrawSurface: DrawScope.() -> Unit = remember(surfaceTint, light, fillShape) {
+        {
             if (surfaceTint != null) drawRect(color = surfaceTint, size = size) else drawGlassFill(light, fillShape)
-        },
+        }
+    }
+
+    // The rim ahead of the backdrop, so it draws over the glass it edges. The
+    // clip between them is what cuts the glass to the continuous shape: the
+    // backdrop node draws its sample and fill unclipped, and callers clip to
+    // the plain shape, which left a sliver of glass outside the rim's outline.
+    return glassRim(glassShape).clip(glassShape).drawBackdrop(
+        backdrop = backdrop,
+        shape = shapeBlock,
+        effects = effects,
+        highlight = null,
+        shadow = GlassShadow,
+        onDrawSurface = onDrawSurface,
         exportedBackdrop = exportedBackdrop,
         backdropScale = GLASS_RESOLUTION_SCALE,
     )
+}
+
+private val GlassShadow: () -> Shadow? = { Shadow.Default }
+
+/** The glass's treatment of what it samples, before its lens: saturated, then blurred. */
+private fun BackdropEffectScope.sampleEffects(blurPx: Float) {
+    colorControls(saturation = BACKDROP_SATURATION)
+    blur(blurPx)
+}
+
+/**
+ * Fills [strip] for the [liquidGlass] surfaces composed under it — see
+ * [GlassStrip]. The same sample, saturation, blur and resolution a surface
+ * would take for itself, taken once for all of them.
+ */
+@Composable
+internal fun Modifier.liquidGlassStrip(strip: GlassStrip): Modifier {
+    val blurPx = with(LocalDensity.current) { BLUR_RADIUS_DP.dp.toPx() } * GLASS_RESOLUTION_SCALE
+    val effects: BackdropEffectScope.() -> Unit = remember(blurPx) { { sampleEffects(blurPx) } }
+    return glassStripSource(strip, LocalAppBackdrop.current, effects, GLASS_RESOLUTION_SCALE)
 }

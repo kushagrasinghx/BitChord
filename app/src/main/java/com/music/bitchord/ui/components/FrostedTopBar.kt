@@ -196,6 +196,14 @@ fun FrostedTopBar(
         label = "topBarDivider",
     )
 
+    // One sample of the page for every glass control on the bar — see
+    // [GlassStrip] — taken over the row they share.
+    val strip = if (useFloatingChrome && LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur) {
+        rememberGlassStrip()
+    } else {
+        null
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -209,7 +217,8 @@ fun FrostedTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .height(TopBarContentHeight),
+                .height(TopBarContentHeight)
+                .then(if (strip != null) Modifier.liquidGlassStrip(strip) else Modifier),
         ) {
             /* Temporarily hidden: keep the scrolling center-title implementation
              * intact so it can be restored without rebuilding its transitions.
@@ -286,6 +295,7 @@ fun FrostedTopBar(
                     ArtworkPageBackButton(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
+                        strip = strip,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -324,7 +334,7 @@ fun FrostedTopBar(
                 if (accessory != null) {
                     Box(Modifier.weight(1f)) {
                         if (useFloatingChrome) {
-                            ArtworkPageAccessory(hazeState = backButtonHazeState, content = accessory)
+                            ArtworkPageAccessory(hazeState = backButtonHazeState, strip = strip, content = accessory)
                         } else {
                             accessory()
                         }
@@ -332,7 +342,7 @@ fun FrostedTopBar(
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
                 if (useFloatingChrome) {
-                    ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    ArtworkPageActions(hazeState = backButtonHazeState, strip = strip, content = actions)
                 } else {
                     actions()
                 }
@@ -349,6 +359,7 @@ fun FrostedTopBar(
 private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
+    strip: GlassStrip?,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
@@ -364,7 +375,7 @@ private fun ArtworkPageBackButton(
         onClick = onClick,
         modifier = modifier
             .size(TOP_CONTROL_SIZE)
-            .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
+            .then(artworkPageSurface(shape = shape, hazeState = hazeState, strip = strip)),
     ) {
         Icon(
             Icons.AutoMirrored.Rounded.ArrowBack,
@@ -378,6 +389,7 @@ private fun ArtworkPageBackButton(
 @Composable
 private fun ArtworkPageActions(
     hazeState: HazeState?,
+    strip: GlassStrip?,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -385,7 +397,7 @@ private fun ArtworkPageActions(
     val glass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
     ActionsRow(
         modifier = modifier
-            .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
+            .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState, strip = strip))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
             // its new width in a single frame.
@@ -454,7 +466,7 @@ private fun ActionsRow(modifier: Modifier, content: @Composable () -> Unit) {
  * glass, its glyphs and words using the theme's foreground tint.
  */
 @Composable
-private fun ArtworkPageAccessory(hazeState: HazeState?, content: @Composable () -> Unit) {
+private fun ArtworkPageAccessory(hazeState: HazeState?, strip: GlassStrip?, content: @Composable () -> Unit) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val glass = LocalLiquidGlassEnabled.current && isGlassSupported() && !reduceDynamicBlur
     val shape = remember { SquirclePillShape() }
@@ -462,7 +474,7 @@ private fun ArtworkPageAccessory(hazeState: HazeState?, content: @Composable () 
         modifier = Modifier
             .fillMaxWidth()
             .height(TOP_CONTROL_SIZE)
-            .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
+            .then(artworkPageSurface(shape = shape, hazeState = hazeState, strip = strip)),
     ) {
         CompositionLocalProvider(LocalSearchFieldOnSurface provides true) {
             if (glass) {
@@ -512,6 +524,7 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
+    strip: GlassStrip?,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -522,7 +535,7 @@ private fun artworkPageSurface(
             when {
                 // Clipped after the glass, not before: it draws its outline just
                 // outside its edge.
-                useLiquidGlass -> Modifier.liquidGlass(shape).clip(shape)
+                useLiquidGlass -> Modifier.liquidGlass(shape, strip = strip).clip(shape)
                 reduceDynamicBlur || hazeState == null -> Modifier.clip(shape).background(container)
                 else -> Modifier.clip(shape).optimizedHazeEffect(
                     state = hazeState,

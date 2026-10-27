@@ -67,6 +67,8 @@ import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.music.bitchord.data.settings.AppSettings
 
 /**
  * The liquid glass navigation bar: the iOS 26 shape where the now playing
@@ -130,7 +132,13 @@ fun GlassNavBar(
     // A factory, not a value — see the note in FloatingTabBar's header. Each of
     // the three surfaces gets its own glass modifier and so its own shape cache.
     // The theme's own glass tint, as the liquid top bar has it — no white wash.
-    val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape) }
+    //
+    // All of them share one sample of the page, taken over the whole bar — see
+    // [GlassStrip]. Not under "reduce dynamic blur", where the glass is filled
+    // solid and samples nothing.
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val strip = if (reduceDynamicBlur) null else rememberGlassStrip()
+    val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape, strip = strip) }
 
     FloatingTabBar(
         selectedTabKey = selectedIndex,
@@ -139,7 +147,8 @@ fun GlassNavBar(
             .windowInsetsPadding(floatingBarInsets)
             .padding(horizontal = NAV_BAR_GUTTER)
             .padding(bottom = NAV_BAR_LIFT)
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .then(if (strip != null) Modifier.liquidGlassStrip(strip) else Modifier),
         tabBarContentModifier = glassSurface,
         inlineAccessory = song?.let { current ->
             { accessoryModifier, _ ->

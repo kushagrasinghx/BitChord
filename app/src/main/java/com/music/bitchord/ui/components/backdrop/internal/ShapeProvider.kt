@@ -19,6 +19,17 @@ import androidx.compose.ui.unit.LayoutDirection
 @Immutable
 internal class ShapeProvider(val shapeBlock: () -> Shape) {
 
+    // Vendored addition: equal when built around the same block. Every
+    // drawBackdrop call wraps its block in a new provider, and with identity
+    // equality the backdrop, shadow and highlight elements all compared
+    // unequal on every recomposition of their caller — each one an update,
+    // a dropped outline and a redraw. A caller that remembers its block now
+    // gets the same elements back and its nodes are left alone.
+    override fun equals(other: Any?): Boolean =
+        other is ShapeProvider && other.shapeBlock === shapeBlock
+
+    override fun hashCode(): Int = shapeBlock.hashCode()
+
     private var _shape: Shape? = null
     private var _outline: Outline? = null
     private var _size: Size = Size.Unspecified

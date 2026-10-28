@@ -37,16 +37,17 @@ jobs:
           } > keystore.properties
         else
           echo "No KEYSTORE_BASE64 configured; generating fallback keystore so release build succeeds..."
+          FALLBACK_KEY_PASSWORD="$(openssl rand -hex 32)"
           keytool -genkey -v -keystore bitchord-release.jks \
             -keyalg RSA -keysize 2048 -validity 10000 \
             -alias bitchord \
             -dname "CN=BitChord, OU=BitChord, O=BitChord, L=Unknown, S=Unknown, C=US" \
-            -storepass bitchord123 -keypass bitchord123
+            -storepass "$FALLBACK_KEY_PASSWORD" -keypass "$FALLBACK_KEY_PASSWORD"
           {
             echo "storeFile=bitchord-release.jks"
-            echo "storePassword=bitchord123"
+            echo "storePassword=$FALLBACK_KEY_PASSWORD"
             echo "keyAlias=bitchord"
-            echo "keyPassword=bitchord123"
+            echo "keyPassword=$FALLBACK_KEY_PASSWORD"
           } > keystore.properties
         fi
 

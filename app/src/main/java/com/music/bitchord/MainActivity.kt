@@ -255,6 +255,9 @@ import com.music.bitchord.ui.components.LocalLiquidGlassEnabled
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
+import com.music.bitchord.ui.components.LocalPageSample
+import com.music.bitchord.ui.components.PageSample
+import com.music.bitchord.ui.components.pageSampleSource
 import com.music.bitchord.ui.components.isGlassSupported
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceKind
@@ -385,6 +388,8 @@ class MainActivity : AppCompatActivity() {
         JamInviteLink.consume(intent)
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
+        // A frame suite asked for at launch starts once the window is up.
+        intent?.let { launch -> window.decorView.post { FrameDiagnostics.handleSuiteIntent(this, launch) } }
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val highPerformance by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
@@ -421,10 +426,14 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 val appBackdrop = rememberLayerBackdrop(onDraw = paintBackdrop)
+                // One low-resolution copy of that page a frame, for everything
+                // that blurs it to read from — see [PageSample].
+                val pageSample = remember(appBackdrop) { PageSample(appBackdrop) }
                 CompositionLocalProvider(
                     LocalOverscrollFactory provides iosOverscrollFactory,
                     LocalLiquidGlassEnabled provides liquidGlassEnabled,
                     LocalAppBackdrop provides appBackdrop,
+                    LocalPageSample provides pageSample,
                 ) {
                 // The window's width, measured rather than asked for.
                 //
@@ -479,6 +488,7 @@ class MainActivity : AppCompatActivity() {
      * here, and [onCreate] never runs again.
      */
     override fun onNewIntent(intent: Intent) {
+        FrameDiagnostics.handleSuiteIntent(this, intent)
         super.onNewIntent(intent)
         // Replaces what getIntent() returns, so the extra this consumes is the
         // one that just arrived and not the one the task was started with.
@@ -2704,7 +2714,11 @@ private fun AppSessionState.Content(
                                     // cost that setting exists to remove.
                                     .then(
                                         if (glassSamplesBackdrop) {
-                                            Modifier.layerBackdrop(appBackdrop)
+                                            // Outside the backdrop, so it reads
+                                            // the page that one records.
+                                            Modifier
+                                                .pageSampleSource(LocalPageSample.current!!)
+                                                .layerBackdrop(appBackdrop)
                                         } else {
                                             Modifier
                                         },

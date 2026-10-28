@@ -12,6 +12,8 @@ import android.view.View
 import android.view.Window
 import androidx.profileinstaller.ProfileVerifier
 import com.music.bitchord.BuildConfig
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import com.music.bitchord.data.settings.AppSettings
 import java.io.File
 import java.text.SimpleDateFormat
@@ -34,6 +36,11 @@ internal enum class DiagnosticMode(
     val highRefresh: Boolean = false,
     val noAnimation: Boolean = false,
     val noLiveBackground: Boolean = false,
+    /** Attribution only: each drops one stage of the blurred surfaces, to price it. */
+    val noGlassRim: Boolean = false,
+    val noGlassLens: Boolean = false,
+    val noTopFade: Boolean = false,
+    val legacyGlassRim: Boolean = false,
 ) {
     BASELINE("Baseline", "Current rendering and refresh-rate settings."),
     LIGHT("Light rendering + high refresh", "Disable dynamic blur and motion artwork; use the static artwork background and request the highest rate. Keep UI transitions.", noBlur = true, noArtwork = true, highRefresh = true, noLiveBackground = true),
@@ -41,6 +48,10 @@ internal enum class DiagnosticMode(
     NO_BLUR("No dynamic blur", "Keep navigation and transitions; temporarily fill blurred surfaces solid.", noBlur = true),
     NO_ARTWORK("No motion artwork", "Use still covers instead of looping Canvas / motion artwork.", noArtwork = true),
     NO_ANIMATION("Reduce UI animation", "Temporarily enable Reduce animation without changing the refresh-rate preference.", noAnimation = true),
+    NO_GLASS_RIM("No glass rim", "Keep the glass; skip its rim, glow and outline.", noGlassRim = true),
+    NO_GLASS_LENS("No glass lens", "Keep the glass; skip its refraction pass.", noGlassLens = true),
+    NO_TOP_FADE("No top fade", "Keep everything else; skip the blur under the status bar.", noTopFade = true),
+    LEGACY_GLASS_RIM("Legacy glass rim", "Draw the rim from its paths every size change, as before it was baked.", legacyGlassRim = true),
 }
 
 internal data class DiagnosticStatus(
@@ -49,6 +60,18 @@ internal data class DiagnosticStatus(
     val stopAtUptimeMs: Long = 0,
     val message: String = "No recording in this process yet.",
 )
+
+/**
+ * The recording's mode, for a surface a mode switches off. Always [DiagnosticMode.BASELINE]
+ * in a build without diagnostics, which never subscribes to anything.
+ */
+@Composable
+internal fun diagnosticMode(): DiagnosticMode =
+    if (BuildConfig.PERFORMANCE_DIAGNOSTICS) {
+        FrameDiagnostics.mode.collectAsState().value
+    } else {
+        DiagnosticMode.BASELINE
+    }
 
 /** Opt-in release instrumentation. No listeners or overrides exist in ordinary builds. */
 internal object FrameDiagnostics {
@@ -85,7 +108,7 @@ internal object FrameDiagnostics {
         }
     }
 
-    fun start(context: Context, mode: DiagnosticMode, label: String) {
+    fun start(context: Context, mode: DiagnosticMode, label: String, recordMs: Long = RECORD_MS) {
         check(BuildConfig.PERFORMANCE_DIAGNOSTICS)
         check(!status.value.recording && !status.value.writing)
         val app = context.applicationContext
@@ -100,12 +123,14 @@ internal object FrameDiagnostics {
             if (mode.noArtwork) AppSettings.animatedCanvas.value = artwork
             if (mode.noAnimation) AppSettings.reduceAnimation.value = animation
             if (mode.noLiveBackground) AppSettings.legacyMeshGradient.value = legacyMesh
+            com.music.bitchord.ui.components.legacyRimForDiagnostics.value = false
         }
         _mode.value = mode
         if (mode.noBlur) AppSettings.reduceDynamicBlur.value = true
         if (mode.noArtwork) AppSettings.animatedCanvas.value = false
         if (mode.noAnimation) AppSettings.reduceAnimation.value = true
         if (mode.noLiveBackground) AppSettings.legacyMeshGradient.value = false
+        com.music.bitchord.ui.components.legacyRimForDiagnostics.value = mode.legacyGlassRim
         val start = System.nanoTime() + WARMUP_MS * 1_000_000
         val id = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ROOT).format(Date())
         val metadata = JSONObject()
@@ -117,7 +142,7 @@ internal object FrameDiagnostics {
             .put("powerBefore", power(app))
             .put("notes", "App-window metrics only; launcher/system animations need a system trace. Lost reports are not dropped frames. First draws are separate from steady-frame summaries. Phase timings overlap; GPU duration must not be added to total. Raw times are nanoseconds on the monotonic clock.")
         worker.post {
-            session = Session(id, metadata, FrameMeasurements(start, start + RECORD_MS * 1_000_000))
+            session = Session(id, metadata, FrameMeasurements(start, start + recordMs * 1_000_000))
             metadata.put("profileVerification", "pending")
             val profile = ProfileVerifier.getCompilationStatusAsync()
             profile.addListener({
@@ -132,9 +157,9 @@ internal object FrameDiagnostics {
             }, Executor { worker.post(it) })
         }
         measuring = true
-        _status.value = DiagnosticStatus(true, stopAtUptimeMs = android.os.SystemClock.uptimeMillis() + WARMUP_MS + RECORD_MS)
+        _status.value = DiagnosticStatus(true, stopAtUptimeMs = android.os.SystemClock.uptimeMillis() + WARMUP_MS + recordMs)
         windows.values.forEach { it.applyRefresh(); it.attach() }
-        automaticStop = Runnable { stop(app) }.also { main.postDelayed(it, WARMUP_MS + RECORD_MS) }
+        automaticStop = Runnable { stop(app) }.also { main.postDelayed(it, WARMUP_MS + recordMs) }
     }
 
     fun stop(context: Context) {
@@ -161,6 +186,10 @@ internal object FrameDiagnostics {
                 val report = completed.report()
                 val directory = reportDirectory(app).apply { mkdirs() }
                 File(directory, "frame-${completed.id}.json").writeText(report.toString())
+                // Also where `adb pull` can reach it without the share sheet — see [runSuite].
+                app.getExternalFilesDir(SUITE_DIRECTORY)?.let { external ->
+                    File(external, "frame-${completed.id}.json").writeText(report.toString())
+                }
                 val deadlines = if (summary.completeDeadlines) {
                     String.format(Locale.ROOT, "%.1f%% missed app deadlines.", 100.0 * summary.lateFrames / summary.knownDeadlines)
                 } else "Deadline percentage unavailable: incomplete or inconsistent platform data."
@@ -294,7 +323,9 @@ internal object FrameDiagnostics {
                 .put("preferredRefreshHz", window.attributes.preferredRefreshRate)
                 .put("width", view.width).put("height", view.height)
             if (Build.VERSION.SDK_INT >= 35) {
-                info.put("viewRequestedFrameRate", view.requestedFrameRate)
+                // NaN is the platform's "no vote" (REQUESTED_FRAME_RATE_CATEGORY_DEFAULT),
+                // and JSONObject refuses NaN outright — recording crashed on start.
+                info.put("viewRequestedFrameRate", view.requestedFrameRate.takeUnless { it.isNaN() } ?: JSONObject.NULL)
                     .put("powerSavingsBalanced", window.isFrameRatePowerSavingsBalanced)
             }
             worker.post { session?.windows?.put(info) }
@@ -381,6 +412,75 @@ internal object FrameDiagnostics {
     }
 
     private fun reportDirectory(context: Context) = File(context.cacheDir, "frame-diagnostics")
+
+    /**
+     * Records [modes] one after another, [recordMs] each, with nobody at the
+     * screen: one run prices every stage the modes switch off against the same
+     * session, the same thermals and the same gestures, instead of a recording
+     * per mode started by hand. Something outside drives the gestures — the
+     * suite only switches modes and records — so `adb shell input swipe` in a
+     * loop gives every mode identical flings. Started from an intent, see
+     * [SUITE_EXTRA]; each report also lands in the app's external files under
+     * [SUITE_DIRECTORY] for `adb pull`, and a line in logcat (tag
+     * `BitChordFrames`) marks each mode's start and the end.
+     */
+    fun runSuite(context: Context, modes: List<DiagnosticMode>, recordMs: Long) {
+        check(BuildConfig.PERFORMANCE_DIAGNOSTICS)
+        if (status.value.recording || status.value.writing || suiteRunning) return
+        suiteRunning = true
+        val app = context.applicationContext
+        app.getExternalFilesDir(SUITE_DIRECTORY)?.listFiles()?.forEach { it.delete() }
+        fun next(index: Int) {
+            if (index == modes.size) {
+                suiteRunning = false
+                android.util.Log.i(SUITE_TAG, "suite done")
+                return
+            }
+            // Wait out the previous recording's write before starting the next.
+            if (status.value.recording || status.value.writing) {
+                main.postDelayed({ next(index) }, 200)
+                return
+            }
+            val mode = modes[index]
+            android.util.Log.i(SUITE_TAG, "suite mode ${index + 1}/${modes.size} ${mode.name}")
+            start(app, mode, "suite", recordMs)
+            main.postDelayed({ next(index + 1) }, WARMUP_MS + recordMs + 500)
+        }
+        next(0)
+    }
+
+    private var suiteRunning = false
+
+    /** `am start` extra on MainActivity: comma-separated [DiagnosticMode] names, or `all`. */
+    const val SUITE_EXTRA = "bitchord.frameSuite"
+
+    /** `am start` extra on MainActivity: seconds recorded per mode. */
+    const val SUITE_SECONDS_EXTRA = "bitchord.frameSuiteSeconds"
+
+    private const val SUITE_DIRECTORY = "frame-suite"
+    private const val SUITE_TAG = "BitChordFrames"
+
+    /** The modes a suite of `all` runs: everything, then each stage dropped, then no blur at all. */
+    val SUITE_ALL = listOf(
+        DiagnosticMode.BASELINE,
+        DiagnosticMode.LEGACY_GLASS_RIM,
+        DiagnosticMode.NO_GLASS_RIM,
+        DiagnosticMode.NO_GLASS_LENS,
+        DiagnosticMode.NO_TOP_FADE,
+        DiagnosticMode.NO_BLUR,
+    )
+
+    /** Starts a suite from an intent carrying [SUITE_EXTRA], if it does. */
+    fun handleSuiteIntent(context: Context, intent: android.content.Intent?) {
+        if (!BuildConfig.PERFORMANCE_DIAGNOSTICS) return
+        val spec = intent?.getStringExtra(SUITE_EXTRA) ?: return
+        intent.removeExtra(SUITE_EXTRA)
+        val modes = if (spec == "all") SUITE_ALL else spec.split(',').mapNotNull { name ->
+            DiagnosticMode.entries.firstOrNull { it.name.equals(name.trim(), ignoreCase = true) }
+        }
+        val seconds = intent.getIntExtra(SUITE_SECONDS_EXTRA, 20).coerceIn(5, 120)
+        if (modes.isNotEmpty()) runSuite(context, modes, seconds * 1_000L)
+    }
     private const val WARMUP_MS = 3_000L
     private const val RECORD_MS = 45_000L
 }

@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.performance.diagnosticMode
 import com.music.bitchord.ui.components.backdrop.Backdrop
 import com.music.bitchord.ui.components.backdrop.BackdropEffectScope
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
@@ -194,10 +195,13 @@ fun Modifier.liquidGlass(
     // of its glass, dropped its outline and drew it all again.
     val shapeBlock = remember(glassShape) { { glassShape } }
     val sampled = strip == null
-    val effects: BackdropEffectScope.() -> Unit = remember(sampled, blurPx, lensHeightPx, lensAmountPx) {
+    // A frame recording can drop the rim or the lens, to price each on its own.
+    val diagnostics = diagnosticMode()
+    val lensed = !diagnostics.noGlassLens
+    val effects: BackdropEffectScope.() -> Unit = remember(sampled, lensed, blurPx, lensHeightPx, lensAmountPx) {
         {
             if (sampled) sampleEffects(blurPx)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (lensed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 lens(
                     refractionHeight = lensHeightPx,
                     refractionAmount = lensAmountPx,
@@ -217,7 +221,8 @@ fun Modifier.liquidGlass(
     // clip between them is what cuts the glass to the continuous shape: the
     // backdrop node draws its sample and fill unclipped, and callers clip to
     // the plain shape, which left a sliver of glass outside the rim's outline.
-    return glassRim(glassShape).clip(glassShape).drawBackdrop(
+    val rim = if (diagnostics.noGlassRim) Modifier else Modifier.glassRim(glassShape)
+    return then(rim).clip(glassShape).drawBackdrop(
         backdrop = backdrop,
         shape = shapeBlock,
         effects = effects,
@@ -246,5 +251,8 @@ private fun BackdropEffectScope.sampleEffects(blurPx: Float) {
 internal fun Modifier.liquidGlassStrip(strip: GlassStrip): Modifier {
     val blurPx = with(LocalDensity.current) { BLUR_RADIUS_DP.dp.toPx() } * GLASS_RESOLUTION_SCALE
     val effects: BackdropEffectScope.() -> Unit = remember(blurPx) { { sampleEffects(blurPx) } }
-    return glassStripSource(strip, LocalAppBackdrop.current, effects, GLASS_RESOLUTION_SCALE)
+    // From the page's shared sample when there is one — see [PageSample] — so
+    // a strip doesn't replay the page for itself.
+    val page = LocalPageSample.current.ifLive ?: LocalAppBackdrop.current
+    return glassStripSource(strip, page, effects, GLASS_RESOLUTION_SCALE)
 }

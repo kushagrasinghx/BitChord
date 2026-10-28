@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.components
 
+import android.os.Build
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.performance.diagnosticMode
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeProgressive
@@ -83,7 +85,30 @@ fun TopFadeBlur(
     pageColor: () -> Color,
     modifier: Modifier = Modifier,
 ) {
-    val backgroundColor = pageColor()
+    // The page's shared sample where there is one: the same blur, without a
+    // replay of the page and a fresh layer of its own on every frame — see
+    // [PageSample] and [sampledProgressiveBlur]. Haze otherwise, which is also
+    // what draws it below API 33, where the variable blur has no shader.
+    // A frame recording can drop the strip, to price it on its own.
+    if (diagnosticMode().noTopFade) return
+    val sample = LocalPageSample.current.ifLive
+    val blur = if (sample != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        Modifier.sampledProgressiveBlur(sample, BLUR_MAX, EaseInOut, pageColor)
+    } else {
+        val backgroundColor = pageColor()
+        Modifier.hazeEffect(state = hazeState) {
+            this.backgroundColor = backgroundColor
+            tints = emptyList()
+            blurRadius = BLUR_MAX
+            noiseFactor = 0f
+            inputScale = HazeInputScale.Fixed(PAGE_SAMPLE_SCALE)
+            progressive = HazeProgressive.verticalGradient(
+                easing = EaseInOut,
+                startIntensity = 1f,
+                endIntensity = 0f,
+            )
+        }
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -97,18 +122,7 @@ fun TopFadeBlur(
                 drawContent()
                 drawRect(FootFade, blendMode = BlendMode.DstIn)
             }
-            .hazeEffect(state = hazeState) {
-                this.backgroundColor = backgroundColor
-                tints = emptyList()
-                blurRadius = BLUR_MAX
-                noiseFactor = 0f
-                inputScale = HazeInputScale.Fixed(0.33f)
-                progressive = HazeProgressive.verticalGradient(
-                    easing = EaseInOut,
-                    startIntensity = 1f,
-                    endIntensity = 0f,
-                )
-            },
+            .then(blur),
     )
 }
 

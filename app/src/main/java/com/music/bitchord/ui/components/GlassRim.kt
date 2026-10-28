@@ -1,6 +1,15 @@
 package com.music.bitchord.ui.components
 
 import android.graphics.BlurMaskFilter
+import android.graphics.Bitmap
+import android.os.Build
+import android.os.SystemClock
+import androidx.annotation.RequiresApi
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.toArgb
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.CacheDrawModifierNode
 import androidx.compose.ui.geometry.Offset
@@ -29,6 +38,12 @@ import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.layer.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.ceil
 
 /**
  * The edge of Apple's Liquid Glass, drawn over a surface of [shape].
@@ -90,8 +105,100 @@ private class GlassRimNode(private var shape: Shape, private var alpha: () -> Fl
     // still handled by the delegated cache node.
     override val shouldAutoInvalidate = false
 
+    /**
+     * The rim baked for one height, drawn at any width by stretching its
+     * middle — see [GlassRimMasks]. Held by the node rather than the size
+     * cache below, which a bar folding rebuilds on every frame of the fold.
+     */
+    private var masks: GlassRimMasks? = null
+
+    /**
+     * Set once the size has held still for [RIM_SETTLE_MS] at a height with no
+     * bake yet. Until then — through a fold, whose height changes every frame —
+     * the nearest bake is scaled to it, and nothing is baked mid-animation.
+     */
+    private var bakeDue = false
+    private var settle: Job? = null
+    private var changedAt = 0L
+
+    private fun bakedFor(size: Size, direction: LayoutDirection, density: Density): GlassRimMasks? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
+        val key = GlassRimMasks.Key(shape, size.height, direction, density.density)
+        // Baked once per height for the whole app, not per node: a bar folding
+        // goes between the same two heights every time, and a bake is a
+        // synchronous GPU render on this thread.
+        GlassRimMasks.cached(key)?.let { exact ->
+            masks = exact
+            bakeDue = false
+            return exact.takeIf { it.fits(size) }
+        }
+        val current = masks?.takeIf { it.shape == shape && it.direction == direction && it.density == density.density }
+        if (current == null || bakeDue) {
+            bakeDue = false
+            if (!GlassRimMasks.fits(size, density)) return current?.takeIf { it.fits(size) }
+            return GlassRimMasks.bake(key, density).also { masks = it }
+        }
+        // One timer for the whole fold, not one launched and cancelled per frame:
+        // it wakes every [RIM_SETTLE_MS] and bakes once the size has stopped.
+        changedAt = SystemClock.uptimeMillis()
+        if (settle?.isActive != true) {
+            settle = coroutineScope.launch {
+                while (true) {
+                    delay(RIM_SETTLE_MS)
+                    if (SystemClock.uptimeMillis() - changedAt >= RIM_SETTLE_MS) break
+                }
+                bakeDue = true
+                drawing.invalidateDraw()
+            }
+        }
+        return current.takeIf { it.fits(size) }
+    }
+
     private val drawing: CacheDrawModifierNode = delegate(CacheDrawModifierNode {
+        // A frame recording can draw the rim the old way, to price the bake
+        // against it in the same run.
+        if (!legacyRimForDiagnostics.value) {
+            val size = size
+            val direction = layoutDirection
+            val density: Density = this
+            // Narrower than two caps a pill has no straight middle to stretch,
+            // and is drawn exactly below instead: a circle, which never
+            // changes size, or the last frames of a bar folding down to one.
+            if (GlassRimMasks.fits(size, density)) {
+                return@CacheDrawModifierNode onDrawWithContent {
+                    drawContent()
+                    val strength = alpha().coerceIn(0f, 1f)
+                    if (strength <= 0f) return@onDrawWithContent
+                    val baked = bakedFor(size, direction, density)
+                    if (baked != null) {
+                        drawIntoCanvas { baked.draw(it.nativeCanvas, size, strength) }
+                    } else {
+                        // No bake will fit yet: draw this frame exactly.
+                        val geometry = GlassRimGeometry(shape, size, direction, density)
+                        clipPath(geometry.body) {
+                            drawIntoCanvas { geometry.drawLights(it.nativeCanvas, strength) }
+                        }
+                        geometry.drawOutline(this, strength)
+                    }
+                }
+            }
+        }
         val geometry = GlassRimGeometry(shape, size, layoutDirection, this)
+        // The outline, rasterised once per size into a layer of its own and
+        // only composited after that. It is plain black over whatever is
+        // outside the shape, so nothing about it changes from frame to frame
+        // but its strength, which is the layer's alpha; drawn directly it was
+        // an anti-aliased clip to the outside of the shape and a gradient
+        // stroke on every frame the bar redrew. The lights stay direct: they
+        // multiply what is under them, and that does change.
+        val margin = ceil(GLASS_OUTLINE_WIDTH.toPx()) + OUTLINE_LAYER_SLACK_PX
+        val outline = obtainGraphicsLayer().apply {
+            compositingStrategy = CompositingStrategy.Offscreen
+            record(size = IntSize(ceil(size.width + margin * 2).toInt(), ceil(size.height + margin * 2).toInt())) {
+                translate(margin, margin) { geometry.drawOutline(this, 1f) }
+            }
+            topLeft = IntOffset(-margin.toInt(), -margin.toInt())
+        }
         onDrawWithContent {
             drawContent()
             val strength = alpha().coerceIn(0f, 1f)
@@ -101,7 +208,8 @@ private class GlassRimNode(private var shape: Shape, private var alpha: () -> Fl
                     geometry.drawLights(it.nativeCanvas, strength)
                 }
             }
-            geometry.drawOutline(this, strength)
+            outline.alpha = strength
+            drawLayer(outline)
         }
     })
 
@@ -179,9 +287,190 @@ internal class GlassRimGeometry(shape: Shape, size: Size, direction: LayoutDirec
             drawPath(body, outlineBrush, alpha = strength, style = outline)
         }
     }
+
+    /** The rim's coverage, white at full strength, for [GlassRimMasks] to tint. */
+    fun drawRimMask(canvas: android.graphics.Canvas) {
+        canvas.drawPath(rim.asAndroidPath(), rimMask.asFrameworkPaint())
+    }
+
+    /** The glow's coverage, white at full strength, for [GlassRimMasks] to tint. */
+    fun drawGlowMask(canvas: android.graphics.Canvas) {
+        canvas.drawPath(glow.asAndroidPath(), glowMask.asFrameworkPaint())
+    }
+
+    // The lights' own paints, plain white and drawn normally: what each one
+    // covers, before its colour, its blend and its strength are put on it.
+    private val rimMask = blurredPaint(BlendMode.SrcOver, with(density) { GLASS_RIM_BLUR.toPx() }).apply {
+        shader = rimReach(size.height, Color.White)
+    }
+    private val glowMask = blurredPaint(BlendMode.SrcOver, with(density) { GLASS_GLOW_BLUR.toPx() }).apply {
+        color = Color.White
+    }
 }
 
+/**
+ * A pill's rim, glow and outline, rasterised once for one [height] and then
+ * drawn at any width.
+ *
+ * A pill is the same two end caps whatever its width, with a straight run
+ * between that only gets longer; so is everything [GlassRimGeometry] draws
+ * along it, the outline's darkening at the ends included, which is measured
+ * from the ends rather than across the width. Each part is baked once at a
+ * width of three caps and drawn as a three-column mesh — the end columns as
+ * they are, the middle stretched to whatever is between them. Built per
+ * width, a bar folding had its paths cut and its blurs redone on every frame
+ * of the fold, on the main thread and again on the render thread; baked, a
+ * frame of it is five textured draws in the blends the paths were drawn in.
+ *
+ * Off a height it was baked for — mid-fold, when the height animates too —
+ * it is scaled evenly to the new one, caps and all, until the size settles
+ * and it is baked again.
+ */
+@RequiresApi(Build.VERSION_CODES.P)
+internal class GlassRimMasks(
+    val shape: Shape,
+    val height: Float,
+    val direction: LayoutDirection,
+    density: Density,
+) {
+    val density = density.density
+
+    /** An end cap: the shape's own turn, a height across, and the glow's blur reaching past it. */
+    private val cap = ceil(capWidth(height, density))
+    private val margin = ceil(with(density) { GLASS_OUTLINE_WIDTH.toPx() }) + OUTLINE_LAYER_SLACK_PX
+    private val third = cap + margin
+    private val bitmapHeight = ceil(height + margin * 2)
+
+    private val rim: Bitmap
+    private val glow: Bitmap
+    private val outline: Bitmap
+
+    init {
+        // The width the parts are drawn at, three caps across: caps, a straight
+        // run of a cap, and the outline's margin on either side.
+        val baked = Size(third * 3 - margin * 2, height)
+        val geometry = GlassRimGeometry(shape, baked, direction, density)
+        rim = bake { canvas -> canvas.clipPath(geometry.body.asAndroidPath()); geometry.drawRimMask(canvas) }
+        glow = bake { canvas -> canvas.clipPath(geometry.body.asAndroidPath()); geometry.drawGlowMask(canvas) }
+        outline = bake { canvas ->
+            CanvasDrawScope().draw(density, direction, androidx.compose.ui.graphics.Canvas(canvas), baked) {
+                geometry.drawOutline(this, 1f)
+            }
+        }
+    }
+
+    private val verts = FloatArray(16)
+    private val glowGain = maskPaint(android.graphics.BlendMode.COLOR_DODGE, gainGrey(GLASS_GLOW_GAIN))
+    private val glowLight = maskPaint(android.graphics.BlendMode.PLUS, null)
+    private val rimGain = maskPaint(android.graphics.BlendMode.COLOR_DODGE, gainGrey(GLASS_RIM_GAIN))
+    private val rimLight = maskPaint(android.graphics.BlendMode.PLUS, null)
+    private val outlinePaint = maskPaint(android.graphics.BlendMode.SRC_OVER, null)
+
+    /** Whether these masks stretch to [size] — as wide as two of their caps at its height. */
+    fun fits(size: Size): Boolean = size.width >= cap * 2f * (size.height / height)
+
+    /** The rim at [size], in [GlassRimGeometry.drawLights]'s order, then the outline. */
+    fun draw(canvas: android.graphics.Canvas, size: Size, strength: Float) {
+        val k = size.height / height
+        val capK = cap * k
+        val marginK = margin * k
+        val xs = floatArrayOf(-marginK, capK, size.width - capK, size.width + marginK)
+        val ys = floatArrayOf(-marginK, size.height + marginK)
+        var i = 0
+        for (y in ys) for (x in xs) { verts[i++] = x; verts[i++] = y }
+        val alpha = (strength * 255f).toInt().coerceIn(0, 255)
+        val lightAlpha = (strength * GLASS_RIM_ALPHA * 255f).toInt().coerceIn(0, 255)
+        val glowAlpha = (strength * GLASS_GLOW_ALPHA * 255f).toInt().coerceIn(0, 255)
+        mesh(canvas, glow, glowGain, alpha)
+        mesh(canvas, glow, glowLight, glowAlpha)
+        mesh(canvas, rim, rimGain, alpha)
+        mesh(canvas, rim, rimLight, lightAlpha)
+        mesh(canvas, outline, outlinePaint, alpha)
+    }
+
+    private fun mesh(canvas: android.graphics.Canvas, bitmap: Bitmap, paint: android.graphics.Paint, alpha: Int) {
+        if (alpha <= 0) return
+        paint.alpha = alpha
+        canvas.drawBitmapMesh(bitmap, 3, 1, verts, 0, null, 0, paint)
+    }
+
+    /** Draws [block] at the parts' size, offset by the margin, into a bitmap the GPU rasterises. */
+    private fun bake(block: (android.graphics.Canvas) -> Unit): Bitmap {
+        val picture = android.graphics.Picture()
+        val canvas = picture.beginRecording((third * 3).toInt(), bitmapHeight.toInt())
+        canvas.translate(margin, margin)
+        block(canvas)
+        picture.endRecording()
+        // Rasterised by the GPU, so its blurs are the renderer's own and match
+        // the paths drawn live exactly; then copied out once into an ordinary
+        // bitmap. Drawn as the hardware bitmap itself, every frame that changed
+        // the display list holding it re-imported its buffer on the render
+        // thread — every frame of a fold, measured as a burst of frames over
+        // 25ms each time the bar folded. An ordinary bitmap uploads once.
+        val hardware = Bitmap.createBitmap(picture)
+        return hardware.copy(Bitmap.Config.ARGB_8888, false).also { hardware.recycle() }
+    }
+
+    /** What a bake is for. Heights are exact: a settled bar sits at exactly its height. */
+    data class Key(
+        val shape: Shape,
+        val height: Float,
+        val direction: LayoutDirection,
+        val density: Float,
+    )
+
+    companion object {
+        // A handful of heights in all — the tab bar folded and unfolded, the
+        // top bar's controls, a segmented control — so a few entries hold them
+        // all; least recently used goes first past that.
+        private val baked = object : LinkedHashMap<Key, GlassRimMasks>(16, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, GlassRimMasks>) = size > MAX_BAKES
+        }
+
+        fun cached(key: Key): GlassRimMasks? = baked[key]
+
+        fun bake(key: Key, density: Density): GlassRimMasks =
+            com.music.bitchord.ui.performance.FrameDiagnostics.measure("BitChord.rimBake") {
+                if (com.music.bitchord.BuildConfig.PERFORMANCE_DIAGNOSTICS) {
+                    android.util.Log.i("BitChordFrames", "rim bake h=${key.height} shape=${key.shape::class.simpleName} cached=${baked.size}")
+                }
+                GlassRimMasks(key.shape, key.height, key.direction, density)
+            }.also { baked[key] = it }
+
+        /** Whether a pill of [size] is wide enough to have a middle to stretch. */
+        fun fits(size: Size, density: Density): Boolean = size.width >= ceil(capWidth(size.height, density)) * 2f
+
+        private fun capWidth(height: Float, density: Density): Float {
+            // The glow's blur, as the sigma BlurMaskFilter turns its radius into, to three sigmas.
+            val glowBlur = with(density) { GLASS_GLOW_BLUR.toPx() }
+            return height + 3f * (glowBlur * 0.57735f + 0.5f)
+        }
+
+        private fun maskPaint(blend: android.graphics.BlendMode, tint: Color?) =
+            android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG).apply {
+                blendMode = blend
+                if (tint != null) {
+                    colorFilter = android.graphics.PorterDuffColorFilter(tint.toArgb(), android.graphics.PorterDuff.Mode.SRC_IN)
+                }
+            }
+    }
+}
+
+/** How long a size must hold before the rim is baked for it again. */
+private const val RIM_SETTLE_MS = 120L
+
+private const val MAX_BAKES = 8
+
+/**
+ * Set by a frame recording that draws the rim the old way, for the cost of the
+ * bake to be measured against it in the same run. State, so the rims redraw.
+ */
+internal val legacyRimForDiagnostics = androidx.compose.runtime.mutableStateOf(false)
+
 private val FullRim = { 1f }
+
+/** Whole pixels around the outline's layer past its stroke, for the anti-aliasing. */
+private const val OUTLINE_LAYER_SLACK_PX = 2f
 
 /**
  * The outline's opacity across the surface: [GLASS_OUTLINE_ALPHA] at each end,

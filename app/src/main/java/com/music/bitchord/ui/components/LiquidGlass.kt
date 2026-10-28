@@ -13,6 +13,8 @@ import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
@@ -198,22 +200,55 @@ fun Modifier.liquidGlass(
     // A frame recording can drop the rim or the lens, to price each on its own.
     val diagnostics = diagnosticMode()
     val lensed = !diagnostics.noGlassLens
-    val effects: BackdropEffectScope.() -> Unit = remember(sampled, lensed, blurPx, lensHeightPx, lensAmountPx) {
-        {
-            if (sampled) sampleEffects(blurPx)
-            if (lensed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                lens(
-                    refractionHeight = lensHeightPx,
-                    refractionAmount = lensAmountPx,
-                    depthEffect = true,
-                    chromaticAberration = true,
-                )
+    // The rim, fill and edge in the lens's own shader rather than drawn after
+    // it — see [glassSurface] — for a surface reading a group's strip, whose
+    // sample is already blurred; under A/B while it is judged against the
+    // drawn rim.
+    val shaderGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        strip != null && surfaceTint == null && lensed && !diagnostics.noGlassRim &&
+        shaderGlassForDiagnostics.value
+    val effects: BackdropEffectScope.() -> Unit = remember(shaderGlass, sampled, lensed, blurPx, lensHeightPx, lensAmountPx, light, glassShape, density) {
+        if (shaderGlass) {
+            // At full resolution: the scale is 1 below, so the lens's sizes are too.
+            val fullHeight = lensHeightPx / GLASS_RESOLUTION_SCALE
+            val fullAmount = lensAmountPx / GLASS_RESOLUTION_SCALE
+            {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    glassSurface(fullHeight, fullAmount, GlassRimMasks.forSurface(glassShape, size, layoutDirection, this), light)
+                }
+            }
+        } else {
+            {
+                if (sampled) sampleEffects(blurPx)
+                if (lensed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    lens(
+                        refractionHeight = lensHeightPx,
+                        refractionAmount = lensAmountPx,
+                        depthEffect = true,
+                        chromaticAberration = true,
+                    )
+                }
             }
         }
     }
-    val onDrawSurface: DrawScope.() -> Unit = remember(surfaceTint, light, fillShape) {
-        {
-            if (surfaceTint != null) drawRect(color = surfaceTint, size = size) else drawGlassFill(light, fillShape)
+    val onDrawSurface: (DrawScope.() -> Unit)? = remember(shaderGlass, surfaceTint, light, fillShape) {
+        if (shaderGlass) {
+            null
+        } else {
+            {
+                if (surfaceTint != null) drawRect(color = surfaceTint, size = size) else drawGlassFill(light, fillShape)
+            }
+        }
+    }
+    // The shader draws the shape's edge itself, so the layer needs no clip to
+    // its path: the plain shape where that is a cheap rounded rectangle, which
+    // the continuous one never reaches past, and its bounds otherwise.
+    val clipShape: (() -> Shape)? = remember(shaderGlass, shape) {
+        if (shaderGlass) {
+            val plain: Shape = if (shape is RoundedCornerShape) shape else RectangleShape
+            { plain }
+        } else {
+            null
         }
     }
 
@@ -221,20 +256,23 @@ fun Modifier.liquidGlass(
     // clip between them is what cuts the glass to the continuous shape: the
     // backdrop node draws its sample and fill unclipped, and callers clip to
     // the plain shape, which left a sliver of glass outside the rim's outline.
-    val rim = if (diagnostics.noGlassRim) Modifier else Modifier.glassRim(glassShape)
-    return then(rim).clip(glassShape).drawBackdrop(
+    val rim = if (diagnostics.noGlassRim) Modifier else Modifier.glassRim(glassShape, lights = !shaderGlass)
+    val clipped = if (diagnostics.noGlassClip || shaderGlass) Modifier else Modifier.clip(glassShape)
+    return then(rim).then(clipped).drawBackdrop(
         backdrop = backdrop,
         shape = shapeBlock,
         effects = effects,
         highlight = null,
-        shadow = GlassShadow,
+        shadow = if (diagnostics.noGlassShadow) NoShadow else GlassShadow,
         onDrawSurface = onDrawSurface,
         exportedBackdrop = exportedBackdrop,
-        backdropScale = GLASS_RESOLUTION_SCALE,
+        backdropScale = if (shaderGlass) 1f else GLASS_RESOLUTION_SCALE,
+        clipShape = clipShape,
     )
 }
 
 private val GlassShadow: () -> Shadow? = { Shadow.Default }
+private val NoShadow: () -> Shadow? = { null }
 
 /** The glass's treatment of what it samples, before its lens: saturated, then blurred. */
 private fun BackdropEffectScope.sampleEffects(blurPx: Float) {

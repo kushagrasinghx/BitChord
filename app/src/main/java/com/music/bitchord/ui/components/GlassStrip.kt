@@ -26,6 +26,7 @@ import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.ObserverModifierNode
 import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.node.requireDensity
 import androidx.compose.ui.node.observeReads
 import androidx.compose.ui.node.requireGraphicsContext
 import androidx.compose.ui.platform.InspectorInfo
@@ -154,6 +155,7 @@ private class GlassStripNode(
             this.strip = strip
             if (isAttached) adopt()
         }
+        if (this.page !== page) (this.page as? PageSample)?.forget(this)
         this.page = page
         this.effects = effects
         this.scale = scale
@@ -200,6 +202,7 @@ private class GlassStripNode(
         if (!coordinates.isAttached) return
         this.coordinates = coordinates
         strip.coordinates = coordinates
+        (page as? PageSample)?.read(this, coordinates, with(requireDensity()) { SAMPLE_READ_MARGIN.toPx() })
     }
 
     override fun onObservedReadsChanged() {
@@ -210,6 +213,7 @@ private class GlassStripNode(
     override fun onAttach() = adopt()
 
     override fun onDetach() {
+        (page as? PageSample)?.forget(this)
         release()
         effectScope.reset()
         effectsDirty = true

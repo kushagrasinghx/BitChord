@@ -32,6 +32,7 @@ import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.node.requireDensity
 import androidx.compose.ui.node.requireGraphicsContext
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Dp
@@ -94,6 +95,7 @@ private class SampledProgressiveBlurNode(
 
     fun update(sample: PageSample, blurRadius: Dp, easing: Easing, background: () -> Color) {
         if (blurRadius != this.blurRadius || easing != this.easing) effect = null
+        if (this.sample !== sample) this.sample.forget(this)
         this.sample = sample
         this.blurRadius = blurRadius
         this.easing = easing
@@ -135,7 +137,9 @@ private class SampledProgressiveBlurNode(
     }
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
-        if (coordinates.isAttached) this.coordinates = coordinates
+        if (!coordinates.isAttached) return
+        this.coordinates = coordinates
+        sample.read(this, coordinates, with(requireDensity()) { SAMPLE_READ_MARGIN.toPx() })
     }
 
     override fun onAttach() {
@@ -143,6 +147,7 @@ private class SampledProgressiveBlurNode(
     }
 
     override fun onDetach() {
+        sample.forget(this)
         layer?.let { requireGraphicsContext().releaseGraphicsLayer(it) }
         layer = null
         coordinates = null

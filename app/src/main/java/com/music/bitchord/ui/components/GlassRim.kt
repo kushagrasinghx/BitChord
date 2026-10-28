@@ -7,9 +7,6 @@ import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.toArgb
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.CacheDrawModifierNode
 import androidx.compose.ui.geometry.Offset
@@ -90,68 +87,39 @@ import kotlin.math.ceil
  * [alpha] scales all three, read at draw time, so a surface can fade its rim
  * in and out without recomposing.
  */
-internal fun Modifier.glassRim(shape: Shape, alpha: () -> Float = FullRim): Modifier =
-    this.then(GlassRimElement(shape, alpha))
+internal fun Modifier.glassRim(
+    shape: Shape,
+    /** Off for glass whose lights are drawn in its own shader — see [glassSurface]: the outline alone. */
+    lights: Boolean = true,
+    alpha: () -> Float = FullRim,
+): Modifier = this.then(GlassRimElement(shape, alpha, lights))
 
-private data class GlassRimElement(val shape: Shape, val alpha: () -> Float) : ModifierNodeElement<GlassRimNode>() {
-    override fun create() = GlassRimNode(shape, alpha)
-    override fun update(node: GlassRimNode) = node.update(shape, alpha)
+private data class GlassRimElement(
+    val shape: Shape,
+    val alpha: () -> Float,
+    val lights: Boolean,
+) : ModifierNodeElement<GlassRimNode>() {
+    override fun create() = GlassRimNode(shape, alpha, lights)
+    override fun update(node: GlassRimNode) = node.update(shape, alpha, lights)
     override fun InspectorInfo.inspectableProperties() { name = "glassRim" }
 }
 
-private class GlassRimNode(private var shape: Shape, private var alpha: () -> Float) : DelegatingNode() {
+private class GlassRimNode(
+    private var shape: Shape,
+    private var alpha: () -> Float,
+    private var lights: Boolean,
+) : DelegatingNode() {
     // Updating an opacity callback should redraw, not rebuild paths, blur
     // filters and gradients. Size, density and layout direction changes are
     // still handled by the delegated cache node.
     override val shouldAutoInvalidate = false
 
-    /**
-     * The rim baked for one height, drawn at any width by stretching its
-     * middle — see [GlassRimMasks]. Held by the node rather than the size
-     * cache below, which a bar folding rebuilds on every frame of the fold.
-     */
-    private var masks: GlassRimMasks? = null
-
-    /**
-     * Set once the size has held still for [RIM_SETTLE_MS] at a height with no
-     * bake yet. Until then — through a fold, whose height changes every frame —
-     * the nearest bake is scaled to it, and nothing is baked mid-animation.
-     */
-    private var bakeDue = false
-    private var settle: Job? = null
-    private var changedAt = 0L
-
+    // The bake to draw from is looked up on every draw rather than held: a
+    // bar's size follows the scroll, so the bake that suits it changes with it,
+    // and [GlassRimMasks.forSurface] keeps the one cache for every surface.
     private fun bakedFor(size: Size, direction: LayoutDirection, density: Density): GlassRimMasks? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
-        val key = GlassRimMasks.Key(shape, size.height, direction, density.density)
-        // Baked once per height for the whole app, not per node: a bar folding
-        // goes between the same two heights every time, and a bake is a
-        // synchronous GPU render on this thread.
-        GlassRimMasks.cached(key)?.let { exact ->
-            masks = exact
-            bakeDue = false
-            return exact.takeIf { it.fits(size) }
-        }
-        val current = masks?.takeIf { it.shape == shape && it.direction == direction && it.density == density.density }
-        if (current == null || bakeDue) {
-            bakeDue = false
-            if (!GlassRimMasks.fits(size, density)) return current?.takeIf { it.fits(size) }
-            return GlassRimMasks.bake(key, density).also { masks = it }
-        }
-        // One timer for the whole fold, not one launched and cancelled per frame:
-        // it wakes every [RIM_SETTLE_MS] and bakes once the size has stopped.
-        changedAt = SystemClock.uptimeMillis()
-        if (settle?.isActive != true) {
-            settle = coroutineScope.launch {
-                while (true) {
-                    delay(RIM_SETTLE_MS)
-                    if (SystemClock.uptimeMillis() - changedAt >= RIM_SETTLE_MS) break
-                }
-                bakeDue = true
-                drawing.invalidateDraw()
-            }
-        }
-        return current.takeIf { it.fits(size) }
+        return GlassRimMasks.forSurface(shape, size, direction, density).takeIf { it.fits(size) }
     }
 
     private val drawing: CacheDrawModifierNode = delegate(CacheDrawModifierNode {
@@ -171,12 +139,14 @@ private class GlassRimNode(private var shape: Shape, private var alpha: () -> Fl
                     if (strength <= 0f) return@onDrawWithContent
                     val baked = bakedFor(size, direction, density)
                     if (baked != null) {
-                        drawIntoCanvas { baked.draw(it.nativeCanvas, size, strength) }
+                        drawIntoCanvas { baked.draw(it.nativeCanvas, size, strength, lights) }
                     } else {
                         // No bake will fit yet: draw this frame exactly.
                         val geometry = GlassRimGeometry(shape, size, direction, density)
-                        clipPath(geometry.body) {
-                            drawIntoCanvas { geometry.drawLights(it.nativeCanvas, strength) }
+                        if (lights) {
+                            clipPath(geometry.body) {
+                                drawIntoCanvas { geometry.drawLights(it.nativeCanvas, strength) }
+                            }
                         }
                         geometry.drawOutline(this, strength)
                     }
@@ -203,9 +173,11 @@ private class GlassRimNode(private var shape: Shape, private var alpha: () -> Fl
             drawContent()
             val strength = alpha().coerceIn(0f, 1f)
             if (strength <= 0f) return@onDrawWithContent
-            clipPath(geometry.body) {
-                drawIntoCanvas {
-                    geometry.drawLights(it.nativeCanvas, strength)
+            if (lights) {
+                clipPath(geometry.body) {
+                    drawIntoCanvas {
+                        geometry.drawLights(it.nativeCanvas, strength)
+                    }
                 }
             }
             outline.alpha = strength
@@ -213,9 +185,10 @@ private class GlassRimNode(private var shape: Shape, private var alpha: () -> Fl
         }
     })
 
-    fun update(shape: Shape, alpha: () -> Float) {
-        if (this.shape != shape) {
+    fun update(shape: Shape, alpha: () -> Float, lights: Boolean) {
+        if (this.shape != shape || this.lights != lights) {
             this.shape = shape
+            this.lights = lights
             drawing.invalidateDrawCache()
         }
         if (this.alpha !== alpha) {
@@ -332,31 +305,85 @@ internal class GlassRimMasks(
     val height: Float,
     val direction: LayoutDirection,
     density: Density,
+    /**
+     * Baked at exactly this width rather than three caps across, for a shape
+     * too narrow to have a straight run to stretch — a circle — which is then
+     * only ever drawn at this size.
+     */
+    val exactWidth: Float? = null,
 ) {
     val density = density.density
 
     /** An end cap: the shape's own turn, a height across, and the glow's blur reaching past it. */
-    private val cap = ceil(capWidth(height, density))
-    private val margin = ceil(with(density) { GLASS_OUTLINE_WIDTH.toPx() }) + OUTLINE_LAYER_SLACK_PX
-    private val third = cap + margin
+    val cap = if (exactWidth != null) exactWidth / 2f else ceil(capWidth(height, density))
+    val margin = ceil(with(density) { GLASS_OUTLINE_WIDTH.toPx() }) + OUTLINE_LAYER_SLACK_PX
+    private val bitmapWidth = if (exactWidth != null) ceil(exactWidth + margin * 2) else (cap + margin) * 3
     private val bitmapHeight = ceil(height + margin * 2)
 
-    private val rim: Bitmap
-    private val glow: Bitmap
-    private val outline: Bitmap
+    /** The width the parts are drawn at: three caps across — caps and a straight run of a cap — or [exactWidth]. */
+    val bakedWidth = exactWidth ?: (bitmapWidth - margin * 2)
 
-    init {
-        // The width the parts are drawn at, three caps across: caps, a straight
-        // run of a cap, and the outline's margin on either side.
-        val baked = Size(third * 3 - margin * 2, height)
-        val geometry = GlassRimGeometry(shape, baked, direction, density)
-        rim = bake { canvas -> canvas.clipPath(geometry.body.asAndroidPath()); geometry.drawRimMask(canvas) }
-        glow = bake { canvas -> canvas.clipPath(geometry.body.asAndroidPath()); geometry.drawGlowMask(canvas) }
-        outline = bake { canvas ->
-            CanvasDrawScope().draw(density, direction, androidx.compose.ui.graphics.Canvas(canvas), baked) {
+    private val bakedSize = Size(bakedWidth, height)
+    private val geometry by lazy { GlassRimGeometry(shape, bakedSize, direction, density) }
+    private val densityFull: Density = Density(density.density, density.fontScale)
+
+    // Each part only once something draws it: the drawn rim wants the lights
+    // and the outline, the shader the packed texture and the outline.
+    private val rim by lazy { bake { canvas -> canvas.clipPath(geometry.body.asAndroidPath()); geometry.drawRimMask(canvas) } }
+    private val glow by lazy { bake { canvas -> canvas.clipPath(geometry.body.asAndroidPath()); geometry.drawGlowMask(canvas) } }
+    private val body by lazy {
+        bake { canvas ->
+            canvas.drawPath(geometry.body.asAndroidPath(), android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE })
+        }
+    }
+    private val outline by lazy {
+        bake { canvas ->
+            CanvasDrawScope().draw(densityFull, direction, androidx.compose.ui.graphics.Canvas(canvas), bakedSize) {
                 geometry.drawOutline(this, 1f)
             }
         }
+    }
+
+    /**
+     * The rim, the glow and the shape's own coverage, one to a channel —
+     * red, green, blue — of an opaque texture, for [glassSurface] to read.
+     */
+    val packed: Bitmap by lazy {
+        val w = bitmapWidth.toInt()
+        val h = bitmapHeight.toInt()
+        val r = IntArray(w * h).also { rim.getPixels(it, 0, w, 0, 0, w, h) }
+        val g = IntArray(w * h).also { glow.getPixels(it, 0, w, 0, 0, w, h) }
+        val b = IntArray(w * h).also { body.getPixels(it, 0, w, 0, 0, w, h) }
+        val out = IntArray(w * h) { i ->
+            (0xFF shl 24) or ((r[i] ushr 24) shl 16) or ((g[i] ushr 24) shl 8) or (b[i] ushr 24)
+        }
+        Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888)
+    }
+
+    /** Renders every part now, for a bake made off the main thread to hand over finished. */
+    fun warm() {
+        rim; glow; outline; packed
+    }
+
+    /** How [glassSurface] maps a surface of some size onto this bake. */
+    data class Layout(
+        val cap: Float,
+        val capOnSurface: Float,
+        val bakedWidth: Float,
+        val margin: Float,
+        val scale: Float,
+        val squash: Boolean,
+    )
+
+    fun layoutFor(size: Size): Layout {
+        val k = size.height / height
+        val capOnSurface = cap * k
+        val squash = if (exactWidth != null) {
+            kotlin.math.abs(size.width - exactWidth * k) > 0.5f
+        } else {
+            size.width < capOnSurface * 2f
+        }
+        return Layout(cap, capOnSurface, bakedWidth, margin, k, squash)
     }
 
     private val verts = FloatArray(16)
@@ -367,26 +394,39 @@ internal class GlassRimMasks(
     private val outlinePaint = maskPaint(android.graphics.BlendMode.SRC_OVER, null)
 
     /** Whether these masks stretch to [size] — as wide as two of their caps at its height. */
-    fun fits(size: Size): Boolean = size.width >= cap * 2f * (size.height / height)
+    fun fits(size: Size): Boolean = exactWidth == null && size.width >= cap * 2f * (size.height / height)
 
-    /** The rim at [size], in [GlassRimGeometry.drawLights]'s order, then the outline. */
-    fun draw(canvas: android.graphics.Canvas, size: Size, strength: Float) {
+    /** The rim at [size], in [GlassRimGeometry.drawLights]'s order, then the outline — or the outline alone. */
+    fun draw(canvas: android.graphics.Canvas, size: Size, strength: Float, lights: Boolean = true) {
         val k = size.height / height
-        val capK = cap * k
         val marginK = margin * k
-        val xs = floatArrayOf(-marginK, capK, size.width - capK, size.width + marginK)
-        val ys = floatArrayOf(-marginK, size.height + marginK)
+        if (exactWidth != null) {
+            // Nothing to stretch: the three columns evenly over the whole bake.
+            val kx = size.width / exactWidth
+            val span = (bitmapWidth / 3f) * kx
+            val x0 = -margin * kx
+            for (c in 0..3) xs[c] = x0 + span * c
+        } else {
+            val capK = cap * k
+            xs[0] = -marginK; xs[1] = capK; xs[2] = size.width - capK; xs[3] = size.width + marginK
+        }
+        val ys0 = -marginK
+        val ys1 = size.height + marginK
         var i = 0
-        for (y in ys) for (x in xs) { verts[i++] = x; verts[i++] = y }
+        for (y in floatArrayOf(ys0, ys1)) for (x in xs) { verts[i++] = x; verts[i++] = y }
         val alpha = (strength * 255f).toInt().coerceIn(0, 255)
-        val lightAlpha = (strength * GLASS_RIM_ALPHA * 255f).toInt().coerceIn(0, 255)
-        val glowAlpha = (strength * GLASS_GLOW_ALPHA * 255f).toInt().coerceIn(0, 255)
-        mesh(canvas, glow, glowGain, alpha)
-        mesh(canvas, glow, glowLight, glowAlpha)
-        mesh(canvas, rim, rimGain, alpha)
-        mesh(canvas, rim, rimLight, lightAlpha)
+        if (lights) {
+            val lightAlpha = (strength * GLASS_RIM_ALPHA * 255f).toInt().coerceIn(0, 255)
+            val glowAlpha = (strength * GLASS_GLOW_ALPHA * 255f).toInt().coerceIn(0, 255)
+            mesh(canvas, glow, glowGain, alpha)
+            mesh(canvas, glow, glowLight, glowAlpha)
+            mesh(canvas, rim, rimGain, alpha)
+            mesh(canvas, rim, rimLight, lightAlpha)
+        }
         mesh(canvas, outline, outlinePaint, alpha)
     }
+
+    private val xs = FloatArray(4)
 
     private fun mesh(canvas: android.graphics.Canvas, bitmap: Bitmap, paint: android.graphics.Paint, alpha: Int) {
         if (alpha <= 0) return
@@ -394,19 +434,19 @@ internal class GlassRimMasks(
         canvas.drawBitmapMesh(bitmap, 3, 1, verts, 0, null, 0, paint)
     }
 
-    /** Draws [block] at the parts' size, offset by the margin, into a bitmap the GPU rasterises. */
+    /**
+     * Draws [block] at the parts' size, offset by the margin, rasterised by the
+     * GPU — so its blurs are the renderer's own and match the paths drawn live
+     * — and copied out once into an ordinary bitmap. Drawn as the hardware
+     * bitmap itself, every frame that changed the display list holding it
+     * re-imported its buffer on the render thread: every frame of a fold.
+     */
     private fun bake(block: (android.graphics.Canvas) -> Unit): Bitmap {
         val picture = android.graphics.Picture()
-        val canvas = picture.beginRecording((third * 3).toInt(), bitmapHeight.toInt())
+        val canvas = picture.beginRecording(bitmapWidth.toInt(), bitmapHeight.toInt())
         canvas.translate(margin, margin)
         block(canvas)
         picture.endRecording()
-        // Rasterised by the GPU, so its blurs are the renderer's own and match
-        // the paths drawn live exactly; then copied out once into an ordinary
-        // bitmap. Drawn as the hardware bitmap itself, every frame that changed
-        // the display list holding it re-imported its buffer on the render
-        // thread — every frame of a fold, measured as a burst of frames over
-        // 25ms each time the bar folded. An ordinary bitmap uploads once.
         val hardware = Bitmap.createBitmap(picture)
         return hardware.copy(Bitmap.Config.ARGB_8888, false).also { hardware.recycle() }
     }
@@ -417,6 +457,8 @@ internal class GlassRimMasks(
         val height: Float,
         val direction: LayoutDirection,
         val density: Float,
+        /** Set for a bake at exactly this width — see [exactWidth]. */
+        val width: Float? = null,
     )
 
     companion object {
@@ -427,15 +469,103 @@ internal class GlassRimMasks(
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, GlassRimMasks>) = size > MAX_BAKES
         }
 
-        fun cached(key: Key): GlassRimMasks? = baked[key]
+        /**
+         * A bake for [key], or one within [BAKE_TOLERANCE] of it. A bar's size
+         * follows the scroll rather than snapping between two, so it rests at
+         * a new size every time the scroll stops — and baked to the pixel, the
+         * rim baked again on every pause. Within a few percent the bake is
+         * drawn scaled, which on a rim under a point deep is nothing anyone sees.
+         */
+        fun cached(key: Key): GlassRimMasks? = baked[key] ?: baked.values.firstOrNull { it.matches(key) }
+
+        private fun GlassRimMasks.matches(key: Key): Boolean =
+            shape == key.shape && direction == key.direction && density == key.density &&
+                close(height, key.height) &&
+                when (val width = key.width) {
+                    null -> exactWidth == null
+                    else -> exactWidth != null && close(exactWidth, width)
+                }
+
+        private fun close(baked: Float, wanted: Float) =
+            kotlin.math.abs(baked - wanted) <= wanted * BAKE_TOLERANCE
 
         fun bake(key: Key, density: Density): GlassRimMasks =
             com.music.bitchord.ui.performance.FrameDiagnostics.measure("BitChord.rimBake") {
-                if (com.music.bitchord.BuildConfig.PERFORMANCE_DIAGNOSTICS) {
-                    android.util.Log.i("BitChordFrames", "rim bake h=${key.height} shape=${key.shape::class.simpleName} cached=${baked.size}")
-                }
-                GlassRimMasks(key.shape, key.height, key.direction, density)
+                GlassRimMasks(key.shape, key.height, key.direction, density, key.width)
             }.also { baked[key] = it }
+
+        /**
+         * Bumped when a bake lands that a surface was waiting on, so whatever
+         * read [forSurface] — a glass surface's effects — reads it again.
+         */
+        val version = androidx.compose.runtime.mutableIntStateOf(0)
+
+        /**
+         * The bake a glass surface of [size] draws from: its own if there is
+         * one; otherwise, mid-animation, the nearest one, with its own baked
+         * once the size holds still for [RIM_SETTLE_MS]; and with nothing to
+         * stand in, baked now.
+         */
+        fun forSurface(shape: Shape, size: Size, direction: LayoutDirection, density: Density): GlassRimMasks {
+            version.intValue
+            val sliceable = fits(size, density)
+            val key = Key(shape, size.height, direction, density.density, if (sliceable) null else size.width)
+            cached(key)?.let { return it }
+            val nearest = baked.values
+                .filter { it.shape == shape && it.direction == direction && it.density == density.density }
+                .minByOrNull { kotlin.math.abs(it.height - size.height) + if (sliceable == (it.exactWidth == null)) 0f else 1e4f }
+                ?: return bake(key, density).also { it.packed }
+            wanted[shape] = key to Density(density.density, density.fontScale)
+            wantedAt[shape] = SystemClock.uptimeMillis()
+            if (settling.add(shape)) main.postDelayed(Settle(shape), RIM_SETTLE_MS)
+            return nearest
+        }
+
+        /**
+         * Bakes off the main thread: a bake is several GPU renders read back,
+         * and on this thread each one landed as a frame over budget. The bake
+         * is swapped in when it is ready; until then the nearest stands in.
+         */
+        private val baker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+            Thread(task, "glass-rim-bake").apply { priority = Thread.MIN_PRIORITY }
+        }
+
+        private fun bakeInBackground(key: Key, density: Density) {
+            if (!inFlight.add(key)) return
+            baker.execute {
+                val masks = runCatching {
+                    GlassRimMasks(key.shape, key.height, key.direction, density, key.width).also { it.warm() }
+                }.getOrNull()
+                main.post {
+                    inFlight.remove(key)
+                    if (masks != null && cached(key) == null) {
+                        baked[key] = masks
+                        version.intValue++
+                    }
+                }
+            }
+        }
+
+        private val inFlight = HashSet<Key>()
+
+        private val main = android.os.Handler(android.os.Looper.getMainLooper())
+        private val wanted = HashMap<Shape, Pair<Key, Density>>()
+        private val wantedAt = HashMap<Shape, Long>()
+        private val settling = HashSet<Shape>()
+
+        private class Settle(private val shape: Shape) : Runnable {
+            override fun run() {
+                val at = wantedAt[shape]
+                if (at != null && SystemClock.uptimeMillis() - at < RIM_SETTLE_MS) {
+                    main.postDelayed(this, RIM_SETTLE_MS)
+                    return
+                }
+                settling.remove(shape)
+                wantedAt.remove(shape)
+                val (key, density) = wanted.remove(shape) ?: return
+                if (cached(key) == null) bakeInBackground(key, density)
+            }
+        }
 
         /** Whether a pill of [size] is wide enough to have a middle to stretch. */
         fun fits(size: Size, density: Density): Boolean = size.width >= ceil(capWidth(size.height, density)) * 2f
@@ -459,7 +589,10 @@ internal class GlassRimMasks(
 /** How long a size must hold before the rim is baked for it again. */
 private const val RIM_SETTLE_MS = 120L
 
-private const val MAX_BAKES = 8
+private const val MAX_BAKES = 12
+
+/** How far off a bake's size may be, as a fraction, and still be drawn scaled for another. */
+private const val BAKE_TOLERANCE = 0.06f
 
 /**
  * Set by a frame recording that draws the rim the old way, for the cost of the

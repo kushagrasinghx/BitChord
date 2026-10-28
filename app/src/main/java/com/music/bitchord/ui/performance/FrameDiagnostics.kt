@@ -41,6 +41,10 @@ internal enum class DiagnosticMode(
     val noGlassLens: Boolean = false,
     val noTopFade: Boolean = false,
     val legacyGlassRim: Boolean = false,
+    val fullPageSample: Boolean = false,
+    val noGlassClip: Boolean = false,
+    val noGlassShadow: Boolean = false,
+    val drawnGlass: Boolean = false,
 ) {
     BASELINE("Baseline", "Current rendering and refresh-rate settings."),
     LIGHT("Light rendering + high refresh", "Disable dynamic blur and motion artwork; use the static artwork background and request the highest rate. Keep UI transitions.", noBlur = true, noArtwork = true, highRefresh = true, noLiveBackground = true),
@@ -52,6 +56,10 @@ internal enum class DiagnosticMode(
     NO_GLASS_LENS("No glass lens", "Keep the glass; skip its refraction pass.", noGlassLens = true),
     NO_TOP_FADE("No top fade", "Keep everything else; skip the blur under the status bar.", noTopFade = true),
     LEGACY_GLASS_RIM("Legacy glass rim", "Draw the rim from its paths every size change, as before it was baked.", legacyGlassRim = true),
+    FULL_PAGE_SAMPLE("Full page sample", "Sample the whole page for the blurred surfaces, not just what they read.", fullPageSample = true),
+    NO_GLASS_CLIP("No glass clip", "Attribution only: skip the glass's clips to its shape (corners will show).", noGlassClip = true),
+    NO_GLASS_SHADOW("No glass shadow", "Attribution only: skip the glass's drop shadows.", noGlassShadow = true),
+    DRAWN_GLASS("Drawn glass", "Draw the glass's rim, fill and edge after its lens instead of in its shader.", drawnGlass = true),
 }
 
 internal data class DiagnosticStatus(
@@ -124,6 +132,9 @@ internal object FrameDiagnostics {
             if (mode.noAnimation) AppSettings.reduceAnimation.value = animation
             if (mode.noLiveBackground) AppSettings.legacyMeshGradient.value = legacyMesh
             com.music.bitchord.ui.components.legacyRimForDiagnostics.value = false
+            com.music.bitchord.ui.components.fullPageSampleForDiagnostics.value = false
+            com.music.bitchord.ui.components.backdrop.backdropClipForDiagnostics.value = true
+            com.music.bitchord.ui.components.shaderGlassForDiagnostics.value = com.music.bitchord.ui.components.SHADER_GLASS_DEFAULT
         }
         _mode.value = mode
         if (mode.noBlur) AppSettings.reduceDynamicBlur.value = true
@@ -131,6 +142,9 @@ internal object FrameDiagnostics {
         if (mode.noAnimation) AppSettings.reduceAnimation.value = true
         if (mode.noLiveBackground) AppSettings.legacyMeshGradient.value = false
         com.music.bitchord.ui.components.legacyRimForDiagnostics.value = mode.legacyGlassRim
+        com.music.bitchord.ui.components.fullPageSampleForDiagnostics.value = mode.fullPageSample
+        com.music.bitchord.ui.components.backdrop.backdropClipForDiagnostics.value = !mode.noGlassClip
+        if (mode.drawnGlass) com.music.bitchord.ui.components.shaderGlassForDiagnostics.value = false
         val start = System.nanoTime() + WARMUP_MS * 1_000_000
         val id = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ROOT).format(Date())
         val metadata = JSONObject()

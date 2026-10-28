@@ -51,6 +51,12 @@ import com.music.bitchord.ui.components.backdrop.shadow.Shadow
 import com.music.bitchord.ui.components.backdrop.shadow.ShadowElement
 
 private val DefaultHighlight = { Highlight.Default }
+
+/**
+ * Off only in a frame recording pricing the glass's clip to its shape. Read in
+ * the layer block, so turning it off and on reaches every surface.
+ */
+internal val backdropClipForDiagnostics = androidx.compose.runtime.mutableStateOf(true)
 private val DefaultShadow = { Shadow.Default }
 private val DefaultOnDrawBackdrop: DrawScope.(DrawScope.() -> Unit) -> Unit = { it() }
 
@@ -85,7 +91,8 @@ fun Modifier.drawPlainBackdrop(
                 onDrawBackdrop = onDrawBackdrop,
                 onDrawSurface = onDrawSurface,
                 onDrawFront = onDrawFront,
-                backdropScale = 1f
+                backdropScale = 1f,
+                clipShape = null
             )
         )
 }
@@ -108,7 +115,11 @@ fun Modifier.drawBackdrop(
     // processes far fewer pixels. Pixel-sized effect parameters (blur radius, lens
     // refraction) must be pre-multiplied by the same factor by the caller; the blur
     // hides the upscaling. 1f keeps the original full resolution behavior.
-    backdropScale: Float = 1f
+    backdropScale: Float = 1f,
+    // Vendored addition: what the surface's layer clips to, when not [shape]. A
+    // surface whose effect draws its own anti-aliased edge needs only a cheap clip
+    // around it, where a clip to an arbitrary path is a mask on every draw inside.
+    clipShape: (() -> Shape)? = null
 ): Modifier {
     val shapeProvider = ShapeProvider(shape)
     return this
@@ -160,7 +171,8 @@ fun Modifier.drawBackdrop(
                 onDrawBackdrop = onDrawBackdrop,
                 onDrawSurface = onDrawSurface,
                 onDrawFront = onDrawFront,
-                backdropScale = backdropScale.coerceIn(0.05f, 1f)
+                backdropScale = backdropScale.coerceIn(0.05f, 1f),
+                clipShape = clipShape
             )
         )
 }
@@ -175,7 +187,8 @@ private class DrawBackdropElement(
     val onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit,
     val onDrawSurface: (DrawScope.() -> Unit)?,
     val onDrawFront: (DrawScope.() -> Unit)?,
-    val backdropScale: Float
+    val backdropScale: Float,
+    val clipShape: (() -> Shape)?
 ) : ModifierNodeElement<DrawBackdropNode>() {
 
     override fun create(): DrawBackdropNode {
@@ -189,7 +202,8 @@ private class DrawBackdropElement(
             onDrawBackdrop = onDrawBackdrop,
             onDrawSurface = onDrawSurface,
             onDrawFront = onDrawFront,
-            backdropScale = backdropScale
+            backdropScale = backdropScale,
+            clipShape = clipShape
         )
     }
 
@@ -207,6 +221,7 @@ private class DrawBackdropElement(
         node.onDrawSurface = onDrawSurface
         node.onDrawFront = onDrawFront
         node.backdropScale = backdropScale
+        node.clipShape = clipShape
         node.invalidateDrawCache()
         node.redraw()
     }
@@ -238,6 +253,7 @@ private class DrawBackdropElement(
         if (onDrawSurface != other.onDrawSurface) return false
         if (onDrawFront != other.onDrawFront) return false
         if (backdropScale != other.backdropScale) return false
+        if (clipShape != other.clipShape) return false
 
         return true
     }
@@ -253,6 +269,7 @@ private class DrawBackdropElement(
         result = 31 * result + (onDrawSurface?.hashCode() ?: 0)
         result = 31 * result + (onDrawFront?.hashCode() ?: 0)
         result = 31 * result + backdropScale.hashCode()
+        result = 31 * result + (clipShape?.hashCode() ?: 0)
         return result
     }
 }
@@ -267,7 +284,8 @@ private class DrawBackdropNode(
     var onDrawBackdrop: DrawScope.(drawBackdrop: DrawScope.() -> Unit) -> Unit,
     var onDrawSurface: (DrawScope.() -> Unit)?,
     var onDrawFront: (DrawScope.() -> Unit)?,
-    var backdropScale: Float
+    var backdropScale: Float,
+    var clipShape: (() -> Shape)?
 ) : LayoutModifierNode, DrawModifierNode, GlobalPositionAwareModifierNode, ObserverModifierNode, Modifier.Node() {
 
     private val effectScope =
@@ -286,8 +304,8 @@ private class DrawBackdropNode(
     // needs the buffer: the layer only clips, and any alpha is applied by the
     // separate layerBlock layer outside it.
     private val layoutLayerBlock: GraphicsLayerScope.() -> Unit = {
-        clip = true
-        shape = shapeProvider.shape
+        clip = backdropClipForDiagnostics.value
+        shape = clipShape?.invoke() ?: shapeProvider.shape
     }
 
     private var layoutCoordinates: LayoutCoordinates? by mutableStateOf(null, neverEqualPolicy())

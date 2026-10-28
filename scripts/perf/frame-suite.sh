@@ -13,6 +13,12 @@ if [ -n "${INSTALL:-1}" ] && [ "${INSTALL:-1}" != 0 ]; then
   adb install -r "$APK" >/dev/null
   adb shell cmd package compile -f -m speed-profile $PKG >/dev/null
 fi
+adb shell input keyevent KEYCODE_WAKEUP    # an install can outlast the screen timeout
+sleep 1
+if adb shell dumpsys window | grep -q "isKeyguardShowing=true"; then
+  echo "The phone is locked: unlock it, leave it on, and run this again (INSTALL=0 skips the install)." >&2
+  exit 2
+fi
 adb shell am start -n $ACT >/dev/null
 sleep 8                                   # let launch work settle before anything records
 adb logcat -c

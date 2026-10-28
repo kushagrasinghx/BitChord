@@ -6,7 +6,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -54,6 +58,31 @@ class PageSample internal constructor(internal val page: LayerBackdrop) : Backdr
     var live by mutableStateOf(false)
         internal set
 
+    /**
+     * What each reader reads, in the page's coordinates. The sample is drawn
+     * clipped to these and nothing else: the page's draws between the top band
+     * and the bars — most of the screen — are culled before the renderer
+     * builds a single command for them, which is where a replay of the page
+     * costs. State, so the sample is recorded again when a reader moves.
+     */
+    internal val regions = mutableStateMapOf<Any, Rect>()
+
+    /** [reader] reads [coordinates]'s bounds, widened by [margin] pixels for its blur and its motion. */
+    internal fun read(reader: Any, coordinates: LayoutCoordinates, margin: Float) {
+        val source = page.layerCoordinates?.takeIf { it.isAttached } ?: return
+        val region = try {
+            source.localBoundingBoxOf(coordinates, clipBounds = false)
+        } catch (_: Exception) {
+            return
+        }.inflate(margin)
+        if (regions[reader] != region) regions[reader] = region
+    }
+
+    /** [reader] reads nothing any more. */
+    internal fun forget(reader: Any) {
+        regions.remove(reader)
+    }
+
     override val isCoordinatesDependent: Boolean = true
 
     override fun DrawScope.drawBackdrop(
@@ -83,6 +112,36 @@ class PageSample internal constructor(internal val page: LayerBackdrop) : Backdr
  * a reader drawing it at its own scale gets one texel per pixel.
  */
 internal const val PAGE_SAMPLE_SCALE = 0.33f
+
+/** [regions] merged wherever they overlap, as few rectangles as cover them all. */
+private fun bands(regions: List<Rect>): List<Rect> {
+    val merged = ArrayList<Rect>()
+    for (region in regions.sortedBy { it.top }) {
+        val last = merged.lastOrNull()
+        if (last != null && last.overlaps(region)) {
+            merged[merged.lastIndex] = Rect(
+                minOf(last.left, region.left), minOf(last.top, region.top),
+                maxOf(last.right, region.right), maxOf(last.bottom, region.bottom),
+            )
+        } else {
+            merged += region
+        }
+    }
+    return merged
+}
+
+/**
+ * Set by a frame recording that samples the whole page, unclipped, for the
+ * clip to be priced against it in the same run. State, so the sample redraws.
+ */
+internal val fullPageSampleForDiagnostics = mutableStateOf(false)
+
+/**
+ * The margin a reader asks for around its bounds: its blur's reach, and a
+ * frame's travel for something that moves — a bar folding — since a reader
+ * that moved this frame reads the sample recorded for where it was placed.
+ */
+internal val SAMPLE_READ_MARGIN = 32.dp
 
 /** The app's [PageSample], if the page is being sampled. */
 val LocalPageSample = staticCompositionLocalOf<PageSample?> { null }
@@ -114,6 +173,7 @@ private class PageSampleNode(private var sample: PageSample) : DrawModifierNode,
     // recording again.
     private var recordedSize = IntSize.Zero
     private var recordedPage: GraphicsLayer? = null
+    private var recordedRegions: List<Rect> = emptyList()
 
     fun update(sample: PageSample) {
         if (this.sample === sample) return
@@ -130,14 +190,31 @@ private class PageSampleNode(private var sample: PageSample) : DrawModifierNode,
             ceil(size.width * PAGE_SAMPLE_SCALE).toInt().coerceAtLeast(1),
             ceil(size.height * PAGE_SAMPLE_SCALE).toInt().coerceAtLeast(1),
         )
-        if (target == recordedSize && recordedPage === pageLayer) return
+        // Read here, so a reader moving records the sample again; with none
+        // registered, or a recording asking for it, the whole page.
+        val regions = if (fullPageSampleForDiagnostics.value) emptyList() else sample.regions.values.toList()
+        if (target == recordedSize && recordedPage === pageLayer && regions == recordedRegions) return
         recordLayer(this@PageSampleNode, layer, target) {
             scale(PAGE_SAMPLE_SCALE, pivot = Offset.Zero) {
-                drawLayer(pageLayer)
+                if (regions.isEmpty()) {
+                    drawLayer(pageLayer)
+                } else {
+                    // A rectangle each, never one path of all of them: a path
+                    // clip is a mask every culled-in draw has to go through,
+                    // and measured, it cost more than the culling saved. A
+                    // rectangle is a scissor. Overlapping readers — the top
+                    // fade and the top bar's glass — share one.
+                    for (band in bands(regions)) {
+                        clipRect(band.left, band.top, band.right, band.bottom) {
+                            drawLayer(pageLayer)
+                        }
+                    }
+                }
             }
         }
         recordedSize = target
         recordedPage = pageLayer
+        recordedRegions = regions
     }
 
     override fun onAttach() = adopt()
@@ -153,6 +230,7 @@ private class PageSampleNode(private var sample: PageSample) : DrawModifierNode,
         }
         recordedSize = IntSize.Zero
         recordedPage = null
+        recordedRegions = emptyList()
         sample.live = true
     }
 

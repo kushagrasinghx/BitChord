@@ -92,6 +92,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorProducer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.music.bitchord.ui.components.TintedIcon
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
@@ -1448,47 +1452,18 @@ internal fun TranslationToggleButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val active = showingTranslation || state is LyricsTranslationUiState.Loading
-    val tint = when {
-        !enabled || state is LyricsTranslationUiState.SameLanguage -> LocalPlayerTint.current.copy(alpha = 0.42f)
-        active -> LocalPlayerTint.current
-        else -> LocalPlayerTint.current.copy(alpha = 0.78f)
-    }
-    val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else 0.18f,
+    LyricsToggleButton(
+        icon = Icons.Rounded.Translate,
+        contentDescription = stringResource(
+            if (showingTranslation) Res.string.show_original_lyrics
+            else Res.string.translate_lyrics,
+        ),
+        state = state,
+        showing = showingTranslation,
+        enabled = enabled,
+        onClick = onClick,
         label = "translateDisc",
     )
-    Box(
-        modifier = Modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .vibrantBackground(LocalPlayerTint.current.copy(alpha = discAlpha))
-            .clickable(
-                enabled = enabled,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick,
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (state is LyricsTranslationUiState.Loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp).vibrancy(tint),
-                color = tint,
-                strokeWidth = 1.7.dp,
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Rounded.Translate,
-                contentDescription = stringResource(
-                    if (showingTranslation) Res.string.show_original_lyrics
-                    else Res.string.translate_lyrics,
-                ),
-                tint = tint,
-                modifier = Modifier.size(19.dp).vibrancy(tint),
-            )
-        }
-    }
 }
 
 /** The left-hand companion to [TranslationToggleButton], producing Latin script. */
@@ -1499,44 +1474,135 @@ internal fun RomanizationToggleButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    val active = showingRomanization || state is LyricsTranslationUiState.Loading
+    LyricsToggleButton(
+        icon = Icons.Rounded.Language,
+        contentDescription = stringResource(
+            if (showingRomanization) Res.string.show_original_lyrics
+            else Res.string.romanize_lyrics,
+        ),
+        state = state,
+        showing = showingRomanization,
+        enabled = enabled,
+        onClick = onClick,
+        label = "romanizeDisc",
+    )
+}
+
+/**
+ * The translate and romanize discs: on while [showing] or fetching, faint
+ * while there is nothing to do.
+ *
+ * In [GlassControls], a circle of the player's glass instead of the faint
+ * disc: its glyph turns over light content, and on it fills whole at the
+ * liked star's strength with the glyph — or the spinner — cut out of it,
+ * the favourite's look and the lyrics and queue buttons'.
+ */
+@Composable
+private fun LyricsToggleButton(
+    icon: ImageVector,
+    contentDescription: String,
+    state: LyricsTranslationUiState,
+    showing: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    label: String,
+) {
+    val glass = LocalGroupGlass.current
+    val tone = glass?.rememberGlyphTone()
+    val loading = state is LyricsTranslationUiState.Loading
+    val active = showing || loading
+    val base = LocalPlayerTint.current
     val tint = when {
-        !enabled || state is LyricsTranslationUiState.SameLanguage -> LocalPlayerTint.current.copy(alpha = 0.42f)
-        active -> LocalPlayerTint.current
-        else -> LocalPlayerTint.current.copy(alpha = 0.78f)
+        !enabled || state is LyricsTranslationUiState.SameLanguage -> base.copy(alpha = 0.42f)
+        active && glass == null -> base
+        else -> base.copy(alpha = 0.78f)
     }
     val discAlpha by animateFloatAsState(
         targetValue = if (active) 0.34f else 0.18f,
-        label = "romanizeDisc",
+        label = label,
+    )
+    val lit = animateFloatAsState(
+        targetValue = if (active && glass != null) 1f else 0f,
+        animationSpec = LitSpring,
+        label = "${label}Lit",
     )
     Box(
         modifier = Modifier
             .size(34.dp)
+            .then(if (glass != null) with(glass) { Modifier.glassSurface(CircleShape) } else Modifier)
+            // After the glass: it draws its outline just outside its edge.
             .clip(CircleShape)
-            .vibrantBackground(LocalPlayerTint.current.copy(alpha = discAlpha))
+            .then(if (glass == null) Modifier.vibrantBackground(base.copy(alpha = discAlpha)) else Modifier)
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
-            ),
+            )
+            .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        if (state is LyricsTranslationUiState.Loading) {
+        // Read as the glyph is drawn, so the glass's turn redraws it alone.
+        val glyphTint = if (tone == null) {
+            remember(tint) { ColorProducer { tint } }
+        } else {
+            remember(tint, tone) { ColorProducer { lerp(tint, Color.Black.copy(alpha = tint.alpha), tone.darkness) } }
+        }
+        LyricsToggleGlyph(
+            icon = icon,
+            loading = loading,
+            tint = glyphTint,
+            spinnerColor = tint,
+            glyphModifier = Modifier.toneVibrancy(tone, tint),
+            modifier = Modifier
+                .then(if (tone != null) with(tone) { Modifier.glyphArea() } else Modifier)
+                .graphicsLayer {
+                    alpha = 1f - lit.value.coerceIn(0f, 1f)
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                },
+        )
+        LitLayer(
+            lit = lit,
+            tint = base,
+            fill = { color -> drawCircle(color) },
+            scaleFrom = 1f,
+        ) { glyphModifier ->
+            LyricsToggleGlyph(
+                icon = icon,
+                loading = loading,
+                tint = CutOutTint,
+                spinnerColor = Color.Black,
+                glyphModifier = Modifier,
+                modifier = glyphModifier,
+            )
+        }
+    }
+}
+
+/** A [LyricsToggleButton]'s glyph, or its spinner while a request is in flight. */
+@Composable
+private fun LyricsToggleGlyph(
+    icon: ImageVector,
+    loading: Boolean,
+    tint: ColorProducer,
+    spinnerColor: Color,
+    /** On the glyph itself: its vibrancy. */
+    glyphModifier: Modifier,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier) {
+        if (loading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(16.dp).vibrancy(tint),
-                color = tint,
+                modifier = Modifier.size(16.dp).then(glyphModifier),
+                color = spinnerColor,
                 strokeWidth = 1.7.dp,
             )
         } else {
-            Icon(
-                imageVector = Icons.Rounded.Language,
-                contentDescription = stringResource(
-                    if (showingRomanization) Res.string.show_original_lyrics
-                    else Res.string.romanize_lyrics,
-                ),
+            TintedIcon(
+                imageVector = icon,
+                contentDescription = null,
                 tint = tint,
-                modifier = Modifier.size(19.dp).vibrancy(tint),
+                modifier = Modifier.size(19.dp).then(glyphModifier),
             )
         }
     }

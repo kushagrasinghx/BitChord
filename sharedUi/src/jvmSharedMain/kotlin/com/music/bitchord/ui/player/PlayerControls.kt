@@ -834,7 +834,7 @@ internal fun CircleGlyph(
  * it is light, laid over it once it has turned dark — black added adds
  * nothing — switched in the glyph's own layer halfway through the turn.
  */
-private fun Modifier.toneVibrancy(tone: PlayerGlyphTone?, tint: Color): Modifier =
+internal fun Modifier.toneVibrancy(tone: PlayerGlyphTone?, tint: Color): Modifier =
     if (tone == null) {
         vibrancy(tint)
     } else {
@@ -1316,7 +1316,7 @@ private fun SegmentGlyph(
 }
 
 /** The lit capsule's glyph: anything opaque, since it is only erased with. */
-private val CutOutTint = ColorProducer { Color.Black }
+internal val CutOutTint = ColorProducer { Color.Black }
 
 /**
  * A glass control's "on": [fill] — handed its colour, the control's [tint]
@@ -1330,7 +1330,7 @@ private val CutOutTint = ColorProducer { Color.Black }
  * fill and nothing under it, then added onto the glass.
  */
 @Composable
-private fun BoxScope.LitLayer(
+internal fun BoxScope.LitLayer(
     lit: State<Float>,
     tint: Color,
     fill: DrawScope.(Color) -> Unit,
@@ -1359,7 +1359,7 @@ private fun BoxScope.LitLayer(
 }
 
 /** How a glass control lights and squares off: a little spring, as the glass's own press. */
-private val LitSpring = spring<Float>(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium)
+internal val LitSpring = spring<Float>(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium)
 
 /**
  * How far a lit segment's capsule sits in from the glass's edge, all round —

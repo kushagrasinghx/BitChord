@@ -3624,31 +3624,36 @@ fun NowPlayingScreen(
                                 label = "translateFade",
                             )
                             if (translateFade > 0.01f && !lyricPicker.picking) {
+                                // The two in the player's glass, on one sample taken
+                                // across the foot of the panel they sit at either end of.
                                 Box(
                                     modifier = Modifier
-                                        .align(Alignment.BottomStart)
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
                                         .graphicsLayer { alpha = translateFade },
                                 ) {
-                                    RomanizationToggleButton(
-                                        state = lyricsTranslation.romanizationState,
-                                        showingRomanization = lyricsTranslation.showingRomanization,
-                                        enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                        onClick = lyricsTranslation.toggleRomanization,
-                                    )
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .graphicsLayer { alpha = translateFade },
-                                ) {
-                                    TranslationToggleButton(
-                                        state = lyricsTranslation.translationState,
-                                        showingTranslation = lyricsTranslation.showingTranslation,
-                                        // Not tappable on the way out: a disc at 20%
-                                        // opacity is on its way to gone, not a target.
-                                        enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                        onClick = lyricsTranslation.toggleTranslation,
-                                    )
+                                    GlassControls {
+                                        Box(Modifier.fillMaxWidth()) {
+                                            Box(Modifier.align(Alignment.BottomStart)) {
+                                                RomanizationToggleButton(
+                                                    state = lyricsTranslation.romanizationState,
+                                                    showingRomanization = lyricsTranslation.showingRomanization,
+                                                    enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                                    onClick = lyricsTranslation.toggleRomanization,
+                                                )
+                                            }
+                                            Box(Modifier.align(Alignment.BottomEnd)) {
+                                                TranslationToggleButton(
+                                                    state = lyricsTranslation.translationState,
+                                                    showingTranslation = lyricsTranslation.showingTranslation,
+                                                    // Not tappable on the way out: a disc at 20%
+                                                    // opacity is on its way to gone, not a target.
+                                                    enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                                    onClick = lyricsTranslation.toggleTranslation,
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             // The bar arrives and leaves without a transition of its own:

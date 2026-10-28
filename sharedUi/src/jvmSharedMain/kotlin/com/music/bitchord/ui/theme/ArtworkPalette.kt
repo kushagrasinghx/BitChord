@@ -158,6 +158,13 @@ private fun artworkPaletteTarget(
     // is nothing to crossfade *from* and animating would only put a delay in
     // front of a surface that could already be right.
     val knownUpFront = remember(imageUrl) { decoded != null }
+    // When this artwork was first asked for. Colours that arrive while the
+    // surface is still arriving itself — a page fading in, a sheet sliding up
+    // — are cut to rather than faded into: the surface's own entrance carries
+    // the change, and a fade on top of it recomposed everything tinted from
+    // this palette on every frame of that entrance, the moment the frame
+    // budget is already spent on the transition.
+    val askedAt = remember(imageUrl) { System.nanoTime() }
 
     val target = seed?.toPalette(dark) ?: ArtworkPalette(
         background = scheme.background,
@@ -169,7 +176,10 @@ private fun artworkPaletteTarget(
         divider = scheme.outline,
     )
 
-    val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront) {
+    // Only artwork's colours arriving; a surface going back to the theme's —
+    // a page popped back to a tab — still fades out of the artwork's.
+    val arriving = seed != null && System.nanoTime() - askedAt < ARRIVAL_WINDOW_MS * 1_000_000L
+    val spec: AnimationSpec<Color> = if (reduceAnimation || knownUpFront || arriving) {
         snap()
     } else {
         tween(TINT_FADE_MS)
@@ -268,6 +278,12 @@ private const val PALETTE_PX = 128
 
 /** Short: this is a surface settling into its colour, not an effect in itself. */
 private const val TINT_FADE_MS = 260
+
+/**
+ * How long after artwork is first asked for its colours are still cut to
+ * rather than faded into — about as long as a page's or a sheet's entrance.
+ */
+private const val ARRIVAL_WINDOW_MS = 250L
 
 /**
  * The raw artwork colours: what the page is mostly made of, its brightest

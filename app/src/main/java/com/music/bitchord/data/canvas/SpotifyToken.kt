@@ -102,7 +102,12 @@ internal object SpotifyToken {
                 return@withLock null
             }
 
-            val harvested = withContext(Dispatchers.Main) { harvestViaWebView(context, cookie) }
+            // The cookie goes in before the hop to the main thread: these
+            // CookieManager calls block until the cookie store has them, and
+            // flush() waits on disk, while none of them needs the WebView's
+            // thread — only the WebView itself does.
+            withContext(Dispatchers.IO) { applyCookie(cookie) }
+            val harvested = withContext(Dispatchers.Main) { harvestViaWebView(context) }
             if (harvested == null) {
                 Log.w(TAG, "token harvest failed or timed out")
                 return@withLock null
@@ -113,6 +118,16 @@ internal object SpotifyToken {
             harvested.clientId?.let { cachedClientId = it }
             Log.d(TAG, "harvested access token, good until ${java.util.Date(harvested.expiresAt)}")
             harvested.token
+        }
+    }
+
+    /** Puts the listener's cookie in the WebView's jar, for [harvestViaWebView] to load the player with. */
+    private fun applyCookie(cookie: String) {
+        CookieManager.getInstance().apply {
+            setAcceptCookie(true)
+            setCookie("https://open.spotify.com/", "sp_dc=$cookie; Domain=.spotify.com; Path=/; Secure")
+            setCookie("https://accounts.spotify.com/", "sp_dc=$cookie; Domain=.spotify.com; Path=/; Secure")
+            flush()
         }
     }
 
@@ -128,18 +143,13 @@ internal object SpotifyToken {
      * than sign the request ourselves, this loads open.spotify.com for real
      * in an offscreen WebView with the cookie applied, and reads the token
      * the page mints for itself by hooking fetch/XHR before its own bundle
-     * runs.
+     * runs. The cookie must already be in the jar; see [applyCookie].
      */
     @SuppressLint("SetJavaScriptEnabled")
-    private suspend fun harvestViaWebView(context: Context, cookie: String): HarvestedToken? {
+    private suspend fun harvestViaWebView(context: Context): HarvestedToken? {
         val deferred = CompletableDeferred<HarvestedToken?>()
 
-        val cookieManager = CookieManager.getInstance().apply {
-            setAcceptCookie(true)
-            setCookie("https://open.spotify.com/", "sp_dc=$cookie; Domain=.spotify.com; Path=/; Secure")
-            setCookie("https://accounts.spotify.com/", "sp_dc=$cookie; Domain=.spotify.com; Path=/; Secure")
-            flush()
-        }
+        val cookieManager = CookieManager.getInstance()
         // The player caches its token in web storage and skips a fresh
         // /api/token request if a live one is already sitting there, leaving
         // the hook with nothing to see — wipe storage so every harvest forces

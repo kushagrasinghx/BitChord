@@ -1,6 +1,11 @@
 package com.music.bitchord.ui.player
 
 import android.content.Context
+import android.graphics.SurfaceTexture
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
 import androidx.compose.animation.core.animateFloatAsState
@@ -38,6 +43,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.ChunkedDataSource
 import com.music.bitchord.playback.toSong
+import com.music.bitchord.ui.performance.FrameDiagnostics
 import com.music.bitchord.ui.rememberIsForeground
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -67,6 +73,14 @@ import kotlin.math.roundToInt
  * Surfaces take turns holding the one decoder, the last one mounted in front —
  * the full player over the mini player, the landscape player over either — as
  * only one of them is ever on screen at a time.
+ *
+ * The player itself lives on a control Looper of its own, as the canvas clips'
+ * do (see [CanvasVideoSession]). Media3 blocks whichever thread owns a player
+ * until its renderer has let go of the surface being replaced — for up to two
+ * seconds — and the picture moves between the mini player and the full player
+ * during the very animation that opens one over the other. Everything else here
+ * stays on the main thread, the controller above all, whose clock is read there
+ * and carried across; nothing on the main thread waits for the player.
  */
 @OptIn(UnstableApi::class)
 object MusicVideoEngine {
@@ -91,21 +105,46 @@ object MusicVideoEngine {
     private const val STREAM_TTL_MS = 60 * 60 * 1000L
 
     private val scope = MainScope()
+    private val main = Handler(Looper.getMainLooper())
+
+    /** Started with the first surface claimed rather than with the app. */
+    private val control by lazy { VideoControlThread("music-video-control") }
 
     private var controller: Player? = null
-    private var player: ExoPlayer? = null
-    private class Surface(val view: TextureView, val priority: Int)
+    private class Claim(val target: MusicVideoTarget, val priority: Int)
 
-    private val surfaces = ArrayList<Surface>()
+    private val surfaces = ArrayList<Claim>()
 
     /** The surface in front: the highest priority, the latest of equals. */
-    private fun top(): TextureView? = surfaces.lastOrNull { s -> surfaces.none { it.priority > s.priority } }?.view
+    private fun top(): MusicVideoTarget? = surfaces.lastOrNull { s -> surfaces.none { it.priority > s.priority } }?.target
+
+    /** The surface the decoder was last sent to, or null for none. */
+    private var shown: MusicVideoTarget? = null
+
+    /** Counts hand-offs, so a first frame can be matched to the surface it landed on. */
+    private var shownGeneration = 0
+
+    /** Whether a surface has asked for a player yet: until then there is none to act on. */
+    private var playerRequested = false
 
     /** The video loaded (or loading) into [player]. */
     private var loadedId: String? = null
+
+    /** Bumped by every unload, so a player event about a video since dropped is ignored. */
+    private var loadToken = 0
     private var loadJob: Job? = null
     private var syncJob: Job? = null
     private var releaseJob: Job? = null
+
+    // Control thread only, from here down to seekLeadMs: the player, the
+    // surface it holds, and the seek bookkeeping read and written beside it.
+    // Everything else in this object belongs to the main thread.
+    private var player: ExoPlayer? = null
+    private var output: VideoOutputLease<Surface>? = null
+    private var outputGeneration = 0
+
+    /** The [loadToken] of the media in [player], or -1 once it has been stopped. */
+    private var mediaToken = -1
     private var lastSeekAt = 0L
     private var seekStartedAt = 0L
 
@@ -164,20 +203,33 @@ object MusicVideoEngine {
             reason: Int,
         ) {
             // A seek on the audio: follow it at once rather than on the next tick.
-            lastSeekAt = 0L
+            onControl { lastSeekAt = 0L }
             sync()
         }
     }
 
+    /**
+     * Called on the control thread. What it reports to the main thread carries
+     * the media and the surface it was about, because the main thread may have
+     * moved on from both by the time it arrives.
+     */
     private val playerListener = object : Player.Listener {
         override fun onRenderedFirstFrame() {
-            _frameOn.value = top()
-            _shownVideoId.value = loadedId
+            val token = mediaToken
+            val generation = outputGeneration
+            main.post {
+                if (token != loadToken || generation != shownGeneration) return@post
+                _frameOn.value = shown?.view
+                _shownVideoId.value = loadedId
+            }
         }
 
         override fun onVideoSizeChanged(videoSize: VideoSize) {
             val width = videoSize.width * videoSize.pixelWidthHeightRatio
-            if (width > 0f && videoSize.height > 0) {
+            if (width <= 0f || videoSize.height <= 0) return
+            val token = mediaToken
+            main.post {
+                if (token != loadToken) return@post
                 _aspect.value = width / videoSize.height
                 _quality.value = _quality.value.copy(activeHeight = videoSize.height)
             }
@@ -192,18 +244,24 @@ object MusicVideoEngine {
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            val id = loadedId ?: return
-            TrackLog.w(TAG, "video: playback failed at ${loadedCap}p (${error.errorCodeName})", about = id)
-            streams.remove(id)
-            // Above 1080p YouTube serves VP9 and AV1, which not every phone
-            // decodes: one more try on the H.264 ladder before giving up.
-            if (loadedCap > AUTO_HEIGHT && stepDown.add(id)) {
-                load(id)
-                return
-            }
-            noPicture += id
-            unload()
+            val token = mediaToken
+            main.post { if (token == loadToken) failed(error) }
         }
+    }
+
+    /** Main thread, for a failure of the video the main thread still has loaded. */
+    private fun failed(error: PlaybackException) {
+        val id = loadedId ?: return
+        TrackLog.w(TAG, "video: playback failed at ${loadedCap}p (${error.errorCodeName})", about = id)
+        streams.remove(id)
+        // Above 1080p YouTube serves VP9 and AV1, which not every phone
+        // decodes: one more try on the H.264 ladder before giving up.
+        if (loadedCap > AUTO_HEIGHT && stepDown.add(id)) {
+            load(id)
+            return
+        }
+        noPicture += id
+        unload()
     }
 
     /** The app's MediaController, whose position the picture follows. Main thread. */
@@ -217,39 +275,31 @@ object MusicVideoEngine {
     }
 
     /**
-     * Puts the picture on [view] until the returned release is called, unless
+     * Puts the picture on [target] until the returned release is called, unless
      * a surface of higher [priority] holds it — the full player's outranks the
      * mini player's, whichever was mounted last. Main thread.
      */
-    internal fun claim(view: TextureView, priority: Int): () -> Unit {
+    internal fun claim(target: MusicVideoTarget, priority: Int): () -> Unit {
         releaseJob?.cancel()
-        surfaces.removeAll { it.view === view }
-        surfaces += Surface(view, priority)
-        val app = view.context.applicationContext
+        surfaces.removeAll { it.target === target }
+        surfaces += Claim(target, priority)
+        val app = target.view.context.applicationContext
         if (prefs == null) {
             prefs = app.getSharedPreferences("music_video", Context.MODE_PRIVATE).also { stored ->
                 val held = stored.getInt(KEY_QUALITY, 0).takeIf { it > 0 }
                 _quality.value = _quality.value.copy(held = held)
             }
         }
-        val exo = ensurePlayer(app)
-        if (top() === view) {
-            _frameOn.value = null
-            exo.setVideoTextureView(view)
-            repaint()
-        }
+        playerRequested = true
+        onControl { ensurePlayer(app) }
+        retarget()
         refresh()
         return release@{
-            val wasTop = top() === view
-            surfaces.removeAll { it.view === view }
+            val wasTop = top() === target
+            surfaces.removeAll { it.target === target }
             if (!wasTop) return@release
-            if (_frameOn.value === view) _frameOn.value = null
-            val next = top()
-            if (next != null) {
-                exo.setVideoTextureView(next)
-                repaint()
-            } else {
-                exo.clearVideoTextureView(view)
+            retarget()
+            if (surfaces.isEmpty()) {
                 releaseJob = scope.launch {
                     delay(RELEASE_GRACE_MS)
                     if (surfaces.isEmpty()) unload()
@@ -258,18 +308,107 @@ object MusicVideoEngine {
         }
     }
 
-    private fun ensurePlayer(context: Context): ExoPlayer = player ?: ExoPlayer.Builder(context)
-        .build()
-        .apply {
-            volume = 0f
-            trackSelectionParameters = trackSelectionParameters.buildUpon()
-                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
-                .build()
-            addListener(playerListener)
-        }
-        .also { player = it }
+    /**
+     * Sends the decoder to the front surface — or off any, while the front one
+     * has no texture yet — unless that is where it was sent last. Its frame is
+     * forgotten at once; the next one to land on the new surface brings it back.
+     */
+    private fun retarget() {
+        val front = top()?.takeIf { it.texture != null }
+        if (front === shown) return
+        shown = front
+        val generation = ++shownGeneration
+        _frameOn.value = null
+        val lease = front?.let { leaseFor(it) }
+        onControl { show(lease, generation) }
+    }
 
-    /** A paused decoder handed a new surface draws nothing until asked to. */
+    /**
+     * A fresh hold on [target]'s texture. Every hand-off gets its own Surface,
+     * as it did when Media3 made them, and the one before is released once the
+     * decoder is off it — the texture only once the view has let go of it too.
+     */
+    private fun leaseFor(target: MusicVideoTarget): VideoOutputLease<Surface> {
+        val texture = checkNotNull(target.texture)
+        return VideoOutputLease(
+            createOutput = { Surface(texture) },
+            destroyOutput = Surface::release,
+            destroyTexture = texture::release,
+        ).also { target.lease = it }
+    }
+
+    /** Main thread: [target]'s view has a texture to draw into. */
+    internal fun textureAvailable(target: MusicVideoTarget, texture: SurfaceTexture) {
+        target.texture = texture
+        retarget()
+    }
+
+    /**
+     * Main thread: [target]'s view is giving up its texture. Returns whether
+     * the view may release it itself, which it may only if the decoder was
+     * never sent to it; otherwise the decoder is moved off it first, and the
+     * control thread releases it once nothing can be drawing into it.
+     */
+    internal fun textureDestroyed(target: MusicVideoTarget): Boolean {
+        target.texture = null
+        val lease = target.lease
+        target.lease = null
+        retarget()
+        if (lease == null) return true
+        onControl { forget(lease) }
+        return false
+    }
+
+    /**
+     * Queues [action] on the control thread, behind everything sent before it.
+     * Until a surface has asked for a player there is nothing for it to act on,
+     * and no reason to start that thread for the app's whole life.
+     */
+    private fun onControl(action: () -> Unit) {
+        if (playerRequested) control.execute(action)
+    }
+
+    /** Control thread: the player, made with the first surface and kept from then on. */
+    private fun ensurePlayer(context: Context) {
+        if (player != null) return
+        player = ExoPlayer.Builder(context)
+            .setLooper(checkNotNull(Looper.myLooper()))
+            .build()
+            .apply {
+                volume = 0f
+                trackSelectionParameters = trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                    .build()
+                addListener(playerListener)
+            }
+    }
+
+    /**
+     * Control thread: moves the decoder onto [lease]'s surface, or off any.
+     * This is the call Media3 blocks on until the renderer lets go of the old
+     * surface, which is why it is made here; only then is that surface released.
+     */
+    private fun show(lease: VideoOutputLease<Surface>?, generation: Int) {
+        val exo = player ?: return
+        FrameDiagnostics.measure("BitChord.musicVideoSetSurface") { exo.setVideoSurface(lease?.output()) }
+        val previous = output
+        output = lease
+        outputGeneration = generation
+        previous?.releaseOutput()
+        if (lease != null) repaint()
+    }
+
+    /** Control thread: [lease]'s texture is gone from its view; off it, then release it. */
+    private fun forget(lease: VideoOutputLease<Surface>) {
+        lease.textureDestroyed()
+        if (output === lease) {
+            player?.setVideoSurface(null)
+            output = null
+        }
+        lease.releaseOutput()
+    }
+
+    /** Control thread. A paused decoder handed a new surface draws nothing until asked to. */
     private fun repaint() {
         val exo = player ?: return
         if (!exo.playWhenReady && exo.playbackState != Player.STATE_IDLE) {
@@ -327,6 +466,7 @@ object MusicVideoEngine {
         loadedId = videoId
         val cap = capFor(videoId)
         loadedCap = cap
+        val token = loadToken
         loadJob = scope.launch {
             val stream = try {
                 cachedStream(videoId, cap) ?: withContext(Dispatchers.IO) {
@@ -348,19 +488,23 @@ object MusicVideoEngine {
                 loadedId = null
                 return@launch
             }
-            val exo = player ?: return@launch
-            val upstream = OkHttpDataSource.Factory(Http.client)
-                .setDefaultRequestProperties(stream.headers)
-            val source = ProgressiveMediaSource.Factory(ChunkedDataSource.Factory(upstream, CHUNK_BYTES))
-                .createMediaSource(MediaItem.fromUri(stream.url))
             if (stream.aspect > 0f) _aspect.value = stream.aspect
             _quality.value = _quality.value.copy(heights = stream.heights, activeHeight = stream.height)
-            val start = controller?.currentPosition?.coerceAtLeast(0L) ?: 0L
-            exo.setMediaSource(source, start + seekLeadMs)
-            exo.playWhenReady = controller?.isPlaying == true
-            exo.prepare()
-            lastSeekAt = System.currentTimeMillis()
-            seekStartedAt = lastSeekAt
+            val audio = audioClock()
+            onControl {
+                val exo = player ?: return@onControl
+                val upstream = OkHttpDataSource.Factory(Http.client)
+                    .setDefaultRequestProperties(stream.headers)
+                val source = ProgressiveMediaSource.Factory(ChunkedDataSource.Factory(upstream, CHUNK_BYTES))
+                    .createMediaSource(MediaItem.fromUri(stream.url))
+                mediaToken = token
+                val start = audio?.positionMs?.coerceAtLeast(0L) ?: 0L
+                exo.setMediaSource(source, start + seekLeadMs)
+                exo.playWhenReady = audio?.playing == true
+                exo.prepare()
+                lastSeekAt = System.currentTimeMillis()
+                seekStartedAt = lastSeekAt
+            }
             startSync()
         }
     }
@@ -380,12 +524,17 @@ object MusicVideoEngine {
         syncJob?.cancel()
         syncJob = null
         loadedId = null
+        loadToken++
         _shownVideoId.value = null
         _frameOn.value = null
         _quality.value = _quality.value.copy(heights = emptyList(), activeHeight = null)
-        player?.let {
-            it.stop()
-            it.clearMediaItems()
+        onControl {
+            // Whatever the player still has to say about this video is stale.
+            mediaToken = -1
+            player?.let {
+                it.stop()
+                it.clearMediaItems()
+            }
         }
         while (streams.size > 8) streams.remove(streams.keys.first())
     }
@@ -400,15 +549,38 @@ object MusicVideoEngine {
         }
     }
 
+    /**
+     * The audio's position as read on the main thread, where the controller
+     * lives, carried to the control thread that acts on it. Work queued there
+     * can run late — behind a surface hand-off, say — so a playing clock is read
+     * forward by however long it waited, and a late sync aims at where the
+     * audio is by then rather than where it was.
+     */
+    private class AudioClock(private val readMs: Long, val playing: Boolean, val speed: Float) {
+        private val readAt = SystemClock.elapsedRealtime()
+        val positionMs: Long
+            get() = if (playing) readMs + ((SystemClock.elapsedRealtime() - readAt) * speed).toLong() else readMs
+    }
+
+    private fun audioClock(): AudioClock? = controller?.let { audio ->
+        AudioClock(audio.currentPosition, audio.isPlaying, audio.playbackParameters.speed)
+    }
+
     /** Holds the picture to the audio: same play state, same rate, the same moment. */
     private fun sync() {
-        val audio = controller ?: return
+        if (loadedId == null) return
+        val audio = audioClock() ?: return
+        onControl { follow(audio) }
+    }
+
+    /** Control thread: the half of [sync] that reads and moves the picture. */
+    private fun follow(audio: AudioClock) {
         val exo = player ?: return
-        if (loadedId == null || exo.playbackState == Player.STATE_IDLE || exo.playbackState == Player.STATE_ENDED) return
-        val speed = audio.playbackParameters.speed
-        val audioPos = audio.currentPosition
+        if (exo.playbackState == Player.STATE_IDLE || exo.playbackState == Player.STATE_ENDED) return
+        val speed = audio.speed
+        val audioPos = audio.positionMs
         val now = System.currentTimeMillis()
-        if (!audio.isPlaying) {
+        if (!audio.playing) {
             exo.playWhenReady = false
             setSpeed(exo, speed)
             // Paused: the exact frame, so a scrub shows where it lands.
@@ -449,6 +621,33 @@ object MusicVideoEngine {
 }
 
 /**
+ * A TextureView the picture can be put on. It listens for its own SurfaceTexture
+ * rather than handing the view to Media3, whose listener moves the decoder on
+ * and off the texture from the UI thread and waits there while it does.
+ *
+ * Main thread, all of it. A texture the decoder has been sent to is not the
+ * view's to release: [lease] is how the control thread releases it instead,
+ * once the decoder is off it.
+ */
+internal class MusicVideoTarget(val view: TextureView) : TextureView.SurfaceTextureListener {
+    /** The view's SurfaceTexture, while it has one. */
+    var texture: SurfaceTexture? = null
+
+    /** The latest hold the decoder was given on [texture], if it was given one. */
+    var lease: VideoOutputLease<Surface>? = null
+
+    override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) =
+        MusicVideoEngine.textureAvailable(this, surface)
+
+    override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) = Unit
+
+    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean =
+        MusicVideoEngine.textureDestroyed(this)
+
+    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) = Unit
+}
+
+/**
  * Where the playing music video shows: [videoId]'s picture, fitted into or
  * cropped to these bounds. Shows nothing until a frame of that video has
  * landed here, so a caller keeps its still artwork underneath and the picture
@@ -465,10 +664,11 @@ internal fun AndroidMusicVideo(
     priority: Int = 1,
 ) {
     val foreground = rememberIsForeground()
-    var view by remember { mutableStateOf<TextureView?>(null) }
-    DisposableEffect(view, foreground, priority) {
-        val target = view
-        val release = if (target != null && foreground) MusicVideoEngine.claim(target, priority) else null
+    var target by remember { mutableStateOf<MusicVideoTarget?>(null) }
+    val view = target?.view
+    DisposableEffect(target, foreground, priority) {
+        val claimed = target
+        val release = if (claimed != null && foreground) MusicVideoEngine.claim(claimed, priority) else null
         onDispose { release?.invoke() }
     }
 
@@ -505,11 +705,13 @@ internal fun AndroidMusicVideo(
                     // visible underneath for the length of the fade.
                     isOpaque = false
                     this.alpha = 0f
-                    view = this
+                    // Before the view is attached, so its first texture is
+                    // heard about here — see [MusicVideoTarget].
+                    surfaceTextureListener = MusicVideoTarget(this).also { target = it }
                 }
             },
             update = { it.alpha = alpha },
-            onRelease = { if (view === it) view = null },
+            onRelease = { if (target?.view === it) target = null },
             // The picture at its own shape: letterboxed into the bounds, or
             // overflowing them and cropped by the clip above.
             modifier = Modifier.layout { measurable, constraints ->

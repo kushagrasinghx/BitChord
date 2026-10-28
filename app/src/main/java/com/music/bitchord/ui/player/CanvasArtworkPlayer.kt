@@ -106,18 +106,19 @@ internal fun AndroidCanvasArtworkPlayer(
      * a clip is a clip, and one that pans or cuts changes colour under its own
      * still sleeve exactly the same way regardless of who published it. Null
      * when a caller has nothing worth re-tinting off a moving colour at all —
-     * re-reading a texture off the GPU costs a frame stall, so this stays
-     * opt-in rather than always-on.
+     * re-reading a frame off the GPU still costs the render thread a readback,
+     * even with the UI thread no longer waiting on it, so this stays opt-in
+     * rather than always-on.
      */
     refreshFrameEveryMs: Long? = null,
     /**
      * The longest edge of the bitmap [onFrameCaptured] is handed.
      *
-     * This is the whole cost of following a clip. `getBitmap()` with no
-     * arguments hands back a copy at the view's own size — full-bleed, so most
-     * of a phone screen, five or six megabytes read back off the GPU and
-     * allocated afresh on every call. Nobody wants that resolution: the one
-     * caller there is averages the frame down to a handful of colours. Asking
+     * This is the whole cost of following a clip. A copy at the view's own
+     * size would be full-bleed, so most of a phone screen, five or six
+     * megabytes read back off the GPU and allocated afresh on every call.
+     * Nobody wants that resolution: the one caller there is averages the
+     * frame down to a handful of colours. Asking
      * for a small copy instead makes the readback scale during the blit, which
      * is what turns a refresh from something worth doing every few seconds into
      * something affordable several times a second.
@@ -276,8 +277,12 @@ internal fun AndroidCanvasArtworkPlayer(
         withFrameMillis { }
         val receive = reportFrame ?: return@LaunchedEffect
         val view = textureView ?: return@LaunchedEffect
+        val bitmap = session.captureAt(view, currentFrameCapturePx, clipAspect, currentContentMode, currentAlignPortraitTop)
+        // Served only once the copy has come back. It is read asynchronously,
+        // and a pause landing while it is in flight cancels this effect and
+        // drops the frame; the request has to outlast that and be answered
+        // when capture is next enabled.
         initialCapturePending = false
-        val bitmap = view.captureAt(currentFrameCapturePx, clipAspect, currentContentMode, currentAlignPortraitTop)
         if (bitmap != null) {
             Log.d(TAG, "frame captured after rendered=true, size=${bitmap.width}x${bitmap.height}")
             receive(bitmap.asImageBitmap())
@@ -298,7 +303,7 @@ internal fun AndroidCanvasArtworkPlayer(
             delay(interval)
             val receive = reportFrame ?: return@LaunchedEffect
             val view = textureView ?: continue
-            val bitmap = view.captureAt(frameCapturePx, clipAspect, contentMode, alignPortraitTop)
+            val bitmap = session.captureAt(view, frameCapturePx, clipAspect, contentMode, alignPortraitTop)
             if (bitmap != null) {
                 Log.d(TAG, "periodic frame captured, size=${bitmap.width}x${bitmap.height}")
                 receive(bitmap.asImageBitmap())
@@ -474,59 +479,62 @@ internal fun AndroidCanvasArtworkPlayer(
  * but everything downstream *averages* it, and squashing one axis would quietly
  * reweight which part of the frame each average is mostly made of.
  *
- * Null whenever the view has no frame to give — it is laid out but not yet
- * measured, or its surface has gone. A caller that gets null should keep what
- * it already had; the next tick will have one.
+ * Null whenever there is no frame to give — the view is laid out but not yet
+ * measured, or the decoder's surface has gone. A caller that gets null should
+ * keep what it already had; the next tick will have one.
+ *
+ * Sized off the view on the UI thread, then read back and cropped on the
+ * session's control thread — see [CanvasVideoSession.captureFrame].
  */
-private fun TextureView.captureAt(
-    maxPx: Int,
-    clipAspect: Float,
-    contentMode: CanvasContentMode,
-    alignPortraitTop: Boolean,
-): Bitmap? = com.music.bitchord.ui.performance.FrameDiagnostics.measure("BitChord.artworkCapture") {
-    captureFrameAt(maxPx, clipAspect, contentMode, alignPortraitTop)
-}
-
-private fun TextureView.captureFrameAt(
+@OptIn(UnstableApi::class)
+private suspend fun CanvasVideoSession.captureAt(
+    view: TextureView,
     maxPx: Int,
     clipAspect: Float,
     contentMode: CanvasContentMode,
     alignPortraitTop: Boolean,
 ): Bitmap? {
-    val viewWidth = width
-    val viewHeight = height
+    val viewWidth = view.width
+    val viewHeight = view.height
     if (viewWidth <= 0 || viewHeight <= 0) return null
     val scale = maxPx.toFloat() / maxOf(viewWidth, viewHeight)
-    return runCatching {
-        // TextureView.getBitmap copies its texture layer, before the view's
-        // RenderEffect; the pre-31 mask is on the parent frame instead.
-        // Neither display-only fade is baked into the mesh's sampled frame.
-        val frame = if (scale >= 1f) {
-            getBitmap()
-        } else {
-            getBitmap(
-                (viewWidth * scale).roundToInt().coerceAtLeast(1),
-                (viewHeight * scale).roundToInt().coerceAtLeast(1),
-            )
-        } ?: return null
-        if (contentMode != CanvasContentMode.FIT_PORTRAIT || clipAspect >= 1f || clipAspect <= 0f) {
-            return frame
-        }
+    // The copy is taken of the decoder's buffer, upstream of the view's
+    // RenderEffect and of the pre-31 mask on the parent frame, so neither
+    // display-only fade is baked into the mesh's sampled frame.
+    val width = if (scale >= 1f) viewWidth else (viewWidth * scale).roundToInt().coerceAtLeast(1)
+    val height = if (scale >= 1f) viewHeight else (viewHeight * scale).roundToInt().coerceAtLeast(1)
+    return captureFrame(width, height) { frame ->
+        frame.portraitWindow(viewWidth, viewHeight, clipAspect, contentMode, alignPortraitTop)
+    }
+}
 
-        // getBitmap includes the view's transform. Read back only at the small
-        // requested size, then exclude the transparent contain margins before
-        // handing pixels to the mesh or legacy palette (both average RGB).
-        val viewAspect = viewWidth.toFloat() / viewHeight
-        val contentWidth = if (clipAspect < viewAspect) frame.height * clipAspect else frame.width.toFloat()
-        val contentHeight = if (clipAspect < viewAspect) frame.height.toFloat() else frame.width / clipAspect
-        val left = ceil((frame.width - contentWidth) / 2f).toInt().coerceIn(0, frame.width - 1)
-        val top = if (alignPortraitTop) 0 else
-            ceil((frame.height - contentHeight) / 2f).toInt().coerceIn(0, frame.height - 1)
-        val right = (frame.width - left).coerceAtLeast(left + 1)
-        val bottom = if (alignPortraitTop) contentHeight.toInt().coerceIn(1, frame.height) else
-            (frame.height - top).coerceAtLeast(top + 1)
-        Bitmap.createBitmap(frame, left, top, right - left, bottom - top)
-    }.getOrNull()
+private fun Bitmap.portraitWindow(
+    viewWidth: Int,
+    viewHeight: Int,
+    clipAspect: Float,
+    contentMode: CanvasContentMode,
+    alignPortraitTop: Boolean,
+): Bitmap {
+    if (contentMode != CanvasContentMode.FIT_PORTRAIT || clipAspect >= 1f || clipAspect <= 0f) {
+        return this
+    }
+
+    // The copy is the whole clip stretched to the view's proportions: a read
+    // off the decoder's Surface never sees the view's transform, and neither
+    // did the getBitmap() this sampled before. So this is not trimming
+    // transparent contain margins, but cutting the same centre (or top) window
+    // out of the stretched clip that the mesh and legacy palette have always
+    // averaged (both average RGB); it is kept so what they sample does not move.
+    val viewAspect = viewWidth.toFloat() / viewHeight
+    val contentWidth = if (clipAspect < viewAspect) height * clipAspect else width.toFloat()
+    val contentHeight = if (clipAspect < viewAspect) height.toFloat() else width / clipAspect
+    val left = ceil((width - contentWidth) / 2f).toInt().coerceIn(0, width - 1)
+    val top = if (alignPortraitTop) 0 else
+        ceil((height - contentHeight) / 2f).toInt().coerceIn(0, height - 1)
+    val right = (width - left).coerceAtLeast(left + 1)
+    val bottom = if (alignPortraitTop) contentHeight.toInt().coerceIn(1, height) else
+        (height - top).coerceAtLeast(top + 1)
+    return Bitmap.createBitmap(this, left, top, right - left, bottom - top)
 }
 
 /**

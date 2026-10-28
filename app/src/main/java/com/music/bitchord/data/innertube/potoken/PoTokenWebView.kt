@@ -1,9 +1,13 @@
 package com.music.bitchord.data.innertube.potoken
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.webkit.ConsoleMessage
+import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
@@ -32,6 +36,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -70,6 +75,8 @@ class PoTokenWebView private constructor(
 
     //region Initialization
     init {
+        // Building [webView] above is what started Chromium, if nothing had yet.
+        chromiumStarted = true
         val webViewSettings = webView.settings
         //noinspection SetJavaScriptEnabled we want to use JavaScript!
         webViewSettings.javaScriptEnabled = true
@@ -453,6 +460,75 @@ class PoTokenWebView private constructor(
         private const val GENERATE_TIMEOUT_MS = 15_000L
 
         private val httpClient: OkHttpClient get() = Http.client
+
+        /** Set once this process has built a WebView; past that, a warm-up has nothing left to pay for. */
+        @Volatile
+        private var chromiumStarted = false
+
+        /**
+         * Starts Chromium at the first idle moment after the app's first frame, so the first
+         * BotGuard page doesn't have to.
+         *
+         * The first WebView a process builds loads and starts Chromium on the main thread, a
+         * 100–300 ms stall. Left alone, that falls on whichever WebView comes first — InnerTubeX's
+         * warm-up a few seconds in, the play path itself, or a Canvas token harvest — at whatever
+         * moment the network lets it, which tends to be mid-scroll or while the player sheet is
+         * opening. Just after the first frame the listener is still taking the screen in, so the
+         * stall costs least there. It waits for an activity because a process started only for
+         * playback has no frames to drop.
+         */
+        fun warmUpAfterFirstFrame(app: Application) {
+            app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+                private var scheduled = false
+
+                override fun onActivityResumed(activity: Activity) {
+                    // A view that isn't attached yet runs this right after its window's first
+                    // traversal, so the warm-up starts after the first frame rather than ahead of
+                    // it. Unregistered only once it has run, in case the first activity to resume
+                    // finishes before it ever draws.
+                    activity.window.decorView.post {
+                        if (scheduled) return@post
+                        scheduled = true
+                        app.unregisterActivityLifecycleCallbacks(this)
+                        startChromiumWhenIdle(app)
+                    }
+                }
+
+                override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+                override fun onActivityStarted(activity: Activity) = Unit
+                override fun onActivityPaused(activity: Activity) = Unit
+                override fun onActivityStopped(activity: Activity) = Unit
+                override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+                override fun onActivityDestroyed(activity: Activity) = Unit
+            })
+        }
+
+        private fun startChromiumWhenIdle(app: Application) {
+            if (chromiumStarted) return
+            thread(name = "webview-warmup") {
+                // Loading the WebView provider — finding its package, building its class loader,
+                // mapping its native library — runs on whichever thread first asks for it, so this
+                // one asks first and the main thread is left only Chromium's start-up, which has
+                // to happen there. CookieManager is the entry point that loads the provider without
+                // also starting Chromium. Failing here means there is no provider (none installed,
+                // or mid-update): nothing to warm.
+                if (runCatching { CookieManager.getInstance() }.isFailure) return@thread
+                Handler(Looper.getMainLooper()).post {
+                    Looper.myQueue().addIdleHandler {
+                        if (!chromiumStarted) {
+                            // A throwaway view: what stays warm is Chromium itself, not this
+                            // instance, and the BotGuard page builds its own when it needs one.
+                            runCatching { WebView(app).destroy() }
+                                .onSuccess { chromiumStarted = true }
+                                .onFailure {
+                                    TrackLog.w(TAG, "WebView warm-up failed type=${it::class.simpleName ?: "unknown"}")
+                                }
+                        }
+                        false
+                    }
+                }
+            }
+        }
 
         suspend fun getNewPoTokenGenerator(context: Context): PoTokenWebView {
             var created: PoTokenWebView? = null

@@ -785,6 +785,9 @@ fun DetailScreen(
                     itemsIndexed(
                         items = matches,
                         key = { _, entry -> "${entry.index}_${entry.value.videoId}" },
+                        // Typed, so a row scrolling in reuses a row scrolling
+                        // out rather than whatever header or shelf went last.
+                        contentType = { _, _ -> "track" },
                     ) { position, entry ->
                         val song = entry.value
                         val isCurrent = isCurrentRow(song)
@@ -833,6 +836,7 @@ fun DetailScreen(
                 itemsIndexed(
                     suggested,
                     key = { _, song -> "suggested-${song.videoId}" },
+                    contentType = { _, _ -> "suggested" },
                 ) { index, song ->
                     SuggestedSongRow(
                         song = song,
@@ -855,7 +859,7 @@ fun DetailScreen(
             }
 
             // Albums / Singles & EPs carousels (artist pages).
-            items(page.sections) { shelf ->
+            items(page.sections, contentType = { "shelf" }) { shelf ->
                 val canShowAll = shelf.items.size > ARTIST_ROW_MAX_ITEMS
                 val displayItems = remember(shelf.items) {
                     if (canShowAll) shelf.items.take(ARTIST_ROW_MAX_ITEMS) else shelf.items

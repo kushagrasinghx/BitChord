@@ -1,6 +1,8 @@
 package com.music.bitchord.ui.components
 
 import android.os.Build
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -8,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
@@ -17,10 +21,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
+import coil3.decode.DataSource
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.theme.ArtworkPalette
+import kotlinx.coroutines.launch
 
 /**
  * The colour a surface takes from the artwork it is about: a flat tint
@@ -65,10 +74,31 @@ fun ArtworkBackdrop(
 
     Box(modifier.background(palette.background)) {
         if (canBlur && imageUrl != null) {
+            // The image's fade-in is the blurred layer's alpha, not Coil's
+            // crossfade. Coil's fades the picture inside the blur, so each of
+            // its frames changed what the blur held and the 72dp pass ran again
+            // on every one — on a sheet, the frames it spends sliding up. Faded
+            // outside it, the picture is blurred once and the fade composites.
+            val context = LocalPlatformContext.current
+            val request = remember(imageUrl, artPx) {
+                ImageRequest.Builder(context).data(imageUrl.artworkAt(artPx)).crossfade(false).build()
+            }
+            val fade = remember(imageUrl) { Animatable(0f) }
+            val scope = rememberCoroutineScope()
             AsyncImage(
-                model = imageUrl.artworkAt(artPx),
+                model = request,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
+                onSuccess = { success ->
+                    scope.launch {
+                        // Coil never fades a memory hit either: it was already on screen.
+                        if (success.result.dataSource == DataSource.MEMORY_CACHE) {
+                            fade.snapTo(1f)
+                        } else {
+                            fade.animateTo(1f, tween(IMAGE_FADE_MS))
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(washFraction)
@@ -77,6 +107,7 @@ fun ArtworkBackdrop(
                     .graphicsLayer {
                         scaleX = 1.4f
                         scaleY = 1.4f
+                        alpha = fade.value
                     }
                     .blur(72.dp, BlurredEdgeTreatment.Unbounded),
             )
@@ -100,3 +131,6 @@ fun ArtworkBackdrop(
         )
     }
 }
+
+/** The app's own crossfade length, see BitChordApplication's image loader. */
+private const val IMAGE_FADE_MS = 200

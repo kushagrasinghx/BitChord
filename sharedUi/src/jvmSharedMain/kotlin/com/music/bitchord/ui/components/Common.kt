@@ -45,6 +45,7 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -455,6 +456,14 @@ fun SwipeToQueueBox(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun QueueSwipeBackground(swipeState: SwipeToDismissBoxState) {
+    // Nothing until the row actually moves. Every row in a list has one of
+    // these behind it, and composed up front it was two labels, their glyphs
+    // and a settings collector paid by each row scrolling into view on a
+    // fling — for a reveal almost none of them will ever show.
+    val swiping by remember(swipeState) {
+        derivedStateOf { (try { swipeState.requireOffset() } catch (e: Exception) { 0f }) != 0f }
+    }
+    if (!swiping) return
     val playNext by AppUi.host.swipeToPlayNext.collectAsStateWithLifecycle()
     Row(
         modifier = Modifier

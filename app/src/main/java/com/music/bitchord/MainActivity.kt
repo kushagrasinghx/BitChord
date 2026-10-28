@@ -184,6 +184,7 @@ import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.ui.screens.SpotifyCanvasAuthScreen
 import com.music.bitchord.ui.screens.SpotifyLibraryScreen
 import com.music.bitchord.data.spotify.SPOTIFY_PAGE_PREFIX
+import com.music.bitchord.playback.autoplayEnabledFor
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.LinkRequest
 import com.music.bitchord.playback.MusicLink
@@ -196,7 +197,6 @@ import com.music.bitchord.playback.QueueShuffle
 import com.music.bitchord.playback.QueueSource
 import com.music.bitchord.playback.cast.CastController
 import com.music.bitchord.data.model.QueueTier
-import com.music.bitchord.playback.autoplayEnabledFor
 import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.playback.beginRadioQueue
 import com.music.bitchord.playback.commitRadioQueue
@@ -792,14 +792,21 @@ private fun AppSessionState.Content(
         browseActions = target
     }
     val autoplay by AppSettings.autoplay.collectAsStateWithLifecycle()
-    val partyState by ListenTogether.state.collectAsStateWithLifecycle()
+    // Held as a state and only read here through what is derived from it. The
+    // party's state changes several times a second in a party — a clock pong,
+    // a member, the host's position — and read whole by this function, each of
+    // those recomposed the entire app. The two facts this level needs change
+    // a few times a party at most; the player's own reads are in its lambda.
+    val partyStateHolder = ListenTogether.state.collectAsStateWithLifecycle()
+    val partyState by partyStateHolder
+    val partyControlsLocked by remember { derivedStateOf { partyStateHolder.value.controlsLocked } }
     // The same answer the playback service acts on, rather than a second one
     // derived here — see [autoplayEnabledFor]. Drawing the local preference in
     // a party made the toggle lie in both directions: a listener whose own
     // switch was on sat under "AutoPlay on" in a party that had it off, got no
     // suggestions, and pressing the button appeared to do nothing, because it
     // turned the party's setting on while the label already said so.
-    val autoplayEnabled = autoplayEnabledFor(partyState, autoplay)
+    val autoplayEnabled by remember { derivedStateOf { autoplayEnabledFor(partyStateHolder.value, autoplay) } }
     val partyServerStatus by ListenTogether.serverConnectionState.collectAsStateWithLifecycle()
     val searchFieldFocus = remember { FocusRequester() }
 
@@ -1013,7 +1020,7 @@ private fun AppSessionState.Content(
     // Listening in a party whose host has taken the controls. Read once here
     // and handed to every surface, so the player, the mini player and the glass
     // bar can never disagree about whether this device may drive the music.
-    val controlsLocked = partyState.controlsLocked
+    val controlsLocked = partyControlsLocked
     val showQueueNotice: (String) -> Unit = { message ->
         queueNoticeId += 1
         queueNotice = QueueActionNotice(queueNoticeId, message)

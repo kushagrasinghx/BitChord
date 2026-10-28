@@ -2216,10 +2216,12 @@ fun NowPlayingScreen(
                             modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
                         )
                     } else if (!tabletArtworkBackdrop && !spotifyCanvasPresentation) {
+                        // Hung from the banner's bottom edge for a square cover too, not
+                        // `flat`: that held the edge's mean down the whole screen and
+                        // darkened it, which left most covers on a near-black player.
                         ArtworkMeshBackdrop(
                             mesh = artMesh,
                             seam = if (canvasFirstPortrait) renderedCanvasBottom else if (heroMode) heroHeight else 0.dp,
-                            flat = heroMode && !canvasFirstPortrait,
                             modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
                         )
                     }
@@ -2307,8 +2309,8 @@ fun NowPlayingScreen(
                         // A portrait clip is blurred progressively from under the
                         // credits down, so the controls sit on the clip's own colours
                         // dissolving rather than on a flat dark gradient. Square
-                        // covers don't take this: they fade into their own darkened
-                        // bottom colour instead, see the mesh backdrop's `flat`.
+                        // covers don't take this: they dissolve into the mesh hung
+                        // from their bottom edge instead.
                         val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
                         if (!reduceDynamicBlur && renderEffectBlurSupported) {
                             Box(

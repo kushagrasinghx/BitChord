@@ -1531,7 +1531,7 @@ object AppSettings {
     }
 
     /**
-     * Clamped to [DEFAULT_CACHE_LIMIT_BYTES]..[MAX_CACHE_LIMIT_BYTES] — the floor is the default, not zero.
+     * Clamped to [DISABLED_CACHE_LIMIT_BYTES] | [DEFAULT_CACHE_LIMIT_BYTES]..[MAX_CACHE_LIMIT_BYTES] — 0 is disabled, the floor above zero is the default.
      * Anything past [MAX_CACHE_LIMIT_BYTES] is [UNLIMITED_CACHE_LIMIT_BYTES].
      */
     fun setAudioCacheLimitBytes(value: Long) {
@@ -1541,7 +1541,8 @@ object AppSettings {
     }
 
     private fun clampCacheLimit(value: Long): Long =
-        if (value > MAX_CACHE_LIMIT_BYTES) UNLIMITED_CACHE_LIMIT_BYTES
+        if (value == 0L) DISABLED_CACHE_LIMIT_BYTES
+        else if (value > MAX_CACHE_LIMIT_BYTES) UNLIMITED_CACHE_LIMIT_BYTES
         else value.coerceAtLeast(DEFAULT_CACHE_LIMIT_BYTES)
 
     fun setShowCacheFolder(value: Boolean) {
@@ -2016,6 +2017,9 @@ object AppSettings {
 
     const val DEFAULT_CACHE_LIMIT_BYTES = 512L * 1024 * 1024
     const val MAX_CACHE_LIMIT_BYTES = 10L * 1024 * 1024 * 1024
+
+    /** Cache limit set to zero means caching is fully disabled. */
+    const val DISABLED_CACHE_LIMIT_BYTES = 0L
 
     /** The cache limit with no ceiling: only free storage bounds it. */
     const val UNLIMITED_CACHE_LIMIT_BYTES = Long.MAX_VALUE

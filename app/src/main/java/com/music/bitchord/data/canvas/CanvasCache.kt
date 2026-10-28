@@ -7,6 +7,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
+import com.music.bitchord.data.settings.AppSettings
 import java.io.File
 
 /**
@@ -44,6 +45,8 @@ object CanvasCache {
 
     /** Opened once per process, alongside [com.music.bitchord.playback.AudioCache.init]. */
     fun init(context: Context) {
+        // When song caching is disabled, also skip canvas (artwork clip) caching.
+        if (AppSettings.audioCacheLimitBytes.value == AppSettings.DISABLED_CACHE_LIMIT_BYTES) return
         cache = SimpleCache(
             File(context.cacheDir, "canvas"),
             LeastRecentlyUsedCacheEvictor(CACHE_LIMIT_BYTES),
@@ -59,7 +62,7 @@ object CanvasCache {
      * choice [com.music.bitchord.playback.AudioCache] makes for audio.
      */
     fun dataSourceFactory(upstream: DataSource.Factory): DataSource.Factory =
-        CacheDataSource.Factory()
+        if (!::cache.isInitialized) upstream else CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(upstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)

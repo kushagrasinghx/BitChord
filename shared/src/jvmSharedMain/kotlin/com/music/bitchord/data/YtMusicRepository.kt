@@ -330,9 +330,9 @@ object YtMusicRepository {
         }
 
     /** Fetches the next page of a search only when the result list needs it. */
-    suspend fun searchContinuation(token: String, filter: SearchFilter): Result<SearchPage> = call("search:continuation") {
+    suspend fun searchContinuation(token: String, filter: SearchFilter, anonymous: Boolean = true): Result<SearchPage> = call("search:continuation") {
         InnertubeParser.parseSearchPage(
-            Innertube.searchContinuation(token),
+            Innertube.searchContinuation(token, anonymous),
             includeVideos = filter == SearchFilter.VIDEOS,
         ).let { page ->
             SearchPage(page.rows.distinctBy { it.identityKey() }, page.continuation)
@@ -370,9 +370,9 @@ object YtMusicRepository {
      *
      * Deliberately unauthenticated: [Innertube.searchTypeahead] strips the
      * session cookie so YouTube Music does not log each debounced keystroke
-     * to the account's server-side search history. Confirmed searches (Enter /
-     * IME Search / tapping a suggestion) still use the normal authenticated
-     * [searchPage] path and are recorded properly.
+     * to the account's server-side search history. All searches — including
+     * confirmed ones (Enter / IME Search / tapping a suggestion) — now use
+     * the anonymous [searchPage] path and are never recorded against the account.
      */
     suspend fun searchTypeahead(input: String): Result<SearchPage> =
         call("typeahead:$input") {

@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.GlassTone
 import com.music.bitchord.ui.components.LocalGlassStrip
+import com.music.bitchord.ui.components.SquirclePillShape
 import com.music.bitchord.ui.components.glassToneArea
 import com.music.bitchord.ui.components.rememberGlassTone
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
@@ -51,12 +52,18 @@ private class LiquidPlayerGlass(private val backdrop: LayerBackdrop) : PlayerGla
         liquidGlass(shape, light = false)
 
     @Composable
+    override fun Modifier.glassPillSurface(): Modifier = liquidGlass(PillShape, light = false)
+
+    @Composable
     override fun rememberGlyphTone(): PlayerGlyphTone? {
         // Over the group's strip, as the surfaces are, and on dark glass.
         val tone = rememberGlassTone(light = false) ?: return null
         return remember(tone) { GlassGlyphTone(tone) }
     }
 }
+
+/** Liquid Glass's capsule, for the player's pills as for the app's. */
+private val PillShape = SquirclePillShape()
 
 /** A [GlassTone] as the player reads one. */
 @Stable

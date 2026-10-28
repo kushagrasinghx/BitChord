@@ -36,6 +36,10 @@ interface PlayerGlass {
     @Composable
     fun Modifier.glassSurface(shape: CornerBasedShape): Modifier
 
+    /** A glass capsule, cut as Liquid Glass cuts its pills — otherwise [glassSurface]. */
+    @Composable
+    fun Modifier.glassPillSurface(): Modifier
+
     /**
      * Whether glyphs in a [GlassGroup] turn dark over what its glass shows under
      * them, as the app's glass glyphs do; null where nothing reads it.
@@ -65,19 +69,23 @@ val LocalPlayerGlass = staticCompositionLocalOf<PlayerGlass?> { null }
 internal val LocalGroupGlass = staticCompositionLocalOf<PlayerGlass?> { null }
 
 /**
- * A row of the player's controls drawn in its glass, sharing one sample of
- * the backdrop between them — or a plain row, where there is no glass.
+ * [content], the player's controls in it drawn in its glass and sharing one
+ * sample of the backdrop between them — or as they are, where there is no glass.
  */
 @Composable
-internal fun GlassControlsRow(content: @Composable RowScope.() -> Unit) {
+internal fun GlassControls(content: @Composable () -> Unit) {
     val glass = LocalPlayerGlass.current
     if (glass == null) {
-        Row(verticalAlignment = Alignment.CenterVertically, content = content)
+        content()
         return
     }
     glass.GlassGroup {
-        CompositionLocalProvider(LocalGroupGlass provides glass) {
-            Row(verticalAlignment = Alignment.CenterVertically, content = content)
-        }
+        CompositionLocalProvider(LocalGroupGlass provides glass, content = content)
     }
+}
+
+/** [GlassControls] in a row. */
+@Composable
+internal fun GlassControlsRow(content: @Composable RowScope.() -> Unit) {
+    GlassControls { Row(verticalAlignment = Alignment.CenterVertically, content = content) }
 }

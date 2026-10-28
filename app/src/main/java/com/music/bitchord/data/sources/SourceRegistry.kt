@@ -664,9 +664,9 @@ object SourceRegistry {
         val addons = configs.value.filter { it.kind == SourceKind.ADDON && it.baseUrl.isNotBlank() }
         val results = ConcurrentHashMap<String, AddonHealthInfo>()
         val probeClient = Http.client.newBuilder()
-            .connectTimeout(4, TimeUnit.SECONDS)
-            .readTimeout(4, TimeUnit.SECONDS)
-            .callTimeout(4, TimeUnit.SECONDS)
+            .connectTimeout(7, TimeUnit.SECONDS)
+            .readTimeout(7, TimeUnit.SECONDS)
+            .callTimeout(7, TimeUnit.SECONDS)
             .build()
 
         coroutineScope {

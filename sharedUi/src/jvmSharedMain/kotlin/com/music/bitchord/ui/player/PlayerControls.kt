@@ -1322,8 +1322,8 @@ private val CutOutTint = ColorProducer { Color.Black }
  * A glass control's "on": [fill] — handed its colour, the control's [tint]
  * at the liked star's strength — added onto the glass, with the control's
  * glyph cut out of it so the glass shows through the shape. Comes in on
- * [lit], fading and springing up from [LIT_SEGMENT_SCALE_FROM]; the control
- * fades its own glyph out on the same. [glyph] is drawn opaque into the
+ * [lit], fading and springing up from [scaleFrom]; the control fades its own
+ * glyph out on the same. [glyph] is drawn opaque into the
  * modifier it is handed, which erases it.
  *
  * Composed only while lit at all. Its own buffer, so the cut-out erases the
@@ -1334,6 +1334,7 @@ private fun BoxScope.LitLayer(
     lit: State<Float>,
     tint: Color,
     fill: DrawScope.(Color) -> Unit,
+    scaleFrom: Float = LIT_SEGMENT_SCALE_FROM,
     glyph: @Composable (Modifier) -> Unit,
 ) {
     val showLit by remember(lit) { derivedStateOf { lit.value > 0f } }
@@ -1344,7 +1345,7 @@ private fun BoxScope.LitLayer(
             .graphicsLayer {
                 val t = lit.value
                 alpha = t.coerceIn(0f, 1f)
-                val scale = LIT_SEGMENT_SCALE_FROM + (1f - LIT_SEGMENT_SCALE_FROM) * t
+                val scale = scaleFrom + (1f - scaleFrom) * t
                 scaleX = scale
                 scaleY = scale
                 compositingStrategy = CompositingStrategy.Offscreen
@@ -1524,7 +1525,7 @@ private fun BottomGlyph(
     // is never the one that gets swallowed.
     val lastTap = remember { mutableLongStateOf(-tapWindowMs) }
     // In [GlassControls], a circle of the player's glass whose glyph turns over
-    // light content and which lights, when on, as the capsule's segments do.
+    // light content and which, when on, fills whole as the liked star does.
     val glass = LocalGroupGlass.current
     val tone = glass?.rememberGlyphTone()
     val lit = animateFloatAsState(
@@ -1578,8 +1579,9 @@ private fun BottomGlyph(
         LitLayer(
             lit = lit,
             tint = base,
-            // Concentric with the glass circle, the capsule's inset in from it.
-            fill = { color -> drawCircle(color, radius = size.minDimension / 2f - LIT_SEGMENT_INSET.toPx()) },
+            // The whole circle, faded in where it stands: the liked star's disc.
+            fill = { color -> drawCircle(color) },
+            scaleFrom = 1f,
         ) { glyphModifier ->
             BottomGlyphContent(icon = icon, label = label, tint = CutOutTint, glyphModifier = Modifier, modifier = glyphModifier)
         }

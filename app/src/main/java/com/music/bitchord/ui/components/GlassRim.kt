@@ -119,20 +119,21 @@ private class GlassRimNode(
     // and [GlassRimMasks.forSurface] keeps the one cache for every surface.
     private fun bakedFor(size: Size, direction: LayoutDirection, density: Density): GlassRimMasks? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return null
-        return GlassRimMasks.forSurface(shape, size, direction, density).takeIf { it.fits(size) }
+        return GlassRimMasks.forSurface(shape, size, direction, density)
     }
 
     private val drawing: CacheDrawModifierNode = delegate(CacheDrawModifierNode {
         // A frame recording can draw the rim the old way, to price the bake
         // against it in the same run.
-        if (!legacyRimForDiagnostics.value) {
+        if (!legacyRimForDiagnostics.value && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val size = size
             val direction = layoutDirection
             val density: Density = this
-            // Narrower than two caps a pill has no straight middle to stretch,
-            // and is drawn exactly below instead: a circle, which never
-            // changes size, or the last frames of a bar folding down to one.
-            if (GlassRimMasks.fits(size, density)) {
+            // Every shape from a bake: a pill stretched along its middle, and
+            // one narrower than two caps — a circle, a pill of two buttons —
+            // baked at its own width. The outline drawn from a layer of its own,
+            // below, never showed on those; it stays for a recording to compare.
+            run {
                 return@CacheDrawModifierNode onDrawWithContent {
                     drawContent()
                     val strength = alpha().coerceIn(0f, 1f)
@@ -407,7 +408,9 @@ internal class GlassRimMasks(
             val x0 = -margin * kx
             for (c in 0..3) xs[c] = x0 + span * c
         } else {
-            val capK = cap * k
+            // A stand-in a touch wider in the caps than this surface leaves no
+            // middle: the caps meet in it rather than cross.
+            val capK = minOf(cap * k, size.width / 2f)
             xs[0] = -marginK; xs[1] = capK; xs[2] = size.width - capK; xs[3] = size.width + marginK
         }
         val ys0 = -marginK
@@ -511,9 +514,19 @@ internal class GlassRimMasks(
             val sliceable = fits(size, density)
             val key = Key(shape, size.height, direction, density.density, if (sliceable) null else size.width)
             cached(key)?.let { return it }
+            // A stand-in until this size's own bake lands — never one of the other
+            // kind. A stretched pill's caps squeezed into a narrow shape's halves
+            // came out pointed at both ends, a rugby ball, for as long as a
+            // scroll kept the narrow shape changing size; a narrow shape only
+            // borrows a narrow bake near its own proportions, stretched evenly —
+            // a little oval for the frames it stands in, never pointed.
+            val aspect = size.width / size.height
+            fun aspectOff(masks: GlassRimMasks) = kotlin.math.abs(masks.exactWidth!! / masks.height - aspect) / aspect
             val nearest = baked.values
                 .filter { it.shape == shape && it.direction == direction && it.density == density.density }
-                .minByOrNull { kotlin.math.abs(it.height - size.height) + if (sliceable == (it.exactWidth == null)) 0f else 1e4f }
+                .filter { (it.exactWidth == null) == sliceable }
+                .filter { sliceable || aspectOff(it) <= STAND_IN_ASPECT }
+                .minByOrNull { if (sliceable) kotlin.math.abs(it.height - size.height) else aspectOff(it) }
                 ?: return bake(key, density).also { it.packed }
             wanted[shape] = key to Density(density.density, density.fontScale)
             wantedAt[shape] = SystemClock.uptimeMillis()
@@ -589,7 +602,10 @@ internal class GlassRimMasks(
 /** How long a size must hold before the rim is baked for it again. */
 private const val RIM_SETTLE_MS = 120L
 
-private const val MAX_BAKES = 12
+private const val MAX_BAKES = 24
+
+/** How far a narrow stand-in's proportions may be from the shape it stands in for. */
+private const val STAND_IN_ASPECT = 0.25f
 
 /** How far off a bake's size may be, as a fraction, and still be drawn scaled for another. */
 private const val BAKE_TOLERANCE = 0.06f

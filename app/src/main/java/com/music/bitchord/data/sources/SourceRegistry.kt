@@ -161,7 +161,15 @@ object SourceRegistry {
         // default is the policy: JioSaavn off, YouTube on.
         val updatedStored = stored.map { s ->
             val match = PREBAKED_SOURCES.firstOrNull { it.id == s.id }
-            if (match != null && match.baseUrl != s.baseUrl) {
+                ?: if (s.baseUrl.contains("eljohnzcaddon.velixir.run") || s.baseUrl.contains("eljohnzc-addon")) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "eljohnzc.addon.music" }
+                } else if (s.baseUrl.contains("bitchord-hires")) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "dev.akira.bitchord-hires" }
+                } else if (s.baseUrl.contains("eljohnzc-mono")) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "eljohnzc.addon.mono" }
+                } else null
+
+            if (match != null && (match.baseUrl != s.baseUrl || match.label != s.label)) {
                 s.copy(baseUrl = match.baseUrl, label = match.label)
             } else {
                 s
@@ -182,7 +190,7 @@ object SourceRegistry {
                 when {
                     config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
                     config.kind == SourceKind.JIOSAAVN && forceJioSaavnOff -> config.copy(enabled = false)
-                    config.id == "app.bitchord.lastbabe" || config.id == "eljohnzc.addon.mono" -> config.copy(enabled = true)
+                    PREBAKED_SOURCES.any { it.id == config.id } -> config.copy(enabled = true)
                     else -> config
                 }
             }
@@ -534,10 +542,10 @@ object SourceRegistry {
 
     val PREBAKED_SOURCES = listOf(
         SourceConfig(
-            id = "app.bitchord.lastbabe",
+            id = "dev.akira.bitchord-hires",
             kind = SourceKind.ADDON,
-            label = "Last Babe 💕 (Lossless FLAC)",
-            baseUrl = "https://lastbabe.velixir.run/e/1793086716/56ab9b9f20a6a8f7cd1cddd6cad00572/manifest.json",
+            label = "BitChord Hi-Res (Hi-Res & Lossless)",
+            baseUrl = "https://bitchord-hires-addon.vercel.app/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
@@ -552,19 +560,19 @@ object SourceRegistry {
             checkValidLossless = false,
         ),
         SourceConfig(
-            id = "dev.akira.bitchord-hires",
+            id = "eljohnzc.addon.music",
             kind = SourceKind.ADDON,
-            label = "BitChord Hi-Res (Lossless / Atmos)",
-            baseUrl = "https://bitchord-hires-addon.vercel.app/manifest.json",
+            label = "Eljohnzc Addon (Hi-Res & Lossless, High, Low)",
+            baseUrl = "https://eljohnzc-addon.de.deplexo.com/c57e7b0ef2031b2f1fcd/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
         SourceConfig(
-            id = "eljohnzc.addon.music",
+            id = "app.bitchord.lastbabe",
             kind = SourceKind.ADDON,
-            label = "Eljohnzc Addon (Hi-Res / Atmos)",
-            baseUrl = "https://eljohnzcaddon.velixir.run/c57e7b0ef2031b2f1fcd/manifest.json",
+            label = "Last Babe 💕 (Lossless FLAC)",
+            baseUrl = "https://lastbabe.velixir.run/e/1793086716/56ab9b9f20a6a8f7cd1cddd6cad00572/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
@@ -574,7 +582,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "BluBit Station Hi-Fi",
             baseUrl = "https://bluebit.jucepe0929.workers.dev/manifest.json",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -583,7 +591,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "GGLOS (Lossless & Atmos)",
             baseUrl = "https://gglos.geisselgottes.cfd/manifest.json",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -592,7 +600,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "Lossless Bridge",
             baseUrl = "https://losslessbridge.de.deplexo.com/manifest.json",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -601,7 +609,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "Qobuz",
             baseUrl = "https://qobuz-addon.vercel.app/manifest.json",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -610,7 +618,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "Deezer ARL",
             baseUrl = "https://deezer.nom.deno.net/u/2cdc77d5a051ca15",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -619,7 +627,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "Deezer",
             baseUrl = "https://deezer.nom.deno.net/manifest.json",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -628,7 +636,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "GGLOS (Backup)",
             baseUrl = "https://gglos.ggottes.deno.net/manifest.json",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -637,7 +645,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "GGLOS S1",
             baseUrl = "https://gglos.ggottes.deno.net/s1/manifest.json",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -646,7 +654,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "GGLOS S2",
             baseUrl = "https://gglos.ggottes.deno.net/s2/manifest.json",
-            enabled = false,
+            enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
         ),

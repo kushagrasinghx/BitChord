@@ -425,9 +425,11 @@ private fun ArtworkPageActions(
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
             if (glass) {
                 // The actions are set in the theme's onSurface and primary, each in
-                // its own place; on glass both follow what the pill is showing —
-                // cut over when it turns, the theme being all they read.
-                val glassContent = glassContentColor(tone)
+                // its own place; on glass both follow what the pill is showing,
+                // crossfading as it turns. The theme being all they read, that
+                // recomposes them each frame of a turn — a few glyphs, and only
+                // then.
+                val glassContent = glassContentColorFading(tone)
                 MaterialTheme(
                     colorScheme = MaterialTheme.colorScheme.copy(onSurface = glassContent, primary = glassContent),
                     content = content,

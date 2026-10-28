@@ -140,11 +140,11 @@ fun GlassNavBar(
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val strip = if (reduceDynamicBlur) null else rememberGlassStrip()
     val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape, strip = strip) }
-    // Each tab reads what the glass shows behind its own glyph, and behind its
-    // label apart from that — see [GlassTone]. One reading over the whole bar
+    // Each tab reads what the glass shows behind its own glyph and label, and
+    // turns the two together — see [GlassTone]. One reading over the whole bar
     // averaged a bright cover under one tab in with the dark page under the
-    // rest; one a tab turned its label with a glyph over something else.
-    val tabTones = List(tabs.size) { key(it) { rememberGlassTone(strip) to rememberGlassTone(strip) } }
+    // rest.
+    val tabTones = List(tabs.size) { key(it) { rememberGlassTone(strip) } }
 
     FloatingTabBar(
         selectedTabKey = selectedIndex,
@@ -242,7 +242,7 @@ fun GlassNavBar(
     ) {
         tabs.forEachIndexed { index, tab ->
             val isSelected = index == selectedIndex
-            val (iconTone, labelTone) = tabTones[index]
+            val tone = tabTones[index]
             val onClick = {
                 if (!isSelected) haptics.play(Haptic.Select)
                 currentOnTabSelected(index)
@@ -254,11 +254,11 @@ fun GlassNavBar(
                         TintedIcon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = glassContentProducer(iconTone, tabAlpha(isSelected)),
+                            tint = glassContentProducer(tone, tabAlpha(isSelected)),
                             modifier = Modifier
                                 .size(TAB_ICON_SIZE)
-                                .glassToneArea(iconTone)
-                                .glassVibrancy(iconTone, glassContentColor()),
+                                .glassToneArea(tone)
+                                .glassVibrancy(tone, glassContentColor()),
                         )
                     },
                     onClick = onClick,
@@ -270,18 +270,18 @@ fun GlassNavBar(
                         TintedIcon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = glassContentProducer(iconTone, tabAlpha(isSelected)),
+                            tint = glassContentProducer(tone, tabAlpha(isSelected)),
                             modifier = Modifier
                                 .size(TAB_ICON_SIZE)
-                                .glassToneArea(iconTone)
-                                .glassVibrancy(iconTone, glassContentColor()),
+                                .glassToneArea(tone)
+                                .glassVibrancy(tone, glassContentColor()),
                         )
                     },
                     title = {
                         BasicText(
                             text = tab.label,
                             style = LocalTextStyle.current.merge(tabLabelStyle()),
-                            color = glassContentProducer(labelTone, tabAlpha(isSelected)),
+                            color = glassContentProducer(tone, tabAlpha(isSelected)),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             // The library's Tab stacks the glyph and the label
@@ -289,8 +289,8 @@ fun GlassNavBar(
                             // them, and this is where that gap goes.
                             modifier = Modifier
                                 .padding(top = TAB_ICON_LABEL_GAP)
-                                .glassToneArea(labelTone)
-                                .glassVibrancy(labelTone, glassContentColor()),
+                                .glassToneArea(tone)
+                                .glassVibrancy(tone, glassContentColor()),
                         )
                     },
                     onClick = onClick,

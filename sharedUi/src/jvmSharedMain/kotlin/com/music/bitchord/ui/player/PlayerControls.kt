@@ -831,14 +831,15 @@ internal fun CircleGlyph(
 
 /**
  * [vibrancy] of [tint] for a glyph [tone] turns: added onto the glass while
- * it is light, laid over it once it has turned dark — black added adds
- * nothing — switched in the glyph's own layer halfway through the turn.
+ * it is light, laid over it from the moment it starts to turn until it is
+ * light again — switched in the glyph's own layer. Added through the turn,
+ * the glyph fading to grey vanished into the bright glass that turned it.
  */
 internal fun Modifier.toneVibrancy(tone: PlayerGlyphTone?, tint: Color): Modifier =
     if (tone == null) {
         vibrancy(tint)
     } else {
-        graphicsLayer { blendMode = if (tone.darkness < 0.5f) vibrantBlendMode(tint) else BlendMode.SrcOver }
+        graphicsLayer { blendMode = if (tone.darkness <= 0f) vibrantBlendMode(tint) else BlendMode.SrcOver }
     }
 
 /** Erases this content's shape from the layer it is drawn into. */

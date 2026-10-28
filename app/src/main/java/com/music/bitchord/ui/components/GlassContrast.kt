@@ -85,6 +85,15 @@ fun glassContentColor(tone: GlassTone?): Color =
     }
 
 /**
+ * [glassContentColor] of [tone], crossfading through its turn as the glyphs
+ * drawn with [glassContentProducer] do — for content that only takes its
+ * colour as it is composed, which this recomposes on every frame of a turn.
+ * For a few glyphs at most: the top bar's actions.
+ */
+@Composable
+fun glassContentColorFading(tone: GlassTone?): Color = tone?.color() ?: glassContentColor()
+
+/**
  * [tone]'s glyph colour at [alpha], read where the glyphs are drawn: white,
  * or black while the glass under them shows something light enough that
  * white would sink into it, the way Apple's glass turns its glyphs —
@@ -106,15 +115,18 @@ fun glassContentProducer(tone: GlassTone?, alpha: Float = 1f): ColorProducer {
 
 /**
  * [vibrancy] for glyphs [tone] colours: added onto the glass while they are
- * light and laid over it once they are dark — plus-lighter adds next to
- * nothing of black — switched in the glyphs' own layer halfway through a
- * turn, rather than by recomposing them. [vibrancy] of [color] without a tone.
+ * light, laid over it from the moment they start to turn until they are
+ * light again — switched in the glyphs' own layer rather than by
+ * recomposing them. Added through the turn, a glyph fading to grey over the
+ * bright glass that turned it vanished into it, and at the halfway switch
+ * popped back in: the crossfade read as a cut. [vibrancy] of [color]
+ * without a tone.
  */
 fun Modifier.glassVibrancy(tone: GlassTone?, color: Color): Modifier =
     if (tone == null) {
         vibrancy(color)
     } else {
-        graphicsLayer { blendMode = if (tone.darkness < 0.5f) BlendMode.Plus else BlendMode.SrcOver }
+        graphicsLayer { blendMode = if (tone.darkness <= 0f) BlendMode.Plus else BlendMode.SrcOver }
     }
 
 /**
@@ -147,8 +159,12 @@ class GlassTone internal constructor(internal val strip: GlassStrip, private val
     /** The glyphs' colour at this moment, white turning black, at [alpha]. Read where they are drawn. */
     fun color(alpha: Float = 1f): Color = lerp(Color.White, Color.Black, darkness).copy(alpha = alpha)
 
-    /** Where the glyphs are. Plain rather than state: read only when sampled. */
-    internal var area: LayoutCoordinates? = null
+    /**
+     * Where the glyphs are: as many places as [glassToneArea] marks — a tab's
+     * glyph and its label, read together and turned together. Plain rather
+     * than state: read only when sampled.
+     */
+    internal val areas = ArrayList<LayoutCoordinates>(2)
 
     private var turnedAt = 0L
 
@@ -206,7 +222,10 @@ fun rememberGlassTone(
     return tone
 }
 
-/** Marks this as the glyphs [tone] reads under. */
+/**
+ * Marks this as glyphs [tone] reads under. Marked in more than one place, it
+ * reads all of them as one, and turns them all together.
+ */
 fun Modifier.glassToneArea(tone: GlassTone?): Modifier =
     if (tone == null) this else this then GlassToneAreaElement(tone)
 
@@ -229,18 +248,20 @@ private class GlassToneAreaNode(tone: GlassTone) : LayoutAwareModifierNode, Modi
     var tone: GlassTone = tone
         set(value) {
             if (field === value) return
-            if (field.area === coordinates) field.area = null
+            coordinates?.let { field.areas.remove(it) }
             field = value
-            coordinates?.let { value.area = it }
+            coordinates?.let { if (it !in value.areas) value.areas += it }
         }
 
     override fun onPlaced(coordinates: LayoutCoordinates) {
+        if (this.coordinates === coordinates) return
+        this.coordinates?.let { tone.areas.remove(it) }
         this.coordinates = coordinates
-        tone.area = coordinates
+        tone.areas += coordinates
     }
 
     override fun onDetach() {
-        if (tone.area === coordinates) tone.area = null
+        coordinates?.let { tone.areas.remove(it) }
         coordinates = null
     }
 }
@@ -419,18 +440,20 @@ internal class GlassToneSampler(private val view: View) {
             val pad = strip.padding * SAMPLE_SCALE
             var any = false
             for (tone in group) {
-                val coordinates = tone.area?.takeIf { it.isAttached } ?: continue
-                val box = try {
-                    stripCoordinates.localBoundingBoxOf(coordinates, clipBounds = false)
-                } catch (_: Exception) {
-                    continue
+                for (coordinates in tone.areas) {
+                    if (!coordinates.isAttached) continue
+                    val box = try {
+                        stripCoordinates.localBoundingBoxOf(coordinates, clipBounds = false)
+                    } catch (_: Exception) {
+                        continue
+                    }
+                    val left = (box.left * k + pad).toInt().coerceIn(0, w - 1)
+                    val right = ceil(box.right * k + pad).toInt().coerceIn(left + 1, w)
+                    val t = (box.top * k + pad).toInt().coerceIn(0, h - 1)
+                    val bottom = ceil(box.bottom * k + pad).toInt().coerceIn(t + 1, h)
+                    areas += Area(tone, left, top + t, right, top + bottom)
+                    any = true
                 }
-                val left = (box.left * k + pad).toInt().coerceIn(0, w - 1)
-                val right = ceil(box.right * k + pad).toInt().coerceIn(left + 1, w)
-                val t = (box.top * k + pad).toInt().coerceIn(0, h - 1)
-                val bottom = ceil(box.bottom * k + pad).toInt().coerceIn(t + 1, h)
-                areas += Area(tone, left, top + t, right, top + bottom)
-                any = true
             }
             if (!any) continue
             layers += layer to top
@@ -514,36 +537,39 @@ internal class GlassToneSampler(private val view: View) {
         pending = null
         inFlightSince = 0L
         if (results == null) return
-        job.areas.forEachIndexed { index, area ->
-            if (area.tone in tones) area.tone.offer(results[index])
+        job.tones.forEachIndexed { index, tone ->
+            if (tone in tones) tone.offer(results[index])
         }
     }
 
     private var scratch = FloatArray(256)
 
     /**
-     * Each area's relative luminance at its brighter end: the value
-     * [BRIGHT_SHARE] of it is at or above. Not the mean — a patch a quarter of
-     * the region wide is enough to turn the glyphs over it.
+     * Each tone's relative luminance at its brighter end, over all its areas
+     * at once: the value [BRIGHT_SHARE] of them is at or above. Not the mean —
+     * a patch a quarter of the region wide is enough to turn the glyphs over it.
      */
     private fun luminances(image: Image, job: Pending): FloatArray {
         val plane = image.planes[0]
         val buffer = plane.buffer
         val rowStride = plane.rowStride
         val pixelStride = plane.pixelStride
-        return FloatArray(job.areas.size) { index ->
-            val area = job.areas[index]
-            val count = (area.right - area.left) * (area.bottom - area.top)
+        return FloatArray(job.tones.size) { index ->
+            val tone = job.tones[index]
+            val areas = job.areas.filter { it.tone === tone }
+            val count = areas.sumOf { (it.right - it.left) * (it.bottom - it.top) }
             if (scratch.size < count) scratch = FloatArray(count)
             var n = 0
-            for (y in area.top until minOf(area.bottom, image.height)) {
-                var offset = y * rowStride + area.left * pixelStride
-                for (x in area.left until minOf(area.right, image.width)) {
-                    val r = buffer.get(offset).toInt() and 0xFF
-                    val g = buffer.get(offset + 1).toInt() and 0xFF
-                    val b = buffer.get(offset + 2).toInt() and 0xFF
-                    scratch[n++] = 0.2126f * SRGB_TO_LINEAR[r] + 0.7152f * SRGB_TO_LINEAR[g] + 0.0722f * SRGB_TO_LINEAR[b]
-                    offset += pixelStride
+            for (area in areas) {
+                for (y in area.top until minOf(area.bottom, image.height)) {
+                    var offset = y * rowStride + area.left * pixelStride
+                    for (x in area.left until minOf(area.right, image.width)) {
+                        val r = buffer.get(offset).toInt() and 0xFF
+                        val g = buffer.get(offset + 1).toInt() and 0xFF
+                        val b = buffer.get(offset + 2).toInt() and 0xFF
+                        scratch[n++] = 0.2126f * SRGB_TO_LINEAR[r] + 0.7152f * SRGB_TO_LINEAR[g] + 0.0722f * SRGB_TO_LINEAR[b]
+                        offset += pixelStride
+                    }
                 }
             }
             if (n == 0) return@FloatArray 0f
@@ -554,7 +580,10 @@ internal class GlassToneSampler(private val view: View) {
 
     private class Area(val tone: GlassTone, val left: Int, val top: Int, val right: Int, val bottom: Int)
 
-    private class Pending(val reader: ImageReader, val areas: List<Area>)
+    private class Pending(val reader: ImageReader, val areas: List<Area>) {
+        /** Each tone read, once, in the order its areas were laid into the atlas. */
+        val tones: List<GlassTone> = areas.map { it.tone }.distinct()
+    }
 }
 
 private val UnitDensity = Density(1f)

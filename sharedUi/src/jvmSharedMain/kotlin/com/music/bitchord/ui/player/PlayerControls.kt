@@ -96,6 +96,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import org.jetbrains.compose.resources.painterResource
@@ -729,7 +730,8 @@ internal fun PlayerActionRow(
  * at Apple's strengths, so they take the artwork's colour as its controls do.
  *
  * In a [GlassControlsRow] the faint disc is the player's glass instead, and
- * the filled one is added over it.
+ * the filled one is added over it; the glyph turns black over light content
+ * under the glass, as the app's glass glyphs do.
  */
 @Composable
 internal fun CircleGlyph(
@@ -746,6 +748,12 @@ internal fun CircleGlyph(
         label = "glyphFill",
     )
     val glass = LocalGroupGlass.current
+    val tone = glass?.rememberGlyphTone()
+    val darkness by animateFloatAsState(
+        targetValue = if (tone?.dark == true) 1f else 0f,
+        animationSpec = tween(durationMillis = GLYPH_TONE_CROSSFADE_MS),
+        label = "glyphTone",
+    )
     Box(
         modifier = Modifier
             .size(34.dp)
@@ -772,13 +780,14 @@ internal fun CircleGlyph(
     ) {
         Crossfade(
             targetState = icon,
+            modifier = if (tone != null) with(tone) { Modifier.glyphArea() } else Modifier,
             animationSpec = tween(durationMillis = 180),
             label = "playerMenuGlyph",
         ) { glyph ->
             Icon(
                 imageVector = glyph,
                 contentDescription = contentDescription,
-                tint = tint.copy(alpha = 1f - fill),
+                tint = lerp(tint, Color.Black, darkness).copy(alpha = 1f - fill),
                 modifier = Modifier.size(19.dp),
             )
         }
@@ -822,6 +831,9 @@ private fun Modifier.cutOut(): Modifier = drawWithContent {
  * favourite.
  */
 private const val GLYPH_DISC_ALPHA = 0.18f
+
+/** The glass glyphs' turn between light and dark, as the app's take it. */
+private const val GLYPH_TONE_CROSSFADE_MS = 300
 private const val ACTIVE_GLYPH_DISC_ALPHA = 0.46f
 
 /**

@@ -10,7 +10,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.components.GlassTone
 import com.music.bitchord.ui.components.LocalGlassStrip
+import com.music.bitchord.ui.components.glassToneArea
+import com.music.bitchord.ui.components.rememberGlassTone
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
@@ -46,6 +49,21 @@ private class LiquidPlayerGlass(private val backdrop: LayerBackdrop) : PlayerGla
     override fun Modifier.glassSurface(shape: CornerBasedShape): Modifier =
         // Dark glass in either theme: the player is dark in both.
         liquidGlass(shape, light = false)
+
+    @Composable
+    override fun rememberGlyphTone(): PlayerGlyphTone? {
+        // Over the group's strip, as the surfaces are, and on dark glass.
+        val tone = rememberGlassTone(light = false) ?: return null
+        return remember(tone) { GlassGlyphTone(tone) }
+    }
+}
+
+/** A [GlassTone] as the player reads one. */
+@Stable
+private class GlassGlyphTone(private val tone: GlassTone) : PlayerGlyphTone {
+    override val dark: Boolean get() = tone.dark
+
+    override fun Modifier.glyphArea(): Modifier = glassToneArea(tone)
 }
 
 /**

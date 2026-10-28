@@ -86,6 +86,17 @@ private const val SURFACE_OPACITY = 0.4f
 private val LIGHT_GLASS_TINT = Color(0xFFFAFAFA)
 private const val DARK_GLASS_LIFT = 0.08f
 
+/**
+ * How bright glass shows a backdrop of relative luminance [under]: dark glass
+ * adds [DARK_GLASS_LIFT] on top of it, light glass veils it in [LIGHT_GLASS_TINT].
+ */
+internal fun glassLuminanceOver(under: Float, light: Boolean): Float =
+    if (light) {
+        under * (1f - SURFACE_OPACITY) + LIGHT_GLASS_TINT.luminance() * SURFACE_OPACITY
+    } else {
+        under + DARK_GLASS_LIFT
+    }
+
 private fun DrawScope.drawGlassFill(light: Boolean, shape: Shape) {
     val outline = shape.createOutline(size, layoutDirection, this)
     if (light) {

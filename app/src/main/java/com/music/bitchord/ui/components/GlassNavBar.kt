@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -139,6 +140,11 @@ fun GlassNavBar(
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val strip = if (reduceDynamicBlur) null else rememberGlassStrip()
     val glassSurface: @Composable () -> Modifier = { Modifier.liquidGlass(shape = pillShape, strip = strip) }
+    // Each tab reads what the glass shows behind its own glyph, and behind its
+    // label apart from that — see [GlassTone]. One reading over the whole bar
+    // averaged a bright cover under one tab in with the dark page under the
+    // rest; one a tab turned its label with a glyph over something else.
+    val tabTones = List(tabs.size) { key(it) { rememberGlassTone(strip) to rememberGlassTone(strip) } }
 
     FloatingTabBar(
         selectedTabKey = selectedIndex,
@@ -165,6 +171,7 @@ fun GlassNavBar(
                     onBlockedControl = onBlockedControl,
                     dock = dock,
                     pull = pull,
+                    strip = strip,
                     // Glass first: the slot's modifier ends in a clip, which
                     // would cut away the outline the glass draws outside its edge.
                     modifier = glassSurface().then(accessoryModifier),
@@ -186,6 +193,7 @@ fun GlassNavBar(
                     onBlockedControl = onBlockedControl,
                     dock = dock,
                     pull = pull,
+                    strip = strip,
                     modifier = glassSurface().then(accessoryModifier).fillMaxWidth(),
                 )
             }
@@ -228,12 +236,13 @@ fun GlassNavBar(
         ),
         // Held too: this is declared `Any?`, so a fresh list every pass is a
         // changed argument by identity and defeats skipping on its own.
-        contentKey = remember(selectedIndex, tabs) {
-            listOf(selectedIndex, tabs)
+        contentKey = remember(selectedIndex, tabs, tabTones) {
+            listOf(selectedIndex, tabs, tabTones)
         },
     ) {
         tabs.forEachIndexed { index, tab ->
             val isSelected = index == selectedIndex
+            val (iconTone, labelTone) = tabTones[index]
             val onClick = {
                 if (!isSelected) haptics.play(Haptic.Select)
                 currentOnTabSelected(index)
@@ -242,12 +251,12 @@ fun GlassNavBar(
                 standaloneTab(
                     key = index,
                     icon = {
-                        val tint = tabTint(isSelected)
+                        val tint = tabTint(iconTone, isSelected)
                         Icon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
                             tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE).vibrancy(tint),
+                            modifier = Modifier.size(TAB_ICON_SIZE).glassToneArea(iconTone).vibrancy(tint),
                         )
                     },
                     onClick = onClick,
@@ -256,16 +265,16 @@ fun GlassNavBar(
                 tab(
                     key = index,
                     icon = {
-                        val tint = tabTint(isSelected)
+                        val tint = tabTint(iconTone, isSelected)
                         Icon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
                             tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE).vibrancy(tint),
+                            modifier = Modifier.size(TAB_ICON_SIZE).glassToneArea(iconTone).vibrancy(tint),
                         )
                     },
                     title = {
-                        val tint = tabTint(isSelected)
+                        val tint = tabTint(labelTone, isSelected)
                         Text(
                             text = tab.label,
                             style = tabLabelStyle(),
@@ -275,7 +284,7 @@ fun GlassNavBar(
                             // The library's Tab stacks the glyph and the label
                             // with nothing between them; the plain bar spaces
                             // them, and this is where that gap goes.
-                            modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP).vibrancy(tint),
+                            modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP).glassToneArea(labelTone).vibrancy(tint),
                         )
                     },
                     onClick = onClick,
@@ -285,10 +294,10 @@ fun GlassNavBar(
     }
 }
 
-/** A tab's glyph and label colour, matched to the glass theme. */
+/** A tab's glyph or label colour, read off what the glass shows behind it. */
 @Composable
-private fun tabTint(selected: Boolean): Color {
-    val content = glassContentColor()
+private fun tabTint(tone: GlassTone?, selected: Boolean): Color {
+    val content = glassContentColor(tone)
     return if (selected) content else content.copy(alpha = 0.65f)
 }
 
@@ -320,6 +329,8 @@ private fun GlassNowPlaying(
     onBlockedControl: () -> Unit,
     dock: PlayerDock?,
     pull: MiniPlayerPull?,
+    /** The bar's sample, which the row's glyphs and words read — see [GlassTone]. */
+    strip: GlassStrip?,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -330,7 +341,15 @@ private fun GlassNowPlaying(
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
         label = "accessoryPressScale",
     )
-    val contentColor = glassContentColor()
+    // The words, the play button and the skip button each read what the glass
+    // shows behind them alone: across the row the glass can be over a dark page
+    // at one end and a white cover at the other, and one reading turned the lot.
+    val textTone = rememberGlassTone(strip)
+    val playTone = rememberGlassTone(strip)
+    val nextTone = if (isInline) null else rememberGlassTone(strip)
+    val contentColor = glassContentColor(textTone)
+    val playColor = glassContentColor(playTone)
+    val nextColor = glassContentColor(nextTone)
 
     val titleStyle = MaterialTheme.typography.titleMedium.copy(
         fontSize = ACCESSORY_TITLE_SIZE,
@@ -439,25 +458,29 @@ private fun GlassNowPlaying(
                 // row shares its width with the tab pill and the Search circle, so
                 // a long line fades out at its end, as Apple's does.
                 Column(Modifier.weight(1f)) {
-                    val secondary = contentColor.copy(alpha = 0.7f)
-                    ExplicitSongTitle(
-                        song = song,
-                        style = titleStyle,
-                        color = contentColor,
-                        badgeColor = secondary,
-                        fadeOverflow = true,
-                    )
-                    FadingLine(
-                        text = song.artist,
-                        style = artistStyle,
-                        color = secondary,
-                        modifier = Modifier.vibrancy(contentColor),
-                    )
+                    // Read over the lines' own width, not the column's: a short
+                    // title ends well before a cover under the transport.
+                    Column(Modifier.glassToneArea(textTone)) {
+                        val secondary = contentColor.copy(alpha = 0.7f)
+                        ExplicitSongTitle(
+                            song = song,
+                            style = titleStyle,
+                            color = contentColor,
+                            badgeColor = secondary,
+                            fadeOverflow = true,
+                        )
+                        FadingLine(
+                            text = song.artist,
+                            style = artistStyle,
+                            color = secondary,
+                            modifier = Modifier.vibrancy(contentColor),
+                        )
+                    }
                 }
                 if (isLoading) {
-                    Box(Modifier.size(glyphSlot), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(glyphSlot).glassToneArea(playTone), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
-                            color = contentColor,
+                            color = playColor,
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
                         )
@@ -473,8 +496,8 @@ private fun GlassNowPlaying(
                         Icon(
                             imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                            tint = contentColor,
-                            modifier = Modifier.size(glyphSize),
+                            tint = playColor,
+                            modifier = Modifier.size(glyphSize).glassToneArea(playTone),
                         )
                     }
                 }
@@ -492,9 +515,11 @@ private fun GlassNowPlaying(
                         enabled = !controlsLocked,
                         modifier = Modifier.size(glyphSlot),
                     ) {
-                        MiniPlayerNextGlyph(
-                            tint = contentColor.copy(alpha = if (controlsLocked) 0.3f else 1f),
-                        )
+                        Box(Modifier.glassToneArea(nextTone)) {
+                            MiniPlayerNextGlyph(
+                                tint = nextColor.copy(alpha = if (controlsLocked) 0.3f else 1f),
+                            )
+                        }
                     }
                 }
             }

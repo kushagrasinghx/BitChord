@@ -35,6 +35,23 @@ interface PlayerGlass {
     /** A glass surface cut to [shape], bending its own piece of its group's sample. */
     @Composable
     fun Modifier.glassSurface(shape: CornerBasedShape): Modifier
+
+    /**
+     * Whether glyphs in a [GlassGroup] turn dark over what its glass shows under
+     * them, as the app's glass glyphs do; null where nothing reads it.
+     */
+    @Composable
+    fun rememberGlyphTone(): PlayerGlyphTone?
+}
+
+/** Glyphs in the player's glass, turning dark over light content under them. */
+@Stable
+interface PlayerGlyphTone {
+    /** Whether the glass under the glyphs shows something light enough for them to go dark. */
+    val dark: Boolean
+
+    /** Marks this as the glyphs the tone reads under: them, not the control round them. */
+    fun Modifier.glyphArea(): Modifier
 }
 
 /** The phone's [PlayerGlass], provided around the player. */

@@ -256,6 +256,8 @@ import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
 import com.music.bitchord.ui.components.LocalPageSample
+import com.music.bitchord.ui.components.LocalGlassToneSampler
+import com.music.bitchord.ui.components.rememberGlassToneSampler
 import com.music.bitchord.ui.components.PageSample
 import com.music.bitchord.ui.components.pageSampleSource
 import com.music.bitchord.ui.components.isGlassSupported
@@ -435,6 +437,9 @@ class MainActivity : AppCompatActivity() {
                     LocalLiquidGlassEnabled provides liquidGlassEnabled,
                     LocalAppBackdrop provides appBackdrop,
                     LocalPageSample provides pageSample,
+                    // What the glass shows under its glyphs, read for every glass
+                    // group in the window — see [GlassTone].
+                    LocalGlassToneSampler provides rememberGlassToneSampler(liquidGlassEnabled),
                 ) {
                 // The window's width, measured rather than asked for.
                 //

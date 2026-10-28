@@ -45,6 +45,7 @@ internal enum class DiagnosticMode(
     val noGlassClip: Boolean = false,
     val noGlassShadow: Boolean = false,
     val drawnGlass: Boolean = false,
+    val noGlassTone: Boolean = false,
 ) {
     BASELINE("Baseline", "Current rendering and refresh-rate settings."),
     LIGHT("Light rendering + high refresh", "Disable dynamic blur and motion artwork; use the static artwork background and request the highest rate. Keep UI transitions.", noBlur = true, noArtwork = true, highRefresh = true, noLiveBackground = true),
@@ -60,6 +61,7 @@ internal enum class DiagnosticMode(
     NO_GLASS_CLIP("No glass clip", "Attribution only: skip the glass's clips to its shape (corners will show).", noGlassClip = true),
     NO_GLASS_SHADOW("No glass shadow", "Attribution only: skip the glass's drop shadows.", noGlassShadow = true),
     DRAWN_GLASS("Drawn glass", "Draw the glass's rim, fill and edge after its lens instead of in its shader.", drawnGlass = true),
+    NO_GLASS_TONE("No glass tone", "Keep the glass; don't read what it shows under its glyphs, which stay the theme's colour.", noGlassTone = true),
 }
 
 internal data class DiagnosticStatus(
@@ -135,6 +137,7 @@ internal object FrameDiagnostics {
             com.music.bitchord.ui.components.fullPageSampleForDiagnostics.value = false
             com.music.bitchord.ui.components.backdrop.backdropClipForDiagnostics.value = true
             com.music.bitchord.ui.components.shaderGlassForDiagnostics.value = com.music.bitchord.ui.components.SHADER_GLASS_DEFAULT
+            com.music.bitchord.ui.components.glassToneForDiagnostics.value = true
         }
         _mode.value = mode
         if (mode.noBlur) AppSettings.reduceDynamicBlur.value = true
@@ -145,6 +148,7 @@ internal object FrameDiagnostics {
         com.music.bitchord.ui.components.fullPageSampleForDiagnostics.value = mode.fullPageSample
         com.music.bitchord.ui.components.backdrop.backdropClipForDiagnostics.value = !mode.noGlassClip
         if (mode.drawnGlass) com.music.bitchord.ui.components.shaderGlassForDiagnostics.value = false
+        com.music.bitchord.ui.components.glassToneForDiagnostics.value = !mode.noGlassTone
         val start = System.nanoTime() + WARMUP_MS * 1_000_000
         val id = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ROOT).format(Date())
         val metadata = JSONObject()
@@ -477,6 +481,7 @@ internal object FrameDiagnostics {
     /** The modes a suite of `all` runs: everything, then each stage dropped, then no blur at all. */
     val SUITE_ALL = listOf(
         DiagnosticMode.BASELINE,
+        DiagnosticMode.NO_GLASS_TONE,
         DiagnosticMode.LEGACY_GLASS_RIM,
         DiagnosticMode.NO_GLASS_RIM,
         DiagnosticMode.NO_GLASS_LENS,

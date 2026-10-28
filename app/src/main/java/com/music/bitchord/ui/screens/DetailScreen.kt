@@ -29,6 +29,9 @@ import com.music.bitchord.ui.components.liquidGlassStrip
 import com.music.bitchord.ui.components.rememberGlassStrip
 import com.music.bitchord.ui.components.GlassStrip
 import com.music.bitchord.ui.components.LocalGlassStrip
+import com.music.bitchord.ui.components.GlassTone
+import com.music.bitchord.ui.components.glassToneArea
+import com.music.bitchord.ui.components.rememberGlassTone
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1635,7 +1638,8 @@ private fun ActionPill(
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
     val haptics = rememberHaptics()
-    val content = if (filled) Color.Black else detailGlassContent()
+    val tone = if (filled) null else rememberGlassTone()
+    val content = if (filled) Color.Black else detailGlassContent(tone)
     Row(
         modifier = modifier
             .height(size)
@@ -1652,7 +1656,9 @@ private fun ActionPill(
                 haptics.play(Haptic.Resume)
                 onClick()
             }
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 24.dp)
+            // Inside the padding: what is under the glyph and the label.
+            .glassToneArea(tone),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1744,6 +1750,7 @@ private fun CircleIconButton(
     enabled: Boolean = true,
 ) {
     val haptics = rememberHaptics()
+    val tone = rememberGlassTone()
     Box(
         modifier = Modifier
             .size(size)
@@ -1760,8 +1767,9 @@ private fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = detailGlassContent(),
-            modifier = Modifier.size(size * 0.44f),
+            tint = detailGlassContent(tone),
+            // What is under the glyph, not the whole circle round it.
+            modifier = Modifier.size(size * 0.44f).glassToneArea(tone),
         )
     }
 }
@@ -2284,6 +2292,7 @@ private fun TopReleaseCard(
         }
         if (onToggleSaved != null && saved != null) {
             Spacer(Modifier.width(10.dp))
+            val tone = rememberGlassTone(strip)
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -2301,8 +2310,8 @@ private fun TopReleaseCard(
                     contentDescription = stringResource(
                         if (saved) R.string.remove_from_library else R.string.add_to_library,
                     ),
-                    tint = detailGlassContent(),
-                    modifier = Modifier.size(17.dp),
+                    tint = detailGlassContent(tone),
+                    modifier = Modifier.size(17.dp).glassToneArea(tone),
                 )
             }
         }
@@ -2378,11 +2387,12 @@ private fun Modifier.pageGlassStrip(strip: GlassStrip?): Modifier =
     if (strip != null) liquidGlassStrip(strip, page = LocalAppBackdrop.current) else this
 
 /**
- * Foreground tint for a [detailGlass] control, matched to the glass theme.
+ * Glyph colour on a [detailGlass] control read by [tone]: turning dark over a
+ * light page while it is glass — see [GlassTone] — and the theme's otherwise.
  */
 @Composable
-private fun detailGlassContent(): Color =
-    if (pageSamplesGlass()) glassContentColor() else MaterialTheme.colorScheme.onSurface
+private fun detailGlassContent(tone: GlassTone?): Color =
+    if (pageSamplesGlass()) glassContentColor(tone) else MaterialTheme.colorScheme.onSurface
 private const val TOP_RELEASE_COVER_EDGE_ALPHA = 0.215f
 
 @OptIn(ExperimentalFoundationApi::class)

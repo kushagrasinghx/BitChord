@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -367,9 +368,10 @@ private fun ArtworkPageBackButton(
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
     val tone = rememberGlassTone(strip)
     val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
-        glassContentColor(tone)
+        glassContentProducer(tone)
     } else {
-        MaterialTheme.colorScheme.onSurface
+        val onSurface = MaterialTheme.colorScheme.onSurface
+        remember(onSurface) { ColorProducer { onSurface } }
     }
 
     IconButton(
@@ -378,7 +380,7 @@ private fun ArtworkPageBackButton(
             .size(TOP_CONTROL_SIZE)
             .then(artworkPageSurface(shape = shape, hazeState = hazeState, strip = strip)),
     ) {
-        Icon(
+        TintedIcon(
             Icons.AutoMirrored.Rounded.ArrowBack,
             contentDescription = stringResource(R.string.back),
             tint = contentColor,
@@ -423,7 +425,8 @@ private fun ArtworkPageActions(
         CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides TOP_CONTROL_SIZE) {
             if (glass) {
                 // The actions are set in the theme's onSurface and primary, each in
-                // its own place; on glass both follow what the pill is showing.
+                // its own place; on glass both follow what the pill is showing —
+                // cut over when it turns, the theme being all they read.
                 val glassContent = glassContentColor(tone)
                 MaterialTheme(
                     colorScheme = MaterialTheme.colorScheme.copy(onSurface = glassContent, primary = glassContent),

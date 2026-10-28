@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +25,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
@@ -86,6 +89,41 @@ fun ExplicitSongTitle(
 }
 
 /**
+ * [ExplicitSongTitle] in colours read as the title is drawn — see
+ * [TintedIcon] — for a title on glass whose colour turns with what the glass
+ * shows. [badgeModifier] goes on the badge in place of its vibrancy.
+ */
+@Composable
+fun ExplicitSongTitle(
+    song: Song,
+    style: TextStyle,
+    color: ColorProducer,
+    badgeColor: ColorProducer,
+    badgeModifier: Modifier,
+    modifier: Modifier = Modifier,
+    fadeOverflow: Boolean = false,
+) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        if (fadeOverflow) {
+            FadingLine(text = song.title, style = style, color = color, modifier = Modifier.weight(1f, fill = false))
+        } else {
+            BasicText(
+                text = song.title,
+                style = LocalTextStyle.current.merge(style),
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+        }
+        if (song.isExplicit == true) {
+            Spacer(Modifier.width(6.dp))
+            ExplicitBadge(badgeColor, badgeModifier)
+        }
+    }
+}
+
+/**
  * One line of text that, where it is too long for its width, fades out at its
  * end rather than ending in an ellipsis — see [fadingEdges].
  */
@@ -102,6 +140,22 @@ fun FadingLine(text: String, style: TextStyle, color: Color, modifier: Modifier 
         onTextLayout = { overflowing = it.didOverflowWidth },
         // Only where it overflows: the fade is a layer of its own, and a line
         // that fits has nothing to fade.
+        modifier = modifier.then(if (overflowing) Modifier.fadingEdges(LINE_FADE, end = FullFade) else Modifier),
+    )
+}
+
+/** [FadingLine] in a colour read as the line is drawn — see [TintedIcon]. */
+@Composable
+fun FadingLine(text: String, style: TextStyle, color: ColorProducer, modifier: Modifier = Modifier) {
+    var overflowing by remember { mutableStateOf(false) }
+    BasicText(
+        text = text,
+        style = LocalTextStyle.current.merge(style),
+        color = color,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        onTextLayout = { overflowing = it.didOverflowWidth },
         modifier = modifier.then(if (overflowing) Modifier.fadingEdges(LINE_FADE, end = FullFade) else Modifier),
     )
 }
@@ -156,6 +210,12 @@ private val FullFade = { 1f }
  */
 @Composable
 fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
+    ExplicitBadge(color = { color }, modifier = modifier)
+}
+
+/** [ExplicitBadge] in a colour read as it is drawn — see [TintedIcon]. */
+@Composable
+fun ExplicitBadge(color: ColorProducer, modifier: Modifier = Modifier) {
     val measurer = rememberTextMeasurer()
     // W800, the Bold cut in this app's family: a step up from the Semibold
     // the label's Bold draws. No tracking, which sat the letter left of centre.
@@ -174,7 +234,7 @@ fun ExplicitBadge(color: Color, modifier: Modifier = Modifier) {
             .size(side)
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen },
     ) {
-        drawRoundRect(color = color, cornerRadius = CornerRadius(2.dp.toPx()))
+        drawRoundRect(color = color(), cornerRadius = CornerRadius(2.dp.toPx()))
         drawText(
             textLayoutResult = letter,
             // Centred on the capital's own height rather than on its line box,

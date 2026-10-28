@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
@@ -526,6 +527,24 @@ internal fun MiniPlayerNextGlyph(tint: Color) {
             .size(NEXT_GLYPH_SIZE)
             // Dimmed while the controls are locked, and added onto the bar then.
             .then(if (tint.alpha < 1f) Modifier.vibrancy(tint) else Modifier)
+            .graphicsLayer { scaleY = 0.85f },
+    )
+}
+
+/**
+ * [MiniPlayerNextGlyph] in a colour read as it is drawn — see [TintedIcon] —
+ * for the glass bar's docked player, whose glyphs turn with what the glass
+ * shows. [modifier] goes on ahead of the squash, for its vibrancy.
+ */
+@Composable
+internal fun MiniPlayerNextGlyph(tint: ColorProducer, modifier: Modifier = Modifier) {
+    TintedIcon(
+        painter = painterResource(SharedRes.drawable.ic_player_next),
+        contentDescription = stringResource(R.string.widget_next),
+        tint = tint,
+        modifier = Modifier
+            .size(NEXT_GLYPH_SIZE)
+            .then(modifier)
             .graphicsLayer { scaleY = 0.85f },
     )
 }

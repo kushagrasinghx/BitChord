@@ -61,7 +61,7 @@ private class LiquidPlayerGlass(private val backdrop: LayerBackdrop) : PlayerGla
 /** A [GlassTone] as the player reads one. */
 @Stable
 private class GlassGlyphTone(private val tone: GlassTone) : PlayerGlyphTone {
-    override val dark: Boolean get() = tone.dark
+    override val darkness: Float get() = tone.darkness
 
     override fun Modifier.glyphArea(): Modifier = glassToneArea(tone)
 }

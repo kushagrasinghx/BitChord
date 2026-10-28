@@ -47,8 +47,12 @@ interface PlayerGlass {
 /** Glyphs in the player's glass, turning dark over light content under them. */
 @Stable
 interface PlayerGlyphTone {
-    /** Whether the glass under the glyphs shows something light enough for them to go dark. */
-    val dark: Boolean
+    /**
+     * How far the glyphs have turned dark over light content under them, 0 to
+     * 1, crossfading as they turn. Read where they are drawn, so a turn redraws
+     * them and recomposes nothing.
+     */
+    val darkness: Float
 
     /** Marks this as the glyphs the tone reads under: them, not the control round them. */
     fun Modifier.glyphArea(): Modifier

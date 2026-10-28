@@ -14,27 +14,33 @@ import android.os.SystemClock
 import android.view.Choreographer
 import android.view.View
 import android.view.ViewTreeObserver
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.node.LayoutAwareModifierNode
@@ -49,6 +55,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.performance.FrameDiagnostics
+import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.ceil
 import kotlin.math.pow
 
@@ -62,21 +69,53 @@ fun glassContentColor(): Color =
     if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) Color.Black else Color.White
 
 /**
- * Glyph and label colour on glass read by [tone]: white, or black while the
- * glass under them shows something light enough that white would sink into
- * it, the way Apple's glass turns its glyphs — crossfaded when it turns. The
- * theme's [glassContentColor] without a tone.
+ * Glyph and label colour on glass read by [tone], for content that can only
+ * take its colour as it is composed — a theme handed to a screen's own
+ * controls: white, or black over light content, cut over when it turns,
+ * which recomposes that content once. Content drawn here takes
+ * [glassContentProducer] instead and crossfades. The theme's
+ * [glassContentColor] without a tone.
  */
 @Composable
-fun glassContentColor(tone: GlassTone?): Color {
-    if (tone == null) return glassContentColor()
-    val color by animateColorAsState(
-        targetValue = if (tone.dark) Color.Black else Color.White,
-        animationSpec = tween(CONTENT_CROSSFADE_MS),
-        label = "glassContent",
-    )
-    return color
+fun glassContentColor(tone: GlassTone?): Color =
+    when {
+        tone == null -> glassContentColor()
+        tone.dark -> Color.Black
+        else -> Color.White
+    }
+
+/**
+ * [tone]'s glyph colour at [alpha], read where the glyphs are drawn: white,
+ * or black while the glass under them shows something light enough that
+ * white would sink into it, the way Apple's glass turns its glyphs —
+ * crossfaded when it turns, a redraw of the glyphs and no recomposition.
+ * The theme's [glassContentColor] without a tone.
+ */
+@Composable
+fun glassContentProducer(tone: GlassTone?, alpha: Float = 1f): ColorProducer {
+    val theme = glassContentColor()
+    return remember(tone, alpha, theme) {
+        if (tone == null) {
+            val color = theme.copy(alpha = theme.alpha * alpha)
+            ColorProducer { color }
+        } else {
+            ColorProducer { tone.color(alpha) }
+        }
+    }
 }
+
+/**
+ * [vibrancy] for glyphs [tone] colours: added onto the glass while they are
+ * light and laid over it once they are dark — plus-lighter adds next to
+ * nothing of black — switched in the glyphs' own layer halfway through a
+ * turn, rather than by recomposing them. [vibrancy] of [color] without a tone.
+ */
+fun Modifier.glassVibrancy(tone: GlassTone?, color: Color): Modifier =
+    if (tone == null) {
+        vibrancy(color)
+    } else {
+        graphicsLayer { blendMode = if (tone.darkness < 0.5f) BlendMode.Plus else BlendMode.SrcOver }
+    }
 
 /**
  * Whether the glyphs on a piece of glass are dark, from what the glass shows
@@ -91,20 +130,53 @@ fun glassContentColor(tone: GlassTone?): Color {
  */
 @Stable
 class GlassTone internal constructor(internal val strip: GlassStrip, private val light: Boolean) {
-    /** Whether the glyphs are dark. Light glass starts there; dark glass starts white. */
+    /** Whether the glyphs are dark, or turning so. Light glass starts there; dark glass starts white. */
     var dark by mutableStateOf(light)
         private set
+
+    private val progress = Animatable(if (light) 1f else 0f)
+
+    /**
+     * How far the glyphs have turned dark, 0 to 1, crossfading as they turn.
+     * Read where they are drawn: there, a turn redraws them and recomposes
+     * nothing — read as they were composed, every frame of every crossfade
+     * recomposed whatever read it, the whole mini player among them.
+     */
+    val darkness: Float get() = progress.value
+
+    /** The glyphs' colour at this moment, white turning black, at [alpha]. Read where they are drawn. */
+    fun color(alpha: Float = 1f): Color = lerp(Color.White, Color.Black, darkness).copy(alpha = alpha)
 
     /** Where the glyphs are. Plain rather than state: read only when sampled. */
     internal var area: LayoutCoordinates? = null
 
-    /** What the strip shows under the glyphs: relative luminance, at its brighter end. */
+    private var turnedAt = 0L
+
+    /**
+     * What the strip shows under the glyphs: relative luminance, at its
+     * brighter end. A tone that turned holds for [TURN_HOLD_MS] before it
+     * turns back, so a fling past light and dark covers does not keep
+     * restarting the crossfade.
+     */
     internal fun offer(under: Float) {
         val glass = glassLuminanceOver(under, light)
-        dark = when {
+        val next = when {
             glass > DARK_CONTENT_ABOVE -> true
             glass < LIGHT_CONTENT_BELOW -> false
             else -> dark
+        }
+        if (next == dark) return
+        val now = SystemClock.uptimeMillis()
+        if (now - turnedAt < TURN_HOLD_MS) return
+        turnedAt = now
+        dark = next
+        FrameDiagnostics.mark("BitChord.glassToneTurn")
+    }
+
+    /** Crossfades [darkness] after [dark] for as long as it is called. */
+    internal suspend fun follow() {
+        snapshotFlow { dark }.collectLatest { target ->
+            progress.animateTo(if (target) 1f else 0f, tween(CONTENT_CROSSFADE_MS))
         }
     }
 }
@@ -129,6 +201,7 @@ fun rememberGlassTone(
             sampler.add(tone)
             onDispose { sampler.remove(tone) }
         }
+        LaunchedEffect(tone) { tone.follow() }
     }
     return tone
 }
@@ -515,3 +588,6 @@ private const val DARK_CONTENT_ABOVE = 0.5f
 private const val LIGHT_CONTENT_BELOW = 0.35f
 
 private const val CONTENT_CROSSFADE_MS = 300
+
+/** How long a tone that turned holds before it may turn back. */
+private const val TURN_HOLD_MS = 600L

@@ -117,6 +117,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.ui.components.LINE_FADE
 import com.music.bitchord.ui.components.vibrancy
+import com.music.bitchord.ui.components.TintedIcon
 import com.music.bitchord.ui.graphics.fadingEdges
 import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.components.vibrantBlendMode
@@ -749,11 +750,6 @@ internal fun CircleGlyph(
     )
     val glass = LocalGroupGlass.current
     val tone = glass?.rememberGlyphTone()
-    val darkness by animateFloatAsState(
-        targetValue = if (tone?.dark == true) 1f else 0f,
-        animationSpec = tween(durationMillis = GLYPH_TONE_CROSSFADE_MS),
-        label = "glyphTone",
-    )
     Box(
         modifier = Modifier
             .size(34.dp)
@@ -784,10 +780,11 @@ internal fun CircleGlyph(
             animationSpec = tween(durationMillis = 180),
             label = "playerMenuGlyph",
         ) { glyph ->
-            Icon(
+            // Read as it is drawn: the glass's turn redraws the glyph alone.
+            TintedIcon(
                 imageVector = glyph,
                 contentDescription = contentDescription,
-                tint = lerp(tint, Color.Black, darkness).copy(alpha = 1f - fill),
+                tint = { lerp(tint, Color.Black, tone?.darkness ?: 0f).copy(alpha = 1f - fill) },
                 modifier = Modifier.size(19.dp),
             )
         }
@@ -831,9 +828,6 @@ private fun Modifier.cutOut(): Modifier = drawWithContent {
  * favourite.
  */
 private const val GLYPH_DISC_ALPHA = 0.18f
-
-/** The glass glyphs' turn between light and dark, as the app's take it. */
-private const val GLYPH_TONE_CROSSFADE_MS = 300
 private const val ACTIVE_GLYPH_DISC_ALPHA = 0.46f
 
 /**

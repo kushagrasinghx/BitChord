@@ -17,7 +17,6 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import com.music.bitchord.ui.components.isLiquidGlassActive
 import com.music.bitchord.ui.components.LocalAppBackdrop
 import com.music.bitchord.ui.components.LocalGlassFloor
-import com.music.bitchord.ui.components.glassContentColor
 import com.music.bitchord.ui.components.GLASS_EDGE_COLOR
 import com.music.bitchord.ui.components.GLASS_EDGE_WIDTH
 import com.music.bitchord.ui.components.backdrop.backdrops.layerBackdrop
@@ -32,6 +31,11 @@ import com.music.bitchord.ui.components.LocalGlassStrip
 import com.music.bitchord.ui.components.GlassTone
 import com.music.bitchord.ui.components.glassToneArea
 import com.music.bitchord.ui.components.rememberGlassTone
+import com.music.bitchord.ui.components.glassContentProducer
+import com.music.bitchord.ui.components.TintedIcon
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.graphics.ColorProducer
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1639,7 +1643,7 @@ private fun ActionPill(
     // says so.
     val haptics = rememberHaptics()
     val tone = if (filled) null else rememberGlassTone()
-    val content = if (filled) Color.Black else detailGlassContent(tone)
+    val content = if (filled) BlackContent else detailGlassContent(tone)
     Row(
         modifier = modifier
             .height(size)
@@ -1662,16 +1666,16 @@ private fun ActionPill(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
+        TintedIcon(
             imageVector = icon,
             contentDescription = null,
             tint = content,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(8.dp))
-        Text(
+        BasicText(
             text = label,
-            style = MaterialTheme.typography.titleMedium,
+            style = LocalTextStyle.current.merge(MaterialTheme.typography.titleMedium),
             color = content,
             maxLines = 1,
         )
@@ -1764,7 +1768,7 @@ private fun CircleIconButton(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
+        TintedIcon(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = detailGlassContent(tone),
@@ -2305,7 +2309,7 @@ private fun TopReleaseCard(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
+                TintedIcon(
                     imageVector = if (saved) Icons.Rounded.Check else Icons.Rounded.Add,
                     contentDescription = stringResource(
                         if (saved) R.string.remove_from_library else R.string.add_to_library,
@@ -2387,12 +2391,21 @@ private fun Modifier.pageGlassStrip(strip: GlassStrip?): Modifier =
     if (strip != null) liquidGlassStrip(strip, page = LocalAppBackdrop.current) else this
 
 /**
- * Glyph colour on a [detailGlass] control read by [tone]: turning dark over a
- * light page while it is glass — see [GlassTone] — and the theme's otherwise.
+ * Glyph colour on a [detailGlass] control read by [tone], where it is drawn:
+ * turning dark over a light page while it is glass — see [GlassTone] — and
+ * the theme's otherwise.
  */
 @Composable
-private fun detailGlassContent(tone: GlassTone?): Color =
-    if (pageSamplesGlass()) glassContentColor(tone) else MaterialTheme.colorScheme.onSurface
+private fun detailGlassContent(tone: GlassTone?): ColorProducer =
+    if (pageSamplesGlass()) {
+        glassContentProducer(tone)
+    } else {
+        val onSurface = MaterialTheme.colorScheme.onSurface
+        remember(onSurface) { ColorProducer { onSurface } }
+    }
+
+/** Play's content on its white pill. */
+private val BlackContent = ColorProducer { Color.Black }
 private const val TOP_RELEASE_COVER_EDGE_ALPHA = 0.215f
 
 @OptIn(ExperimentalFoundationApi::class)

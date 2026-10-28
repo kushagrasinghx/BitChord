@@ -34,10 +34,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -251,12 +251,14 @@ fun GlassNavBar(
                 standaloneTab(
                     key = index,
                     icon = {
-                        val tint = tabTint(iconTone, isSelected)
-                        Icon(
+                        TintedIcon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE).glassToneArea(iconTone).vibrancy(tint),
+                            tint = glassContentProducer(iconTone, tabAlpha(isSelected)),
+                            modifier = Modifier
+                                .size(TAB_ICON_SIZE)
+                                .glassToneArea(iconTone)
+                                .glassVibrancy(iconTone, glassContentColor()),
                         )
                     },
                     onClick = onClick,
@@ -265,26 +267,30 @@ fun GlassNavBar(
                 tab(
                     key = index,
                     icon = {
-                        val tint = tabTint(iconTone, isSelected)
-                        Icon(
+                        TintedIcon(
                             imageVector = tab.icon,
                             contentDescription = tab.label,
-                            tint = tint,
-                            modifier = Modifier.size(TAB_ICON_SIZE).glassToneArea(iconTone).vibrancy(tint),
+                            tint = glassContentProducer(iconTone, tabAlpha(isSelected)),
+                            modifier = Modifier
+                                .size(TAB_ICON_SIZE)
+                                .glassToneArea(iconTone)
+                                .glassVibrancy(iconTone, glassContentColor()),
                         )
                     },
                     title = {
-                        val tint = tabTint(labelTone, isSelected)
-                        Text(
+                        BasicText(
                             text = tab.label,
-                            style = tabLabelStyle(),
-                            color = tint,
+                            style = LocalTextStyle.current.merge(tabLabelStyle()),
+                            color = glassContentProducer(labelTone, tabAlpha(isSelected)),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             // The library's Tab stacks the glyph and the label
                             // with nothing between them; the plain bar spaces
                             // them, and this is where that gap goes.
-                            modifier = Modifier.padding(top = TAB_ICON_LABEL_GAP).glassToneArea(labelTone).vibrancy(tint),
+                            modifier = Modifier
+                                .padding(top = TAB_ICON_LABEL_GAP)
+                                .glassToneArea(labelTone)
+                                .glassVibrancy(labelTone, glassContentColor()),
                         )
                     },
                     onClick = onClick,
@@ -294,12 +300,8 @@ fun GlassNavBar(
     }
 }
 
-/** A tab's glyph or label colour, read off what the glass shows behind it. */
-@Composable
-private fun tabTint(tone: GlassTone?, selected: Boolean): Color {
-    val content = glassContentColor(tone)
-    return if (selected) content else content.copy(alpha = 0.65f)
-}
+/** How strongly a tab's glyph and label take the glass's content colour. */
+private fun tabAlpha(selected: Boolean): Float = if (selected) 1f else 0.65f
 
 /**
  * The now playing controls docked into [GlassNavBar] as its accessory.
@@ -347,9 +349,13 @@ private fun GlassNowPlaying(
     val textTone = rememberGlassTone(strip)
     val playTone = rememberGlassTone(strip)
     val nextTone = if (isInline) null else rememberGlassTone(strip)
-    val contentColor = glassContentColor(textTone)
-    val playColor = glassContentColor(playTone)
-    val nextColor = glassContentColor(nextTone)
+    // Read where the glyphs and words are drawn, so a turn redraws them alone
+    // rather than recomposing this whole row on every frame of its crossfade.
+    val contentColor = glassContentProducer(textTone)
+    val secondaryColor = glassContentProducer(textTone, ACCESSORY_SECONDARY_ALPHA)
+    val playColor = glassContentProducer(playTone)
+    val nextColor = glassContentProducer(nextTone, if (controlsLocked) 0.3f else 1f)
+    val themeContent = glassContentColor()
 
     val titleStyle = MaterialTheme.typography.titleMedium.copy(
         fontSize = ACCESSORY_TITLE_SIZE,
@@ -461,26 +467,28 @@ private fun GlassNowPlaying(
                     // Read over the lines' own width, not the column's: a short
                     // title ends well before a cover under the transport.
                     Column(Modifier.glassToneArea(textTone)) {
-                        val secondary = contentColor.copy(alpha = 0.7f)
+                        val secondaryVibrancy = Modifier.glassVibrancy(textTone, themeContent)
                         ExplicitSongTitle(
                             song = song,
                             style = titleStyle,
                             color = contentColor,
-                            badgeColor = secondary,
+                            badgeColor = secondaryColor,
+                            badgeModifier = secondaryVibrancy,
                             fadeOverflow = true,
                         )
                         FadingLine(
                             text = song.artist,
                             style = artistStyle,
-                            color = secondary,
-                            modifier = Modifier.vibrancy(contentColor),
+                            color = secondaryColor,
+                            modifier = secondaryVibrancy,
                         )
                     }
                 }
                 if (isLoading) {
                     Box(Modifier.size(glyphSlot).glassToneArea(playTone), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(
-                            color = playColor,
+                            // Cut over rather than crossfaded: shown only for a moment.
+                            color = glassContentColor(playTone),
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(if (isInline) 18.dp else 20.dp),
                         )
@@ -493,7 +501,7 @@ private fun GlassNowPlaying(
                         },
                         modifier = Modifier.size(glyphSlot),
                     ) {
-                        Icon(
+                        TintedIcon(
                             imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
                             tint = playColor,
@@ -515,11 +523,13 @@ private fun GlassNowPlaying(
                         enabled = !controlsLocked,
                         modifier = Modifier.size(glyphSlot),
                     ) {
-                        Box(Modifier.glassToneArea(nextTone)) {
-                            MiniPlayerNextGlyph(
-                                tint = nextColor.copy(alpha = if (controlsLocked) 0.3f else 1f),
-                            )
-                        }
+                        MiniPlayerNextGlyph(
+                            tint = nextColor,
+                            // Dimmed while the controls are locked, and added onto the bar then.
+                            modifier = Modifier
+                                .glassToneArea(nextTone)
+                                .then(if (controlsLocked) Modifier.glassVibrancy(nextTone, themeContent) else Modifier),
+                        )
                     }
                 }
             }
@@ -555,6 +565,9 @@ private val ACCESSORY_TITLE_WEIGHT = FontWeight.W700
 private val ACCESSORY_TITLE_TRACKING = 0.15.sp
 private val ACCESSORY_ARTIST_SIZE = 12.sp
 private val ACCESSORY_ARTIST_TRACKING = 0.35.sp
+
+/** The artist line and the explicit badge, against the title. */
+private const val ACCESSORY_SECONDARY_ALPHA = 0.7f
 
 /** The accessory's artwork, about Apple's 30pt at both densities, and its corner. */
 private val ACCESSORY_ART_SIZE = 30.4.dp

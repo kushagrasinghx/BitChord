@@ -93,6 +93,12 @@ def analyze(report, details=False):
     for name in sorted({op["name"] for op in operations}):
         durations = [op["endNs"] - op["startNs"] for op in operations if op["name"] == name]
         print(f"  {name}: {len(durations)} calls; wall-time p95 {ms(percentile(durations, 0.95))} ms; max {ms(max(durations))} ms")
+    events = report.get("events", [])
+    seconds = (report.get("captureEndNs", 0) - report.get("captureStartNs", 0)) / 1e9
+    for name in sorted({event["name"] for event in events}):
+        count = sum(1 for event in events if event["name"] == name)
+        rate = f" ({count / seconds:.1f}/s)" if seconds > 0 else ""
+        print(f"  {name}: {count} events{rate}")
     if report.get("overflowFrames"):
         print(f"  BUFFER FULL: {report['overflowFrames']} additional frames omitted")
     if not frames:

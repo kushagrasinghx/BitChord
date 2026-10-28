@@ -727,6 +727,9 @@ internal fun PlayerActionRow(
  * the shape. It used to brighten the disc behind the same white glyph, which
  * on a pale sleeve washed the two together. Both discs are added plus-lighter,
  * at Apple's strengths, so they take the artwork's colour as its controls do.
+ *
+ * In a [GlassControlsRow] the faint disc is the player's glass instead, and
+ * the filled one is added over it.
  */
 @Composable
 internal fun CircleGlyph(
@@ -742,13 +745,22 @@ internal fun CircleGlyph(
         targetValue = if (active) 1f else 0f,
         label = "glyphFill",
     )
+    val glass = LocalGroupGlass.current
     Box(
         modifier = Modifier
             .size(34.dp)
+            .then(if (glass != null) with(glass) { Modifier.glassSurface(CircleShape) } else Modifier)
+            // After the glass: it draws its outline just outside its edge.
             .clip(CircleShape)
-            // Faded out by alpha rather than a layer's, so the disc stays added
-            // onto the artwork all the way through the turn.
-            .vibrantBackground(tint.copy(alpha = GLYPH_DISC_ALPHA * (1f - fill)))
+            .then(
+                if (glass != null) {
+                    Modifier
+                } else {
+                    // Faded out by alpha rather than a layer's, so the disc stays
+                    // added onto the artwork all the way through the turn.
+                    Modifier.vibrantBackground(tint.copy(alpha = GLYPH_DISC_ALPHA * (1f - fill)))
+                },
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

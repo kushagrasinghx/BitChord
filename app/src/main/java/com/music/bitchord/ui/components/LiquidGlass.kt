@@ -170,6 +170,8 @@ fun Modifier.liquidGlass(
     surfaceTint: Color? = null,
     /** The group's shared sample, for a surface that is one of a group — see [GlassStrip]. */
     strip: GlassStrip? = LocalGlassStrip.current,
+    /** Light glass's milky veil rather than dark glass's lift: the theme's, unless the surface is on one of its own. */
+    light: Boolean = MaterialTheme.colorScheme.surface.luminance() > 0.5f,
 ): Modifier {
     if (!isGlassSupported()) return this
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -189,7 +191,6 @@ fun Modifier.liquidGlass(
     val blurPx = with(density) { BLUR_RADIUS_DP.dp.toPx() } * GLASS_RESOLUTION_SCALE
     val lensHeightPx = with(density) { (LENS_HEIGHT * LENS_MAX_DP).dp.toPx() } * GLASS_RESOLUTION_SCALE
     val lensAmountPx = with(density) { (LENS_AMOUNT * LENS_MAX_DP).dp.toPx() } * GLASS_RESOLUTION_SCALE
-    val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
 
     // Every block handed on below is remembered. Built fresh on each pass, they
     // made the backdrop, shadow and rim elements compare unequal whenever the
@@ -286,11 +287,18 @@ private fun BackdropEffectScope.sampleEffects(blurPx: Float) {
  * would take for itself, taken once for all of them.
  */
 @Composable
-internal fun Modifier.liquidGlassStrip(strip: GlassStrip): Modifier {
+internal fun Modifier.liquidGlassStrip(
+    strip: GlassStrip,
+    /**
+     * What the strip samples: the page's shared sample when there is one — see
+     * [PageSample] — so a strip doesn't replay the page for itself. A group
+     * inside something that records its own background for its glass, as a
+     * screen or the player does, samples that instead: the page holds the
+     * group itself.
+     */
+    page: Backdrop = LocalPageSample.current.ifLive ?: LocalAppBackdrop.current,
+): Modifier {
     val blurPx = with(LocalDensity.current) { BLUR_RADIUS_DP.dp.toPx() } * GLASS_RESOLUTION_SCALE
     val effects: BackdropEffectScope.() -> Unit = remember(blurPx) { { sampleEffects(blurPx) } }
-    // From the page's shared sample when there is one — see [PageSample] — so
-    // a strip doesn't replay the page for itself.
-    val page = LocalPageSample.current.ifLive ?: LocalAppBackdrop.current
     return glassStripSource(strip, page, effects, GLASS_RESOLUTION_SCALE)
 }

@@ -25,6 +25,10 @@ import com.music.bitchord.ui.components.backdrop.backdrops.rememberLayerBackdrop
 import com.music.bitchord.ui.components.continuous
 import com.music.bitchord.ui.components.FadingText
 import com.music.bitchord.ui.components.liquidGlass
+import com.music.bitchord.ui.components.liquidGlassStrip
+import com.music.bitchord.ui.components.rememberGlassStrip
+import com.music.bitchord.ui.components.GlassStrip
+import com.music.bitchord.ui.components.LocalGlassStrip
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -1048,19 +1052,58 @@ private fun ReleaseHeader(
             // is willing to take the write — see [onToggleLibrary].
             val library = page.library?.takeIf { onToggleLibrary != null }
             Spacer(Modifier.height(18.dp))
-            Row(
-                modifier = Modifier
-                    .widthIn(max = RELEASE_ACTIONS_MAX_WIDTH)
-                    .fillMaxWidth()
-                    .padding(horizontal = HEADER_GUTTER),
-                horizontalArrangement = Arrangement.spacedBy(RELEASE_ACTION_GAP),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (page.browseId.startsWith("local:")) {
-                    // Already on this device — a folder, a download, a local
-                    // playlist — so there is no library to add it to, and a
-                    // greyed-out plus would only promise one. Apple Music's
-                    // own pair for that case: Play and Shuffle, side by side.
+            // One sample of the page for the row's glass buttons.
+            val strip = rememberPageGlassStrip()
+            CompositionLocalProvider(LocalGlassStrip provides strip) {
+                Row(
+                    modifier = Modifier
+                        .widthIn(max = RELEASE_ACTIONS_MAX_WIDTH)
+                        .fillMaxWidth()
+                        .padding(horizontal = HEADER_GUTTER)
+                        .pageGlassStrip(strip),
+                    horizontalArrangement = Arrangement.spacedBy(RELEASE_ACTION_GAP),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (page.browseId.startsWith("local:")) {
+                        // Already on this device — a folder, a download, a local
+                        // playlist — so there is no library to add it to, and a
+                        // greyed-out plus would only promise one. Apple Music's
+                        // own pair for that case: Play and Shuffle, side by side.
+                        ActionPill(
+                            icon = BitChordIcons.Play,
+                            label = stringResource(R.string.play),
+                            onClick = onPlay,
+                            filled = true,
+                            size = RELEASE_SIDE_BUTTON,
+                            modifier = Modifier.weight(1f),
+                        )
+                        ActionPill(
+                            icon = BitChordIcons.Shuffle,
+                            label = stringResource(R.string.shuffle),
+                            onClick = onShuffle,
+                            filled = false,
+                            size = RELEASE_SIDE_BUTTON,
+                            modifier = Modifier.weight(1f),
+                        )
+                        // The song cache's copies, saved to Downloads in one go —
+                        // from disk, so it works offline. See [LocalFolder.onDownload].
+                        onDownloadAll?.let {
+                            CircleIconButton(
+                                icon = Icons.Rounded.Download,
+                                contentDescription = stringResource(R.string.download_all),
+                                onClick = it,
+                                size = RELEASE_SIDE_BUTTON,
+                            )
+                        }
+                        return@Row
+                    }
+                    CircleIconButton(
+                        icon = BitChordIcons.Shuffle,
+                        contentDescription = stringResource(R.string.shuffle),
+                        onClick = onShuffle,
+                        haptic = Haptic.Resume,
+                        size = RELEASE_SIDE_BUTTON,
+                    )
                     ActionPill(
                         icon = BitChordIcons.Play,
                         label = stringResource(R.string.play),
@@ -1069,65 +1112,31 @@ private fun ReleaseHeader(
                         size = RELEASE_SIDE_BUTTON,
                         modifier = Modifier.weight(1f),
                     )
-                    ActionPill(
-                        icon = BitChordIcons.Shuffle,
-                        label = stringResource(R.string.shuffle),
-                        onClick = onShuffle,
-                        filled = false,
-                        size = RELEASE_SIDE_BUTTON,
-                        modifier = Modifier.weight(1f),
-                    )
-                    // The song cache's copies, saved to Downloads in one go —
-                    // from disk, so it works offline. See [LocalFolder.onDownload].
-                    onDownloadAll?.let {
+                    if (library != null) {
                         CircleIconButton(
-                            icon = Icons.Rounded.Download,
-                            contentDescription = stringResource(R.string.download_all),
-                            onClick = it,
+                            // A tick, not a filled-in plus: the pair reads as
+                            // "not yet / done", which is what the state is.
+                            icon = if (library.saved) BitChordIcons.Check else BitChordIcons.Plus,
+                            contentDescription = if (library.saved) {
+                                stringResource(R.string.remove_from_library)
+                            } else {
+                                stringResource(R.string.add_to_library)
+                            },
+                            onClick = { onToggleLibrary?.invoke() },
+                            haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
                             size = RELEASE_SIDE_BUTTON,
                         )
+                    } else {
+                        // Shown but greyed out for a guest, rather than leaving a
+                        // hole beside Play.
+                        CircleIconButton(
+                            icon = BitChordIcons.Plus,
+                            contentDescription = stringResource(R.string.add_to_library),
+                            onClick = {},
+                            size = RELEASE_SIDE_BUTTON,
+                            enabled = false,
+                        )
                     }
-                    return@Row
-                }
-                CircleIconButton(
-                    icon = BitChordIcons.Shuffle,
-                    contentDescription = stringResource(R.string.shuffle),
-                    onClick = onShuffle,
-                    haptic = Haptic.Resume,
-                    size = RELEASE_SIDE_BUTTON,
-                )
-                ActionPill(
-                    icon = BitChordIcons.Play,
-                    label = stringResource(R.string.play),
-                    onClick = onPlay,
-                    filled = true,
-                    size = RELEASE_SIDE_BUTTON,
-                    modifier = Modifier.weight(1f),
-                )
-                if (library != null) {
-                    CircleIconButton(
-                        // A tick, not a filled-in plus: the pair reads as
-                        // "not yet / done", which is what the state is.
-                        icon = if (library.saved) BitChordIcons.Check else BitChordIcons.Plus,
-                        contentDescription = if (library.saved) {
-                            stringResource(R.string.remove_from_library)
-                        } else {
-                            stringResource(R.string.add_to_library)
-                        },
-                        onClick = { onToggleLibrary?.invoke() },
-                        haptic = if (library.saved) Haptic.ToggleOff else Haptic.ToggleOn,
-                        size = RELEASE_SIDE_BUTTON,
-                    )
-                } else {
-                    // Shown but greyed out for a guest, rather than leaving a
-                    // hole beside Play.
-                    CircleIconButton(
-                        icon = BitChordIcons.Plus,
-                        contentDescription = stringResource(R.string.add_to_library),
-                        onClick = {},
-                        size = RELEASE_SIDE_BUTTON,
-                        enabled = false,
-                    )
                 }
             }
         }
@@ -1558,46 +1567,51 @@ private fun ActionRow(
     /** Apple's fill for the Play circle; null leaves it white. */
     playColor: Color? = null,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = HEADER_GUTTER),
-        horizontalArrangement = Arrangement.spacedBy(ARTIST_ACTION_GAP, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        CircleIconButton(
-            icon = BitChordIcons.Shuffle,
-            contentDescription = stringResource(R.string.shuffle),
-            onClick = onShuffle,
-            haptic = Haptic.Resume,
-            size = ARTIST_SIDE_BUTTON,
-        )
-
-        PlayCircle(
-            onClick = onPlay,
-            size = ARTIST_PLAY_BUTTON,
-            iconScale = ARTIST_PLAY_ICON_SCALE,
-            containerColor = playColor ?: Color.White,
-        )
-
-        if (subscription != null) {
+    // One sample of the page for the glass circles either side of Play.
+    val strip = rememberPageGlassStrip()
+    CompositionLocalProvider(LocalGlassStrip provides strip) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = HEADER_GUTTER)
+                .pageGlassStrip(strip),
+            horizontalArrangement = Arrangement.spacedBy(ARTIST_ACTION_GAP, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             CircleIconButton(
-                icon = if (subscription.subscribed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                contentDescription = stringResource(
-                    if (subscription.subscribed) R.string.unsubscribe else R.string.subscribe,
-                ),
-                onClick = { onToggleSubscription?.invoke() },
-                haptic = if (subscription.subscribed) Haptic.ToggleOff else Haptic.ToggleOn,
+                icon = BitChordIcons.Shuffle,
+                contentDescription = stringResource(R.string.shuffle),
+                onClick = onShuffle,
+                haptic = Haptic.Resume,
                 size = ARTIST_SIDE_BUTTON,
             )
-        } else {
-            CircleIconButton(
-                icon = Icons.Rounded.StarBorder,
-                contentDescription = stringResource(R.string.subscribe),
-                onClick = {},
-                size = ARTIST_SIDE_BUTTON,
-                enabled = false,
+
+            PlayCircle(
+                onClick = onPlay,
+                size = ARTIST_PLAY_BUTTON,
+                iconScale = ARTIST_PLAY_ICON_SCALE,
+                containerColor = playColor ?: Color.White,
             )
+
+            if (subscription != null) {
+                CircleIconButton(
+                    icon = if (subscription.subscribed) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+                    contentDescription = stringResource(
+                        if (subscription.subscribed) R.string.unsubscribe else R.string.subscribe,
+                    ),
+                    onClick = { onToggleSubscription?.invoke() },
+                    haptic = if (subscription.subscribed) Haptic.ToggleOff else Haptic.ToggleOn,
+                    size = ARTIST_SIDE_BUTTON,
+                )
+            } else {
+                CircleIconButton(
+                    icon = Icons.Rounded.StarBorder,
+                    contentDescription = stringResource(R.string.subscribe),
+                    onClick = {},
+                    size = ARTIST_SIDE_BUTTON,
+                    enabled = false,
+                )
+            }
         }
     }
     Spacer(Modifier.height(bottomSpace))
@@ -1759,32 +1773,37 @@ private fun ArtistStatsRow(
     monthlyListenerCount: String?,
     palette: ArtworkPalette,
 ) {
+    // One sample of the page for both chips.
+    val strip = rememberPageGlassStrip()
     // Stacked and left-aligned with the text under it, since this now sits in
     // the About section rather than across the header.
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = ARTIST_CONTENT_GUTTER, end = ARTIST_CONTENT_GUTTER, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalAlignment = Alignment.Start,
-    ) {
-        // YouTube's own count text already reads "1.2M subscribers" in full,
-        // so only the number is kept and the label re-said in the app's own
-        // words — the one way to fit both stats on one line on a narrow
-        // screen without either wrapping into two.
-        subscriberCountText?.let {
-            StatChip(
-                icon = Icons.Rounded.Person,
-                text = stringResource(R.string.subscribers, it.substringBefore(' ')),
-                palette = palette,
-            )
-        }
-        monthlyListenerCount?.let {
-            StatChip(
-                icon = Icons.Rounded.GraphicEq,
-                text = stringResource(R.string.monthly_listeners, it.substringBefore(' ')),
-                palette = palette,
-            )
+    CompositionLocalProvider(LocalGlassStrip provides strip) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = ARTIST_CONTENT_GUTTER, end = ARTIST_CONTENT_GUTTER, bottom = 12.dp)
+                .pageGlassStrip(strip),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.Start,
+        ) {
+            // YouTube's own count text already reads "1.2M subscribers" in full,
+            // so only the number is kept and the label re-said in the app's own
+            // words — the one way to fit both stats on one line on a narrow
+            // screen without either wrapping into two.
+            subscriberCountText?.let {
+                StatChip(
+                    icon = Icons.Rounded.Person,
+                    text = stringResource(R.string.subscribers, it.substringBefore(' ')),
+                    palette = palette,
+                )
+            }
+            monthlyListenerCount?.let {
+                StatChip(
+                    icon = Icons.Rounded.GraphicEq,
+                    text = stringResource(R.string.monthly_listeners, it.substringBefore(' ')),
+                    palette = palette,
+                )
+            }
         }
     }
 }
@@ -2169,9 +2188,10 @@ private fun ShelfItem.recentLabel(): Int {
  *
  * Proportioned off Apple Music's: a 24pt continuous corner, a 96pt sleeve 12pt
  * in from the edge, the text 12pt after it, and a 32pt add button 19pt in
- * from the end. The panel is Apple's own surface, a plus-lighter veil with a
- * light hairline — tried in the page's glass, it pulled the eye — and the add
- * button, being a button, is the page's glass (see [detailGlass]).
+ * from the end. The panel and its add button are the page's glass while the
+ * page is sampled for it (see [pageSamplesGlass]), the two sharing one sample
+ * of it (see [GlassStrip]); otherwise Apple's own surface, a plus-lighter veil
+ * with a light hairline.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -2185,18 +2205,31 @@ private fun TopReleaseCard(
     /** Null hides the button. */
     onToggleSaved: (() -> Unit)?,
 ) {
-    val shape = remember { RoundedCornerShape(TOP_RELEASE_CORNER).continuous() }
+    // The glass takes the plain corner and draws it continuous itself.
+    val panelShape = remember { RoundedCornerShape(TOP_RELEASE_CORNER) }
+    val shape = remember { panelShape.continuous() }
     // Concentric with the panel: its corner less the inset the sleeve sits at.
     val coverShape = remember { RoundedCornerShape(TOP_RELEASE_CORNER - TOP_RELEASE_INSET).continuous() }
     val haptics = rememberHaptics()
     val hasButton = onToggleSaved != null && saved != null
+    // Taken once for the panel and the button on it, which each only bend
+    // their own piece of it.
+    val strip = rememberPageGlassStrip()
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = ARTIST_CONTENT_GUTTER)
             .padding(bottom = 22.dp)
-            .vibrantBackground(Color.White.copy(alpha = LIGHT_FILL_ALPHA), shape)
-            .lightReleaseEdge(shape)
+            .then(
+                if (strip != null) {
+                    Modifier.pageGlassStrip(strip).liquidGlass(panelShape, strip = strip)
+                } else {
+                    Modifier
+                        .vibrantBackground(Color.White.copy(alpha = LIGHT_FILL_ALPHA), shape)
+                        .lightReleaseEdge(shape)
+                },
+            )
+            // After the surface: glass draws its outline just outside its edge.
             .clip(shape)
             .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(
@@ -2254,7 +2287,7 @@ private fun TopReleaseCard(
             Box(
                 modifier = Modifier
                     .size(32.dp)
-                    .detailGlass(CircleShape)
+                    .detailGlass(CircleShape, strip)
                     // After the surface: glass draws its outline just outside its edge.
                     .clip(CircleShape)
                     .clickable {
@@ -2315,12 +2348,34 @@ private fun pageSamplesGlass(): Boolean {
  * lifted, with the same rim — and in the light veil and hairline otherwise.
  */
 @Composable
-private fun Modifier.detailGlass(shape: CornerBasedShape): Modifier =
+private fun Modifier.detailGlass(
+    shape: CornerBasedShape,
+    /** The sample of the page the control's group shares — see [rememberPageGlassStrip]. */
+    strip: GlassStrip? = LocalGlassStrip.current,
+): Modifier =
     if (pageSamplesGlass()) {
-        liquidGlass(shape)
+        liquidGlass(shape, strip = strip)
     } else {
         vibrantBackground(Color.White.copy(alpha = LIGHT_FILL_ALPHA), shape).lightReleaseEdge(shape)
     }
+
+/**
+ * One sample of the page for a group of its glass controls, taken over the
+ * group's container by [pageGlassStrip] and read by each control in it —
+ * see [GlassStrip] — or null while the page is not sampled for glass. Each
+ * control used to sample, saturate and blur the page for itself.
+ */
+@Composable
+private fun rememberPageGlassStrip(): GlassStrip? = if (pageSamplesGlass()) rememberGlassStrip() else null
+
+/**
+ * Takes [strip]'s sample over this: the page's own background, which
+ * [LocalAppBackdrop] is here, rather than the app's sample of the page,
+ * which holds the group itself.
+ */
+@Composable
+private fun Modifier.pageGlassStrip(strip: GlassStrip?): Modifier =
+    if (strip != null) liquidGlassStrip(strip, page = LocalAppBackdrop.current) else this
 
 /**
  * Foreground tint for a [detailGlass] control, matched to the glass theme.

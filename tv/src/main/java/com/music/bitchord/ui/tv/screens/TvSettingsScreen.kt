@@ -82,6 +82,7 @@ fun TvSettingsScreen(
     val spatial by TvSettings.spatialAudioEnabled.collectAsState()
     val loudness by AppSettings.loudnessNormalization.collectAsState()
     val usbDac by AppSettings.preferUsbDac.collectAsState()
+    val passthrough by AppSettings.audioPassthrough.collectAsState()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsState()
     val lyricsSources by AppSettings.lyricsSources.collectAsState()
     val canvas by AppSettings.animatedCanvas.collectAsState()
@@ -233,6 +234,14 @@ fun TvSettingsScreen(
                     value = onOff(usbDac),
                     onFocused = { blurb = "Sends audio straight to a connected USB DAC, unchanged, when one is attached." },
                     onClick = { AppSettings.setPreferUsbDac(!usbDac) },
+                )
+            }
+            item {
+                TvListRow(
+                    title = "Audio Passthrough",
+                    value = onOff(passthrough),
+                    onFocused = { blurb = "Sends Dolby Atmos bitstream and bit-perfect Hi-Res PCM (up to 24/192) directly to HDMI/Optical AVR or soundbar, bypassing Android OS resampling." },
+                    onClick = { AppSettings.setAudioPassthrough(!passthrough) },
                 )
             }
 

@@ -240,13 +240,21 @@ class PrecisionAudioSink(
         targetOutputEncoding = null
         configuredSampleRate = 0
         if (isAudible()) {
+            val isPassthrough = com.music.bitchord.data.settings.AppSettings.audioPassthrough.value
+            val isLinear = Util.isEncodingLinearPcm(format.pcmEncoding)
+            val exact = isPassthrough || isLinear
+            val detail = when {
+                isPassthrough && !isLinear -> "Bitstream Passthrough: ${format.sampleMimeType ?: "Compressed"}"
+                isPassthrough && isLinear -> "Direct Bit-Perfect PCM: ${format.sampleRate}Hz"
+                else -> "${encodingLabel(format.pcmEncoding)} is not linear PCM"
+            }
             AudioOutputStatus.publishOutputExactness(
-                exact = false,
-                detail = "${encodingLabel(format.pcmEncoding)} is not linear PCM",
+                exact = exact,
+                detail = detail,
             )
             AudioOutputStatus.publishDsp(
                 decoderOutputEncoding = null,
-                dspFormat = "Legacy PCM",
+                dspFormat = if (isPassthrough) "Direct Passthrough (Bypass DSP)" else "Legacy PCM",
                 dspAvailable = false,
             )
         }
@@ -575,6 +583,10 @@ class PrecisionAudioSink(
     }
 
     private fun shouldActivatePrecision(format: Format): Boolean {
+        if (com.music.bitchord.data.settings.AppSettings.audioPassthrough.value && format.sampleRate > 48000) {
+            // Direct bit-perfect PCM passthrough: bypass DSP pipeline so AudioTrack gets pure high-res PCM
+            return false
+        }
         val sampleMimeType = format.sampleMimeType
         if (sampleMimeType != null && sampleMimeType != MimeTypes.AUDIO_RAW) return false
         if (!Util.isEncodingLinearPcm(format.pcmEncoding)) return false

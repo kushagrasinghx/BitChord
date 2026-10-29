@@ -6313,7 +6313,13 @@ class PlaybackService : MediaLibraryService() {
             enableFloatOutput: Boolean,
             enableAudioTrackPlaybackParams: Boolean,
         ): AudioSink {
+            val capabilities = if (AppSettings.audioPassthrough.value) {
+                androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context)
+            } else {
+                androidx.media3.exoplayer.audio.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES
+            }
             val defaultSink = DefaultAudioSink.Builder(context)
+                .setAudioCapabilities(capabilities)
                 .setEnableFloatOutput(enableFloatOutput)
                 // Speed handled by the AudioTrack itself on a float-capable
                 // route, rather than by Sonic. `DefaultAudioSink.configure`
@@ -6540,7 +6546,7 @@ class PlaybackService : MediaLibraryService() {
             deviceName = activeDevice?.productName?.toString()?.ifBlank { null } ?: "System default",
             advertisedEncodings = advertisedEncodings,
             advertisedSampleRates = advertisedSampleRates,
-            requestedMode = AppSettings.outputPcmMode.value,
+            requestedMode = if (AppSettings.audioPassthrough.value) OutputPcmMode.FLOAT_32 else AppSettings.outputPcmMode.value,
             directUsbProbe = directUsbProbe,
             directSupport = directSupport,
             bluetoothTelemetry = btTelemetry,
@@ -6719,6 +6725,9 @@ class PlaybackService : MediaLibraryService() {
         }
         scope.launch {
             AppSettings.outputPcmMode.drop(1).collect { requestOutputReconfiguration() }
+        }
+        scope.launch {
+            AppSettings.audioPassthrough.drop(1).collect { requestOutputReconfiguration() }
         }
         scope.launch {
             // Not applied to a player mid-transition: [CrossfadeController]

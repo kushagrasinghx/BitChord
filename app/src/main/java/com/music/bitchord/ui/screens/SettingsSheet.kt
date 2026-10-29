@@ -230,6 +230,7 @@ fun SettingsScreen(
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
     val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
+    val audioPassthrough by AppSettings.audioPassthrough.collectAsStateWithLifecycle()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
     val loudnessOffOnSpeaker by AppSettings.loudnessOffOnSpeaker.collectAsStateWithLifecycle()
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
@@ -624,6 +625,15 @@ fun SettingsScreen(
                     checked = preferUsbDac,
                     onCheckedChange = AppSettings::setPreferUsbDac,
                     badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
+                )
+            }
+            val passthroughTitle = "Audio Passthrough (Bit-Perfect)"
+            row(passthroughTitle, "passthrough", "bitperfect", "bit-perfect", "dac", "usb", "direct", "hdmi") {
+                SettingsSubRow(
+                    title = passthroughTitle,
+                    checked = audioPassthrough,
+                    onCheckedChange = AppSettings::setAudioPassthrough,
+                    subtitle = "Bypasses system resampler and DSP for direct bit-perfect high-res PCM (>48kHz) and bitstreams to USB DAC or HDMI",
                 )
             }
             val loudnessTitle = stringResource(R.string.loudness_normalization)

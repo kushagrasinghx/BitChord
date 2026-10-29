@@ -195,6 +195,14 @@ fun TvSettingsScreen(
             item { TvListHeader("Sound") }
             item {
                 TvListRow(
+                    title = "Audio Passthrough",
+                    value = onOff(passthrough),
+                    onFocused = { blurb = "Sends Dolby Atmos bitstream and bit-perfect Hi-Res PCM (up to 24/192) directly to HDMI/Optical AVR or soundbar, bypassing Android OS resampling." },
+                    onClick = { AppSettings.setAudioPassthrough(!passthrough) },
+                )
+            }
+            item {
+                TvListRow(
                     title = "Dolby Atmos",
                     value = onOff(dolbyAtmos),
                     onFocused = { blurb = "Plays Dolby Atmos (E-AC-3 JOC) immersive audio when available, followed by Hi-Res Lossless." },
@@ -234,14 +242,6 @@ fun TvSettingsScreen(
                     value = onOff(usbDac),
                     onFocused = { blurb = "Sends audio straight to a connected USB DAC, unchanged, when one is attached." },
                     onClick = { AppSettings.setPreferUsbDac(!usbDac) },
-                )
-            }
-            item {
-                TvListRow(
-                    title = "Audio Passthrough",
-                    value = onOff(passthrough),
-                    onFocused = { blurb = "Sends Dolby Atmos bitstream and bit-perfect Hi-Res PCM (up to 24/192) directly to HDMI/Optical AVR or soundbar, bypassing Android OS resampling." },
-                    onClick = { AppSettings.setAudioPassthrough(!passthrough) },
                 )
             }
 

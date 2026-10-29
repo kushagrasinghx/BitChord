@@ -12,10 +12,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -941,26 +944,95 @@ fun TvTextField(
     imeAction: androidx.compose.ui.text.input.ImeAction = androidx.compose.ui.text.input.ImeAction.Done,
     capitalization: androidx.compose.ui.text.input.KeyboardCapitalization =
         androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+    visualTransformation: androidx.compose.ui.text.input.VisualTransformation =
+        androidx.compose.ui.text.input.VisualTransformation.None,
     onImeAction: () -> Unit = {},
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
+    var isEditing by remember { mutableStateOf(false) }
     val textColor = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
+    val focusRequester = remember { FocusRequester() }
+    val view = androidx.compose.ui.platform.LocalView.current
+
+    LaunchedEffect(focused) {
+        if (!focused) {
+            isEditing = false
+            keyboardController?.hide()
+        }
+    }
+
+    LaunchedEffect(isEditing) {
+        if (isEditing) {
+            runCatching { focusRequester.requestFocus() }
+            keyboardController?.show()
+            val imm = view.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            imm?.showSoftInput(view, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+            kotlinx.coroutines.delay(50)
+            keyboardController?.show()
+            imm?.showSoftInput(view, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        } else {
+            keyboardController?.hide()
+        }
+    }
+
     androidx.compose.foundation.text.BasicTextField(
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
+        readOnly = !isEditing,
         interactionSource = interaction,
+        visualTransformation = visualTransformation,
         textStyle = TvType.Body.copy(fontSize = 14.sp, color = textColor),
-        cursorBrush = androidx.compose.ui.graphics.SolidColor(textColor),
+        cursorBrush = if (isEditing) androidx.compose.ui.graphics.SolidColor(textColor) else androidx.compose.ui.graphics.SolidColor(androidx.compose.ui.graphics.Color.Transparent),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
             capitalization = capitalization,
             autoCorrectEnabled = false,
             imeAction = imeAction,
         ),
-        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onAny = { onImeAction() }),
+        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+            onNext = {
+                isEditing = false
+                keyboardController?.hide()
+                onImeAction()
+            },
+            onDone = {
+                isEditing = false
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                onImeAction()
+            },
+            onSearch = {
+                isEditing = false
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                onImeAction()
+            },
+            onGo = {
+                isEditing = false
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                onImeAction()
+            },
+            onSend = {
+                isEditing = false
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                onImeAction()
+            },
+        ),
         modifier = modifier
+            .focusRequester(focusRequester)
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    if (!isEditing) {
+                        isEditing = true
+                    }
+                }
+            }
             // One line, so Up and Down have nothing to do inside the field: they
             // always move focus. Compose only lets them out for key events from a
             // D-pad device; a keyboard's arrows (BlueStacks, a USB keyboard, some
@@ -968,11 +1040,35 @@ fun TvTextField(
             .onPreviewKeyEvent { event ->
                 if (event.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.nativeKeyEvent.keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_CENTER,
+                    android.view.KeyEvent.KEYCODE_ENTER,
+                    android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                        if (!isEditing) {
+                            isEditing = true
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                        isEditing = false
+                        keyboardController?.hide()
                         focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up); true
                     }
                     android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        isEditing = false
+                        keyboardController?.hide()
                         focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down); true
+                    }
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        if (isEditing) {
+                            isEditing = false
+                            keyboardController?.hide()
+                            true
+                        } else {
+                            keyboardController?.hide()
+                            false
+                        }
                     }
                     else -> false
                 }

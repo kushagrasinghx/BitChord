@@ -24,13 +24,11 @@ object AndroidStreamHooks {
     fun installEarly() {
         MonotonicClock.nowMs = SystemClock::elapsedRealtime
         TrackLog.echo = { level, tag, message, error ->
-            if (BuildConfig.DEBUG) {
-                when (level) {
-                    'D' -> Log.d(tag, message, error)
-                    'I' -> Log.i(tag, message, error)
-                    'W' -> Log.w(tag, message, error)
-                    else -> Log.e(tag, message, error)
-                }
+            when (level) {
+                'D' -> Log.d(tag, message, error)
+                'I' -> Log.i(tag, message, error)
+                'W' -> Log.w(tag, message, error)
+                else -> Log.e(tag, message, error)
             }
         }
         TrackLog.sourcesLine = {

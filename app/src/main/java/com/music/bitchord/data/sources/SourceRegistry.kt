@@ -15,6 +15,14 @@ import com.music.bitchord.data.sources.addon.SourceFormats
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.playback.audio.LosslessOutput
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.music.bitchord.data.Http
+import okhttp3.Request
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -52,9 +60,12 @@ data class SourceConfig(
      */
     val checkValidLossless: Boolean = false,
 ) {
-    /** Whether this source is shut out right now because it needs an output that isn't connected. */
+    /**
+     * Whether this source is shut out right now because it needs an output that isn't connected.
+     * Always false so lossless streaming is never gated on hardware DAC detection.
+     */
     val awaitsLosslessOutput: Boolean
-        get() = checkValidLossless && !LosslessOutput.capable
+        get() = false
 
     /** The two manifest switches, without the parts of the config the user set. */
     internal fun withPolicyOf(other: SourceConfig) =
@@ -85,6 +96,14 @@ data class SourceConfig(
  * is present but off until the user accepts its catalogue-matching risk.
  */
 object SourceRegistry {
+    data class AddonHealthInfo(
+        val configId: String,
+        val online: Boolean,
+        val latencyMs: Long,
+        val qualityLabel: String = "Lossless",
+        val qualityRank: Int = 2,
+        val statusText: String,
+    )
 
     private const val TAG = "BitChord"
 
@@ -140,8 +159,27 @@ object SourceRegistry {
         // Seeded rather than persisted-on-first-write, so a build adding a new
         // built-in kind picks it up for existing installs too. SourceConfig's
         // default is the policy: JioSaavn off, YouTube on.
-        val seeded = stored + BUILT_IN_KINDS
-            .filter { kind -> stored.none { it.kind == kind } }
+        val updatedStored = stored.map { s ->
+            val match = PREBAKED_SOURCES.firstOrNull { it.id == s.id }
+                ?: if (s.baseUrl.contains("eljohnzcaddon.velixir.run") || s.baseUrl.contains("eljohnzc-addon")) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "eljohnzc.addon.music" }
+                } else if (s.baseUrl.contains("bitchord-hires")) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "dev.akira.bitchord-hires" }
+                } else if (s.baseUrl.contains("eljohnzc-mono")) {
+                    PREBAKED_SOURCES.firstOrNull { it.id == "eljohnzc.addon.mono" }
+                } else null
+
+            if (match != null && (match.baseUrl != s.baseUrl || match.label != s.label)) {
+                s.copy(baseUrl = match.baseUrl, label = match.label)
+            } else {
+                s
+            }
+        }
+        val withPrebaked = PREBAKED_SOURCES.filter { pre -> updatedStored.none { it.id == pre.id || it.baseUrl == pre.baseUrl } } + updatedStored
+        val prebakedOrder = PREBAKED_SOURCES.map { it.id }.withIndex().associate { it.value to it.index }
+        val prioritized = withPrebaked.sortedBy { prebakedOrder[it.id] ?: (100 + it.kind.ordinal) }
+        val seeded = prioritized + BUILT_IN_KINDS
+            .filter { kind -> prioritized.none { it.kind == kind } }
             .map { SourceConfig(kind = it) }
 
         // The retired built-in module is removed, while a custom module entered
@@ -152,6 +190,7 @@ object SourceRegistry {
                 when {
                     config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
                     config.kind == SourceKind.JIOSAAVN && forceJioSaavnOff -> config.copy(enabled = false)
+                    PREBAKED_SOURCES.any { it.id == config.id } -> config.copy(enabled = true)
                     else -> config
                 }
             }
@@ -500,6 +539,204 @@ object SourceRegistry {
             .appendQueryParameter("t", trackId)
             .build()
             .toString()
+
+    val PREBAKED_SOURCES = listOf(
+        SourceConfig(
+            id = "dev.akira.bitchord-hires",
+            kind = SourceKind.ADDON,
+            label = "BitChord Hi-Res (Hi-Res & Lossless)",
+            baseUrl = "https://bitchord-hires-addon.vercel.app/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "eljohnzc.addon.mono",
+            kind = SourceKind.ADDON,
+            label = "Eljohnzc Monochrome (24-bit Lossless)",
+            baseUrl = "https://eljohnzc-mono.de.deplexo.com/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "eljohnzc.addon.music",
+            kind = SourceKind.ADDON,
+            label = "Eljohnzc Addon (Hi-Res & Lossless, High, Low)",
+            baseUrl = "https://eljohnzc-addon.de.deplexo.com/c57e7b0ef2031b2f1fcd/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "app.bitchord.lastbabe",
+            kind = SourceKind.ADDON,
+            label = "Last Babe 💕 (Lossless FLAC)",
+            baseUrl = "https://lastbabe.velixir.run/e/1793086716/56ab9b9f20a6a8f7cd1cddd6cad00572/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "com.8spine.tidal-deezer",
+            kind = SourceKind.ADDON,
+            label = "BluBit Station Hi-Fi",
+            baseUrl = "https://bluebit.jucepe0929.workers.dev/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "gg.gglos.addon",
+            kind = SourceKind.ADDON,
+            label = "GGLOS (Lossless & Atmos)",
+            baseUrl = "https://gglos.geisselgottes.cfd/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "app.bitchord.lossless-bridge",
+            kind = SourceKind.ADDON,
+            label = "Lossless Bridge",
+            baseUrl = "https://losslessbridge.de.deplexo.com/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "qobuz-addon",
+            kind = SourceKind.ADDON,
+            label = "Qobuz",
+            baseUrl = "https://qobuz-addon.vercel.app/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "deezer.nom.user",
+            kind = SourceKind.ADDON,
+            label = "Deezer ARL",
+            baseUrl = "https://deezer.nom.deno.net/u/2cdc77d5a051ca15",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "deezer.nom",
+            kind = SourceKind.ADDON,
+            label = "Deezer",
+            baseUrl = "https://deezer.nom.deno.net/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "gglos.ggottes",
+            kind = SourceKind.ADDON,
+            label = "GGLOS (Backup)",
+            baseUrl = "https://gglos.ggottes.deno.net/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "gglos.ggottes.s1",
+            kind = SourceKind.ADDON,
+            label = "GGLOS S1",
+            baseUrl = "https://gglos.ggottes.deno.net/s1/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "gglos.ggottes.s2",
+            kind = SourceKind.ADDON,
+            label = "GGLOS S2",
+            baseUrl = "https://gglos.ggottes.deno.net/s2/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+    )
+
+    suspend fun checkAddonsHealth(): Map<String, AddonHealthInfo> = withContext(Dispatchers.IO) {
+        val addons = configs.value.filter { it.kind == SourceKind.ADDON && it.baseUrl.isNotBlank() }
+        val results = ConcurrentHashMap<String, AddonHealthInfo>()
+        val probeClient = Http.client.newBuilder()
+            .connectTimeout(7, TimeUnit.SECONDS)
+            .readTimeout(7, TimeUnit.SECONDS)
+            .callTimeout(7, TimeUnit.SECONDS)
+            .build()
+
+        coroutineScope {
+            addons.forEach { addon ->
+                launch {
+                    val url = if (addon.baseUrl.endsWith(".json", ignoreCase = true)) addon.baseUrl else addon.baseUrl.trimEnd('/') + "/manifest.json"
+                    val start = System.currentTimeMillis()
+                    val info = try {
+                        val req = Request.Builder()
+                            .url(url)
+                            .header("User-Agent", "BitChord/v1.8.1")
+                            .get()
+                            .build()
+                        val resp = probeClient.newCall(req).execute()
+                        val elapsed = System.currentTimeMillis() - start
+                        val code = resp.code
+                        val body = resp.body?.string().orEmpty().trim()
+                        resp.close()
+                        if (code == 200 && (body.startsWith("{") || body.startsWith("["))) {
+                            val lower = body.lowercase()
+                            val isAtmos = lower.contains("atmos") || lower.contains("eac3") || lower.contains("spatial")
+                            val isHiRes = lower.contains("hires") || lower.contains("hi-res") || lower.contains("24-bit") || lower.contains("master")
+                            val isLossless = lower.contains("lossless") || lower.contains("flac")
+                            val (qLabel, qRank) = when {
+                                isAtmos -> "Atmos / Hi-Res" to 4
+                                isHiRes -> "Hi-Res FLAC" to 3
+                                isLossless -> "Lossless FLAC" to 2
+                                else -> "High (320k)" to 1
+                            }
+                            AddonHealthInfo(
+                                configId = addon.id,
+                                online = true,
+                                latencyMs = elapsed,
+                                qualityLabel = qLabel,
+                                qualityRank = qRank,
+                                statusText = "$qLabel • ${elapsed} ms",
+                            )
+                        } else {
+                            AddonHealthInfo(addon.id, false, 99999L, "Offline", 0, "HTTP $code")
+                        }
+                    } catch (e: Exception) {
+                        val msg = if (e is java.net.SocketTimeoutException) "Timeout" else "Offline"
+                        AddonHealthInfo(addon.id, false, 99999L, "Offline", 0, msg)
+                    }
+                    results[addon.id] = info
+                }
+            }
+        }
+        results
+    }
+
+    fun autoSortByLatency(healthMap: Map<String, AddonHealthInfo>) {
+        val addons = configs.value.filter { it.kind.isUserAdded }
+        if (addons.size < 2) return
+        val sorted = addons.sortedWith(
+            compareBy<SourceConfig> { config ->
+                val h = healthMap[config.id]
+                if (h != null && h.online) 0 else 1
+            }.thenByDescending { config ->
+                healthMap[config.id]?.qualityRank ?: 0
+            }.thenBy { config ->
+                healthMap[config.id]?.latencyMs ?: 99999L
+            }
+        )
+        publish(sorted + configs.value.filterNot { it.kind.isUserAdded })
+    }
+
+    fun resetToPrebaked() {
+        publish(PREBAKED_SOURCES + BUILT_IN_KINDS.map { SourceConfig(kind = it) })
+    }
 
     private val BUILT_IN_KINDS = listOf(SourceKind.JIOSAAVN, SourceKind.YOUTUBE)
 

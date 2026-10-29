@@ -214,10 +214,10 @@ class AddonClient(rawBaseUrl: String) {
                 .mapNotNull { it.stringValue }
             params[QUALITY_KEY] = matchTier(tier, options) ?: tier
         }
-        if (stereoOnly) {
-            // Asked for the stereo mix by name, so nothing that lets the addon
-            // swap in an immersive one: no hint, and a declared `atmos`
-            // setting pinned to its "off" value rather than its default.
+        val hint = atmosHint()
+        if (stereoOnly || hint == null) {
+            // Asked for the stereo mix by name or Atmos disabled in settings:
+            // pin `atmos` setting to its off value rather than auto/immersive.
             val atmosSetting = declared.firstOrNull { it.key == ATMOS_KEY }
             if (atmosSetting == null) {
                 params.remove(ATMOS_KEY)
@@ -228,7 +228,7 @@ class AddonClient(rawBaseUrl: String) {
                     ?: ATMOS_NEVER
             }
         } else {
-            atmosHint()?.let { params.putIfAbsent(ATMOS_KEY, it) }
+            params.putIfAbsent(ATMOS_KEY, hint)
         }
         return params
     }

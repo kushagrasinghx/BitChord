@@ -84,6 +84,7 @@ import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlaybackPosition
 import com.music.bitchord.sharedui.resources.Res
@@ -240,6 +241,11 @@ internal fun TvNowPlayingStage(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                TvQualityLine(
+                    showStats = true,
+                    compact = true,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
 
@@ -285,6 +291,7 @@ internal fun TvNowPlayingStage(
                         isPlaying = isPlaying,
                         onSeekToLine = onSeek,
                         centerFocus = true,
+                        durationMs = song.durationMillis(),
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -330,9 +337,15 @@ internal fun TvTransport(
     onToggleLyrics: () -> Unit,
     onToggleUpNext: () -> Unit,
     onMore: () -> Unit,
+    onUpgradeHiFi: () -> Unit,
     upNext: @Composable () -> Unit,
 ) {
     val showStats by AppSettings.showNerdStats.collectAsState()
+    val stats by NerdStats.current.collectAsState()
+    val racingLossless by NerdStats.racingLossless.collectAsState()
+    val isUpgrading = song.videoId in racingLossless
+    val isAlreadyLossless = stats?.let { it.isLossless || it.isHiRes || it.isDolbyAtmos } == true
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -357,7 +370,16 @@ internal fun TvTransport(
                 )
                 TvQualityLine(showStats = showStats, modifier = Modifier.padding(top = 6.dp))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(11.dp),
+            ) {
+                if (!isAlreadyLossless) {
+                    TvUpgradePill(
+                        isUpgrading = isUpgrading,
+                        onClick = onUpgradeHiFi,
+                    )
+                }
                 TvTransportButton(
                     icon = if (isLiked) BitChordIcons.StarFilled else BitChordIcons.Star,
                     contentDescription = if (isLiked) "Unfavorite" else "Favorite",
@@ -443,6 +465,60 @@ private fun TvTransportButton(
                 text = badge,
                 style = TvType.Body.copy(fontSize = 14.sp, fontWeight = FontWeight.W700),
                 color = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary,
+            )
+        }
+    }
+}
+
+/**
+ * A sleek glass pill on the transport that queries all lossless addons immediately on demand.
+ * Features tvOS lift elevation, glassmorphism highlight, and auto-disappears once the song plays lossless.
+ */
+@Composable
+private fun TvUpgradePill(
+    isUpgrading: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val shape = RoundedCornerShape(19.dp)
+    Row(
+        modifier = modifier
+            .height(37.dp)
+            .tvLift(interaction, shape, focusedScale = 1.08f, elevation = 10.dp)
+            .tvPlatter(
+                interaction,
+                resting = Color.White.copy(alpha = 0.14f),
+                focused = TvGlass.Platter,
+            )
+            .tvClick(interaction, enabled = !isUpgrading, onClick = onClick)
+            .padding(horizontal = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        if (isUpgrading) {
+            TvActivityIndicator(
+                size = 13.dp,
+                color = if (focused) TvGlass.OnPlatter else Color.White,
+            )
+            Text(
+                text = "Searching…",
+                style = TvType.Caption.copy(fontSize = 12.sp, fontWeight = FontWeight.W600),
+                color = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary,
+                maxLines = 1,
+            )
+        } else {
+            Text(
+                text = "⚡",
+                style = TvType.Caption.copy(fontSize = 12.sp),
+                color = if (focused) TvGlass.OnPlatter else Color(0xFFFFD54F),
+            )
+            Text(
+                text = "Upgrade Hi-Fi",
+                style = TvType.Caption.copy(fontSize = 12.sp, fontWeight = FontWeight.W600),
+                color = if (focused) TvGlass.OnPlatter else TvGlass.TextPrimary,
+                maxLines = 1,
             )
         }
     }
@@ -584,7 +660,11 @@ internal fun formatClock(ms: Long): String {
  * from what's actually decoding, and with Stats for Nerds on, the stream itself.
  */
 @Composable
-private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
+private fun TvQualityLine(
+    showStats: Boolean,
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
     val snapshot by NerdStats.current.collectAsState()
     val stats = snapshot ?: return
     val label = when {
@@ -593,7 +673,9 @@ private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
         stats.isLossless -> "Lossless"
         else -> null
     }
-    val detail = if (showStats) streamDetail(stats) else null
+    val detail = if (showStats) {
+        if (compact) streamDetailCompact(stats) else streamDetail(stats)
+    } else null
     if (label == null && detail.isNullOrBlank()) return
     Row(
         modifier = modifier,
@@ -628,6 +710,18 @@ private fun TvQualityLine(showStats: Boolean, modifier: Modifier = Modifier) {
             Text(text = detail, style = TvType.Caption, color = TvGlass.TextTertiary, maxLines = 1)
         }
     }
+}
+
+private fun streamDetailCompact(s: NerdStats.Snapshot): String {
+    val rate = s.sampleRateHz
+    val depth = s.bitDepth
+    val format = when {
+        depth != null && rate != null -> "$depth-bit / ${khz(rate)}"
+        rate != null -> khz(rate)
+        else -> null
+    }
+    val bitrate = s.bitrateKbps?.takeIf { it > 0 }?.let { "$it kbps" }
+    return listOfNotNull(format, bitrate).joinToString(" • ")
 }
 
 private fun streamDetail(s: NerdStats.Snapshot): String {

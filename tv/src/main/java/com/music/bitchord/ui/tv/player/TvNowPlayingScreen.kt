@@ -40,6 +40,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlayerState
 import com.music.bitchord.playback.toggleAutoplay
 import com.music.bitchord.playback.toggleShuffle
+import com.music.bitchord.playback.upgradeQuality
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.tv.dialogs.TvSongActionMenuDialog
 import kotlinx.coroutines.Job
@@ -280,6 +281,7 @@ fun TvNowPlayingScreen(
                 onToggleLyrics = { lyricsHidden = !lyricsHidden },
                 onToggleUpNext = { upNextOpen = !upNextOpen },
                 onMore = { sheet = PlayerSheet.Menu },
+                onUpgradeHiFi = { mediaController?.upgradeQuality() },
                 upNext = {
                     TvUpNext(
                         queue = playerState.queue,

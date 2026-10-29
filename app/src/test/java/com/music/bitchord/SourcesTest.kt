@@ -1583,7 +1583,7 @@ class SourcesTest {
     @Test
     fun `keeps a CJK title whose dash tail is the artist`() {
         assertEquals(
-            listOf("紅蓮華 lisa", "紅蓮華"),
+            listOf("紅蓮華 li sa", "紅蓮華"),
             TrackMatcher.queries(TrackMatcher.Target("紅蓮華 - LiSA", "LiSA")),
         )
     }

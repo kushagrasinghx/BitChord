@@ -169,6 +169,40 @@ object LyricsRepository {
                 }
                 if (lineSynced == null) lineSynced = found
             }
+
+            // Stage 1 Recovery:
+            // If the best we found is plain text without any timestamps (e.g. Genius scraper
+            // or an unsynced result), attempt a relaxed search against time-synced providers
+            // (BetterLyrics, Apple Music TTML, QQ Music Portato, LrcLib, PaxSenix, KuGou)
+            // by stripping cover tags, brackets, or video metadata.
+            val isPlainOnly = lineSynced == null || lineSynced.lines.none { it.timeMs > 0 }
+            if (isPlainOnly) {
+                val relaxedTitle = searchTitle.replace(Regex("""\s*[(\[].*?[)\]]"""), "").trim()
+                val relaxedArtist = searchArtist.replace(Regex("""\s*[(\[].*?[)\]]"""), "").trim()
+                if (relaxedTitle.isNotBlank() && (relaxedTitle != searchTitle || relaxedArtist != searchArtist)) {
+                    val syncedSources = listOf(
+                        LyricsSource.BETTER_LYRICS,
+                        LyricsSource.BETTER_LYRICS_PORTATO,
+                        LyricsSource.LRC_RED,
+                        LyricsSource.BINI_LYRICS,
+                        LyricsSource.LRCLIB,
+                        LyricsSource.PAXSENIX,
+                        LyricsSource.KUGOU,
+                    ).filter { it in sources && !it.hidden }
+
+                    for (src in syncedSources) {
+                        val relaxedFound = runCatching {
+                            fetch(src, videoId, relaxedTitle, relaxedArtist, durationMs, album, null, null, documents::get)
+                        }.getOrNull()?.let { result(src, it) }
+
+                        if (relaxedFound != null && relaxedFound.lines.any { it.timeMs > 0 }) {
+                            onSourceResult?.invoke(src, relaxedFound)
+                            return@coroutineScope relaxedFound
+                        }
+                    }
+                }
+            }
+
             lineSynced
         } finally {
             // Whoever lost the race is no longer worth waiting on, and
@@ -282,6 +316,13 @@ object LyricsRepository {
     private fun remember(videoId: String, isrc: String?) {
         if (isrc.isNullOrBlank() || videoId.isEmpty()) return
         isrcs.put(videoId, isrc)
+    }
+
+    /** Clears any remembered recording for [videoId], e.g. when track duration shifts on lossless upgrade. */
+    fun forget(videoId: String) {
+        if (videoId.isNotEmpty()) {
+            isrcs.remove(videoId)
+        }
     }
 
     /**

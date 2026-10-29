@@ -36,6 +36,9 @@ import com.music.bitchord.ui.tv.audio.TvSpatialAudioEngine
 import com.music.bitchord.ui.tv.components.TvChromePinned
 import com.music.bitchord.ui.tv.components.TvListHeader
 import com.music.bitchord.ui.tv.components.TvListRow
+import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.ui.tv.dialogs.TvLosslessAddonsDialog
 import com.music.bitchord.ui.tv.dialogs.TvAboutDialog
 import com.music.bitchord.ui.tv.dialogs.TvEqualizerDialog
 import com.music.bitchord.ui.tv.dialogs.TvLyricsSourcesDialog
@@ -50,7 +53,7 @@ import com.music.bitchord.ui.tv.theme.TvGlass
 import com.music.bitchord.ui.tv.theme.TvType
 
 // Discord Rich Presence is hidden on TV for now; TvDiscordDialog is kept for when it returns.
-private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Scrobbling, LyricsSources, Update, About }
+private enum class SettingsSheet { Theme, RefreshRate, Equalizer, Scrobbling, LyricsSources, LosslessAddons, Update, About }
 
 private const val DefaultBlurb = "Playback, sound and display preferences for BitChord on this TV."
 
@@ -74,13 +77,17 @@ fun TvSettingsScreen(
     val crossfade by AppSettings.crossfadeSeconds.collectAsState()
     val autoplay by AppSettings.autoplay.collectAsState()
     val skipSilence by AppSettings.skipSilence.collectAsState()
+    val dolbyAtmos by AppSettings.dolbyAtmos.collectAsState()
     val eqEnabled by AppSettings.equalizerEnabled.collectAsState()
     val spatial by TvSettings.spatialAudioEnabled.collectAsState()
     val loudness by AppSettings.loudnessNormalization.collectAsState()
     val usbDac by AppSettings.preferUsbDac.collectAsState()
+    val passthrough by AppSettings.audioPassthrough.collectAsState()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsState()
     val lyricsSources by AppSettings.lyricsSources.collectAsState()
     val canvas by AppSettings.animatedCanvas.collectAsState()
+    val prioritizeSpotifyCanvas by AppSettings.prioritizeSpotifyCanvas.collectAsState()
+    val strictLosslessOnly by AppSettings.strictLosslessOnly.collectAsState()
     val lyricsCanvas by TvSettings.tvLyricsCanvasEnabled.collectAsState()
     val nerdStats by AppSettings.showNerdStats.collectAsState()
     val themeId by TvSettings.tvTheme.collectAsState()
@@ -92,6 +99,8 @@ fun TvSettingsScreen(
     var blurb by remember { mutableStateOf(DefaultBlurb) }
     var sheet by remember { mutableStateOf<SettingsSheet?>(null) }
     val update by AppUpdateChecker.available.collectAsState()
+    val sourceConfigs by SourceRegistry.configs.collectAsState()
+    val activeAddons = remember(sourceConfigs) { sourceConfigs.count { it.kind == SourceKind.ADDON && it.enabled } }
 
     Row(
         modifier = modifier
@@ -186,6 +195,22 @@ fun TvSettingsScreen(
             item { TvListHeader("Sound") }
             item {
                 TvListRow(
+                    title = "Audio Passthrough",
+                    value = onOff(passthrough),
+                    onFocused = { blurb = "Sends Dolby Atmos bitstream and bit-perfect Hi-Res PCM (up to 24/192) directly to HDMI/Optical AVR or soundbar, bypassing Android OS resampling." },
+                    onClick = { AppSettings.setAudioPassthrough(!passthrough) },
+                )
+            }
+            item {
+                TvListRow(
+                    title = "Dolby Atmos",
+                    value = onOff(dolbyAtmos),
+                    onFocused = { blurb = "Plays Dolby Atmos (E-AC-3 JOC) immersive audio when available, followed by Hi-Res Lossless." },
+                    onClick = { AppSettings.setDolbyAtmos(!dolbyAtmos) },
+                )
+            }
+            item {
+                TvListRow(
                     title = "Equalizer",
                     value = onOff(eqEnabled),
                     onFocused = { blurb = "Shape the sound with presets or seven bands of your own." },
@@ -205,7 +230,7 @@ fun TvSettingsScreen(
             }
             item {
                 TvListRow(
-                    title = "Sound Check",
+                    title = "Normalization",
                     value = onOff(loudness),
                     onFocused = { blurb = "Plays every song at the same perceived loudness." },
                     onClick = { AppSettings.setLoudnessNormalization(!loudness) },
@@ -217,6 +242,24 @@ fun TvSettingsScreen(
                     value = onOff(usbDac),
                     onFocused = { blurb = "Sends audio straight to a connected USB DAC, unchanged, when one is attached." },
                     onClick = { AppSettings.setPreferUsbDac(!usbDac) },
+                )
+            }
+
+            item { TvListHeader("Lossless & Sources") }
+            item {
+                TvListRow(
+                    title = "Lossless Addons",
+                    value = "$activeAddons Active",
+                    onFocused = { blurb = "Select to turn addons on or off, reorder priority with D-pad, or add custom lossless sources." },
+                    onClick = { sheet = SettingsSheet.LosslessAddons },
+                )
+            }
+            item {
+                TvListRow(
+                    title = "Strict Lossless / Dolby Only",
+                    value = onOff(strictLosslessOnly),
+                    onFocused = { blurb = "Audiophile mode: only plays Dolby Atmos or Lossless FLAC. Skips tracks if no lossless master exists, never falling back to lossy Opus." },
+                    onClick = { AppSettings.setStrictLosslessOnly(!strictLosslessOnly) },
                 )
             }
 
@@ -245,13 +288,23 @@ fun TvSettingsScreen(
                     onClick = { AppSettings.setAnimatedCanvas(!canvas) },
                 )
             }
-            item {
-                TvListRow(
-                    title = "Motion Artwork in Lyrics",
-                    value = onOff(lyricsCanvas),
-                    onFocused = { blurb = "Keeps the video artwork playing behind full-screen lyrics." },
-                    onClick = { TvSettings.setTvLyricsCanvasEnabled(!lyricsCanvas) },
-                )
+            if (canvas) {
+                item {
+                    TvListRow(
+                        title = "Motion Art Source",
+                        value = if (prioritizeSpotifyCanvas) "Spotify Canvas" else "Apple Music",
+                        onFocused = { blurb = "Prioritize official Apple Music motion covers (default) or Spotify Canvas." },
+                        onClick = { AppSettings.setPrioritizeSpotifyCanvas(!prioritizeSpotifyCanvas) },
+                    )
+                }
+                item {
+                    TvListRow(
+                        title = "Motion Artwork in Lyrics",
+                        value = onOff(lyricsCanvas),
+                        onFocused = { blurb = "Keeps the video artwork playing behind full-screen lyrics." },
+                        onClick = { TvSettings.setTvLyricsCanvasEnabled(!lyricsCanvas) },
+                    )
+                }
             }
             item {
                 TvListRow(
@@ -352,6 +405,7 @@ fun TvSettingsScreen(
         SettingsSheet.Equalizer -> TvEqualizerDialog(onDismiss = { sheet = null })
         SettingsSheet.Scrobbling -> TvScrobbleDialog(onDismiss = { sheet = null })
         SettingsSheet.LyricsSources -> TvLyricsSourcesDialog(onDismiss = { sheet = null })
+        SettingsSheet.LosslessAddons -> TvLosslessAddonsDialog(onDismiss = { sheet = null })
         SettingsSheet.Update -> update?.let { TvUpdateDialog(update = it, onDismiss = { sheet = null }) }
         SettingsSheet.About -> TvAboutDialog(onDismiss = { sheet = null })
         null -> Unit

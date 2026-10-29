@@ -344,6 +344,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * different one.
      */
     private var lyricsFor: Pair<String, Set<LyricsSource>>? = null
+    private var lastLyricsDurationMs: Long = 0L
 
     /**
      * Called as the playing track changes; cheap no-op when already loaded.
@@ -369,7 +370,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             emptySet()
         }
         val key = videoId to sources
-        if (lyricsFor == key) return
+        val durationDelta = kotlin.math.abs(durationMs - lastLyricsDurationMs)
+        // If it is the exact same track and sources, only skip if local file or duration hasn't significantly shifted (> 3 seconds).
+        // Lossless stream upgrades can change video edit (~3m 13s) to full album version (~3m 37s).
+        val isSameRequest = lyricsFor == key && (localUri != null || (lastLyricsDurationMs > 0L && durationDelta <= 3000L))
+        if (isSameRequest) return
         // The duration lands a beat after the track, and a database match needs
         // it. Turned away here rather than inside the job below: claiming the
         // lookup first and giving it up asynchronously means the very re-trigger
@@ -378,7 +383,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // by nobody — which is what left a paused track loading for ever, since
         // pausing is when the duration is most likely to arrive a frame late.
         if (localUri == null && durationMs <= 0L) return
+
+        if (lyricsFor?.first == videoId && durationDelta > 3000L) {
+            LyricsRepository.forget(videoId)
+        }
+
         lyricsFor = key
+        lastLyricsDurationMs = durationMs
         lyricsGeneration += 1
         val generation = lyricsGeneration
         currentLyricsRequest = LyricsRequest(videoId, title, artist, durationMs, album)
@@ -417,6 +428,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (durationMs <= 0L) {
                 // Duration arrives a beat after the track does; wait for it.
                 lyricsFor = null
+                lastLyricsDurationMs = 0L
                 return@launch
             }
             val found = LyricsRepository.lyrics(
@@ -1432,11 +1444,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         startSuggestPipeline()
         startTypeaheadMediaPipeline()
         loadHome()
-        loadExplore()
-        if (_signedIn.value) {
-            loadLibrary()
-            loadAccount()
-            loadPlaylists()
+        viewModelScope.launch {
+            // Prioritize Home feed network bandwidth and UI rendering on launch
+            kotlinx.coroutines.delay(1200)
+            loadExplore()
+            if (_signedIn.value) {
+                loadLibrary()
+                loadAccount()
+                loadPlaylists()
+            }
         }
         viewModelScope.launch {
             // drop(1): the current value is just the count so far, not a play.
@@ -1646,7 +1662,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadHome() {
         val identity = listenerKey()
         val generation = homeLoadGeneration.incrementAndGet()
-        _home.value = UiState.Loading
+        // Serve cached Home feed immediately for near-instant UI load on startup
+        if (_home.value !is UiState.Success) {
+            viewModelScope.launch {
+                val cached = com.music.bitchord.data.HomeFeedCache.read(getApplication())
+                if (cached != null && isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
+                    _home.value = UiState.Success(cached)
+                }
+            }
+        }
         homeContinuation = null
         homeSeenTitles.clear()
         _homeLoadingMore.value = false
@@ -1727,7 +1751,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         val added = shelves.withoutRepeatsOf(existing)
             .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-        if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
+        if (added.isNotEmpty()) {
+            val updated = existing + added
+            _home.value = UiState.Success(updated)
+            viewModelScope.launch { com.music.bitchord.data.HomeFeedCache.write(getApplication(), updated) }
+        }
     }
 
     /** Refreshes the core feed without blanking the current Play page first. */

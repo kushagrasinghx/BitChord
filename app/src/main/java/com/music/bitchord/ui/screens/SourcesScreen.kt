@@ -37,6 +37,9 @@ import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -139,6 +142,9 @@ fun SourcesScreen(
     /** Last known reachability per source, filled in as the probes come back. */
     val health = remember { mutableStateMapOf<String, SourceHealth>() }
     val losslessOutput by LosslessOutput.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var healthMap by remember { mutableStateOf<Map<String, SourceRegistry.AddonHealthInfo>?>(null) }
+    var isCheckingHealth by remember { mutableStateOf(false) }
 
     // Every source that has a server to reach is probed, so an addon gets a
     // reachability line — which is the only feedback that a URL just pasted in
@@ -231,10 +237,12 @@ fun SourcesScreen(
 
             val row: @Composable (Int, SourceConfig, (@Composable () -> Unit)?) -> Unit =
                 { position, config, handle ->
+                    val addonHealth = healthMap?.get(config.id)
                     SourceRow(
                         position = position,
                         config = config,
                         health = health[config.id],
+                        addonHealth = addonHealth,
                         // Switched on, but not reached on this connection. Said
                         // on the row rather than by moving the switch, so the
                         // switch keeps meaning "I want this source" and the
@@ -264,6 +272,76 @@ fun SourcesScreen(
                         handle = handle,
                     )
                 }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = ROW_INSET, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = {
+                        if (!isCheckingHealth) {
+                            isCheckingHealth = true
+                            SourceRegistry.clearCompletedAddonTrackCalls()
+                            scope.launch {
+                                val res = SourceRegistry.checkAddonsHealth()
+                                healthMap = res
+                                isCheckingHealth = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = if (isCheckingHealth) "Testing..." else "Test Sources",
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        val current = healthMap
+                        if (current != null) {
+                            SourceRegistry.autoSortByLatency(current)
+                        } else {
+                            isCheckingHealth = true
+                            scope.launch {
+                                val res = SourceRegistry.checkAddonsHealth()
+                                healthMap = res
+                                SourceRegistry.autoSortByLatency(res)
+                                isCheckingHealth = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = "Auto-Prioritize",
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = {
+                        SourceRegistry.resetToPrebaked()
+                    },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = "Reset",
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                    )
+                }
+            }
+
+            RowDivider()
 
             ReorderableAddons(
                 addons = addons,
@@ -749,6 +827,7 @@ private fun SourceRow(
     position: Int,
     config: SourceConfig,
     health: SourceHealth?,
+    addonHealth: SourceRegistry.AddonHealthInfo? = null,
     onClick: (() -> Unit)?,
     /** Null for a source that cannot be switched off, which gets a label instead. */
     onToggle: ((Boolean) -> Unit)?,
@@ -834,6 +913,7 @@ private fun SourceRow(
                         stringResource(if (onMetered) R.string.mobile_data else R.string.wifi),
                         ceiling.localizedLabel(),
                     )
+                    addonHealth != null -> addonHealth.statusText
                     else -> config.statusLine(health)
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -847,6 +927,7 @@ private fun SourceRow(
                     // painting that red trains people to ignore the colour by
                     // the time it means something.
                     skippedByQuality -> MaterialTheme.colorScheme.onSurfaceVariant
+                    addonHealth != null -> if (addonHealth.online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     health is SourceHealth.Rejected -> MaterialTheme.colorScheme.error
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },

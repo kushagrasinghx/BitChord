@@ -1,5 +1,9 @@
 package com.music.bitchord.ui.tv.dialogs
 
+import com.music.bitchord.data.sources.SourceRegistry
+import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.sources.SourceConfig
+
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -78,6 +82,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.music.bitchord.BuildConfig
@@ -85,7 +91,9 @@ import com.music.bitchord.auth.GoogleAccountSession
 import com.music.bitchord.auth.WebSessionMode
 import com.music.bitchord.auth.YouTubeProfile
 import com.music.bitchord.data.lyrics.LyricsSource
+import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
+import kotlinx.coroutines.launch
 import com.music.bitchord.data.settings.TvPinThrottle
 import com.music.bitchord.data.settings.TvSettings
 import kotlin.math.ceil
@@ -1177,34 +1185,390 @@ fun TvDiscordDialog(onDismiss: () -> Unit) {
     }
 }
 
+private enum class TvScrobbleView {
+    OVERVIEW,
+    LASTFM_LOGIN,
+    LASTFM_MANAGE,
+    LISTENBRAINZ_LOGIN,
+    LISTENBRAINZ_MANAGE,
+}
+
 @Composable
 fun TvScrobbleDialog(onDismiss: () -> Unit) {
     val lastfmEnabled by AppSettings.lastfmEnabled.collectAsState()
     val lastfmUser by AppSettings.lastfmUsername.collectAsState()
+    val lastfmScrobbleEnabled by AppSettings.lastfmScrobbleEnabled.collectAsState()
+    val lastfmNowPlaying by AppSettings.lastfmNowPlaying.collectAsState()
     val listenBrainzEnabled by AppSettings.listenBrainzEnabled.collectAsState()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsState()
+    val listenBrainzPrimaryArtistOnly by AppSettings.listenBrainzPrimaryArtistOnly.collectAsState()
 
-    TvDialog(
-        title = "Scrobbling",
-        message = "Connect these on the BitChord phone app; the TV uses the same accounts.",
-        onDismissRequest = onDismiss,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            TvListRow(
-                title = "Last.fm",
-                value = if (lastfmEnabled && lastfmUser.isNotBlank()) lastfmUser else "Not Connected",
-                enabled = false,
-                onClick = {},
-            )
-            TvListRow(
-                title = "ListenBrainz",
-                value = if (listenBrainzEnabled && listenBrainzToken.isNotBlank()) "Connected" else "Not Connected",
-                enabled = false,
-                onClick = {},
-            )
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
+    var view by remember { mutableStateOf(TvScrobbleView.OVERVIEW) }
+    BackHandler(enabled = view != TvScrobbleView.OVERVIEW) {
+        keyboardController?.hide()
+        focusManager.clearFocus()
+        view = TvScrobbleView.OVERVIEW
+    }
+
+    when (view) {
+        TvScrobbleView.OVERVIEW -> {
+            TvDialog(
+                title = "Scrobbling",
+                message = "Connect your scrobbler accounts to track plays on your TV.",
+                onDismissRequest = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                    onDismiss()
+                },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    TvListRow(
+                        title = "Last.fm",
+                        value = if (lastfmEnabled && lastfmUser.isNotBlank()) lastfmUser else "Not Connected",
+                        enabled = true,
+                        onClick = {
+                            view = if (lastfmEnabled && lastfmUser.isNotBlank()) {
+                                TvScrobbleView.LASTFM_MANAGE
+                            } else {
+                                TvScrobbleView.LASTFM_LOGIN
+                            }
+                        },
+                    )
+                    TvListRow(
+                        title = "ListenBrainz",
+                        value = if (listenBrainzEnabled && listenBrainzToken.isNotBlank()) "Connected" else "Not Connected",
+                        enabled = true,
+                        onClick = {
+                            view = if (listenBrainzEnabled && listenBrainzToken.isNotBlank()) {
+                                TvScrobbleView.LISTENBRAINZ_MANAGE
+                            } else {
+                                TvScrobbleView.LISTENBRAINZ_LOGIN
+                            }
+                        },
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                TvDialogButton(text = "OK", onClick = onDismiss, initialFocus = true)
+            }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        TvDialogButton(text = "OK", onClick = onDismiss, initialFocus = true)
+        TvScrobbleView.LASTFM_LOGIN -> {
+            var username by remember { mutableStateOf("") }
+            var password by remember { mutableStateOf("") }
+            var sessionKey by remember { mutableStateOf("") }
+            var apiKeyInput by remember { mutableStateOf(AppSettings.lastfmApiKey.value.ifBlank { BuildConfig.LASTFM_API_KEY }) }
+            var secretInput by remember { mutableStateOf(AppSettings.lastfmSecret.value.ifBlank { BuildConfig.LASTFM_SECRET }) }
+            var useSessionKey by remember { mutableStateOf(false) }
+            var showApiKeys by remember { mutableStateOf(false) }
+            var isLoading by remember { mutableStateOf(false) }
+            var errorMessage by remember { mutableStateOf<String?>(null) }
+            val scope = rememberCoroutineScope()
+
+            val performLogin: () -> Unit = {
+                val effectiveApiKey = apiKeyInput.trim().ifBlank { AppSettings.lastfmApiKey.value.ifBlank { BuildConfig.LASTFM_API_KEY } }
+                val effectiveSecret = secretInput.trim().ifBlank { AppSettings.lastfmSecret.value.ifBlank { BuildConfig.LASTFM_SECRET } }
+                if (effectiveApiKey.isBlank() || effectiveSecret.isBlank()) {
+                    showApiKeys = true
+                    errorMessage = "Please enter Last.fm API Key & Secret, or switch to Session Key."
+                } else {
+                    isLoading = true
+                    errorMessage = null
+                    scope.launch {
+                        try {
+                            AppSettings.setLastfmApiKey(effectiveApiKey)
+                            AppSettings.setLastfmSecret(effectiveSecret)
+                            LastFM.initialize(apiKey = effectiveApiKey, secret = effectiveSecret)
+                            LastFM.getMobileSession(username.trim(), password)
+                                .onSuccess { auth ->
+                                    AppSettings.setLastfmSessionKey(auth.session.key)
+                                    AppSettings.setLastfmUsername(auth.session.name)
+                                    AppSettings.setLastfmEnabled(true)
+                                    AppSettings.setLastfmScrobbleEnabled(true)
+                                    AppSettings.setLastfmNowPlaying(true)
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                    view = TvScrobbleView.OVERVIEW
+                                }
+                                .onFailure { e ->
+                                    errorMessage = e.message ?: "Sign in failed. Please verify credentials."
+                                }
+                        } catch (e: Exception) {
+                            errorMessage = e.message ?: "An unexpected error occurred."
+                        } finally {
+                            isLoading = false
+                        }
+                    }
+                }
+            }
+
+            val performSessionKeyConnect: () -> Unit = {
+                if (username.isBlank() || sessionKey.isBlank()) {
+                    errorMessage = "Please enter both username and session key."
+                } else {
+                    val effectiveApiKey = apiKeyInput.trim().ifBlank { AppSettings.lastfmApiKey.value.ifBlank { BuildConfig.LASTFM_API_KEY } }
+                    val effectiveSecret = secretInput.trim().ifBlank { AppSettings.lastfmSecret.value.ifBlank { BuildConfig.LASTFM_SECRET } }
+                    if (effectiveApiKey.isNotBlank()) AppSettings.setLastfmApiKey(effectiveApiKey)
+                    if (effectiveSecret.isNotBlank()) AppSettings.setLastfmSecret(effectiveSecret)
+                    AppSettings.setLastfmSessionKey(sessionKey.trim())
+                    AppSettings.setLastfmUsername(username.trim())
+                    AppSettings.setLastfmEnabled(true)
+                    AppSettings.setLastfmScrobbleEnabled(true)
+                    AppSettings.setLastfmNowPlaying(true)
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                    view = TvScrobbleView.OVERVIEW
+                }
+            }
+
+            TvDialog(
+                title = "Last.fm Sign In",
+                message = if (useSessionKey) "Enter your Last.fm username and Session Key." else "Sign in with your Last.fm account.",
+                onDismissRequest = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                    view = TvScrobbleView.OVERVIEW
+                },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TvTextField(
+                        value = username,
+                        onValueChange = { username = it; errorMessage = null },
+                        placeholder = "Username",
+                        imeAction = ImeAction.Next,
+                        onImeAction = {
+                            focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                        },
+                    )
+                    if (useSessionKey) {
+                        TvTextField(
+                            value = sessionKey,
+                            onValueChange = { sessionKey = it; errorMessage = null },
+                            placeholder = "Session Key (sk)",
+                            imeAction = if (showApiKeys) ImeAction.Next else ImeAction.Done,
+                            onImeAction = {
+                                if (showApiKeys) {
+                                    focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                                } else {
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                    performSessionKeyConnect()
+                                }
+                            },
+                        )
+                    } else {
+                        TvTextField(
+                            value = password,
+                            onValueChange = { password = it; errorMessage = null },
+                            placeholder = "Password",
+                            visualTransformation = PasswordVisualTransformation(),
+                            imeAction = if (showApiKeys) ImeAction.Next else ImeAction.Done,
+                            onImeAction = {
+                                if (showApiKeys) {
+                                    focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                                } else {
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                    performLogin()
+                                }
+                            },
+                        )
+                    }
+                    if (showApiKeys) {
+                        TvTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it; errorMessage = null },
+                            placeholder = "API Key (32 hex characters)",
+                            imeAction = ImeAction.Next,
+                            onImeAction = {
+                                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+                            },
+                        )
+                        TvTextField(
+                            value = secretInput,
+                            onValueChange = { secretInput = it; errorMessage = null },
+                            placeholder = "Shared Secret",
+                            visualTransformation = PasswordVisualTransformation(),
+                            imeAction = ImeAction.Done,
+                            onImeAction = {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                                if (useSessionKey) performSessionKeyConnect() else performLogin()
+                            },
+                        )
+                    }
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage!!,
+                            style = TvType.Caption,
+                            color = Color(0xFFFF5252),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                if (useSessionKey) {
+                    TvDialogButton(
+                        text = "Connect Session Key",
+                        enabled = !isLoading && username.isNotBlank() && sessionKey.isNotBlank(),
+                        onClick = performSessionKeyConnect,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    TvDialogButton(
+                        text = "Use Password Instead",
+                        enabled = !isLoading,
+                        onClick = { useSessionKey = false; errorMessage = null },
+                    )
+                } else {
+                    TvDialogButton(
+                        text = if (isLoading) "Signing In..." else "Sign In",
+                        enabled = !isLoading && username.isNotBlank() && password.isNotBlank(),
+                        onClick = performLogin,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    TvDialogButton(
+                        text = "Use Session Key Instead",
+                        enabled = !isLoading,
+                        onClick = { useSessionKey = true; errorMessage = null },
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                TvDialogButton(
+                    text = if (showApiKeys) "Hide API Key Settings" else "Custom API Key Settings",
+                    enabled = !isLoading,
+                    onClick = { showApiKeys = !showApiKeys },
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                TvDialogButton(
+                    text = "Cancel",
+                    enabled = !isLoading,
+                    initialFocus = true,
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        view = TvScrobbleView.OVERVIEW
+                    },
+                )
+            }
+        }
+        TvScrobbleView.LASTFM_MANAGE -> {
+            TvDialog(
+                title = "Last.fm",
+                message = "Signed in as $lastfmUser",
+                onDismissRequest = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                    view = TvScrobbleView.OVERVIEW
+                },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    TvListRow(
+                        title = "Scrobble Tracks",
+                        value = if (lastfmScrobbleEnabled) "On" else "Off",
+                        onClick = { AppSettings.setLastfmScrobbleEnabled(!lastfmScrobbleEnabled) },
+                    )
+                    TvListRow(
+                        title = "Now Playing Status",
+                        value = if (lastfmNowPlaying) "On" else "Off",
+                        onClick = { AppSettings.setLastfmNowPlaying(!lastfmNowPlaying) },
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                TvDialogButton(
+                    text = "Disconnect Account",
+                    destructive = true,
+                    onClick = {
+                        AppSettings.setLastfmSessionKey("")
+                        AppSettings.setLastfmUsername("")
+                        AppSettings.setLastfmEnabled(false)
+                        AppSettings.setLastfmScrobbleEnabled(false)
+                        AppSettings.setLastfmNowPlaying(false)
+                        view = TvScrobbleView.OVERVIEW
+                    },
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                TvDialogButton(text = "Back", onClick = { view = TvScrobbleView.OVERVIEW }, initialFocus = true)
+            }
+        }
+        TvScrobbleView.LISTENBRAINZ_LOGIN -> {
+            var token by remember { mutableStateOf("") }
+            TvDialog(
+                title = "ListenBrainz",
+                message = "Enter your user token from listenbrainz.org/profile to enable scrobbling.",
+                onDismissRequest = {
+                    keyboardController?.hide()
+                    focusManager.clearFocus()
+                    view = TvScrobbleView.OVERVIEW
+                },
+            ) {
+                TvTextField(
+                    value = token,
+                    onValueChange = { token = it },
+                    placeholder = "User Token",
+                    imeAction = ImeAction.Done,
+                    onImeAction = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        if (token.isNotBlank()) {
+                            AppSettings.setListenBrainzToken(token.trim())
+                            AppSettings.setListenBrainzEnabled(true)
+                            view = TvScrobbleView.OVERVIEW
+                        }
+                    },
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TvDialogButton(
+                    text = "Connect",
+                    enabled = token.isNotBlank(),
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        AppSettings.setListenBrainzToken(token.trim())
+                        AppSettings.setListenBrainzEnabled(true)
+                        view = TvScrobbleView.OVERVIEW
+                    },
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                TvDialogButton(
+                    text = "Cancel",
+                    initialFocus = true,
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        view = TvScrobbleView.OVERVIEW
+                    },
+                )
+            }
+        }
+        TvScrobbleView.LISTENBRAINZ_MANAGE -> {
+            TvDialog(
+                title = "ListenBrainz",
+                message = "Account connected.",
+                onDismissRequest = { view = TvScrobbleView.OVERVIEW },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    TvListRow(
+                        title = "Primary Artist Only",
+                        value = if (listenBrainzPrimaryArtistOnly) "On" else "Off",
+                        onClick = { AppSettings.setListenBrainzPrimaryArtistOnly(!listenBrainzPrimaryArtistOnly) },
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                TvDialogButton(
+                    text = "Disconnect Account",
+                    destructive = true,
+                    onClick = {
+                        AppSettings.setListenBrainzToken("")
+                        AppSettings.setListenBrainzEnabled(false)
+                        view = TvScrobbleView.OVERVIEW
+                    },
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                TvDialogButton(text = "Back", onClick = { view = TvScrobbleView.OVERVIEW }, initialFocus = true)
+            }
+        }
     }
 }
 
@@ -1346,5 +1710,183 @@ fun TvLyricsSourcesDialog(onDismiss: () -> Unit) {
         TvDialogButton(text = "Reset to Default", onClick = AppSettings::resetLyricsSourceSettings)
         Spacer(modifier = Modifier.height(6.dp))
         TvDialogButton(text = "Done", onClick = onDismiss)
+    }
+}
+
+
+@Composable
+fun TvLosslessAddonsDialog(onDismiss: () -> Unit) {
+    val configs by SourceRegistry.configs.collectAsState()
+    val addons = remember(configs) { configs.filter { it.kind == SourceKind.ADDON } }
+    val scope = rememberCoroutineScope()
+    var isAdding by remember { mutableStateOf(false) }
+    var inputUrl by remember { mutableStateOf("") }
+    var inputError by remember { mutableStateOf<String?>(null) }
+    var isChecking by remember { mutableStateOf(false) }
+    var healthMap by remember { mutableStateOf<Map<String, SourceRegistry.AddonHealthInfo>?>(null) }
+    var isCheckingHealth by remember { mutableStateOf(false) }
+
+    TvDialog(
+        title = "Lossless Addons",
+        message = if (isAdding) "Enter the addon manifest.json URL."
+                  else "Select an addon to turn it on or off. Press Left or Right to move it up or down; #1 is queried first.",
+        width = 540.dp,
+        onDismissRequest = onDismiss,
+    ) {
+        if (isAdding) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TvTextField(
+                    value = inputUrl,
+                    onValueChange = { inputUrl = it; inputError = null },
+                    placeholder = "https://example.com/manifest.json",
+                    modifier = Modifier.fillMaxWidth(),
+                    onImeAction = {
+                        if (inputUrl.isNotBlank() && !isChecking) {
+                            isChecking = true
+                            scope.launch {
+                                val res = SourceRegistry.identify(inputUrl.trim())
+                                isChecking = false
+                                res.onSuccess { config ->
+                                    SourceRegistry.add(config)
+                                    inputUrl = ""
+                                    isAdding = false
+                                }.onFailure { err ->
+                                    inputError = err.message ?: "Failed to reach addon manifest"
+                                }
+                            }
+                        }
+                    },
+                )
+                if (inputError != null) {
+                    Text(
+                        text = inputError!!,
+                        style = TvType.Caption,
+                        color = Color(0xFFFF5468),
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TvDialogButton(
+                        text = if (isChecking) "Checking..." else "Add Addon",
+                        onClick = {
+                            if (inputUrl.isNotBlank() && !isChecking) {
+                                isChecking = true
+                                scope.launch {
+                                    val res = SourceRegistry.identify(inputUrl.trim())
+                                    isChecking = false
+                                    res.onSuccess { config ->
+                                        SourceRegistry.add(config)
+                                        inputUrl = ""
+                                        isAdding = false
+                                    }.onFailure { err ->
+                                        inputError = err.message ?: "Failed to reach addon manifest"
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                    TvDialogButton(
+                        text = "Cancel",
+                        onClick = { isAdding = false; inputError = null },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                itemsIndexed(addons, key = { _, addon -> addon.id }) { index, addon ->
+                    val checked = addon.enabled
+                    val health = healthMap?.get(addon.id)
+                    val rankValue = if (health != null) {
+                        "#${index + 1} • ${health.statusText}"
+                    } else {
+                        "#${index + 1}"
+                    }
+                    TvListRow(
+                        title = addon.displayName,
+                        subtitle = addon.baseUrl,
+                        value = rankValue,
+                        leadingIcon = if (checked) Icons.Rounded.Check else null,
+                        modifier = Modifier
+                            .tvInitialFocus(enabled = index == 0)
+                            .onKeyEvent { event ->
+                                if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                                val target = when (event.nativeKeyEvent.keyCode) {
+                                    KeyEvent.KEYCODE_DPAD_LEFT -> index - 1
+                                    KeyEvent.KEYCODE_DPAD_RIGHT -> index + 1
+                                    else -> return@onKeyEvent false
+                                }
+                                if (target in addons.indices) {
+                                    val reordered = addons.map { it.id }.toMutableList().apply {
+                                        add(target, removeAt(index))
+                                    }
+                                    SourceRegistry.reorderAddons(reordered)
+                                }
+                                true
+                            },
+                        onClick = {
+                            SourceRegistry.setEnabled(addon.id, !checked)
+                        },
+                    )
+                }
+                item(key = "add_custom_btn") {
+                    TvListRow(
+                        title = "Add Custom Addon URL...",
+                        subtitle = "Paste or enter a new manifest.json URL",
+                        leadingIcon = Icons.Rounded.Add,
+                        onClick = { isAdding = true },
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TvDialogButton(
+                    text = if (isCheckingHealth) "Testing..." else "Test / Refresh",
+                    onClick = {
+                        if (!isCheckingHealth) {
+                            isCheckingHealth = true
+                            SourceRegistry.clearCompletedAddonTrackCalls()
+                            scope.launch {
+                                val res = SourceRegistry.checkAddonsHealth()
+                                healthMap = res
+                                isCheckingHealth = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+                TvDialogButton(
+                    text = "Auto-Prioritize",
+                    onClick = {
+                        val current = healthMap
+                        if (current != null) {
+                            SourceRegistry.autoSortByLatency(current)
+                        } else {
+                            isCheckingHealth = true
+                            scope.launch {
+                                val res = SourceRegistry.checkAddonsHealth()
+                                healthMap = res
+                                SourceRegistry.autoSortByLatency(res)
+                                isCheckingHealth = false
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            TvDialogButton(text = "Reset to Recommended", onClick = SourceRegistry::resetToPrebaked)
+            Spacer(modifier = Modifier.height(6.dp))
+            TvDialogButton(text = "Done", onClick = onDismiss)
+        }
     }
 }

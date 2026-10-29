@@ -21,8 +21,8 @@ object TvSettings {
     val tvNickname = MutableStateFlow("Listener")
     val tvTheme = MutableStateFlow("dynamic_artwork")
     val tvFontFamily = MutableStateFlow("sf_pro")
-    val spatialAudioEnabled = MutableStateFlow(true)
-    val soundCheckEnabled = MutableStateFlow(true)
+    val spatialAudioEnabled = MutableStateFlow(false)
+    val soundCheckEnabled = MutableStateFlow(false)
     val addPlaylistSongsToLibrary = MutableStateFlow(true)
     val addFavoriteSongsToLibrary = MutableStateFlow(true)
     val tvSetupVersionCompleted = MutableStateFlow(0)
@@ -42,8 +42,8 @@ object TvSettings {
         tvNickname.value = prefs.getString(KEY_TV_NICKNAME, "Listener") ?: "Listener"
         tvTheme.value = prefs.getString(KEY_TV_THEME, "dynamic_artwork") ?: "dynamic_artwork"
         tvFontFamily.value = prefs.getString(KEY_TV_FONT, "sf_pro") ?: "sf_pro"
-        spatialAudioEnabled.value = prefs.getBoolean(KEY_TV_SPATIAL_AUDIO, true)
-        soundCheckEnabled.value = prefs.getBoolean(KEY_SOUND_CHECK, true)
+        spatialAudioEnabled.value = prefs.getBoolean(KEY_TV_SPATIAL_AUDIO, false)
+        soundCheckEnabled.value = prefs.getBoolean(KEY_SOUND_CHECK, false)
         addPlaylistSongsToLibrary.value = prefs.getBoolean(KEY_ADD_PLAYLIST_SONGS_TO_LIBRARY, true)
         addFavoriteSongsToLibrary.value = prefs.getBoolean(KEY_ADD_FAVORITE_SONGS_TO_LIBRARY, true)
         tvSetupVersionCompleted.value = prefs.getInt(KEY_TV_SETUP_VERSION, 0)

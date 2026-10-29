@@ -1773,6 +1773,7 @@ internal fun LyricsPanel(
      * read from its top edge leaves most of the screen below the words.
      */
     centerFocus: Boolean = false,
+    durationMs: Long = 0L,
     modifier: Modifier = Modifier,
 ) {
     val panelPlaying = isPlaying && active
@@ -1785,14 +1786,32 @@ internal fun LyricsPanel(
     // panel into lanes for it would just be a narrower panel.
     val duet = remember(lines) { lines.any { it.alignment == LyricAlignment.End } }
 
-    val activeRows by remember(lines, isSynced) {
+    val teleprompterLine by remember(lines, isSynced, durationMs) {
         derivedStateOf {
-            if (!isSynced) emptyList() else activeLyricRows(lines, clock.longValue)
+            if (isSynced || durationMs <= 0L || lines.isEmpty()) {
+                -1
+            } else {
+                val now = clock.longValue
+                val progress = (now.toFloat() / durationMs).coerceIn(0f, 1f)
+                (progress * (lines.size - 1)).toInt()
+            }
+        }
+    }
+
+    val activeRows by remember(lines, isSynced, teleprompterLine) {
+        derivedStateOf {
+            if (isSynced) {
+                activeLyricRows(lines, clock.longValue)
+            } else if (teleprompterLine >= 0) {
+                listOf(teleprompterLine)
+            } else {
+                emptyList()
+            }
         }
     }
     // The uppermost unfinished vocal owns the scroll anchor until its end,
     // even as later rows begin their own independent highlight animations.
-    val scrollLine = activeRows.firstOrNull() ?: -1
+    val scrollLine = if (isSynced) activeRows.firstOrNull() ?: -1 else teleprompterLine
     // Where the panel is heading, which is a beat ahead of where the singing
     // is. Movement that starts on the downbeat arrives after it — the line is
     // already being sung by the time it settles, and you read it late. Started
@@ -1914,9 +1933,8 @@ internal fun LyricsPanel(
     // every line while the reader's place in the song is unchanged, and a reset
     // here would snap the panel back to the top mid-read.
     var placed by remember(trackKey) { mutableStateOf(false) }
-    // Unsynced text has no line to hold anywhere, and centred it would only
-    // open with half a screen of nothing above the first verse.
-    val centered = centerFocus && isSynced
+    // Unsynced text with teleprompter will center the active line when centerFocus is set
+    val centered = centerFocus && (isSynced || teleprompterLine >= 0)
     // Where a row [size] tall has to sit, in the list's own item offsets, to be
     // the line being read: its top on the top padding, or its middle on the
     // middle of the viewport.
@@ -1937,7 +1955,7 @@ internal fun LyricsPanel(
     // A newer line replaces an unfinished automatic scroll. Only a user's
     // browsing gesture should suspend following, not our own animation.
     LaunchedEffect(focusLine, browsing, controlsOpen, active) {
-        if (active && isSynced && !browsing &&
+        if (active && (isSynced || teleprompterLine >= 0) && !browsing &&
             focusLine >= 0 && focusLine in lines.indices
         ) {
             // Centred, the top padding is half the viewport, and it only exists
@@ -1965,7 +1983,7 @@ internal fun LyricsPanel(
                 // given the run-up's own duration and curve instead of the
                 // list's default spring.
                 visible != null -> {
-                    val span = scrollLead(lines, clock.longValue).toInt()
+                    val span = if (isSynced) scrollLead(lines, clock.longValue).toInt() else LYRIC_SETTLE_MS
                     val distance = (visible.offset - focusOffset(visible.size)).toFloat()
                     run = ScrollRun(run.id + 1, distance, span)
                     // The same curve the rows catch up on. Two different
@@ -2085,9 +2103,10 @@ internal fun LyricsPanel(
             // it cannot run ahead of them — on a source with no word timings
             // there is no sweep behind it to keep the sung line lit, and it
             // read as dim while it was still being sung.
-            val offset = if (scrollLine < 0) 0 else index - scrollLine
+            val effectiveActiveLine = if (isSynced) scrollLine else teleprompterLine
+            val offset = if (effectiveActiveLine < 0) 0 else index - effectiveActiveLine
             val distance = abs(offset)
-            val isActive = isSynced && index in activeRows
+            val isActive = if (isSynced) index in activeRows else (teleprompterLine >= 0 && index == teleprompterLine)
             // Symmetric either side of the playing line, and shallow: the two
             // rows around it stay readable so you can follow back over what was
             // just sung as well as ahead, and everything past that recedes to
@@ -2103,12 +2122,11 @@ internal fun LyricsPanel(
             )
             val lineAlpha by animateFloatAsState(
                 targetValue = when {
-                    !isSynced -> 0.95f
                     isActive -> 1f
-                    // Reading by hand is not following along: the stack flattens
-                    // to one brightness so no row is being pointed at.
                     browsing -> BROWSING_ALPHA
-                    else -> LINE_FALLOFF_ALPHA[step]
+                    isSynced -> LINE_FALLOFF_ALPHA[step]
+                    teleprompterLine >= 0 -> if (distance <= 1) 0.85f else if (distance <= 3) 0.65f else 0.45f
+                    else -> 0.95f
                 },
                 animationSpec = tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING),
                 label = "lyricAlpha",
@@ -2254,6 +2272,13 @@ internal fun LyricsPanel(
                     animationSpec = tween(durationMillis = 420),
                     label = "lyricGlow",
                 )
+                val lineSeekTargetMs: Long = if (isSynced) {
+                    line.timeMs
+                } else if (durationMs > 0L && lines.isNotEmpty()) {
+                    (index.toFloat() / (lines.size - 1).coerceAtLeast(1) * durationMs).toLong()
+                } else {
+                    -1L
+                }
                 // No width held back for the swell any more: nothing draws past
                 // its own bounds now that the playing line tops out at 1, so the
                 // text gets the full column and wraps where the panel does.
@@ -2320,15 +2345,15 @@ internal fun LyricsPanel(
                     .then(
                         if (canPick) {
                             Modifier.combinedClickable(
-                                enabled = picking || isSynced,
+                                enabled = picking || isSynced || lineSeekTargetMs >= 0L,
                                 interactionSource = interaction,
                                 indication = LocalIndication.current,
                                 onLongClick = { onPickLine(index) },
                                 onClick = {
                                     if (picking) {
                                         onTogglePick(index)
-                                    } else {
-                                        onSeekToLine(line.timeMs)
+                                    } else if (lineSeekTargetMs >= 0L) {
+                                        onSeekToLine(lineSeekTargetMs)
                                     }
                                 },
                             )
@@ -2338,10 +2363,14 @@ internal fun LyricsPanel(
                             // the only sign of it — so the row keeps the plain
                             // tap it has always had.
                             Modifier.clickable(
-                                enabled = isSynced,
+                                enabled = isSynced || lineSeekTargetMs >= 0L,
                                 interactionSource = interaction,
                                 indication = LocalIndication.current,
-                            ) { onSeekToLine(line.timeMs) }
+                            ) {
+                                if (lineSeekTargetMs >= 0L) {
+                                    onSeekToLine(lineSeekTargetMs)
+                                }
+                            }
                         },
                     )
                 // Lead and answering vocal are one row: they are one line of

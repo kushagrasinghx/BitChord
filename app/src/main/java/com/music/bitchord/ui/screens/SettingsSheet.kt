@@ -217,6 +217,8 @@ fun SettingsScreen(
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
+    val prioritizeSpotifyCanvas by AppSettings.prioritizeSpotifyCanvas.collectAsStateWithLifecycle()
+    val strictLosslessOnly by AppSettings.strictLosslessOnly.collectAsStateWithLifecycle()
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
@@ -228,6 +230,7 @@ fun SettingsScreen(
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
     val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
+    val audioPassthrough by AppSettings.audioPassthrough.collectAsStateWithLifecycle()
     val loudnessNormalization by AppSettings.loudnessNormalization.collectAsStateWithLifecycle()
     val loudnessOffOnSpeaker by AppSettings.loudnessOffOnSpeaker.collectAsStateWithLifecycle()
     val outputStatus by AudioOutputStatus.current.collectAsStateWithLifecycle()
@@ -513,6 +516,25 @@ fun SettingsScreen(
                     onClick = { AppSettings.setDolbyAtmos(!dolbyAtmos) },
                 )
             }
+            val strictLosslessTitle = "Strict Lossless / Dolby Only"
+            row(strictLosslessTitle, "audiophile", "lossless", "dolby", "opus") {
+                SettingsRow(
+                    icon = Icons.Rounded.GraphicEq,
+                    title = strictLosslessTitle,
+                    subtitle = "Never falls back to lossy Opus. Automatically skips tracks if no Lossless or Dolby Atmos master is available.",
+                    trailing = {
+                        Switch(
+                            checked = strictLosslessOnly,
+                            onCheckedChange = AppSettings::setStrictLosslessOnly,
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                            ),
+                        )
+                    },
+                    onClick = { AppSettings.setStrictLosslessOnly(!strictLosslessOnly) },
+                )
+            }
         }
 
         // Its own group rather than rows bolted onto the two above, because a
@@ -603,6 +625,15 @@ fun SettingsScreen(
                     checked = preferUsbDac,
                     onCheckedChange = AppSettings::setPreferUsbDac,
                     badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
+                )
+            }
+            val passthroughTitle = "Audio Passthrough (Bit-Perfect)"
+            row(passthroughTitle, "passthrough", "bitperfect", "bit-perfect", "dac", "usb", "direct", "hdmi") {
+                SettingsSubRow(
+                    title = passthroughTitle,
+                    checked = audioPassthrough,
+                    onCheckedChange = AppSettings::setAudioPassthrough,
+                    subtitle = "Bypasses system resampler and DSP for direct bit-perfect high-res PCM (>48kHz) and bitstreams to USB DAC or HDMI",
                 )
             }
             val loudnessTitle = stringResource(R.string.loudness_normalization)
@@ -913,6 +944,14 @@ fun SettingsScreen(
                         title = coverCellularTitle,
                         checked = canvasOverCellular,
                         onCheckedChange = AppSettings::setCanvasOverCellular,
+                    )
+                }
+                val prioritizeSpotifyTitle = stringResource(R.string.prioritize_spotify_canvas)
+                row(prioritizeSpotifyTitle, "spotify", "canvas", "prioritize", divided = false) {
+                    SettingsSubRow(
+                        title = prioritizeSpotifyTitle,
+                        checked = prioritizeSpotifyCanvas,
+                        onCheckedChange = AppSettings::setPrioritizeSpotifyCanvas,
                     )
                 }
                 val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)

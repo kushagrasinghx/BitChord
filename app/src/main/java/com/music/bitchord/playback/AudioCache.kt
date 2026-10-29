@@ -1274,7 +1274,7 @@ object AudioCache {
                 // URL-only warm-up it did before — YouTube resolves the track at
                 // playback time as usual.
                 val warmed = if (substitutable && target != null && !pinnedToYouTube) {
-                    runCatching { SourceResolver.prefetchSubstitute(target) }
+                    runCatching { SourceResolver.prefetchSubstitute(target, next) }
                         .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $next: ${it.message}", about = next) }
                         .getOrNull()
                         ?.also { StreamChoice.remember(next, it, substituted = true) }
@@ -1284,7 +1284,12 @@ object AudioCache {
                 // Safe to fill for the same reason in both cases: either nothing
                 // outranks YouTube and read-ahead is the only writer, or a
                 // source has been pinned and every writer now resolves to it.
-                val cacheBytes = (!substitutable || warmed != null) && !pinnedToYouTube
+                //
+                // For lossless module streams, we keep the URL-only resolution in
+                // StreamChoice and intentionally avoid pulling the full multi-megabyte
+                // FLAC bytes into the local disk cache ahead of time.
+                val isLossless = warmed?.format?.isLossless == true
+                val cacheBytes = (!substitutable || (warmed != null && !isLossless)) && !pinnedToYouTube
                 if (cacheBytes) {
                     launch(TrackLog.about(next)) {
                         delay(PREFETCH_DELAY_MS)
@@ -1294,7 +1299,7 @@ object AudioCache {
                 }
                 launch {
                     delay(PREFETCH_DELAY_MS)
-                    for (id in videoIds.take(QUEUE_LOOKAHEAD + 1).let { if (cacheBytes) it.drop(1) else it }) {
+                    for (id in videoIds.take(QUEUE_LOOKAHEAD + 1).let { if (cacheBytes || warmed != null) it.drop(1) else it }) {
                         // A track already pinned to another source has no use
                         // for a YouTube URL: nothing will ask for one, and
                         // minting it spends a client walk to fill a cache entry

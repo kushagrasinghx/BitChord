@@ -91,6 +91,36 @@ object QualityUpgrade {
 
     private val pending = ConcurrentHashMap<String, Pending>()
     /**
+     * The last question asked about a track, kept past the answer for one
+     * reason: a stream can be found, matched and *then* rejected when its bytes
+     * turn out to be another recording. That rejection is not an answer about
+     * the track, and the next source down the list may still have the right
+     * file — see [SourceResolver.upgradeFor]'s `avoid`. Deliberately separate
+     * from [pending], which [isPending] and [couldStillUpgrade] read: keeping
+     * the live set populated would make an answered track look unanswered.
+     */
+    private val lastAsk = ConcurrentHashMap<String, Pending>()
+
+    /** What [lookAgain] concluded — see [SourceResolver.Upgrade]. */
+    sealed interface Look {
+        data class Found(val stream: SourceStream) : Look
+
+        /** Every source answered, and none held this recording. */
+        data object NoMatch : Look
+
+        /** A source could not answer; the track stays open for another look. */
+        data object Failed : Look
+
+        /** Asked too soon after a failure — nothing was learned, nothing to report. */
+        data object Waiting : Look
+    }
+
+    /** When a failed lookup may be asked again, per track. */
+    private val retryAfter = ConcurrentHashMap<String, Long>()
+
+    /** How long a track waits before re-asking after a source failed. */
+    const val RETRY_MS = 30_000L
+    /**
      * A second pass to make after a worthwhile lossy upgrade.  The first pass
      * intentionally takes the first source that beats Opus so playback improves
      * quickly; with lossless requested, JioSaavn can be that answer while a
@@ -436,8 +466,24 @@ object QualityUpgrade {
         }
     }
 
-    suspend fun lookAgain(mediaId: String, playingDurationSec: Int?): SourceStream? {
-        val waiting = pending[mediaId] ?: return null
+    suspend fun lookAgain(
+        mediaId: String,
+        playingDurationSec: Int?,
+        /** Sources already tried for this track — see [SourceResolver.upgradeFor]. */
+        avoid: Set<String> = emptySet(),
+    ): Look {
+        // A failed lookup is re-asked on a delay, not on every pause and resume.
+        retryAfter[mediaId]?.let { due ->
+            if (System.currentTimeMillis() < due) return Look.Waiting
+        }
+        // The live question first, then the one this track already asked. The
+        // latter exists only so a stream that was found and *then* rejected can
+        // be re-asked without the source that served it - see [lastAsk].
+        val waiting = pending[mediaId] ?: lastAsk[mediaId] ?: run {
+            TrackLog.d(TAG, "no question left to re-ask for $mediaId", about = mediaId)
+            return Look.NoMatch
+        }
+        lastAsk[mediaId] = waiting
         var found: SourceStream? = null
         /**
          * Whether the search got as far as an answer, as opposed to being
@@ -492,7 +538,12 @@ object QualityUpgrade {
                     )
                 }
                 if (late != null && sameLength &&
-                    SourceResolver.worthSwapping(late.format, waiting.playing)
+                    SourceResolver.worthSwapping(late.format, waiting.playing) &&
+                    // The original lookup is the *first* answer, and the retry
+                    // exists because that answer's bytes were rejected. Handing
+                    // it back here would re-audition the same file - measured as
+                    // two identical rejections 94 ms apart.
+                    late.sourceConfigId !in avoid
                 ) {
                     found = late
                     if (needsLosslessFollowUp(late.format)) {
@@ -504,28 +555,52 @@ object QualityUpgrade {
                         )
                     }
                     answered = true
-                    return late
+                    retryAfter.remove(mediaId)
+                    return Look.Found(late)
                 }
             }
             // It finished with nothing better, so the question gets asked
             // again from scratch — this time waiting on every module, which is
             // what the live path could not afford to do. The source already
             // serving the track is left out — see [SourceResolver.upgradeFor].
-            SourceResolver.upgradeFor(
+            when (val outcome = SourceResolver.upgradeFor(
                 waiting.target.copy(durationSec = effectiveDurationSec),
                 playing = waiting.playing,
                 servedBy = waiting.servedBy,
-            ).also {
-                found = it
-                if (it != null && needsLosslessFollowUp(it.format)) {
-                    followUps[mediaId] = waiting.copy(
-                        target = waiting.target.copy(durationSec = effectiveDurationSec),
-                        inFlight = null,
-                        playing = it.format,
-                        servedBy = it.sourceConfigId,
-                    )
+                avoid = avoid,
+            )) {
+                is SourceResolver.Upgrade.Found -> {
+                    val stream = outcome.stream
+                    found = stream
+                    if (needsLosslessFollowUp(stream.format)) {
+                        followUps[mediaId] = waiting.copy(
+                            target = waiting.target.copy(durationSec = effectiveDurationSec),
+                            inFlight = null,
+                            playing = stream.format,
+                            servedBy = stream.sourceConfigId,
+                        )
+                    }
+                    answered = true
+                    retryAfter.remove(mediaId)
+                    Look.Found(stream)
                 }
-                answered = true
+
+                SourceResolver.Upgrade.NoMatch -> {
+                    answered = true
+                    retryAfter.remove(mediaId)
+                    TrackLog.d(TAG, "no lossless match for $mediaId", about = mediaId)
+                    Look.NoMatch
+                }
+
+                SourceResolver.Upgrade.Failed -> {
+                    // A source that could not answer has not answered. The track
+                    // stays pending, so [PlaybackService] can ask again on
+                    // [RETRY_MS] instead of writing the recording off for the
+                    // rest of the playback.
+                    retryAfter[mediaId] = System.currentTimeMillis() + RETRY_MS
+                    TrackLog.d(TAG, "lossless lookup failed for $mediaId; re-asking later", about = mediaId)
+                    Look.Failed
+                }
             }
         } finally {
             if (answered) {
@@ -602,6 +677,10 @@ object QualityUpgrade {
     fun onPlaybackStarted(mediaId: String, rendition: String?) {
         if (rendition != null) return
         asked -= mediaId
+        // A fresh play is a fresh question: the snapshot exists for a retry
+        // inside one playback, not across two.
+        lastAsk.remove(mediaId)
+        retryAfter.remove(mediaId)
     }
 
     /**
@@ -760,6 +839,8 @@ object QualityUpgrade {
         (pending.keys + followUps.keys + forced.keys + shelved.keys + auditioning).forEach(::forget)
         asked.clear()
         refused.clear()
+        lastAsk.clear()
+        retryAfter.clear()
     }
 
     /**

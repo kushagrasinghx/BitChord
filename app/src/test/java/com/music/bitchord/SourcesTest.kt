@@ -1537,6 +1537,28 @@ class SourcesTest {
         )
     }
 
+    /**
+     * The track that produced the 45-second timeout, asked exactly as the device
+     * asked it — `1.9-beta1`, 07:37:20: `q="linda louca e mimada oriente"`.
+     *
+     * The pt-BR guest credit is gone. "Acústico" is gone too, and that half is a
+     * gap rather than a rule: the version word list holds the English "acoustic"
+     * and not the Portuguese spelling, so the aside is read as packaging and
+     * dropped. Pinned here so changing either is deliberate.
+     */
+    @Test
+    fun `the Oriente query is the one the device sent`() {
+        assertEquals(
+            listOf("linda louca e mimada oriente", "linda louca e mimada"),
+            TrackMatcher.queries(
+                TrackMatcher.Target(
+                    "Linda, Louca e Mimada (Acústico) (part. Rebeca)",
+                    "Oriente, Rebeca",
+                ),
+            ),
+        )
+    }
+
     @Test
     fun `ignores a YouTube type label in the artist slot`() {
         assertEquals(

@@ -11,8 +11,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Turns a queued track into an openable stream, using whichever source can
@@ -254,7 +259,7 @@ object SourceResolver {
         val fallbacks = active.filterNot {
             it.configId == configId || (pickedMix != null && it.kind == SourceKind.YOUTUBE)
         }
-        val (fallbackSource, stream) = bestAcross(fallbacks, target, request) ?: return null
+        val (fallbackSource, stream) = bestInOrder(fallbacks, target, request) ?: return null
         TrackLog.d(TAG, "fallback: '${target.title}' served by ${fallbackSource.displayName}")
         return stream
     }
@@ -290,7 +295,9 @@ object SourceResolver {
         val active = SourceRegistry.activeForPlayback()
         val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
         val request = requestForNow()
-        val (source, stream) = bestAcross(rankedAbove(youtube.configId, active), target, request)
+        // One at a time: see [bestInOrder]. Racing here made both addons run
+        // their own `/stream` for a track only one of them would ever serve.
+        val (source, stream) = bestInOrder(rankedAbove(youtube.configId, active), target, request)
             ?: return null
         // Says what was found, not what the caller will do with it. This
         // line used to read "substituted" unconditionally, including for
@@ -333,7 +340,7 @@ object SourceResolver {
         if (target.title.isBlank() || target.isVideo) return null
         val addons = directAddons()
         if (addons.isEmpty()) return null
-        val (source, stream) = bestAcross(addons, target, requestForNow()) ?: return null
+        val (source, stream) = bestInOrder(addons, target, requestForNow()) ?: return null
         TrackLog.d(
             TAG,
             "direct: '${target.title}' from ${source.displayName} at ${stream.format.summary}" +
@@ -457,15 +464,57 @@ object SourceResolver {
      *   but not before spending a search and a stream call on it. See the
      *   'isn't worth swapping ... off' log line this was written to stop.
      */
+    /**
+     * What an upgrade lookup concluded.
+     *
+     * Three answers, not two. A source that could not be asked — a dropped DNS
+     * lookup, a timeout, a 5xx — has not said "I don't have this recording", and
+     * treating the two the same is what made a bad minute at the addon read as a
+     * settled miss: the track was written off for the rest of the playback.
+     */
+    sealed interface Upgrade {
+        data class Found(val stream: SourceStream) : Upgrade
+
+        /** Every source answered, and none of them held this recording. */
+        data object NoMatch : Upgrade
+
+        /** At least one source could not answer; the question is still open. */
+        data object Failed : Upgrade
+    }
+
+    /**
+     * Marks a failed source inside the lookup running in the current coroutine.
+     *
+     * A context element rather than a parameter: [attempt] sits under every
+     * source, module and path, and threading a flag through all of them would
+     * touch a dozen signatures to answer one question at the top. Child
+     * coroutines inherit it, which is exactly the scope [bestAcross] races in.
+     */
+    private class LookupFailures : AbstractCoroutineContextElement(Key) {
+        companion object Key : CoroutineContext.Key<LookupFailures>
+
+        private val count = AtomicInteger()
+        fun mark() = count.incrementAndGet()
+        val any: Boolean get() = count.get() > 0
+    }
+
     suspend fun upgradeFor(
         target: TrackMatcher.Target,
         playing: StreamFormat? = null,
         servedBy: String? = null,
-    ): SourceStream? {
-        if (target.title.isBlank() || target.durationSec == null || target.isVideo) return null
+        /**
+         * Sources that already answered for this track and must not answer
+         * again — the one whose file proved to be another recording. Not the
+         * same thing as [servedBy]: a source that returned the wrong file has
+         * not answered for *this* track, and the next one down the list still
+         * might.
+         */
+        avoid: Set<String> = emptySet(),
+    ): Upgrade {
+        if (target.title.isBlank() || target.durationSec == null || target.isVideo) return Upgrade.NoMatch
         val request = requestForNow()
         val active = SourceRegistry.activeForPlayback()
-        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return null
+        val youtube = active.firstOrNull { it.kind == SourceKind.YOUTUBE } ?: return Upgrade.NoMatch
         // Every source gets asked, whether or not it can serve lossless, and
         // they are asked at once.
         //
@@ -494,33 +543,48 @@ object SourceResolver {
         // Thirteen seconds of a 143-second track played at the wrong bitrate,
         // and the seam then landed mid-song rather than near its start. Raced,
         // the same swap happens inside a second.
-        val (source, chosen) = bestAcross(
-            rankedAbove(youtube.configId, active).filterNot { it.configId == servedBy },
+        // In rank order, one at a time — see [bestInOrder]. Racing the sources
+        // here made every upgrade download the same song from every addon,
+        // because each `/stream` is a debrid download and cancelling the loser
+        // does not cancel the torrent it already started.
+        var failedSources = 0
+        val found = bestInOrder(
+            rankedAbove(youtube.configId, active).filterNot { it.configId == servedBy || it.configId in avoid },
             target,
             request,
-            waitForAll = true,
             strictLength = true,
             requireSharedArtist = true,
             driftSec = upgradeSlackSec(),
-        ) { candidate, stream ->
-            worthSwapping(stream.format, playing).also { worth ->
-                // Named rather than skipped silently. This is the one refusal
-                // in the upgrade path that discards a stream already found,
-                // matched and length-checked, and a silent skip reads in the log
-                // exactly like a source having nothing — which is how a null
-                // [playing] came to quietly turn the whole cached-track path
-                // lossless-only for a while without leaving a trace.
-                if (!worth) {
-                    TrackLog.d(
-                        TAG,
-                        "${candidate.displayName}'s ${stream.format.summary} isn't worth swapping " +
-                            "'${target.title}' off ${playing?.summary ?: "an unmeasured stream"}",
-                    )
+            accept = { candidate, stream ->
+                worthSwapping(stream.format, playing).also { worth ->
+                    // Named rather than skipped silently. This is the one refusal
+                    // in the upgrade path that discards a stream already found,
+                    // matched and length-checked, and a silent skip reads in the log
+                    // exactly like a source having nothing — which is how a null
+                    // [playing] came to quietly turn the whole cached-track path
+                    // lossless-only for a while without leaving a trace.
+                    if (!worth) {
+                        TrackLog.d(
+                            TAG,
+                            "${candidate.displayName}'s ${stream.format.summary} isn't worth swapping " +
+                                "'${target.title}' off ${playing?.summary ?: "an unmeasured stream"}",
+                        )
+                    }
                 }
-            }
-        } ?: return null
+            },
+            onFailure = { failedSources++ },
+        )
+        if (found == null) {
+            TrackLog.d(
+                TAG,
+                "upgrade: no match for '${target.title}'" +
+                    if (failedSources > 0) " (a source failed to answer)" else " (every source answered)",
+            )
+            return if (failedSources > 0) Upgrade.Failed else Upgrade.NoMatch
+        }
+        val (source, chosen) = found
         TrackLog.d(TAG, "upgrade found: '${target.title}' at ${chosen.format.summary} from ${source.displayName}")
-        return chosen
+        return Upgrade.Found(chosen)
     }
 
     /**
@@ -1023,6 +1087,50 @@ object SourceResolver {
     }
 
     /**
+     * The same question as [bestAcross], asked **one source at a time**, in
+     * rank order.
+     *
+     * The race is the right shape when a source costs a request: the first
+     * answer wins and the rest are cancelled. It is the wrong shape when a
+     * source costs a *download* — Nebula fetches a whole album per `/stream`,
+     * and racing it against a track-based addon means both download the same
+     * song even though only one is ever played. Here the second source is only
+     * asked once the first has answered with nothing, or with a stream the
+     * caller refuses.
+     *
+     * This is affordable only because nobody waits on the answer: the audio is
+     * already playing from YouTube by the time either caller runs.
+     */
+    private suspend fun bestInOrder(
+        sources: List<MusicSource>,
+        target: TrackMatcher.Target,
+        request: StreamRequest,
+        strictLength: Boolean = false,
+        requireSharedArtist: Boolean = false,
+        driftSec: Int = UPGRADE_DRIFT_SEC,
+        accept: (MusicSource, SourceStream) -> Boolean = { _, _ -> true },
+        onFailure: (MusicSource) -> Unit = {},
+    ): Pair<MusicSource, SourceStream>? {
+        for (source in sources) {
+            val failures = LookupFailures()
+            val stream = withContext(failures) {
+                matchAndStream(
+                    source,
+                    target,
+                    request,
+                    waitForAll = false,
+                    strictLength = strictLength,
+                    requireSharedArtist = requireSharedArtist,
+                    driftSec = driftSec,
+                )
+            }
+            if (failures.any) onFailure(source)
+            if (stream != null && accept(source, stream)) return source to stream
+        }
+        return null
+    }
+
+    /**
      * Searches [source] for the recording in [target] and streams it if one of
      * the answers really is that recording — see [TrackMatcher].
      *
@@ -1365,6 +1473,9 @@ object SourceResolver {
         throw e
     } catch (e: Exception) {
         TrackLog.w(TAG, "${source.displayName} failed: ${e.javaClass.simpleName}: ${e.message}")
+        // Only meaningful inside an upgrade lookup, which is the one caller that
+        // has to tell "asked and got nothing" from "could not ask".
+        currentCoroutineContext()[LookupFailures]?.mark()
         null
     }
 

@@ -4588,19 +4588,33 @@ class PlaybackService : MediaLibraryService() {
             ) {
                 return@launch
             }
-            val better = withContext(Dispatchers.IO) {
+            when (val look = withContext(Dispatchers.IO) {
                 QualityUpgrade.lookAgain(mediaId, playingSeconds)
-            } ?: return@launch
-            try {
-                swapIn(mediaId, better)
-            } finally {
-                // The badge comes down when the upgrade is done, not when the
-                // search that found it was — including the deliberate wait in
-                // [swapIn] before the audio is allowed to be cut. See
-                // [QualityUpgrade.lookAgain]. In `finally` because a queue
-                // that moves on cancels this job, and a cancelled swap has to
-                // put the badge out as surely as a completed one.
-                NerdStats.onLosslessRaceEnd(mediaId)
+            }) {
+                is QualityUpgrade.Look.Found -> try {
+                    swapWithFallback(mediaId, look.stream, playingSeconds)
+                } finally {
+                    // The badge comes down when the upgrade is done, not when the
+                    // search that found it was — including the deliberate wait in
+                    // [swapIn] before the audio is allowed to be cut. See
+                    // [QualityUpgrade.lookAgain]. In `finally` because a queue
+                    // that moves on cancels this job, and a cancelled swap has to
+                    // put the badge out as surely as a completed one.
+                    NerdStats.onLosslessRaceEnd(mediaId)
+                }
+
+                QualityUpgrade.Look.NoMatch -> {
+                    TrackLog.d("BitChord", "no lossless match for $mediaId", about = mediaId)
+                    NerdStats.onLosslessRaceEnd(mediaId)
+                }
+
+                QualityUpgrade.Look.Failed -> {
+                    // Not a "no": the source could not answer. The badge stays
+                    // up and the track stays pending until the retry closes it.
+                    scheduleUpgradeRetry(player, mediaId)
+                }
+
+                QualityUpgrade.Look.Waiting -> Unit
             }
         }
     }
@@ -4788,18 +4802,30 @@ class PlaybackService : MediaLibraryService() {
      * playback URI differs, so an item rebuilt identically would be accepted
      * and quietly keep playing the old stream.
      */
-    private suspend fun swapIn(mediaId: String, stream: SourceStream) {
+    /** What became of a stream that was found, matched and then auditioned. */
+    private enum class SwapResult {
+        /** The audio was replaced. */
+        Swapped,
+
+        /** Its bytes are another recording — the next source may still have this one. */
+        Rejected,
+
+        /** The moment for it passed; nothing was learned about the source. */
+        Abandoned,
+    }
+
+    private suspend fun swapIn(mediaId: String, stream: SourceStream): SwapResult {
         // A search or a shelved proof can outlive the ceiling it was made
         // under — see [onCeilingLowered]. Asked again here, where it decides
         // whether the audio is cut, rather than only where it was found.
         if (!SourceRegistry.permitsForPlayback(stream.sourceConfigId)) {
             TrackLog.d("BitChord", "upgrade dropped: the quality ceiling no longer allows its source", about = mediaId)
-            return
+            return SwapResult.Abandoned
         }
-        val at = withContext(Dispatchers.Main) { swapPointFor(mediaId) } ?: return
+        val at = withContext(Dispatchers.Main) { swapPointFor(mediaId) } ?: return SwapResult.Abandoned
         if (at.duration > 0 && at.duration - at.position < UPGRADE_MIN_REMAINING_MS) {
             TrackLog.d("BitChord", "upgrade abandoned: only ${at.duration - at.position}ms of the track left")
-            return
+            return SwapResult.Abandoned
         }
 
         val upgradedUri = QualityUpgrade.upgradedUri(at.uri)
@@ -4828,7 +4854,9 @@ class PlaybackService : MediaLibraryService() {
             // to prove itself.
             QualityUpgrade.forget(mediaId)
             withContext(Dispatchers.IO) { AudioCache.discardRendition(Uri.parse(upgradedUri)) }
-            return
+            // Not an "abandoned": this source answered, and its answer was a
+            // different recording. The caller may ask the next one.
+            return SwapResult.Rejected
         }
 
         // There used to be an unconditional five-second hold here, keyed off the
@@ -4897,6 +4925,7 @@ class PlaybackService : MediaLibraryService() {
             }
         }
 
+        var result = SwapResult.Abandoned
         withContext(Dispatchers.Main) {
             val now = swapPointFor(mediaId)
             if (crossfade?.isTransitioning() == true) {
@@ -5014,6 +5043,83 @@ class PlaybackService : MediaLibraryService() {
                 launch(Dispatchers.IO) {
                     AudioCache.warmRange(Uri.parse(upgradedUri), 0, ANALYSIS_HEAD_BYTES)
                 }
+            }
+            result = SwapResult.Swapped
+        }
+        return result
+    }
+
+    /**
+     * Swaps [first] in, and when its bytes turn out to be another recording
+     * asks the next source down the list.
+     *
+     * A source that answered with the wrong file has not answered for *this*
+     * track, and the one below it may still have it. Eclipse draws the same
+     * line in its own addon docs: "If nothing matches, Eclipse moves on to the
+     * next source in the user's playback order. It never plays a close-but-wrong
+     * track from your addon." Until here BitChord stopped at the first source and
+     * left the track on YouTube — the guard was right, but nothing followed it.
+     *
+     * Bounded by the source list: every rejected source joins [avoid] and the
+     * loop ends when one repeats or the list runs out.
+     */
+    private suspend fun swapWithFallback(mediaId: String, first: SourceStream, playingSeconds: Int?) {
+        var candidate = first
+        val avoid = mutableSetOf<String>()
+        while (true) {
+            if (swapIn(mediaId, candidate) != SwapResult.Rejected) return
+            val sourceId = candidate.sourceConfigId ?: return
+            if (!avoid.add(sourceId)) return
+            TrackLog.d(
+                "BitChord",
+                "upgrade rejected by $sourceId; asking the next source (avoiding ${avoid.size})",
+                about = mediaId,
+            )
+            // The rejection ran [QualityUpgrade.forget], which drops the race
+            // badge along with the parked stream. The search is not over - the
+            // next source is about to be asked - so the badge goes back up and
+            // stays there until this attempt settles. Without it the label went
+            // blank between the refusal and the swap, and the confirmed label
+            // then appeared out of nowhere.
+            NerdStats.onLosslessRaceStart(mediaId)
+            when (val next = withContext(Dispatchers.IO) {
+                QualityUpgrade.lookAgain(mediaId, playingSeconds, avoid = avoid)
+            }) {
+                is QualityUpgrade.Look.Found -> candidate = next.stream
+                QualityUpgrade.Look.Waiting -> return
+                QualityUpgrade.Look.Failed -> {
+                    // The remaining sources could not answer — not a "no". The
+                    // track stays pending and the retry asks them again.
+                    TrackLog.d("BitChord", "no further source answered for $mediaId (failure)", about = mediaId)
+                    scheduleUpgradeRetry(player ?: return, mediaId)
+                    return
+                }
+                QualityUpgrade.Look.NoMatch -> {
+                    TrackLog.d("BitChord", "no further source answered for $mediaId (no match)", about = mediaId)
+                    return
+                }
+            }
+        }
+    }
+
+    /** Tracks with a retry already scheduled, so a second failure does not stack another. */
+    private val scheduledUpgradeRetries = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    /**
+     * Re-asks a track whose lossless lookup failed for a reason that is not an
+     * answer — a dropped DNS lookup, a timeout, a 5xx. The track is still
+     * pending, so this is the same second look that already exists; the delay is
+     * what keeps a dead minute at the addon from turning into a poll loop.
+     */
+    private fun scheduleUpgradeRetry(player: ExoPlayer, mediaId: String) {
+        if (!scheduledUpgradeRetries.add(mediaId)) return
+        scope.launch {
+            try {
+                delay(QualityUpgrade.RETRY_MS + 2_000)
+                val current = withContext(Dispatchers.Main) { player.currentMediaItem?.mediaId }
+                if (current == mediaId) lookForBetterCopy(player)
+            } finally {
+                scheduledUpgradeRetries.remove(mediaId)
             }
         }
     }
@@ -5140,9 +5246,29 @@ class PlaybackService : MediaLibraryService() {
         val warmedThrough: Long?
         try {
             warmedThrough = withTimeoutOrNull(UPGRADE_AUDITION_MS) {
+                // A stream that stops moving is not going to prove itself, and
+                // waiting out the full ceiling for it costs the track the swap:
+                // measured on 'Morro Sem Você', 27 s spent on a source that had
+                // delivered nothing. A few seconds without a byte is enough to
+                // call it, and the caller then asks the next source.
+                var lastBytes = -1L
+                var lastProgressAt = SystemClock.elapsedRealtime()
                 while (true) {
+                    val bytesNow = meter.bytes.get()
+                    val now = SystemClock.elapsedRealtime()
+                    if (bytesNow > lastBytes) {
+                        lastBytes = bytesNow
+                        lastProgressAt = now
+                    } else if (bytesNow < MIN_PROVEN_LOAD_BYTES && now - lastProgressAt > UPGRADE_STALL_MS) {
+                        TrackLog.w(
+                            "BitChord",
+                            "upgrade for $mediaId stalled at ${bytesNow}B for ${now - lastProgressAt}ms",
+                            about = mediaId,
+                        )
+                        return@withTimeoutOrNull null
+                    }
                     val verdict = withContext(Dispatchers.Main) {
-                        auditionVerdict(audition, at.duration, stream, meter.bytes.get())
+                        auditionVerdict(audition, at.duration, stream, bytesNow)
                     }
                     when (verdict) {
                         is Audition.Ready -> return@withTimeoutOrNull verdict.bufferedTo
@@ -9469,6 +9595,14 @@ class PlaybackService : MediaLibraryService() {
          * cut-then-wait order threw away.
          */
         const val UPGRADE_AUDITION_MS = 25_000L
+
+    /**
+     * How long an audition may go without a single new byte before it is called
+     * a stall. Short on purpose: a source that has delivered nothing for this
+     * long is not about to prove itself inside the remaining ceiling, and the
+     * track is better served by asking the next one.
+     */
+    const val UPGRADE_STALL_MS = 4_000L
 
         /**
          * How far past the listener an upgrade has to be buffered before it is

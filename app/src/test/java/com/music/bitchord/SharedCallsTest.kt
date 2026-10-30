@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -201,10 +202,123 @@ class SharedCallsTest {
         assertEquals(1, calls.get())
     }
 
+    /**
+     * The other half of the test above, and the failure that one does not
+     * cover: the abandoned request *fails*.
+     *
+     * A caller that is cancelled never runs the cleanup at the end of [SharedCalls.get],
+     * but the request it started keeps running in the shared scope — that is
+     * the point of the scope. When it comes back with a failure there is then
+     * nobody left to drop the entry, and the next caller reads that failure as
+     * the answer for the whole window. Seen in the field as a `CACHE HIT`
+     * logged in the same millisecond as a timeout: one bad minute at an addon
+     * turned into ten minutes of instant failures for that query.
+     */
+    @Test
+    fun `a failure is not kept when its only caller was cancelled`() = runBlocking {
+        val calls = AtomicInteger()
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val shared = shared<String>(ttlMs = 60_000)
+
+        val abandoning = scope().launch {
+            shared.get("q", { "" }) {
+                calls.incrementAndGet()
+                started.complete(Unit)
+                release.await()
+                Result.failure(IllegalStateException("timeout"))
+            }
+        }
+        started.await()
+        abandoning.cancelAndJoin()
+        release.complete(Unit)
+
+        // Nothing may be left holding that failure: the next caller has to be
+        // able to ask again rather than be handed the same answer.
+        withTimeout(5_000) {
+            while (shared.size() != 0) delay(10)
+        }
+        val answer = shared.get("q", { "" }) {
+            calls.incrementAndGet()
+            Result.success("flac")
+        }
+        assertEquals("flac", answer.getOrNull())
+        assertEquals(2, calls.get())
+    }
+
     @Test
     fun `held answers stay bounded`() = runBlocking {
         val shared = shared<String>(ttlMs = 60_000)
         repeat(400) { at -> shared.get("q$at", { "" }) { Result.success("a") } }
         assertTrue("held ${shared.size()}", shared.size() <= 128)
+    }
+
+    /**
+     * The incident this fix came from, with the track that produced it.
+     *
+     * ```
+     * 07:37:01.321  the addon call starts for 'linda louca e mimada oriente'
+     * 07:37:01.139  sound starts on the YouTube fallback, so the caller that
+     *               started the request stops waiting - by design, and by
+     *               cancellation
+     * 07:37:20.511  addon search ... CACHE HIT
+     *               the second look arrives and joins the request on the wire
+     * 07:37:46.322  addon call failed: timeout (45 s ceiling)
+     * ```
+     *
+     * Before the fix that failure stayed in the map for the whole ten-minute
+     * TTL: every later lookup for the same query was answered from it without a
+     * request leaving the device, which is the `CACHE HIT` logged beside a
+     * timeout. After it, the failure is dropped where the *work* settles and the
+     * next caller asks the addon again.
+     */
+    @Test
+    fun `the Oriente search is asked again after the request died with its starter gone`() = runBlocking {
+        val query = "linda louca e mimada oriente"
+        val calls = AtomicInteger()
+        val joined = AtomicInteger()
+        val onTheWire = CompletableDeferred<Unit>()
+        val ceiling = CompletableDeferred<Unit>()
+        val shared = shared<String>(ttlMs = 10 * 60_000, onReuse = { joined.incrementAndGet() })
+
+        // The live resolve asks, then gives up: sound is already playing on the
+        // fallback, and a caller in this layer is meant to walk away.
+        val live = async(Dispatchers.Default) {
+            shared.get(query, { "addon search q=\"$query\"" }) {
+                calls.incrementAndGet()
+                onTheWire.complete(Unit)
+                ceiling.await()
+                Result.failure(IllegalStateException("timeout"))
+            }
+        }
+        onTheWire.await()
+        live.cancelAndJoin()
+
+        // The second look arrives while the request is still running and joins
+        // it. This is the caller still inside await() when the ceiling fires.
+        val secondLook = async(Dispatchers.Default) {
+            shared.get(query, { "addon search q=\"$query\"" }) {
+                calls.incrementAndGet()
+                Result.success("a second request, which would be a duplicate")
+            }
+        }
+        while (joined.get() < 1) yield()
+        ceiling.complete(Unit)
+
+        assertTrue("the joined caller sees the failure", secondLook.await().isFailure)
+        assertEquals("one request on the wire, not two", 1, calls.get())
+
+        // Dropped where the work settles, not where a caller returns; give that
+        // handler its turn. Without the fix the entry outlives the TTL below.
+        withTimeout(5_000) { while (shared.size() != 0) delay(10) }
+
+        // A replay, or the next track that asks the same question. A failure is
+        // not an answer, so this asks the addon again.
+        val answer = shared.get(query, { "addon search q=\"$query\"" }) {
+            calls.incrementAndGet()
+            Result.success("flac tidal:track:57852175")
+        }
+        assertEquals("flac tidal:track:57852175", answer.getOrNull())
+        assertEquals("the failure did not become the answer", 2, calls.get())
     }
 }

@@ -77,6 +77,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -1661,69 +1662,89 @@ private fun LosslessOrStats(
     nerdStats: NerdStats.Snapshot?,
     modifier: Modifier = Modifier,
 ) {
-    when {
-        // Still resolving — either the player itself is buffering, or a
-        // module is still racing YouTube for this track in the background
-        // (see [NerdStats.racingLossless]) even though YouTube already won
-        // and is audible. Either way nothing measured yet to confirm with,
-        // so this is a statement of intent, not a result — no shimmer, so
-        // it never reads as "confirmed" before it is.
-        // [stillRacing] on its own, not gated on the lossless preference: a
-        // module outranks YouTube on the strength of the source order alone,
-        // so the lookup runs — and can come back lossless — with that switch
-        // off. Gating this on it left the badge blank through the wait and
-        // then jumped straight to "Hi-Res Lossless".
-        // The [isLoading] half is gated on `nerdStats == null` rather than
-        // `nerdStats?.isLossless != true`: `isLoading` is just
-        // `STATE_BUFFERING`, which a seek trips for a track whose quality
-        // question was already settled — swallowing back into cache still
-        // rebuffers. Gating on `!= true` read that rebuffer as "resolving"
-        // again and flashed "Upgrading Quality" over a track already known
-        // to be, say, Hi-Quality with no lossless copy anywhere. Once
-        // [nerdStats] exists there is something measured to show instead, so
-        // only a genuinely unmeasured track — or a real race via
-        // [stillRacing] — earns this label.
-        (stillRacing && nerdStats?.isLossless != true) ||
-            (isLoading && losslessRequested && nerdStats == null) -> LosslessLabel(
-            text = stringResource(Res.string.upgrading_quality),
-            iconPainter = painterResource(Res.drawable.ic_lossless),
-            // Breathes for as long as the search runs: a wait, not a result,
-            // and the one badge state that is still going to change.
-            pulsing = true,
-            animated = false,
-            modifier = modifier,
-        )
-        nerdStats?.isLossless == true -> LosslessLabel(
-            // Same line Tidal, Qobuz and Apple Music draw it at — see
-            // [NerdStats.Snapshot.isHiRes].
-            text = stringResource(if (nerdStats.isHiRes) Res.string.hi_res_lossless else Res.string.lossless),
-            iconPainter = painterResource(Res.drawable.ic_lossless),
-            // Shimmer is reserved for the thing that was asked for and
-            // confirmed. It is what makes the badge read as an achievement
-            // rather than a label, which only one of these two is.
-            animated = true,
-            modifier = modifier,
-        )
-        nerdStats?.isDolbyAtmos == true -> LosslessLabel(
-            text = "Dolby Atmos",
-            animated = true,
-            iconPainter = painterResource(Res.drawable.ic_dolby_atmos),
-            modifier = modifier,
-        )
-        // Lossy, but the good end of lossy — a module's 320kbps tier, which
-        // for a great many tracks is the best copy that exists anywhere the
-        // app can reach. See [NerdStats.Snapshot.isHiQuality].
-        nerdStats?.isHiQuality == true -> LosslessLabel(
-            text = stringResource(Res.string.high_quality),
-            animated = false,
-            iconPainter = rememberVectorPainter(Icons.Rounded.Headphones),
-            // A Material glyph's own size is 24dp; the badge's are drawn small.
-            iconSize = 13.dp,
-            modifier = modifier,
-        )
-        // Below that, no badge: "Medium Quality" and "Data Saver" are gone.
-        // The space under the bar is kept for what is worth announcing.
-        else -> {}
+    // Which source actually served the bytes is recorded per track — see
+    // [NerdStats.recordSource]. The pipeline dialog shows it, but that is a
+    // whole screen of stats for someone who only wants to know who is playing.
+    // Tapping the badge is the short answer: one line, one tap, gone.
+    val source = nerdStats?.sourceName?.takeIf { it.isNotBlank() }
+    var showSource by remember { mutableStateOf(false) }
+    // A new track starts on its quality, never on the source of the last one.
+    LaunchedEffect(nerdStats?.mediaId) { showSource = false }
+    Box(
+        modifier = modifier.then(
+            if (source != null) Modifier.clickable { showSource = !showSource } else Modifier,
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            // The same label, in the same place, showing who is playing instead
+            // of what is playing. A tap swaps them; the next tap swaps back.
+            // A popup was tried first and read as a different control entirely.
+            showSource && source != null -> LosslessLabel(
+                text = source,
+                animated = true,
+                iconPainter = painterResource(Res.drawable.ic_lossless),
+            )
+            // Still resolving — either the player itself is buffering, or a
+            // module is still racing YouTube for this track in the background
+            // (see [NerdStats.racingLossless]) even though YouTube already won
+            // and is audible. Either way nothing measured yet to confirm with,
+            // so this is a statement of intent, not a result — no shimmer, so
+            // it never reads as "confirmed" before it is.
+            // [stillRacing] on its own, not gated on the lossless preference: a
+            // module outranks YouTube on the strength of the source order alone,
+            // so the lookup runs — and can come back lossless — with that switch
+            // off. Gating this on it left the badge blank through the wait and
+            // then jumped straight to "Hi-Res Lossless".
+            // The [isLoading] half is gated on `nerdStats == null` rather than
+            // `nerdStats?.isLossless != true`: `isLoading` is just
+            // `STATE_BUFFERING`, which a seek trips for a track whose quality
+            // question was already settled — swallowing back into cache still
+            // rebuffers. Gating on `!= true` read that rebuffer as "resolving"
+            // again and flashed "Upgrading Quality" over a track already known
+            // to be, say, Hi-Quality with no lossless copy anywhere. Once
+            // [nerdStats] exists there is something measured to show instead, so
+            // only a genuinely unmeasured track — or a real race via
+            // [stillRacing] — earns this label.
+            (stillRacing && nerdStats?.isLossless != true) ||
+                (isLoading && losslessRequested && nerdStats == null) -> LosslessLabel(
+                text = stringResource(Res.string.upgrading_quality),
+                iconPainter = painterResource(Res.drawable.ic_lossless),
+                // Breathes for as long as the search runs: a wait, not a result,
+                // and the one badge state that is still going to change.
+                pulsing = true,
+                // The band runs here too. It used to be reserved for the
+                // confirmed label, which left the wait reading as a dead grey line.
+                animated = true,
+            )
+            nerdStats?.isLossless == true -> LosslessLabel(
+                // Same line Tidal, Qobuz and Apple Music draw it at — see
+                // [NerdStats.Snapshot.isHiRes].
+                text = stringResource(if (nerdStats.isHiRes) Res.string.hi_res_lossless else Res.string.lossless),
+                iconPainter = painterResource(Res.drawable.ic_lossless),
+                // Confirmed, so it keeps the brightest tint of the three
+                // states that shimmer now: the wait, the source, and this one.
+                animated = true,
+            )
+            nerdStats?.isDolbyAtmos == true -> LosslessLabel(
+                text = "Dolby Atmos",
+                animated = true,
+                iconPainter = painterResource(Res.drawable.ic_dolby_atmos),
+            )
+            // Lossy, but the good end of lossy — a module's 320kbps tier, which
+            // for a great many tracks is the best copy that exists anywhere the
+            // app can reach. See [NerdStats.Snapshot.isHiQuality].
+            nerdStats?.isHiQuality == true -> LosslessLabel(
+                text = stringResource(Res.string.high_quality),
+                animated = false,
+                iconPainter = rememberVectorPainter(Icons.Rounded.Headphones),
+                // A Material glyph's own size is 24dp; the badge's are drawn small.
+                iconSize = 13.dp,
+            )
+            // Below that, no badge: "Medium Quality" and "Data Saver" are gone.
+            // The space under the bar is kept for what is worth announcing.
+            else -> {}
+        }
     }
 }
 

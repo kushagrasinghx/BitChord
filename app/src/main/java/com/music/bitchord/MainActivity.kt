@@ -425,6 +425,16 @@ internal fun inPageOrder(shown: List<String>, page: List<String>): Boolean {
     return shown.all { key -> rest.asSequence().any { it == key } }
 }
 
+/**
+ * The tracks a release page's own menu can act on as they stand: all of them
+ * once the page has loaded its last page, none while a continuation is still
+ * to come. None makes the menu fetch the whole list itself, so Download, Play
+ * Next and Add to Queue never stop at however far the page had scrolled in
+ * (#1178).
+ */
+internal fun <T> loadedWhole(songs: List<T>, continuation: String?): List<T> =
+    if (continuation == null) songs else emptyList()
+
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -4266,7 +4276,7 @@ private fun BitChordApp(
                                                 subtitle = detail.subtitle,
                                                 thumbnailUrl = detail.thumbnailUrl,
                                                 type = detail.type,
-                                                songs = releaseSongs.sortedForDetail(songSort).map { song ->
+                                                songs = loadedWhole(releaseSongs, detail.continuation).sortedForDetail(songSort).map { song ->
                                                     if (detail.type == BrowseType.ALBUM) {
                                                         song.copy(albumName = song.albumName ?: detail.title)
                                                     } else {

@@ -64,6 +64,7 @@ val SUPPORTED_LANGUAGES = listOf(
     AppLanguage("hi", R.string.hindi),
     AppLanguage("ja", R.string.japanese),
     AppLanguage("ru", R.string.russian),
+    AppLanguage("uk", R.string.ukrainian),
     AppLanguage("zh-CN", R.string.chinese_simplified),
     AppLanguage("zh-TW", R.string.chinese_traditional),
     AppLanguage("he", R.string.hebrew),

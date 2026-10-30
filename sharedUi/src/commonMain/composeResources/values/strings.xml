@@ -207,4 +207,5 @@
     <string name="import_spotify">Import Spotify</string>
     <string name="import_spotify_subtitle">From a playlist link</string>
     <string name="sign_in_with_google">Sign in with Google</string>
+    <string name="ukrainian">Ukrainian</string>
 </resources>

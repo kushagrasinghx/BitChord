@@ -1000,6 +1000,7 @@
     <string name="listen_together_top_bar_fallback">Fallback · %1$s</string>
 
     <string name="vietnamese">Vietnamese</string>
+    <string name="ukrainian">Ukrainian</string>
 
     <string name="miscellaneous_footer">When enabled, closing the app from the recent apps screen will also stop music playback.</string>
 

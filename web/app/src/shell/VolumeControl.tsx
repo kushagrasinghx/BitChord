@@ -45,7 +45,7 @@ interface VolumeControlProps {
  * scrolls the page. Each step calls onOpen (it opens the slider, so the level
  * shows while it moves), and reading the store via getState keeps the handler
  * free of stale volume/mute values — setVolume also clears mute, so scrolling
- * up while muted unmutes.
+ * up while muted unmutes, one step up from silence.
  */
 function useVolumeWheel(onStep: () => void) {
   const ref = useRef<HTMLSpanElement | null>(null);
@@ -53,9 +53,11 @@ function useVolumeWheel(onStep: () => void) {
     const el = ref.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      const { volume, setVolume } = usePlayer.getState();
-      const next = nextVolumeFromWheel(volume, e.deltaY);
-      if (next === volume) return;
+      const { volume, muted, setVolume } = usePlayer.getState();
+      // Step from what's heard, as the slider shows it: muted is silence, not the remembered level.
+      const level = muted ? 0 : volume;
+      const next = nextVolumeFromWheel(level, e.deltaY);
+      if (next === level) return;
       e.preventDefault();
       onStep();
       setVolume(next);

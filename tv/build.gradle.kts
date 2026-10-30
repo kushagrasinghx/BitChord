@@ -291,6 +291,10 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 dependencies {
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
+    // The module compiles `../app/src/main/java` wholesale, and that tree now
+    // holds the vocal remover's orchestrator — so the separation engine has to
+    // be on this compile classpath too, not just the phone app's.
+    implementation(project(":separation"))
 
     // ---- Compose (Material 3) ----
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")

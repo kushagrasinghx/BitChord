@@ -76,6 +76,8 @@ import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.guava.future
 import com.music.bitchord.playback.audio.DspChain
 import com.music.bitchord.playback.cast.CastController
+import com.music.bitchord.playback.cast.castableTrack
+import com.music.bitchord.playback.cast.receiverCanOpen
 import com.music.bitchord.playback.cast.CastPlayback
 import com.music.bitchord.playback.cast.CastSink
 import com.music.bitchord.playback.cast.RemoteSpeaker
@@ -1882,37 +1884,44 @@ class PlaybackService : MediaLibraryService() {
 
     /**
      * The stream a Cast receiver can open for [item], or null when there is none
-     * it can: a file on this phone, or a source that needs headers the
-     * receiver cannot send. Runs the same resolver the player's own data source
-     * does, so the receiver is handed the URL the phone would have played.
+     * it can: a file the listener imported, a network share, a source that needs
+     * headers the receiver cannot send. Runs the same resolver the player's own
+     * data source does, so the receiver is handed the URL the phone would have
+     * played — and for a track downloaded to this phone, the URL it would have
+     * been streamed through rather than the file, a receiver having no way to
+     * fetch the file and every way to fetch that.
      */
     private suspend fun resolveForCast(item: MediaItem): CastStream? = withContext(Dispatchers.IO) {
         val uri = item.localConfiguration?.uri ?: return@withContext null
         val resolver = streamResolver ?: return@withContext null
-        // Ungated: the receiver plays items this player is not on.
-        val resolved = DirectSourceGate.ungated { resolver.resolveDataSpec(DataSpec(uri)) }.uri
-        if (resolved.scheme == "http" || resolved.scheme == "https") {
-            CastStream(resolved.toString(), CastPlayback.mimeTypeOf(resolved))
+        // What a receiver is given is a stream it fetches itself, and for nearly
+        // every track here that is what the item's own address resolves to. A
+        // downloaded track's is not: the item carries the file's `content://`
+        // URI, which a receiver cannot open and which the resolver cannot turn
+        // into a stream either — asking it that took seconds to come back with
+        // no, and left the receiver on the track before for all of it. The
+        // address the track would have been streamed through is resolved in its
+        // place, and asked for first, without the doomed question: the download
+        // is a copy of a track that is still addressable, and this is how it
+        // reaches a speaker.
+        //
+        // What is left is refused from the scheme, which costs nothing: a file
+        // the listener imported, a share on the network, a resource in the apk.
+        // [castableTrack] is the same question the receiver's queue window is
+        // built on, so a track skipped here is skipped there too rather than
+        // offered to the receiver as the next one due.
+        val address = if (receiverCanOpen(uri.scheme)) {
+            uri
         } else {
-            // The item's URI may be a local/offline path for a downloaded track.
-            // Fall back to resolving the remote stream URL using the same path
-            // non-downloaded tracks use, so the receiver gets an HTTP URL it can
-            // reach — see #1085. Only allow this when the videoId is a known
-            // downloaded YouTube id (key in Downloads.saved); reject external
-            // local files whose videoId is a content:// URI that cannot resolve.
-            val fallback = if (uri.scheme == "content" || uri.scheme == "file") {
-                item.mediaId.takeIf { it.isNotBlank() }?.let { vid ->
-                    if (Downloads.saved.value.containsKey(vid)) "bitchord://watch?v=$vid" else null
-                }
-            } else null
-            if (fallback != null) {
-                runCatching {
-                    DirectSourceGate.ungated { resolver.resolveDataSpec(DataSpec(fallback.toUri())) }.uri
-                        .takeIf { it.scheme == "http" || it.scheme == "https" }
-                }.getOrNull()?.let { url ->
-                    CastStream(url.toString(), CastPlayback.mimeTypeOf(url))
-                }
-            } else null
+            if (!castableTrack(uri.scheme, item.mediaId)) return@withContext null
+            Uri.parse(item.toSong().streamUri())
+        }
+        // Ungated: the receiver plays items this player is not on.
+        val resolved = DirectSourceGate.ungated { resolver.resolveDataSpec(DataSpec(address)) }.uri
+        if (resolved.scheme != "http" && resolved.scheme != "https") {
+            null
+        } else {
+            CastStream(resolved.toString(), CastPlayback.mimeTypeOf(resolved))
         }
     }
 
@@ -8122,11 +8131,17 @@ class PlaybackService : MediaLibraryService() {
             listeners.forEach { it.onEvents(this, events) }
         }
 
-        /** Back, on a receiver: restart past the first seconds, else the previous track. */
+        /**
+         * Back, on a receiver: restart past the first seconds, else the previous
+         * track. The receiver keeps the track before this one queued, so back is
+         * usually a jump there — instant, and with no reload behind it. When it
+         * has not got it (the top of the queue, or before the window caught up)
+         * the phone's player moves instead, as it does off a receiver.
+         */
         private fun castPrevious() {
             if (cast.positionMs > wrappedPlayer.maxSeekToPreviousPosition || !wrappedPlayer.hasPreviousMediaItem()) {
                 cast.seekTo(0L)
-            } else {
+            } else if (!cast.jumpToPrevious()) {
                 wrappedPlayer.seekToPreviousMediaItem()
             }
         }

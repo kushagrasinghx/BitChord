@@ -3234,6 +3234,14 @@ private fun BitChordApp(
                                 onSongClick = ::playDetailSongs,
                                 onSongLongPress = { openSongMenu(withAlbum(it)) },
                                 onSongSwipe = { onSongSwipe(withAlbum(it)) },
+                                onPlay = { songs ->
+                                    if (songs.isNotEmpty()) {
+                                        // Play is the release in order, so a shuffle left on
+                                        // from the last queue goes off before this one is built.
+                                        QueueShuffle.disableForNextQueue()
+                                        playDetailSongs(songs, 0)
+                                    }
+                                },
                                 onShuffle = { songs ->
                                     if (songs.isNotEmpty()) {
                                         // Shuffle goes on first so the queue is built shuffled
@@ -5035,7 +5043,10 @@ private fun BitChordApp(
                 startRenaming = browseRenameInSheet,
                 onPlayNext = act(playSongsNext),
                 onAddToQueue = act(addSongsToQueue),
-                onPlay = act { songs -> play(songs, 0) }.takeIf { target.fromCard },
+                onPlay = act { songs ->
+                    QueueShuffle.disableForNextQueue()
+                    play(songs, 0)
+                }.takeIf { target.fromCard },
                 onShuffle = act { songs ->
                     // As on a release page: shuffle goes on before the queue
                     // is built, so it is built shuffled rather than played

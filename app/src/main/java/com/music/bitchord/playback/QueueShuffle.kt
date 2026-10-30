@@ -181,6 +181,18 @@ object QueueShuffle {
     }
 
     /**
+     * [enableForNextQueue]'s counterpart, for the Play button beside it: an
+     * album or playlist played from the top plays in its own order, whatever
+     * shuffle was left on from the last queue (#1148).
+     */
+    fun disableForNextQueue() {
+        original = emptyList()
+        clearCanonicalContext()
+        _enabled.value = false
+        AppSettings.setShuffleEnabled(false)
+    }
+
+    /**
      * The order a queue should go in when it is started while shuffle is on:
      * the track the user picked leads, the rest follow at random. The order it
      * arrived in is remembered, so turning shuffle off restores it.

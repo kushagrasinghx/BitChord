@@ -1,4 +1,4 @@
-import { line, lineAlignments, withInstrumentalGaps, wordsFromRuns, type LyricLine, type TimedRun } from './model';
+import { INSTRUMENTAL_NOTICE, line, lineAlignments, withInstrumentalGaps, wordsFromRuns, type LyricLine, type TimedRun } from './model';
 import { decodeEntities, parseEnhancedLrc, parseLrc, parseProvider, parseTtml, plainLines, type Parsed } from './parse';
 import { lyricsGet, urlWith } from './http';
 import { appleWebToken } from '@/data/apple/webToken';
@@ -487,12 +487,11 @@ export function stripKugouCredits(lrc: string): string {
 }
 
 const KUGOU_STAMP = /\[\d{2}:\d{2}\.\d{2,3}\]/g;
-const KUGOU_INSTRUMENTAL = /纯音乐.*欣赏/;
 
 /** A file holding nothing but KuGou's "纯音乐，请欣赏" ("pure music, please enjoy") notice. */
 export function isKugouInstrumentalNotice(lrc: string): boolean {
   const lines = lrc.split(/\r?\n/).map((l) => l.replace(KUGOU_STAMP, '').trim()).filter(Boolean);
-  return lines.length > 0 && lines.every((l) => KUGOU_INSTRUMENTAL.test(l));
+  return lines.length > 0 && lines.every((l) => INSTRUMENTAL_NOTICE.test(l));
 }
 
 export async function kugou(q: LyricsQuery): Promise<Parsed | null> {

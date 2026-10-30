@@ -1122,14 +1122,14 @@
 
     <string name="audio_pipeline">Ses Hattı</string>
     <string name="cast_dialog_title">Cast</string>
-    <string name="cast_dialog_subtitle">Play on a Chromecast or Google Cast speaker</string>
-    <string name="cast_searching">Looking for devices…</string>
-    <string name="cast_searching_hint">Your phone and the receiver need to be on the same Wi-Fi network.</string>
-    <string name="cast_device_connecting">Connecting…</string>
-    <string name="cast_device_connected">Casting</string>
-    <string name="cast_stop">Stop casting</string>
-    <string name="cast_track_unsupported">This track can\'t be cast</string>
-    <string name="cast_connect_failed">Couldn\'t connect to the receiver</string>
+    <string name="cast_dialog_subtitle">Bir Chromecast veya Google Cast hoparlöründe çalın</string>
+    <string name="cast_searching">Cihazlar aranıyor…</string>
+    <string name="cast_searching_hint">Telefonunuzun ve alıcının aynı kablosuz (Wi-Fi) ağda olması gerekir.</string>
+    <string name="cast_device_connecting">Bağlanıyor…</string>
+    <string name="cast_device_connected">Yansıtılıyor</string>
+    <string name="cast_stop">Yansıtmayı durdur</string>
+    <string name="cast_track_unsupported">Bu parça yansıtılamıyor</string>
+    <string name="cast_connect_failed">Alıcıya bağlanılamadı</string>
     <string name="audio_pipeline_subtitle">Kod çözücüden çıkışa canlı sinyal yolu</string>
 
     <string name="pipeline_track_info">Parça Bilgisi</string>
@@ -1336,9 +1336,9 @@
     <string name="wear_os_code_hint">Eşleme kodu</string>
     <string name="wear_os_done">Bitti</string>
     <string name="signed_by">%1$s tarafından imzalandı</string>
-    <string name="no_audio_version">No audio version found for this video</string>
-    <string name="no_video_version">No video version found for this song</string>
-    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="no_audio_version">Bu video için ses sürümü bulunamadı</string>
+    <string name="no_video_version">Bu şarkı için video sürümü bulunamadı</string>
+    <string name="version_switch_in_party">Birlikte Dinle\'deki herkes aynı sürümü dinler</string>
     <string name="opened_file">Açılan dosya</string>
     <string name="folders">Klasörler</string>
     <string name="folder">Klasör</string>
@@ -1393,4 +1393,30 @@
     <string name="bit_perfect_status_inexact">%1$s · tam değil: bu kaynak kayıpsız PCM değil</string>
     <string name="bit_perfect_status_waiting">Desteklenen bir çıkışta kayıpsız parça bekleniyor</string>
     <string name="bit_perfect_status_unavailable">Bu parça için kullanılamıyor (%1$s)</string>
+<string name="search_source_youtube">YouTube</string>
+    <string name="app_icon_monochrome">Monokrom</string>
+    <string name="app_icon_liquid_glass">Liquid Glass</string>
+    <string name="app_icon_liquid_glass_dark">Liquid Glass Koyu</string>
+    <string name="app_icon_liquid_glass_clear">Liquid Glass Şeffaf</string>
+    <string name="app_icon_liquid_glass_clear_dark">Liquid Glass Şeffaf Koyu</string>
+    <string name="app_icon_samsung_glass">Samsung Glass</string>
+    <string name="app_icon_samsung_glass_dark">Samsung Glass Koyu</string>
+    <string name="app_icon_samsung_glass_clear">Samsung Glass Şeffaf</string>
+    <string name="app_icon_samsung_glass_clear_dark">Samsung Glass Şeffaf Koyu</string>
+    <string name="app_icon_pixel_glass">Pixel Glass</string>
+    <string name="app_icon_pixel_glass_dark">Pixel Glass Koyu</string>
+    <string name="app_icon_pixel_glass_clear">Pixel Glass Şeffaf</string>
+    <string name="app_icon_pixel_glass_clear_dark">Pixel Glass Şeffaf Koyu</string>
+    <string name="app_icon_neon_silver">Neon Silver</string>
+    <string name="app_icon_neon_cyan">Neon Cyan</string>
+    <string name="app_icon_neon_violet">Neon Violet</string>
+    <string name="app_icon_samsung_neon_silver">Samsung Neon Silver</string>
+    <string name="app_icon_samsung_neon_cyan">Samsung Neon Cyan</string>
+    <string name="app_icon_samsung_neon_violet">Samsung Neon Violet</string>
+    <string name="app_icon_pixel_neon_silver">Pixel Neon Silver</string>
+    <string name="app_icon_pixel_neon_cyan">Pixel Neon Cyan</string>
+    <string name="app_icon_pixel_neon_violet">Pixel Neon Violet</string>
+    <string name="pipeline_pcm_data_rate">PCM Veri Hızı</string>
+    <string name="spotify_import_language_preference">Dil tercihi</string>
+    <string name="spotify_import_language_hint">ör. Pencapça, Marathice, Korece…</string>
 </resources>

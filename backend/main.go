@@ -581,6 +581,7 @@ func handleLeaveParty(w http.ResponseWriter, r *http.Request) {
 		"type":   protocol.FrameBye,
 		"reason": "left",
 	})
+	hubInst.CloseMember(p.Code, memberId)
 	hubInst.Broadcast(p.Code, membersFrame, memberId)
 
 	jsonResponse(w, http.StatusOK, map[string]bool{"ok": true})
@@ -927,40 +928,57 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		_ = conn.SetReadDeadline(time.Now().Add(time.Duration(config.ConnectionIdleMs) * time.Millisecond))
-		handleSocketFrame(p, member, sc, raw)
+		if !handleSocketFrame(p, member, sc, raw) {
+			break
+		}
 	}
 }
 
-func handleSocketFrame(p *party.Party, member *party.Member, sc *hub.SafeConn, frame map[string]interface{}) {
+// handleSocketFrame applies one frame and reports whether the socket may keep
+// reading. Frames are built under the party lock and written after it is
+// released: a write can wait seconds on one stalled phone, and holding the lock
+// that long froze the party, the heartbeat for every party, and the sweep's
+// store lock behind it.
+func handleSocketFrame(p *party.Party, member *party.Member, sc *hub.SafeConn, frame map[string]interface{}) bool {
 	kind, _ := frame["type"].(string)
 	if kind == "" {
-		return
+		return true
 	}
 
+	var reply map[string]interface{}
+	var broadcasts []map[string]interface{}
+	kicked := ""
+
 	p.Lock()
-	defer p.Unlock()
+	// Authenticated once at connect; a member who has since left or been
+	// swept must not keep acting through a socket that outlived them.
+	if !p.IsMember(member) {
+		p.Unlock()
+		return false
+	}
 	if !p.SpendFrameBudget(member) {
+		p.Unlock()
 		_ = sc.WriteJSON(map[string]interface{}{
 			"type": protocol.FrameError, "error": "rate_limited", "message": "Too many messages at once.",
 		})
-		return
+		return true
 	}
 
 	member.LastSeenMs = clock.NowMs()
 
 	switch kind {
 	case protocol.FramePing:
-		_ = sc.WriteJSON(map[string]interface{}{
+		reply = map[string]interface{}{
 			"type":     protocol.FramePong,
 			"clientMs": frame["clientMs"],
 			"serverMs": clock.NowMs(),
-		})
+		}
 
 	case protocol.FrameSync:
-		_ = sc.WriteJSON(stateFrame(p))
+		reply = stateFrame(p)
 
 	case protocol.FrameSyncQueue:
-		_ = sc.WriteJSON(queueFrame(p))
+		reply = queueFrame(p)
 
 	case protocol.FrameReport:
 		// Playhead position report from client for monitoring
@@ -973,12 +991,12 @@ func handleSocketFrame(p *party.Party, member *party.Member, sc *hub.SafeConn, f
 
 	case protocol.FrameControl:
 		if !p.SpendControlBudget(member) {
-			_ = sc.WriteJSON(map[string]interface{}{
+			reply = map[string]interface{}{
 				"type":    protocol.FrameError,
 				"error":   "rate_limited",
 				"message": "Too many controls at once.",
-			})
-			return
+			}
+			break
 		}
 
 		queueBefore := p.Playback.QueueSeq
@@ -986,25 +1004,47 @@ func handleSocketFrame(p *party.Party, member *party.Member, sc *hub.SafeConn, f
 		success, errCode, errMsg := applyControl(p, member, action, frame)
 		if success {
 			p.Touch()
+			if action == protocol.ActionKick {
+				kicked, _ = frame["memberId"].(string)
+			}
 			// If queue changed, broadcast queue first
 			if p.Playback.QueueSeq != queueBefore {
-				hubInst.Broadcast(p.Code, queueFrame(p), "")
+				broadcasts = append(broadcasts, queueFrame(p))
 			}
-			hubInst.Broadcast(p.Code, stateFrame(p), "")
+			broadcasts = append(broadcasts, stateFrame(p))
 			if action == protocol.ActionKick ||
 				action == protocol.ActionSetMaxMembers ||
 				action == protocol.ActionSetHostOnlyControl {
-				hubInst.Broadcast(p.Code, membersFrame(p), "")
+				broadcasts = append(broadcasts, membersFrame(p))
 			}
-			hubInst.Broadcast(p.Code, activityFrame(member, action, frame), "")
+			broadcasts = append(broadcasts, activityFrame(member, action, frame))
 		} else if errCode != "" {
-			_ = sc.WriteJSON(map[string]interface{}{
+			reply = map[string]interface{}{
 				"type":    protocol.FrameError,
 				"error":   errCode,
 				"message": errMsg,
-			})
+			}
 		}
 	}
+	p.Unlock()
+
+	// ponytail: two members' controls can now go out in either order; clients
+	// already order state by seq, as they must for the heartbeat.
+	if reply != nil {
+		_ = sc.WriteJSON(reply)
+	}
+	if kicked != "" {
+		hubInst.Send(p.Code, kicked, map[string]interface{}{
+			"type":    protocol.FrameBye,
+			"reason":  "kicked",
+			"message": "The host removed you from this party.",
+		})
+		hubInst.CloseMember(p.Code, kicked)
+	}
+	for _, f := range broadcasts {
+		hubInst.Broadcast(p.Code, f, "")
+	}
+	return true
 }
 
 func applyControl(p *party.Party, member *party.Member, action string, frame map[string]interface{}) (bool, string, string) {
@@ -1104,18 +1144,18 @@ func applyControl(p *party.Party, member *party.Member, action string, frame map
 
 	case protocol.ActionQueueRemove:
 		vid, _ := frame["videoId"].(string)
-		if vid == "" {
-			if idxNum, ok := frame["index"].(float64); ok {
-				idx := int(idxNum)
-				if idx >= 0 && idx < len(p.Playback.Queue) {
-					vid = p.Playback.Queue[idx].VideoId
-				}
-			}
-		}
-		if vid == "" {
+		idxNum, hasIdx := frame["index"].(float64)
+		if vid == "" && !hasIdx {
 			return false, "missing_track", "queueRemove requires videoId or index"
 		}
-		if !p.Playback.RemoveUpcoming(&member.MemberId, vid) {
+		var removed bool
+		if vid == "" {
+			// An index names one slot; looking its id back up could find another copy.
+			removed = p.Playback.RemoveUpcomingAt(&member.MemberId, int(idxNum))
+		} else {
+			removed = p.Playback.RemoveUpcoming(&member.MemberId, vid)
+		}
+		if !removed {
 			return false, "not_found", "Track is not in the upcoming queue"
 		}
 		return true, "", ""
@@ -1186,12 +1226,7 @@ func applyControl(p *party.Party, member *party.Member, action string, frame map
 		if !member.IsHost { return false, "host_only", "Only the host can remove listeners." }
 		if targetID == "" || targetID == member.MemberId { return false, "invalid_member", "Choose another listener to remove." }
 		if p.Remove(targetID) == nil { return false, "not_found", "That listener is no longer in this party." }
-		hubInst.Send(p.Code, targetID, map[string]interface{}{
-			"type":    protocol.FrameBye,
-			"reason":  "kicked",
-			"message": "The host removed you from this party.",
-		})
-		hubInst.CloseMember(p.Code, targetID)
+		// The bye and the close go out from handleSocketFrame, after the lock.
 		return true, "", ""
 
 	default:

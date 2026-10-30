@@ -1220,7 +1220,12 @@ func activityFrame(member *party.Member, action string, frame map[string]interfa
 	case protocol.ActionSetTrack:
 		if title := trackTitle(frame["track"]); title != "" { detail = "Changed the song to \"" + title + "\"" }
 	case protocol.ActionQueueAdd:
-		if tracks, ok := frame["tracks"].([]interface{}); ok && len(tracks) > 0 {
+		tracks, _ := frame["tracks"].([]interface{})
+		if single, ok := frame["track"].(map[string]interface{}); ok {
+			// applyControl takes a lone "track" too; describe it the same way.
+			tracks = []interface{}{single}
+		}
+		if len(tracks) > 0 {
 			title := trackTitle(tracks[0])
 			if title != "" {
 				if len(tracks) == 1 { detail = "Added \"" + title + "\" to the queue" } else { detail = fmt.Sprintf("Added \"%s\" and %d more to the queue", title, len(tracks)-1) }
@@ -1239,6 +1244,8 @@ func activityFrame(member *party.Member, action string, frame map[string]interfa
 	case protocol.ActionKick: detail = "Removed a listener from the party"
 	case protocol.ActionSetMaxMembers: detail = "Changed the party size"
 	case protocol.ActionSetAutoplay: detail = "Changed AutoPlay"
+	case protocol.ActionSetHostOnlyControl:
+		if enabled, _ := frame["enabled"].(bool); enabled { detail = "Made the music host-only" } else { detail = "Let everyone control the music" }
 	}
 	return map[string]interface{}{"type": protocol.FrameActivity, "action": action, "by": member.DisplayName, "detail": detail, "atMs": clock.NowMs()}
 }

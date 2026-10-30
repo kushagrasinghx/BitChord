@@ -359,6 +359,14 @@ dependencies {
     // The shared app sources register SvgDecoder (artist signatures).
     implementation("io.coil-kt.coil3:coil-svg:3.0.4")
     implementation("androidx.palette:palette-ktx:1.0.0")
+    // The shared app sources draw the iOS-style settings and menus with SF
+    // Symbols, so this is needed to compile them here too. Same non-transitive
+    // form as in the phone app: it asks for Compose 1.12, which needs a newer
+    // Android Gradle plugin than this build, and the plain ImageVectors used
+    // there need nothing the module's own Compose doesn't already have.
+    implementation("com.github.cosmictaserdev-creator.Jetpack_SF_Symbols:sfsymbols-android:1.1.1") {
+        isTransitive = false
+    }
 
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
     implementation("dev.chrisbanes.haze:haze:1.3.1")

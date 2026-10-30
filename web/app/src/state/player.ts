@@ -982,6 +982,13 @@ function followVideo() {
   void import('@/playback/youtube/videoDeck').then((m) => m.followVideo(deck.engine, deck.audio));
 }
 
+const endedListeners = new Set<() => void>();
+/** Called when the track in front plays to its end, before the queue moves on; a repeat-one loop included. */
+export function onTrackEnded(listener: () => void): () => void {
+  endedListeners.add(listener);
+  return () => endedListeners.delete(listener);
+}
+
 /** The elements' own events are the source of truth for play state; only the deck in front speaks. */
 function bindElement(deck: Deck, n: number) {
   const element = deck.audio;
@@ -998,6 +1005,7 @@ function bindElement(deck: Deck, n: number) {
   element.addEventListener('waiting', () => set('buffering'));
   element.addEventListener('ended', () => {
     if (!inFront() || holding) return;
+    endedListeners.forEach((listener) => listener());
     // The track ran out before the crossfade's next one could start: give up
     // on the fade and play the next track here. Waiting on it was silence for
     // as long as that load took, which on a slow or failing load (each client

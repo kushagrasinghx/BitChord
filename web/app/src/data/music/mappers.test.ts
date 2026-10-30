@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { YTMusic } from 'youtubei.js';
-import { mapAlbum, mapArtist, mapCategories, mapHome, mapPlaylist, mapSearch, mapShelves, mapSuggestions } from './mappers';
+import { firstBrowseArtwork, mapAlbum, mapArtist, mapCategories, mapHome, mapPlaylist, mapSearch, mapShelves, mapSuggestions } from './mappers';
+import type { BrowsePage } from './types';
 
 // Real responses captured by web/scripts/capture-fixtures.mjs (prompt §0:
 // parsers are tested against what YouTube actually sends). YouTube.js parses
@@ -128,5 +129,29 @@ describe('categories', () => {
     expect(tile.title).not.toBe('');
     expect(tile.color).toMatch(/^rgb\(/);
     expect(tile.link.browseId).toBe('FEmusic_moods_and_genres_category');
+  });
+
+  it('borrows the tile cover from the first artwork on the page the tile opens', () => {
+    const page = {
+      title: 'Chill',
+      shelves: [
+        {
+          title: 'Playlists',
+          strapline: null,
+          layout: 'square',
+          items: [
+            { thumbnail: null, wide: false },
+            { thumbnail: 'https://img/shelf-cover.jpg', wide: false },
+          ],
+          seeAll: null,
+        },
+      ],
+      grid: [{ thumbnail: 'https://img/grid-cover.jpg', wide: true }],
+      tracks: [{ thumbnail: 'https://img/track-cover.jpg' }],
+    } as unknown as BrowsePage;
+    expect(firstBrowseArtwork(page)).toEqual({ thumbnail: 'https://img/shelf-cover.jpg', wide: false });
+    expect(firstBrowseArtwork({ ...page, shelves: [] })).toEqual({ thumbnail: 'https://img/grid-cover.jpg', wide: true });
+    expect(firstBrowseArtwork({ ...page, shelves: [], grid: [] })).toEqual({ thumbnail: 'https://img/track-cover.jpg', wide: false });
+    expect(firstBrowseArtwork({ title: '', shelves: [], grid: [], tracks: [] })).toBeNull();
   });
 });

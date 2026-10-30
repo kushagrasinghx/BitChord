@@ -2,7 +2,7 @@ import { Check } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
-export type MenuPlacement = 'above-start' | 'below-end';
+export type MenuPlacement = 'above-start' | 'above-end' | 'below-end';
 
 interface MenuProps {
   /** The element the menu opens from. */
@@ -28,15 +28,18 @@ export function Menu({ anchor, placement = 'below-end', onClose, label, matchWid
     const rect = anchor.getBoundingClientRect();
     const gap = 6;
     const width = matchWidth ? { minWidth: rect.width } : {};
+    const above = { bottom: window.innerHeight - rect.top + gap, maxHeight: rect.top - 2 * gap, ...width };
     setPosition(
       placement === 'above-start'
-        ? { left: Math.max(8, rect.left), bottom: window.innerHeight - rect.top + gap, maxHeight: rect.top - 2 * gap, ...width }
-        : {
-            right: Math.max(8, window.innerWidth - rect.right),
-            top: rect.bottom + gap,
-            maxHeight: window.innerHeight - rect.bottom - 2 * gap,
-            ...width,
-          },
+        ? { left: Math.max(8, rect.left), ...above }
+        : placement === 'above-end'
+          ? { right: Math.max(8, window.innerWidth - rect.right), ...above }
+          : {
+              right: Math.max(8, window.innerWidth - rect.right),
+              top: rect.bottom + gap,
+              maxHeight: window.innerHeight - rect.bottom - 2 * gap,
+              ...width,
+            },
     );
   }, [anchor, placement, matchWidth]);
 

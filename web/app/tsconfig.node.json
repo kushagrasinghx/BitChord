@@ -19,6 +19,7 @@
   },
   "include": [
     "vite.config.ts",
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "src/**/*.d.ts"
   ]
 }

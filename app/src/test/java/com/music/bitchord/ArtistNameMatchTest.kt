@@ -157,4 +157,22 @@ class ArtistNameMatchTest {
         assertNotEquals(normalizedArtistName("माता"), normalizedArtistName("मेता"))
         assertTrue(matches("Мата", "Мата"))
     }
+
+    @Test
+    fun `Turkish characters fold to ASCII equivalents`() {
+        // Issue #1179: Turkish ş→s, ğ→g, ö→o, ü→u, ç→c, ı→i
+        assertTrue(matches("sarkim", "şarkım"))
+        assertTrue(matches("sekerim", "şekerim"))
+        assertTrue(matches("gok", "gök"))
+        assertTrue(matches("gun", "gün"))
+        assertTrue(matches("cocuk", "çocuk"))
+        assertTrue(matches("istanbul", "İstanbul"))
+        assertTrue(matches("siz", "şız"))
+        
+        // Uppercase variants
+        assertEquals(normalizedArtistName("ŞARKIM"), normalizedArtistName("şarkım"))
+        assertEquals(normalizedArtistName("GÖK"), normalizedArtistName("gök"))
+        assertEquals(normalizedArtistName("ÇOCUK"), normalizedArtistName("çocuk"))
+        assertEquals(normalizedArtistName("İSTANBUL"), normalizedArtistName("istanbul"))
+    }
 }

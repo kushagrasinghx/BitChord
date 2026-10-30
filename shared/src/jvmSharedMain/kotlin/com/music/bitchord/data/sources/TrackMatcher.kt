@@ -523,9 +523,26 @@ object TrackMatcher {
     internal fun normalize(text: String): String =
         Normalizer.normalize(text, Normalizer.Form.NFKC)
             .lowercase(Locale.ROOT)
+            .replaceTurkishChars()
             .replace("&", " and ")
             .replace(CJK_OPEN, "(")
             .replace(CJK_CLOSE, ")")
+
+    /**
+     * Folds Turkish-specific characters to their ASCII equivalents for matching.
+     * Handles ş→s, ğ→g, ö→o, ü→u, ç→c, ı→i (and uppercase variants).
+     */
+    private fun String.replaceTurkishChars(): String = map { c ->
+        when (c) {
+            'ş', 'Ş' -> 's'
+            'ğ', 'Ğ' -> 'g'
+            'ö', 'Ö' -> 'o'
+            'ü', 'Ü' -> 'u'
+            'ç', 'Ç' -> 'c'
+            'ı', 'İ' -> 'i'
+            else -> c
+        }
+    }.joinToString("")
 
     /**
      * Latin that actually files the track. A head holding nothing but a take

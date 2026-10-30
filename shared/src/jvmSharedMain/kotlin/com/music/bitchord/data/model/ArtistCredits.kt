@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 fun normalizedArtistName(raw: String): String =
     Normalizer.normalize(raw, Normalizer.Form.NFD)
         .replace(COMBINING_MARKS, "")
+        .replaceTurkishChars()
         .lowercase(Locale.ROOT)
         .replace(REPEATED_SPACE, " ")
         .trim()
@@ -32,6 +33,22 @@ fun normalizedArtistName(raw: String): String =
 private val COMBINING_MARKS = Regex("\\p{InCombiningDiacriticalMarks}+")
 
 private val REPEATED_SPACE = Regex("\\s+")
+
+/**
+ * Folds Turkish-specific characters to their ASCII equivalents for matching.
+ * Handles ş→s, ğ→g, ö→o, ü→u, ç→c, ı→i (and uppercase variants).
+ */
+private fun String.replaceTurkishChars(): String = map { c ->
+    when (c) {
+        'ş', 'Ş' -> 's'
+        'ğ', 'Ğ' -> 'g'
+        'ö', 'Ö' -> 'o'
+        'ü', 'Ü' -> 'u'
+        'ç', 'Ç' -> 'c'
+        'ı', 'İ' -> 'i'
+        else -> c
+    }
+}.joinToString("")
 
 /**
  * Whether a search result is the artist that was asked for, exactly.

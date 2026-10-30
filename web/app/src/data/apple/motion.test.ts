@@ -54,4 +54,13 @@ describe('Apple motion artwork matching', () => {
     expect(matches(found, 'Afsos', 'Anuv Jain', 'Something Else')).toBe(false);
     expect(matches(found, 'Husn', 'Anuv Jain', null)).toBe(false);
   });
+
+  it('normalizes Turkish characters to ASCII equivalents (Issue #1179)', () => {
+    expect(normalizeForMatch('şarkım')).toBe('sarkim');
+    expect(normalizeForMatch('gök')).toBe('gok');
+    expect(normalizeForMatch('çocuk')).toBe('cocuk');
+    expect(normalizeForMatch('İstanbul')).toBe('istanbul');
+    expect(normalizeForMatch('gün')).toBe('gun');
+    expect(normalizeForMatch('ŞARKIM')).toBe('sarkim');
+  });
 });

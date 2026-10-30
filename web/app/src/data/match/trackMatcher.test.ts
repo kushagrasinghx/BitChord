@@ -3,6 +3,7 @@ import {
   best,
   hasConflictingAlbums,
   matches,
+  normalize,
   queries,
   romajiOf,
   uniquelyMostCreditedCloseMatch,
@@ -137,5 +138,23 @@ describe('TrackMatcher', () => {
       'paniyon sa atif aslam',
       'paniyon sa',
     ]);
+  });
+
+  it('matches Turkish titles with ASCII equivalents (Issue #1179)', () => {
+    // Turkish ş→s, ğ→g, ö→o, ü→u, ç→c, ı→i
+    expect(matches(song('sarkim', 'Artist'), 'şarkım', 'Artist')).toBe(true);
+    expect(matches(song('gok', 'Artist'), 'gök', 'Artist')).toBe(true);
+    expect(matches(song('cocuk', 'Artist'), 'çocuk', 'Artist')).toBe(true);
+    expect(matches(song('istanbul', 'Artist'), 'İstanbul', 'Artist')).toBe(true);
+    expect(matches(song('gun', 'Artist'), 'gün', 'Artist')).toBe(true);
+  });
+
+  it('normalizes Turkish characters in normalize() (Issue #1179)', () => {
+    expect(normalize('şarkım')).toBe('sarkim');
+    expect(normalize('gök')).toBe('gok');
+    expect(normalize('çocuk')).toBe('cocuk');
+    expect(normalize('İstanbul')).toBe('istanbul');
+    expect(normalize('gün')).toBe('gun');
+    expect(normalize('ŞARKIM')).toBe('sarkim');
   });
 });

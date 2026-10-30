@@ -42,13 +42,33 @@ export function isCompilation(name: string): boolean {
  * the same release; fold all three away before comparing (normalizeForMatch).
  */
 export function normalizeForMatch(text: string): string {
-  return text
+  return replaceTurkishChars(text
     .normalize('NFD')
-    .replace(/\p{M}+/gu, '')
+    .replace(/\p{M}+/gu, ''))
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Folds Turkish-specific characters to their ASCII equivalents for matching.
+ * Handles ş→s, ğ→g, ö→o, ü→u, ç→c, ı→i (and uppercase variants).
+ */
+function replaceTurkishChars(text: string): string {
+  return text
+    .replace(/ş/g, 's')
+    .replace(/Ş/g, 's')
+    .replace(/ğ/g, 'g')
+    .replace(/Ğ/g, 'g')
+    .replace(/ö/g, 'o')
+    .replace(/Ö/g, 'o')
+    .replace(/ü/g, 'u')
+    .replace(/Ü/g, 'u')
+    .replace(/ç/g, 'c')
+    .replace(/Ç/g, 'c')
+    .replace(/ı/g, 'i')
+    .replace(/İ/g, 'i');
 }
 
 const ARTIST_SEPARATORS = /(?:\s*,\s*|\s*&\s*|\s+×\s+|\s+x\s+|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b)/i;

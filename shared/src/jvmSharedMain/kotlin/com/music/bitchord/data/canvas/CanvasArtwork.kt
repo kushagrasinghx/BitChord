@@ -67,10 +67,27 @@ data class CanvasArtwork(
 fun String.normalizeForMatch(): String =
     Normalizer.normalize(this, Normalizer.Form.NFD)
         .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+        .replaceTurkishChars()
         .lowercase(Locale.ROOT)
         .replace(Regex("[^a-z0-9\\s]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
+
+/**
+ * Folds Turkish-specific characters to their ASCII equivalents for matching.
+ * Handles ş→s, ğ→g, ö→o, ü→u, ç→c, ı→i (and uppercase variants).
+ */
+private fun String.replaceTurkishChars(): String = map { c ->
+    when (c) {
+        'ş', 'Ş' -> 's'
+        'ğ', 'Ğ' -> 'g'
+        'ö', 'Ö' -> 'o'
+        'ü', 'Ü' -> 'u'
+        'ç', 'Ç' -> 'c'
+        'ı', 'İ' -> 'i'
+        else -> c
+    }
+}.joinToString("")
 
 /**
  * One credit string into its individual artists. Every service picks its own

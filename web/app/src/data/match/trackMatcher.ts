@@ -119,9 +119,30 @@ const sameSet = <T>(a: Set<T>, b: Set<T>) => a.size === b.size && [...a].every((
 const union = <T>(...sets: Iterable<T>[]) => new Set(sets.flatMap((s) => [...s]));
 const intersect = <T>(a: Set<T>, b: Set<T>) => new Set([...a].filter((x) => b.has(x)));
 
-export function normalize(text: string): string {
+/**
+ * Folds Turkish-specific characters to their ASCII equivalents for matching.
+ * Handles ş→s, ğ→g, ö→o, ü→u, ç→c, ı→i (and uppercase variants).
+ * Issue #1179.
+ */
+function replaceTurkishChars(text: string): string {
   return text
-    .normalize('NFKC')
+    .replace(/ş/g, 's')
+    .replace(/Ş/g, 's')
+    .replace(/ğ/g, 'g')
+    .replace(/Ğ/g, 'g')
+    .replace(/ö/g, 'o')
+    .replace(/Ö/g, 'o')
+    .replace(/ü/g, 'u')
+    .replace(/Ü/g, 'u')
+    .replace(/ç/g, 'c')
+    .replace(/Ç/g, 'c')
+    .replace(/ı/g, 'i')
+    .replace(/İ/g, 'i');
+}
+
+export function normalize(text: string): string {
+  return replaceTurkishChars(text
+    .normalize('NFKC'))
     .toLowerCase()
     .replaceAll('&', ' and ')
     .replace(CJK_OPEN, '(')

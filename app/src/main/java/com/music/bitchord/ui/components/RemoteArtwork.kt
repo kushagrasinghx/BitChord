@@ -17,13 +17,20 @@ import com.music.bitchord.data.remote.RemoteArtworkStore
  * The extraction only ever runs for remote-library tracks with no thumbnail;
  * every other row resolves synchronously to what it already had, so this is
  * safe to call from shared components like [SongRow] that draw every library
- * in the app. Keyed on the track id, so a recycled row re-resolves instead
- * of flashing a stranger's cover.
+ * in the app.
+ *
+ * Keyed on the track id *and* the thumbnail it came with, so a recycled row
+ * re-resolves instead of flashing a stranger's cover. The id alone is not
+ * enough: a downloaded copy of a track is filed under the id of the one it was
+ * downloaded from, so the same id turns up twice in a queue with a local
+ * `content://` cover on one row and the streaming `https://` one on the other.
+ * Keyed on the id alone, the cover of whichever came first stayed on screen
+ * while the title and the audio moved on to the other.
  */
 @Composable
 fun rememberRemoteArtworkUrl(song: Song?): String? {
     val context = LocalContext.current
-    val key = song?.videoId
+    val key = song?.let { it.videoId to it.thumbnailUrl }
     var resolved by remember(key) { mutableStateOf(song?.thumbnailUrl) }
     LaunchedEffect(key) {
         if (song != null && song.thumbnailUrl == null &&

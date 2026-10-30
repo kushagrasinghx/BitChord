@@ -1285,4 +1285,21 @@
     <string name="no_audio_version">No audio version found for this video</string>
     <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="vocal_remover">Vocal remover</string>
+    <string name="vocal_remover_model">Separation model</string>
+    <string name="vocal_remover_downloading">Downloading… %1$d%%</string>
+    <string name="vocal_remover_downloaded_verified">Downloaded and checksum-verified.</string>
+    <string name="vocal_remover_downloaded_unverified">Downloaded without a pinned checksum — recorded SHA-256: %1$s</string>
+    <string name="vocal_remover_not_downloaded">Not downloaded yet%1$s.</string>
+    <string name="vocal_remover_download_failed">Download failed: %1$s</string>
+    <string name="vocal_remover_custom_model">Custom model URL</string>
+    <string name="vocal_remover_custom_model_none">Using the built-in model. Paste an HTTPS link to a UVR MDX-Net ONNX model to use another one.</string>
+    <string name="vocal_remover_custom_model_footer">Leave the URL empty for the built-in model. Without a checksum the download is accepted unverified; its computed hash is recorded and shown afterward. Only MDX-Net models with the built-in geometry are supported.</string>
+    <string name="vocal_remover_model_url">Model URL (HTTPS)</string>
+    <string name="vocal_remover_model_sha">SHA-256 (optional)</string>
+    <string name="vocal_remover_https_only">Model URLs must start with https://</string>
+    <string name="vocal_remover_use_default">Use built-in</string>
+    <string name="vocal_remover_cpu_threads">CPU threads</string>
+    <string name="vocal_remover_cpu_threads_subtitle">How many cores the separation model may use. Auto starts small and adds cores whenever playback runs ahead of the engine.</string>
+    <string name="vocal_remover_cpu_threads_count">Cores</string>
 </resources>

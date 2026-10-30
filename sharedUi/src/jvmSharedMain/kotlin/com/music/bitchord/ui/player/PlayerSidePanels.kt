@@ -96,6 +96,9 @@ fun LyricsSidePanel(
                         onClick = lyricsTranslation.toggleTranslation,
                     )
                 },
+                vocalRemoverToggle = {
+                    VocalRemoverControl(reduceMotion = lyricsTranslation.reduceMotion)
+                },
             ) { panelModifier ->
                 LyricsTranslationMotion(
                     trigger = lyricsTranslation.transition,

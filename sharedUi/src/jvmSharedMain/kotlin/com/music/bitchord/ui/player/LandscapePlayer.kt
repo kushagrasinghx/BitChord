@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -510,6 +511,8 @@ internal fun LandscapeLyricsPane(
     pickBar: @Composable () -> Unit = {},
     romanizationToggle: @Composable () -> Unit,
     translationToggle: @Composable () -> Unit,
+    /** The live vocal remover: a disc that morphs into a capsule when open. */
+    vocalRemoverToggle: @Composable () -> Unit = {},
     modifier: Modifier = Modifier,
     panel: @Composable (Modifier) -> Unit,
 ) {
@@ -549,8 +552,16 @@ internal fun LandscapeLyricsPane(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Fixed slots either side whether or not the toggles are drawn, so
-            // the status line stays centred as lyrics arrive.
-            Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
+            // the status line stays centred as lyrics arrive. The two language
+            // discs share the left slot; the right one is the vocal remover,
+            // which grows into its capsule in place.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(34.dp)) { if (hasLyrics) romanizationToggle() }
+                Box(Modifier.size(34.dp)) { if (hasLyrics) translationToggle() }
+            }
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -562,7 +573,7 @@ internal fun LandscapeLyricsPane(
                     onStatusClick = onStatusClick,
                 )
             }
-            Box(Modifier.size(34.dp)) { if (hasLyrics) translationToggle() }
+            Box { if (hasLyrics) vocalRemoverToggle() }
         }
         }
     }

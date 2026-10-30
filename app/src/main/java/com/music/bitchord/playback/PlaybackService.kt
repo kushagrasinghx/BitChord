@@ -148,6 +148,8 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
+import com.music.bitchord.playback.vocalremover.VocalRemover
+import com.music.bitchord.playback.vocalremover.VocalRemoverHost
 import com.music.bitchord.widget.MediaWidget
 import com.music.bitchord.widget.MediaWidgetSnapshot
 import com.music.bitchord.wear.WearBridge
@@ -575,6 +577,32 @@ class PlaybackService : MediaLibraryService() {
      */
     private var spare: ExoPlayer? = null
 
+    /**
+     * True while the live vocal remover owns the speaker (see
+     * `playback/vocalremover/VocalRemover.kt` and docs/VOCAL_REMOVER.md).
+     * Every ExoPlayer volume the app sets is gated through
+     * [removerGated], so a crossfade ramp can never leak the original mix
+     * under the stem playback.
+     */
+    private var vocalRemoverMuted = false
+
+    private fun removerGated(volume: Float): Float = if (vocalRemoverMuted) 0f else volume
+
+    private fun setVocalRemoverMuted(muted: Boolean) {
+        vocalRemoverMuted = muted
+        player?.volume = removerGated(1f)
+        spare?.volume = removerGated(1f)
+    }
+
+    private val vocalRemoverHost = object : VocalRemoverHost {
+        override val context get() = this@PlaybackService
+        override val scope get() = this@PlaybackService.scope
+        override fun currentSong() = player?.currentMediaItem?.toSong()
+        override fun positionMs() = player?.currentPosition?.coerceAtLeast(0L) ?: 0L
+        override fun isPlaying() = player?.isPlaying == true
+        override fun applyRemoverMuted(muted: Boolean) = setVocalRemoverMuted(muted)
+    }
+
     private var crossfade: CrossfadeController? = null
 
     /**
@@ -858,6 +886,11 @@ class PlaybackService : MediaLibraryService() {
         override fun onEvents(player: Player, events: Player.Events) {
             val activePlayer = this@PlaybackService.player ?: return
             if (player === activePlayer) updateAudioEffectSession(activePlayer)
+            // The remover follows whatever became current without waiting for
+            // its 250 ms sync tick; harmless no-op when it is idle.
+            if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
+                VocalRemover.onMediaChanged()
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -1279,6 +1312,7 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        VocalRemover.attach(vocalRemoverHost)
 
         if (com.music.bitchord.data.innertube.Innertube.cookie == null) {
             com.music.bitchord.data.innertube.Innertube.cookie = com.music.bitchord.auth.AuthStore(this).cookie
@@ -2287,7 +2321,7 @@ class PlaybackService : MediaLibraryService() {
                     // Active player moved to another track or was changed
                     standbyPlayer.stop()
                     standbyPlayer.clearMediaItems()
-                    standbyPlayer.volume = 1f
+                    standbyPlayer.volume = removerGated(1f)
                     swappingMediaId = null
                     return@launch
                 }
@@ -2306,7 +2340,7 @@ class PlaybackService : MediaLibraryService() {
                 TrackLog.w("BitChord", "version swap standby player failed to prepare, applying directly", about = mediaId)
                 standbyPlayer.stop()
                 standbyPlayer.clearMediaItems()
-                standbyPlayer.volume = 1f
+                standbyPlayer.volume = removerGated(1f)
                 swappingMediaId = null
                 val pos = alignedPosition(activePlayer.currentPosition)
                 activePlayer.replaceMediaItem(currentIndex, targetMediaItem)
@@ -2376,8 +2410,8 @@ class PlaybackService : MediaLibraryService() {
                     if (player !== activePlayer || activePlayer.currentMediaItemIndex != currentIndex) {
                         standbyPlayer.stop()
                         standbyPlayer.clearMediaItems()
-                        standbyPlayer.volume = 1f
-                        activePlayer.volume = 1f
+                        standbyPlayer.volume = removerGated(1f)
+                        activePlayer.volume = removerGated(1f)
                         swappingMediaId = null
                         return@launch
                     }
@@ -2388,8 +2422,8 @@ class PlaybackService : MediaLibraryService() {
 
                     val inGain = sin(progress * (PI / 2.0)).toFloat()
                     val outGain = cos(progress * (PI / 2.0)).toFloat()
-                    standbyPlayer.volume = inGain
-                    activePlayer.volume = outGain
+                    standbyPlayer.volume = removerGated(inGain)
+                    activePlayer.volume = removerGated(outGain)
                     // The same headroom a crossfade takes, and for the same
                     // reason — see [LoudnessProcessor]. More so here: two
                     // versions of one song line up peak for peak.
@@ -2564,10 +2598,10 @@ class PlaybackService : MediaLibraryService() {
 
         mediaSession?.player = newSessionPlayer(incoming, requireNotNull(crossfade))
 
-        incoming.volume = 1f
+        incoming.volume = removerGated(1f)
         outgoing.stop()
         outgoing.clearMediaItems()
-        outgoing.volume = 1f
+        outgoing.volume = removerGated(1f)
 
         swappingMediaId = null
         refreshCustomLayouts()
@@ -3382,16 +3416,22 @@ class PlaybackService : MediaLibraryService() {
         filter: TransitionFilterProcessor,
         loudness: LoudnessProcessor,
         ownsSession: Boolean,
-    ): ExoPlayer = ExoPlayer.Builder(this)
-        .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness))
-        .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
-        .setLoadControl(farBufferingLoadControl())
-        .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
-        .setHandleAudioBecomingNoisy(ownsSession)
-        // Back restarts the track once you're this far into it; only a
-        // press before that steps to the previous one.
-        .setMaxSeekToPreviousPositionMs(BACK_RESTARTS_AFTER_MS)
-        .build()
+    ): ExoPlayer {
+        val exoPlayer = ExoPlayer.Builder(this)
+            .setRenderersFactory(silenceSkippingRenderers(spatial, equalizer, filter, loudness))
+            .setMediaSourceFactory(requireNotNull(mediaSourceFactory))
+            .setLoadControl(farBufferingLoadControl())
+            .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
+            .setHandleAudioBecomingNoisy(ownsSession)
+            // Back restarts the track once you're this far into it; only a
+            // press before that steps to the previous one.
+            .setMaxSeekToPreviousPositionMs(BACK_RESTARTS_AFTER_MS)
+            .build()
+        // A player built while the remover is audible must join it muted;
+        // everything else about the mute is driven through [removerGated].
+        if (vocalRemoverMuted) exoPlayer.volume = 0f
+        return exoPlayer
+    }
 
     /**
      * Moves the session onto the player the crossfade has just started the
@@ -7512,6 +7552,7 @@ class PlaybackService : MediaLibraryService() {
 
 
     override fun onDestroy() {
+        VocalRemover.detach()
         WearBridge.attachStreams(null)
         WearBridge.releaseSpeaker()
         // Let go of the receiver's player but leave its session alone: a

@@ -92,6 +92,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -171,7 +172,11 @@ import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import app.stemsep.separation.ModelCatalog
+import app.stemsep.separation.ModelDownloader
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -1503,6 +1508,238 @@ fun SettingsScreen(
             }
         }
 
+        if (shows(SettingsCategory.VOCAL_REMOVER)) SearchableSettingsGroup(search, header = stringResource(R.string.vocal_remover)) {
+            val modelUrl by AppSettings.vocalRemoverModelUrl.collectAsStateWithLifecycle()
+            val modelSha by AppSettings.vocalRemoverModelSha.collectAsStateWithLifecycle()
+            val modelSize by AppSettings.vocalRemoverModelSize.collectAsStateWithLifecycle()
+            val cpuThreads by AppSettings.vocalRemoverCpuThreads.collectAsStateWithLifecycle()
+            val threadCeiling = maxOf(2, remember { Runtime.getRuntime().availableProcessors() })
+
+            // The model can be fetched before the player service has ever run,
+            // so Settings drives its own downloader — it reads and writes the
+            // same files-dir cache the live pipeline uses.
+            val modelDownloader = remember { ModelDownloader(context.applicationContext) }
+            val modelSpec = remember(modelUrl, modelSha, modelSize) {
+                runCatching {
+                    if (modelUrl.isBlank()) ModelCatalog.mdx9482
+                    else ModelCatalog.custom(modelUrl, modelSha.ifBlank { null }, modelSize)
+                }.getOrNull()
+            }
+            var modelRefresh by remember { mutableStateOf(0) }
+            val modelCached = remember(modelRefresh, modelSpec) {
+                modelSpec != null && runCatching { modelDownloader.isCached(modelSpec) }.getOrDefault(false)
+            }
+            val modelHash = remember(modelRefresh, modelSpec) {
+                runCatching { modelSpec?.let { modelDownloader.recordedSha256(it) } }.getOrNull()
+            }
+            var modelProgress by remember { mutableStateOf(-1f) }
+            var modelError by remember { mutableStateOf<String?>(null) }
+            var modelJob by remember { mutableStateOf<Job?>(null) }
+            val modelScope = rememberCoroutineScope()
+            var showCustomModelDialog by remember { mutableStateOf(false) }
+
+            fun startModelDownload() {
+                val spec = modelSpec ?: return
+                modelError = null
+                modelProgress = 0f
+                modelJob = modelScope.launch {
+                    val result = runCatching {
+                        modelDownloader.ensureModel(spec) { fraction -> modelProgress = fraction }
+                    }
+                    modelProgress = -1f
+                    result.onSuccess { modelRefresh++ }
+                    result.onFailure { error ->
+                        if (error is CancellationException) return@launch
+                        modelRefresh++
+                        modelError = error.message ?: error.toString()
+                    }
+                }
+            }
+
+            val modelRowTitle = stringResource(R.string.vocal_remover_model)
+            row(modelRowTitle, "onnx", "mdx", "uvr", "download", "separation", "model") {
+                val sizeText = if (modelSpec != null && modelSpec.sizeBytes > 0) {
+                    " (%.1f MB)".format(Locale.getDefault(), modelSpec.sizeBytes / 1048576.0)
+                } else {
+                    ""
+                }
+                SettingsRow(
+                    icon = SfIcons.Artist,
+                    title = modelSpec?.displayName ?: modelUrl,
+                    subtitle = when {
+                        modelSpec == null -> stringResource(R.string.vocal_remover_https_only)
+                        modelProgress >= 0f -> stringResource(
+                            R.string.vocal_remover_downloading,
+                            (modelProgress * 100).toInt().coerceIn(0, 100),
+                        )
+                        modelCached && modelSpec.sha256 != null -> stringResource(R.string.vocal_remover_downloaded_verified)
+                        modelCached -> stringResource(
+                            R.string.vocal_remover_downloaded_unverified,
+                            modelHash?.take(16) ?: "?",
+                        )
+                        else -> stringResource(R.string.vocal_remover_not_downloaded, sizeText)
+                    },
+                )
+                if (modelProgress >= 0f) {
+                    LinearProgressIndicator(
+                        progress = { modelProgress.coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = ROW_INSET, end = ROW_INSET)
+                            .height(3.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                    )
+                }
+                modelError?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, top = 4.dp),
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = ROW_INSET - 8.dp,
+                            end = ROW_INSET - 8.dp,
+                            bottom = 8.dp,
+                        ),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    if (modelUrl.isNotBlank()) {
+                        TextButton(onClick = {
+                            modelJob?.cancel()
+                            modelProgress = -1f
+                            modelError = null
+                            AppSettings.setVocalRemoverModelUrl("")
+                            AppSettings.setVocalRemoverModelSha("")
+                            AppSettings.setVocalRemoverModelSize(0L)
+                        }) { Text(stringResource(R.string.vocal_remover_use_default)) }
+                    }
+                    if (modelProgress >= 0f) {
+                        TextButton(onClick = { modelJob?.cancel() }) { Text(stringResource(R.string.cancel)) }
+                    } else {
+                        TextButton(
+                            enabled = modelSpec != null,
+                            onClick = ::startModelDownload,
+                        ) { Text(stringResource(R.string.download)) }
+                    }
+                }
+            }
+
+            val customTitle = stringResource(R.string.vocal_remover_custom_model)
+            row(customTitle, "url", "link", "paste", "https", "sha", "hash", "custom") {
+                SettingsRow(
+                    icon = SfIcons.Cloud,
+                    title = customTitle,
+                    subtitle = if (modelUrl.isBlank()) {
+                        stringResource(R.string.vocal_remover_custom_model_none)
+                    } else {
+                        modelUrl
+                    },
+                    onClick = { showCustomModelDialog = true },
+                )
+            }
+
+            val cpuTitle = stringResource(R.string.vocal_remover_cpu_threads)
+            row(cpuTitle, "cpu", "core", "cores", "thread", "threads", "auto", "speed") {
+                SettingsRow(
+                    icon = SfIcons.Performance,
+                    title = cpuTitle,
+                    subtitle = stringResource(R.string.vocal_remover_cpu_threads_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = cpuThreads == 0,
+                            onCheckedChange = { auto ->
+                                AppSettings.setVocalRemoverCpuThreads(if (auto) 0 else minOf(4, threadCeiling))
+                            },
+                        )
+                    },
+                    onClick = {
+                        AppSettings.setVocalRemoverCpuThreads(if (cpuThreads == 0) minOf(4, threadCeiling) else 0)
+                    },
+                )
+                if (cpuThreads > 0) {
+                    SliderRow(
+                        icon = SfIcons.Performance,
+                        title = stringResource(R.string.vocal_remover_cpu_threads_count),
+                        value = cpuThreads.toString(),
+                        sliderValue = cpuThreads.toFloat().coerceIn(1f, threadCeiling.toFloat()),
+                        onSliderValue = { AppSettings.setVocalRemoverCpuThreads(it.roundToInt().coerceIn(1, threadCeiling)) },
+                        valueRange = 1f..threadCeiling.toFloat(),
+                        steps = (threadCeiling - 2).coerceAtLeast(0),
+                    )
+                }
+            }
+
+            val httpsOnlyText = stringResource(R.string.vocal_remover_https_only)
+            if (showCustomModelDialog) {
+                var draftUrl by remember { mutableStateOf(modelUrl) }
+                var draftSha by remember { mutableStateOf(modelSha) }
+                var draftError by remember { mutableStateOf<String?>(null) }
+                AlertDialog(
+                    onDismissRequest = { showCustomModelDialog = false },
+                    title = { Text(customTitle) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(
+                                value = draftUrl,
+                                onValueChange = { draftUrl = it; draftError = null },
+                                label = { Text(stringResource(R.string.vocal_remover_model_url)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            OutlinedTextField(
+                                value = draftSha,
+                                onValueChange = { draftSha = it; draftError = null },
+                                label = { Text(stringResource(R.string.vocal_remover_model_sha)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(
+                                text = stringResource(R.string.vocal_remover_custom_model_footer),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            draftError?.let {
+                                Text(
+                                    text = it,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            val trimmed = draftUrl.trim()
+                            if (trimmed.isNotEmpty() && !trimmed.startsWith("https://")) {
+                                draftError = httpsOnlyText
+                            } else {
+                                modelJob?.cancel()
+                                modelProgress = -1f
+                                modelError = null
+                                AppSettings.setVocalRemoverModelUrl(trimmed)
+                                AppSettings.setVocalRemoverModelSha(
+                                    if (trimmed.isEmpty()) "" else draftSha.trim().lowercase(),
+                                )
+                                AppSettings.setVocalRemoverModelSize(0L)
+                                showCustomModelDialog = false
+                            }
+                        }) { Text(stringResource(R.string.save)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCustomModelDialog = false }) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                    },
+                )
+            }
+        }
+
         if (shows(SettingsCategory.ADVANCED)) SearchableSettingsGroup(search, header = stringResource(R.string.advanced_options)) {
             val smartAlignmentTitle = stringResource(R.string.smart_version_alignment)
             row(smartAlignmentTitle, "alignment", "sync", "waveform", "video", "audio", "skit", "intro") {
@@ -2598,6 +2835,7 @@ enum class SettingsCategory(@param:StringRes val title: Int) {
     YOUR_DATA(R.string.your_data),
     MISCELLANEOUS(R.string.miscellaneous),
     LANGUAGE(R.string.language),
+    VOCAL_REMOVER(R.string.vocal_remover),
     ADVANCED(R.string.advanced_options),
     ;
 
@@ -2612,6 +2850,7 @@ enum class SettingsCategory(@param:StringRes val title: Int) {
             YOUR_DATA -> SfIcons.YourData
             MISCELLANEOUS -> SfIcons.Miscellaneous
             LANGUAGE -> SfIcons.Language
+            VOCAL_REMOVER -> SfIcons.Artist
             ADVANCED -> SfIcons.Advanced
         }
 }

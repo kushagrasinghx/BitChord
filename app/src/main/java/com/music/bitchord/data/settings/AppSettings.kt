@@ -474,6 +474,20 @@ object AppSettings {
      */
     val translationLanguage = MutableStateFlow("")
 
+    // ---- Live vocal remover (StemSep port) — see docs/VOCAL_REMOVER.md ----
+    /**
+     * Blank means the pinned catalog model (`mdx-9482`). A non-blank URL is a
+     * user-supplied UVR MDX-Net ONNX file; the engine builds a custom
+     * [app.stemsep.separation.ModelSpec] from it.
+     */
+    val vocalRemoverModelUrl = MutableStateFlow("")
+    /** Optional checksum for a custom model URL; blank means verify-after-download only. */
+    val vocalRemoverModelSha = MutableStateFlow("")
+    /** Expected size in bytes for a custom model; 0 means take what HTTP reports. */
+    val vocalRemoverModelSize = MutableStateFlow(0L)
+    /** Intra-op CPU threads for ONNX inference. 0 = Auto (StemSep's thread policy). */
+    val vocalRemoverCpuThreads = MutableStateFlow(0)
+
     /**
      * Plays a looping video behind the cover art on the player when one is
      * published for the track — Spotify's Canvas, Apple's motion artwork.
@@ -961,6 +975,10 @@ object AppSettings {
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
+        vocalRemoverModelUrl.value = prefs.getString(KEY_VOCAL_REMOVER_MODEL_URL, "").orEmpty()
+        vocalRemoverModelSha.value = prefs.getString(KEY_VOCAL_REMOVER_MODEL_SHA, "").orEmpty()
+        vocalRemoverModelSize.value = prefs.getLong(KEY_VOCAL_REMOVER_MODEL_SIZE, 0L)
+        vocalRemoverCpuThreads.value = prefs.getInt(KEY_VOCAL_REMOVER_CPU_THREADS, 0)
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
             reduceDynamicBlur.value = false
@@ -1418,6 +1436,28 @@ object AppSettings {
     fun setTranslationLanguage(value: String) {
         translationLanguage.value = value
         prefs.edit().putString(KEY_TRANSLATION_LANGUAGE, value).apply()
+    }
+
+    /** Blank clears the custom model and restores the pinned catalog one. */
+    fun setVocalRemoverModelUrl(value: String) {
+        vocalRemoverModelUrl.value = value.trim()
+        prefs.edit().putString(KEY_VOCAL_REMOVER_MODEL_URL, value.trim()).apply()
+    }
+
+    fun setVocalRemoverModelSha(value: String) {
+        vocalRemoverModelSha.value = value.trim().lowercase()
+        prefs.edit().putString(KEY_VOCAL_REMOVER_MODEL_SHA, value.trim().lowercase()).apply()
+    }
+
+    fun setVocalRemoverModelSize(value: Long) {
+        vocalRemoverModelSize.value = value.coerceAtLeast(0L)
+        prefs.edit().putLong(KEY_VOCAL_REMOVER_MODEL_SIZE, value.coerceAtLeast(0L)).apply()
+    }
+
+    /** 0 = Auto; see [vocalRemoverCpuThreads]. */
+    fun setVocalRemoverCpuThreads(value: Int) {
+        vocalRemoverCpuThreads.value = value.coerceAtLeast(0)
+        prefs.edit().putInt(KEY_VOCAL_REMOVER_CPU_THREADS, value.coerceAtLeast(0)).apply()
     }
 
     fun setSyncedLyrics(value: Boolean) {
@@ -2139,6 +2179,10 @@ object AppSettings {
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
+    private const val KEY_VOCAL_REMOVER_MODEL_URL = "vocal_remover_model_url"
+    private const val KEY_VOCAL_REMOVER_MODEL_SHA = "vocal_remover_model_sha"
+    private const val KEY_VOCAL_REMOVER_MODEL_SIZE = "vocal_remover_model_size"
+    private const val KEY_VOCAL_REMOVER_CPU_THREADS = "vocal_remover_cpu_threads"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"

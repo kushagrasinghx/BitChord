@@ -126,6 +126,10 @@
     <string name="translating_lyrics_to">Translating to %1$s…</string>
     <string name="up_next">Up next</string>
     <string name="upgrading_quality">Upgrading quality</string>
+    <string name="vocal_remover_enable">Remove vocals</string>
+    <string name="vocal_remover_disable">Turn vocal remover off</string>
+    <string name="vocal_remover_level">Vocal level</string>
+    <string name="vocal_remover_debug">Debug info (temporary)</string>
     <string name="waiting">waiting</string>
     <string name="widget_next">Next</string>
     <string name="widget_previous">Previous</string>

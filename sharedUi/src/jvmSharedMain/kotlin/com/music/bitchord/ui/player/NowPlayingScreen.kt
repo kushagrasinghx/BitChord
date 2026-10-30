@@ -40,6 +40,7 @@ import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -2114,6 +2115,9 @@ fun NowPlayingScreen(
                                     onClick = lyricsTranslation.toggleTranslation,
                                 )
                             },
+                            vocalRemoverToggle = {
+                                VocalRemoverControl(reduceMotion = lyricsTranslation.reduceMotion)
+                            },
                         ) { panelModifier ->
                             LyricsTranslationMotion(
                                 trigger = lyricsTranslation.transition,
@@ -3669,26 +3673,32 @@ fun NowPlayingScreen(
                                         .align(Alignment.BottomStart)
                                         .graphicsLayer { alpha = translateFade },
                                 ) {
-                                    RomanizationToggleButton(
-                                        state = lyricsTranslation.romanizationState,
-                                        showingRomanization = lyricsTranslation.showingRomanization,
-                                        enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                        onClick = lyricsTranslation.toggleRomanization,
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        RomanizationToggleButton(
+                                            state = lyricsTranslation.romanizationState,
+                                            showingRomanization = lyricsTranslation.showingRomanization,
+                                            enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                            onClick = lyricsTranslation.toggleRomanization,
+                                        )
+                                        TranslationToggleButton(
+                                            state = lyricsTranslation.translationState,
+                                            showingTranslation = lyricsTranslation.showingTranslation,
+                                            // Not tappable on the way out: a disc at 20%
+                                            // opacity is on its way to gone, not a target.
+                                            enabled = translateShown && !lyrics.isNullOrEmpty(),
+                                            onClick = lyricsTranslation.toggleTranslation,
+                                        )
+                                    }
                                 }
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
                                         .graphicsLayer { alpha = translateFade },
                                 ) {
-                                    TranslationToggleButton(
-                                        state = lyricsTranslation.translationState,
-                                        showingTranslation = lyricsTranslation.showingTranslation,
-                                        // Not tappable on the way out: a disc at 20%
-                                        // opacity is on its way to gone, not a target.
-                                        enabled = translateShown && !lyrics.isNullOrEmpty(),
-                                        onClick = lyricsTranslation.toggleTranslation,
-                                    )
+                                    VocalRemoverControl(reduceMotion = lyricsTranslation.reduceMotion)
                                 }
                             }
                             // The bar arrives and leaves without a transition of its own:

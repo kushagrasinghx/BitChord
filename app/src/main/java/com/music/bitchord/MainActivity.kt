@@ -199,6 +199,8 @@ import com.music.bitchord.playback.QueueCoordinator
 import com.music.bitchord.playback.QueueCoordinator.asQueueEntry
 import com.music.bitchord.playback.QueueShuffle
 import com.music.bitchord.playback.QueueSource
+import com.music.bitchord.playback.vocalremover.VocalRemover
+import com.music.bitchord.ui.player.LocalVocalRemover
 import com.music.bitchord.playback.cast.CastController
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.playback.autoplayEnabledFor
@@ -429,6 +431,9 @@ class MainActivity : AppCompatActivity() {
                     LocalOverscrollFactory provides iosOverscrollFactory,
                     LocalLiquidGlassEnabled provides liquidGlassEnabled,
                     LocalAppBackdrop provides appBackdrop,
+                    // The lyrics-screen vocal remover drives this engine; the
+                    // desktop host provides nothing and the control hides.
+                    LocalVocalRemover provides VocalRemover,
                 ) {
                 // The window's width, measured rather than asked for.
                 //

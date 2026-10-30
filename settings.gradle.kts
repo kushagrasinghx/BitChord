@@ -18,6 +18,9 @@ dependencyResolutionManagement {
 rootProject.name = "BitChord"
 include(":shared")
 include(":sharedUi")
+// Pure-JVM DSP core of the live vocal remover (ported from StemSep). Needs no
+// Android SDK, so it is always included.
+include(":core-dsp")
 
 // The Android module only when there is an SDK to build it against. A machine
 // set up for the desktop alone has none, and including it there fails at
@@ -37,6 +40,8 @@ if (androidSdk != null && file(androidSdk).isDirectory) {
     include(":app")
     include(":tv")
     include(":wearos")
+    // Android half of the vocal remover (ONNX engine, downloader, stem player).
+    include(":separation")
 } else {
     logger.lifecycle("No Android SDK found — building the desktop targets only.")
 }

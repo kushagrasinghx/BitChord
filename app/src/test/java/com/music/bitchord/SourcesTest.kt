@@ -598,32 +598,26 @@ class SourcesTest {
     }
 
     @Test
-    fun `JioSaavn is off by default on a fresh install`() {
-        assertFalse(SourceConfig(kind = SourceKind.JIOSAAVN).enabled)
-        val sources = SourceRegistry.sourcesForInit(emptyList(), forceJioSaavnOff = true)
+    fun `every built-in source is on by default on a fresh install`() {
+        assertTrue(SourceConfig(kind = SourceKind.JIOSAAVN).enabled)
+        val sources = SourceRegistry.sourcesForInit(emptyList())
 
-        assertFalse(sources.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+        assertTrue(sources.single { it.kind == SourceKind.JIOSAAVN }.enabled)
         assertTrue(sources.single { it.kind == SourceKind.YOUTUBE }.enabled)
     }
 
     @Test
-    fun `the opt-in migration disables JioSaavn once for existing installs`() {
-        val previouslyEnabled = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = true)
+    fun `a launch leaves a stored source choice alone`() {
+        val switchedOff = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = false)
+        val youtubeOff = SourceConfig(kind = SourceKind.YOUTUBE, enabled = false)
 
-        val migrated = SourceRegistry.sourcesForInit(
-            listOf(previouslyEnabled),
-            forceJioSaavnOff = true,
-        )
-        assertFalse(migrated.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+        val nextLaunch = SourceRegistry.sourcesForInit(listOf(switchedOff, youtubeOff))
 
-        val userEnabledAgain = migrated.map {
-            if (it.kind == SourceKind.JIOSAAVN) it.copy(enabled = true) else it
-        }
-        val nextLaunch = SourceRegistry.sourcesForInit(
-            userEnabledAgain,
-            forceJioSaavnOff = false,
-        )
-        assertTrue(nextLaunch.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+        // JioSaavn used to be forced off by a one-shot migration on every
+        // launch that had not seen it yet. The only correction a launch makes
+        // now is the one kind that is never allowed off.
+        assertFalse(nextLaunch.single { it.kind == SourceKind.JIOSAAVN }.enabled)
+        assertTrue(nextLaunch.single { it.kind == SourceKind.YOUTUBE }.enabled)
     }
 
     @Test

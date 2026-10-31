@@ -2,13 +2,13 @@
 <resources>
     <string name="analysis_complete">分析済み</string>
     <string name="analysis_in_progress">分析中…</string>
-    <string name="analysis_refining">分析済み、調整中…</string>
+    <string name="analysis_refining">調整中…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">オートミックス · この曲：%1$s · 次：%2$s</string>
-    <string name="automix_not_supported_video">動画の曲では Automix はサポートされていません</string>
-    <string name="automix_stopped_in_party">Automix: 一緒に聴く中は停止</string>
+    <string name="automix_analysis_status">オートミックス：%1$s</string>
+    <string name="automix_not_supported_video">オートミックス：動画は対象外</string>
+    <string name="automix_stopped_in_party">Automix: 停止中</string>
     <string name="autoplay">AutoPlay</string>
     <string name="autoplay_empty_description">似た曲が引き続き再生されます</string>
     <string name="autoplay_off">AutoPlay: オフ</string>

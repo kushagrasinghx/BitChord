@@ -41,6 +41,9 @@ import com.music.bitchord.data.model.PlaylistPrivacy
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.spotify.SpotifyImportTrack
 import com.music.bitchord.data.spotify.SpotifyImporter
+import com.music.bitchord.ui.theme.sleeveChipContent
+import com.music.bitchord.ui.theme.sleeveChipFill
+import com.music.bitchord.ui.theme.sleeveFieldFill
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.CancellationException
@@ -150,7 +153,7 @@ fun SpotifyImportAlert(
                         .fillMaxWidth()
                         .heightIn(max = 200.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(sleeveFieldFill())
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -210,10 +213,7 @@ fun SpotifyImportAlert(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(percent = 50))
-                                .background(
-                                    if (selected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surfaceVariant,
-                                )
+                                .background(sleeveChipFill(selected))
                                 .clickable(enabled = !working) {
                                     selectedLanguage = lang
                                 }
@@ -223,8 +223,7 @@ fun SpotifyImportAlert(
                             Text(
                                 text = lang,
                                 style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp),
-                                color = if (selected) MaterialTheme.colorScheme.onPrimary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = sleeveChipContent(selected),
                             )
                         }
                     }
@@ -258,10 +257,7 @@ fun SpotifyImportAlert(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(percent = 50))
-                                    .background(
-                                        if (selected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.surfaceVariant,
-                                    )
+                                    .background(sleeveChipFill(selected))
                                     .clickable(enabled = !working) { privacy = option }
                                     .padding(vertical = 7.dp),
                                 contentAlignment = Alignment.Center,
@@ -269,8 +265,7 @@ fun SpotifyImportAlert(
                                 Text(
                                     text = option.label,
                                     style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-                                    color = if (selected) MaterialTheme.colorScheme.onPrimary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = sleeveChipContent(selected),
                                 )
                             }
                         }

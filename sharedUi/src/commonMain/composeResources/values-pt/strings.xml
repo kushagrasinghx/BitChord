@@ -2,13 +2,13 @@
 <resources>
     <string name="analysis_complete">analisado</string>
     <string name="analysis_in_progress">analisando…</string>
-    <string name="analysis_refining">analisado, refinando…</string>
+    <string name="analysis_refining">refinando…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">Automix · esta música: %1$s · próxima: %2$s</string>
-    <string name="automix_not_supported_video">Automix não é compatível com faixas em formato de vídeo</string>
-    <string name="automix_stopped_in_party">Automix: parado no Ouvir junto</string>
+    <string name="automix_analysis_status">Automix: %1$s</string>
+    <string name="automix_not_supported_video">Automix: sem vídeos</string>
+    <string name="automix_stopped_in_party">Automix: parado</string>
     <string name="autoplay">Reprodução Automática</string>
     <string name="autoplay_empty_description">Músicas semelhantes continuarão tocando</string>
     <string name="autoplay_off">Reprodução Automática desativada</string>

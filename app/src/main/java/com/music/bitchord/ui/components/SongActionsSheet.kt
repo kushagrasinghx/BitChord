@@ -41,12 +41,14 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.ThumbDown
 import androidx.compose.material.icons.rounded.ThumbDownOffAlt
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.CircularProgressIndicator
@@ -88,6 +90,7 @@ import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.SleepTimer
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.ui.player.PlayerLyricsMenu
 import com.music.bitchord.ui.theme.ArtworkPalette
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlinx.coroutines.delay
@@ -186,6 +189,12 @@ fun SongActionsSheet(
     /** Opens the timing control offered only by the main player's menu. */
     onLyricsOffset: (() -> Unit)? = null,
     /**
+     * The player's live lyrics actions — translate, romanize, source — published
+     * by the player screen and read here while the menu is open. Null everywhere
+     * except the player's own menu.
+     */
+    lyricsMenu: PlayerLyricsMenu? = null,
+    /**
      * True while a lookup for this track's album/artist ids is still in
      * flight, so it isn't yet known whether "Open album" and "Open artist"
      * belong on this sheet at all. Only the player ever opens a sheet before
@@ -227,50 +236,60 @@ fun SongActionsSheet(
     val isOffline = song.localUri != null
 
     val rows: @Composable ColumnScope.() -> Unit = {
-        // Leads the list whenever it's available: which recording is playing
-        // is the one question that has to be answered before any of the rows
-        // below mean anything — there is no point rating, queueing or
-        // downloading the wrong version of a song.
+        // Leads the list whenever it's available: which recording is playing is
+        // the one question that has to be answered before any of the rows below
+        // mean anything — there is no point rating, queueing or downloading the
+        // wrong version of a song.
         //
-        // The two are never both present — one is offered for a track playing
-        // a substituted copy, the other for a track held on YouTube's own —
-        // and between them they are the whole of the choice, which is why they
-        // sit in the same place under the same divider.
-        if (onRollbackToOriginal != null || onUpgradeQuality != null || onToggleAudioVersion != null) {
-            (onRollbackToOriginal ?: onUpgradeQuality)?.let {
-                ActionRow(
-                    icon = if (onRollbackToOriginal != null) {
-                        Icons.AutoMirrored.Rounded.Undo
+        // Its sibling — which *format* of that recording — sits further down
+        // with the rest of the tail, so this group is the one row it is now.
+        (onRollbackToOriginal ?: onUpgradeQuality)?.let { onVersion ->
+            ActionRow(
+                icon = if (onRollbackToOriginal != null) {
+                    Icons.AutoMirrored.Rounded.Undo
+                } else {
+                    Icons.Rounded.HighQuality
+                },
+                label = stringResource(
+                    if (onRollbackToOriginal != null) {
+                        R.string.revert_to_original
                     } else {
-                        Icons.Rounded.HighQuality
+                        R.string.upgrade_quality
                     },
-                    label = stringResource(
-                        if (onRollbackToOriginal != null) {
-                            R.string.revert_to_original
-                        } else {
-                            R.string.upgrade_quality
-                        },
-                    ),
-                    accent = palette.accent,
-                    enabled = onRollbackToOriginal != null || !upgradeQualityInProgress,
-                    onClick = it,
-                )
-            }
-            // Which recording, not which quality — a different question from
-            // the row above, so it sits right under it rather than merged
-            // into it, but still ahead of the divider both share.
-            onToggleAudioVersion?.let {
-                ActionRow(
-                    icon = if (isAudioVersion) Icons.Rounded.Videocam else BitChordIcons.MusicNote,
-                    label = stringResource(
-                        if (isAudioVersion) R.string.convert_to_video else R.string.convert_to_audio,
-                    ),
-                    accent = palette.accent,
-                    onClick = it,
-                )
-            }
+                ),
+                accent = palette.accent,
+                enabled = onRollbackToOriginal != null || !upgradeQualityInProgress,
+                onClick = onVersion,
+            )
             GroupSeparator(palette)
         }
+
+        // Where the song comes from and what it is: the three rows that leave
+        // the menu and go and look, rather than changing anything.
+        when (val id = song.albumId) {
+            null -> if (resolvingLinks) {
+                LoadingActionRow(Icons.Rounded.Album, stringResource(R.string.open_album), palette)
+            }
+            else -> ActionRow(
+                Icons.Rounded.Album,
+                stringResource(R.string.open_album),
+                accent = palette.accent,
+            ) { onOpenAlbum(id) }
+        }
+        when (val id = song.artistId) {
+            null -> if (resolvingLinks) {
+                LoadingActionRow(Icons.Rounded.Person, stringResource(R.string.open_artist), palette)
+            }
+            else -> ActionRow(
+                Icons.Rounded.Person,
+                stringResource(R.string.open_artist),
+                accent = palette.accent,
+            ) { onOpenArtist(id) }
+        }
+        ActionRow(Icons.Rounded.Info, stringResource(R.string.song_info), accent = palette.accent) {
+            showingSongInfo = true
+        }
+        GroupSeparator(palette)
 
         if (signedIn && !isOffline) {
             ActionRow(
@@ -313,13 +332,6 @@ fun SongActionsSheet(
                 onClick = it,
             )
         }
-        WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
-        ActionRow(
-            icon = Icons.Rounded.Radio,
-            label = stringResource(R.string.start_radio),
-            accent = palette.accent,
-            onClick = onStartRadio,
-        )
         ActionRow(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             label = stringResource(R.string.play_next),
@@ -332,29 +344,34 @@ fun SongActionsSheet(
             accent = palette.accent,
             onClick = onAddToQueue,
         )
-        when (val id = song.albumId) {
-            null -> if (resolvingLinks) {
-                LoadingActionRow(Icons.Rounded.Album, stringResource(R.string.open_album), palette)
-            }
-            else -> ActionRow(
-                Icons.Rounded.Album,
-                stringResource(R.string.open_album),
+        GroupSeparator(palette)
+
+        // The player's lyrics actions: they belong to what is playing right now,
+        // and they are a group of three that only exists together.
+        lyricsMenu?.let { menu ->
+            LyricsMenuRows(menu, palette)
+            GroupSeparator(palette)
+        }
+
+        // Which recording, not which quality — a different question from the row
+        // at the top, and it travels with the rows nobody reaches for by accident.
+        onToggleAudioVersion?.let {
+            ActionRow(
+                icon = if (isAudioVersion) Icons.Rounded.Videocam else BitChordIcons.MusicNote,
+                label = stringResource(
+                    if (isAudioVersion) R.string.convert_to_video else R.string.convert_to_audio,
+                ),
                 accent = palette.accent,
-            ) { onOpenAlbum(id) }
+                onClick = it,
+            )
         }
-        when (val id = song.artistId) {
-            null -> if (resolvingLinks) {
-                LoadingActionRow(Icons.Rounded.Person, stringResource(R.string.open_artist), palette)
-            }
-            else -> ActionRow(
-                Icons.Rounded.Person,
-                stringResource(R.string.open_artist),
-                accent = palette.accent,
-            ) { onOpenArtist(id) }
-        }
-        ActionRow(Icons.Rounded.Info, stringResource(R.string.song_info), accent = palette.accent) {
-            showingSongInfo = true
-        }
+        ActionRow(
+            icon = Icons.Rounded.Radio,
+            label = stringResource(R.string.start_radio),
+            accent = palette.accent,
+            onClick = onStartRadio,
+        )
+        WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
         if (showSleepTimer) {
             ActionRow(
                 icon = Icons.Rounded.Bedtime,
@@ -439,6 +456,39 @@ private fun neutralMenuPalette(): ArtworkPalette {
             divider = scheme.onSurface.copy(alpha = 0.08f),
         )
     }
+}
+
+/**
+ * The three lyrics actions the player hands over: translate, romanize, and the
+ * provider the timings came from. The toggles carry their live state — the
+ * icon picks up the accent while its rendering is on — and the source row names
+ * the provider on the right, the way the sheet's status line used to.
+ */
+@Composable
+private fun LyricsMenuRows(menu: PlayerLyricsMenu, palette: ArtworkPalette) {
+    ActionRow(
+        icon = Icons.Rounded.Translate,
+        label = stringResource(R.string.lyrics_menu_translate),
+        tint = if (menu.translationActive) palette.accent else null,
+        accent = palette.accent,
+        enabled = menu.translationEnabled && !menu.translationWorking,
+        onClick = menu.onToggleTranslation,
+    )
+    ActionRow(
+        icon = Icons.Rounded.Language,
+        label = stringResource(R.string.lyrics_menu_romanize),
+        tint = if (menu.romanizationActive) palette.accent else null,
+        accent = palette.accent,
+        enabled = menu.romanizationEnabled && !menu.romanizationWorking,
+        onClick = menu.onToggleRomanization,
+    )
+    ActionRow(
+        icon = BitChordIcons.MusicNote,
+        label = stringResource(R.string.lyrics_menu_source),
+        value = menu.sourceLabel,
+        accent = palette.accent,
+        onClick = menu.onOpenProviders,
+    )
 }
 
 /**

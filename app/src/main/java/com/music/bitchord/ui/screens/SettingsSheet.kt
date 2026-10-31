@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOff
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Brightness4
+import androidx.compose.material.icons.rounded.BlurCircular
 import androidx.compose.material.icons.rounded.Cached
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -59,6 +60,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.ListAlt
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.LibraryMusic
@@ -93,6 +95,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchColors
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -110,6 +113,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import com.music.bitchord.ui.theme.LocalSleeveTint
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
+import com.music.bitchord.ui.theme.SLEEVE_LIT_CHROME_ALPHA
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -156,7 +162,6 @@ import com.music.bitchord.R
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
-import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
@@ -191,7 +196,11 @@ fun SettingsScreen(
     onSpotifyCanvasAuth: () -> Unit,
     onAppLanguage: () -> Unit,
     onEditSignatureApi: () -> Unit,
+    /** Opens the page that decides which of these rows get shown. */
+    onHideOptions: () -> Unit,
     contentPadding: PaddingValues,
+    /** The record's tint, for the one control on this page that is a disc: the search field. */
+    sleeveTint: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -220,11 +229,11 @@ fun SettingsScreen(
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val playerBackdropBlur by AppSettings.playerBackdropBlur.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
-    val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val sessionId by AppSettings.audioSessionId.collectAsStateWithLifecycle()
     val outputPcmMode by AppSettings.outputPcmMode.collectAsStateWithLifecycle()
     val preferUsbDac by AppSettings.preferUsbDac.collectAsStateWithLifecycle()
@@ -243,6 +252,7 @@ fun SettingsScreen(
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
     val showQueueHistory by AppSettings.showQueueHistory.collectAsStateWithLifecycle()
+    val hiddenSettings by AppSettings.hiddenSettings.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
     val preferMusicOnly by AppSettings.preferMusicOnly.collectAsStateWithLifecycle()
@@ -370,7 +380,19 @@ fun SettingsScreen(
     // Made fresh on every pass rather than remembered: it tallies the rows
     // that answered to the query, and that tally has to start from zero each
     // time the query changes.
-    val search = SettingsSearch(searchQuery)
+    //
+    // [hiddenTitles] rides along because a hidden row is not a row the search
+    // failed to find — it is a row this screen no longer has, in the search or
+    // out of it. Titles are what a row is recognised by at the point of
+    // hiding, so they are resolved here, in this pass: the same rows stay
+    // hidden across a change of language because both sides read the same
+    // stored key.
+    val hiddenTitles = remember(hiddenSettings) {
+        HideableSettings.items
+            .filter { it.key in hiddenSettings }
+            .mapTo(mutableSetOf()) { context.getString(it.title) }
+    }
+    val search = SettingsSearch(searchQuery, hiddenTitles)
 
     // What is left after a keystroke is a different list, and the offset the
     // last one was scrolled to means nothing in it.
@@ -405,6 +427,7 @@ fun SettingsScreen(
             onQueryChange = { searchQuery = it },
             onSubmit = {},
             placeholder = stringResource(R.string.settings_search_hint),
+            tint = sleeveTint,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
         )
 
@@ -504,10 +527,7 @@ fun SettingsScreen(
                             checked = dolbyAtmos && dolbyAtmosSupported,
                             onCheckedChange = AppSettings::setDolbyAtmos,
                             enabled = dolbyAtmosSupported,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setDolbyAtmos(!dolbyAtmos) },
@@ -565,10 +585,7 @@ fun SettingsScreen(
                         Switch(
                             checked = preferMusicOnly,
                             onCheckedChange = AppSettings::setPreferMusicOnly,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setPreferMusicOnly(!preferMusicOnly) },
@@ -615,10 +632,7 @@ fun SettingsScreen(
                         Switch(
                             checked = loudnessNormalization,
                             onCheckedChange = AppSettings::setLoudnessNormalization,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setLoudnessNormalization(!loudnessNormalization) },
@@ -664,10 +678,7 @@ fun SettingsScreen(
                         Switch(
                             checked = smartFade,
                             onCheckedChange = AppSettings::setSmartFadeEnabled,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setSmartFadeEnabled(!smartFade) },
@@ -704,10 +715,7 @@ fun SettingsScreen(
                         Switch(
                             checked = skipSilence,
                             onCheckedChange = AppSettings::setSkipSilence,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setSkipSilence(!skipSilence) },
@@ -735,10 +743,7 @@ fun SettingsScreen(
                         Switch(
                             checked = spatialAudio,
                             onCheckedChange = AppSettings::setSpatialAudio,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setSpatialAudio(!spatialAudio) },
@@ -761,12 +766,16 @@ fun SettingsScreen(
 
         SearchableSettingsGroup(search, header = stringResource(R.string.appearance)) {
             val themeTitle = stringResource(R.string.theme)
-            row(themeTitle, "dark mode", "light mode") {
+            row(themeTitle, "dark mode") {
                 SettingsRow(icon = Icons.Rounded.Brightness4, title = themeTitle)
+                // One segment, and the only one there is: the app is dark and
+                // has no other setting. It stays as a statement of what the
+                // theme is rather than a choice, in the selector's own
+                // material, because the row above it is dressed by the sleeve.
                 SegmentedControl(
-                    options = ThemeMode.entries.map { it.localizedLabel() },
-                    selectedIndex = ThemeMode.entries.indexOf(theme),
-                    onSelect = { AppSettings.setThemeMode(ThemeMode.entries[it]) },
+                    options = listOf(stringResource(R.string.theme_label)),
+                    selectedIndex = 0,
+                    onSelect = {},
                     modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
                 )
             }
@@ -780,10 +789,7 @@ fun SettingsScreen(
                         Switch(
                             checked = reduceAnimation,
                             onCheckedChange = AppSettings::setReduceAnimation,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setReduceAnimation(!reduceAnimation) },
@@ -799,10 +805,7 @@ fun SettingsScreen(
                         Switch(
                             checked = reduceDynamicBlur,
                             onCheckedChange = AppSettings::setReduceDynamicBlur,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setReduceDynamicBlur(!reduceDynamicBlur) },
@@ -826,10 +829,7 @@ fun SettingsScreen(
                             checked = liquidGlass,
                             onCheckedChange = AppSettings::setLiquidGlass,
                             enabled = liquidGlassSupported,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setLiquidGlass(!liquidGlass) },
@@ -850,13 +850,28 @@ fun SettingsScreen(
                             Switch(
                                 checked = fullBleedArtwork,
                                 onCheckedChange = AppSettings::setFullBleedArtwork,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
+                                colors = sleeveSwitchColors(),
                             )
                         },
                         onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
+                    )
+                }
+                // Only offered where the full-bleed cover exists, because that is
+                // the only place it does anything — see [playerBackdropBlur].
+                val playerBackdropBlurTitle = stringResource(R.string.player_backdrop_blur)
+                row(playerBackdropBlurTitle, "artwork", "player", "blur") {
+                    SettingsRow(
+                        icon = Icons.Rounded.BlurCircular,
+                        title = playerBackdropBlurTitle,
+                        subtitle = stringResource(R.string.player_backdrop_blur_subtitle),
+                        trailing = {
+                            Switch(
+                                checked = playerBackdropBlur,
+                                onCheckedChange = AppSettings::setPlayerBackdropBlur,
+                                colors = sleeveSwitchColors(),
+                            )
+                        },
+                        onClick = { AppSettings.setPlayerBackdropBlur(!playerBackdropBlur) },
                     )
                 }
             }
@@ -870,10 +885,7 @@ fun SettingsScreen(
                         Switch(
                             checked = legacyMeshGradient,
                             onCheckedChange = AppSettings::setLegacyMeshGradient,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setLegacyMeshGradient(!legacyMeshGradient) },
@@ -892,10 +904,7 @@ fun SettingsScreen(
                         Switch(
                             checked = animatedCanvas,
                             onCheckedChange = AppSettings::setAnimatedCanvas,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setAnimatedCanvas(!animatedCanvas) },
@@ -903,9 +912,10 @@ fun SettingsScreen(
             }
             // Reads as part of the Animated cover art option above it, not
             // as a separate setting. Nothing to narrow while the clip itself
-            // is off. Defaults to off: a clip loops for as long as its track
-            // plays, so on cellular this is not a one-time video cost but
-            // that cost repeated on every loop — see AppSettings.canvasOverCellular.
+            // is off. On in this build, which is the preset it ships with: a
+            // clip loops for as long as its track plays, so on cellular that is
+            // the video cost repeated on every loop — see
+            // AppSettings.canvasOverCellular.
             if (animatedCanvas) {
                 val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
                 row(coverCellularTitle, "canvas", "cellular", divided = false) {
@@ -946,10 +956,7 @@ fun SettingsScreen(
                         Switch(
                             checked = signatureApiEnabled,
                             onCheckedChange = AppSettings::setSignatureApiEnabled,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setSignatureApiEnabled(!signatureApiEnabled) },
@@ -991,10 +998,7 @@ fun SettingsScreen(
                         Switch(
                             checked = syncedLyrics,
                             onCheckedChange = AppSettings::setSyncedLyrics,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setSyncedLyrics(!syncedLyrics) },
@@ -1014,10 +1018,7 @@ fun SettingsScreen(
                             Switch(
                                 checked = lyricsBlur,
                                 onCheckedChange = AppSettings::setLyricsBlur,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
+                                colors = sleeveSwitchColors(),
                             )
                         },
                         onClick = { AppSettings.setLyricsBlur(!lyricsBlur) },
@@ -1077,10 +1078,7 @@ fun SettingsScreen(
                                     AppSettings.setHighPerformanceMode(false)
                                 }
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = {
@@ -1147,10 +1145,7 @@ fun SettingsScreen(
                         Switch(
                             checked = filterNonMusicAudio,
                             onCheckedChange = AppSettings::setFilterNonMusicAudio,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setFilterNonMusicAudio(!filterNonMusicAudio) },
@@ -1175,10 +1170,7 @@ fun SettingsScreen(
                         Switch(
                             checked = showCacheFolder,
                             onCheckedChange = AppSettings::setShowCacheFolder,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setShowCacheFolder(!showCacheFolder) },
@@ -1263,10 +1255,7 @@ fun SettingsScreen(
                         Switch(
                             checked = replayGenres,
                             onCheckedChange = AppSettings::setReplayGenres,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setReplayGenres(!replayGenres) },
@@ -1309,10 +1298,7 @@ fun SettingsScreen(
                         Switch(
                             checked = swipeToPlayNext,
                             onCheckedChange = AppSettings::setSwipeToPlayNext,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setSwipeToPlayNext(!swipeToPlayNext) },
@@ -1328,10 +1314,7 @@ fun SettingsScreen(
                         Switch(
                             checked = dontRepeatSuggestions,
                             onCheckedChange = AppSettings::setDontRepeatSuggestions,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },
@@ -1347,10 +1330,7 @@ fun SettingsScreen(
                         Switch(
                             checked = stopOnTaskRemoved,
                             onCheckedChange = AppSettings::setStopOnTaskRemoved,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setStopOnTaskRemoved(!stopOnTaskRemoved) },
@@ -1366,10 +1346,7 @@ fun SettingsScreen(
                         Switch(
                             checked = hideVolumeBar,
                             onCheckedChange = AppSettings::setHideVolumeBar,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setHideVolumeBar(!hideVolumeBar) },
@@ -1385,10 +1362,7 @@ fun SettingsScreen(
                         Switch(
                             checked = hideStatusBarInPlayer,
                             onCheckedChange = AppSettings::setHideStatusBarInPlayer,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setHideStatusBarInPlayer(!hideStatusBarInPlayer) },
@@ -1404,10 +1378,7 @@ fun SettingsScreen(
                         Switch(
                             checked = showQueueHistory,
                             onCheckedChange = AppSettings::setShowQueueHistory,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setShowQueueHistory(!showQueueHistory) },
@@ -1423,13 +1394,21 @@ fun SettingsScreen(
                         Switch(
                             checked = hideSongStatus,
                             onCheckedChange = AppSettings::setHideSongStatus,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setHideSongStatus(!hideSongStatus) },
+                )
+            }
+            // Deliberately not one of the rows it lists: a door to the page
+            // that can hide itself would leave the whole screen locked.
+            val hideOptionsTitle = stringResource(R.string.hide_options)
+            row(hideOptionsTitle, "show", "visible", "hide", "clutter", "list") {
+                SettingsRow(
+                    icon = Icons.Rounded.ListAlt,
+                    title = hideOptionsTitle,
+                    subtitle = stringResource(R.string.hide_options_subtitle),
+                    onClick = onHideOptions,
                 )
             }
         }
@@ -1459,10 +1438,7 @@ fun SettingsScreen(
                         Switch(
                             checked = smartVersionAlignment,
                             onCheckedChange = AppSettings::setSmartVersionAlignment,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setSmartVersionAlignment(!smartVersionAlignment) },
@@ -1478,10 +1454,7 @@ fun SettingsScreen(
                         Switch(
                             checked = nerdStats,
                             onCheckedChange = AppSettings::setShowNerdStats,
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = { AppSettings.setShowNerdStats(!nerdStats) },
@@ -1904,15 +1877,6 @@ private fun DownloadQuality.localizedLabel(): String = stringResource(
 )
 
 @Composable
-private fun ThemeMode.localizedLabel(): String = stringResource(
-    when (this) {
-        ThemeMode.SYSTEM -> R.string.system
-        ThemeMode.LIGHT -> R.string.light
-        ThemeMode.DARK -> R.string.dark
-    },
-)
-
-@Composable
 private fun AutomixPerformanceMode.localizedLabel(): String = stringResource(
     when (this) {
         AutomixPerformanceMode.EFFICIENT -> R.string.automix_mode_efficient
@@ -2295,7 +2259,7 @@ internal val TEXT_INSET = ROW_INSET + ICON_SIZE + ICON_GAP
  * every group has had its turn, which is why this is made fresh on each pass
  * rather than remembered.
  */
-private class SettingsSearch(query: String) {
+private class SettingsSearch(query: String, val hidden: Set<String> = emptySet()) {
     // Trimmed, because a trailing space is a typo rather than a search for
     // something ending in one — and on a phone keyboard it is one keystroke
     // away from every word typed.
@@ -2330,12 +2294,18 @@ private class SettingsGroupScope(
      * [divided] is false for the rows drawn as part of the row above them
      * rather than as settings in their own right, so they keep hugging their
      * parent when both survive the filter.
+     *
+     * The title is the first keyword of every row on this screen, which is what
+     * lets a row hidden elsewhere be taken off here without each of them having
+     * to be told it can be hidden — see [SettingsSearch.hidden].
      */
     fun row(
         vararg keywords: String?,
         divided: Boolean = true,
         content: @Composable () -> Unit,
     ) {
+        val title: String? = keywords.firstOrNull()
+        if (title != null && title in search.hidden) return
         // The header counts for every row beneath it: searching "playback"
         // should turn up the playback group entire, not nothing at all.
         if (search.matches(header, *keywords)) entries += Entry(divided, content)
@@ -2405,7 +2375,12 @@ internal fun SettingsGroup(
             .fillMaxWidth()
             .padding(horizontal = GROUP_INSET)
             .clip(GroupShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            // The same veil the discs wear, so the card sits on the page's
+            // colour rather than in front of it. Nothing inside changes.
+            .background(
+                LocalSleeveTint.current?.copy(alpha = SLEEVE_CHROME_ALPHA)
+                    ?: MaterialTheme.colorScheme.surfaceVariant,
+            ),
     ) {
         content()
     }
@@ -2568,10 +2543,7 @@ internal fun SettingsSubRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                checkedBorderColor = MaterialTheme.colorScheme.primary,
-            ),
+            colors = sleeveSwitchColors(),
         )
     }
 }
@@ -2600,6 +2572,29 @@ internal fun Chevron() {
     )
 }
 
+/**
+ * A switch cut from the same cloth as the discs: the record's tint as a veil
+ * while it is off, the tint at full once it is on. The theme's greys made the
+ * off state read as a hole punched in the card rather than as glass with
+ * nothing behind it.
+ */
+@Composable
+internal fun sleeveSwitchColors(): SwitchColors {
+    val sleeve = LocalSleeveTint.current
+        ?: return SwitchDefaults.colors(
+            checkedTrackColor = MaterialTheme.colorScheme.primary,
+            checkedBorderColor = MaterialTheme.colorScheme.primary,
+        )
+    return SwitchDefaults.colors(
+        checkedTrackColor = sleeve,
+        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+        checkedBorderColor = sleeve,
+        uncheckedTrackColor = sleeve.copy(alpha = SLEEVE_CHROME_ALPHA),
+        uncheckedThumbColor = sleeve.copy(alpha = 0.75f),
+        uncheckedBorderColor = sleeve.copy(alpha = SLEEVE_LIT_CHROME_ALPHA),
+    )
+}
+
 /** A continuous setting: label and current value on one line, track beneath. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -2613,10 +2608,15 @@ internal fun SliderRow(
     steps: Int,
     subtitle: String? = null,
 ) {
+    // Where the page wears the record, the travelled part of the track is the
+    // tint at full and the rest is the discs' veil — the same split as the
+    // segment selectors, so a slider and a pill agree about what is set.
+    val sleeve = LocalSleeveTint.current
     val colors = SliderDefaults.colors(
-        thumbColor = MaterialTheme.colorScheme.primary,
-        activeTrackColor = MaterialTheme.colorScheme.primary,
-        inactiveTrackColor = MaterialTheme.colorScheme.outline,
+        thumbColor = sleeve ?: MaterialTheme.colorScheme.primary,
+        activeTrackColor = sleeve ?: MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA)
+            ?: MaterialTheme.colorScheme.outline,
     )
     Column(Modifier.padding(start = ROW_INSET, end = ROW_INSET, top = 12.dp, bottom = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2697,15 +2697,24 @@ internal fun SegmentedControl(
     options: List<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
+    /**
+     * The record's tint, where the page is dressed in one. The track then is
+     * that tint at the discs' alpha and the chosen pill is the tint at full,
+     * so the selector is cut from the same cloth as the circles above it.
+     * Left out it is read off the page, which is how the selectors buried in a
+     * group card get dressed without every call site repeating the colour.
+     */
+    tint: Color? = null,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
     val haptics = LocalHapticFeedback.current
+    val sleeve = tint ?: LocalSleeveTint.current
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.outline)
+            .background(sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA) ?: MaterialTheme.colorScheme.outline)
             // Enough of a margin for the track to read as a track. At 2dp the
             // selected pill sat all but flush against the container's own edge,
             // so the two rounded rectangles merged into one shape and the
@@ -2717,7 +2726,7 @@ internal fun SegmentedControl(
             val chosen = index == selectedIndex
             val pill by animateColorAsState(
                 targetValue = if (chosen) {
-                    MaterialTheme.colorScheme.primary
+                    sleeve ?: MaterialTheme.colorScheme.primary
                 } else {
                     Color.Transparent
                 },
@@ -2728,7 +2737,7 @@ internal fun SegmentedControl(
                 targetValue = if (chosen) {
                     MaterialTheme.colorScheme.onPrimary
                 } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
+                    sleeve?.copy(alpha = 0.75f) ?: MaterialTheme.colorScheme.onSurfaceVariant
                 },
                 animationSpec = tween(160),
                 label = "segmentLabel",

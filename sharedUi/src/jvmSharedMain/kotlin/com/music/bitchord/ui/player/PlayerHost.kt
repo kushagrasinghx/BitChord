@@ -31,6 +31,13 @@ import kotlinx.coroutines.flow.StateFlow
 interface PlayerHost {
     val settings: PlayerSettingsSource
 
+    /**
+     * Whether the player keeps its portrait phone shape on any window, wide ones
+     * included. True on the x86_64 emulator build, where the phone look is the
+     * one being asked for.
+     */
+    val forcePortraitPlayer: Boolean get() = false
+
     /** A Canvas already settled for [song], without a lookup. */
     fun cachedCanvas(song: Song): CanvasArtwork?
 
@@ -89,6 +96,19 @@ interface PlayerHost {
     @Composable
     fun AudioPipelineDialog(hazeState: HazeState, isPlaying: Boolean, onDismiss: () -> Unit)
 
+    /**
+     * Whether a track can be put on this device's disk at all. False leaves the
+     * player's download button undrawn rather than live on a tap that goes
+     * nowhere.
+     */
+    val downloadAvailable: Boolean get() = false
+
+    /** Tracks already sitting on disk, by video id — the arrow drawn full. */
+    val downloadedVideoIds: StateFlow<Set<String>> get() = NoDownloads
+
+    /** Tracks with a download queued or running, by video id — the arrow breathing. */
+    val pendingDownloadVideoIds: StateFlow<Set<String>> get() = NoDownloads
+
     /** Casting to a network receiver. Absent, and so never drawn, where the platform has none. */
     val castState: StateFlow<CastUi> get() = NoCast
 
@@ -123,6 +143,8 @@ interface PlayerHost {
 }
 
 private val NoCast = MutableStateFlow(CastUi())
+
+private val NoDownloads = MutableStateFlow(emptySet<String>())
 
 private val NoWatch = MutableStateFlow(WatchOutputUi())
 
@@ -176,6 +198,8 @@ interface PlayerSettingsSource {
     val lyricsOffsetMs: StateFlow<Int>
     val lyricsSourceOrder: StateFlow<List<LyricsSource>>
     val meteredConnection: StateFlow<Boolean?>
+    /** The light softening of the cover behind the player's controls; see [fullBleedArtwork]. */
+    val playerBackdropBlur: StateFlow<Boolean>
     val preferUsbDac: StateFlow<Boolean>
     val prioritizeSpotifyCanvas: StateFlow<Boolean>
     val reduceAnimation: StateFlow<Boolean>
@@ -188,7 +212,6 @@ interface PlayerSettingsSource {
     /** The Automix blend in flight, for the scrubber's beat glow; null between blends. */
     val smartMixBlend: StateFlow<MixBlend?>
     val smartTransitionWindow: StateFlow<TransitionWindow?>
-    val spotifyCanvasAutoHide: StateFlow<Boolean>
     val syncedLyrics: StateFlow<Boolean>
     val translationLanguage: StateFlow<String>
     val versionAlignmentInProgress: StateFlow<Boolean>
@@ -286,6 +309,8 @@ class CanvasVideoSpec(
     val onCoverChanged: (Float) -> Unit,
     val bottomFade: Float,
     val bottomFadeEndPx: Float?,
+    /** Share of the clip's width, measured in from its right edge, over which it dissolves. */
+    val rightFade: Float,
     val pausedForTransition: Boolean,
 )
 
@@ -310,6 +335,8 @@ fun CanvasArtworkPlayer(
     onCoverChanged: (Float) -> Unit = {},
     bottomFade: Float = 0f,
     bottomFadeEndPx: Float? = null,
+    /** See [CanvasVideoSpec.rightFade]. */
+    rightFade: Float = 0f,
     pausedForTransition: Boolean = false,
 ) {
     PlayerPlatform.host.CanvasVideo(
@@ -328,6 +355,7 @@ fun CanvasArtworkPlayer(
             onCoverChanged = onCoverChanged,
             bottomFade = bottomFade,
             bottomFadeEndPx = bottomFadeEndPx,
+            rightFade = rightFade,
             pausedForTransition = pausedForTransition,
         ),
         modifier,

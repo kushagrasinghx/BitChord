@@ -2,13 +2,13 @@
 <resources>
     <string name="analysis_complete">विश्लेषित</string>
     <string name="analysis_in_progress">विश्लेषण हो रहा है…</string>
-    <string name="analysis_refining">विश्लेषित, सुधार हो रहा है…</string>
+    <string name="analysis_refining">सुधार हो रहा है…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">ऑटोमिक्स · यह गाना: %1$s · अगला: %2$s</string>
-    <string name="automix_not_supported_video">वीडियो गानों पर Automix समर्थित नहीं है</string>
-    <string name="automix_stopped_in_party">Automix: साथ में सुनें के दौरान बंद</string>
+    <string name="automix_analysis_status">Automix: %1$s</string>
+    <string name="automix_not_supported_video">Automix: वीडियो पर नहीं</string>
+    <string name="automix_stopped_in_party">Automix: रुका</string>
     <string name="autoplay">ऑटोप्ले</string>
     <string name="autoplay_empty_description">मिलता-जुलता संगीत चलता रहेगा</string>
     <string name="autoplay_off">ऑटोप्ले बंद</string>

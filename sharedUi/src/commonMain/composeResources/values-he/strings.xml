@@ -2,13 +2,13 @@
 <resources>
     <string name="analysis_complete">נותח</string>
     <string name="analysis_in_progress">מנתח…</string>
-    <string name="analysis_refining">נותח, משפר…</string>
+    <string name="analysis_refining">משפר…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">Automix · השיר הזה: %1$s · הבא: %2$s</string>
-    <string name="automix_not_supported_video">Automix אינו נתמך בקטעי וידאו</string>
-    <string name="automix_stopped_in_party">Automix: הופסק בהאזנה ביחד</string>
+    <string name="automix_analysis_status">Automix: %1$s</string>
+    <string name="automix_not_supported_video">Automix: לא בוידאו</string>
+    <string name="automix_stopped_in_party">Automix: הופסק</string>
     <string name="autoplay">הפעלה אוטומטית</string>
     <string name="autoplay_empty_description">מוזיקה דומה תמשיך להתנגן</string>
     <string name="autoplay_off">הפעלה אוטומטית כבויה</string>

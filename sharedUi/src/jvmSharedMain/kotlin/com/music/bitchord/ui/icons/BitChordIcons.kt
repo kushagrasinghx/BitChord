@@ -528,7 +528,13 @@ object BitChordIcons {
         }.build()
     }
 
-    /** Arrow pointing down into a tray — offline download. */
+    /**
+     * Arrow pointing down into a tray — offline download.
+     *
+     * One glyph rather than an outline and a filled pair: the player's button
+     * exists to fetch the file and leaves the row once the file is here, so there
+     * is no fourth state for a solid variant to name.
+     */
     val Download: ImageVector by lazy {
         ImageVector.Builder(
             name = "bc_download",

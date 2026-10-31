@@ -89,13 +89,16 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
@@ -140,6 +143,7 @@ import com.music.bitchord.ui.rememberIsForeground
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
@@ -343,13 +347,76 @@ private val GAP_ROW_SPACING = 16.dp
 /**
  * How the stack falls away either side of the line being sung.
  *
- * Indexed by distance from it. Far subtler than a linear ramp: the two lines
- * around the playing one stay legible so you can read ahead and behind, and
- * only past that does the panel let go. The last entry stands for everything
- * further out, which is most of the list.
+ * Indexed by distance from it. Brightness is shallow — the two lines around
+ * the playing one stay legible so you can read ahead and behind, and the last
+ * entry stands for everything further out, which is most of the list. The blur
+ * is not: the line being sung is the only sharp thing on the panel, and this
+ * is what takes the rest out of focus, past and future alike.
  */
 private val LINE_FALLOFF_ALPHA = floatArrayOf(1f, 0.8f, 0.7f, 0.58f, 0.46f)
-private val LINE_FALLOFF_BLUR = arrayOf(0.dp, 1.dp, 1.dp, 1.7.dp, 2.4.dp)
+private val LINE_FALLOFF_BLUR = arrayOf(0.dp, 3.dp, 4.dp, 5.5.dp, 7.dp)
+
+/**
+ * How a row is softened when RenderEffect is missing.
+ *
+ * `Modifier.blur` draws through a RenderEffect and is a silent no-op below
+ * API 31 — this build runs on an 8.1 emulator, where the stack would stay
+ * sharp however wide the radius went. There is no gaussian blur to be had
+ * there, so the row is stamped across a small gaussian-weighted grid, each
+ * stamp laid down at its share of the alpha. The stamps overlap far more
+ * tightly than the glyph strokes they carry, so they fuse into one soft edge
+ * rather than reading as a handful of offset copies.
+ *
+ * The weights are a 5×5 gaussian with its corners dropped (they carry next to
+ * nothing), normalised to one so an untouched area does not dim. The centre
+ * stamp keeps the line legible; the faint outer ones are what spread the ink.
+ */
+private val SOFT_BLUR_STAMPS: Array<FloatArray> = run {
+    val sigma = 1.15f
+    val stamps = ArrayList<FloatArray>(21)
+    var total = 0f
+    for (y in -2..2) {
+        for (x in -2..2) {
+            if (abs(x) == 2 && abs(y) == 2) continue
+            val weight = exp(-(x * x + y * y) / (2f * sigma * sigma))
+            stamps += floatArrayOf(x / 2f, y / 2f, weight)
+            total += weight
+        }
+    }
+    Array(stamps.size) { index ->
+        val stamp = stamps[index]
+        floatArrayOf(stamp[0], stamp[1], stamp[2] / total)
+    }
+}
+
+/** Stamps sit inside the radius rather than on it, so their edges overlap. */
+private const val SOFT_BLUR_REACH = 0.7f
+
+/**
+ * Blur where it exists, and an imitation of it where it does not. Rows with
+ * nothing to soften never enter the fallback, so the line being sung still
+ * costs a single draw.
+ */
+private fun Modifier.lyricBlur(radius: Dp): Modifier {
+    if (radius.value <= 0f) return this
+    if (renderEffectBlurSupported) return blur(radius, BlurredEdgeTreatment.Unbounded)
+    return drawWithContent {
+        // Held explicitly: the stamps are laid down inside nested draw scopes,
+        // where the content lambda is no longer an implicit receiver.
+        val content = this
+        val reach = radius.toPx() * SOFT_BLUR_REACH
+        val bounds = Rect(Offset.Zero, size)
+        val paint = Paint()
+        drawIntoCanvas { canvas ->
+            SOFT_BLUR_STAMPS.forEach { stamp ->
+                paint.alpha = stamp[2]
+                canvas.saveLayer(bounds, paint)
+                translate(stamp[0] * reach, stamp[1] * reach) { content.drawContent() }
+                canvas.restore()
+            }
+        }
+    }
+}
 
 /**
  * The shape of the page the lyrics are going to fill.
@@ -2088,10 +2155,12 @@ internal fun LyricsPanel(
             val offset = if (scrollLine < 0) 0 else index - scrollLine
             val distance = abs(offset)
             val isActive = isSynced && index in activeRows
-            // Symmetric either side of the playing line, and shallow: the two
-            // rows around it stay readable so you can follow back over what was
-            // just sung as well as ahead, and everything past that recedes to
-            // the same floor rather than fading to nothing.
+            // Symmetric either side of the playing line: what was just sung and
+            // what comes next are both taken out of focus the same way, and the
+            // sung line is the only one left sharp. Brightness stays shallow so
+            // the stack is still readable; the blur does the pointing.
+            // Nothing is filtered while reading by hand — the panel stops
+            // following the song there, so nothing is being pointed at.
             val step = distance.coerceAtMost(LINE_FALLOFF_ALPHA.lastIndex)
             val blur by animateDpAsState(
                 targetValue = when {
@@ -2153,7 +2222,7 @@ internal fun LyricsPanel(
                 ) {
                 Box(
                     modifier = Modifier
-                        .blur(blur, BlurredEdgeTreatment.Unbounded)
+                        .lyricBlur(blur)
                         .clip(RoundedCornerShape(10.dp))
                         // A gap is nothing to pick, so it only ever seeks — and
                         // not even that while a pick is open, where a stray tap
@@ -2295,7 +2364,7 @@ internal fun LyricsPanel(
                                 )
                         }
                     }
-                    .blur(blur, BlurredEdgeTreatment.Unbounded)
+                    .lyricBlur(blur)
                     .clip(RoundedCornerShape(10.dp))
                     // The chosen lines are marked on the row itself rather
                     // than with a mark beside it: a lane down the side would

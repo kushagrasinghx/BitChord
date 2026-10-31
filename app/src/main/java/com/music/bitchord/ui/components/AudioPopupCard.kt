@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.player.playerSurfaceColor
 import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
@@ -47,8 +48,9 @@ private val POPUP_CONTENT_MAX_HEIGHT = 420.dp
  * A scrim that dismisses, a card that swallows the tap so touching it does not,
  * a centred title and subtitle, a scrolling body, and a full-width closing
  * action. Fixed to the player's own dark palette rather than the theme-adaptive
- * one the settings dialogs use, since everything on the player is white alphas
- * whatever the app's light/dark theme is.
+ * one the settings dialogs use — the playing sleeve's colour where the player
+ * has one, see [LocalPlayerSurface], since everything on the player is white
+ * alphas whatever the app's light/dark theme is.
  *
  * [content] is the scrolling body, handed a [BoxScope] so a body can lay
  * something behind its rows — the pipeline draws its signal line there.
@@ -65,6 +67,7 @@ internal fun AudioPopupCard(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val surface = playerSurfaceColor()
 
     Box(
         modifier = modifier
@@ -84,14 +87,14 @@ internal fun AudioPopupCard(
                 .clip(POPUP_CARD_SHAPE)
                 .then(
                     if (reduceDynamicBlur) {
-                        Modifier.background(Color(0xFF121212))
+                        Modifier.background(surface)
                     } else {
                         Modifier
                             .optimizedHazeEffect(
                                 state = hazeState,
-                                style = HazeMaterials.regular(Color(0xFF141414)),
+                                style = HazeMaterials.regular(surface),
                             )
-                            .background(Color(0xFF121212).copy(alpha = 0.9f))
+                            .background(surface.copy(alpha = 0.9f))
                     }
                 )
                 // Swallows the tap before it reaches the scrim behind, so

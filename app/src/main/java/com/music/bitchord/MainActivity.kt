@@ -20,6 +20,8 @@ import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.EnterTransition
@@ -60,7 +62,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
@@ -109,6 +110,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -153,7 +155,6 @@ import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LibrarySort
-import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.ui.components.AccountProfileSelector
 import com.music.bitchord.ui.navigation.AppDestination
 import com.music.bitchord.ui.navigation.AppRoute
@@ -164,6 +165,7 @@ import com.music.bitchord.ui.screens.DiscordDialog
 import com.music.bitchord.ui.screens.DiscordDialogHost
 import com.music.bitchord.ui.screens.DiscordScreen
 import com.music.bitchord.ui.screens.EqualizerScreen
+import com.music.bitchord.ui.screens.HiddenSettingsScreen
 import com.music.bitchord.ui.screens.HistoryScreen
 import com.music.bitchord.ui.screens.LibraryReplayEntry
 import com.music.bitchord.ui.screens.libraryDeviceItems
@@ -298,6 +300,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.layout.onSizeChanged
 import com.music.bitchord.ui.player.LocalPlayerDock
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.player.PlayerMenuSlot
 import com.music.bitchord.ui.screens.DetailScreen
 import com.music.bitchord.ui.screens.sortedForDetail
 import com.music.bitchord.ui.screens.ExploreScreen
@@ -324,7 +327,10 @@ import com.music.bitchord.ui.replay.ReplayStories
 import com.music.bitchord.ui.replay.ReplayStoryPage
 import com.music.bitchord.ui.replay.rememberReplayState
 import com.music.bitchord.ui.theme.BitChordTheme
+import com.music.bitchord.ui.theme.LocalSleeveTint
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 import com.music.bitchord.ui.theme.rememberArtworkPalette
+import com.music.bitchord.ui.theme.rememberPlayerTint
 import com.music.bitchord.data.canvas.AppleArtistArtRepository
 import com.music.bitchord.data.canvas.keyColors
 import com.music.bitchord.ui.theme.SystemBarIcons
@@ -366,7 +372,6 @@ class MainActivity : AppCompatActivity() {
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
         setContent {
-            val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val highPerformance by AppSettings.highPerformanceMode.collectAsStateWithLifecycle()
             val liquidGlassEnabled by AppSettings.liquidGlass.collectAsStateWithLifecycle()
             val iosOverscrollFactory = rememberIosOverscrollFactory()
@@ -375,12 +380,10 @@ class MainActivity : AppCompatActivity() {
             LaunchedEffect(highPerformance, performanceRefreshRate, composeView) {
                 applyPerformanceMode(highPerformance, performanceRefreshRate, composeView)
             }
-            val darkTheme = when (theme) {
-                ThemeMode.SYSTEM -> isSystemInDarkTheme()
-                ThemeMode.LIGHT -> false
-                ThemeMode.DARK -> true
-            }
-            BitChordTheme(darkTheme = darkTheme) {
+            // Dark and nothing else: every surface in the app is drawn in white
+            // alphas over a sleeve that is assumed to be the floor, so a light
+            // theme was never a second look at the same app but a different one.
+            BitChordTheme(darkTheme = true) {
                 // The glass surfaces sample this layer, and a layer records only
                 // what is drawn into it — which, for BitChord, is a page that
                 // paints no background of its own. Everywhere a page is not
@@ -416,7 +419,6 @@ class MainActivity : AppCompatActivity() {
                 // the split is about to be laid out in.
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     BitChordApp(
-                        darkTheme = darkTheme,
                         windowWidth = maxWidth,
                         windowHeight = maxHeight,
                         appBackdrop = appBackdrop,
@@ -466,7 +468,6 @@ class MainActivity : AppCompatActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BitChordApp(
-    darkTheme: Boolean,
     /** The width of the window this is laid out in — see the call site. */
     windowWidth: Dp,
     /**
@@ -605,6 +606,13 @@ private fun BitChordApp(
     var discordDialog by remember { mutableStateOf<DiscordDialog?>(null) }
     var songActions by remember { mutableStateOf<Song?>(null) }
     var showLyricsOffset by remember { mutableStateOf(false) }
+    var showLyricsProviders by remember { mutableStateOf(false) }
+    /**
+     * Where the player screen publishes its lyrics menu state for the track
+     * menu to read: the ⋮ menu draws translate, romanize and source rows from
+     * here, keeping them live while it is open. See [PlayerMenuSlot].
+     */
+    val playerMenuSlot = remember { PlayerMenuSlot() }
     /**
      * Whether the track menu that is up was opened from the player.
      *
@@ -716,9 +724,9 @@ private fun BitChordApp(
         if (reorderTarget?.browseId != detail?.browseId) reorderTarget = null
     }
 
-    SystemBarIcons(
-        dark = !darkTheme && !showNowPlaying && route != AppRoute.Replay && replayStory == null && !onboardingVisible,
-    )
+    // The app is dark and has no other setting, so the bar's icons are always
+    // the light pair.
+    SystemBarIcons(dark = false)
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
     val homeLoadingMore by viewModel.homeLoadingMore.collectAsStateWithLifecycle()
@@ -2215,6 +2223,43 @@ private fun BitChordApp(
         keyColors = detailApple?.keyColors(),
     )
 
+    // The tabs are coloured the same way, off the record in the player — which is
+    // why the page and the player agree as soon as something is playing. With
+    // nothing played yet they take the first cover of Home's feed, so a tab is
+    // never the flat black it used to be; and with no feed either, the palette
+    // falls back to the theme's own colours and they are as they were.
+    //
+    // One answer shared by all four rather than each off its own shelf: a
+    // different sleeve per tab would read as the page changing colour when
+    // nothing but the tab has, and the Library's covers are the listener's own
+    // and would pin the page to whatever happens to sort first.
+    //
+    // Read here rather than inside a tab so the fades at either end of the
+    // screen — which are not the page — can be given the same answer.
+    val feedTintArt = player.song?.thumbnailUrl ?: firstFeedArtwork(homeState)
+    val feedPalette = rememberArtworkPalette(feedTintArt)
+    // The scheme every tab is drawn under: the page's colour and nothing else.
+    // The sleeve decides what the tabs are washed in, not what their buttons,
+    // their secondary lines, their chips or their hairlines are made of — every
+    // one of those keeps the theme's own value, because a record's accent is not
+    // the app's accent and a page that recolours its controls with each track
+    // reads as the controls breaking rather than as the page being dressed.
+    val feedColorScheme = MaterialTheme.colorScheme.copy(
+        background = feedPalette.background,
+    )
+    // The same record turned into a material rather than a background. The
+    // player's discs — the three-dots button, the heart, the queue — are cut
+    // from [rememberPlayerTint]; the floating controls outside the player are
+    // given that very colour so a circle in the bar is not a greyer cousin of
+    // the circle over the artwork. A grey sleeve answers null and the player
+    // falls back to white, so this does too, and the crossfade is the
+    // player's own 360 ms: the bar and the deck change colour together.
+    val sleeveTint by animateColorAsState(
+        targetValue = rememberPlayerTint(feedTintArt) ?: Color.White,
+        animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
+        label = "sleeveChromeTint",
+    )
+
     // One set of numbers for the cards, the page, the stories and the shared
     // picture, so they cannot disagree. Read while any of them is on screen —
     // which includes the Library tab, since the cards live at the top of it.
@@ -2407,6 +2452,14 @@ private fun BitChordApp(
                 songMenuOrigin = null
                 songActions = song
             },
+            // The player's own download disc does what the menu's "Scarica" row
+            // does, through the same function — including the duration the player
+            // knows and the queue row it came from doesn't, and the storage and
+            // notification permissions only an activity can ask for.
+            onDownloadTrack = { downloadSong(song) },
+            // The capsule's radio glyph, doing what the menu's row does to the
+            // same song — and nothing else, so the queue it builds is identical.
+            onStartRadio = { startRadio(song) },
             // Pushed over whatever page is under the player, so back from it
             // returns there.
             onOpenAlbum = { id ->
@@ -2514,6 +2567,15 @@ private fun BitChordApp(
             lyricsUnavailable = lyricsChecked && lyrics.isNullOrEmpty(),
             lyricsOffsetOpen = showLyricsOffset,
             onDismissLyricsOffset = { showLyricsOffset = false },
+            menuSlot = playerMenuSlot,
+            lyricsProvidersOpen = showLyricsProviders,
+            onOpenLyricsProviders = {
+                // The menu is up when this fires; it has to come down for the
+                // provider sheet to be the thing on screen.
+                songActions = null
+                showLyricsProviders = true
+            },
+            onDismissLyricsProviders = { showLyricsProviders = false },
             onListenTogether = {
                 // The player is a sheet over the page, so it has to come down
                 // for the page to be read at all.
@@ -2694,6 +2756,9 @@ private fun BitChordApp(
                                 LibraryGridPage(
                                     shelf = shelf,
                                     gridState = libraryShowAllGridState,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.background),
                                     onItemClick = onLibraryItemClick,
                                     onItemLongPress = onBrowseLongPress,
                                     // Only the Playlists shelf can grow one — see
@@ -2806,8 +2871,11 @@ private fun BitChordApp(
                             )
                         } else if (pageRoute == AppRoute.Equalizer) {
                             EqualizerScreen(contentPadding = listPadding)
+                        } else if (pageRoute == AppRoute.HiddenSettings) {
+                            HiddenSettingsScreen(contentPadding = listPadding)
                         } else if (pageRoute == AppRoute.Settings) {
                             SettingsScreen(
+                                sleeveTint = sleeveTint,
                                 windowWidth = windowWidth,
                                 signedIn = signedIn,
                                 account = account,
@@ -2830,6 +2898,7 @@ private fun BitChordApp(
                                 onSpotifyCanvasAuth = { showSpotifyCanvasAuth = true },
                                 onAppLanguage = { showAppLanguage = true },
                                 onEditSignatureApi = { editingSignatureApi = true },
+                                onHideOptions = { navigator.push(AppRoute.HiddenSettings) },
                                 contentPadding = listPadding,
                             )
                         } else if (page != null) {
@@ -3019,6 +3088,10 @@ private fun BitChordApp(
                                 },
                                 songSort = songSort,
                                 folder = folder,
+                                // A folder has no sleeve to take its colours from, so
+                                // it takes the record in the player's — the same answer
+                                // every tab and Impostazioni wear.
+                                folderTintArtwork = feedTintArt.takeIf { folder != null },
                                 contentPadding = listPadding,
                                 reorder = if (reordering != null) {
                                     { palette ->
@@ -3052,6 +3125,13 @@ private fun BitChordApp(
                             )
                         } else when ((destination as? AppDestination.Tab)?.index ?: selectedTab) {
                             TAB_HOME -> HomeScreen(
+                                // The page's own colour, painted by the surface the
+                                // feed scrolls over: no tab draws a background, so
+                                // what it sits on is the window's black unless the
+                                // page says otherwise.
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.background),
                                 state = homeState,
                                 listState = homeListState,
                                 currentSong = player.song,
@@ -3119,8 +3199,14 @@ private fun BitChordApp(
                                     },
                                     onRetry = { viewModel.openMoodGenre(category) },
                                     contentPadding = listPadding,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.background),
                                 )
                             } ?: ExploreScreen(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.background),
                                 state = exploreState,
                                 listState = exploreListState,
                                 onCategoryClick = viewModel::openMoodGenre,
@@ -3131,6 +3217,9 @@ private fun BitChordApp(
                                 contentPadding = listPadding,
                             )
                             TAB_SEARCH -> SearchScreen(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.background),
                                 query = query,
                                 onQueryChange = viewModel::onQueryChange,
                                 filter = filter,
@@ -3270,6 +3359,7 @@ private fun BitChordApp(
                                         ),
                                         selectedIndex = searchSource.ordinal,
                                         onSelect = { index -> onSearchSourceChange(SearchSource.entries[index]) },
+                                        tint = sleeveTint,
                                     )
                                 },
                                 searchingLibrary = searchSource == SearchSource.LIBRARY,
@@ -3306,6 +3396,9 @@ private fun BitChordApp(
                                 },
                             )
                             else -> LibraryScreen(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.background),
                                 signedIn = signedIn,
                                 state = libraryState,
                                 listState = libraryListState,
@@ -3341,15 +3434,47 @@ private fun BitChordApp(
                             )
                         }
                     }
-                    // A pushed page keeps its saved state — a scroll position,
-                    // a search typed into Settings — for as long as it is on
-                    // the stack, so coming back to it finds it as it was left.
-                    // Tabs keep theirs hoisted above, as they always have.
-                    if (destination is AppDestination.Tab) {
-                        pageContent()
-                    } else {
+                    // The tabs, the grid that swaps with the Library, and every
+                    // page pushed over them are dressed by the record — a black
+                    // one among tinted siblings reads as the app glitching, not
+                    // as a page.
+                    //
+                    // A pushed page keeps its saved state — a scroll position, a
+                    // search typed into Settings — for as long as it is on the
+                    // stack, so coming back finds it as it was left; tabs keep
+                    // theirs hoisted above, as they always have. Both tests read
+                    // this slot's own `destination`, so a page on its way out
+                    // finishes fading in the colours and the state it came up
+                    // with, instead of being repainted by whatever is on top now.
+                    // A device folder is the exception: it has no artwork of its
+                    // own to paint itself from, so it takes the record in the
+                    // player's, discs included, exactly as the tabs and
+                    // Impostazioni do.
+                    val dressedByPlayer = destination is AppDestination.Release &&
+                        destination.browseId.isDeviceFolder()
+                    if (destination is AppDestination.Release && !dressedByPlayer) {
+                        // A release is not dressed: it paints its own artwork
+                        // behind everything and answers to the record it is
+                        // showing, not to the one playing.
                         pageKeysSeen += key
                         pageStates.SaveableStateProvider(key, pageContent)
+                    } else {
+                        CompositionLocalProvider(LocalSleeveTint provides sleeveTint) {
+                            MaterialTheme(colorScheme = feedColorScheme) {
+                                if (destination is AppDestination.Tab) {
+                                    pageContent()
+                                } else {
+                                    pageKeysSeen += key
+                                    Box(
+                                        Modifier
+                                            .fillMaxSize()
+                                            .background(MaterialTheme.colorScheme.background),
+                                    ) {
+                                        pageStates.SaveableStateProvider(key, pageContent)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -3361,10 +3486,21 @@ private fun BitChordApp(
                         detail.type == BrowseType.PLAYLIST ||
                         detail.type == BrowseType.ARTIST) &&
                     !isLocalDetail
-                val chromePageColor = if (isDetailVisible) {
-                    detailPalette.background
-                } else {
-                    MaterialTheme.colorScheme.background
+                // Home as the screen, not as one tab among the pushed pages: the
+                // heading-hold below answers to this.
+                val homeTabVisible = route == null && detail == null && selectedTab == TAB_HOME
+                // Whichever tab is up, and any page pushed over it — they all
+                // wear [feedColorScheme] now, so the chrome wears it too.
+                val feedTabVisible = detail == null
+                val chromePageColor = when {
+                    isDetailVisible -> detailPalette.background
+                    // The page's own tint: a flat band of black at either end of
+                    // a page washed in a sleeve's colour is the one thing that
+                    // gives the tint away. A device folder paints itself from the
+                    // record in the player rather than a sleeve of its own, so it
+                    // takes this answer as much as the tabs do.
+                    isLocalDetail || feedTabVisible -> feedPalette.background
+                    else -> MaterialTheme.colorScheme.background
                 }
                 // This is the bottom floor itself turned upside down, not a
                 // separately maintained approximation. Both edges therefore
@@ -3382,8 +3518,7 @@ private fun BitChordApp(
                 val artistListState = detail
                     ?.takeIf { isDetailVisible && it.type == BrowseType.ARTIST }
                     ?.let { detailListStates.getOrPut(it.browseId) { LazyListState() } }
-                val homeHeadingVisible = route == null && detail == null && selectedTab == TAB_HOME
-                val headerListState = artistListState ?: homeListState.takeIf { homeHeadingVisible }
+                val headerListState = artistListState ?: homeListState.takeIf { homeTabVisible }
                 val fadeStart = if (artistListState != null) TOP_FADE_START else 0f
                 val fadeRamp = if (artistListState != null) TOP_FADE_RAMP else 1f
                 val topFadeAlpha by remember(headerListState, fadeStart, fadeRamp) {
@@ -3416,6 +3551,7 @@ private fun BitChordApp(
                         AppRoute.ListenTogether -> stringResource(R.string.listen_together)
                         AppRoute.WearOs -> stringResource(R.string.wear_os_page_title)
                         AppRoute.Equalizer -> stringResource(R.string.equalizer)
+                        AppRoute.HiddenSettings -> stringResource(R.string.hide_options)
                         AppRoute.Settings -> stringResource(R.string.settings)
                         AppRoute.Replay -> stringResource(R.string.replay)
                         null -> when {
@@ -3432,6 +3568,7 @@ private fun BitChordApp(
                     transparentBackdrop = true,
                     artworkPageChrome = true,
                     backButtonHazeState = hazeState,
+                    sleeveTint = sleeveTint,
                     trailingTitle = if (detail != null && detailActiveShelf != null) detail.title else null,
                     // Search has no large in-list header to hand the title back to —
                     // the field takes that space — so its bar title is always up.
@@ -3485,6 +3622,7 @@ private fun BitChordApp(
                                         SharedRes.string.search_hint
                                     },
                                 ),
+                                tint = sleeveTint,
                             )
                         }
                     } else null,
@@ -3582,7 +3720,7 @@ private fun BitChordApp(
                                     Icon(
                                         Icons.Rounded.History,
                                         contentDescription = stringResource(R.string.listening_history),
-                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        tint = sleeveTint ?: MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
                             }
@@ -3597,12 +3735,19 @@ private fun BitChordApp(
                                         Icon(
                                             Icons.Rounded.Sort,
                                             contentDescription = stringResource(R.string.sort_library),
-                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            tint = sleeveTint ?: MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
                                     DropdownMenu(
                                         expanded = librarySortMenuOpen,
                                         onDismissRequest = { librarySortMenuOpen = false },
+                                        // The disc material, composited opaque on this page's own
+                                        // colour — the same ground PopupsDressedBy gives a dialog
+                                        // card, and the theme's grey would not be a veil but a
+                                        // second panel over the tinted page.
+                                        containerColor = sleeveTint
+                                            .copy(alpha = SLEEVE_CHROME_ALPHA)
+                                            .compositeOver(feedPalette.background),
                                     ) {
                                         LibrarySort.entries.forEach { option ->
                                             DropdownMenuItem(
@@ -3637,7 +3782,7 @@ private fun BitChordApp(
                                             contentDescription = stringResource(
                                                 if (detailSearching) R.string.close_search else R.string.search_this_list,
                                             ),
-                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            tint = sleeveTint ?: MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
                                 }
@@ -3653,7 +3798,7 @@ private fun BitChordApp(
                                         contentDescription = stringResource(
                                             if (isLocalDetail) R.string.sort_music else R.string.sort_songs,
                                         ),
-                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        tint = sleeveTint ?: MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
                                 if (isReleaseDetail && releaseSongs.isNotEmpty()) {
@@ -3688,7 +3833,7 @@ private fun BitChordApp(
                                         Icon(
                                             Icons.Rounded.MoreHoriz,
                                             contentDescription = stringResource(R.string.more),
-                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            tint = sleeveTint ?: MaterialTheme.colorScheme.onSurface,
                                         )
                                     }
                                 }
@@ -3714,7 +3859,7 @@ private fun BitChordApp(
                                     Icon(
                                         Icons.Rounded.IosShare,
                                         contentDescription = stringResource(R.string.share),
-                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        tint = sleeveTint ?: MaterialTheme.colorScheme.onSurface,
                                     )
                                 }
                             }
@@ -3735,6 +3880,7 @@ private fun BitChordApp(
                                     } else navigator.push(AppRoute.Settings)
                                 },
                                 onSwipeProfile = { forward -> viewModel.stepProfile(forward) },
+                                sleeveTint = sleeveTint,
                             )
                         }
                     },
@@ -3845,6 +3991,7 @@ private fun BitChordApp(
                             onBlockedControl = showHostOnlyNotice,
                             dock = activeDock,
                             pull = playerSheetMotion.takeIf { !reducePlayerMotion },
+                            sleeveTint = sleeveTint,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(8.dp))
@@ -3853,6 +4000,7 @@ private fun BitChordApp(
                         tabs = tabs,
                         selectedIndex = selectedTab,
                         hazeState = hazeState,
+                        sleeveTint = sleeveTint,
                         onTabSelected = onTabSelected,
                     )
                 }
@@ -4010,22 +4158,24 @@ private fun BitChordApp(
         // ---- Share the Replay ----
         if (showReplayShare) {
             replay.summary?.takeUnless { it.isEmpty }?.let { summary ->
-                ModalBottomSheet(
-                    onDismissRequest = { showReplayShare = false },
-                    // Straight to full height. The sheet is a picture and two
-                    // buttons, and half-open it showed the picture with both
-                    // buttons below the fold — a sheet whose only two controls
-                    // need a drag to reach.
-                    sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-                    containerColor = MaterialTheme.colorScheme.background,
-                ) {
-                    ReplayShareSheet(
-                        summary = summary,
-                        holder = account?.name.orEmpty(),
-                        memberSince = replay.memberSince,
-                        page = replaySharePage,
-                        onDismiss = { showReplayShare = false },
-                    )
+                PopupsDressedBy(sleeveTint, feedPalette.background) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showReplayShare = false },
+                        // Straight to full height. The sheet is a picture and two
+                        // buttons, and half-open it showed the picture with both
+                        // buttons below the fold — a sheet whose only two controls
+                        // need a drag to reach.
+                        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                        containerColor = feedPalette.background,
+                    ) {
+                        ReplayShareSheet(
+                            summary = summary,
+                            holder = account?.name.orEmpty(),
+                            memberSince = replay.memberSince,
+                            page = replaySharePage,
+                            onDismiss = { showReplayShare = false },
+                        )
+                    }
                 }
             }
         }
@@ -4374,6 +4524,7 @@ private fun BitChordApp(
                 } else {
                     null
                 },
+                lyricsMenu = playerMenuSlot.lyrics.takeIf { fromPlayer },
             )
         }
         songActions?.takeIf { songMenuOrigin == null }?.let { song ->
@@ -4423,7 +4574,11 @@ private fun BitChordApp(
             BackHandler(onBack = closeDownloadManager)
             ModalBottomSheet(
                 onDismissRequest = closeDownloadManager,
-                containerColor = MaterialTheme.colorScheme.background,
+                // The ground the record in the player dresses every other
+                // surface with, rather than the theme's black: this sheet is
+                // raised over a page that is already wearing that colour, and a
+                // black panel dropped on top of it reads as a hole.
+                containerColor = feedPalette.background,
             ) {
                 DownloadManagerSheet(onDismiss = closeDownloadManager)
             }
@@ -4439,71 +4594,75 @@ private fun BitChordApp(
                 playlistTarget = null
                 creatingPlaylist = false
             }
-            ModalBottomSheet(
-                onDismissRequest = dismiss,
-                containerColor = MaterialTheme.colorScheme.background,
-            ) {
-                PlaylistPickerSheet(
-                    playlists = playlists,
-                    loading = playlistsLoading,
-                    song = target,
-                    startCreating = target == null,
-                    onAdd = { picked ->
-                        target?.let { song ->
-                            viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
-                                // One line for the whole batch, saying the
-                                // outcome that matters most: what went in, else
-                                // that it was all there already, else that it
-                                // didn't work.
-                                showQueueNotice(
-                                    when {
-                                        added > 1 -> context.resources.getQuantityString(
-                                            R.plurals.added_to_playlists_notice, added, added,
-                                        )
-                                        added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                        alreadyThere > 0 && failed == 0 ->
-                                            context.getString(R.string.song_already_in_playlist)
-                                        else -> context.getString(R.string.failed)
-                                    },
-                                )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                ModalBottomSheet(
+                    onDismissRequest = dismiss,
+                    containerColor = feedPalette.background,
+                ) {
+                    PlaylistPickerSheet(
+                        playlists = playlists,
+                        loading = playlistsLoading,
+                        song = target,
+                        startCreating = target == null,
+                        onAdd = { picked ->
+                            target?.let { song ->
+                                viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
+                                    // One line for the whole batch, saying the
+                                    // outcome that matters most: what went in, else
+                                    // that it was all there already, else that it
+                                    // didn't work.
+                                    showQueueNotice(
+                                        when {
+                                            added > 1 -> context.resources.getQuantityString(
+                                                R.plurals.added_to_playlists_notice, added, added,
+                                            )
+                                            added == 1 -> context.getString(R.string.song_added_to_playlist)
+                                            alreadyThere > 0 && failed == 0 ->
+                                                context.getString(R.string.song_already_in_playlist)
+                                            else -> context.getString(R.string.failed)
+                                        },
+                                    )
+                                }
                             }
-                        }
-                        dismiss()
-                    },
-                    onCreate = { title, privacy ->
-                        viewModel.createPlaylist(title, privacy, target)
-                        dismiss()
-                    },
-                )
+                            dismiss()
+                        },
+                        onCreate = { title, privacy ->
+                            viewModel.createPlaylist(title, privacy, target)
+                            dismiss()
+                        },
+                    )
+                }
             }
         }
 
         if (showSpotifyImportDialog) {
             BackHandler { showSpotifyImportDialog = false }
-            SpotifyImportAlert(
-                hazeState = hazeState,
-                signedIn = signedIn,
-                onImported = { title, privacy, songs ->
-                    viewModel.createPlaylistWithVideoIds(
-                        title,
-                        privacy,
-                        songs.map { it.videoId },
-                        songs,
-                    ) { browseId, pTitle, savedLocally ->
-                        showQueueNotice(
-                            context.getString(
-                                if (savedLocally && signedIn) R.string.spotify_import_local_fallback
-                                else R.string.spotify_import_done,
-                                pTitle,
-                            ),
-                        )
-                        browseId?.let { id ->
-                            viewModel.openDetail(id, pTitle, "${songs.size} songs", songs.firstOrNull()?.thumbnailUrl)
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                SpotifyImportAlert(
+                    hazeState = hazeState,
+                    signedIn = signedIn,
+                    onImported = { title, privacy, songs ->
+                        viewModel.createPlaylistWithVideoIds(
+                            title,
+                            privacy,
+                            songs.map { it.videoId },
+                            songs,
+                        ) { browseId, pTitle, savedLocally ->
+                            showQueueNotice(
+                                context.getString(
+                                    if (savedLocally && signedIn) R.string.spotify_import_local_fallback
+                                    else R.string.spotify_import_done,
+                                    pTitle,
+                                ),
+                            )
+                            browseId?.let { id ->
+                                viewModel.openDetail(id, pTitle, "${songs.size} songs", songs.firstOrNull()?.thumbnailUrl)
+                            }
                         }
-                    }
-                },
-                onDismiss = { showSpotifyImportDialog = false },
-            )
+                    },
+                    onDismiss = { showSpotifyImportDialog = false },
+                )
+            }
         }
 
         // ---- Album / playlist actions ----
@@ -4697,11 +4856,13 @@ private fun BitChordApp(
             )
         }
         browseActions?.takeIf { browseMenuOrigin == null }?.let { target ->
-            ModalBottomSheet(
-                onDismissRequest = { browseActions = null },
-                containerColor = MaterialTheme.colorScheme.background,
-            ) {
-                browseMenuBody(target, SongActionsPresentation.Sheet)
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                ModalBottomSheet(
+                    onDismissRequest = { browseActions = null },
+                    containerColor = feedPalette.background,
+                ) {
+                    browseMenuBody(target, SongActionsPresentation.Sheet)
+                }
             }
         }
         HeldContextMenu(
@@ -4849,71 +5010,80 @@ private fun BitChordApp(
         // ---- Update available (once per launch; held until the welcome is done) ----
         if (showUpdateDialog && onboardingComplete) {
             updateNotice?.let { update ->
-                UpdateAvailableDialog(
-                    version = update.version,
-                    notes = update.notes,
-                    hazeState = hazeState,
-                    // A download in progress keeps running behind the closed
-                    // sheet — only the sheet itself goes away. The top bar's
-                    // update icon reopens it onto whatever state it reached.
-                    onDismiss = { showUpdateDialog = false },
-                    onDownload = {
-                        if (update.apkUrl != null) {
-                            scope.launch { AppUpdateChecker.downloadApk(context) }
-                        } else {
+                PopupsDressedBy(sleeveTint, feedPalette.background) {
+                    UpdateAvailableDialog(
+                        version = update.version,
+                        notes = update.notes,
+                        hazeState = hazeState,
+                        // A download in progress keeps running behind the closed
+                        // sheet — only the sheet itself goes away. The top bar's
+                        // update icon reopens it onto whatever state it reached.
+                        onDismiss = { showUpdateDialog = false },
+                        onDownload = {
+                            if (update.apkUrl != null) {
+                                scope.launch { AppUpdateChecker.downloadApk(context) }
+                            } else {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
+                                showUpdateDialog = false
+                            }
+                        },
+                        onCancelDownload = {
+                            AppUpdateChecker.cancelDownload()
+                        },
+                        onInstall = {
+                            val ready = AppUpdateChecker.download.value as? AppUpdateChecker.DownloadState.Ready
+                            ready?.let { AppUpdateChecker.installApk(context, it.file) }
+                        },
+                        onOpenReleasePage = {
+                            AppUpdateChecker.resetDownload()
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
                             showUpdateDialog = false
-                        }
-                    },
-                    onCancelDownload = {
-                        AppUpdateChecker.cancelDownload()
-                    },
-                    onInstall = {
-                        val ready = AppUpdateChecker.download.value as? AppUpdateChecker.DownloadState.Ready
-                        ready?.let { AppUpdateChecker.installApk(context, it.file) }
-                    },
-                    onOpenReleasePage = {
-                        AppUpdateChecker.resetDownload()
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
-                        showUpdateDialog = false
-                    },
-                )
+                        },
+                    )
+                }
             }
         }
 
         if (showLyricsSources) {
             BackHandler { showLyricsSources = false }
-            LyricsSourcesDialog(
-                hazeState = hazeState,
-                onDismiss = { showLyricsSources = false },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                LyricsSourcesDialog(
+                    hazeState = hazeState,
+                    onDismiss = { showLyricsSources = false },
+                )
+            }
         }
 
         if (songSortMenuOpen) {
             BackHandler { songSortMenuOpen = false }
-            FrostedSortMenu(
-                hazeState = hazeState,
-                selected = songSort,
-                onSelect = { option ->
-                    detail?.browseId?.let { AppSettings.setDetailSongSort(it, option) }
-                    songSortMenuOpen = false
-                },
-                // Flipping the date direction deliberately leaves the menu up:
-                // closing it here would cut the arrow's rotation animation off
-                // before it played, and the open menu lets the direction flip
-                // read against the list reordering behind the frost.
-                onFlipDateDirection = {
-                    detail?.browseId?.let { browseId ->
-                        val next = when (songSort) {
-                            SongSort.DATE_ADDED_DESC -> SongSort.DATE_ADDED_ASC
-                            SongSort.DATE_ADDED_ASC -> SongSort.DATE_ADDED_DESC
-                            else -> SongSort.DATE_ADDED_DESC
+            // This menu only ever opens over an album or a playlist, and those
+            // pages paint their own artwork, so the floor under its veil is
+            // that release's colour while the disc it borrows is the playing one.
+            PopupsDressedBy(sleeveTint, detailPalette.background) {
+                FrostedSortMenu(
+                    hazeState = hazeState,
+                    selected = songSort,
+                    onSelect = { option ->
+                        detail?.browseId?.let { AppSettings.setDetailSongSort(it, option) }
+                        songSortMenuOpen = false
+                    },
+                    // Flipping the date direction deliberately leaves the menu up:
+                    // closing it here would cut the arrow's rotation animation off
+                    // before it played, and the open menu lets the direction flip
+                    // read against the list reordering behind the frost.
+                    onFlipDateDirection = {
+                        detail?.browseId?.let { browseId ->
+                            val next = when (songSort) {
+                                SongSort.DATE_ADDED_DESC -> SongSort.DATE_ADDED_ASC
+                                SongSort.DATE_ADDED_ASC -> SongSort.DATE_ADDED_DESC
+                                else -> SongSort.DATE_ADDED_DESC
+                            }
+                            AppSettings.setDetailSongSort(browseId, next)
                         }
-                        AppSettings.setDetailSongSort(browseId, next)
-                    }
-                },
-                onDismiss = { songSortMenuOpen = false },
-            )
+                    },
+                    onDismiss = { songSortMenuOpen = false },
+                )
+            }
         }
 
         val menuFolder = detail?.browseId?.takeIf { it.isDeviceFolder() }
@@ -4921,77 +5091,90 @@ private fun BitChordApp(
             BackHandler { folderMenuOpen = false }
             val downloadsFolder = menuFolder == "local:downloads"
             val viewType = folderViewTypeOf(menuFolder)
-            FrostedFolderMenu(
-                hazeState = hazeState,
-                sort = folderSortOf(menuFolder),
-                viewType = viewType,
-                onSort = { option ->
-                    if (downloadsFolder) AppSettings.setDownloadedMusicSort(option)
-                    else AppSettings.setLocalMusicSort(option)
-                    folderMenuOpen = false
-                },
-                onToggleViewType = {
-                    val next = if (viewType == LibraryViewType.GRID) LibraryViewType.LIST else LibraryViewType.GRID
-                    if (downloadsFolder) AppSettings.setDownloadedMusicViewType(next)
-                    else AppSettings.setLocalMusicViewType(next)
-                    folderMenuOpen = false
-                },
-                onDismiss = { folderMenuOpen = false },
-            )
+            // Opened over a folder page, which is dressed by the record in the
+            // player, and off the same top-bar button as the track-list sort
+            // menu — which already wears that material.
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                FrostedFolderMenu(
+                    hazeState = hazeState,
+                    sort = folderSortOf(menuFolder),
+                    viewType = viewType,
+                    onSort = { option ->
+                        if (downloadsFolder) AppSettings.setDownloadedMusicSort(option)
+                        else AppSettings.setLocalMusicSort(option)
+                        folderMenuOpen = false
+                    },
+                    onToggleViewType = {
+                        val next = if (viewType == LibraryViewType.GRID) LibraryViewType.LIST else LibraryViewType.GRID
+                        if (downloadsFolder) AppSettings.setDownloadedMusicViewType(next)
+                        else AppSettings.setLocalMusicViewType(next)
+                        folderMenuOpen = false
+                    },
+                    onDismiss = { folderMenuOpen = false },
+                )
+            }
         }
 
         if (showAccountSelector) {
             BackHandler { showAccountSelector = false }
-            AccountProfileSelector(
-                accounts = googleAccounts,
-                activeAccountId = activeAccountId,
-                activeProfileId = activeProfileId,
-                hazeState = hazeState,
-                onSelect = { selected, profile -> viewModel.selectProfile(selected.accountId, profile.profileId) },
-                onAddAccount = {
-                    showAccountSelector = false
-                    webSession = WebSessionMode.SIGN_IN
-                },
-                onRemoveAccount = { selected ->
-                    viewModel.removeAccount(selected.accountId)
-                    showAccountSelector = false
-                },
-                onOpenSettings = {
-                    showAccountSelector = false
-                    navigator.push(AppRoute.Settings)
-                },
-                onDismiss = { showAccountSelector = false },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                AccountProfileSelector(
+                    accounts = googleAccounts,
+                    activeAccountId = activeAccountId,
+                    activeProfileId = activeProfileId,
+                    hazeState = hazeState,
+                    onSelect = { selected, profile -> viewModel.selectProfile(selected.accountId, profile.profileId) },
+                    onAddAccount = {
+                        showAccountSelector = false
+                        webSession = WebSessionMode.SIGN_IN
+                    },
+                    onRemoveAccount = { selected ->
+                        viewModel.removeAccount(selected.accountId)
+                        showAccountSelector = false
+                    },
+                    onOpenSettings = {
+                        showAccountSelector = false
+                        navigator.push(AppRoute.Settings)
+                    },
+                    onDismiss = { showAccountSelector = false },
+                )
+            }
         }
 
         if (showAppLanguage) {
             BackHandler { showAppLanguage = false }
-            AppLanguageDialog(
-                hazeState = hazeState,
-                onDismiss = { showAppLanguage = false },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                AppLanguageDialog(
+                    hazeState = hazeState,
+                    onDismiss = { showAppLanguage = false },
+                )
+            }
         }
 
         if (showTranslationLanguage) {
             BackHandler { showTranslationLanguage = false }
-            TranslationLanguageDialog(
-                hazeState = hazeState,
-                onDismiss = { showTranslationLanguage = false },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                TranslationLanguageDialog(
+                    hazeState = hazeState,
+                    onDismiss = { showTranslationLanguage = false },
+                )
+            }
         }
 
         if (showListenBrainzLogin) {
             var tokenInput by remember { mutableStateOf(listenBrainzToken) }
-            ListenBrainzTokenAlert(
-                hazeState = hazeState,
-                tokenInput = tokenInput,
-                onTokenInputChange = { tokenInput = it },
-                onSave = {
-                    AppSettings.setListenBrainzToken(tokenInput.trim())
-                    showListenBrainzLogin = false
-                },
-                onDismiss = { showListenBrainzLogin = false },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                ListenBrainzTokenAlert(
+                    hazeState = hazeState,
+                    tokenInput = tokenInput,
+                    onTokenInputChange = { tokenInput = it },
+                    onSave = {
+                        AppSettings.setListenBrainzToken(tokenInput.trim())
+                        showListenBrainzLogin = false
+                    },
+                    onDismiss = { showListenBrainzLogin = false },
+                )
+            }
         }
 
         if (showLastfmLogin) {
@@ -4999,138 +5182,144 @@ private fun BitChordApp(
             var passwordInput by remember { mutableStateOf("") }
             var lastfmError by remember { mutableStateOf<String?>(null) }
             var lastfmLoading by remember { mutableStateOf(false) }
-            LastfmLoginAlert(
-                hazeState = hazeState,
-                usernameInput = usernameInput,
-                onUsernameInputChange = { usernameInput = it },
-                passwordInput = passwordInput,
-                onPasswordInputChange = { passwordInput = it },
-                error = lastfmError,
-                loading = lastfmLoading,
-                onSignIn = {
-                    lastfmLoading = true
-                    lastfmError = null
-                    scope.launch {
-                        try {
-                            LastFM.initialize(
-                                apiKey = AppSettings.lastfmApiKey.value,
-                                secret = AppSettings.lastfmSecret.value,
-                            )
-                            LastFM.getMobileSession(usernameInput.trim(), passwordInput)
-                                .onSuccess { auth ->
-                                    AppSettings.setLastfmSessionKey(auth.session.key)
-                                    AppSettings.setLastfmUsername(auth.session.name)
-                                    AppSettings.setLastfmEnabled(true)
-                                    showLastfmLogin = false
-                                }
-                                .onFailure { e ->
-                                    lastfmError = e.message ?: context.getString(R.string.login_failed)
-                                }
-                        } catch (e: Exception) {
-                            lastfmError = e.message ?: context.getString(R.string.login_failed)
-                        } finally {
-                            lastfmLoading = false
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                LastfmLoginAlert(
+                    hazeState = hazeState,
+                    usernameInput = usernameInput,
+                    onUsernameInputChange = { usernameInput = it },
+                    passwordInput = passwordInput,
+                    onPasswordInputChange = { passwordInput = it },
+                    error = lastfmError,
+                    loading = lastfmLoading,
+                    onSignIn = {
+                        lastfmLoading = true
+                        lastfmError = null
+                        scope.launch {
+                            try {
+                                LastFM.initialize(
+                                    apiKey = AppSettings.lastfmApiKey.value,
+                                    secret = AppSettings.lastfmSecret.value,
+                                )
+                                LastFM.getMobileSession(usernameInput.trim(), passwordInput)
+                                    .onSuccess { auth ->
+                                        AppSettings.setLastfmSessionKey(auth.session.key)
+                                        AppSettings.setLastfmUsername(auth.session.name)
+                                        AppSettings.setLastfmEnabled(true)
+                                        showLastfmLogin = false
+                                    }
+                                    .onFailure { e ->
+                                        lastfmError = e.message ?: context.getString(R.string.login_failed)
+                                    }
+                            } catch (e: Exception) {
+                                lastfmError = e.message ?: context.getString(R.string.login_failed)
+                            } finally {
+                                lastfmLoading = false
+                            }
                         }
-                    }
-                },
-                onDismiss = { if (!lastfmLoading) showLastfmLogin = false },
-            )
+                    },
+                    onDismiss = { if (!lastfmLoading) showLastfmLogin = false },
+                )
+            }
         }
 
         if (showWebDavEditor) {
             BackHandler { showWebDavEditor = false }
-            ServerEditorHost(
-                hazeState = hazeState,
-                title = stringResource(R.string.webdav),
-                description = stringResource(R.string.webdav_description),
-                fields = listOf(
-                    FieldConfig(
-                        initial = AppSettings.webdavUrl.value,
-                        placeholder = stringResource(R.string.webdav_server_url_hint),
-                        keyboardType = KeyboardType.Uri,
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                ServerEditorHost(
+                    hazeState = hazeState,
+                    title = stringResource(R.string.webdav),
+                    description = stringResource(R.string.webdav_description),
+                    fields = listOf(
+                        FieldConfig(
+                            initial = AppSettings.webdavUrl.value,
+                            placeholder = stringResource(R.string.webdav_server_url_hint),
+                            keyboardType = KeyboardType.Uri,
+                        ),
+                        FieldConfig(
+                            initial = AppSettings.webdavUsername.value,
+                            placeholder = stringResource(R.string.username),
+                        ),
+                        FieldConfig(
+                            initial = AppSettings.webdavPassword.value,
+                            placeholder = stringResource(R.string.password),
+                            keyboardType = KeyboardType.Password,
+                            isPassword = true,
+                        ),
                     ),
-                    FieldConfig(
-                        initial = AppSettings.webdavUsername.value,
-                        placeholder = stringResource(R.string.username),
-                    ),
-                    FieldConfig(
-                        initial = AppSettings.webdavPassword.value,
-                        placeholder = stringResource(R.string.password),
-                        keyboardType = KeyboardType.Password,
-                        isPassword = true,
-                    ),
-                ),
-                canSubmit = { it[0].isNotBlank() },
-                testFailedRes = R.string.webdav_test_failed,
-                onTest = { (url, username, password) ->
-                    com.music.bitchord.data.webdav.WebDavRepository.testConnection(
-                        url.trim(),
-                        username.trim(),
-                        password,
-                    )
-                },
-                onSave = { (url, username, password) ->
-                    AppSettings.setWebDavUrl(url.trim())
-                    AppSettings.setWebDavUsername(username.trim())
-                    AppSettings.setWebDavPassword(password)
-                    showWebDavEditor = false
-                },
-                onDismiss = { showWebDavEditor = false },
-            )
+                    canSubmit = { it[0].isNotBlank() },
+                    testFailedRes = R.string.webdav_test_failed,
+                    onTest = { (url, username, password) ->
+                        com.music.bitchord.data.webdav.WebDavRepository.testConnection(
+                            url.trim(),
+                            username.trim(),
+                            password,
+                        )
+                    },
+                    onSave = { (url, username, password) ->
+                        AppSettings.setWebDavUrl(url.trim())
+                        AppSettings.setWebDavUsername(username.trim())
+                        AppSettings.setWebDavPassword(password)
+                        showWebDavEditor = false
+                    },
+                    onDismiss = { showWebDavEditor = false },
+                )
+            }
         }
 
         if (showSmbEditor) {
             BackHandler { showSmbEditor = false }
-            ServerEditorHost(
-                hazeState = hazeState,
-                title = stringResource(R.string.smb),
-                description = stringResource(R.string.smb_description),
-                fields = listOf(
-                    FieldConfig(
-                        initial = AppSettings.smbHost.value,
-                        placeholder = stringResource(R.string.smb_server_hint),
-                        keyboardType = KeyboardType.Uri,
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                ServerEditorHost(
+                    hazeState = hazeState,
+                    title = stringResource(R.string.smb),
+                    description = stringResource(R.string.smb_description),
+                    fields = listOf(
+                        FieldConfig(
+                            initial = AppSettings.smbHost.value,
+                            placeholder = stringResource(R.string.smb_server_hint),
+                            keyboardType = KeyboardType.Uri,
+                        ),
+                        FieldConfig(
+                            initial = AppSettings.smbShare.value,
+                            placeholder = stringResource(R.string.smb_share_hint),
+                        ),
+                        FieldConfig(
+                            initial = AppSettings.smbBasePath.value,
+                            placeholder = stringResource(R.string.smb_folder_hint),
+                        ),
+                        FieldConfig(
+                            initial = AppSettings.smbUsername.value,
+                            placeholder = stringResource(R.string.username),
+                        ),
+                        FieldConfig(
+                            initial = AppSettings.smbPassword.value,
+                            placeholder = stringResource(R.string.password),
+                            keyboardType = KeyboardType.Password,
+                            isPassword = true,
+                        ),
                     ),
-                    FieldConfig(
-                        initial = AppSettings.smbShare.value,
-                        placeholder = stringResource(R.string.smb_share_hint),
-                    ),
-                    FieldConfig(
-                        initial = AppSettings.smbBasePath.value,
-                        placeholder = stringResource(R.string.smb_folder_hint),
-                    ),
-                    FieldConfig(
-                        initial = AppSettings.smbUsername.value,
-                        placeholder = stringResource(R.string.username),
-                    ),
-                    FieldConfig(
-                        initial = AppSettings.smbPassword.value,
-                        placeholder = stringResource(R.string.password),
-                        keyboardType = KeyboardType.Password,
-                        isPassword = true,
-                    ),
-                ),
-                canSubmit = { it[0].isNotBlank() && it[1].isNotBlank() },
-                testFailedRes = R.string.smb_test_failed,
-                onTest = { (host, share, folder, username, password) ->
-                    com.music.bitchord.data.smb.SmbRepository.testConnection(
-                        host.trim(),
-                        share.trim(),
-                        folder.trim(),
-                        username.trim(),
-                        password,
-                    )
-                },
-                onSave = { (host, share, folder, username, password) ->
-                    AppSettings.setSmbHost(host.trim())
-                    AppSettings.setSmbShare(share.trim())
-                    AppSettings.setSmbBasePath(folder.trim())
-                    AppSettings.setSmbUsername(username.trim())
-                    AppSettings.setSmbPassword(password)
-                    showSmbEditor = false
-                },
-                onDismiss = { showSmbEditor = false },
-            )
+                    canSubmit = { it[0].isNotBlank() && it[1].isNotBlank() },
+                    testFailedRes = R.string.smb_test_failed,
+                    onTest = { (host, share, folder, username, password) ->
+                        com.music.bitchord.data.smb.SmbRepository.testConnection(
+                            host.trim(),
+                            share.trim(),
+                            folder.trim(),
+                            username.trim(),
+                            password,
+                        )
+                    },
+                    onSave = { (host, share, folder, username, password) ->
+                        AppSettings.setSmbHost(host.trim())
+                        AppSettings.setSmbShare(share.trim())
+                        AppSettings.setSmbBasePath(folder.trim())
+                        AppSettings.setSmbUsername(username.trim())
+                        AppSettings.setSmbPassword(password)
+                        showSmbEditor = false
+                    },
+                    onDismiss = { showSmbEditor = false },
+                )
+            }
         }
 
         // A clash mid-upload, answered here so the scrim covers the tab bar
@@ -5146,17 +5335,19 @@ private fun BitChordApp(
                 )
             }
             BackHandler { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.SKIP) }
-            WebDavConflictAlert(
-                hazeState = hazeState,
-                fileName = req.fileName,
-                showApplyToAll = req.remaining > 0,
-                applyToAll = applyToAll,
-                onApplyToAllChange = { applyToAll = it },
-                onOverwrite = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.OVERWRITE) },
-                onKeepBoth = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.KEEP_BOTH) },
-                onSkip = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.SKIP) },
-                onDismiss = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.SKIP) },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                WebDavConflictAlert(
+                    hazeState = hazeState,
+                    fileName = req.fileName,
+                    showApplyToAll = req.remaining > 0,
+                    applyToAll = applyToAll,
+                    onApplyToAllChange = { applyToAll = it },
+                    onOverwrite = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.OVERWRITE) },
+                    onKeepBoth = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.KEEP_BOTH) },
+                    onSkip = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.SKIP) },
+                    onDismiss = { answer(com.music.bitchord.data.webdav.WebDavUploads.Choice.SKIP) },
+                )
+            }
         }
 
         // ---- Discord sign-in (full screen WebView) ----
@@ -5234,64 +5425,86 @@ private fun BitChordApp(
 
         if (showSpotifyCanvasAuth) {
             BackHandler { showSpotifyCanvasAuth = false }
-            SpotifyCanvasAuthScreen(
-                onNavigateUp = { showSpotifyCanvasAuth = false }
-            )
+            // A page pushed from Impostazioni, so it takes that page's ground
+            // rather than the popup wrapper: the record's own background, and
+            // the sleeve local the switch, the field and the button read their
+            // disc material from. Opened at the root instead of on the nav
+            // stack, which is why it never picked the dressing up with its
+            // siblings and came up black among tinted pages.
+            CompositionLocalProvider(LocalSleeveTint provides sleeveTint) {
+                MaterialTheme(colorScheme = feedColorScheme) {
+                    SpotifyCanvasAuthScreen(
+                        onNavigateUp = { showSpotifyCanvasAuth = false }
+                    )
+                }
+            }
         }
 
         discordDialog?.let { which ->
-            DiscordDialogHost(
-                which = which,
-                hazeState = hazeState,
-                onDismiss = { discordDialog = null },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                DiscordDialogHost(
+                    which = which,
+                    hazeState = hazeState,
+                    onDismiss = { discordDialog = null },
+                )
+            }
         }
 
         // At the root with the source editor, and for the same two reasons: it
         // is a haze card that has to sample the backdrop it is *not* inside,
         // and a full-window scrim that has to be full-window.
         if (editingPartyServer) {
-            PartyServerEditor(
-                hazeState = hazeState,
-                onDismiss = { editingPartyServer = false },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                PartyServerEditor(
+                    hazeState = hazeState,
+                    onDismiss = { editingPartyServer = false },
+                )
+            }
         }
 
         if (editingSignatureApi) {
-            SignatureApiEditor(
-                hazeState = hazeState,
-                onDismiss = { editingSignatureApi = false },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                SignatureApiEditor(
+                    hazeState = hazeState,
+                    onDismiss = { editingSignatureApi = false },
+                )
+            }
         }
 
         editingSource?.let { config ->
-            SourceEditorAlert(
-                hazeState = hazeState,
-                config = config,
-                onDismiss = { editingSource = null },
-                onSaved = { editingSource = null },
-                onDelete = {
-                    SourceRegistry.remove(config.id)
-                    editingSource = null
-                },
-                scope = scope,
-            )
+            // Opened from Sorgenti, so it wears that page's colour; the URL and
+            // secret fields inside it take the disc material off the same local.
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                SourceEditorAlert(
+                    hazeState = hazeState,
+                    config = config,
+                    onDismiss = { editingSource = null },
+                    onSaved = { editingSource = null },
+                    onDelete = {
+                        SourceRegistry.remove(config.id)
+                        editingSource = null
+                    },
+                    scope = scope,
+                )
+            }
         }
 
         if (confirmJioSaavn) {
-            ConfirmationAlert(
-                hazeState = hazeState,
-                title = stringResource(R.string.enable_jiosaavn),
-                description = stringResource(R.string.jiosaavn_mismatch_warning),
-                confirmLabel = stringResource(R.string.enable_anyway),
-                onConfirm = {
-                    SourceRegistry.configs.value
-                        .firstOrNull { it.kind == SourceKind.JIOSAAVN }
-                        ?.let { SourceRegistry.setEnabled(it.id, true) }
-                    confirmJioSaavn = false
-                },
-                onDismiss = { confirmJioSaavn = false },
-            )
+            PopupsDressedBy(sleeveTint, feedPalette.background) {
+                ConfirmationAlert(
+                    hazeState = hazeState,
+                    title = stringResource(R.string.enable_jiosaavn),
+                    description = stringResource(R.string.jiosaavn_mismatch_warning),
+                    confirmLabel = stringResource(R.string.enable_anyway),
+                    onConfirm = {
+                        SourceRegistry.configs.value
+                            .firstOrNull { it.kind == SourceKind.JIOSAAVN }
+                            ?.let { SourceRegistry.setEnabled(it.id, true) }
+                        confirmJioSaavn = false
+                    },
+                    onDismiss = { confirmJioSaavn = false },
+                )
+            }
         }
 
     }
@@ -5548,6 +5761,13 @@ private fun formatDurationText(ms: Long): String {
 private const val SEEK_END_GUARD_MS = 1_000L
 
 /**
+ * The first cover Home has on screen, for the tabs' colour before a track has
+ * been played. See [feedTintArt] — this is the fallback under it.
+ */
+private fun firstFeedArtwork(state: UiState<List<HomeShelf>>): String? =
+    (state as? UiState.Success)?.data?.firstOrNull()?.items?.firstOrNull()?.thumbnailUrl
+
+/**
  * How far a detail page scrolls before its title moves up into the bar.
  *
  * Roughly the height of the sleeve and the credit stacked above the Play pair,
@@ -5582,6 +5802,36 @@ private const val PLAYER_SCRIM_ALPHA = 0.32f
 private object PlayerSheetShape : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
         Outline.Rectangle(Rect(0f, -size.height, size.width, size.height))
+}
+
+/**
+ * A popup is a control, not a page, so it gets the disc's material rather than
+ * a page colour: `surface` is the one token its frosted card reads, and the
+ * disc's veil laid over the page behind it makes that card the same cloth as a
+ * settings card on that page.
+ *
+ * The veil is composited into one opaque colour instead of being handed over
+ * translucent because the card is painted by haze, which borrows this token's
+ * hue and sets its own strength — an alpha of its own, and at a near-white
+ * sleeve that is the difference between a tinted card and a blown-out one.
+ *
+ * The fields inside take the sleeve off the same local the pages do, which is
+ * why this only has to be said once, at the place each popup is opened.
+ */
+@Composable
+private fun PopupsDressedBy(
+    sleeveTint: Color,
+    floor: Color,
+    content: @Composable () -> Unit,
+) {
+    CompositionLocalProvider(LocalSleeveTint provides sleeveTint) {
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme.copy(
+                surface = sleeveTint.copy(alpha = SLEEVE_CHROME_ALPHA).compositeOver(floor),
+            ),
+            content = content,
+        )
+    }
 }
 
 private const val TAB_HOME = 0

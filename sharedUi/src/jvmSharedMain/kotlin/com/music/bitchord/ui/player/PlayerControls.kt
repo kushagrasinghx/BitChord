@@ -64,7 +64,7 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.CastConnected
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.Tv
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.CircularProgressIndicator
@@ -181,7 +181,14 @@ internal fun PlaybackOriginCaption(
         overflow = TextOverflow.Ellipsis,
         textAlign = textAlign,
         modifier = modifier
-            .clickable(onClick = onClick)
+            // Unlit, like every other control drawn over the cover: on the API 27
+            // runtime a ripple is a bounded grey rectangle, and over the artwork a
+            // caption's worth of it reads as a panel switching on.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
             .padding(contentPadding),
     )
 }
@@ -240,12 +247,12 @@ internal fun PlayerScrubber(
                 Text(
                     text = formatTime((shown * durationMs).toLong()),
                     style = MaterialTheme.typography.labelMedium,
-                    color = LocalPlayerTint.current.copy(alpha = 0.55f),
+                    color = LocalPlayerTint.current.copy(alpha = 0.8f),
                 )
                 Text(
                     text = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
                     style = MaterialTheme.typography.labelMedium,
-                    color = LocalPlayerTint.current.copy(alpha = 0.55f),
+                    color = LocalPlayerTint.current.copy(alpha = 0.8f),
                 )
             }
             // Pinned to the box's own centre rather than squeezed into the gap
@@ -313,6 +320,13 @@ private const val BADGE_SIZE_BUMP = 0.5f
  */
 internal val LocalPlayerTint = compositionLocalOf { Color.White }
 
+/** How much of what is behind a capsule shows through. */
+private const val CAPSULE_ALPHA = 0.32f
+
+/** The glass every capsule in the deck is cut from — the output pill and the stats one alike. */
+@Composable
+internal fun sleeveCapsuleFill(): Color = LocalPlayerTint.current.copy(alpha = CAPSULE_ALPHA)
+
 /**
  * The quality badge between the timestamps — "Lossless", "Hi-Res", a loading
  * shimmer while a lossless source is still being looked for.
@@ -350,9 +364,21 @@ internal fun PlaybackQualityLabel(
 /**
  * Stats for nerds, on the foot of the sleeve: the measured stream, and under
  * it what Automix's analysis is doing. Nothing at all while the setting is off.
+ *
+ * [shimmer] runs the lossless badge's sweep across both lines, for the layouts
+ * where they sit in the deck rather than on the artwork.
+ *
+ * [onOpenPipeline] puts the pair inside a capsule of the same glass as the
+ * output pill above them and makes it open the audio pipeline panel — the
+ * numbers are that panel's summary, so the summary is the way into the detail.
  */
 @Composable
-internal fun SleeveNerdStats(song: Song, modifier: Modifier = Modifier) {
+internal fun SleeveNerdStats(
+    song: Song,
+    modifier: Modifier = Modifier,
+    shimmer: Boolean = false,
+    onOpenPipeline: (() -> Unit)? = null,
+) {
     val showNerdStats by PlayerSettings.showNerdStats.collectAsStateWithLifecycle()
     if (!showNerdStats) return
     val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
@@ -380,51 +406,107 @@ internal fun SleeveNerdStats(song: Song, modifier: Modifier = Modifier) {
             blurRadius = 4f,
         ),
     )
+    // The sweep paints its band over every pixel the text laid down, the
+    // shadow's included, so the shimmering pair goes without one: white at
+    // these alphas is what carries them on its own.
+    val shimmerStyle = MaterialTheme.typography.labelSmall
+    val haptics = rememberHaptics()
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier,
+        modifier = modifier.then(
+            if (onOpenPipeline == null) {
+                Modifier
+            } else {
+                // The capsule is the width of the two lines, not of a row of
+                // icons: it is a caption that happens to open something.
+                Modifier
+                    .clip(CircleShape)
+                    .background(sleeveCapsuleFill())
+                    // The line above it changes when a song turns out to be
+                    // lossless, so the capsule does change width — it just
+                    // should not snap. Same spring as the output pill.
+                    .animateContentSize(
+                        animationSpec = spring(
+                            dampingRatio = 0.82f,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    )
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) {
+                        haptics.play(Haptic.Select)
+                        onOpenPipeline()
+                    }
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            },
+        ),
     ) {
         nerdStats?.describe()?.let { stats ->
-            Text(
-                text = stats,
-                style = nerdStyle,
-                color = Color.White.copy(alpha = 0.65f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
+            if (shimmer) {
+                ShimmerText(
+                    text = stats,
+                    style = shimmerStyle,
+                    baseAlpha = 0.65f,
+                    color = Color.White,
+                )
+            } else {
+                Text(
+                    text = stats,
+                    style = nerdStyle,
+                    color = Color.White.copy(alpha = 0.65f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
         // Only when Automix is actually switched on: otherwise this would
         // report on analysis nothing is going to use, which is noise rather
         // than a stat.
         if (smartFadeOn) {
-            Text(
-                // Both sides always named, even when they agree, so the line
-                // reads the same way every time and the eye can find the half
-                // it wants without re-parsing the sentence.
-                text = when {
-                    // Ahead of the video case because it is the broader one:
-                    // in a party nothing is analysed for any song, video or
-                    // not, so naming the video limitation there would describe
-                    // a rule that is not the one in force.
-                    inParty -> stringResource(Res.string.automix_stopped_in_party)
-                    song.isVideoOrigin ->
-                        stringResource(Res.string.automix_not_supported_video)
-                    else -> stringResource(
-                        Res.string.automix_analysis_status,
-                        smartAnalysis.current.localizedLabel(),
-                        smartAnalysis.next.localizedLabel(),
-                    )
-                },
-                style = nerdStyle,
+            // This track only, named in two words. The next song's state used to
+            // ride along, and it was the longest word on the line: the capsule
+            // resized on every track change to hold a sentence nobody reads.
+            val automixLine = when {
+                // Ahead of the video case because it is the broader one:
+                // in a party nothing is analysed for any song, video or
+                // not, so naming the video limitation there would describe
+                // a rule that is not the one in force.
+                inParty -> stringResource(Res.string.automix_stopped_in_party)
+                song.isVideoOrigin ->
+                    stringResource(Res.string.automix_not_supported_video)
+                else -> stringResource(
+                    Res.string.automix_analysis_status,
+                    smartAnalysis.current.localizedLabel(),
+                )
+            }
+            // The sweep means the app is still busy with this song, so it ends
+            // when the analysis does — and the two "no" cases, which were never
+            // going to move, never start it. The measured line above keeps
+            // sweeping: that one is never finished.
+            val automixSettled = inParty || song.isVideoOrigin ||
+                smartAnalysis.current == TrackAnalysisState.ANALYSED
+            if (shimmer && !automixSettled) {
                 // Dimmer than the measured line above it: that one describes
                 // the audio, this one describes the app, and the ranking
                 // should show.
-                color = Color.White.copy(alpha = 0.5f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-            )
+                ShimmerText(
+                    text = automixLine,
+                    style = shimmerStyle,
+                    baseAlpha = 0.5f,
+                    color = Color.White,
+                )
+            } else {
+                Text(
+                    text = automixLine,
+                    style = nerdStyle,
+                    color = Color.White.copy(alpha = 0.5f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
@@ -526,7 +608,7 @@ internal fun VolumeRow(
         Icon(
             Icons.AutoMirrored.Rounded.VolumeDown,
             contentDescription = null,
-            tint = LocalPlayerTint.current.copy(alpha = 0.5f),
+            tint = LocalPlayerTint.current.copy(alpha = 0.8f),
             modifier = Modifier.size(20.dp),
         )
         Spacer(Modifier.width(10.dp))
@@ -542,7 +624,7 @@ internal fun VolumeRow(
         Icon(
             Icons.AutoMirrored.Rounded.VolumeUp,
             contentDescription = null,
-            tint = LocalPlayerTint.current.copy(alpha = 0.5f),
+            tint = LocalPlayerTint.current.copy(alpha = 0.8f),
             modifier = Modifier.size(20.dp),
         )
     }
@@ -555,11 +637,16 @@ internal fun VolumeRow(
  * the queue is up, since that is when they are what you are about to reach for.
  * With the queue up the lyrics glyph steps aside and the capsule slides over
  * into its place, leaving the queue glyph — lit — as the way back.
+ *
+ * [showLyricsGlyph] off is the layout where the words are not a panel at all —
+ * the x86_64 split draws them beside the controls — so the slot stays empty
+ * and the capsule keeps the centre instead of moving into it.
  */
 @Composable
 internal fun PlayerActionRow(
     lyricsOpen: Boolean,
     queueOpen: Boolean,
+    showLyricsGlyph: Boolean = true,
     shuffleEnabled: Boolean,
     repeatMode: Int,
     autoplayEnabled: Boolean,
@@ -569,9 +656,13 @@ internal fun PlayerActionRow(
     onCycleRepeat: () -> Unit,
     onToggleAutoplay: () -> Unit,
     onOpenOutput: () -> Unit,
-    onListenTogether: () -> Unit,
-    /** Opens [ListenTogetherMembersSheet] rather than settings directly. */
-    onOpenListenTogetherMembers: () -> Unit,
+    /**
+     * The current track's own station — the same thing the track menu's "Avvia
+     * radio" row asks for, and the second half of the capsule now.
+     */
+    onStartRadio: () -> Unit,
+    /** The queue glyph on the glass, to match the circles beside the credits. */
+    queueDisc: Boolean = false,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         // Sized for the wider of the two capsules — the three-up one — in both
@@ -583,7 +674,7 @@ internal fun PlayerActionRow(
         // over to where the lyrics glyph sits. Read only while placing, so the
         // slide relays out the row and recomposes nothing.
         val toStart = animateFloatAsState(
-            targetValue = if (queueOpen) 1f else 0f,
+            targetValue = if (queueOpen && showLyricsGlyph) 1f else 0f,
             animationSpec = tween(PILL_SLIDE_MS, easing = FastOutSlowInEasing),
             label = "playerBottomPillSlide",
         )
@@ -594,7 +685,7 @@ internal fun PlayerActionRow(
             // Gone while the queue is up: the playback modes take its place, and
             // the queue glyph, lit, is how you get back.
             AnimatedVisibility(
-                visible = !queueOpen,
+                visible = showLyricsGlyph && !queueOpen,
                 enter = fadeIn(tween(180, delayMillis = 120)),
                 exit = fadeOut(tween(120)),
                 modifier = Modifier.align(Alignment.CenterStart),
@@ -680,10 +771,9 @@ internal fun PlayerActionRow(
                         )
                     }
                 } else {
-                    OutputPartyPill(
+                    OutputRadioPill(
                         onOutput = onOpenOutput,
-                        onParty = onListenTogether,
-                        onOpenMembers = onOpenListenTogetherMembers,
+                        onRadio = onStartRadio,
                     )
                 }
             }
@@ -694,6 +784,7 @@ internal fun PlayerActionRow(
                     onClick = onToggleQueue,
                     highlighted = queueOpen,
                     haptic = if (queueOpen) Haptic.Tap else Haptic.Expand,
+                    disc = queueDisc,
                 )
             }
         }
@@ -701,12 +792,17 @@ internal fun PlayerActionRow(
 }
 
 /**
- * Translucent circular button used for the track menu and the like control.
+ * Translucent circular button used for the track menu, the like control and the
+ * download. It is the size of the queue's glyph, and shares its glass.
  *
  * [active] brightens the disc rather than only the glyph: this sits on album
  * artwork of any colour, and a white icon on a white-ish sleeve has no tint
- * change left to make. The filled star carries the state as a shape too —
- * see [BitChordIcons.StarFilled].
+ * change left to make. The filled heart carries the state as a shape too —
+ * see [BitChordIcons.HeartFilled].
+ *
+ * [enabled] false draws the whole disc spent and takes the touch away, for the
+ * layouts that keep a control in the row for shape even when it has nothing to
+ * do — a guest's like, a file already on disk.
  */
 @Composable
 internal fun CircleGlyph(
@@ -715,20 +811,42 @@ internal fun CircleGlyph(
     onClick: () -> Unit,
     active: Boolean = false,
     haptic: Haptic = Haptic.Tap,
+    enabled: Boolean = true,
+    /** Breathes for as long as a state is still in progress — a running download. */
+    pulsing: Boolean = false,
 ) {
     val haptics = rememberHaptics()
+    val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
     val discAlpha by animateFloatAsState(
-        targetValue = if (active) 0.34f else 0.18f,
+        targetValue = if (active) GLASS_DISC_LIT_ALPHA else GLASS_DISC_ALPHA,
         label = "glyphDisc",
     )
+    val breath = if (pulsing && !reduceAnimation) {
+        rememberInfiniteTransition(label = "circleGlyphPulse").animateFloat(
+            initialValue = 1f,
+            targetValue = UPGRADING_PULSE_LOW,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = UPGRADING_PULSE_MS, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "circleGlyphPulseAlpha",
+        )
+    } else {
+        null
+    }
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .size(BOTTOM_ACTION_SIZE)
+            .graphicsLayer {
+                alpha = (if (enabled) 1f else DISABLED_GLYPH_ALPHA) * (breath?.value ?: 1f)
+                compositingStrategy = CompositingStrategy.ModulateAlpha
+            }
             .clip(CircleShape)
             .background(LocalPlayerTint.current.copy(alpha = discAlpha))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                enabled = enabled,
             ) {
                 haptics.play(haptic)
                 onClick()
@@ -744,7 +862,7 @@ internal fun CircleGlyph(
                 imageVector = glyph,
                 contentDescription = contentDescription,
                 tint = LocalPlayerTint.current,
-                modifier = Modifier.size(19.dp),
+                modifier = Modifier.size(24.dp),
             )
         }
     }
@@ -810,6 +928,24 @@ private const val PLAYER_SKIP_HEIGHT_SCALE = 0.85f
 private val BOTTOM_ACTION_SIZE = 44.dp
 
 /**
+ * The glass every round control in the player sits on — the output capsule, the
+ * queue, the circles by the credits.
+ *
+ * [LocalPlayerTint], the cover's own colour, which is what these discs have
+ * always been: black was tried for one build and sent straight back, because a
+ * black disc reads as a hole cut in the picture rather than glass over it. He
+ * keeps asking for *calcato*, so it has gone up twice from the 0.18 these discs
+ * started at — and the cover still shows through it.
+ */
+private const val GLASS_DISC_ALPHA = 0.28f
+
+/** The same disc, lit by a state that is switched on. */
+private const val GLASS_DISC_LIT_ALPHA = 0.48f
+
+/** How far a control with nothing to do fades — kept, but clearly not live. */
+private const val DISABLED_GLYPH_ALPHA = 0.45f
+
+/**
  * One half of the output capsule — wider than it is tall, so the capsule reads
  * as a capsule rather than as two circles that have been pushed together.
  */
@@ -827,7 +963,7 @@ private const val PILL_SLIDE_MS = 320
 /**
  * Optical sizes, not equal ones.
  *
- * Headphones is a tall, narrow glyph and Person a taller, narrower one, so
+ * Headphones is a tall, narrow glyph and the radio set a wide, short one, so
  * drawn at the same nominal size the second reads as the bigger of the two.
  * These are the numbers at which they look like a matched pair. Every other
  * output glyph is fitted to the box Headphones fills at that size — 75% of it
@@ -835,7 +971,7 @@ private const val PILL_SLIDE_MS = 320
  * [PILL_OUTPUT_WIDE_SIZE] / [PILL_OUTPUT_TALL_SIZE] for the Material ones.
  */
 private val PILL_OUTPUT_SIZE = 23.dp
-private val PILL_PARTY_SIZE = 22.dp
+private val PILL_RADIO_SIZE = 21.dp
 
 /** Cast and Tv run 92% of their box wide; at 23dp they read bigger than the rest. */
 private val PILL_OUTPUT_WIDE_SIZE = 21.dp
@@ -867,7 +1003,7 @@ private fun Pill(
         modifier = modifier
             .height(BOTTOM_ACTION_SIZE)
             .clip(CircleShape)
-            .background(LocalPlayerTint.current.copy(alpha = 0.12f))
+            .background(sleeveCapsuleFill())
             .animateContentSize(
                 animationSpec = spring(
                     dampingRatio = 0.82f,
@@ -885,16 +1021,23 @@ private fun PillDivider() {
         Modifier
             .width(1.dp)
             .fillMaxHeight()
-            .background(LocalPlayerTint.current.copy(alpha = 0.20f)),
+            // Light on the dark glass: the seam between two halves of one
+            // capsule has to read as an edge catching light, not as more shade.
+            .background(LocalPlayerTint.current.copy(alpha = 0.34f)),
     )
 }
 
 /**
- * The two ends of "where is this playing": the output capsule.
+ * The two ends of "what is this, and where does it go out": the output capsule.
  *
- * Both halves answer the same question and so belong to one control rather than
- * two glyphs that happen to sit side by side — the device the sound leaves by
- * (see [rememberOutputGlyph]), the party for which *people* it reaches.
+ * Both halves are one control because both describe the playback rather than the
+ * song — the device the sound leaves by (see [rememberOutputGlyph]), and the
+ * station this track turns the queue into.
+ *
+ * The party used to be the second half. [ListenTogether] keeps its settings page
+ * and its members sheet; what it no longer has is a place in the player, which is
+ * where the radio belongs — the radio is a thing you do to *this* song, and it was
+ * buried in the three-dot menu until now.
  *
  * Video vs audio-only used to live here as a third segment; it now lives in
  * the player's own three-dot menu, beside Revert to original and Upgrade
@@ -902,13 +1045,11 @@ private fun PillDivider() {
  * back to the two icons it always otherwise had, at their original spacing.
  */
 @Composable
-private fun OutputPartyPill(
+private fun OutputRadioPill(
     onOutput: () -> Unit,
-    onParty: () -> Unit,
-    /** Who's in it, before the settings page — see [ListenTogetherMembersSheet]. */
-    onOpenMembers: () -> Unit,
+    /** Start this track's station, replacing everything around it. */
+    onRadio: () -> Unit,
 ) {
-    val badge = rememberPartyBadge()
     val output = rememberOutputGlyph()
     Pill {
         PillSegment(
@@ -919,25 +1060,14 @@ private fun OutputPartyPill(
         )
         PillDivider()
         PillSegment(
-            // Person rather than Groups: the three-person glyph is drawn half
-            // the height of Headphones and wider than the segment holding it,
-            // so the two halves of the capsule never looked like a pair.
-            icon = Icons.Rounded.Person,
-            iconSize = PILL_PARTY_SIZE,
-            // The count is here and nowhere else: spoken, it is the whole
-            // point of the control; drawn, it would cost the capsule its
-            // symmetry for something the caption below already implies.
-            contentDescription = if (badge.inParty) {
-                stringResource(Res.string.listen_together_open_count, badge.members)
-            } else {
-                stringResource(Res.string.listen_together_open)
-            },
-            // Already in a party, this opens who's in it rather than the
-            // settings page directly; there is nothing to create or join once
-            // there is a party, so [onParty] only ever fires beforehand.
-            onClick = if (badge.inParty) onOpenMembers else onParty,
-            highlighted = badge.inParty,
-            trailingLabel = badge.members.takeIf { badge.inParty }?.toString(),
+            // The same glyph the track menu's row carries, so the two say the
+            // same thing in the same shape. It runs wide and short where
+            // Headphones runs tall and narrow, so it gets the wide glyphs' size
+            // rather than the segment's nominal one.
+            icon = Icons.Rounded.Radio,
+            iconSize = PILL_RADIO_SIZE,
+            contentDescription = stringResource(Res.string.start_radio),
+            onClick = onRadio,
         )
     }
 }
@@ -1001,7 +1131,7 @@ private fun PillSegment(
     loading: Boolean = false,
     /** See [BottomGlyph], where the same window means the same thing. */
     tapWindowMs: Long = 0L,
-    /** Per-segment override — see [OutputPartyPill]'s three-up capsule. */
+    /** Per-segment override — see [PlayerActionRow]'s three-up capsule. */
     width: Dp = PILL_SEGMENT_WIDTH,
 ) {
     val haptics = rememberHaptics()
@@ -1026,7 +1156,7 @@ private fun PillSegment(
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        val tint = LocalPlayerTint.current.copy(alpha = if (highlighted) 1f else 0.75f)
+        val tint = LocalPlayerTint.current.copy(alpha = if (highlighted) 1f else 0.95f)
         Crossfade(
             targetState = loading,
             animationSpec = tween(durationMillis = 200),
@@ -1140,7 +1270,7 @@ internal fun OutputCaption(
         Text(
             text = if (badge.inParty) jamName else outputName,
             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-            color = LocalPlayerTint.current.copy(alpha = 0.55f),
+            color = LocalPlayerTint.current.copy(alpha = 0.8f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
@@ -1149,7 +1279,7 @@ internal fun OutputCaption(
     }
 }
 
-/** The three fields of a party the player draws — see [OutputPartyPill]. */
+/** The three fields of a party the player draws — see [OutputCaption]. */
 private data class PartyBadge(
     val inParty: Boolean,
     val members: Int,
@@ -1212,6 +1342,12 @@ private fun BottomGlyph(
     haptic: Haptic = Haptic.Tap,
     label: String? = null,
     /**
+     * The standing glass disc behind the glyph, as the circles by the credits
+     * have it. Off by default: on the phone the bottom row is bare glyphs, and
+     * one disc among them reads as a mistake.
+     */
+    disc: Boolean = false,
+    /**
      * Shortest gap between taps that both reach [onClick]. A tap inside the
      * window of the last one is dropped whole — haptic included, so a swallowed
      * tap doesn't buzz as though something happened. The default lets every tap
@@ -1229,6 +1365,7 @@ private fun BottomGlyph(
         modifier = Modifier
             .size(BOTTOM_ACTION_SIZE)
             .clip(CircleShape)
+            .background(if (disc) LocalPlayerTint.current.copy(alpha = GLASS_DISC_ALPHA) else Color.Transparent)
             .background(
                 if (highlighted) LocalPlayerTint.current.copy(alpha = 0.20f) else Color.Transparent,
             )
@@ -1246,7 +1383,7 @@ private fun BottomGlyph(
             .semantics { this.contentDescription = contentDescription },
         contentAlignment = Alignment.Center,
     ) {
-        val tint = LocalPlayerTint.current.copy(alpha = if (highlighted) 1f else 0.75f)
+        val tint = LocalPlayerTint.current.copy(alpha = if (highlighted) 1f else 0.95f)
         if (icon != null) {
             Icon(
                 imageVector = icon,
@@ -1634,9 +1771,9 @@ private fun LosslessOrStats(
             // [NerdStats.Snapshot.isHiRes].
             text = stringResource(if (nerdStats.isHiRes) Res.string.hi_res_lossless else Res.string.lossless),
             iconPainter = painterResource(Res.drawable.ic_lossless),
-            // Shimmer is reserved for the thing that was asked for and
-            // confirmed. It is what makes the badge read as an achievement
-            // rather than a label, which only one of these two is.
+            // Swept, as every measured result is: the shine means the decoder
+            // reported these figures. Only the label still waiting on one —
+            // the pulsing "Upgrading Quality" above — goes without it.
             animated = true,
             modifier = modifier,
         )
@@ -1651,7 +1788,12 @@ private fun LosslessOrStats(
         // app can reach. See [NerdStats.Snapshot.isHiQuality].
         nerdStats?.isHiQuality == true -> LosslessLabel(
             text = stringResource(Res.string.high_quality),
-            animated = false,
+            // Swept like the lossless badge above it, and in plain white rather
+            // than the artwork's tint: on a sleeve the colour of this cover the
+            // tint and the photograph are the same orange, and the word
+            // disappeared into it.
+            animated = true,
+            labelColor = Color.White,
             iconPainter = rememberVectorPainter(Icons.Rounded.Headphones),
             // A Material glyph's own size is 24dp; the badge's are drawn small.
             iconSize = 13.dp,
@@ -1674,6 +1816,8 @@ private fun LosslessLabel(
     pulsing: Boolean = false,
     /** Unspecified draws [iconPainter] at its own size. */
     iconSize: Dp = Dp.Unspecified,
+    /** Glyph and word together — the artwork's tint, or white on a bright sleeve. */
+    labelColor: Color = LocalPlayerTint.current,
 ) {
     // Only while asked for, and not at all under "Reduce animation": the
     // label then just holds still, which says "waiting" well enough.
@@ -1703,7 +1847,7 @@ private fun LosslessLabel(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val tint = LocalPlayerTint.current.copy(alpha = if (animated) 0.7f else 0.45f)
+        val tint = labelColor.copy(alpha = if (animated) 0.7f else 0.45f)
         // At the drawable's own size — the wave is wide, the double-D
         // nearly square, and one box squashed one of them.
         Icon(
@@ -1714,7 +1858,7 @@ private fun LosslessLabel(
         )
         Spacer(Modifier.width(4.dp))
         if (animated) {
-            ShimmerText(text = text)
+            ShimmerText(text = text, color = labelColor)
         } else {
             Text(
                 text = text,
@@ -1722,7 +1866,7 @@ private fun LosslessLabel(
                     fontWeight = FontWeight.Medium,
                     fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
                 ),
-                color = LocalPlayerTint.current.copy(alpha = 0.45f),
+                color = labelColor.copy(alpha = 0.45f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1741,6 +1885,8 @@ private fun LosslessLabel(
  * [style] and [baseAlpha] default to the quality badge's own look; the output
  * caption under the transport passes its own so the same sweep can run across
  * a differently-sized, centred line without the badge's styling leaking in.
+ * [color] is the far end of the sweep — the artwork's tint by default, white
+ * where a line has to read on any sleeve.
  */
 @Composable
 private fun ShimmerText(
@@ -1751,6 +1897,7 @@ private fun ShimmerText(
         fontSize = (MaterialTheme.typography.labelMedium.fontSize.value + BADGE_SIZE_BUMP).sp,
     ),
     baseAlpha: Float = 0.55f,
+    color: Color = LocalPlayerTint.current,
 ) {
     val transition = rememberInfiniteTransition(label = "lossless-shimmer")
     val progress = transition.animateFloat(
@@ -1762,7 +1909,7 @@ private fun ShimmerText(
         ),
         label = "lossless-shimmer-progress",
     )
-    val tint = LocalPlayerTint.current
+    val tint = color
     val baseColor = tint.copy(alpha = baseAlpha)
     // The glyphs are laid out and drawn once, in the plain tint, and the moving
     // band is painted over them in the draw phase with SrcIn — which keeps the

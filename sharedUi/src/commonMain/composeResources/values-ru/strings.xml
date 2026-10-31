@@ -2,13 +2,13 @@
 <resources>
     <string name="analysis_complete">анализ завершён</string>
     <string name="analysis_in_progress">анализируется…</string>
-    <string name="analysis_refining">анализ завершён, уточняется…</string>
+    <string name="analysis_refining">уточняется…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">Автомикс · эта песня: %1$s · следующая: %2$s</string>
-    <string name="automix_not_supported_video">Automix не поддерживается для видео-треков</string>
-    <string name="automix_stopped_in_party">Automix: остановлен в режиме «Слушать вместе»</string>
+    <string name="automix_analysis_status">Автомикс: %1$s</string>
+    <string name="automix_not_supported_video">Автомикс: не видео</string>
+    <string name="automix_stopped_in_party">Автомикс: остановлен</string>
     <string name="autoplay">Автовоспроизведение</string>
     <string name="autoplay_empty_description">Похожая музыка будет продолжать играть</string>
     <string name="autoplay_off">Автовоспроизведение выключено</string>

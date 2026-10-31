@@ -4,10 +4,13 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -186,6 +189,87 @@ private fun Seed.playerTint(): Color? {
 
 private const val PLAYER_TINT_LIGHTNESS = 0.88f
 private const val PLAYER_TINT_MAX_SATURATION = 0.40f
+
+/**
+ * How much of the page shows through a control dressed in the record's tint.
+ *
+ * This is the player's own disc — the three-dots button, the heart, the queue
+ * — and the floating chrome outside the player copies it rather than inventing
+ * a number of its own: a circle in the top bar that is not the same material as
+ * the circle in the player reads as the controls breaking, not as the app being
+ * dressed.
+ */
+const val SLEEVE_CHROME_ALPHA = 0.28f
+
+/** The same material on a control whose state is switched on — the lit disc. */
+const val SLEEVE_LIT_CHROME_ALPHA = 0.48f
+
+/**
+ * The same tint, handed down a page instead of threaded through every control's
+ * caller. Null where the page is not dressed by a sleeve at all — the player, a
+ * recordless screen — and those controls keep the theme's own surface.
+ */
+val LocalSleeveTint = compositionLocalOf<Color?> { null }
+
+/**
+ * A filled button cut from the sleeve, for the buttons that live inside a
+ * surface the record already dresses — a sheet, a dialog card.
+ *
+ * A button is the loudest thing on those surfaces and the theme's accent is
+ * not the record's colour, so an undressed one reads as a control borrowed
+ * from another app. Where there is no sleeve the theme's own colours come back
+ * untouched, which is what a recordless screen wants.
+ */
+@Composable
+fun sleeveButtonColors(): ButtonColors {
+    val sleeve = LocalSleeveTint.current ?: return ButtonDefaults.buttonColors()
+    return ButtonDefaults.buttonColors(
+        containerColor = sleeve,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        // Off is the same material quieter, not a slab of theme grey.
+        disabledContainerColor = sleeve.copy(alpha = SLEEVE_CHROME_ALPHA),
+        disabledContentColor = sleeve.copy(alpha = SECONDARY_ON_SLEEVE_ALPHA),
+    )
+}
+
+/** How quiet a secondary line is when it is written in the sleeve's colour. */
+const val SECONDARY_ON_SLEEVE_ALPHA = 0.75f
+
+/**
+ * A field or a panel sunk into a surface the record dresses: the same colour
+ * as the card behind it, only quieter, rather than the theme's grey slab —
+ * which on a tinted card reads as a hole cut in it.
+ */
+@Composable
+fun sleeveFieldFill(): Color =
+    LocalSleeveTint.current?.copy(alpha = SLEEVE_CHROME_ALPHA)
+        ?: MaterialTheme.colorScheme.surfaceVariant
+
+/**
+ * A chip's fill in the sleeve's material: the veil while it is not the choice,
+ * the colour itself once it is — the same two steps as a selected tab or a lit
+ * disc, so a row of chips and a row of tabs say "this one" the same way.
+ */
+@Composable
+fun sleeveChipFill(selected: Boolean): Color {
+    val sleeve = LocalSleeveTint.current
+    return if (selected) {
+        sleeve ?: MaterialTheme.colorScheme.primary
+    } else {
+        sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA) ?: MaterialTheme.colorScheme.surfaceVariant
+    }
+}
+
+/** Whatever sits on a [sleeveChipFill] — readable on the veil and on the full colour alike. */
+@Composable
+fun sleeveChipContent(selected: Boolean): Color {
+    val sleeve = LocalSleeveTint.current
+    return when {
+        selected -> MaterialTheme.colorScheme.onPrimary
+        sleeve != null -> sleeve.copy(alpha = SECONDARY_ON_SLEEVE_ALPHA)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+}
 
 /** Spread between the strongest and weakest channel — colour you can see, unlike HSL saturation. */
 private fun Color.chroma(): Float = maxOf(red, green, blue) - minOf(red, green, blue)

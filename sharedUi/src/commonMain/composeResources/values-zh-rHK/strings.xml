@@ -2,13 +2,13 @@
 <resources>
     <string name="analysis_complete">已分析</string>
     <string name="analysis_in_progress">正在分析…</string>
-    <string name="analysis_refining">已分析，正在最佳化…</string>
+    <string name="analysis_refining">正在最佳化…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">自動混音 · 當前歌曲：%1$s · 下一首：%2$s</string>
-    <string name="automix_not_supported_video">影片類歌曲不支援 Automix</string>
-    <string name="automix_stopped_in_party">Automix：一起聽期間已停止</string>
+    <string name="automix_analysis_status">自動混音：%1$s</string>
+    <string name="automix_not_supported_video">自動混音：不支援影片</string>
+    <string name="automix_stopped_in_party">自動混音：已停止</string>
     <string name="autoplay">AutoPlay</string>
     <string name="autoplay_empty_description">相似音樂將繼續播放</string>
     <string name="autoplay_off">AutoPlay 已關閉</string>

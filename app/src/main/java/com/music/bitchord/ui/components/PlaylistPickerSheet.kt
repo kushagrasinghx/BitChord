@@ -64,6 +64,11 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.ui.theme.LocalSleeveTint
+import com.music.bitchord.ui.theme.sleeveButtonColors
+import com.music.bitchord.ui.theme.sleeveChipContent
+import com.music.bitchord.ui.theme.sleeveChipFill
+import com.music.bitchord.ui.theme.sleeveFieldFill
 import java.util.Locale
 
 /**
@@ -170,6 +175,7 @@ fun PlaylistPickerSheet(
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = { onAdd(playlists.filter { it.playlistId in selected }) },
+                    colors = sleeveButtonColors(),
                     enabled = selected.isNotEmpty(),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -230,7 +236,11 @@ private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -
         Icon(
             imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
             contentDescription = null,
-            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = if (selected) {
+                LocalSleeveTint.current ?: MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.size(24.dp),
         )
     }
@@ -303,7 +313,9 @@ private fun NewPlaylistForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 22.dp, vertical = 16.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+                // The disc veil rather than the theme's slab — the field sits
+                // on the sheet's own ground, so real alpha is what makes it a veil.
+                .background(sleeveFieldFill(), RoundedCornerShape(11.dp))
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -368,6 +380,7 @@ private fun NewPlaylistForm(
         Spacer(Modifier.height(20.dp))
         Button(
             onClick = submit,
+            colors = sleeveButtonColors(),
             enabled = name.isNotBlank(),
             modifier = Modifier
                 .fillMaxWidth()
@@ -437,7 +450,9 @@ internal fun RenamePlaylistForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 22.dp, vertical = 16.dp)
-                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+                // The disc veil rather than the theme's slab — the field sits
+                // on the sheet's own ground, so real alpha is what makes it a veil.
+                .background(sleeveFieldFill(), RoundedCornerShape(11.dp))
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -458,6 +473,7 @@ internal fun RenamePlaylistForm(
         }
         Button(
             onClick = submit,
+            colors = sleeveButtonColors(),
             enabled = name.isNotBlank() && name != playlist.title,
             modifier = Modifier
                 .fillMaxWidth()
@@ -489,21 +505,11 @@ private fun PrivacyPill(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val content = if (selected) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val content = sleeveChipContent(selected)
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(percent = 50))
-            .background(
-                if (selected) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surfaceVariant
-                },
-            )
+            .background(sleeveChipFill(selected))
             .clickable(onClick = onClick)
             .padding(start = 11.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,

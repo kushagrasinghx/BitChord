@@ -65,20 +65,36 @@ object AppUpdateChecker {
     @Volatile
     private var downloadCancelled = false
 
-    suspend fun check() = withContext(Dispatchers.IO) {
-        runCatching {
-            val request = Request.Builder().url(LATEST_RELEASE_URL).build()
-            val body = Http.client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) null else response.body?.string()
-            } ?: return@runCatching
-            val release = json.parseToJsonElement(body) as? JsonObject ?: return@runCatching
-            val tag = release["tag_name"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
-            val url = release["html_url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
-            val apkUrl = apkAssetUrl(release)
-            val notes = release["body"]?.jsonPrimitive?.contentOrNull
-            val latest = tag.removePrefix("v")
-            if (isNewer(latest, BuildConfig.VERSION_NAME)) {
-                _available.value = UpdateInfo(latest, url, apkUrl, notes)
+    /**
+     * Whether this build asks upstream what its newest release is.
+     *
+     * Blocked. This APK is cut for one ABI and put on the device by hand, so an
+     * upstream release is nothing but a popup offering an archive that cannot be
+     * installed here — and a half-installed one replaces this build. Every path
+     * into an update starts at [check]: the cold-start call in MainViewModel, the
+     * notice on the main screen, the dialog's download. Stop this one door and
+     * there is nothing left to reach, so the whole feature sleeps without a
+     * settings row for it. Flip to false to wake it back up.
+     */
+    private const val UPDATES_BLOCKED = true
+
+    suspend fun check() {
+        if (UPDATES_BLOCKED) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val request = Request.Builder().url(LATEST_RELEASE_URL).build()
+                val body = Http.client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) null else response.body?.string()
+                } ?: return@runCatching
+                val release = json.parseToJsonElement(body) as? JsonObject ?: return@runCatching
+                val tag = release["tag_name"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
+                val url = release["html_url"]?.jsonPrimitive?.contentOrNull ?: return@runCatching
+                val apkUrl = apkAssetUrl(release)
+                val notes = release["body"]?.jsonPrimitive?.contentOrNull
+                val latest = tag.removePrefix("v")
+                if (isNewer(latest, BuildConfig.VERSION_NAME)) {
+                    _available.value = UpdateInfo(latest, url, apkUrl, notes)
+                }
             }
         }
     }

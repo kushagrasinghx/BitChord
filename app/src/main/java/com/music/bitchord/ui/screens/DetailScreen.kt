@@ -174,6 +174,8 @@ import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.theme.ArtworkPalette
+import com.music.bitchord.ui.theme.LocalSleeveTint
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import kotlin.math.roundToInt
 import java.util.Locale
@@ -339,6 +341,14 @@ fun DetailScreen(
      */
     folder: LocalFolder? = null,
     /**
+     * The artwork a page with no sleeve of its own is coloured from — a device
+     * folder's, handed the record in the player. Only ever passed for a folder:
+     * a release paints its own artwork and answers to the release it shows, and
+     * without this a folder page has nothing to read, so it falls back to the
+     * theme's flat black while every screen behind it wears a tint.
+     */
+    folderTintArtwork: String? = null,
+    /**
      * Set while this playlist's songs are being rearranged: drawn in place of
      * the track list, over the same page colour, and handed the page's
      * [ArtworkPalette] so it reads as this page rather than a sheet over it.
@@ -406,7 +416,7 @@ fun DetailScreen(
         }
     }
     val palette = rememberArtworkPalette(
-        imageUrl = appleArt?.heroUrl ?: page.thumbnailUrl,
+        imageUrl = appleArt?.heroUrl ?: page.thumbnailUrl?.takeIf { it.isNotBlank() } ?: folderTintArtwork,
         keyColors = appleArt?.keyColors(),
     )
 
@@ -1117,6 +1127,12 @@ private fun DetailSearchField(
         }
     }
 
+    // Where the page is dressed by the record in the player — a device folder —
+    // the field is the player's disc: that tint as a veil, its glyph and text at
+    // full, no hairline. The same choice the search pill at the head of the tabs
+    // makes. Elsewhere the page paints from its own sleeve and this stays the
+    // glass box it has always been.
+    val sleeve = LocalSleeveTint.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1124,15 +1140,19 @@ private fun DetailSearchField(
             .padding(bottom = 10.dp)
             .height(46.dp)
             .clip(PILL_SHAPE)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.10f), PILL_SHAPE)
+            .background(sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA)
+                ?: MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+            .then(
+                if (sleeve != null) Modifier
+                else Modifier.border(0.5.dp, Color.White.copy(alpha = 0.10f), PILL_SHAPE),
+            )
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = BitChordIcons.Search,
             contentDescription = null,
-            tint = palette.onBackgroundVariant,
+            tint = sleeve ?: palette.onBackgroundVariant,
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(10.dp))
@@ -1141,7 +1161,7 @@ private fun DetailSearchField(
                 Text(
                     text = stringResource(R.string.search_this_list),
                     style = MaterialTheme.typography.bodyLarge,
-                    color = palette.onBackgroundVariant,
+                    color = sleeve?.copy(alpha = 0.75f) ?: palette.onBackgroundVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1150,8 +1170,10 @@ private fun DetailSearchField(
                 value = query,
                 onValueChange = onQueryChange,
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = palette.onBackground),
-                cursorBrush = SolidColor(palette.accent),
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = sleeve ?: palette.onBackground,
+                ),
+                cursorBrush = SolidColor(sleeve ?: palette.accent),
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focus),
@@ -1172,7 +1194,7 @@ private fun DetailSearchField(
                 contentDescription = stringResource(
                     if (query.isEmpty()) R.string.close_search else R.string.clear_search,
                 ),
-                tint = palette.onBackgroundVariant,
+                tint = sleeve ?: palette.onBackgroundVariant,
                 modifier = Modifier.size(17.dp),
             )
         }
@@ -1565,17 +1587,35 @@ private fun ActionPill(
     // Resume rather than a flat tap: both start a queue, and the rising pair
     // says so.
     val haptics = rememberHaptics()
-    val content = if (filled) Color.Black else MaterialTheme.colorScheme.onSurface
+    // Where the page is dressed by the record in the player — a device folder —
+    // the pair is the disc's own recipe rather than Apple's white: the tint at
+    // full under the action that leads the row, the same as a switch that is on
+    // or the chosen segment, and the tint as a veil under the one beside it.
+    // Flat, with no rim: the disc is the player's three-dots circle, and that is
+    // a plain square of colour.
+    val sleeve = LocalSleeveTint.current
+    val content = when {
+        filled -> sleeve?.let { MaterialTheme.colorScheme.onPrimary } ?: Color.Black
+        else -> sleeve ?: MaterialTheme.colorScheme.onSurface
+    }
     Row(
         modifier = modifier
             .height(size)
             .clip(CircleShape)
-            .then(
+            .background(
                 if (filled) {
-                    Modifier.background(Color.White)
+                    sleeve ?: Color.White
+                } else {
+                    sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA)
+                        ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA)
+                },
+                CircleShape,
+            )
+            .then(
+                if (sleeve != null) {
+                    Modifier
                 } else {
                     Modifier
-                        .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
                         .liquidGlassRim(CircleShape)
                         .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
                 },
@@ -1676,16 +1716,30 @@ private fun CircleIconButton(
     enabled: Boolean = true,
 ) {
     val haptics = rememberHaptics()
+    // The disc, flat, where the page is dressed by the record in the player; see
+    // [ActionPill] for why the rim goes with the white veil rather than staying.
+    val sleeve = LocalSleeveTint.current
     Box(
         modifier = Modifier
             .size(size)
             .alpha(if (enabled) 1f else DISABLED_ACTION_ALPHA)
             .clip(CircleShape)
-            .background(Color.White.copy(alpha = LIGHT_FILL_ALPHA), CircleShape)
+            .background(
+                sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA)
+                    ?: Color.White.copy(alpha = LIGHT_FILL_ALPHA),
+                CircleShape,
+            )
             // The glass rim the floating bars wear, with Liquid Glass on. Rim
             // only: over the page's flat tint a blurred fill would look the same.
-            .liquidGlassRim(CircleShape)
-            .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+            .then(
+                if (sleeve != null) {
+                    Modifier
+                } else {
+                    Modifier
+                        .liquidGlassRim(CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = TOP_RELEASE_EDGE_ALPHA), CircleShape)
+                },
+            )
             .clickable(enabled = enabled) {
                 haptics.play(haptic)
                 onClick()
@@ -1695,7 +1749,7 @@ private fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = MaterialTheme.colorScheme.onSurface,
+            tint = sleeve ?: MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.size(size * 0.44f),
         )
     }

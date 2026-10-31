@@ -95,6 +95,7 @@ internal fun LyricsOffsetSheet(
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val surface = playerSurfaceColor()
 
     Box(
         modifier = modifier
@@ -122,14 +123,14 @@ internal fun LyricsOffsetSheet(
                     .clip(DrawerShape)
                     .then(
                         if (reduceDynamicBlur) {
-                            Modifier.background(Color(0xFF121212))
+                            Modifier.background(surface)
                         } else {
                             Modifier
                                 .optimizedHazeEffect(
                                     state = hazeState,
-                                    style = HazeMaterials.regular(Color(0xFF141414)),
+                                    style = HazeMaterials.regular(surface),
                                 )
-                                .background(Color(0xFF121212).copy(alpha = 0.9f))
+                                .background(surface.copy(alpha = 0.9f))
                         },
                     )
                     .clickable(

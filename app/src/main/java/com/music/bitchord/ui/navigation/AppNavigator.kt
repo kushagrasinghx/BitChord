@@ -20,6 +20,8 @@ sealed interface AppRoute {
     data object ListenTogether : AppRoute
     data object WearOs : AppRoute
     data object Equalizer : AppRoute
+    /** The page that decides which rows the Settings screen gets to show. */
+    data object HiddenSettings : AppRoute
     data object Replay : AppRoute
     data object History : AppRoute
     data object Discord : AppRoute

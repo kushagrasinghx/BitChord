@@ -52,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
@@ -88,6 +89,8 @@ import com.music.bitchord.ui.components.rememberRemoteArtworkUrl
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.ArtworkPalette
+import com.music.bitchord.ui.theme.LocalSleeveTint
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 
 /**
  * What a device folder — Downloads, Local Music, the song cache, a file
@@ -397,7 +400,13 @@ private fun FolderDivider(palette: ArtworkPalette) {
 /** Tinted behind a card that is part of the Downloads selection. */
 @Composable
 private fun selectionFill(selected: Boolean): Color =
-    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else Color.Transparent
+    if (selected) {
+        // The lit mark of a dressed page is the record's tint, as it is for a
+        // switch that is on or the chosen segment of a selector.
+        (LocalSleeveTint.current ?: MaterialTheme.colorScheme.primary).copy(alpha = 0.14f)
+    } else {
+        Color.Transparent
+    }
 
 private val CARD_SHAPE = RoundedCornerShape(12.dp)
 
@@ -692,7 +701,11 @@ private fun TrailingGlyph(selected: Boolean, palette: ArtworkPalette) {
     Icon(
         imageVector = if (selected) Icons.Rounded.CheckCircle else BitChordIcons.ChevronRight,
         contentDescription = if (selected) stringResource(R.string.selected) else null,
-        tint = if (selected) MaterialTheme.colorScheme.primary else palette.onBackgroundVariant,
+        tint = if (selected) {
+            LocalSleeveTint.current ?: MaterialTheme.colorScheme.primary
+        } else {
+            palette.onBackgroundVariant
+        },
         modifier = Modifier.size(if (selected) 22.dp else 16.dp),
     )
 }
@@ -715,12 +728,20 @@ internal fun LocalFolderSelectionBar(
     fun chosen() = songs.filter { it.videoId in state.selectedIds }.also { state.clear() }
     val shape = RoundedCornerShape(14.dp)
     val dark = isSystemInDarkTheme()
+    // Where the page is dressed by the record in the player — a device folder —
+    // the bar is the disc's cloth: that tint, laid over the page's own colour so
+    // the panel stays solid over the list running under it rather than going
+    // transparent the way a circle on the page can.
+    val sleeve = LocalSleeveTint.current
+    val container = sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA)
+        ?.compositeOver(MaterialTheme.colorScheme.background)
+        ?: MaterialTheme.colorScheme.surfaceVariant
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
             .shadow(10.dp, shape)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+            .background(container, shape)
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -728,21 +749,21 @@ internal fun LocalFolderSelectionBar(
             Icon(
                 Icons.Rounded.Check,
                 contentDescription = stringResource(R.string.select_all),
-                tint = if (dark) Color.White else MaterialTheme.colorScheme.primary,
+                tint = sleeve ?: if (dark) Color.White else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp),
             )
         }
         Text(
             text = "$count ${stringResource(R.string.selected)}",
             style = MaterialTheme.typography.titleSmall,
-            color = if (dark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = sleeve ?: if (dark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
         folder.onUpload?.let { upload ->
             SelectionAction(
                 icon = Icons.Rounded.FileUpload,
                 label = stringResource(R.string.upload_to_webdav),
-                color = MaterialTheme.colorScheme.primary,
+                color = sleeve ?: MaterialTheme.colorScheme.primary,
                 enabled = count > 0,
                 onClick = { upload(chosen()) },
             )
@@ -751,7 +772,7 @@ internal fun LocalFolderSelectionBar(
             SelectionAction(
                 icon = Icons.Rounded.Download,
                 label = stringResource(R.string.download),
-                color = MaterialTheme.colorScheme.primary,
+                color = sleeve ?: MaterialTheme.colorScheme.primary,
                 enabled = count > 0,
                 onClick = { download(chosen()) },
             )

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="analysis_complete">analizzato</string>
-    <string name="analysis_in_progress">analisi in corso…</string>
-    <string name="analysis_refining">analizzato, rifinitura…</string>
+    <string name="analysis_in_progress">analisi…</string>
+    <string name="analysis_refining">rifinitura…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">Automix · questo brano: %1$s · successivo: %2$s</string>
-    <string name="automix_not_supported_video">Automix non supportato sui video musicali</string>
-    <string name="automix_stopped_in_party">Automix: interrotto in “Ascoltare insieme”</string>
+    <string name="automix_analysis_status">Automix: %1$s</string>
+    <string name="automix_not_supported_video">Automix: non sui video</string>
+    <string name="automix_stopped_in_party">Automix: fermo</string>
     <string name="autoplay">AutoPlay</string>
     <string name="autoplay_empty_description">Continuerà con musica simile</string>
     <string name="autoplay_off">AutoPlay disattivo</string>
@@ -28,7 +28,7 @@
     <string name="decrease_lyrics_offset">Decrease lyrics offset</string>
     <string name="downgraded_from">↓ da %1$s</string>
     <string name="drag_to_reorder">Trascina per riordinare</string>
-    <string name="failed">Non riuscito</string>
+    <string name="failed">non riuscito</string>
     <string name="hi_res_lossless">Hi-Res Lossless</string>
     <string name="high_quality">Alta qualità</string>
     <string name="high_quality_upgrading">Alta qualità, aggiornamento in corso</string>
@@ -119,6 +119,7 @@
     <string name="shuffle_off">Casuale disattivo</string>
     <string name="shuffle_on">Casuale attivo</string>
     <string name="stereo">Stereo</string>
+    <string name="start_radio">Avvia radio</string>
     <string name="translate_lyrics">Traduci testo</string>
     <string name="translating_lyrics_to">Traduzione in %1$s…</string>
     <string name="up_next">In arrivo</string>
@@ -137,6 +138,7 @@
     <string name="card_songs_format">%1$s brani</string>
     <string name="card_views_format">%1$s visualizzazioni</string>
     <string name="clear_search">Cancella ricerca</string>
+    <string name="download">Scarica</string>
     <string name="downloaded">Scaricato</string>
     <string name="explore">Esplora</string>
     <string name="library">Libreria</string>

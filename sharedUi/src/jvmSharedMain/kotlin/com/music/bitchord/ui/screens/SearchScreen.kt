@@ -88,6 +88,8 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.songListSkeleton
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.theme.LocalSleeveTint
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 import java.util.Locale
 
 @Composable
@@ -1021,6 +1023,9 @@ private fun BrowseRow(item: BrowseItem, onClick: () -> Unit, onLongPress: (() ->
 @Composable
 private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter) -> Unit) {
     val haptics = rememberHaptics()
+    // The same cloth as the segment selector above the results: the pill that
+    // is set is the tint at full, the rest is the discs' veil over the page.
+    val sleeve = LocalSleeveTint.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1035,8 +1040,9 @@ private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter
                 modifier = Modifier
                     .clip(FILTER_PILL_SHAPE)
                     .background(
-                        if (selected) MaterialTheme.colorScheme.onBackground
-                        else MaterialTheme.colorScheme.surfaceVariant,
+                        if (selected) sleeve ?: MaterialTheme.colorScheme.onBackground
+                        else sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA)
+                            ?: MaterialTheme.colorScheme.surfaceVariant,
                     )
                     // Only the pill that isn't already selected has anything to
                     // report — re-tapping the current filter changes nothing, so
@@ -1051,7 +1057,7 @@ private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter
                     text = entry.label,
                     style = MaterialTheme.typography.labelLarge,
                     color = if (selected) MaterialTheme.colorScheme.background
-                    else MaterialTheme.colorScheme.onBackground,
+                    else sleeve ?: MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                 )
             }

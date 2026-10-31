@@ -172,6 +172,96 @@ fun FullArtworkBlurBackdrop(
 }
 
 /**
+ * The blurred cover laid out as the split player's cover is, for the screen
+ * beside it.
+ *
+ * [FullArtworkBlurBackdrop] crops a square sleeve across the whole surface, so
+ * its colours land in the middle of the screen while the sharp cover stands at
+ * its left: the two meet at the cover's edge showing two different parts of the
+ * picture, which reads as a cut rather than a fade. This draws the same blurred
+ * bitmap at the same place and scale the sharp square occupies — one pixel of
+ * the blur under one pixel of the cover — so the sleeve's dissolve crosses from
+ * a photograph to its own soft copy with nothing to notice but the softness.
+ *
+ * Right of the square the picture has run out, so the blur's own last column is
+ * drawn out to the edge of the screen. It is already blurred, so stretching it
+ * is a continuation of the same colour field rather than a smear.
+ */
+@Composable
+fun SplitArtworkBlurBackdrop(
+    image: ImageBitmap?,
+    modifier: Modifier = Modifier,
+) {
+    val imageAlpha by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (image != null) 1f else 0f,
+        animationSpec = tween(320, easing = FastOutSlowInEasing),
+        label = "splitBackdropImage",
+    )
+    Box(modifier = modifier.fillMaxSize().background(FallbackBackdrop)) {
+        image?.let { bitmap ->
+            Canvas(Modifier.fillMaxSize().graphicsLayer { alpha = imageAlpha }) {
+                // The sleeve's square: the player's own height at its left edge.
+                val side = size.height.roundToInt().coerceAtLeast(1)
+                drawImage(
+                    image = bitmap,
+                    srcOffset = IntOffset.Zero,
+                    srcSize = IntSize(bitmap.width, bitmap.height),
+                    dstOffset = IntOffset.Zero,
+                    dstSize = IntSize(side, size.height.roundToInt()),
+                    filterQuality = FilterQuality.Low,
+                )
+                val rest = (size.width - side).roundToInt()
+                if (rest > 0) {
+                    // The cover's own last pixels, not a sliver taken from
+                    // inside it: the strip's left edge has to be the colour the
+                    // square ends on, or the extension opens a step of its own
+                    // right where the sleeve's dissolve was meant to leave
+                    // nothing but softness. Two columns, because one column of a
+                    // 128px blur can carry a single banding artefact and stretch
+                    // it across the whole screen.
+                    val strip = 2.coerceAtMost(bitmap.width)
+                    drawImage(
+                        image = bitmap,
+                        srcOffset = IntOffset(bitmap.width - strip, 0),
+                        srcSize = IntSize(strip, bitmap.height),
+                        dstOffset = IntOffset(side, 0),
+                        dstSize = IntSize(rest, size.height.roundToInt()),
+                        filterQuality = FilterQuality.Low,
+                    )
+                }
+            }
+        }
+
+        // The words are white on this, so the veil stays — but it gathers to the
+        // right, away from the seam, so the cover's colour is at full strength
+        // where the two halves meet and only eases off under the text.
+        Canvas(Modifier.fillMaxSize()) {
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0f to Color.Black.copy(alpha = 0.10f),
+                    0.55f to Color.Black.copy(alpha = 0.16f),
+                    1f to Color.Black.copy(alpha = 0.24f),
+                ),
+            )
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    0f to Color.Transparent,
+                    SPLIT_SCRIM_START to Color.Transparent,
+                    1f to Color.Black.copy(alpha = 0.34f),
+                ),
+            )
+        }
+    }
+}
+
+/**
+ * Where the split backdrop's gathering veil starts, as a share of the screen —
+ * past the cover's edge, so the colour is unbroken all the way through the
+ * dissolve and only eases off under the words.
+ */
+private const val SPLIT_SCRIM_START = 0.55f
+
+/**
  * The mesh for the artwork at [imageUrl], or null until one has been read.
  *
  * [canvasFrame] — a frame grabbed off a playing motion cover — takes over when

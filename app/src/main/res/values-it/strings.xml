@@ -255,6 +255,8 @@
     <string name="liquid_glass_subtitle">Vetro rifrangente reale sulla barra di navigazione flottante. Solo Android 12+; usa più GPU.</string>
     <string name="liquid_glass_unavailable">Richiede Android 12 o versioni successive</string>
     <string name="full_screen_cover_art">Copertina a tutto schermo</string>
+    <string name="player_backdrop_blur">Sfocatura sotto al player</string>
+    <string name="player_backdrop_blur_subtitle">Sfuma appena la copertina dietro ai controlli e, finché è acceso, tiene ferma la copertina animata</string>
     <string name="animated_cover_art">Copertina animata</string>
     <string name="synced_lyrics">Testi sincronizzati</string>
     <string name="synced_lyrics_subtitle">Evidenzia le parole sul player mentre vengono cantate</string>
@@ -274,6 +276,9 @@
     <string name="hide_status_bar_in_player_subtitle">Nasconde orologio, batteria e icone delle notifiche mentre il player principale è aperto</string>
     <string name="hide_song_status">Nascondi stato del brano</string>
     <string name="hide_song_status_subtitle">Nasconde il testo «In riproduzione da» o «Riprodotto da» nel player principale</string>
+    <string name="hide_options">Nascondi opzioni</string>
+    <string name="hide_options_subtitle">Scegli quali interruttori non devono comparire in questo elenco</string>
+    <string name="hide_options_footer">Un\'opzione nascosta sparisce da questo elenco e dalla ricerca in cima, e continua a fare quello che le hai detto. Riaccendila qui per ritrovarla.</string>
     <string name="off">Disattivato</string>
     <string name="low">Bassa</string>
     <string name="medium">Media</string>
@@ -987,6 +992,10 @@
 
 
     <string name="lyrics_offset">Lyrics offset</string>
+
+    <string name="lyrics_menu_translate">Traduci</string>
+    <string name="lyrics_menu_romanize">Romanizza</string>
+    <string name="lyrics_menu_source">Fonte dei testi</string>
 
 
 

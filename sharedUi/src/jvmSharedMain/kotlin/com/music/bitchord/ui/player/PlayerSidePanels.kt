@@ -78,24 +78,6 @@ fun LyricsSidePanel(
                 } else {
                     lyricsLoadingText
                 },
-                status = lyricsTranslation.status,
-                onStatusClick = { showLyricsProviders = true },
-                romanizationToggle = {
-                    RomanizationToggleButton(
-                        state = lyricsTranslation.romanizationState,
-                        showingRomanization = lyricsTranslation.showingRomanization,
-                        enabled = !lyrics.isNullOrEmpty(),
-                        onClick = lyricsTranslation.toggleRomanization,
-                    )
-                },
-                translationToggle = {
-                    TranslationToggleButton(
-                        state = lyricsTranslation.translationState,
-                        showingTranslation = lyricsTranslation.showingTranslation,
-                        enabled = !lyrics.isNullOrEmpty(),
-                        onClick = lyricsTranslation.toggleTranslation,
-                    )
-                },
             ) { panelModifier ->
                 LyricsTranslationMotion(
                     trigger = lyricsTranslation.transition,

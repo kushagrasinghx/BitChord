@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
@@ -64,6 +65,7 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.ui.player.PlayerDock
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlinx.coroutines.Job
@@ -156,6 +158,15 @@ private val PULL_LIFT_EASE = 72.dp
 
 /** The bar's rise per pixel of finger as a pull starts. */
 private const val PULL_LIFT_RATE = 0.5f
+
+/**
+ * How much of the page shows through the pill where the platform cannot blur —
+ * one step lighter than the nav bar below it, since this one carries the title
+ * and has nothing else to separate it from the artwork it rides over. For why
+ * the number cannot be left to Haze's own materials, see the note on the same
+ * constant in FloatingBottomBar.kt.
+ */
+private const val TRANSLUCENT_FALLBACK_ALPHA = 0.55f
 
 /**
  * How far the bar rises for [pulled] pixels of finger: [PULL_LIFT_RATE] of the
@@ -357,6 +368,8 @@ fun MiniPlayer(
     dock: PlayerDock? = null,
     /** Dragging the bar up into the player. */
     pull: MiniPlayerPull? = null,
+    /** See [FloatingBottomBar]'s own parameter: the bar is the discs' material. */
+    sleeveTint: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -385,12 +398,22 @@ fun MiniPlayer(
             )
             .clip(shape)
             .then(
-                if (reduceDynamicBlur) {
-                    Modifier.background(MaterialTheme.colorScheme.surface)
+                if (sleeveTint != null) {
+                    Modifier.background(sleeveTint.copy(alpha = SLEEVE_CHROME_ALPHA))
+                } else if (reduceDynamicBlur) {
+                    Modifier.background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = TRANSLUCENT_FALLBACK_ALPHA),
+                    )
                 } else {
                     Modifier.optimizedHazeEffect(
                         state = hazeState,
-                        style = HazeMaterials.thin(MaterialTheme.colorScheme.surface),
+                        style = HazeMaterials.thin(MaterialTheme.colorScheme.surface).copy(
+                            fallbackTint = HazeTint(
+                                MaterialTheme.colorScheme.surface.copy(
+                                    alpha = TRANSLUCENT_FALLBACK_ALPHA,
+                                ),
+                            ),
+                        ),
                     )
                 },
             )
@@ -424,12 +447,15 @@ fun MiniPlayer(
                 ExplicitSongTitle(
                     song = song,
                     style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = sleeveTint ?: MaterialTheme.colorScheme.onBackground,
                 )
                 Text(
                     text = song.artist,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // The player's own artist line: the tint held back rather
+                    // than greyed over, so the secondary line is still the
+                    // record's colour, only quieter.
+                    color = sleeveTint?.copy(alpha = 0.55f) ?: MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -437,7 +463,7 @@ fun MiniPlayer(
             if (isLoading) {
                 Box(Modifier.size(GLYPH_SLOT), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onBackground,
+                        color = sleeveTint ?: MaterialTheme.colorScheme.onBackground,
                         strokeWidth = 2.dp,
                         modifier = Modifier.size(SPINNER_SIZE),
                     )
@@ -453,7 +479,7 @@ fun MiniPlayer(
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = stringResource(if (isPlaying) R.string.pause else R.string.play),
-                        tint = MaterialTheme.colorScheme.onBackground,
+                        tint = sleeveTint ?: MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.size(GLYPH_SIZE),
                     )
                 }
@@ -470,7 +496,7 @@ fun MiniPlayer(
                 modifier = Modifier.size(GLYPH_SLOT),
             ) {
                 MiniPlayerNextGlyph(
-                    tint = MaterialTheme.colorScheme.onBackground
+                    tint = (sleeveTint ?: MaterialTheme.colorScheme.onBackground)
                         .copy(alpha = if (controlsLocked) 0.3f else 1f),
                 )
             }

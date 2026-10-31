@@ -89,6 +89,8 @@ import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.trackColumnWidth
 import com.music.bitchord.ui.player.MeshGradientBackground
 import com.music.bitchord.ui.player.MeshPalette
+import com.music.bitchord.ui.theme.LocalSleeveTint
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 
 /** How far the Listen now heading and feed sit above the shared top inset. */
 private val HOME_TITLE_LIFT = 28.dp
@@ -810,8 +812,14 @@ private fun HeroCard(
                 .fillMaxWidth()
                 .align(Alignment.BottomStart)
                 .background(
+                    // The page's own colour rather than black, and starting lower
+                    // down the poster. A band of dead black across the middle of a
+                    // cover is most of why the feed read as dark rather than as
+                    // coloured; the tint is already dark enough for white type —
+                    // see [ArtworkPalette.background].
                     Brush.verticalGradient(
-                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f)),
+                        0.45f to Color.Transparent,
+                        1f to MaterialTheme.colorScheme.background.copy(alpha = 0.88f),
                     ),
                 )
                 .padding(start = 16.dp, end = 16.dp, top = 34.dp, bottom = 14.dp),
@@ -819,7 +827,7 @@ private fun HeroCard(
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.titleLarge,
-                color = if (isCurrent) PlayingAccent else Color.White,
+                color = if (isCurrent) PlayingAccent else MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -828,7 +836,7 @@ private fun HeroCard(
                 Text(
                     text = displaySubtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.72f),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.76f),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -893,12 +901,15 @@ internal fun NewShelfCard(
     Column(
         modifier = modifier.clickable(onClick = onClick),
     ) {
+        // A card is a control, so it wears the disc's veil over the page rather
+        // than the theme's grey — the same material the filter pills took.
+        val sleeve = LocalSleeveTint.current
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA) ?: MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
             if (logo != null) {
@@ -914,7 +925,7 @@ internal fun NewShelfCard(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = sleeve ?: MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(34.dp),
                 )
             }

@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -79,6 +80,28 @@ internal val DRAWER_MAX_WIDTH = 640.dp
 internal val ROW_SHAPE = RoundedCornerShape(16.dp)
 internal val SCRIM_COLOR = Color.Black.copy(alpha = 0.5f)
 
+/** What a player surface is painted with when nothing on screen has a colour to lend it. */
+private val NEUTRAL_PLAYER_SURFACE = Color(0xFF121212)
+
+/**
+ * The colour the surface behind a player popup offers it: the playing sleeve's
+ * own, read the same way the song's three-dots menu reads it, so a drawer or a
+ * card raised over the player is cut from the record on screen rather than from
+ * a slab of flat grey in front of a coloured page.
+ *
+ * Null keeps the surface the neutral dark it has always been — which is what
+ * these are everywhere the sleeve has no colour worth echoing, and what the
+ * same card is when it opens outside the player.
+ *
+ * Public because a platform's own popup draws in this shell too, the same way
+ * [PlayerDrawer] is.
+ */
+val LocalPlayerSurface = compositionLocalOf<Color?> { null }
+
+/** [LocalPlayerSurface] with the neutral dark behind it, for a surface that draws its own shell. */
+@Composable
+fun playerSurfaceColor(): Color = LocalPlayerSurface.current ?: NEUTRAL_PLAYER_SURFACE
+
 /**
  * How much of its own height the drawer has to be dragged before letting go
  * dismisses it rather than springing back. A quarter is enough to be a decision
@@ -109,6 +132,7 @@ fun PlayerDrawer(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val surface = playerSurfaceColor()
 
     // How far the drawer has been dragged down, in pixels. Released, it either
     // springs back or goes — see [DISMISS_DRAG_FRACTION].
@@ -210,14 +234,14 @@ fun PlayerDrawer(
                 .clip(DRAWER_SHAPE)
                 .then(
                     if (reduceDynamicBlur) {
-                        Modifier.background(Color(0xFF121212))
+                        Modifier.background(surface)
                     } else {
                         Modifier
                             .optimizedHazeEffect(
                                 state = hazeState,
-                                style = HazeMaterials.regular(Color(0xFF141414)),
+                                style = HazeMaterials.regular(surface),
                             )
-                            .background(Color(0xFF121212).copy(alpha = 0.9f))
+                            .background(surface.copy(alpha = 0.9f))
                     }
                 )
                 .clickable(

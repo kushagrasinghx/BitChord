@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.ContentObserver
 import android.media.AudioFormat
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -21,6 +22,8 @@ import com.music.bitchord.data.lyrics.LyricsTranslation
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LastPlayerScreen
+import com.music.bitchord.download.DownloadState
+import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.playback.cast.CastController
@@ -33,6 +36,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.util.Locale
@@ -48,6 +52,10 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val main = Handler(Looper.getMainLooper())
+
+    // The x86_64 build runs on the emulator, where the phone player is wanted
+    // even when its window is landscape.
+    override val forcePortraitPlayer: Boolean = Build.SUPPORTED_ABIS.contains("x86_64")
 
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas
@@ -65,6 +73,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val lyricsOffsetMs get() = AppSettings.lyricsOffsetMs
         override val lyricsSourceOrder get() = AppSettings.lyricsSourceOrder
         override val meteredConnection get() = AppSettings.meteredConnection
+        override val playerBackdropBlur get() = AppSettings.playerBackdropBlur
         override val preferUsbDac get() = AppSettings.preferUsbDac
         override val prioritizeSpotifyCanvas get() = AppSettings.prioritizeSpotifyCanvas
         override val reduceAnimation get() = AppSettings.reduceAnimation
@@ -75,7 +84,6 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val smartMixInProgress get() = AppSettings.smartMixInProgress
         override val smartMixBlend get() = AppSettings.smartMixBlend
         override val smartTransitionWindow get() = AppSettings.smartTransitionWindow
-        override val spotifyCanvasAutoHide get() = AppSettings.spotifyCanvasAutoHide
         override val syncedLyrics get() = AppSettings.syncedLyrics
         override val translationLanguage get() = AppSettings.translationLanguage
         override val versionAlignmentInProgress get() = AppSettings.versionAlignmentInProgress
@@ -145,6 +153,27 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         ListenTogether.state
             .map { it.toPartyUi() }
             .stateIn(scope, SharingStarted.Eagerly, ListenTogether.state.value.toPartyUi())
+    }
+
+    override val downloadAvailable: Boolean = true
+
+    override val downloadedVideoIds: StateFlow<Set<String>> by lazy {
+        Downloads.saved
+            .map { it.keys }
+            .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, Downloads.saved.value.keys)
+    }
+
+    // Queued and running only. A failed row is not a wait — the player would
+    // otherwise breathe forever over a download that already gave up, which is
+    // the same reading [BrowseActionsSheet] makes for its header button.
+    override val pendingDownloadVideoIds: StateFlow<Set<String>> by lazy {
+        Downloads.active
+            .map { states ->
+                states.filterValues { it is DownloadState.Queued || it is DownloadState.Running }.keys
+            }
+            .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, emptySet())
     }
 
     override suspend fun translateLyrics(

@@ -145,12 +145,22 @@ internal fun AndroidCanvasArtworkPlayer(
     onCoverChanged: (Float) -> Unit = {},
     /**
      * Share of the clip's height, measured up from its bottom edge, over which
-     * it dissolves to nothing — 0 for a hard edge. See [setBottomFade] for why
+     * it dissolves to nothing — 0 for a hard edge. See [setEdgeFades] for why
      * this is a parameter here rather than a mask the caller could draw.
      */
     bottomFade: Float = 0f,
     /** Optional end of the fade in view pixels; defaults to the view's bottom edge. */
     bottomFadeEndPx: Float? = null,
+    /**
+     * Share of the clip's width, measured in from its right edge, over which it
+     * dissolves — 0 for a hard edge.
+     *
+     * A caller that stands the clip in a square with something soft beside it
+     * needs this: the still cover it replaces is drawn with the same seam, so a
+     * clip that ended at a hard vertical line would read as a photograph cut in
+     * two where the panel begins.
+     */
+    rightFade: Float = 0f,
     /**
      * Halts decoding for the length of a caller-driven transition — the sleeve
      * collapsing into the queue or lyrics panel and back — rather than only at
@@ -474,12 +484,13 @@ internal fun AndroidCanvasArtworkPlayer(
                 view.applyContentTransform(clipAspect, contentMode, alignPortraitTop)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx)) {
-                    view.setBottomFade(bottomFade, bounds, bottomFadeEndPx)
+                if (applied.fadeDiffers(bottomFade, bounds, bottomFadeEndPx, rightFade)) {
+                    view.setEdgeFades(bottomFade, bottomFadeEndPx, rightFade, bounds)
                 }
             } else {
                 frame.fadeFraction = bottomFade
                 frame.fadeEndPx = bottomFadeEndPx
+                frame.rightFadeFraction = rightFade
             }
         },
         modifier = modifier.onSizeChanged { bounds = it },
@@ -583,7 +594,8 @@ private fun TextureView.applyContentTransform(
 }
 
 /**
- * Dissolves the clip's bottom edge into whatever is behind it.
+ * Dissolves the clip's bottom edge, or its right edge, into whatever is behind
+ * it.
  *
  * Done here, on the view's own RenderNode, rather than with a DstIn mask in the
  * caller's draw scope: a TextureView's frames are composited from its surface
@@ -595,36 +607,70 @@ private fun TextureView.applyContentTransform(
  * the older way, with a saveLayer and a Porter-Duff mask.
  */
 @RequiresApi(Build.VERSION_CODES.S)
-private fun TextureView.setBottomFade(fraction: Float, bounds: IntSize, endPx: Float?) {
-    val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
-    if (fraction <= 0.001f || endY <= 0f) {
-        setRenderEffect(null)
-        return
-    }
-    val gradient = LinearGradient(
-        0f,
-        endY * (1f - fraction.coerceAtMost(1f)),
-        0f,
-        endY,
-        android.graphics.Color.BLACK,
-        android.graphics.Color.TRANSPARENT,
-        Shader.TileMode.CLAMP,
-    )
-    // createOffsetEffect(0, 0) is the identity effect over the node's own
-    // content, which is the only way to name "what this view drew" as the
-    // destination of a blend.
+private fun TextureView.setEdgeFades(bottomFade: Float, bottomFadeEndPx: Float?, rightFade: Float, bounds: IntSize) {
+    val bottom = bottomFadeEffect(bottomFade, bottomFadeEndPx, bounds)
+    val right = rightFadeEffect(rightFade, bounds)
     setRenderEffect(
-        RenderEffect.createBlendModeEffect(
-            RenderEffect.createOffsetEffect(0f, 0f),
-            RenderEffect.createShaderEffect(gradient),
-            BlendMode.DST_IN,
+        when {
+            bottom != null && right != null -> RenderEffect.createChainEffect(right, bottom)
+            bottom != null -> bottom
+            else -> right
+        },
+    )
+}
+
+@RequiresApi(Build.VERSION_CODES.S)
+private fun bottomFadeEffect(fraction: Float, endPx: Float?, bounds: IntSize): RenderEffect? {
+    val endY = endPx?.coerceIn(0f, bounds.height.toFloat()) ?: bounds.height.toFloat()
+    if (fraction <= 0.001f || endY <= 0f) return null
+    return fadeBlend(
+        LinearGradient(
+            0f,
+            endY * (1f - fraction.coerceAtMost(1f)),
+            0f,
+            endY,
+            android.graphics.Color.BLACK,
+            android.graphics.Color.TRANSPARENT,
+            Shader.TileMode.CLAMP,
+        ),
+    )
+}
+
+@RequiresApi(Build.VERSION_CODES.S)
+private fun rightFadeEffect(fraction: Float, bounds: IntSize): RenderEffect? {
+    if (fraction <= 0.001f || bounds.width <= 0) return null
+    val endX = bounds.width.toFloat()
+    return fadeBlend(
+        LinearGradient(
+            endX * (1f - fraction.coerceAtMost(1f)),
+            0f,
+            endX,
+            0f,
+            android.graphics.Color.BLACK,
+            android.graphics.Color.TRANSPARENT,
+            Shader.TileMode.CLAMP,
         ),
     )
 }
 
 /**
- * The pre-[Build.VERSION_CODES.S] bottom fade: the same dissolve
- * [setBottomFade] gets from a [RenderEffect], done the way it was done before
+ * One edge mask, blended against what this view drew.
+ *
+ * createOffsetEffect(0, 0) is the identity effect over the node's own
+ * content, which is the only way to name "what this view drew" as the
+ * destination of a blend.
+ */
+@RequiresApi(Build.VERSION_CODES.S)
+private fun fadeBlend(gradient: LinearGradient): RenderEffect =
+    RenderEffect.createBlendModeEffect(
+        RenderEffect.createOffsetEffect(0f, 0f),
+        RenderEffect.createShaderEffect(gradient),
+        BlendMode.DST_IN,
+    )
+
+/**
+ * The pre-[Build.VERSION_CODES.S] edge fades: the same dissolve
+ * [setEdgeFades] gets from a [RenderEffect], done the way it was done before
  * there was one.
  *
  * Draw the child into an offscreen layer, paint a gradient over that layer with
@@ -634,7 +680,7 @@ private fun TextureView.setBottomFade(fraction: Float, bounds: IntSize, endPx: F
  * texture cannot achieve.
  *
  * It costs a full-screen offscreen buffer per frame, so it stays off entirely
- * while [fadeFraction] is zero: with no fade asked for this is a plain
+ * while neither fade is asked for: with nothing to dissolve this is a plain
  * FrameLayout and `dispatchDraw` takes the ordinary path.
  */
 /**
@@ -651,6 +697,7 @@ private class AppliedLook {
     private var fade = Float.NaN
     private var fadeBounds = IntSize(-1, -1)
     private var fadeEnd: Float? = Float.NaN
+    private var rightFade = Float.NaN
 
     fun transformDiffers(
         clipAspect: Float,
@@ -670,11 +717,12 @@ private class AppliedLook {
         return true
     }
 
-    fun fadeDiffers(fraction: Float, bounds: IntSize, endPx: Float?): Boolean {
-        if (fraction == fade && bounds == fadeBounds && endPx == fadeEnd) return false
+    fun fadeDiffers(fraction: Float, bounds: IntSize, endPx: Float?, right: Float): Boolean {
+        if (fraction == fade && bounds == fadeBounds && endPx == fadeEnd && right == rightFade) return false
         fade = fraction
         fadeBounds = bounds
         fadeEnd = endPx
+        rightFade = right
         return true
     }
 }
@@ -702,25 +750,31 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
             gradient = null
             invalidate()
         }
+    /** Share of the width, in from the right edge, over which the child dissolves. */
+    var rightFadeFraction: Float = 0f
+        set(value) {
+            val clamped = value.coerceIn(0f, 1f)
+            if (clamped == field) return
+            field = clamped
+            rightGradient = null
+            invalidate()
+        }
 
     private val maskPaint = Paint().apply {
         xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
     }
     private var gradient: LinearGradient? = null
     private var gradientHeight = 0
+    private var rightGradient: LinearGradient? = null
+    private var rightGradientWidth = 0
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         gradient = null
+        rightGradient = null
     }
 
-    override fun dispatchDraw(canvas: Canvas) {
-        val fade = fadeFraction
-        val endY = fadeEndPx?.coerceIn(0f, height.toFloat()) ?: height.toFloat()
-        if (fade <= 0.001f || endY <= 0f) {
-            super.dispatchDraw(canvas)
-            return
-        }
+    private fun bottomShader(fade: Float, endY: Float): LinearGradient {
         val shader = gradient?.takeIf { gradientHeight == height } ?: LinearGradient(
             0f,
             endY * (1f - fade),
@@ -733,10 +787,46 @@ private class FadingBottomFrame(context: Context) : FrameLayout(context) {
             gradient = it
             gradientHeight = height
         }
-        maskPaint.shader = shader
+        return shader
+    }
+
+    private fun rightShader(fade: Float): LinearGradient {
+        val endX = width.toFloat()
+        val shader = rightGradient?.takeIf { rightGradientWidth == width } ?: LinearGradient(
+            endX * (1f - fade),
+            0f,
+            endX,
+            0f,
+            android.graphics.Color.BLACK,
+            android.graphics.Color.TRANSPARENT,
+            Shader.TileMode.CLAMP,
+        ).also {
+            rightGradient = it
+            rightGradientWidth = width
+        }
+        return shader
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        val endY = fadeEndPx?.coerceIn(0f, height.toFloat()) ?: height.toFloat()
+        val bottom = fadeFraction.takeIf { it > 0.001f && endY > 0f }
+        val right = rightFadeFraction.takeIf { it > 0.001f && width > 0 }
+        if (bottom == null && right == null) {
+            super.dispatchDraw(canvas)
+            return
+        }
         val layer = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
         super.dispatchDraw(canvas)
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), maskPaint)
+        // Two masks on the one layer: each is a DST_IN of its own edge, so a
+        // corner asked to dissolve both ways simply loses the product.
+        if (bottom != null) {
+            maskPaint.shader = bottomShader(bottom, endY)
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), maskPaint)
+        }
+        if (right != null) {
+            maskPaint.shader = rightShader(right)
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), maskPaint)
+        }
         canvas.restoreToCount(layer)
     }
 }
@@ -773,6 +863,7 @@ internal fun AndroidCanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) {
         onCoverChanged = spec.onCoverChanged,
         bottomFade = spec.bottomFade,
         bottomFadeEndPx = spec.bottomFadeEndPx,
+        rightFade = spec.rightFade,
         pausedForTransition = spec.pausedForTransition,
     )
 }

@@ -2,13 +2,13 @@
 <resources>
     <string name="analysis_complete">dianalisis</string>
     <string name="analysis_in_progress">menganalisis…</string>
-    <string name="analysis_refining">dianalisis, menyempurnakan…</string>
+    <string name="analysis_refining">menyempurnakan…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">Automix · lagu ini: %1$s · berikutnya: %2$s</string>
-    <string name="automix_not_supported_video">Automix tidak didukung pada lagu video</string>
-    <string name="automix_stopped_in_party">Automix: dihentikan saat Dengar bersama</string>
+    <string name="automix_analysis_status">Automix: %1$s</string>
+    <string name="automix_not_supported_video">Automix: bukan video</string>
+    <string name="automix_stopped_in_party">Automix: berhenti</string>
     <string name="autoplay">AutoPlay</string>
     <string name="autoplay_empty_description">Musik serupa akan terus diputar</string>
     <string name="autoplay_off">AutoPlay nonaktif</string>

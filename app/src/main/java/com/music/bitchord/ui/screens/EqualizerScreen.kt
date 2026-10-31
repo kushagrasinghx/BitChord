@@ -33,7 +33,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,6 +64,8 @@ import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.theme.LocalSleeveTint
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -126,10 +127,7 @@ fun EqualizerScreen(
                             haptics.play(if (it) Haptic.ToggleOn else Haptic.ToggleOff)
                             AppSettings.setEqualizerEnabled(it)
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
+                        colors = sleeveSwitchColors(),
                     )
                 },
                 onClick = {
@@ -582,8 +580,12 @@ private fun BandFader(
     onChange: (Float) -> Unit,
 ) {
     val haptics = rememberHaptics()
-    val trackColor = MaterialTheme.colorScheme.outline
-    val fillColor = MaterialTheme.colorScheme.primary
+    // Rail at the discs' veil, travelled part at full tint — the same split as
+    // the sliders in Settings. The knob stays the page's own colour, so it
+    // reads as a hole punched in the fill rather than as a bead lying on it.
+    val sleeve = LocalSleeveTint.current
+    val trackColor = sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA) ?: MaterialTheme.colorScheme.outline
+    val fillColor = sleeve ?: MaterialTheme.colorScheme.primary
     val knobColor = MaterialTheme.colorScheme.background
     val range = EqLayout.MANUAL_RANGE_DB
     // See [TonePad]: the gesture block outlives the composition that made it.
@@ -717,8 +719,12 @@ private fun BalanceControl(
     onChange: (Float) -> Unit,
 ) {
     val haptics = rememberHaptics()
-    val trackColor = MaterialTheme.colorScheme.outline
-    val fillColor = MaterialTheme.colorScheme.primary
+    // Rail at the discs' veil, travelled part at full tint — the same split as
+    // the sliders in Settings. The knob stays the page's own colour, so it
+    // reads as a hole punched in the fill rather than as a bead lying on it.
+    val sleeve = LocalSleeveTint.current
+    val trackColor = sleeve?.copy(alpha = SLEEVE_CHROME_ALPHA) ?: MaterialTheme.colorScheme.outline
+    val fillColor = sleeve ?: MaterialTheme.colorScheme.primary
     val knobColor = MaterialTheme.colorScheme.background
     // See [TonePad]: the gesture block outlives the composition that made it.
     val latest by rememberUpdatedState(balance)

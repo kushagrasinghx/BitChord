@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -36,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 
 /**
  * The pill-shaped search field used at the top of the search page — a
@@ -52,6 +54,15 @@ fun SearchField(
     focusRequester: FocusRequester = remember { FocusRequester() },
     /** What the empty field says it is for — the one part that changes per screen. */
     placeholder: String = stringResource(Res.string.search_hint),
+    /**
+     * The record's tint, from [com.music.bitchord.ui.theme.rememberPlayerTint].
+     *
+     * Given, the field is the player's discs cut from the same cloth: that tint
+     * at [SLEEVE_CHROME_ALPHA] over the page for the pill, the same tint at full
+     * for the magnifier and whatever is typed. Null — no record playing, or a
+     * page the sleeve does not reach — keeps the theme's grey.
+     */
+    tint: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
@@ -67,7 +78,10 @@ fun SearchField(
             .fillMaxWidth()
             // Fixed height prevents the row from growing when text is entered
             .height(46.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(11.dp))
+            .background(
+                tint?.copy(alpha = SLEEVE_CHROME_ALPHA) ?: MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(11.dp),
+            )
             // Asymmetric: the magnifier is a button now and wants a real touch
             // target, so it's given the room by pulling the field's own start
             // padding in rather than by pushing the glyph and the text along.
@@ -81,7 +95,7 @@ fun SearchField(
         Icon(
             Icons.Rounded.Search,
             contentDescription = stringResource(Res.string.search),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = tint ?: MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
                 .size(32.dp)
                 .clip(CircleShape)
@@ -94,7 +108,10 @@ fun SearchField(
                 Text(
                     text = placeholder,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // The player's artist line is the same idea: the tint held
+                    // back rather than greyed over, so a hint is still the
+                    // record's colour, only quieter.
+                    color = tint?.copy(alpha = 0.55f) ?: MaterialTheme.colorScheme.onSurfaceVariant,
                     // A narrow field (the phone's, beside the account photo)
                     // must cut the hint short, not wrap it out of the pill.
                     maxLines = 1,
@@ -106,7 +123,7 @@ fun SearchField(
                 onValueChange = onQueryChange,
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = MaterialTheme.colorScheme.onBackground,
+                    color = tint ?: MaterialTheme.colorScheme.onBackground,
                 ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -135,7 +152,7 @@ fun SearchField(
                 Icon(
                     Icons.Rounded.Close,
                     contentDescription = stringResource(Res.string.clear_search),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = tint ?: MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp),
                 )
             }

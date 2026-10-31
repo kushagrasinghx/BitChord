@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,6 +56,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import kotlin.math.abs
@@ -138,6 +140,20 @@ internal val GlassSpring = spring<Float>(dampingRatio = 0.72f, stiffness = 320f)
 internal const val STRETCH = 0.16f
 
 /**
+ * How much of the page shows through this bar where the platform cannot blur.
+ *
+ * Below API 31 Haze has no RenderEffect, so a surface draws its fallback scrim
+ * instead — and that scrim deliberately *raises* the tint's alpha to stand in
+ * for the blur it is missing, scaling it by 1 + radius/72. With Haze's own
+ * materials the answer is always the same number: `regular` at 0.80 and `thin`
+ * at 0.65 both come out of that at 1.0, so on the x86_64 runtime the two bars
+ * arrive as solid slabs rather than frosted glass, which is what they are meant
+ * to be. Naming a fallback tint opts out of the scaling and sets the
+ * translucency here, where it can be seen and argued about.
+ */
+private const val TRANSLUCENT_FALLBACK_ALPHA = 0.65f
+
+/**
  * How much of the stretch is taken back out of the indicator's height.
  *
  * Half, not all. Conserving area exactly is what a drop of water does, and it
@@ -155,6 +171,13 @@ fun FloatingBottomBar(
     selectedIndex: Int,
     onTabSelected: (Int) -> Unit,
     hazeState: HazeState,
+    /**
+     * The record's tint. Given, the bar stops sampling the page through a blur
+     * and is laid over it the way the player's discs are — the tint at
+     * [SLEEVE_CHROME_ALPHA], the glyphs at full — so the two pills at the foot
+     * of the screen are the same material as the circles at the top.
+     */
+    sleeveTint: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val pillShape = RoundedCornerShape(percent = 50)
@@ -219,14 +242,22 @@ fun FloatingBottomBar(
             .fillMaxWidth()
             .clip(pillShape)
             .then(
-                if (reduceDynamicBlur) {
-                    Modifier.background(container)
+                if (sleeveTint != null) {
+                    Modifier.background(sleeveTint.copy(alpha = SLEEVE_CHROME_ALPHA))
+                } else if (reduceDynamicBlur) {
+                    Modifier.background(
+                        container.copy(alpha = TRANSLUCENT_FALLBACK_ALPHA),
+                    )
                 } else if (useGlass) {
                     Modifier.liquidGlass(shape = pillShape, surfaceTint = glassBarTint())
                 } else {
                     Modifier.optimizedHazeEffect(
                         state = hazeState,
-                        style = HazeMaterials.regular(container),
+                        style = HazeMaterials.regular(container).copy(
+                            fallbackTint = HazeTint(
+                                container.copy(alpha = TRANSLUCENT_FALLBACK_ALPHA),
+                            ),
+                        ),
                     )
                 },
             )
@@ -249,7 +280,7 @@ fun FloatingBottomBar(
                         scaleY = 1f - lag * STRETCH * SQUASH
                     }
                     .clip(pillShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                    .background((sleeveTint ?: MaterialTheme.colorScheme.primary).copy(alpha = 0.14f)),
             )
         }
 
@@ -301,13 +332,14 @@ fun FloatingBottomBar(
             // Echo's floating nav bar uses for its own liquid glass.
             val glassTint = glassContentColor()
             val adaptiveTint = if (useGlass) glassTint else null
+            val itemTint = sleeveTint ?: adaptiveTint
             tabs.forEachIndexed { index, tab ->
                 BottomBarItem(
                     tab = tab,
                     selected = index == selectedIndex,
                     glassSpec = glassSpec,
-                    selectedTint = adaptiveTint,
-                    unselectedTint = adaptiveTint?.copy(alpha = 0.65f),
+                    selectedTint = itemTint,
+                    unselectedTint = itemTint?.copy(alpha = 0.65f),
                     onClick = { onTabSelected(index) },
                     modifier = Modifier.weight(1f),
                 )

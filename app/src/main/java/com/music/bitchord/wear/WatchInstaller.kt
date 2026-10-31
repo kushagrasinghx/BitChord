@@ -80,7 +80,7 @@ object WatchInstaller {
     private val _pairing = MutableStateFlow<WatchPairingState>(WatchPairingState.Idle)
     val pairing: StateFlow<WatchPairingState> = _pairing.asStateFlow()
 
-    /** Whether this build carries a watch APK at all (a `-Pbitchord.bundleWear=false` build doesn't). */
+    /** Whether this build carries a watch APK at all. */
     fun available(context: Context): Boolean = bundledHash(context) != null
 
     private var cachedHash: String? = null

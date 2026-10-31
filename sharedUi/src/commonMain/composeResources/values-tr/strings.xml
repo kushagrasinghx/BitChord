@@ -2,13 +2,13 @@
 <resources>
     <string name="analysis_complete">analiz edildi</string>
     <string name="analysis_in_progress">analiz ediliyor…</string>
-    <string name="analysis_refining">analiz edildi, iyileştiriliyor…</string>
+    <string name="analysis_refining">iyileştiriliyor…</string>
     <string name="audio_output">Audio output</string>
     <string name="audio_output_playing">Playing here</string>
     <string name="audio_pipeline">Audio Pipeline</string>
-    <string name="automix_analysis_status">Automix · bu şarkı: %1$s · sonraki: %2$s</string>
-    <string name="automix_not_supported_video">Automix video şarkılarında desteklenmiyor</string>
-    <string name="automix_stopped_in_party">Automix: Birlikte dinle sırasında durduruldu</string>
+    <string name="automix_analysis_status">Automix: %1$s</string>
+    <string name="automix_not_supported_video">Automix: video değil</string>
+    <string name="automix_stopped_in_party">Automix: durdu</string>
     <string name="autoplay">AutoPlay</string>
     <string name="autoplay_empty_description">Benzer müzikler çalmaya devam edecek</string>
     <string name="autoplay_off">AutoPlay kapalı</string>

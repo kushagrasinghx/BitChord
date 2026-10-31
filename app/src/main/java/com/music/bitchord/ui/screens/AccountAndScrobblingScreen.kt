@@ -22,7 +22,6 @@ import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -172,10 +171,7 @@ fun AccountAndScrobblingScreen(
                                     AppSettings.setListenBrainzEnabled(checked)
                                 }
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = onOpenListenBrainzLogin,
@@ -190,10 +186,7 @@ fun AccountAndScrobblingScreen(
                             Switch(
                                 checked = listenBrainzPrimaryArtistOnly,
                                 onCheckedChange = AppSettings::setListenBrainzPrimaryArtistOnly,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
+                                colors = sleeveSwitchColors(),
                             )
                         },
                         onClick = { AppSettings.setListenBrainzPrimaryArtistOnly(!listenBrainzPrimaryArtistOnly) },
@@ -218,10 +211,7 @@ fun AccountAndScrobblingScreen(
                                     AppSettings.setLastfmEnabled(checked)
                                 }
                             },
-                            colors = SwitchDefaults.colors(
-                                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                checkedBorderColor = MaterialTheme.colorScheme.primary,
-                            ),
+                            colors = sleeveSwitchColors(),
                         )
                     },
                     onClick = {
@@ -246,10 +236,7 @@ fun AccountAndScrobblingScreen(
                             Switch(
                                 checked = lastfmScrobbleEnabled,
                                 onCheckedChange = AppSettings::setLastfmScrobbleEnabled,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
+                                colors = sleeveSwitchColors(),
                             )
                         },
                         onClick = { AppSettings.setLastfmScrobbleEnabled(!lastfmScrobbleEnabled) },
@@ -263,10 +250,7 @@ fun AccountAndScrobblingScreen(
                             Switch(
                                 checked = lastfmPrimaryArtistOnly,
                                 onCheckedChange = AppSettings::setLastfmPrimaryArtistOnly,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
+                                colors = sleeveSwitchColors(),
                             )
                         },
                         onClick = { AppSettings.setLastfmPrimaryArtistOnly(!lastfmPrimaryArtistOnly) },
@@ -280,10 +264,7 @@ fun AccountAndScrobblingScreen(
                             Switch(
                                 checked = lastfmNowPlayingEnabled,
                                 onCheckedChange = AppSettings::setLastfmNowPlaying,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
+                                colors = sleeveSwitchColors(),
                             )
                         },
                         onClick = { AppSettings.setLastfmNowPlaying(!lastfmNowPlayingEnabled) },

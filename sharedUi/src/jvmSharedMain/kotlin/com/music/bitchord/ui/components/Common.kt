@@ -53,6 +53,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.ui.theme.sleeveFieldFill
 import kotlin.math.abs
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -918,12 +919,14 @@ fun PillTextField(
      * What the box is filled with.
      *
      * The default is the fill the alerts want, since their frosted card is
-     * `surface` and this sits on top of it. A field dropped into a settings
-     * card has to be told otherwise: those cards are *already* `surfaceVariant`
-     * (see `SettingsGroup`), and a field the colour of the card it is in is a
-     * field nobody can see.
+     * `surface` and this sits on top of it — and on a page dressed by a sleeve,
+     * that fill is the disc's veil rather than the theme's grey, read off the
+     * same local every other control on the page uses. A field dropped into a
+     * settings card has to be told otherwise: those cards are *already*
+     * `surfaceVariant` (see `SettingsGroup`), and a field the colour of the
+     * card it is in is a field nobody can see.
      */
-    container: Color = MaterialTheme.colorScheme.surfaceVariant,
+    container: Color = sleeveFieldFill(),
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {

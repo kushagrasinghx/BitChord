@@ -39,10 +39,12 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -73,6 +75,7 @@ import kotlinx.coroutines.launch
 import com.music.bitchord.R
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.theme.SLEEVE_CHROME_ALPHA
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -158,6 +161,17 @@ fun FrostedTopBar(
     artworkPageChrome: Boolean = false,
     /** Source sampled by floating top-bar surfaces when liquid glass is off. */
     backButtonHazeState: HazeState? = null,
+    /**
+     * The record's tint, the same one the player's discs are cut from.
+     *
+     * Given, the floating circles here stop being their own material: the back
+     * disc and the action pill take the tint at [SLEEVE_CHROME_ALPHA] and their
+     * glyphs at full strength, so the circle under a thumb in the bar and the
+     * three-dots circle over the artwork are one and the same control. Null —
+     * nothing playing, or a build that does not dress its pages — keeps the
+     * glass they have always had.
+     */
+    sleeveTint: Color? = null,
     trailingTitle: String? = null,
     onBack: (() -> Unit)? = null,
     refreshing: Boolean = false,
@@ -283,6 +297,7 @@ fun FrostedTopBar(
                     ArtworkPageBackButton(
                         onClick = onBack,
                         hazeState = backButtonHazeState,
+                        sleeveTint = sleeveTint,
                         // The surface edge aligns with the floating navbar. The
                         // padding belongs outside the circle; its icon remains
                         // centred in the same 44dp control in every material.
@@ -322,7 +337,11 @@ fun FrostedTopBar(
                     Spacer(Modifier.width(ACCESSORY_GAP))
                 }
                 if (useFloatingChrome) {
-                    ArtworkPageActions(hazeState = backButtonHazeState, content = actions)
+                    ArtworkPageActions(
+                        hazeState = backButtonHazeState,
+                        sleeveTint = sleeveTint,
+                        content = actions,
+                    )
                 } else {
                     actions()
                 }
@@ -339,12 +358,13 @@ fun FrostedTopBar(
 private fun ArtworkPageBackButton(
     onClick: () -> Unit,
     hazeState: HazeState?,
+    sleeveTint: Color?,
     modifier: Modifier = Modifier,
 ) {
     val shape = CircleShape
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
-    val contentColor = if (useLiquidGlass && !reduceDynamicBlur) {
+    val contentColor = sleeveTint ?: if (useLiquidGlass && !reduceDynamicBlur) {
         glassContentColor()
     } else {
         MaterialTheme.colorScheme.onSurface
@@ -354,7 +374,7 @@ private fun ArtworkPageBackButton(
         onClick = onClick,
         modifier = modifier
             .size(44.dp)
-            .then(artworkPageSurface(shape = shape, hazeState = hazeState)),
+            .then(artworkPageSurface(shape = shape, hazeState = hazeState, sleeveTint = sleeveTint)),
     ) {
         Icon(
             Icons.AutoMirrored.Rounded.ArrowBack,
@@ -368,12 +388,13 @@ private fun ArtworkPageBackButton(
 @Composable
 private fun ArtworkPageActions(
     hazeState: HazeState?,
+    sleeveTint: Color?,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Row(
         modifier = modifier
-            .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState))
+            .then(artworkPageSurface(shape = CircleShape, hazeState = hazeState, sleeveTint = sleeveTint))
             // Keep the right edge fixed while a new action opens room to its
             // left. The surface itself therefore grows instead of jumping to
             // its new width in a single frame.
@@ -390,7 +411,14 @@ private fun ArtworkPageActions(
             .artworkActionEdgePadding(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        content()
+        // The glyphs take the record's colour rather than the theme's, which is
+        // what makes this pill and the player's discs one set. An action that
+        // names its own tint — a lit state, an error — still wins it.
+        CompositionLocalProvider(
+            LocalContentColor provides (sleeveTint ?: LocalContentColor.current),
+        ) {
+            content()
+        }
     }
 }
 
@@ -421,10 +449,21 @@ private fun Modifier.artworkActionEdgePadding(): Modifier = layout { measurable,
 private fun artworkPageSurface(
     shape: CornerBasedShape,
     hazeState: HazeState?,
+    sleeveTint: Color? = null,
 ): Modifier {
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useLiquidGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+
+    // The player's disc, exactly: the tint laid over the page at a quarter and
+    // nothing else — no blur, no hairline. It is the flatness that makes it
+    // read as the same control as the three-dots circle, so dressing this one
+    // in glass as well would put two materials where there should be one.
+    if (sleeveTint != null) {
+        return Modifier
+            .clip(shape)
+            .background(sleeveTint.copy(alpha = SLEEVE_CHROME_ALPHA))
+    }
 
     return Modifier
         .clip(shape)
@@ -460,6 +499,8 @@ fun TopBarAccountButton(
     account: Account?,
     onClick: () -> Unit,
     onSwipeProfile: ((forward: Boolean) -> Boolean)? = null,
+    /** See [FrostedTopBar]'s own parameter: the glyph is the record's colour. */
+    sleeveTint: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val translation = remember { Animatable(0f) }
@@ -497,18 +538,29 @@ fun TopBarAccountButton(
                     .thumbnailBorder(CircleShape),
             )
         } else {
+            // No second disc under the tinted build: the bar already lays one
+            // under this button, and a circle inside a circle is a ring nobody
+            // asked for. The player's glyph is one disc with one mark in it,
+            // and this is meant to be that control's twin.
             Box(
                 modifier = Modifier
                     .size(AVATAR_SIZE)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .thumbnailBorder(CircleShape),
+                    .then(
+                        if (sleeveTint == null) {
+                            Modifier
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .thumbnailBorder(CircleShape)
+                        } else {
+                            Modifier
+                        },
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     Icons.Rounded.Person,
                     contentDescription = stringResource(R.string.switch_account),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = sleeveTint ?: MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp),
                 )
             }

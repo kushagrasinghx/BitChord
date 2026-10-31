@@ -29,6 +29,7 @@ import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
@@ -696,7 +697,7 @@ fun Song.toMediaItem(): MediaItem {
         // reach.
         else -> "bitchord://watch?v=$videoId${matchQuery()}"
     }
-    return MediaItem.Builder()
+    val baseItem = MediaItem.Builder()
         .setMediaId(videoId)
         .setUri(resolvePlaybackUri(uriString, localPath))
     .setMediaMetadata(
@@ -773,7 +774,36 @@ fun Song.toMediaItem(): MediaItem {
             .build(),
     )
     .build()
-    .also { item ->
+    // In Direct Source Stream mode the queue item still has the YouTube media
+    // ID; the addon URL is selected later by the data-source resolver. Thus it
+    // cannot be detected from sourceTrack here. Give non-local items in this
+    // mode a finite timeline from the queued runtime, so progressive addon
+    // streams that omit duration remain seekable. With the option off, retain
+    // the original timeline behavior.
+    val directAddonDurationMs = if (
+        AppSettings.directSourceStream.value && offlineUri == null
+    ) {
+        TrackMatcher.secondsOf(durationText)?.takeIf { it > 0 }?.times(1_000L)
+    } else {
+        null
+    }
+    val item = if (directAddonDurationMs != null) {
+        baseItem.buildUpon()
+            .setMediaMetadata(
+                baseItem.mediaMetadata.buildUpon()
+                    .setDurationMs(directAddonDurationMs)
+                    .build(),
+            )
+            .setClippingConfiguration(
+                MediaItem.ClippingConfiguration.Builder()
+                    .setEndPositionMs(directAddonDurationMs)
+                    .build(),
+            )
+            .build()
+    } else {
+        baseItem
+    }
+    return item.also {
         queueEntryId?.let { mediaItemEntryIds[item] = it }
         mediaItemTiers[item] = queueTier
     }

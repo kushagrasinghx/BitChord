@@ -4953,28 +4953,48 @@ class PlaybackService : MediaLibraryService() {
             val previousFormat = NerdStats.declaredFormat(mediaId)
             swappingMediaId = mediaId
             swapCutAt = SystemClock.elapsedRealtime()
-            val upgradedMetadata = now.item.mediaMetadata.buildUpon()
-                .setExtras(Bundle(now.item.mediaMetadata.extras ?: Bundle()).apply {
-                    putBoolean(EXTRA_QUALITY_UPGRADED, true)
-                })
-                .build()
+            // Progressive ALAC may not expose a duration to Media3. Give its
+            // timeline a finite end based on the currently playing item (or
+            // the matched source duration), so session controls can seek.
+            // Prefer the existing playback timeline where available to avoid
+            // changing the apparent track length during an in-place upgrade.
+            val timelineDurationMs = now.duration.takeIf { it > 0 }
+                ?: stream.durationSec?.takeIf { it > 0 }?.times(1_000L)
+            val upgradedItem = now.item.buildUpon()
+                .setUri(upgradedUri)
+                .setMediaMetadata(now.item.mediaMetadata.buildUpon()
+                    .setDurationMs(timelineDurationMs)
+                    .setExtras(Bundle(now.item.mediaMetadata.extras ?: Bundle()).apply {
+                        putBoolean(EXTRA_QUALITY_UPGRADED, true)
+                    })
+                    .build())
+                .withResolvedStreamType(stream.url)
+            if (timelineDurationMs != null) {
+                upgradedItem.setClippingConfiguration(
+                    MediaItem.ClippingConfiguration.Builder()
+                        .setEndPositionMs(timelineDurationMs)
+                        .build(),
+                )
+            }
             player.replaceMediaItem(
                 player.currentMediaItemIndex,
-                now.item.buildUpon()
-                    .setUri(upgradedUri)
-                    .setMediaMetadata(upgradedMetadata)
-                    .withResolvedStreamType(stream.url)
-                    .build(),
+                upgradedItem.build(),
             )
             val upgradedSourceName = stream.sourceConfigId?.let { SourceRegistry.config(it)?.displayName }
                 ?: "Upgrade"
             NerdStats.onSourceStream(mediaId, stream.format, upgradedSourceName)
             NerdStats.recordSource(mediaId, upgradedSourceName)
             player.seekTo(player.currentMediaItemIndex, now.position)
-            player.prepare()
             QualityUpgrade.unshelve(mediaId)
             TrackLog.d("BitChord", "upgraded to ${stream.format.summary} at ${now.position}ms ($upgradedSourceName)")
-            watchUpgrade(mediaId, now.uri, now.position, now.duration, previousFormat)
+            watchUpgrade(
+                mediaId,
+                now.uri,
+                now.position,
+                now.duration,
+                previousFormat,
+                stream.durationSec,
+            )
             if (QualityUpgrade.continueAfterLossySwap(mediaId)) {
                 // The immediate JioSaavn improvement stays audible while a
                 // slower lossless source is checked against its higher-quality
@@ -5138,6 +5158,7 @@ class PlaybackService : MediaLibraryService() {
             }
         }
         val warmedThrough: Long?
+        var lastAuditionStatus = "player did not report a state"
         try {
             warmedThrough = withTimeoutOrNull(UPGRADE_AUDITION_MS) {
                 while (true) {
@@ -5150,7 +5171,15 @@ class PlaybackService : MediaLibraryService() {
                             TrackLog.w("BitChord", "upgrade dropped before it was heard: ${verdict.why}")
                             return@withTimeoutOrNull null
                         }
-                        Audition.Waiting -> delay(UPGRADE_PROVE_STEP_MS)
+                        Audition.Waiting -> {
+                            lastAuditionStatus = withContext(Dispatchers.Main) {
+                                "state=${audition.playbackState} duration=${audition.duration}ms " +
+                                    "buffered=${audition.bufferedPosition}ms " +
+                                    "bufferedPct=${audition.bufferedPercentage} loading=${audition.isLoading} " +
+                                    "bytes=${meter.bytes.get()}"
+                            }
+                            delay(UPGRADE_PROVE_STEP_MS)
+                        }
                     }
                 }
                 @Suppress("UNREACHABLE_CODE") null
@@ -5164,7 +5193,10 @@ class PlaybackService : MediaLibraryService() {
         }
         val took = SystemClock.elapsedRealtime() - startedAt
         if (warmedThrough == null) {
-            TrackLog.d("BitChord", "upgrade for $mediaId never proved itself in ${took}ms")
+            TrackLog.w(
+                "BitChord",
+                "upgrade for $mediaId never proved itself in ${took}ms ($lastAuditionStatus)",
+            )
             return null
         }
         TrackLog.d(
@@ -5236,10 +5268,18 @@ class PlaybackService : MediaLibraryService() {
             return Audition.Rejected("replacement ended immediately")
         }
         if (audition.playbackState != Player.STATE_READY) return Audition.Waiting
-        val length = audition.duration
-        if (length <= 0) return Audition.Waiting
-        if (previousDuration > 0 && abs(length - previousDuration) > upgradeLengthSlackMs) {
-            return Audition.Rejected("replacement is ${length}ms against ${previousDuration}ms")
+        // Progressive lossless files can decode and buffer before Media3 has
+        // enough container data to report their final duration. Use the source
+        // catalogue's matched duration in that case; otherwise a ready stream
+        // can wait out the whole audition even though its decoded format and
+        // buffered audio are already verified.
+        val length = audition.duration.takeIf { it > 0 }
+            ?: stream.durationSec?.takeIf { it > 0 }?.times(1_000L)
+        if (previousDuration > 0) {
+            if (length == null) return Audition.Waiting
+            if (abs(length - previousDuration) > upgradeLengthSlackMs) {
+                return Audition.Rejected("replacement is ${length}ms against ${previousDuration}ms")
+            }
         }
         // What the decoder was actually configured with, against what the
         // source said it was sending. The one failure mode a claim cannot
@@ -5341,6 +5381,7 @@ class PlaybackService : MediaLibraryService() {
         position: Long,
         previousDuration: Long,
         previousFormat: StreamFormat?,
+        replacementDurationSec: Int?,
     ) {
         if (previousDuration <= 0) return
         scope.launch(TrackLog.about(mediaId)) {
@@ -5349,7 +5390,16 @@ class PlaybackService : MediaLibraryService() {
                     val current = player?.takeIf { it.currentMediaItem?.mediaId == mediaId }
                         ?: return@withTimeoutOrNull false
                     val now = current.duration
-                    if (now > 0) return@withTimeoutOrNull abs(now - previousDuration) <= upgradeLengthSlackMs
+                    // Some progressive lossless containers keep Media3's
+                    // duration unset even after playback starts. Use the
+                    // source match's catalogue duration in that case, or a
+                    // valid streaming upgrade is reverted when this guard
+                    // expires simply because its container is still loading.
+                    val comparable = now.takeIf { it > 0 }
+                        ?: replacementDurationSec?.takeIf { it > 0 }?.times(1_000L)
+                    if (comparable != null) {
+                        return@withTimeoutOrNull abs(comparable - previousDuration) <= upgradeLengthSlackMs
+                    }
                     // The failure this whole check exists for, caught when it
                     // happens rather than at the ceiling: a replacement that
                     // came up short does not raise an error, it reaches the
@@ -9479,9 +9529,9 @@ class PlaybackService : MediaLibraryService() {
          * the seam is a decoder init rather than a round trip to a CDN. It has
          * to cover the drift as well: the track keeps playing while the
          * audition buffers, so the swap lands some seconds past where the
-         * audition started, and a window shorter than the audition takes would
-         * put the swap point back on the network. Twelve seconds is comfortably
-         * more than either.
+         * audition started. Twelve seconds gives the real player room to cross
+         * the decoder handoff and absorb a slow range request while keeping
+         * the proof reachable for a lossless source whose bytes arrive slowly.
          */
         const val UPGRADE_PREBUFFER_MS = 12_000L
 

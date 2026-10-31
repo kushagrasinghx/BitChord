@@ -87,6 +87,21 @@ const FULL_SIZE =
   ' --lyrics-scroll-padding-top: 30%; --am-lyrics-inline-padding: 0px; }';
 
 /**
+ * The header toolbar on one baseline (issue #1269). The format select keeps
+ * am-lyrics' compact 28px pill, its 6px padding and its native arrow; it is
+ * centred in the header's 40px row explicitly, with auto margins as well as
+ * `align-self`, so a browser that lays out the native select on its own still
+ * puts it on the row shared by the romanize, translate and download buttons.
+ * Pinning the pill's metrics keeps that look if the library's defaults change.
+ */
+const TOOLBAR_ALIGN =
+  '.lyrics-header { height: 40px; align-items: center; }' +
+  '.lyrics-header .header-controls, .lyrics-header .download-controls { height: 40px; align-items: center; }' +
+  '.lyrics-header .download-controls .download-button { align-self: center; }' +
+  '.lyrics-header .download-controls .format-select { box-sizing: border-box; flex: none; height: 28px;' +
+  ' margin-block: auto; padding: 0 6px; border-radius: 6px; align-self: center; }';
+
+/**
  * am-lyrics, exactly as it is, fed our TTML and a steered clock (prompt §10.2).
  * The clock reads the media time each frame, stamps the reading with when it
  * was taken, and is told about every seek and track change: the "lyric clock
@@ -125,7 +140,7 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
       const root = el.shadowRoot;
       if (!root) return;
       const sheet = new CSSStyleSheet();
-      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + FULL_SIZE);
+      sheet.replaceSync(HIDE_FOOTER + FAR_LINES + FULL_SIZE + TOOLBAR_ALIGN);
       root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
       // The full-screen column fades its top edge, but am-lyrics' toolbar
       // (romanize, translate, download) sits at the top of the same scroller

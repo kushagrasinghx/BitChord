@@ -120,6 +120,7 @@ object EmbeddedLyrics {
             head.startsWith(FLAC_MAGIC) -> flac(head)
             head.startsWith(MATROSKA_MAGIC) -> matroska(head)
             head.isMp4() -> mp4(head)
+            head.startsWith(ID3_MAGIC) -> id3(head)
             else -> null
         }
         return found?.takeIf { it.isNotBlank() }
@@ -332,7 +333,126 @@ object EmbeddedLyrics {
         return Vint(value, width)
     }
 
-    // ---- Bytes --------------------------------------------------------------
+        // ---- ID3v2 (MP3) ----------------------------------------------------------
+
+    /**
+     * The `USLT` (unsynchronized lyrics) frame out of an ID3v2 tag.
+     *
+     * v2.2 uses 3-byte frame IDs (`USL`) and 6-byte frame headers; v2.3 and v2.4
+     * use 4-byte IDs (`USLT`) and 10-byte headers. Tags or frames that use
+     * unsynchronisation, compression or encryption are not supported.
+     */
+    private fun id3(bytes: ByteArray): String? = runCatching { readId3Lyrics(bytes) }.getOrNull()
+
+    private fun readId3Lyrics(bytes: ByteArray): String? {
+        if (bytes.size < 10) return null
+        val version = bytes[3].toInt() and 0xFF
+        if (version !in 2..4) return null
+        val tagSize = syncsafe(bytes, 6)
+        if (tagSize <= 0 || tagSize > MAX_TAG_BYTES) return null
+        // Frames start right after the 10-byte tag header; the file head may cut the tag short.
+        val tag = bytes.copyOfRange(10, minOf(10 + tagSize, bytes.size))
+
+        // Extended header (v2.3/v2.4, flag 0x40): skip it to reach the first frame.
+        // v2.3 stores its size without the 4 size bytes themselves, v2.4 includes them.
+        var pos = 0
+        if (version >= 3 && (bytes[5].toInt() and 0x40) != 0) {
+            val declared = if (version == 4) syncsafe(tag, 0) else u32(tag, 0)
+            if (declared < 0) return null
+            pos = if (version == 4) declared else declared + 4
+            if (pos < 0 || pos > tag.size) return null
+        }
+
+        val idLen = if (version == 2) 3 else 4
+        val headLen = if (version == 2) 6 else 10
+        while (pos + headLen <= tag.size) {
+            val id = tag.decodeToString(pos, pos + idLen)
+            // Frame IDs are upper-case letters or digits; anything else means padding.
+            if (!id.all { it in 'A'..'Z' || it in '0'..'9' }) break
+            val size = when (version) {
+                2 -> u24(tag, pos + 3)
+                4 -> syncsafe(tag, pos + 4)
+                else -> u32(tag, pos + 4)
+            }
+            if (size <= 0 || size > tag.size - pos - headLen) break
+            if (id == "USLT" || id == "USL") {
+                val text = usltPayload(tag.copyOfRange(pos + headLen, pos + headLen + size))
+                if (text != null) return text
+            }
+            pos += headLen + size
+        }
+        return null
+    }
+
+    /**
+     * Decode a USLT frame's payload.
+     *
+     * Layout: encoding(1) + language(3) + content descriptor (null-terminated) + lyrics text.
+     */
+    private fun usltPayload(payload: ByteArray): String? {
+        if (payload.size < 5) return null
+        val encoding = payload[0].toInt() and 0xFF
+        val charset = when (encoding) {
+            0 -> Charsets.ISO_8859_1
+            1 -> Charsets.UTF_16 // honours the BOM
+            2 -> Charsets.UTF_16BE
+            3 -> Charsets.UTF_8
+            else -> return null
+        }
+        // The descriptor terminator is 1 null byte, or 2 for the UTF-16 encodings.
+        val width = if (encoding == 1 || encoding == 2) 2 else 1
+        val textAt = skipNull(payload, 4, width)
+        if (textAt < 0 || textAt >= payload.size) return null
+        return String(payload, textAt, payload.size - textAt, charset)
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+            .trim { it == '\uFEFF' || it == '\u0000' }
+            .takeIf { it.isNotBlank() }
+    }
+
+    /** Index just past the first null terminator at or after [from], stepping by [width]; -1 if none. */
+    private fun skipNull(b: ByteArray, from: Int, width: Int): Int {
+        var i = from
+        while (i + width <= b.size) {
+            var zero = true
+            for (k in 0 until width) {
+                if (b[i + k] != 0.toByte()) zero = false
+            }
+            if (zero) return i + width
+            i += width
+        }
+        return -1
+    }
+
+    // ---- ID3 helpers ----------------------------------------------------------
+
+    /** 4-byte syncsafe integer (7 significant bits per byte), or -1 if out of range. */
+    private fun syncsafe(b: ByteArray, off: Int): Int {
+        if (off < 0 || off + 4 > b.size) return -1
+        return ((b[off].toInt() and 0x7F) shl 21) or
+            ((b[off + 1].toInt() and 0x7F) shl 14) or
+            ((b[off + 2].toInt() and 0x7F) shl 7) or
+            (b[off + 3].toInt() and 0x7F)
+    }
+
+    /** Unsigned 24-bit big-endian, or -1 if out of range. */
+    private fun u24(b: ByteArray, off: Int): Int {
+        if (off < 0 || off + 3 > b.size) return -1
+        return ((b[off].toInt() and 0xFF) shl 16) or
+            ((b[off + 1].toInt() and 0xFF) shl 8) or
+            (b[off + 2].toInt() and 0xFF)
+    }
+
+    /** Unsigned 32-bit big-endian, saturated at Int.MAX_VALUE, or -1 if out of range. */
+    private fun u32(b: ByteArray, off: Int): Int {
+        if (off < 0 || off + 4 > b.size) return -1
+        val v = ((b[off].toLong() and 0xFF) shl 24) or
+            ((b[off + 1].toLong() and 0xFF) shl 16) or
+            ((b[off + 2].toLong() and 0xFF) shl 8) or
+            (b[off + 3].toLong() and 0xFF)
+        return if (v > Int.MAX_VALUE) Int.MAX_VALUE else v.toInt()
+    }
+
 
     /** Reads up to [max] bytes, which is all of a normal file and a prefix of a huge one. */
     private fun InputStream.readAtMost(max: Int): ByteArray {
@@ -387,6 +507,7 @@ object EmbeddedLyrics {
     private const val FLAC_VORBIS_COMMENT = 4
     private val FLAC_MAGIC = "fLaC".toByteArray(Charsets.US_ASCII)
     private val MATROSKA_MAGIC = byteArrayOf(0x1A, 0x45, 0xDF.toByte(), 0xA3.toByte())
+    private val ID3_MAGIC = "ID3".toByteArray(Charsets.US_ASCII)
     private val DATA_ATOM = "data".toByteArray(Charsets.ISO_8859_1)
     private val LYR_ATOM = byteArrayOf(0xA9.toByte()) + "lyr".toByteArray(Charsets.ISO_8859_1)
     private val ID_TAGNAME = byteArrayOf(0x45, 0xA3.toByte())

@@ -20,14 +20,17 @@ import (
 )
 
 func setupTestServer() *httptest.Server {
-	// Each test server starts with its own party-creation allowance.
+	// Each test server starts with its own rate-limit allowances.
 	createLimiter = newIPRateLimiter(time.Minute, config.CreateRatePerMinute, config.RateLimitMaxEntries)
+	joinLimiter = newIPRateLimiter(time.Minute, config.JoinRatePerMinute, config.RateLimitMaxEntries)
+	previewLimiter = newIPRateLimiter(time.Minute, config.PreviewRatePerMinute, config.RateLimitMaxEntries)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", handleRoot)
 	mux.HandleFunc("GET /healthz", handleHealthz)
 	mux.HandleFunc("GET /api/time", handleTime)
 	mux.HandleFunc("POST /api/parties", handleCreateParty)
 	mux.HandleFunc("POST /api/parties/{code}/join", handleJoinParty)
+	mux.HandleFunc("GET /api/parties/{code}/preview", handlePreviewParty)
 	mux.HandleFunc("GET /api/parties/{code}", handleGetParty)
 	mux.HandleFunc("POST /api/parties/{code}/leave", handleLeaveParty)
 	mux.HandleFunc("POST /api/presence", handlePresence)
@@ -258,6 +261,56 @@ func TestRateLimiterFreesExpiredEntriesWhenFull(t *testing.T) {
 	limiter.entries["203.0.113.20"] = entry
 	if !limiter.Allow("203.0.113.21") {
 		t.Fatal("expected the expired entry to be swept for the new IP")
+	}
+}
+
+// Join and preview are unauthenticated, so their per-IP limits are the only
+// thing standing between a scanner and brute-forcing party codes. This asserts
+// the endpoints actually enforce them.
+func TestJoinAndPreviewRateLimits(t *testing.T) {
+	ts := setupTestServer()
+	defer ts.Close()
+
+	joinLimiter = newIPRateLimiter(time.Minute, 2, 100)
+	previewLimiter = newIPRateLimiter(time.Minute, 2, 100)
+
+	b, _ := json.Marshal(map[string]string{"userId": "u_host", "deviceId": "d_host", "displayName": "Host"})
+	res, err := http.Post(ts.URL+"/api/parties", "application/json", bytes.NewReader(b))
+	if err != nil || res.StatusCode != http.StatusCreated {
+		t.Fatalf("create failed: status %v, err %v", res.StatusCode, err)
+	}
+	var created map[string]interface{}
+	_ = json.NewDecoder(res.Body).Decode(&created)
+	code := created["code"].(string)
+
+	join := func() int {
+		body := map[string]string{"userId": "u_bob", "deviceId": fmt.Sprintf("d_%d", time.Now().UnixNano()), "displayName": "Bob"}
+		jb, _ := json.Marshal(body)
+		r, err := http.Post(fmt.Sprintf("%s/api/parties/%s/join", ts.URL, code), "application/json", bytes.NewReader(jb))
+		if err != nil {
+			t.Fatalf("join request failed: %v", err)
+		}
+		defer r.Body.Close()
+		return r.StatusCode
+	}
+	for i, want := range []int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests, http.StatusTooManyRequests} {
+		if got := join(); got != want {
+			t.Fatalf("join %d: status %d, want %d", i+1, got, want)
+		}
+	}
+
+	preview := func() int {
+		r, err := http.Get(fmt.Sprintf("%s/api/parties/%s/preview", ts.URL, code))
+		if err != nil {
+			t.Fatalf("preview request failed: %v", err)
+		}
+		defer r.Body.Close()
+		return r.StatusCode
+	}
+	for i, want := range []int{http.StatusOK, http.StatusOK, http.StatusTooManyRequests} {
+		if got := preview(); got != want {
+			t.Fatalf("preview %d: status %d, want %d", i+1, got, want)
+		}
 	}
 }
 

@@ -88,6 +88,8 @@ var (
 	// starting ceiling; raise it only after measuring CPU and memory usage.
 	MaxParties           = getInt("JAM_MAX_PARTIES", 50)
 	CreateRatePerMinute  = getInt("JAM_CREATE_RATE_PER_MINUTE", 2)
+	JoinRatePerMinute    = getInt("JAM_JOIN_RATE_PER_MINUTE", 30)
+	PreviewRatePerMinute = getInt("JAM_PREVIEW_RATE_PER_MINUTE", 60)
 	RateLimitMaxEntries  = getInt("JAM_RATE_LIMIT_MAX_ENTRIES", 10000)
 	RequestMaxBytes      = int64(getInt("JAM_REQUEST_MAX_BYTES", 16*1024))
 	WebSocketMaxBytes    = int64(getInt("JAM_WEBSOCKET_MAX_BYTES", 16*1024))

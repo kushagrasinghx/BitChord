@@ -127,10 +127,10 @@ fun rememberFullArtworkBlurImage(
 }
 
 /**
- * The phone and tablet player's backdrop — main player, lyrics and queue alike,
- * unless the legacy mesh is switched on: one copy of the cover cropped across
- * the complete bounds and blurred in place, with the artwork above feathering
- * its own bottom edge into it.
+ * The lyrics and queue backdrop, and the main player's too where it has no
+ * [ArtworkMeltBackdrop] — a tablet, a card, landscape — unless the legacy mesh is
+ * switched on: one copy of the cover cropped across the complete bounds and
+ * blurred in place, with the artwork above feathering its own bottom edge into it.
  *
  * The blur is baked into [image] (see [rememberFullArtworkBlurImage]), so this
  * is a plain image draw: nothing here re-blurs while the player moves or a
@@ -170,17 +170,10 @@ fun FullArtworkBlurBackdrop(
 
 /**
  * The mesh for the artwork at [imageUrl], or null until one has been read.
- *
- * [canvasFrame] — a frame grabbed off a playing motion cover — takes over when
- * one arrives, for the reason [rememberArtworkColors] describes: a clip is
- * frequently graded nothing like the still sleeve it replaces. A caller that
- * keeps sending fresh ones gets a backdrop that follows the clip; see
- * [CanvasArtworkPlayer]'s `frameCapturePx` for what one of them costs.
  */
 @Composable
 fun rememberArtworkMesh(
     imageUrl: String?,
-    canvasFrame: ImageBitmap? = null,
     /**
      * The artwork size to read, which should be the one the caller already has
      * on screen. Nothing here survives being averaged into thirty-six cells, so
@@ -244,16 +237,6 @@ fun rememberArtworkMesh(
         }
     }
 
-    LaunchedEffect(canvasFrame) {
-        val frame = canvasFrame ?: return@LaunchedEffect
-        // Reject frames that are too dark or uniform — they are almost always
-        // the first read after a surface recreation, before ExoPlayer has
-        // decoded real content.  A frame whose mean luminance is below this
-        // threshold is discarded; the last valid mesh is kept instead.
-        if (isLikelyBlackFrame(frame)) return@LaunchedEffect
-        mesh = withContext(Dispatchers.Default) { meshOf(frame, imageUrl?.hashCode() ?: 0) } ?: mesh
-        meshUrl = imageUrl
-    }
     return mesh
 }
 
@@ -274,11 +257,8 @@ fun rememberArtworkMesh(
  * is re-applied on every frame the backdrop is redrawn — so the bill is set by
  * how much of the time something is moving.
  *
- * A still sleeve is the cheap case and the usual one: the backdrop is drawn
- * once when the track changes and is then only composited, and the crossfade
- * costs its [MESH_FADE_MS] once per skip. A playing clip is the same case
- * repeated — one fade every few seconds, with the screen still in between; see
- * `MESH_REFRESH_MS` in `NowPlayingScreen` for the cadence.
+ * The backdrop is drawn once when the track changes and is then only
+ * composited, and the crossfade costs its [MESH_FADE_MS] once per skip.
  *
  * Each of those frames is made as cheap as it can be rather than merely rare.
  * The mesh is smoothed on the CPU before it is ever uploaded (see [MESH_TEX]),
@@ -289,7 +269,7 @@ fun rememberArtworkMesh(
  *
  * The old backdrop paid a 60Hz blur permanently, for blobs orbiting behind a
  * screen nobody was looking at; see [MeshGradientBackground]'s note. This pays
- * it in bursts, and only while a clip is actually on screen and playing.
+ * it once per skip.
  */
 @Composable
 fun ArtworkMeshBackdrop(
@@ -309,8 +289,7 @@ fun ArtworkMeshBackdrop(
      * already interpolated to [MESH_TEX] on the CPU with a curve that flattens
      * at every control point, so there are no creases left for this to remove.
      * It is here to take the last of the edge off, and a wider one would only
-     * cost milliseconds — which matters, because a clip on screen asks for it
-     * several times a second.
+     * cost milliseconds.
      */
     blurRadius: Dp = 32.dp,
 ) {
@@ -332,8 +311,7 @@ fun ArtworkMeshBackdrop(
         val next = mesh ?: return@LaunchedEffect
         // A change arriving mid-fade. Whatever was fading in has been on screen
         // for a while and is what the new one should fade *from*; leaving it in
-        // [incoming] would restart the fade from the mesh before it, and a clip
-        // sending frames faster than the fade runs would never settle at all.
+        // [incoming] would restart the fade from the mesh before it.
         incoming?.let { shown = it }
         incoming = null
         val current = shown
@@ -502,9 +480,6 @@ private fun boxBlurPass(
  * change, so reading it twice buys a decode and a downsample for the same
  * answer. Touched from composition and from the resumption of
  * [rememberArtworkMesh]'s effect, both on the main thread, so it needs no lock.
- *
- * Clip frames never land here: the next one for the same URL is a different
- * picture, and there would be a new entry several times a second.
  */
 private val meshCache = object : LinkedHashMap<String, ArtworkMesh>(0, 0.75f, true) {
     override fun removeEldestEntry(eldest: Map.Entry<String, ArtworkMesh>) = size > MESH_CACHE_ENTRIES
@@ -551,33 +526,23 @@ private const val MESH_GRID = 6
  * piecewise-linear, and the eye finds the crease at every cell boundary when
  * they are a hundred and eighty pixels apart. Resampling to this first, with a
  * curve that flattens at each control point, leaves creases too small to see
- * before they are magnified — and it is what lets the GPU blur be narrow, which
- * is what makes following a clip affordable. It costs about a thousand lerps,
- * off the main thread, and the control points come through untouched, so the
+ * before they are magnified — and it is what lets the GPU blur be narrow. It
+ * costs about a thousand lerps, off the main thread, and the control points come through untouched, so the
  * artwork's proportions are exactly what they were.
  */
 private const val MESH_TEX = 32
 
 /**
- * How long the backdrop takes to change colour, whether that is a track skip or
- * the next frame of a clip playing over the sleeve.
- *
- * Long enough to read as the screen changing colour rather than cutting, and
- * comfortably inside the interval a clip's frames arrive on — see
- * `MESH_REFRESH_MS` in `NowPlayingScreen`. It has to finish before the next one
- * lands, or every fade is cut off partway and the backdrop never settles where
- * a frame actually put it.
+ * How long the backdrop takes to change colour on a track skip: long enough to
+ * read as the screen changing colour rather than cutting.
  */
 private const val MESH_FADE_MS = 900
 
 /**
  * The most rows and columns of [source] that are actually looked at.
  *
- * A still sleeve is decoded at [MESH_PX] and falls well under this, but a clip
- * frame is whatever size the caller grabbed it at, and every pixel of it would
- * be read to produce thirty-six averages. Sampling on a stride instead bounds
- * the work at a fixed cost per frame however large the frame is, which is what
- * makes it safe to do this several times a second.
+ * A sleeve is decoded at [MESH_PX] and falls well under this. Sampling on a
+ * stride bounds the work if a larger image ever comes through regardless.
  */
 private const val MESH_SAMPLE = 128
 
@@ -612,7 +577,7 @@ private fun meshOf(source: ImageBitmap, seed: Int): ArtworkMesh? {
     val count = IntArray(cells)
 
     // One row at a time, so the scratch buffer is the width of the artwork
-    // rather than the whole of it. A clip frame read whole is megabytes.
+    // rather than the whole of it.
     val line = IntArray(width)
     var y = 0
     while (y < height) {
@@ -665,9 +630,7 @@ private fun meshOf(source: ImageBitmap, seed: Int): ArtworkMesh? {
  * between colours that weren't adjacent in the source.
  *
  * Seeded rather than re-rolled on every call: the same artwork should land in
- * the same arrangement each time it's read, or a canvas clip refreshing this
- * once a second (see `MESH_REFRESH_MS`) would show its layout visibly turning
- * underneath its own colours instead of just changing hue.
+ * the same arrangement each time it's read.
  */
 private fun IntArray.rotatedBelowSeam(cols: Int, rows: Int, seed: Int): IntArray {
     if (rows <= 1) return this

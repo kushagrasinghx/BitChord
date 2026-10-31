@@ -298,6 +298,11 @@ private const val SUBVIEW_STATUS_SCRIM_MIN_ALPHA = 0.40f
  */
 private const val MESH_REFRESH_MS = 3_000L
 
+/** The longest a new cover and its melt are held back waiting on each other. */
+private const val MELT_REVEAL_TIMEOUT_MS = 2_500L
+private const val MELT_FADE_OUT_MS = 200
+private const val MELT_FADE_IN_MS = 320
+
 /** How long a full-screen Spotify Canvas holds still after the player has opened. */
 private const val SPOTIFY_CANVAS_RESUME_DELAY_MS = 1_000L
 
@@ -893,7 +898,8 @@ fun NowPlayingScreen(
     // snapping open mid-loop. A different clip resets them with itself.
     val canvasRenderedState = remember(canvas?.url) { mutableStateOf(false) }
     var canvasRendered by canvasRenderedState
-    var canvasFrame by remember(canvas?.url) { mutableStateOf<ImageBitmap?>(null) }
+    val canvasFrameState = remember(canvas?.url) { mutableStateOf<ImageBitmap?>(null) }
+    var canvasFrame by canvasFrameState
     // Spotify's phone presentation starts with the full control deck over its
     // video. It leaves on a Canvas tap, or after the optional idle timeout.
     var spotifyCanvasControlsOpen by remember(canvas?.url) { mutableStateOf(true) }
@@ -910,9 +916,9 @@ fun NowPlayingScreen(
     // v1.5's backdrop, kept behind a switch — see [PlayerSettings.legacyMeshGradient].
     val legacyMesh by PlayerSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     // How often a playing clip's colours are re-read for the legacy mesh — see
-    // CanvasArtworkPlayer's refreshFrameEveryMs. Null otherwise: the blurred
-    // still cover under every other phone player has nothing to re-tint, and
-    // each read is a GPU readback.
+    // CanvasArtworkPlayer's refreshFrameEveryMs. The melt asks on its own terms
+    // where its clip is mounted. Null otherwise: the blurred still cover has
+    // nothing to re-tint, and each read is a GPU readback.
     val meshRefreshMs = MESH_REFRESH_MS.takeIf { legacyMesh }
 
     val scrub = rememberPlayerScrub(song.videoId, position, durationMs)
@@ -1321,7 +1327,10 @@ fun NowPlayingScreen(
     // had and never re-emits, so the `onState` that is the sole writer here
     // never fires again. Keyed on the cover there is nothing to reset: the
     // bitmap really is still loaded, so the state stays true.
-    val art = rememberPlayerArtwork(remoteArt)
+    // The cover being shown, which under the melt only follows [remoteArt] once
+    // the last one has faded out; see meltReveal.
+    var shownArt by remember { mutableStateOf(remoteArt) }
+    val art = rememberPlayerArtwork(shownArt)
     // Sticky, unlike [PlayerArtwork.loaded]: the banner is the shape of the player rather
     // than a property of the track in it. Waiting on each new cover would
     // collapse the banner into a card and blow it back out on every skip —
@@ -1680,14 +1689,80 @@ fun NowPlayingScreen(
     // Opening lyrics/queue, and rotating into or out of landscape, therefore
     // reuse the same tiny pre-blurred bitmap instead of running a screen-sized
     // effect.
+    // The phone's main player melts its banner into the cover's own mesh; see
+    // [ArtworkMeltBackdrop]. It answers to the banner, so a card has no melt.
+    // Spotify's full-screen Canvas is its own background and stays out of this.
+    val meltEligible = heroMode && !spotifyCanvasOnPhone && !tabletArtworkBackdrop && !landscape && !legacyMesh
+    // Where the art stops, held still through a panel: the clip that decides it
+    // lets go during the collapse, and a melt nobody can see needs no re-baking.
+    var meltArtBottom by remember { mutableStateOf(0.dp) }
+    val meltStillArt = meltEligible && heroClipMounted == null
+    val meltStillBottom = with(density) { (playerBounds.width * MELT_STILL_ART_TALLNESS).toDp() }
+    val meltArtBottomNow = when {
+        clipBottom > 0.dp -> clipBottom
+        meltStillArt -> meltStillBottom
+        else -> heroHeight
+    }
+    if (!lyricsOpen && !queueOpen && !collapseStarted && meltArtBottom != meltArtBottomNow) {
+        SideEffect { meltArtBottom = meltArtBottomNow }
+    }
+    val melt = rememberArtworkMeltImage(
+        imageUrl = shownArt,
+        artPx = ART_PX,
+        playerWidth = playerBounds.width,
+        playerHeight = playerBounds.height,
+        artBottom = with(density) { meltArtBottom.roundToPx() },
+        bannerHeight = with(density) { heroHeight.roundToPx() },
+        clipFrame = { canvasFrameState.value },
+        stillArt = meltStillArt,
+        prepare = meltEligible,
+    )
+    // Only whether there is one: a clip's new frame must not reach this screen.
+    val meltReady by remember(melt) { derivedStateOf { melt.ready } }
+    val meltShown = meltEligible && meltReady
+    // A cover and its melt are one picture: the old pair fades out together, and
+    // the new pair fades in together once both are ready. Not in the panels, whose
+    // header thumbnail has nothing to wait for. The wait is given up on after a
+    // moment, so that a cover which never loads can't leave the screen black.
+    var meltWaitOver by remember(shownArt) { mutableStateOf(false) }
+    LaunchedEffect(shownArt) {
+        delay(MELT_REVEAL_TIMEOUT_MS)
+        meltWaitOver = true
+    }
+    val meltWaiting by remember(shownArt, meltEligible, melt, art) {
+        derivedStateOf {
+            meltEligible && shownArt != null && !meltWaitOver && !collapseStarted && (
+                !melt.isReadyFor(shownArt) || !(art.loaded || canvasRenderedState.value)
+                )
+        }
+    }
+    val meltFade = remember { Animatable(1f) }
+    LaunchedEffect(remoteArt, shownArt, meltWaiting, meltEligible, collapseStarted) {
+        when {
+            !meltEligible || collapseStarted -> {
+                shownArt = remoteArt
+                meltFade.snapTo(1f)
+            }
+            remoteArt != shownArt -> {
+                meltFade.animateTo(0f, tween(MELT_FADE_OUT_MS, easing = FastOutSlowInEasing))
+                shownArt = remoteArt
+            }
+            meltWaiting -> meltFade.snapTo(0f)
+            else -> meltFade.animateTo(1f, tween(MELT_FADE_IN_MS, easing = FastOutSlowInEasing))
+        }
+    }
+    // Asks the wait itself first: an animation only hears about a new target a
+    // frame or two later, and those frames showed the last cover's picture.
+    fun meltReveal(): Float = if (meltWaiting) 0f else meltFade.value
     val fullArtworkBlurImage = rememberFullArtworkBlurImage(
         imageUrl = remoteArt,
         artPx = ART_PX,
         // Straight away when it is the main player's backdrop too: the decode
         // and blur run off the main thread, and the last cover's blur is held
-        // on screen until this one is ready.
-        prepare = !legacyMesh || landscape || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
-            playerPrewarmStage >= 1,
+        // on screen until this one is ready. Under the melt it is only wanted
+        // for the panels, so it waits its turn behind the track hand-off.
+        prepare = (!legacyMesh && !meltEligible) || landscape || tabletArtworkBackdrop || lyricsOpen ||
+            queueOpen || playerPrewarmStage >= 1,
     )
     // One movable Image node, not two backdrop call sites. Compose carries it
     // between the portrait and landscape players; only the cached bitmap
@@ -2260,10 +2335,10 @@ fun NowPlayingScreen(
                     .then(dockHost)
                     .background(Color.Black),
             ) {
-                // The same blurred still cover the lyrics and queue use, under the
-                // main player as well — square or portrait clip, or still art. The
-                // banner and the clip each feather their own bottom edge into it.
-                // It is one image blurred once per song off the main thread, so
+                // The blurred still cover the lyrics and queue use, and under the
+                // main player wherever it has no melt to stand on. The banner and
+                // the clip each feather their own bottom edge into whichever is up.
+                // Both are one image baked once per song off the main thread, so
                 // nothing here is re-blurred while the player opens, closes or
                 // collapses, or while a clip plays over it.
                 //
@@ -2295,8 +2370,27 @@ fun NowPlayingScreen(
                     )
                 }
                 fullArtworkBlurContent(
-                    Modifier.graphicsLayer { alpha = fullArtworkBackdropAlpha },
+                    Modifier.graphicsLayer {
+                        // Skipped outright at rest under the melt: it would be drawn
+                        // full-screen for nothing, and show through while a new
+                        // cover is coming in from black.
+                        alpha = if (meltEligible && p() == 0f) 0f else fullArtworkBackdropAlpha
+                    },
                 )
+                if (meltEligible) {
+                    // Hands over to the panels' blur along the collapse itself. One
+                    // property on one layer per frame, with no buffer of its own.
+                    ArtworkMeltBackdrop(
+                        melt = melt,
+                        bannerHeight = { with(density) { heroHeight.toPx() } },
+                        showStrip = heroClipMounted == null,
+                        fadeMillis = if (heroClipMounted != null) MELT_CLIP_CROSSFADE_MS else 0,
+                        modifier = Modifier.graphicsLayer {
+                            alpha = meltReveal() * (1f - p())
+                            compositingStrategy = CompositingStrategy.ModulateAlpha
+                        },
+                    )
+                }
 
                 // Mount once, behind the controls. A known portrait aspect changes the
                 // invisible view to full-player bounds before its first frame is shown.
@@ -2342,7 +2436,7 @@ fun NowPlayingScreen(
                             // Out of sight altogether while its still stands in for it.
                             presentationAlpha = {
                                 if (stillTakesOver()) 0f
-                                else (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
+                                else (1f - 2f * p()).coerceIn(0f, 1f) * dockFade() * meltReveal()
                             },
                             // A full-screen Spotify Canvas holds its frame for a beat
                             // once the player has come all the way up, rather than
@@ -2354,9 +2448,13 @@ fun NowPlayingScreen(
                             onStillCaptured = onStillCaptured,
                             onResumed = onClipResumed,
                             onRenderedChanged = { canvasRendered = it },
-                            // Frames only for the legacy mesh, the one backdrop still
-                            // tinted off the clip.
-                            frameCapturePx = if (legacyMesh) CANVAS_FRAME_CAPTURE_PX else 0,
+                            // Frames for the backdrops still tinted off the clip: the
+                            // legacy mesh and the melt. Spotify's Canvas is neither.
+                            frameCapturePx = when {
+                                legacyMesh -> CANVAS_FRAME_CAPTURE_PX
+                                meltEligible -> MELT_FRAME_CAPTURE_PX
+                                else -> 0
+                            },
                             onFrameCaptured = {
                                 if (!clipFullscreen && !tabletArtworkBackdrop &&
                                     !lyricsOpen && !queueOpen && !queueDragging
@@ -2370,6 +2468,10 @@ fun NowPlayingScreen(
                                 queueDragging || dockMoving
                             ) {
                                 null
+                            } else if (meltEligible) {
+                                // A paused clip's colours aren't going anywhere,
+                                // and each read is a GPU readback.
+                                MESH_REFRESH_MS.takeIf { isPlaying }
                             } else {
                                 meshRefreshMs
                             },
@@ -2377,10 +2479,14 @@ fun NowPlayingScreen(
                             bottomFade = when {
                                 clipFullscreen -> 0f
                                 clipPortrait -> clipFadeFraction
+                                meltEligible -> MELT_CLIP_FADE
                                 else -> HERO_FADE_FRACTION
                             },
-                            bottomFadeEndPx = if (clipPortrait) with(density) { clipBottom.toPx() }
-                                else null,
+                            bottomFadeEndPx = when {
+                                clipPortrait -> with(density) { clipBottom.toPx() }
+                                meltEligible -> with(density) { heroHeight.toPx() } * MELT_CLIP_FADE_END
+                                else -> null
+                            },
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .then(
@@ -2963,7 +3069,14 @@ fun NowPlayingScreen(
                                     // is, from the same top edge.
                                     size = Size(
                                         playerBounds.width.toFloat(),
-                                        stillBottomPx().takeIf { it > 0f } ?: heroHeight.roundToPx().toFloat(),
+                                        // And a still cover under the melt is shown taller
+                                        // than the credits, for the melt to run through.
+                                        stillBottomPx().takeIf { it > 0f }
+                                            ?: if (meltStillArt) {
+                                                playerBounds.width * MELT_STILL_ART_TALLNESS
+                                            } else {
+                                                heroHeight.roundToPx().toFloat()
+                                            },
                                     ),
                                 )
                             }
@@ -3152,7 +3265,17 @@ fun NowPlayingScreen(
                                 .drawWithContent {
                                     drawContent()
                                     val shown = sleeveShown()
-                                    if (shown > 0f) {
+                                    if (shown > 0f && meltShown && meltStillArt) {
+                                        // The melt carries on where this stops, so only
+                                        // the last, level stretch of the banner dissolves.
+                                        eraseMeltFade(
+                                            strength = shown,
+                                            bannerShare = with(density) { heroHeight.toPx() } /
+                                                (playerBounds.width * MELT_STILL_ART_TALLNESS),
+                                        )
+                                    } else if (shown > 0f) {
+                                        // A still standing in for a clip ends where that clip does.
+                                        val meltClip = meltShown && stillBottomPx() <= 0f
                                         drawRect(
                                             // Along smootherstep, not a straight ramp,
                                             // so neither end of the dissolve shows as a line.
@@ -3161,11 +3284,22 @@ fun NowPlayingScreen(
                                                     val t = i / FADE_CURVE_STOPS.toFloat()
                                                     t to Color.Black.copy(alpha = 1f - shown * smootherStep(t))
                                                 },
-                                                startY = size.height * (1f - stillFadeFraction()),
-                                                endY = size.height,
+                                                startY = size.height * if (meltClip) {
+                                                    MELT_CLIP_FADE_START
+                                                } else {
+                                                    1f - stillFadeFraction()
+                                                },
+                                                endY = size.height * if (meltClip) MELT_CLIP_FADE_END else 1f,
                                             ),
                                             blendMode = BlendMode.DstIn,
                                         )
+                                    }
+                                    // Darkened rather than faded: faded, it would show
+                                    // what the melt keeps behind the art. This way the
+                                    // art and melt darken as a single picture.
+                                    val dark = 1f - meltReveal()
+                                    if (dark > 0f) {
+                                        drawRect(Color.Black, alpha = dark, blendMode = BlendMode.SrcAtop)
                                     }
                                 },
                         ) {

@@ -370,6 +370,8 @@
     <string name="design_material_you">Material You</string>
     <string name="design_material_you_subtitle">Colours taken from your wallpaper (Android 12+)</string>
     <string name="full_screen_cover_art">Full-screen cover art</string>
+    <string name="full_screen_album_arts">Full Screen Album Arts</string>
+    <string name="full_screen_album_arts_subtitle">Runs the album art to the edges of the player instead of a square sleeve</string>
     <string name="legacy_mesh_gradient">Legacy mesh gradient</string>
     <string name="legacy_mesh_gradient_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
     <string name="animated_cover_art">Animated cover art</string>

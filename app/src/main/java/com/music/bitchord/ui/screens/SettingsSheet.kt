@@ -255,6 +255,7 @@ fun SettingsScreen(
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
+    val fullScreenAlbumArts by AppSettings.fullScreenAlbumArts.collectAsStateWithLifecycle()
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
@@ -984,6 +985,21 @@ fun SettingsScreen(
                             )
                         },
                         onClick = { AppSettings.setFullBleedArtwork(!fullBleedArtwork) },
+                    )
+                }
+                val fullScreenAlbumArtsTitle = stringResource(R.string.full_screen_album_arts)
+                row(fullScreenAlbumArtsTitle, "artwork", "album", "player") {
+                    SettingsRow(
+                        icon = SfIcons.Fullscreen,
+                        title = fullScreenAlbumArtsTitle,
+                        subtitle = stringResource(R.string.full_screen_album_arts_subtitle),
+                        trailing = {
+                            IosSwitch(
+                                checked = fullScreenAlbumArts,
+                                onCheckedChange = AppSettings::setFullScreenAlbumArts,
+                            )
+                        },
+                        onClick = { AppSettings.setFullScreenAlbumArts(!fullScreenAlbumArts) },
                     )
                 }
             }

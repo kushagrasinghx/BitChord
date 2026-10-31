@@ -123,7 +123,7 @@ object ArtistFacts {
 
     /** Whether a genre chart can be drawn at all on this build and these settings. */
     val genresAvailable: Boolean
-        get() = AppSettings.replayGenres.value && BuildConfig.LASTFM_API_KEY.isNotBlank()
+        get() = AppSettings.replayGenres.value && AppSettings.lastfmApiKey.value.isNotBlank()
 
     // ── Reading ─────────────────────────────────────────────────────────────
     //
@@ -231,7 +231,7 @@ object ArtistFacts {
     private fun fetchGenres(name: String) {
         val url = "https://ws.audioscrobbler.com/2.0/?method=artist.gettoptags" +
             "&artist=${Uri.encode(name)}" +
-            "&api_key=${Uri.encode(BuildConfig.LASTFM_API_KEY)}" +
+            "&api_key=${Uri.encode(AppSettings.lastfmApiKey.value)}" +
             "&autocorrect=1&format=json"
         val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
         val body = Http.client.newCall(request).execute().use { response ->

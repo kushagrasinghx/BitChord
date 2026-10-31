@@ -19,11 +19,17 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.SwitchAccount
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import com.music.bitchord.ui.components.IosSwitch
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.vectorResource
@@ -66,6 +72,13 @@ fun AccountAndScrobblingScreen(
     val discordUsername by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val discordRpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+
+    // Whether the user's own Last.fm key is in force. Seeded from preferences and
+    // kept in step by the dialog's two callbacks — nothing else writes it.
+    var showLastfmApiKeyDialog by remember { mutableStateOf(false) }
+    var lastfmCustomKeyConfigured by remember {
+        mutableStateOf(AppSettings.lastfmCustomApiKey().isNotBlank())
+    }
 
     Column(
         modifier = modifier
@@ -217,6 +230,19 @@ fun AccountAndScrobblingScreen(
                         }
                     },
                 )
+                RowDivider()
+                SettingsRow(
+                    icon = SfIcons.Key,
+                    title = stringResource(R.string.lastfm_api_key),
+                    subtitle = stringResource(
+                        if (lastfmCustomKeyConfigured) {
+                            R.string.lastfm_api_key_configured
+                        } else {
+                            R.string.lastfm_api_key_subtitle
+                        },
+                    ),
+                    onClick = { showLastfmApiKeyDialog = true },
+                )
                 if (lastfmEnabled && lastfmSessionKey.isNotBlank()) {
                     RowDivider()
                     SettingsRow(
@@ -322,6 +348,103 @@ fun AccountAndScrobblingScreen(
 
         Spacer(Modifier.height(24.dp))
     }
+
+    if (showLastfmApiKeyDialog) {
+        LastfmApiKeyDialog(
+            initialKey = AppSettings.lastfmCustomApiKey(),
+            initialSecret = AppSettings.lastfmCustomSecret(),
+            hasCustomKey = lastfmCustomKeyConfigured,
+            onSave = { key, secret ->
+                AppSettings.setLastfmApiKey(key)
+                AppSettings.setLastfmSecret(secret)
+                lastfmCustomKeyConfigured = AppSettings.lastfmCustomApiKey().isNotBlank()
+                showLastfmApiKeyDialog = false
+            },
+            onReset = {
+                AppSettings.setLastfmApiKey("")
+                AppSettings.setLastfmSecret("")
+                lastfmCustomKeyConfigured = false
+                showLastfmApiKeyDialog = false
+            },
+            onDismiss = { showLastfmApiKeyDialog = false },
+        )
+    }
+}
+
+/**
+ * Lets somebody run scrobbling on their own Last.fm API key instead of the one
+ * the build ships with.
+ *
+ * Both halves are needed: Last.fm signs every request with the shared secret
+ * behind `api_sig`, so a key without its secret authenticates nothing. The
+ * fields start empty when the build's own key is in force and Saving blank
+ * reverts to it — the same `.ifBlank { BuildConfig… }` seam [AppSettings] has
+ * always had, now reachable without a rebuild. Clearing is also offered as an
+ * explicit destructive row once a custom key is set, since blank-on-purpose is
+ * indistinguishable from never-having-typed-one otherwise.
+ */
+@Composable
+private fun LastfmApiKeyDialog(
+    initialKey: String,
+    initialSecret: String,
+    hasCustomKey: Boolean,
+    onSave: (String, String) -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var keyInput by remember { mutableStateOf(initialKey) }
+    var secretInput by remember { mutableStateOf(initialSecret) }
+    // Only save a complete pair; a lone key would leave signing broken silently.
+    val canSave = keyInput.isNotBlank() && secretInput.isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.lastfm_api_key)) },
+        text = {
+            Column {
+                Text(
+                    text = stringResource(R.string.lastfm_api_key_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = keyInput,
+                    onValueChange = { keyInput = it },
+                    label = { Text(stringResource(R.string.lastfm_api_key_field)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = secretInput,
+                    onValueChange = { secretInput = it },
+                    label = { Text(stringResource(R.string.lastfm_api_secret_field)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(keyInput.trim(), secretInput.trim()) },
+                enabled = canSave,
+            ) {
+                Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            if (hasCustomKey) {
+                TextButton(onClick = onReset) {
+                    Text(stringResource(R.string.reset_to_default))
+                }
+            } else {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        },
+    )
 }
 
 /** A hairline across the whole card, for setting a destructive row apart from the rows above it. */

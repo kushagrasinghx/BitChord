@@ -823,7 +823,8 @@ fun DetailScreen(
                 }
             }
 
-            // Albums / Singles & EPs carousels (artist pages).
+            // Release carousels: artist pages carry Albums / Singles & EPs, album
+            // pages carry "Other versions" / "More from this artist".
             items(page.sections) { shelf ->
                 val canShowAll = shelf.items.size > ARTIST_ROW_MAX_ITEMS
                 val displayItems = remember(shelf.items) {

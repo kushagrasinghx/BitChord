@@ -70,7 +70,7 @@ object LrcRed {
     private suspend fun document(url: String, get: suspend (String) -> String?): List<LyricLine>? =
         get(url)?.let(TtmlLyrics::parse)?.takeIf { it.isNotEmpty() }
 
-    private fun search(title: String, artist: String, durationMs: Long): Hit? {
+    private suspend fun search(title: String, artist: String, durationMs: Long): Hit? {
         val url = "${BASE}search.json".toHttpUrl().newBuilder()
             .addQueryParameter("q", "$title $artist".trim())
             .build()

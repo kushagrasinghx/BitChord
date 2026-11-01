@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://bitchord.tv/bitchord"
+        version="1.9.0"
+        viewmodes="maximized">
+    <tizen:application id="BitchordTV.BitChord" exec="index.html" screen-orientation="landscape" required_version="3.0"/>
+    <name>BitChord TV</name>
+    <description>BitChord TV for Samsung Tizen OS - Lossless Music &amp; Bit-Perfect Audio</description>
+    <author href="https://github.com/mandy321/BitChord" email="mtewatia67@gmail.com">BitChord Team</author>
+    <icon src="icon.png"/>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <feature name="http://tizen.org/feature/network.internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/avplay"/>
+    <tizen:profile name="tv-samsung"/>
+    <tizen:setting screen-orientation="landscape" context-menu="enable" background-support="enable" encryption="disable" install-location="auto"/>
+    <access origin="*" subdomains="true"/>
+    <tizen:allow-navigation>*</tizen:allow-navigation>
+</widget>

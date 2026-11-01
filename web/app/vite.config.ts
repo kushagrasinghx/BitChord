@@ -27,6 +27,7 @@ function requirePartyServer(mode: string): void {
 export default defineConfig(({ command, mode }) => {
   if (command === 'build') requirePartyServer(mode);
   return {
+    base: './',
     plugins: [react(), tailwindcss()],
     define: {
       DEV_EXTENSION_ID: JSON.stringify(devExtensionId()),

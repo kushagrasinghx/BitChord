@@ -216,7 +216,7 @@ object SourceRegistry {
                 when {
                     config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
                     config.kind == SourceKind.JIOSAAVN && forceJioSaavnOff -> config.copy(enabled = false)
-                    prebaked != null -> if (!prebaked.enabled) config.copy(enabled = false) else config
+                    prebaked != null -> config.copy(enabled = prebaked.enabled)
                     else -> config
                 }
             }

@@ -338,14 +338,21 @@ object SourceResolver {
      * The first acceptable answer still wins (see [bestAcross]), so two addons
      * cost the quicker one's time, not the slower one's.
      */
-    suspend fun directStream(target: TrackMatcher.Target): SourceStream? {
+    suspend fun directStream(target: TrackMatcher.Target, videoId: String? = null): SourceStream? {
         if (target.title.isBlank() || target.isVideo) return null
+        val dur = target.durationSec
+        val enrichedTarget = if (dur == null || dur <= 0) {
+            val known = videoId?.let { KnownTrackDurations.get(it) }
+            if (known != null && known > 0) target.copy(durationSec = known) else target
+        } else {
+            target
+        }
         val addons = directAddons()
         if (addons.isEmpty()) return null
-        val (source, stream) = bestAcross(addons, target, requestForNow()) ?: return null
+        val (source, stream) = bestAcross(addons, enrichedTarget, requestForNow()) ?: return null
         TrackLog.d(
             TAG,
-            "direct: '${target.title}' from ${source.displayName} at ${stream.format.summary}" +
+            "direct: '${enrichedTarget.title}' from ${source.displayName} at ${stream.format.summary}" +
                 if (stream.belowRequest) " (below request)" else "",
         )
         return stream

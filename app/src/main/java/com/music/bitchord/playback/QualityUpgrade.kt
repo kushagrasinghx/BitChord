@@ -288,7 +288,7 @@ object QualityUpgrade {
         // it had to start on YouTube is still looked for, as it is with the
         // setting off. Asking by hand always works: that is the listener
         // overruling the copy, not a background hunt.
-        if (mediaId !in handAsked && DirectSourceGate.isActive() && !StreamChoice.isYouTube(mediaId)) {
+        if (mediaId !in handAsked && DirectSourceGate.isActive() && StreamChoice.isSubstitute(mediaId)) {
             return false
         }
         // Same widening as [settledForLess]: a track playing off the cache is
@@ -710,6 +710,7 @@ object QualityUpgrade {
         handAsked += mediaId
         asked -= mediaId
         refused -= mediaId
+        shelved.remove(mediaId)
     }
 
     /**

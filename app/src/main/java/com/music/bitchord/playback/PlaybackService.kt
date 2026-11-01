@@ -3654,6 +3654,7 @@ class PlaybackService : MediaLibraryService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        mediaItem?.mediaId?.let { DirectSourceGate.onPlaying(setOf(it)) }
         syncBoundedContextCursor(exoPlayer, mediaItem)
         if (boundedContextWindow != null && !ListenTogether.state.value.inParty) {
             saveBoundedContextSnapshot(exoPlayer)
@@ -4220,21 +4221,24 @@ class PlaybackService : MediaLibraryService() {
         val fallback = item.toYouTubeFallbackMediaItem() ?: return false
         val mediaId = item.mediaId
 
+        val networkFault = isNetworkFault(error)
         QualityUpgrade.forget(mediaId)
-        QualityUpgrade.refuseUpgrades(mediaId)
-        videoId?.let {
-            StreamChoice.refuseSubstitutes(it)
-            StreamChoice.forget(it)
+        if (!networkFault) {
+            QualityUpgrade.refuseUpgrades(mediaId)
+            videoId?.let {
+                StreamChoice.refuseSubstitutes(it)
+                StreamChoice.forget(it)
+            }
+        } else {
+            videoId?.let { StreamChoice.forget(it) }
         }
         NerdStats.clearDeclared(mediaId)
         recoveries.remove(mediaId)
         TrackLog.w(
             "BitChord",
-            "$mediaId failed on a higher-quality source; falling back to YouTube audio",
+            "$mediaId failed on a higher-quality source; falling back to YouTube audio (networkFault=$networkFault)",
             about = mediaId,
         )
-
-        val networkFault = isNetworkFault(error)
         scope.launch(TrackLog.about(mediaId)) {
             delay(RECOVERY_DELAY_MS)
             withContext(Dispatchers.IO) { AudioCache.discard(playbackUri, keepComplete = networkFault) }
@@ -4707,6 +4711,8 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         OriginalVersion.unpin(mediaId)
+        StreamChoice.allowSubstitutes(mediaId)
+        StreamChoice.forget(mediaId)
         // A manual retry is a request for the addon's state *now*. In
         // particular, do not replay a successful empty search cached while one
         // of the addon's upstreams was unavailable or reuse an earlier stream

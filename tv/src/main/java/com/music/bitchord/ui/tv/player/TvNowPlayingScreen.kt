@@ -296,6 +296,22 @@ fun TvNowPlayingScreen(
                 onToggleUpNext = { upNextOpen = !upNextOpen },
                 onMore = { sheet = PlayerSheet.Menu },
                 onUpgradeHiFi = { mediaController?.upgradeQuality() },
+                shuffle = shuffle,
+                repeatMode = playerState.repeatMode,
+                autoplay = autoplay,
+                onToggleShuffle = { mediaController?.toggleShuffle() },
+                onCycleRepeat = {
+                    mediaController?.let {
+                        val next = when (it.repeatMode) {
+                            Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                            Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                            else -> Player.REPEAT_MODE_OFF
+                        }
+                        AppSettings.setRepeatMode(next)
+                        it.repeatMode = next
+                    }
+                },
+                onToggleAutoplay = { mediaController?.toggleAutoplay() },
                 upNext = {
                     TvUpNext(
                         queue = playerState.queue,

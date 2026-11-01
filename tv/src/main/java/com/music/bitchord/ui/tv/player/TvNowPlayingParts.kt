@@ -90,6 +90,7 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlaybackPosition
+import com.music.bitchord.playback.StreamChoice
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.ic_dolby_atmos
 import com.music.bitchord.sharedui.resources.ic_lossless
@@ -379,6 +380,12 @@ internal fun TvTransport(
     onToggleUpNext: () -> Unit,
     onMore: () -> Unit,
     onUpgradeHiFi: () -> Unit,
+    shuffle: Boolean = false,
+    repeatMode: Int = Player.REPEAT_MODE_OFF,
+    autoplay: Boolean = true,
+    onToggleShuffle: () -> Unit = {},
+    onCycleRepeat: () -> Unit = {},
+    onToggleAutoplay: () -> Unit = {},
     upNext: @Composable () -> Unit,
 ) {
     val showStats by AppSettings.showNerdStats.collectAsState()
@@ -386,6 +393,7 @@ internal fun TvTransport(
     val racingLossless by NerdStats.racingLossless.collectAsState()
     val isUpgrading = song.videoId in racingLossless
     val isAlreadyLossless = stats?.let { it.isLossless || it.isHiRes || it.isDolbyAtmos } == true
+    val buttonsFocus = remember { FocusRequester() }
 
     Column(
         modifier = Modifier
@@ -413,18 +421,68 @@ internal fun TvTransport(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(11.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (!isAlreadyLossless) {
                     TvUpgradePill(
                         isUpgrading = isUpgrading,
                         onClick = onUpgradeHiFi,
+                        modifier = Modifier.onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                                scrubberFocus.requestFocus(); true
+                            } else false
+                        },
                     )
                 }
+                TvTransportButton(
+                    icon = BitChordIcons.Shuffle,
+                    contentDescription = "Shuffle",
+                    active = shuffle,
+                    onClick = onToggleShuffle,
+                    modifier = Modifier
+                        .focusRequester(buttonsFocus)
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                                scrubberFocus.requestFocus(); true
+                            } else false
+                        },
+                )
+                TvTransportButton(
+                    icon = if (repeatMode == Player.REPEAT_MODE_ONE) null else BitChordIcons.Repeat,
+                    contentDescription = when (repeatMode) {
+                        Player.REPEAT_MODE_ONE -> "Repeat One"
+                        Player.REPEAT_MODE_ALL -> "Repeat All"
+                        else -> "Repeat Off"
+                    },
+                    active = repeatMode != Player.REPEAT_MODE_OFF,
+                    badge = if (repeatMode == Player.REPEAT_MODE_ONE) "1" else null,
+                    onClick = onCycleRepeat,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
+                )
+                TvTransportButton(
+                    icon = BitChordIcons.Infinity,
+                    contentDescription = "Autoplay",
+                    active = autoplay,
+                    onClick = onToggleAutoplay,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
+                )
                 TvTransportButton(
                     icon = if (isLiked) BitChordIcons.StarFilled else BitChordIcons.Star,
                     contentDescription = if (isLiked) "Unfavorite" else "Favorite",
                     onClick = onToggleLike,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
                 )
                 TvTransportButton(
                     icon = BitChordIcons.LyricsQuote,
@@ -432,17 +490,32 @@ internal fun TvTransport(
                     active = lyricsOn,
                     enabled = lyricsAvailable,
                     onClick = onToggleLyrics,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
                 )
                 TvTransportButton(
                     icon = BitChordIcons.Queue,
                     contentDescription = "Up Next",
                     active = upNextOpen,
                     onClick = onToggleUpNext,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
                 )
                 TvTransportButton(
                     icon = Icons.Rounded.MoreHoriz,
                     contentDescription = "More",
                     onClick = onMore,
+                    modifier = Modifier.onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                            scrubberFocus.requestFocus(); true
+                        } else false
+                    },
                 )
             }
         }
@@ -457,6 +530,7 @@ internal fun TvTransport(
             onScrub = onScrub,
             onSelect = onSelectOnScrubber,
             onDown = onOpenUpNext,
+            onUp = { buttonsFocus.requestFocus() },
         )
         AnimatedVisibility(
             visible = upNextOpen,
@@ -481,11 +555,12 @@ private fun TvTransportButton(
     enabled: Boolean = true,
     size: androidx.compose.ui.unit.Dp = 37.dp,
     badge: String? = null,
+    modifier: Modifier = Modifier,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(size)
             .graphicsLayer { alpha = if (enabled) 1f else 0.4f }
             .tvLift(interaction, CircleShape, focusedScale = 1.1f, elevation = 10.dp)
@@ -586,6 +661,7 @@ private fun TvScrubber(
     onScrub: (Long) -> Unit,
     onSelect: () -> Unit,
     onDown: () -> Unit,
+    onUp: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -606,6 +682,7 @@ private fun TvScrubber(
                     when (event.nativeKeyEvent.keyCode) {
                         KeyEvent.KEYCODE_DPAD_LEFT -> { onScrub(-10_000L); true }
                         KeyEvent.KEYCODE_DPAD_RIGHT -> { onScrub(10_000L); true }
+                        KeyEvent.KEYCODE_DPAD_UP -> { onUp?.invoke(); true }
                         KeyEvent.KEYCODE_DPAD_DOWN -> { onDown(); true }
                         KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
                             onSelect(); true
@@ -887,6 +964,7 @@ internal fun TvUpNext(
         } else {
             val indexed = remember(upcoming) { upcoming.withIndex().toList() }
             val hideYoutubeThumbnails by TvSettings.tvHideYoutubeThumbnails.collectAsState()
+            val streamChoices by StreamChoice.choicesFlow.collectAsState()
             TvRow(
                 items = indexed,
                 key = { "${it.value.videoId}#${it.index}" },
@@ -898,6 +976,16 @@ internal fun TvUpNext(
             ) { i, entry ->
                 val cardArtUrl = AppleArtworkRepository.cached(entry.value)?.artworkUrl
                     ?: if (!hideYoutubeThumbnails || !isYouTubeThumbnailUrl(entry.value.thumbnailUrl)) entry.value.thumbnailUrl else null
+                val format = streamChoices[entry.value.videoId]
+                val badge = when {
+                    format?.isDolbyAtmos == true -> "ATMOS"
+                    format?.isLossless == true -> {
+                        val rate = format.sampleRateHz ?: 0
+                        val depth = format.bitDepth ?: 0
+                        if (rate > 48000 || depth > 16) "HI-RES" else "LOSSLESS"
+                    }
+                    else -> null
+                }
                 TvLockup(
                     title = entry.value.title,
                     subtitle = entry.value.artist,
@@ -905,6 +993,28 @@ internal fun TvUpNext(
                     width = 99.dp,
                     onClick = { onJump(currentIndex + 1 + i) },
                     modifier = if (i == 0) Modifier.focusRequester(firstCardFocus) else Modifier,
+                    overlay = if (badge != null) {
+                        {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .padding(5.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(Color.Black.copy(alpha = 0.76f))
+                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                            ) {
+                                Text(
+                                    text = badge,
+                                    style = TvType.Caption.copy(
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.4.sp,
+                                    ),
+                                    color = if (badge == "HI-RES") Color(0xFFFFD54F) else Color.White,
+                                )
+                            }
+                        }
+                    } else null,
                 )
             }
         }

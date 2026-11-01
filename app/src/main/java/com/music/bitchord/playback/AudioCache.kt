@@ -189,13 +189,16 @@ object AudioCache {
      * [StreamResolver][com.music.bitchord.data.innertube.StreamResolver]'s
      * extraction gate, which serialises what is left of that.
      */
-    private const val QUEUE_LOOKAHEAD = 1
+    /**
+     * Number of upcoming tracks to resolve metadata and match against lossless addons in advance.
+     */
+    const val QUEUE_METADATA_LOOKAHEAD = 5
 
     /** Spacing between queued resolves, so warming the queue never competes with the track actually playing. */
-    private const val QUEUE_RESOLVE_STAGGER_MS = 500L
+    private const val QUEUE_RESOLVE_STAGGER_MS = 350L
 
     /** How many upcoming tracks are worth gathering for [prefetchQueue] — the caller doesn't need to know why. */
-    const val QUEUE_DEPTH = QUEUE_LOOKAHEAD + 1
+    const val QUEUE_DEPTH = QUEUE_METADATA_LOOKAHEAD
 
     private lateinit var cache: SimpleCache
 
@@ -1404,77 +1407,67 @@ object AudioCache {
         // whenever the modules are slow, and warming it here is what makes the
         // race worth running at all.
         val substitutable = SourceResolver.canSubstituteForYouTube()
-        job = videoIds.firstOrNull()?.let { next ->
-            val target = upcoming.firstOrNull { it.mediaId == next }?.target
-            // A track the listener reverted plays from its own `#original`
-            // rendition — see [OriginalVersion] — while read-ahead builds its
-            // spec from an id alone and so writes under the plain key. Every
-            // byte of that would land in an entry playback is never going to
-            // read, and pinning a substitute for it would pin a source it is
-            // never going to use. The URL half below is still worth having: a
-            // reverted track resolves through YouTube, which is what it warms.
-            val pinnedToYouTube = OriginalVersion.isPinned(next)
-            scope.launch {
-                // With substitution on, the *bytes* half above used to be
-                // switched off outright, and the paragraph explaining why is
-                // still correct as far as it goes: read-ahead resolving to
-                // YouTube on its own would write Opus into the entry a
-                // higher-ranked source is about to fill.
-                //
-                // What it treated as impossible was knowing the answer in
-                // advance. A quick source can be asked *here* — see
-                // [SourceResolver.prefetchSubstitute] — and once its stream is
-                // recorded in [StreamChoice], the question stops being open:
-                // every later resolve for this track, read-ahead's own included,
-                // is held to that one stream. Both writers then agree on the
-                // file and on the `#alt` key it lands under, which is exactly
-                // the condition the byte half was missing.
-                //
-                // A source that is disabled, doesn't have the track, or fails
-                // leaves nothing pinned, and this falls through to the same
-                // URL-only warm-up it did before — YouTube resolves the track at
-                // playback time as usual.
-                // Not over an entry YouTube's own bytes already fill, from an
-                // earlier play: the player reads that head straight off disk,
-                // and the pin would then stream the substitute after it. That
-                // track's way up is the second look — see [heldByYouTube].
-                val youTubeFilled = heldByYouTube(cacheKeyOf(Uri.parse("bitchord://watch?v=$next")))
-                val warmed = if (substitutable && target != null && !pinnedToYouTube && !youTubeFilled) {
-                    runCatching { SourceResolver.prefetchSubstitute(target) }
-                        .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $next: ${it.message}", about = next) }
-                        .getOrNull()
-                        ?.also { StreamChoice.remember(next, it, substituted = true) }
-                } else {
-                    null
-                }
-                // Safe to fill for the same reason in both cases: either nothing
-                // outranks YouTube and read-ahead is the only writer, or a
-                // source has been pinned and every writer now resolves to it.
-                //
-                // For lossless module streams, we keep the URL-only resolution in
-                // StreamChoice and intentionally avoid pulling the full multi-megabyte
-                // FLAC bytes into the local disk cache ahead of time.
-                val isLossless = warmed?.format?.isLossless == true
-                val cacheBytes = (!substitutable || (warmed != null && !isLossless)) && !pinnedToYouTube
-                if (cacheBytes) {
-                    launch(TrackLog.about(next)) {
-                        delay(PREFETCH_DELAY_MS)
-                        fetch(next, 0, PRELOAD_BYTES)
-                        fetchWhole(next)
+        val directGate = DirectSourceGate.isActive()
+        val candidates = videoIds.take(QUEUE_DEPTH)
+        if (candidates.isEmpty()) return
+
+        job = scope.launch {
+            val head = candidates.first()
+            val headTarget = upcoming.firstOrNull { it.mediaId == head }?.target
+            val headPinned = OriginalVersion.isPinned(head)
+            val headYouTubeFilled = heldByYouTube(cacheKeyOf(Uri.parse("bitchord://watch?v=$head")))
+
+            val headWarmed = if (StreamChoice.of(head) != null) {
+                StreamChoice.of(head)
+            } else if (substitutable && headTarget != null && !headPinned && !headYouTubeFilled && !StreamChoice.hasNoLosslessMatch(head)) {
+                runCatching { SourceResolver.prefetchSubstitute(headTarget, head) }
+                    .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $head: ${it.message}", about = head) }
+                    .getOrNull()
+                    ?.also { StreamChoice.remember(head, it, substituted = true) }
+                    ?: run {
+                        StreamChoice.rememberNoLosslessMatch(head)
+                        null
                     }
-                }
-                launch {
+            } else {
+                null
+            }
+
+            val isHeadLossless = headWarmed?.format?.isLossless == true
+            val cacheBytes = !directGate && (!substitutable || (headWarmed != null && !isHeadLossless)) && !headPinned
+            if (cacheBytes) {
+                launch(TrackLog.about(head)) {
                     delay(PREFETCH_DELAY_MS)
-                    for (id in videoIds.take(QUEUE_LOOKAHEAD + 1).let { if (cacheBytes || warmed != null) it.drop(1) else it }) {
-                        // A track already pinned to another source has no use
-                        // for a YouTube URL: nothing will ask for one, and
-                        // minting it spends a client walk to fill a cache entry
-                        // that is never read.
-                        if (id == next && warmed != null) continue
+                    fetch(head, 0, PRELOAD_BYTES)
+                    fetchWhole(head)
+                }
+            }
+
+            // Resolve and match metadata for the next few songs in queue from lossless addons
+            launch {
+                for (id in candidates) {
+                    if (id == head && headWarmed != null) continue
+                    if (OriginalVersion.isPinned(id)) continue
+
+                    if (StreamChoice.of(id) == null && !StreamChoice.hasNoLosslessMatch(id)) {
+                        val target = upcoming.firstOrNull { it.mediaId == id }?.target
+                        if (substitutable && target != null) {
+                            val warmed = runCatching { SourceResolver.prefetchSubstitute(target, id) }
+                                .onFailure { TrackLog.d(TAG, "queue metadata prefetch failed for $id: ${it.message}", about = id) }
+                                .getOrNull()
+                            if (warmed != null) {
+                                StreamChoice.remember(id, warmed, substituted = true)
+                            } else {
+                                StreamChoice.rememberNoLosslessMatch(id)
+                            }
+                        }
+                    }
+
+                    if (!directGate && StreamChoice.of(id) == null) {
                         runCatching { StreamResolver.resolve(id) }
                             .onFailure { TrackLog.d(TAG, "queue warm-up skipped $id: ${it.message}", about = id) }
-                        delay(QUEUE_RESOLVE_STAGGER_MS)
                     }
+
+                    delay(QUEUE_RESOLVE_STAGGER_MS)
                 }
             }
         }

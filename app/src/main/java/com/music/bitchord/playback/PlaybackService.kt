@@ -3770,6 +3770,7 @@ class PlaybackService : MediaLibraryService() {
 
         // currentPosition already belongs to the new item by now, so
         // the outgoing track is closed out on the last sampled value.
+        val sampledSeconds = lastPositionSeconds
         PlaybackTracker.onTrackChanged(lastPositionSeconds)
         lastPositionSeconds = 0
 
@@ -3796,6 +3797,16 @@ class PlaybackService : MediaLibraryService() {
         val prevStart = listenBrainzStartMs
         if (prevSong != null && ended && prevStart > 0L) {
             submitListenBrainzFinished(prevSong, prevStart, listenBrainzDurationMs)
+        }
+        if (prevSong != null) {
+            if (!ended && sampledSeconds < 25L) {
+                RecommendationTaste.recordSkip(prevSong)
+            } else if (ended || sampledSeconds >= 45L) {
+                RecommendationTaste.recordCompletion(prevSong)
+            }
+        }
+        if (newSong != null) {
+            RecommendationTaste.recordSessionTrack(newSong)
         }
         listenBrainzSong = newSong
         listenBrainzStartMs = if (exoPlayer.isPlaying) System.currentTimeMillis() else 0L
@@ -6430,13 +6441,8 @@ class PlaybackService : MediaLibraryService() {
      * tracks is more than it does anything with, but it decides that, not this.
      */
     private fun prefetchAround(player: ExoPlayer) {
-        // Direct Source Stream reads ahead from its own window instead — see
-        // [driveDirectWindow]. Anything the ordinary read-ahead had running
-        // for the old queue is dropped with it.
         if (DirectSourceGate.isActive()) {
             driveDirectWindow()
-            if (preferredPrefetchRequest != null) cancelPrefetch()
-            return
         }
         val nextIndex = player.nextMediaItemIndex
         val upcomingSongs = if (nextIndex != C.INDEX_UNSET) {

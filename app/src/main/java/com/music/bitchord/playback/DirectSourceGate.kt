@@ -198,6 +198,7 @@ object DirectSourceGate {
      * and the caller falls back to YouTube and says so with [startedOnYouTube].
      */
     suspend fun lookup(videoId: String, target: TrackMatcher.Target): SourceStream? {
+        StreamChoice.of(videoId)?.let { return it }
         val fresh = Lookup(
             work = scope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
                 SourceResolver.directStream(target)

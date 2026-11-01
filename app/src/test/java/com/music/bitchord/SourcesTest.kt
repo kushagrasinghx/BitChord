@@ -627,6 +627,38 @@ class SourcesTest {
     }
 
     @Test
+    fun `dead and retired addons are pruned from stored sources`() {
+        val deadAddon = SourceConfig(
+            id = "gg.gglos.addon",
+            kind = SourceKind.ADDON,
+            baseUrl = "https://gglos.geisselgottes.cfd/manifest.json",
+            enabled = true,
+        )
+        val deadHost = SourceConfig(
+            id = "custom.dead.host",
+            kind = SourceKind.ADDON,
+            baseUrl = "https://lastbabe.de.deplexo.com/manifest.json",
+            enabled = true,
+        )
+        val validAddon = SourceConfig(
+            id = "dev.akira.bitchord-hires",
+            kind = SourceKind.ADDON,
+            baseUrl = "https://bitchord-hires-addon.vercel.app/manifest.json",
+            enabled = true,
+        )
+
+        val initialized = SourceRegistry.sourcesForInit(
+            listOf(deadAddon, deadHost, validAddon),
+            forceJioSaavnOff = false,
+        )
+
+        assertFalse(initialized.any { it.id == "gg.gglos.addon" })
+        assertFalse(initialized.any { it.baseUrl.contains("lastbabe") })
+        assertTrue(initialized.any { it.id == "dev.akira.bitchord-hires" })
+        assertEquals(5, SourceRegistry.PREBAKED_SOURCES.size)
+    }
+
+    @Test
     fun `disabled JioSaavn and addons are excluded from the source list used by downloads`() {
         val disabledJio = SourceConfig(kind = SourceKind.JIOSAAVN, enabled = false)
         val disabledAddon = SourceConfig(

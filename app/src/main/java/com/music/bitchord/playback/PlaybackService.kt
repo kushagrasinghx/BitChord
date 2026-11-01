@@ -3660,7 +3660,11 @@ class PlaybackService : MediaLibraryService() {
         AudioOutputStatus.onTrackTransition()
         // The entry this track is read from now counts as played — the only
         // kind the Cached songs folder lists. See [AudioCache.Origin].
-        mediaItem?.let { AudioCache.notePlayed(it.toSong(), it.localConfiguration?.uri) }
+        mediaItem?.let {
+            val song = it.toSong()
+            AudioCache.notePlayed(song, it.localConfiguration?.uri)
+            com.music.bitchord.data.RecentTracksStore.recordPlay(applicationContext, song)
+        }
         scheduleForeignCachePurge()
         mediaItem?.mediaId?.let { id ->
             resolveLocalBitrate(id, mediaItem)

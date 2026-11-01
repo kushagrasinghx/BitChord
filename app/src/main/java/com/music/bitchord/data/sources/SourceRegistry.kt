@@ -161,7 +161,25 @@ object SourceRegistry {
         // default is the policy: JioSaavn off, YouTube on.
         fun String.normalizeUrl(): String = this.trim().trimEnd('/').removeSuffix("/manifest.json")
 
-        val updatedStored = stored.map { s ->
+        val deadSourceIds = setOf(
+            "gg.gglos.addon",
+            "gglos.ggottes.s1",
+            "app.bitchord.lossless-bridge",
+            "botkeep.bppcaf.addon",
+        )
+        val deadHostPatterns = listOf(
+            "gglos",
+            "losslessbridge",
+            "bppcaf",
+            "lastbabe",
+        )
+
+        // Purge dead, offline, or retired addons from existing storage
+        val cleanStored = stored.filterNot { s ->
+            s.id in deadSourceIds || deadHostPatterns.any { s.baseUrl.contains(it, ignoreCase = true) }
+        }
+
+        val updatedStored = cleanStored.map { s ->
             val sNorm = s.baseUrl.normalizeUrl()
             val match = PREBAKED_SOURCES.firstOrNull { it.id == s.id || it.baseUrl.normalizeUrl() == sNorm }
                 ?: if (s.baseUrl.contains("qobuz") && (s.baseUrl.contains("vercel") || s.baseUrl.contains("soundfean"))) {
@@ -636,42 +654,6 @@ object SourceRegistry {
             label = "Eljohnzc Monochrome (24-bit Lossless)",
             baseUrl = "https://eljohnzc-mono.de.deplexo.com/manifest.json",
             enabled = true,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "gg.gglos.addon",
-            kind = SourceKind.ADDON,
-            label = "GGLOS (Lossless & Atmos)",
-            baseUrl = "https://gglos.geisselgottes.cfd/manifest.json",
-            enabled = false,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "gglos.ggottes.s1",
-            kind = SourceKind.ADDON,
-            label = "GGLOS S1 (Backup)",
-            baseUrl = "https://gglos.ggottes.deno.net/s1/manifest.json",
-            enabled = false,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "app.bitchord.lossless-bridge",
-            kind = SourceKind.ADDON,
-            label = "Lossless Bridge",
-            baseUrl = "https://losslessbridge.de.deplexo.com/manifest.json",
-            enabled = false,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "botkeep.bppcaf.addon",
-            kind = SourceKind.ADDON,
-            label = "BPCAF Lossless",
-            baseUrl = "https://bppcaf.bot-keep.xyz/manifest.json",
-            enabled = false,
             allowDownloads = true,
             checkValidLossless = false,
         ),

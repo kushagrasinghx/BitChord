@@ -3,6 +3,8 @@ package com.music.bitchord.data
 import android.content.Context
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.ShelfItem
+import com.music.bitchord.data.model.ShelfLayout
+import com.music.bitchord.data.model.shelfLayoutFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -29,6 +31,7 @@ object HomeFeedCache {
                 val subtitle = obj.optString("subtitle", "")
                 val moreBrowseId = obj.optString("moreBrowseId").takeIf { it.isNotBlank() }
                 val moreParams = obj.optString("moreParams").takeIf { it.isNotBlank() }
+                val layoutStr = obj.optString("layout", "")
                 val itemsArray = obj.optJSONArray("items") ?: JSONArray()
                 val items = mutableListOf<ShelfItem>()
                 for (j in 0 until itemsArray.length()) {
@@ -40,8 +43,14 @@ object HomeFeedCache {
                             thumbnailUrl = itemObj.optString("thumbnailUrl").takeIf { it.isNotBlank() },
                             videoId = itemObj.optString("videoId").takeIf { it.isNotBlank() },
                             browseId = itemObj.optString("browseId").takeIf { it.isNotBlank() },
+                            isVideo = itemObj.optBoolean("isVideo", false),
                         )
                     )
+                }
+                val layout = if (layoutStr.isNotBlank()) {
+                    runCatching { ShelfLayout.valueOf(layoutStr) }.getOrDefault(ShelfLayout.CARDS)
+                } else {
+                    shelfLayoutFor(title, items, fromList = false)
                 }
                 if (title.isNotBlank() && items.isNotEmpty()) {
                     shelves.add(
@@ -51,6 +60,7 @@ object HomeFeedCache {
                             subtitle = subtitle,
                             moreBrowseId = moreBrowseId,
                             moreParams = moreParams,
+                            layout = layout,
                         )
                     )
                 }
@@ -67,6 +77,7 @@ object HomeFeedCache {
                 val obj = JSONObject()
                 obj.put("title", shelf.title)
                 obj.put("subtitle", shelf.subtitle)
+                obj.put("layout", shelf.layout.name)
                 shelf.moreBrowseId?.let { obj.put("moreBrowseId", it) }
                 shelf.moreParams?.let { obj.put("moreParams", it) }
                 val itemsArray = JSONArray()
@@ -74,6 +85,7 @@ object HomeFeedCache {
                     val itemObj = JSONObject()
                     itemObj.put("title", item.title)
                     itemObj.put("subtitle", item.subtitle)
+                    itemObj.put("isVideo", item.isVideo)
                     item.thumbnailUrl?.let { itemObj.put("thumbnailUrl", it) }
                     item.videoId?.let { itemObj.put("videoId", it) }
                     item.browseId?.let { itemObj.put("browseId", it) }

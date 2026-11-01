@@ -1553,14 +1553,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * vanish because a track started playing.
      */
     private fun refreshHomeRecents() {
-        if (!_signedIn.value) return
         val identity = listenerKey()
         val generation = homeLoadGeneration.get()
         viewModelScope.launch {
-            YtMusicRepository.homeRecentlyPlayed().onSuccess { shelf ->
-                // A full load that started meanwhile fetches Recents itself.
-                if (!isCurrentHomeLoad(identity, generation)) return@onSuccess
-                shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+            if (_signedIn.value) {
+                val res = YtMusicRepository.homeRecentlyPlayed()
+                if (res.isSuccess) {
+                    val shelf = res.getOrNull()
+                    if (isCurrentHomeLoad(identity, generation)) {
+                        shelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+                    }
+                    return@launch
+                }
+            }
+            val localShelf = com.music.bitchord.data.RecentTracksStore.asHomeShelf(getApplication())
+            if (localShelf != null && isCurrentHomeLoad(identity, generation)) {
+                publishHomeShelves(listOf(localShelf), prepend = true)
             }
         }
     }
@@ -1714,12 +1722,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun loadHome() {
         val identity = listenerKey()
         val generation = homeLoadGeneration.incrementAndGet()
-        // Serve cached Home feed immediately for near-instant UI load on startup
+        // Serve cached Home feed and local Recents immediately for near-instant UI load on startup
         if (_home.value !is UiState.Success) {
             viewModelScope.launch {
                 val cached = com.music.bitchord.data.HomeFeedCache.read(getApplication())
-                if (cached != null && isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
-                    _home.value = UiState.Success(cached)
+                val localRecentShelf = com.music.bitchord.data.RecentTracksStore.asHomeShelf(getApplication())
+                val initialShelves = when {
+                    localRecentShelf != null && cached != null -> {
+                        listOf(localRecentShelf) + cached.filterNot {
+                            it.title.equals("Recents", ignoreCase = true) ||
+                            it.title.equals("Recently played", ignoreCase = true) ||
+                            it.title.equals("Jump Back In", ignoreCase = true)
+                        }
+                    }
+                    localRecentShelf != null -> listOf(localRecentShelf)
+                    cached != null -> cached
+                    else -> null
+                }
+                if (initialShelves != null && isCurrentHomeLoad(identity, generation) && _home.value !is UiState.Success) {
+                    _home.value = UiState.Success(initialShelves)
                 }
             }
         }
@@ -1760,8 +1781,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         }
                         .onFailure {
-                            if (isCurrentHomeLoad(identity, generation)) _homeRecentlyPlayedLoading.value = false
+                            if (isCurrentHomeLoad(identity, generation)) {
+                                _homeRecentlyPlayedLoading.value = false
+                                val localShelf = com.music.bitchord.data.RecentTracksStore.asHomeShelf(getApplication())
+                                localShelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+                            }
                         }
+                }
+            } else {
+                launch {
+                    val localShelf = com.music.bitchord.data.RecentTracksStore.asHomeShelf(getApplication())
+                    if (isCurrentHomeLoad(identity, generation)) {
+                        _homeRecentlyPlayedLoading.value = false
+                        localShelf?.let { publishHomeShelves(listOf(it), prepend = true) }
+                    }
                 }
             }
             YtMusicRepository.HOME_SUPPLEMENT_BROWSE_IDS.forEach { browseId ->
@@ -1880,23 +1913,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun publishHomeShelves(shelves: List<HomeShelf>, prepend: Boolean = false) {
         val existing = (_home.value as? UiState.Success)?.data.orEmpty()
-        if (prepend) {
+        val updated = if (prepend) {
             // YouTube's core home can also contain a stale "Recently played"
             // shelf. The dedicated history endpoint wins and replaces it.
             val replacing = shelves.map { it.title.lowercase(Locale.ROOT) }.toSet()
             homeSeenTitles.addAll(replacing)
-            _home.value = UiState.Success(shelves + existing.filterNot {
+            shelves + existing.filterNot {
                 it.title.lowercase(Locale.ROOT) in replacing
-            })
-            return
+            }
+        } else {
+            val added = shelves.withoutRepeatsOf(existing)
+                .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
+            if (added.isEmpty()) return
+            existing + added
         }
-        val added = shelves.withoutRepeatsOf(existing)
-            .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
-        if (added.isNotEmpty()) {
-            val updated = existing + added
-            _home.value = UiState.Success(updated)
-            viewModelScope.launch { com.music.bitchord.data.HomeFeedCache.write(getApplication(), updated) }
-        }
+        _home.value = UiState.Success(updated)
+        viewModelScope.launch { com.music.bitchord.data.HomeFeedCache.write(getApplication(), updated) }
     }
 
     /** Refreshes the core feed without blanking the current Play page first. */

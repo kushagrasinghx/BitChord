@@ -44,9 +44,8 @@ object BiniLyrics {
      *
      * The search is small — a couple of hundred bytes — and it is the only
      * request any source here makes whose answer is useful to the *other*
-     * sources. [LyricsRepository] runs it on its own, before it asks anybody
-     * for lyrics, so that everything downstream can name the recording rather
-     * than describe it.
+     * sources. [LyricsRepository] shares this request with recording-aware sources while
+     * independent sources begin their own lookups immediately.
      */
     internal suspend fun identify(
         title: String,

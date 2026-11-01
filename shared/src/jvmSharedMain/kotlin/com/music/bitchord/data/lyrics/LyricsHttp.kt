@@ -3,6 +3,13 @@ package com.music.bitchord.data.lyrics
 import com.music.bitchord.data.Http
 import kotlinx.serialization.json.Json
 import okhttp3.Request
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Response
+import java.io.IOException
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.CancellationException
+import kotlin.coroutines.resume
 import java.util.concurrent.TimeUnit
 
 /**
@@ -41,35 +48,31 @@ private val authenticatedClient by lazy {
 }
 
 /** Body of a successful GET, or null for any failure at all. */
-internal fun lyricsGet(url: String): String? = runCatching {
+internal suspend fun lyricsGet(url: String): String? = runCatching {
     val request = Request.Builder().url(url)
         .header("User-Agent", LYRICS_AGENT)
         .header("Accept", "application/json")
         .build()
-    client.newCall(request).execute().use { response ->
-        if (response.isSuccessful) response.body?.string() else null
-    }
-}.getOrNull()
+    client.newCall(request).awaitLyricsBody()
+}.getOrElse { if (it is CancellationException) throw it else null }
 
 /** Body of an authenticated provider GET without service-specific browser headers. */
-internal fun lyricsGetBearer(url: String, bearer: String): String? = runCatching {
+internal suspend fun lyricsGetBearer(url: String, bearer: String): String? = runCatching {
     if (bearer.isBlank()) return null
     val request = Request.Builder().url(url)
         .header("User-Agent", LYRICS_AGENT)
         .header("Accept", "application/json, text/plain, */*")
         .header("Authorization", "Bearer $bearer")
         .build()
-    authenticatedClient.newCall(request).execute().use { response ->
-        if (response.isSuccessful) response.body?.string() else null
-    }
-}.getOrNull()
+    authenticatedClient.newCall(request).awaitLyricsBody()
+}.getOrElse { if (it is CancellationException) throw it else null }
 
 /**
  * [lyricsGet], with a bearer token and the headers Apple's own web player
  * sends alongside one — `amp-api.music.apple.com` answers a token with no
  * `Origin` at all the same way it answers a wrong one, with a 403.
  */
-internal fun lyricsGetAuthorized(url: String, bearer: String): String? = runCatching {
+internal suspend fun lyricsGetAuthorized(url: String, bearer: String): String? = runCatching {
     val request = Request.Builder().url(url)
         .header("User-Agent", LYRICS_AGENT)
         .header("Accept", "application/json")
@@ -77,7 +80,21 @@ internal fun lyricsGetAuthorized(url: String, bearer: String): String? = runCatc
         .header("Origin", "https://music.apple.com")
         .header("Referer", "https://music.apple.com/")
         .build()
-    client.newCall(request).execute().use { response ->
-        if (response.isSuccessful) response.body?.string() else null
+    client.newCall(request).awaitLyricsBody()
+}.getOrElse { if (it is CancellationException) throw it else null }
+
+/** Abort the HTTP call as soon as its owning coroutine is cancelled. */
+internal suspend fun Call.awaitLyricsBody(): String? {
+    return suspendCancellableCoroutine { continuation ->
+        continuation.invokeOnCancellation { cancel() }
+        enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (continuation.isActive) continuation.resume(null)
+            }
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.use { if (it.isSuccessful) runCatching { it.body.string() }.getOrNull() else null }
+                if (continuation.isActive) continuation.resume(body)
+            }
+        })
     }
-}.getOrNull()
+}

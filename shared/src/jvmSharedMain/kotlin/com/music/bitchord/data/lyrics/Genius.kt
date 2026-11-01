@@ -64,10 +64,10 @@ object Genius {
     suspend fun lyrics(title: String, artist: String): List<LyricLine>? = withContext(Dispatchers.IO) {
         runCatching {
             scrapeLyrics(title, artist)
-        }.getOrNull()
+        }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else null }
     }
 
-    private fun scrapeLyrics(title: String, artist: String): List<LyricLine>? {
+    private suspend fun scrapeLyrics(title: String, artist: String): List<LyricLine>? {
         val cleanTitle = cleanQuery(title)
         val cleanArtist = cleanQuery(artist)
 
@@ -123,9 +123,9 @@ object Genius {
 
         val distinctAttempts = searchAttempts.distinctBy { it.query }
 
-        val songUrl = distinctAttempts.asSequence()
-            .mapNotNull { attempt -> searchSongUrl(attempt.query, attempt.title, attempt.artist) }
-            .firstOrNull() ?: return null
+        val songUrl = distinctAttempts.firstNotNullOfOrNull { attempt ->
+            searchSongUrl(attempt.query, attempt.title, attempt.artist)
+        } ?: return null
 
         val html = fetchHtml(songUrl)
         if (html.isNullOrBlank()) return null
@@ -138,11 +138,11 @@ object Genius {
     /**
      * Searches Genius for the track and returns the song's page URL.
      */
-    internal fun searchSongUrl(cleanTitle: String, cleanArtist: String): String? {
+    internal suspend fun searchSongUrl(cleanTitle: String, cleanArtist: String): String? {
         return searchSongUrl("$cleanArtist $cleanTitle".trim(), cleanTitle, cleanArtist)
     }
 
-    private fun searchSongUrl(query: String, targetTitle: String, targetArtist: String): String? {
+    private suspend fun searchSongUrl(query: String, targetTitle: String, targetArtist: String): String? {
         val url = "https://genius.com/api/search/multi?q=${URLEncoder.encode(query, "UTF-8")}"
         val responseBody = httpGet(url) ?: return null
 
@@ -324,19 +324,17 @@ object Genius {
         val artist: String,
     )
 
-    private fun httpGet(url: String): String? = runCatching {
+    private suspend fun httpGet(url: String): String? = runCatching {
         val request = Request.Builder()
             .url(url)
             .header("User-Agent", USER_AGENT)
             .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8")
             .header("Accept-Language", "en-US,en;q=0.9")
             .build()
-        httpClient.newCall(request).execute().use { response ->
-            if (response.isSuccessful) response.body?.string() else null
-        }
-    }.getOrNull()
+        httpClient.newCall(request).awaitLyricsBody()
+    }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else null }
 
-    private fun fetchHtml(url: String): String? = httpGet(url)
+    private suspend fun fetchHtml(url: String): String? = httpGet(url)
 
     private val TITLE_SEPARATOR by lazy { Regex("""\s*[-–—:]\s*""") }
     private val DECORATIVE_CHARS by lazy { Regex("""[♪♫★☆【】《》「」~_]""") }

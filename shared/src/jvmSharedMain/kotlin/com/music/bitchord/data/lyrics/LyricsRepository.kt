@@ -2,67 +2,166 @@ package com.music.bitchord.data.lyrics
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Collections
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
+private data class LyricsLookupKey(
+    val identity: String,
+    val sources: Set<LyricsSource>,
+    val order: List<LyricsSource>,
+    val prioritizeSyllableSync: Boolean,
+) {
+    companion object {
+        fun of(
+            videoId: String,
+            title: String,
+            artist: String,
+            durationMs: Long,
+            sources: Set<LyricsSource>,
+            order: List<LyricsSource>,
+            prioritize: Boolean,
+        ): LyricsLookupKey {
+            val identity = videoId.trim().takeIf { it.isNotEmpty() } ?: listOf(
+                title.forLyricsSearch().trim().lowercase(Locale.ROOT),
+                artist.artistForLyricsSearch().trim().lowercase(Locale.ROOT),
+                (durationMs / 1000).toString(),
+            ).joinToString("\u0000")
+            return LyricsLookupKey(identity, sources.toSet(), order.toList(), prioritize)
+        }
+    }
+}
+
+private enum class LookupStatus { STARTED, FOUND, NOT_FOUND, CANCELLED }
+private data class LookupProvider(val status: LookupStatus, val result: LyricsRepository.Result? = null)
+private data class CachedLyricsSnapshot(
+    val result: LyricsRepository.Result,
+    val providers: Map<LyricsSource, LookupProvider>,
+)
+private sealed interface LookupEvent {
+    data class Provider(val source: LyricsSource, val value: LookupProvider) : LookupEvent
+    data class Progress(val result: LyricsRepository.Result) : LookupEvent
+}
+
+private class LyricsLookupCoordinator {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val lock = Any()
+    private val cache = object : LinkedHashMap<LyricsLookupKey, CachedLyricsSnapshot>(40, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<LyricsLookupKey, CachedLyricsSnapshot>?) =
+            size > 40
+    }
+    private inner class SharedLookup(val speculative: Boolean) {
+        val listeners = mutableListOf<(LookupEvent) -> Unit>()
+        val providers = linkedMapOf<LyricsSource, LookupProvider>()
+        var progress: LyricsRepository.Result? = null
+        var cancellation: Job? = null
+        lateinit var deferred: Deferred<LyricsRepository.Result?>
+    }
+    private val inFlight = mutableMapOf<LyricsLookupKey, SharedLookup>()
+
+    suspend fun get(
+        key: LyricsLookupKey,
+        speculative: Boolean,
+        listener: (LookupEvent) -> Unit,
+        execute: suspend (Boolean, (LookupEvent) -> Unit) -> LyricsRepository.Result?,
+    ): LyricsRepository.Result? {
+        val shared: SharedLookup
+        synchronized(lock) {
+            cache[key]?.let { snapshot ->
+                snapshot.providers.forEach { (source, state) -> deliver(listener, LookupEvent.Provider(source, state)) }
+                deliver(listener, LookupEvent.Progress(snapshot.result))
+                return snapshot.result
+            }
+            shared = inFlight[key] ?: SharedLookup(speculative).also { entry ->
+                entry.deferred = scope.async(start = CoroutineStart.LAZY) {
+                    try {
+                        val result = execute(speculative) { event -> publish(entry, event) }
+                        currentCoroutineContext().ensureActive()
+                        synchronized(lock) {
+                            if (result != null) {
+                                cache[key] = CachedLyricsSnapshot(result, entry.providers.toMap())
+                            }
+                        }
+                        result
+                    } finally {
+                        synchronized(lock) {
+                            entry.cancellation?.cancel()
+                            if (inFlight[key] === entry) inFlight.remove(key)
+                        }
+                    }
+                }
+                inFlight[key] = entry
+            }
+            shared.cancellation?.cancel()
+            shared.cancellation = null
+            shared.listeners.add(listener)
+            shared.providers.forEach { (source, state) -> deliver(listener, LookupEvent.Provider(source, state)) }
+            shared.progress?.let { deliver(listener, LookupEvent.Progress(it)) }
+            shared.deferred.start()
+        }
+        try {
+            return shared.deferred.await()
+        } finally {
+            synchronized(lock) {
+                shared.listeners.remove(listener)
+                if (shared.listeners.isEmpty() && !shared.deferred.isCompleted) {
+                    if (shared.speculative) {
+                        // Allow the foreground to claim an in-flight prefetch.
+                        shared.cancellation = scope.launch {
+                            delay(500L)
+                            synchronized(lock) {
+                                if (shared.listeners.isEmpty() && inFlight[key] === shared) {
+                                    inFlight.remove(key)
+                                    shared.deferred.cancel()
+                                }
+                            }
+                        }
+                    } else {
+                        if (inFlight[key] === shared) inFlight.remove(key)
+                        shared.deferred.cancel()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun publish(shared: SharedLookup, event: LookupEvent) = synchronized(lock) {
+        when (event) {
+            is LookupEvent.Provider -> shared.providers[event.source] = event.value
+            is LookupEvent.Progress -> shared.progress = event.result
+        }
+        shared.listeners.toList().forEach { deliver(it, event) }
+    }
+
+    private fun deliver(listener: (LookupEvent) -> Unit, event: LookupEvent) {
+        try {
+            listener(event)
+        } catch (_: Exception) {
+            // A subscriber cannot interrupt the shared lookup.
+        }
+    }
+}
+
 /**
- * Where the player gets its lyrics.
- *
- * Sources tried in [order] — the user's own priority list in Settings,
- * defaulting to [LyricsSource.offered]; a [hidden][LyricsSource.hidden] one is
- * never asked, whatever the saved settings say:
- *
- *  - [LrcRed] — Apple Music TTML filed by ISRC, and the catalogue
- *    [BiniLyrics] itself answers from.
- *  - [BetterLyrics], [PaxSenix] and [BiniLyrics] — Apple Music TTML,
- *    per-syllable, from three independent hosts so one having a bad day
- *    doesn't cost the timing.
- *  - [LyricsPlus] — the YouLy+ backend; finest timing of the lot, flakiest hosting.
- *  - [SimpMusicLyrics] — keyed on the video id, so it can't fetch the wrong edit.
- *  - [Unison] — contributed rather than licensed; thin, and occasionally the
- *    only place a track exists.
- *  - [LrcLib], [Musixmatch], [KuGou] — line-synced only, but between them
- *    almost always up, and [KuGou] carries a lot that the others don't.
- *
- * Every enabled source is asked *at the same time*, but their answers are
- * taken in [order]: the loop awaits them one at a time in that sequence, so a
- * lower-priority source finishing first never preempts one still pending
- * ahead of it. Asked one after another instead, a miss on each source would
- * cost its own round trip before the next was even tried, and a track with no
- * lyrics anywhere would spend the best part of a minute finding that out with
- * eight of them. Run together, a miss costs whatever the slowest one needed
- * to still be waited on took.
- *
- * A word-timed answer wins outright. Failing that, a line-timed one is taken
- * from the highest-priority source that had it — better a whole line lighting
- * up in sync than the right animation on lyrics that don't exist.
- *
- * ### Matching on the recording
- *
- * Everything above matches a *name*, and a name is ambiguous in a way that
- * matters: a single and its album cut share a title, an artist and very nearly
- * a length, and routinely differ in the words. An ISRC names one recording and
- * settles it. Two sources accept one — [BiniLyrics] and [LyricsPlus] — and
- * [BiniLyrics] is also the one that hands them out, reporting the ISRC of
- * whatever its own search matched.
- *
- * So the recording is settled *before* anybody is asked for words: one small
- * search against [BiniLyrics], whose answer is a name every other source can
- * use. It costs a round trip at the head of the lookup, which is why it is
- * capped at [IDENTIFY_TIMEOUT_MS] and why its result is kept against the video
- * id — a track asked about twice pays for this once. A downloaded or local file
- * can skip it entirely: its own tags name the recording, which is what the
- * [isrc] parameter is for.
- *
- * Only run when the user has [LyricsSource.BINI_LYRICS] enabled. It is a
- * request to a third party like any other, and a source somebody has turned off
- * is a source this app does not contact — not even for something it would only
- * use to help the sources they left on.
+ * Retrieves lyrics from the enabled providers. Independent sources start at once;
+ * sources that can use an ISRC share a short recording-identification request.
+ * The first result is published immediately, with a short window for a better
+ * priority or word-synced result before the remaining requests are cancelled.
  */
 object LyricsRepository {
 
@@ -70,19 +169,9 @@ object LyricsRepository {
     data class Result(val source: LyricsSource, val lines: List<LyricLine>)
 
     /**
-     * [sources] is the user's pick from Settings; anything not in it is not
-     * contacted at all. An empty set means no lyrics, which is the same answer
-     * as switching the feature off. [order] is tried first-to-last; a source
-     * missing from it (an upgrade that added one after the order was last
-     * saved) falls in after everything named, in [LyricsSource]'s own order.
-     *
-     * [prioritizeSyllableSync] decides what happens once *something* has come
-     * back: off, the highest-priority source's own answer is taken as-is,
-     * word-synced or not — priority is priority, and second-guessing it with
-     * more network calls after it has already answered is not what "first"
-     * was supposed to mean. On, a merely line-synced answer is kept only as a
-     * fallback, and the search keeps going through the rest of [order] for a
-     * word-synced one, taking the top-priority source that has one.
+     * Fetch enabled sources and report provider progress. The first result is
+     * emitted via [onProgress], then better results can replace it during the
+     * grace period. Source priority and the syllable setting choose upgrades.
      */
     suspend fun lyrics(
         videoId: String,
@@ -96,13 +185,40 @@ object LyricsRepository {
         isrc: String? = null,
         /** Called from the provider job itself, including for lazily-started providers. */
         onSourceStarted: ((LyricsSource) -> Unit)? = null,
-        /**
-         * Reports a completed provider attempt. A null result is a genuine miss;
-         * a cancelled race loser is deliberately not reported as one.
-         */
+        /** Reports completed attempts; cancelled race losers are reported separately. */
         onSourceResult: ((LyricsSource, Result?) -> Unit)? = null,
         /** Lets callers turn a cancelled race loser back into "not fetched". */
         onSourceCancelled: ((LyricsSource) -> Unit)? = null,
+        onProgress: ((Result) -> Unit)? = null,
+        speculative: Boolean = false,
+    ): Result? {
+        val key = LyricsLookupKey.of(videoId, title, artist, durationMs, sources, order, prioritizeSyllableSync)
+        return coordinator.get(key, speculative, { event ->
+            when (event) {
+                is LookupEvent.Progress -> onProgress?.invoke(event.result)
+                is LookupEvent.Provider -> when (event.value.status) {
+                    LookupStatus.STARTED -> onSourceStarted?.invoke(event.source)
+                    LookupStatus.FOUND, LookupStatus.NOT_FOUND -> onSourceResult?.invoke(event.source, event.value.result)
+                    LookupStatus.CANCELLED -> onSourceCancelled?.invoke(event.source)
+                }
+            }
+        }) { background, emit ->
+            lookup(videoId, title, artist, durationMs, album, sources, order, prioritizeSyllableSync, isrc,
+                onSourceStarted = { emit(LookupEvent.Provider(it, LookupProvider(LookupStatus.STARTED))) },
+                onSourceResult = { source, result -> emit(LookupEvent.Provider(source, LookupProvider(
+                    if (result == null) LookupStatus.NOT_FOUND else LookupStatus.FOUND, result))) },
+                onSourceCancelled = { emit(LookupEvent.Provider(it, LookupProvider(LookupStatus.CANCELLED))) },
+                onProgress = { emit(LookupEvent.Progress(it)) }, speculative = background)
+        }
+    }
+
+    private val coordinator = LyricsLookupCoordinator()
+
+    private suspend fun lookup(
+        videoId: String, title: String, artist: String, durationMs: Long, album: String?,
+        sources: Set<LyricsSource>, order: List<LyricsSource>, prioritizeSyllableSync: Boolean, isrc: String?,
+        onSourceStarted: ((LyricsSource) -> Unit)?, onSourceResult: ((LyricsSource, Result?) -> Unit)?,
+        onSourceCancelled: ((LyricsSource) -> Unit)?, onProgress: ((Result) -> Unit)?, speculative: Boolean,
     ): Result? = coroutineScope {
         val sequence = (order + LyricsSource.offered)
             .distinct()
@@ -114,67 +230,76 @@ object LyricsRepository {
         val searchTitle = title.forLyricsSearch()
         val searchArtist = artist.artistForLyricsSearch()
 
-        // Settled before anyone is asked for words, so every source that can
-        // name the recording does. What the caller knows beats what we worked
-        // out last time, and both beat asking again.
         val known = isrc?.takeIf { it.isNotBlank() } ?: isrcs[videoId]
-        val hit = if (known == null) {
-            identify(videoId, searchTitle, searchArtist, durationMs, album, sequence)
-        } else {
-            null
+        // Independent sources start immediately; only recording-aware sources await this.
+        val identification = async(Dispatchers.IO) {
+            if (known == null) identify(videoId, searchTitle, searchArtist, durationMs, album, sequence)
+            else null
         }
-        val recording = known ?: hit?.isrc?.takeIf { it.isNotBlank() }
         val documents = SharedDocuments(this)
 
-        // Genius is a plain text web scraper. To preserve bandwidth and avoid rate-limiting,
-        // it starts lazily and is only contacted if all higher-priority synced sources miss.
-        val racing: List<Pair<LyricsSource, Deferred<Result?>>> = sequence.map { source ->
-            val startMode = if (source == LyricsSource.GENIUS) kotlinx.coroutines.CoroutineStart.LAZY else kotlinx.coroutines.CoroutineStart.DEFAULT
-            source to async(Dispatchers.IO, start = startMode) {
+        val completions = Channel<Pair<LyricsSource, Result?>>(Channel.UNLIMITED)
+        val racing = sequence.associateWith { source ->
+            async(Dispatchers.IO, start = if (source == LyricsSource.GENIUS || (speculative && source == LyricsSource.MUSIXMATCH)) kotlinx.coroutines.CoroutineStart.LAZY else kotlinx.coroutines.CoroutineStart.DEFAULT) {
                 onSourceStarted?.invoke(source)
                 try {
-                    val found = fetch(
-                        source,
-                        videoId,
-                        searchTitle,
-                        searchArtist,
-                        durationMs,
-                        album,
-                        recording,
-                        hit,
-                        documents::get,
-                    )?.let { result(source, it) }
+                    val found = withTimeout(4_000L) {
+                        val hit = if (source in setOf(LyricsSource.LRC_RED, LyricsSource.BINI_LYRICS, LyricsSource.LYRICS_PLUS)) identification.await() else null
+                        val recording = known ?: hit?.isrc?.takeIf { it.isNotBlank() }
+                        fetch(source, videoId, searchTitle, searchArtist, durationMs, album, recording, hit, documents::get, speculative)
+                            ?.let { result(source, it) }
+                    }
                     onSourceResult?.invoke(source, found)
-                    found
+                    completions.send(source to found)
+                } catch (_: TimeoutCancellationException) {
+                    onSourceCancelled?.invoke(source)
+                    completions.send(source to null)
                 } catch (cancelled: CancellationException) {
                     onSourceCancelled?.invoke(source)
                     throw cancelled
                 } catch (_: Exception) {
                     onSourceResult?.invoke(source, null)
-                    null
+                    completions.send(source to null)
                 }
             }
         }
-
         try {
-            var lineSynced: Result? = null
-            for ((source, job) in racing) {
-                // If we already found a line-synced or better result, skip Genius completely
-                if (lineSynced != null && source == LyricsSource.GENIUS) continue
-
-                val found = runCatching { job.await() }.getOrNull() ?: continue
-                if (found.lines.any { it.isWordSynced }) return@coroutineScope found
-                if (!prioritizeSyllableSync && found.lines.any { it.timeMs > 0 }) {
-                    return@coroutineScope found
+            val pending = sequence.toMutableSet()
+            var best: Result? = null
+            var deadline = 0L
+            while (pending.isNotEmpty()) {
+                if (pending.all { it == LyricsSource.GENIUS || (speculative && it == LyricsSource.MUSIXMATCH) }) {
+                    val currentBest = best
+                    val candidate = sequence.firstOrNull { source ->
+                        source in pending && (currentBest == null ||
+                            (speculative && sequence.indexOf(source) < sequence.indexOf(currentBest.source)))
+                    }
+                    candidate?.let { racing[it]?.start() }
                 }
-                if (lineSynced == null) lineSynced = found
+                val remaining = if (best == null) Long.MAX_VALUE else deadline - System.nanoTime() / 1_000_000L
+                if (remaining <= 0) break
+                val completed = if (best == null) completions.receive() else withTimeoutOrNull(remaining) { completions.receive() } ?: break
+                pending.remove(completed.first)
+                val found = completed.second ?: continue
+                val old = best
+                val better = old == null ||
+                    (prioritizeSyllableSync && found.lines.any { it.isWordSynced } && old.lines.none { it.isWordSynced }) ||
+                    ((!prioritizeSyllableSync || found.lines.any { it.isWordSynced } == old.lines.any { it.isWordSynced }) &&
+                        sequence.indexOf(found.source) < sequence.indexOf(old.source))
+                if (better) {
+                    best = found
+                    onProgress?.invoke(found)
+                    if (old == null) deadline = System.nanoTime() / 1_000_000L + 1_500L
+                }
+                if (best?.let { (speculative && prioritizeSyllableSync && it.lines.any { line -> line.isWordSynced }) ||
+                    (it.source == sequence.firstOrNull() && (!prioritizeSyllableSync || it.lines.any { line -> line.isWordSynced })) } == true) break
             }
-            lineSynced
+            best
         } finally {
-            // Whoever lost the race is no longer worth waiting on, and
-            // coroutineScope will not return while they are still running.
-            racing.forEach { it.second.cancel() }
+            racing.values.forEach { it.cancel() }
+            identification.cancel()
             documents.cancel()
+            completions.close()
         }
     }
 
@@ -190,12 +315,13 @@ object LyricsRepository {
         hit: BiniLyrics.Hit?,
         /** Fetches a document once per lookup, however many sources want it. */
         get: suspend (String) -> String?,
+        speculative: Boolean,
     ): List<LyricLine>? {
         val found = when (source) {
             LyricsSource.LRC_RED -> LrcRed.lyrics(title, artist, durationMs, isrc, get)
             LyricsSource.BETTER_LYRICS -> BetterLyrics.lyrics(title, artist, durationMs, album)
             LyricsSource.BETTER_LYRICS_PORTATO -> BetterLyrics.portato(title, artist, durationMs, album)
-            LyricsSource.LYRICS_PLUS -> LyricsPlus.lyrics(title, artist, durationMs, album, isrc)
+            LyricsSource.LYRICS_PLUS -> LyricsPlus.lyrics(title, artist, durationMs, album, isrc, speculative)
             LyricsSource.BINI_LYRICS ->
                 (hit?.let { BiniLyrics.lyricsFor(it, get) }
                     ?: BiniLyrics.lyrics(title, artist, durationMs, album, isrc, get))
@@ -235,10 +361,10 @@ object LyricsRepository {
      * lyrics panel sitting empty because one host is having a slow morning is a
      * worse failure than a fuzzy match.
      */
-    private const val IDENTIFY_TIMEOUT_MS = 2_500L
+    private const val IDENTIFY_TIMEOUT_MS = 2_000L
 
     /**
-     * The one request made before the race: which recording is this?
+     * Identifies the recording for providers that can use an ISRC.
      *
      * Skipped entirely when the source that answers it is switched off, and
      * given up on rather than waited out — see [IDENTIFY_TIMEOUT_MS]. What it

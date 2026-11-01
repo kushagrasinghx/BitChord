@@ -99,14 +99,14 @@ object PaxSenix {
         cachedAppleToken.get() ?: scrapeAppleToken()?.also(cachedAppleToken::set)
     }
 
-    private fun scrapeAppleToken(): String? {
+    private suspend fun scrapeAppleToken(): String? {
         val page = lyricsGet("https://music.apple.com/us/new") ?: return null
         val scriptPath = APPLE_INDEX_SCRIPT.find(page)?.value ?: return null
         val script = lyricsGet("https://music.apple.com$scriptPath") ?: return null
         return APPLE_TOKEN.find(script)?.value
     }
 
-    private fun searchTrackId(
+    private suspend fun searchTrackId(
         path: String,
         title: String,
         artist: String,
@@ -121,7 +121,7 @@ object PaxSenix {
         return bestCandidate(root, title, artist, durationMs)?.id
     }
 
-    private fun genericAuthenticatedLyrics(
+    private suspend fun genericAuthenticatedLyrics(
         title: String,
         artist: String,
         durationMs: Long,
@@ -330,7 +330,7 @@ object PaxSenix {
 
     private fun publicUrl(path: String) = "$PUBLIC_PROXY/$path".toHttpUrl().newBuilder()
 
-    private fun apiBody(url: HttpUrl): String? = apiKey.takeIf(String::isNotBlank)?.let { key ->
+    private suspend fun apiBody(url: HttpUrl): String? = apiKey.takeIf(String::isNotBlank)?.let { key ->
         lyricsGetBearer(url.toString(), key)
     }
 

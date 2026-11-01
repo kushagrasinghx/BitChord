@@ -8,6 +8,7 @@
     "build": "wxt build && wxt build -b firefox",
     "zip": "wxt zip && wxt zip -b firefox",
     "typecheck": "tsc -p . && tsc -p tsconfig.node.json",
+    "test": "vitest run --passWithNoTests",
     "dev-key": "node scripts/gen-dev-key.mjs",
     "postinstall": "wxt prepare",
     "package": "wxt build && wxt build -b firefox && node scripts/publish-to-site.mjs",
@@ -21,7 +22,8 @@
     "@types/node": "^22.0.0",
     "fflate": "0.8.3",
     "typescript": "^7.0.2",
-    "wxt": "^0.21.4"
+    "wxt": "^0.21.4",
+    "vitest": "^5.0.4"
   },
   "version": "0.4.4"
 }

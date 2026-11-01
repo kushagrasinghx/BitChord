@@ -194,10 +194,11 @@ object SourceRegistry {
         return seeded
             .filterNot { it.kind == SourceKind.MODULE }
             .map { config ->
+                val prebaked = PREBAKED_SOURCES.firstOrNull { it.id == config.id }
                 when {
                     config.kind == SourceKind.YOUTUBE && !config.enabled -> config.copy(enabled = true)
                     config.kind == SourceKind.JIOSAAVN && forceJioSaavnOff -> config.copy(enabled = false)
-                    PREBAKED_SOURCES.any { it.id == config.id } -> config.copy(enabled = true)
+                    prebaked != null -> if (!prebaked.enabled) config.copy(enabled = false) else config
                     else -> config
                 }
             }
@@ -603,10 +604,19 @@ object SourceRegistry {
             checkValidLossless = false,
         ),
         SourceConfig(
-            id = "eljohnzc.addon.mono",
+            id = "dev.bitperfect.qobuz.heisenbergg",
             kind = SourceKind.ADDON,
-            label = "Eljohnzc Monochrome (24-bit Lossless)",
-            baseUrl = "https://eljohnzc-mono.de.deplexo.com/manifest.json",
+            label = "Qobuz [Heisenbergg] (Hi-Res FLAC)",
+            baseUrl = "https://soundfean-musics.onrender.com/a/manifest.json",
+            enabled = true,
+            allowDownloads = true,
+            checkValidLossless = false,
+        ),
+        SourceConfig(
+            id = "deezer.nom",
+            kind = SourceKind.ADDON,
+            label = "Deezer Hi-Fi",
+            baseUrl = "https://deezer.nom.deno.net/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
@@ -621,10 +631,10 @@ object SourceRegistry {
             checkValidLossless = false,
         ),
         SourceConfig(
-            id = "dev.bitperfect.qobuz.heisenbergg",
+            id = "eljohnzc.addon.mono",
             kind = SourceKind.ADDON,
-            label = "Qobuz [Heisenbergg] (Hi-Res FLAC)",
-            baseUrl = "https://soundfean-musics.onrender.com/a/manifest.json",
+            label = "Eljohnzc Monochrome (24-bit Lossless)",
+            baseUrl = "https://eljohnzc-mono.de.deplexo.com/manifest.json",
             enabled = true,
             allowDownloads = true,
             checkValidLossless = false,
@@ -634,7 +644,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "GGLOS (Lossless & Atmos)",
             baseUrl = "https://gglos.geisselgottes.cfd/manifest.json",
-            enabled = true,
+            enabled = false,
             allowDownloads = true,
             checkValidLossless = false,
         ),
@@ -652,16 +662,7 @@ object SourceRegistry {
             kind = SourceKind.ADDON,
             label = "Lossless Bridge",
             baseUrl = "https://losslessbridge.de.deplexo.com/manifest.json",
-            enabled = true,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
-        SourceConfig(
-            id = "deezer.nom",
-            kind = SourceKind.ADDON,
-            label = "Deezer Hi-Fi",
-            baseUrl = "https://deezer.nom.deno.net/manifest.json",
-            enabled = true,
+            enabled = false,
             allowDownloads = true,
             checkValidLossless = false,
         ),

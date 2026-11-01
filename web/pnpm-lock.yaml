@@ -275,6 +275,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vitest:
+        specifier: ^5.0.4
+        version: 5.0.4(@types/node@22.20.5)(happy-dom@21.0.1)(vite@8.3.4(@types/node@22.20.5)(jiti@2.7.0))
       wxt:
         specifier: ^0.21.4
         version: 0.21.4(rolldown@1.2.14)(typescript@7.0.2)(vite@8.3.4(@types/node@22.20.5)(jiti@2.7.0))

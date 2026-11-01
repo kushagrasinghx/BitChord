@@ -122,10 +122,10 @@ object DirectSourceGate {
      * leaves a loader parked here.
      */
     suspend fun awaitOpen(mediaId: String) {
-        if (bypass.get() == true || !isActive() || open.value.admits(mediaId)) return
+        if (bypass.get() == true || !isActive() || open.value.admits(mediaId) || StreamChoice.isSubstitute(mediaId)) return
         TrackLog.d(TAG, "holding $mediaId until it is within ${WINDOW_MS / 1000}s of playing", about = mediaId)
         combine(open, AppSettings.directSourceStream, ListenTogether.state) { state, on, party ->
-            !on || party.inParty || state.admits(mediaId)
+            !on || party.inParty || state.admits(mediaId) || StreamChoice.isSubstitute(mediaId)
         }
             .first { it }
         TrackLog.d(TAG, "released $mediaId", about = mediaId)

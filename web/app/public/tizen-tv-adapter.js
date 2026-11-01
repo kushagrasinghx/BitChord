@@ -133,3 +133,4 @@
 
   console.log('[BitChord Tizen] Adapter ready.');
 })();
+

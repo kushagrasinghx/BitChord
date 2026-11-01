@@ -240,5 +240,5 @@ object StreamChoice {
      */
     private const val REFUSAL_MS = 10 * 60 * 1000L
 
-    private const val MAX_REMEMBERED = 32
+    private const val MAX_REMEMBERED = 128
 }

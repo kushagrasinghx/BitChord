@@ -1579,6 +1579,12 @@ class PlaybackService : MediaLibraryService() {
             // the middle of an MP4 ended up appended to a WebM. See
             // [StreamChoice].
             StreamChoice.of(videoId)?.let { serving ->
+                if (StreamChoice.isSubstitute(videoId)) {
+                    val key = AudioCache.cacheKeyOf(dataSpec.uri)
+                    if (AudioCache.heldByYouTube(key)) {
+                        AudioCache.dropYouTubeEntry(key, videoId)
+                    }
+                }
                 // What the stream claims to be, restated on every open rather
                 // than only on the one that chose it.
                 //

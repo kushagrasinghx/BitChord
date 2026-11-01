@@ -31,7 +31,7 @@ class StreamChoiceTest {
     fun reset() {
         // Ids used below, cleared both ways round so a failure can't leak into
         // the next test through the shared object.
-        (0..80).forEach { StreamChoice.forget("track-$it") }
+        (0..150).forEach { StreamChoice.forget("track-$it") }
     }
 
     @Test

@@ -20,3 +20,4 @@
     <access origin="*" subdomains="true"/>
     <tizen:allow-navigation>*</tizen:allow-navigation>
 </widget>
+

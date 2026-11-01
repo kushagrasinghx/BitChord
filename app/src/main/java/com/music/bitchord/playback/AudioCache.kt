@@ -465,6 +465,12 @@ object AudioCache {
             // that, when the swap blocked on a cache lock the outgoing reader
             // still held.
             ?.let { videoId ->
+                if (AutomixAnalysisSource.requestsYouTubeOpus(
+                        spec.uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
+                    )
+                ) {
+                    return@let videoId
+                }
                 val rendition = QualityUpgrade.cacheTag(spec.uri)
                 when {
                     rendition != null -> "$videoId#$rendition"
@@ -1255,8 +1261,12 @@ object AudioCache {
         ) {
             return
         }
-        if (!DirectSourceGate.isActive() || StreamChoice.of(videoId) != null) return
         val key = keyFactory.buildCacheKey(DataSpec(uri))
+        if (StreamChoice.isSubstitute(videoId)) {
+            if (heldByYouTube(key)) dropYouTubeEntry(key, videoId)
+            return
+        }
+        if (!DirectSourceGate.isActive() || StreamChoice.of(videoId) != null) return
         if (!heldByYouTube(key) || isOffline()) return
         try {
             runBlocking<Unit>(TrackLog.about(videoId)) {
@@ -1297,7 +1307,7 @@ object AudioCache {
     }
 
     /** Clears [key]'s YouTube bytes so an addon's file can fill it from the top. */
-    private fun dropYouTubeEntry(key: String, videoId: String) {
+    internal fun dropYouTubeEntry(key: String, videoId: String) {
         runCatching { cache.removeResource(key) }
             .onSuccess { TrackLog.d(TAG, "dropped cached YouTube copy $key for the addon's", about = videoId) }
             .onFailure { TrackLog.d(TAG, "cache entry $key still in use: ${it.message}", about = videoId) }
@@ -1415,15 +1425,18 @@ object AudioCache {
             val head = candidates.first()
             val headTarget = upcoming.firstOrNull { it.mediaId == head }?.target
             val headPinned = OriginalVersion.isPinned(head)
-            val headYouTubeFilled = heldByYouTube(cacheKeyOf(Uri.parse("bitchord://watch?v=$head")))
 
             val headWarmed = if (StreamChoice.of(head) != null) {
                 StreamChoice.of(head)
-            } else if (substitutable && headTarget != null && !headPinned && !headYouTubeFilled && !StreamChoice.hasNoLosslessMatch(head)) {
+            } else if (substitutable && headTarget != null && !headPinned && !StreamChoice.hasNoLosslessMatch(head)) {
                 runCatching { SourceResolver.prefetchSubstitute(headTarget, head) }
                     .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $head: ${it.message}", about = head) }
                     .getOrNull()
-                    ?.also { StreamChoice.remember(head, it, substituted = true) }
+                    ?.also {
+                        val key = cacheKeyOf(Uri.parse("bitchord://watch?v=$head"))
+                        if (heldByYouTube(key)) dropYouTubeEntry(key, head)
+                        StreamChoice.remember(head, it, substituted = true)
+                    }
                     ?: run {
                         StreamChoice.rememberNoLosslessMatch(head)
                         null
@@ -1433,8 +1446,15 @@ object AudioCache {
             }
 
             val isHeadLossless = headWarmed?.format?.isLossless == true
-            val cacheBytes = !directGate && (!substitutable || (headWarmed != null && !isHeadLossless)) && !headPinned
-            if (cacheBytes) {
+            if (headWarmed != null && !headPinned) {
+                launch(TrackLog.about(head)) {
+                    delay(PREFETCH_DELAY_MS)
+                    fetch(head, 0, PRELOAD_BYTES)
+                    if (!isHeadLossless && !directGate) {
+                        fetchWhole(head)
+                    }
+                }
+            } else if (!directGate && !substitutable && !headPinned) {
                 launch(TrackLog.about(head)) {
                     delay(PREFETCH_DELAY_MS)
                     fetch(head, 0, PRELOAD_BYTES)
@@ -1455,7 +1475,13 @@ object AudioCache {
                                 .onFailure { TrackLog.d(TAG, "queue metadata prefetch failed for $id: ${it.message}", about = id) }
                                 .getOrNull()
                             if (warmed != null) {
+                                val key = cacheKeyOf(Uri.parse("bitchord://watch?v=$id"))
+                                if (heldByYouTube(key)) dropYouTubeEntry(key, id)
                                 StreamChoice.remember(id, warmed, substituted = true)
+                                // Pre-fetch opening bytes so that when reached or jumped to, sound starts immediately
+                                launch(TrackLog.about(id)) {
+                                    fetch(id, 0, PRELOAD_BYTES)
+                                }
                             } else {
                                 StreamChoice.rememberNoLosslessMatch(id)
                             }
@@ -2321,7 +2347,7 @@ object AudioCache {
      * from a track played earlier, or skipped back to — costs only the rest.
      */
     private suspend fun fetch(videoId: String, position: Long, length: Long) =
-        fetch(videoId, Uri.parse("bitchord://watch?v=$videoId"), position, length)
+        fetch(cacheKeyOf(Uri.parse("bitchord://watch?v=$videoId")), Uri.parse("bitchord://watch?v=$videoId"), position, length)
 
     /**
      * [pinKey] forces the write to land under [cacheKey] instead of wherever

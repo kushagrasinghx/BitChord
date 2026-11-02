@@ -50,6 +50,7 @@ class YouTubeSource(
         limit: Int,
         waitForAll: Boolean,
         request: StreamRequest?,
+        target: TrackMatcher.Target?,
     ): List<Song> =
         YtMusicRepository.search(query, SearchFilter.SONGS)
             .getOrDefault(emptyList())

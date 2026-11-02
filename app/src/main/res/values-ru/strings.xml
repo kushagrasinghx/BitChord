@@ -1440,6 +1440,7 @@
     <string name="direct_source_stream">Прямой поток из источника</string>
     <string name="find_your_mood">Найдите своё настроение</string>
     <string name="progressive_blur">Плавное размытие</string>
+    <string name="glass_performance">Производительность стекла</string>
     <string name="remove_from_history">Удалить из истории</string>
     <string name="remove_from_history_failed">Не удалось удалить из истории</string>
     <string name="addon_blocked_title">Не удаётся воспроизвести этот трек</string>

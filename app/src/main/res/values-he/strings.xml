@@ -1413,6 +1413,7 @@
     <string name="direct_source_stream">הזרמה ישירה מהמקור</string>
     <string name="find_your_mood">מצא את מצב הרוח שלך</string>
     <string name="progressive_blur">טשטוש הדרגתי</string>
+    <string name="glass_performance">ביצועים טובים יותר לזכוכית</string>
     <string name="remove_from_history">הסרה מההיסטוריה</string>
     <string name="remove_from_history_failed">לא ניתן להסיר מההיסטוריה</string>
     <string name="addon_blocked_title">לא ניתן לנגן את השיר הזה</string>

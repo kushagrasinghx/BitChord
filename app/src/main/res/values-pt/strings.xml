@@ -1413,6 +1413,7 @@
     <string name="direct_source_stream">Transmissão direta da fonte</string>
     <string name="find_your_mood">Encontre seu humor</string>
     <string name="progressive_blur">Desfoque progressivo</string>
+    <string name="glass_performance">Melhor desempenho do vidro</string>
     <string name="remove_from_history">Remover do histórico</string>
     <string name="remove_from_history_failed">Não foi possível remover do histórico</string>
     <string name="addon_blocked_title">Não é possível tocar esta música</string>

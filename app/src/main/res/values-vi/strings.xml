@@ -1325,6 +1325,7 @@
     <string name="direct_source_stream">Phát trực tiếp từ nguồn</string>
     <string name="find_your_mood">Tìm tâm trạng của bạn</string>
     <string name="progressive_blur">Làm mờ dần</string>
+    <string name="glass_performance">Hiệu năng kính tốt hơn</string>
     <string name="remove_from_history">Xóa khỏi lịch sử</string>
     <string name="remove_from_history_failed">Không thể xóa khỏi lịch sử</string>
     <string name="addon_blocked_title">Không thể phát bài hát này</string>

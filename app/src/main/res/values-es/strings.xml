@@ -1380,6 +1380,7 @@
     <string name="direct_source_stream">Transmisión directa desde la fuente</string>
     <string name="find_your_mood">Encuentra tu estado de ánimo</string>
     <string name="progressive_blur">Desenfoque progresivo</string>
+    <string name="glass_performance">Mejor rendimiento del cristal</string>
     <string name="remove_from_history">Quitar del historial</string>
     <string name="remove_from_history_failed">No se pudo quitar del historial</string>
     <string name="addon_blocked_title">No se puede reproducir esta canción</string>

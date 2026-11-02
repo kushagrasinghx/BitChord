@@ -1347,6 +1347,7 @@
     <string name="direct_source_stream">Streaming diretto dalla fonte</string>
     <string name="find_your_mood">Trova il tuo mood</string>
     <string name="progressive_blur">Sfocatura progressiva</string>
+    <string name="glass_performance">Prestazioni migliori per il vetro</string>
     <string name="remove_from_history">Rimuovi dalla cronologia</string>
     <string name="remove_from_history_failed">Impossibile rimuovere dalla cronologia</string>
     <string name="addon_blocked_title">Impossibile riprodurre questo brano</string>

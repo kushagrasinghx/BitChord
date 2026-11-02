@@ -1365,6 +1365,7 @@
     <string name="direct_source_stream">Doğrudan kaynak akışı</string>
     <string name="find_your_mood">Ruh Halini Bul</string>
     <string name="progressive_blur">Kademeli bulanıklık</string>
+    <string name="glass_performance">Cam için daha iyi performans</string>
     <string name="remove_from_history">Geçmişten kaldır</string>
     <string name="remove_from_history_failed">Geçmişten kaldırılamadı</string>
     <string name="addon_blocked_title">Bu şarkı çalınamıyor</string>

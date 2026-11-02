@@ -1385,6 +1385,7 @@
     <string name="direct_source_stream">直接从来源串流</string>
     <string name="find_your_mood">寻找你的心情</string>
     <string name="progressive_blur">渐进模糊</string>
+    <string name="glass_performance">提升玻璃性能</string>
     <string name="remove_from_history">从历史记录中移除</string>
     <string name="remove_from_history_failed">无法从历史记录中移除</string>
     <string name="addon_blocked_title">无法播放这首歌</string>

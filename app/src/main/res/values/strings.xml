@@ -370,6 +370,7 @@
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">Real refracting glass on the floating nav bar. Android 12+ only; uses more GPU.</string>
     <string name="progressive_blur">Progressive Blur</string>
+    <string name="glass_performance">Better Performance for Glass</string>
     <string name="liquid_glass_unavailable">Requires Android 12 or newer</string>
     <string name="full_screen_cover_art">Full-screen cover art</string>
     <string name="player_theme">Player theme</string>

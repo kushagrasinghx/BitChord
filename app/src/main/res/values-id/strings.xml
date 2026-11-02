@@ -1385,6 +1385,7 @@
     <string name="direct_source_stream">Streaming langsung dari sumber</string>
     <string name="find_your_mood">Temukan Mood Anda</string>
     <string name="progressive_blur">Blur progresif</string>
+    <string name="glass_performance">Performa kaca lebih baik</string>
     <string name="remove_from_history">Hapus dari riwayat</string>
     <string name="remove_from_history_failed">Tidak dapat menghapus dari riwayat</string>
     <string name="addon_blocked_title">Tidak dapat memutar lagu ini</string>

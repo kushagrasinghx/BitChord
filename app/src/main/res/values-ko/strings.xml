@@ -1228,6 +1228,7 @@
     <string name="direct_source_stream">소스에서 직접 스트리밍</string>
     <string name="direct_source_stream_in_party">함께 듣기 파티 중에는 꺼집니다</string>
     <string name="progressive_blur">점진적 흐림</string>
+    <string name="glass_performance">유리 효과 성능 향상</string>
     <string name="opened_file">열린 파일</string>
     <string name="sleep_timer_custom">사용자 지정</string>
     <string name="start_sleep_timer">타이머 시작</string>

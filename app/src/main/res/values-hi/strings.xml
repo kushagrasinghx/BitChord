@@ -1408,6 +1408,7 @@
     <string name="direct_source_stream">स्रोत से सीधी स्ट्रीम</string>
     <string name="find_your_mood">अपना मूड खोजें</string>
     <string name="progressive_blur">क्रमिक ब्लर</string>
+    <string name="glass_performance">ग्लास के लिए बेहतर परफ़ॉर्मेंस</string>
     <string name="remove_from_history">इतिहास से हटाएँ</string>
     <string name="remove_from_history_failed">इतिहास से नहीं हटाया जा सका</string>
     <string name="addon_blocked_title">यह गाना नहीं चल सकता</string>

@@ -1448,6 +1448,7 @@
     <string name="direct_source_stream">Bezpośredni strumień ze źródła</string>
     <string name="find_your_mood">Znajdź swój nastrój</string>
     <string name="progressive_blur">Stopniowe rozmycie</string>
+    <string name="glass_performance">Lepsza wydajność szkła</string>
     <string name="remove_from_history">Usuń z historii</string>
     <string name="remove_from_history_failed">Nie udało się usunąć z historii</string>
     <string name="addon_blocked_title">Nie można odtworzyć tego utworu</string>

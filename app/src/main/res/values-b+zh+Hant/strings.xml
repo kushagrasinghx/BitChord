@@ -1313,6 +1313,7 @@
     <string name="app_icon">應用程式圖示</string>
     <string name="app_icon_default">預設</string>
     <string name="progressive_blur">漸進模糊</string>
+    <string name="glass_performance">提升玻璃效能</string>
     <string name="artist_signatures">演出者簽名</string>
     <string name="artist_signatures_subtitle">當 Apple Music 沒有標題標誌時顯示手寫簽名</string>
     <string name="artist_signatures_url">簽名 API URL</string>

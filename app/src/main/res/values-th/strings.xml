@@ -1391,6 +1391,7 @@
     <string name="direct_source_stream">สตรีมตรงจากแหล่งที่มา</string>
     <string name="find_your_mood">ค้นหาอารมณ์ของคุณ</string>
     <string name="progressive_blur">เบลอแบบไล่ระดับ</string>
+    <string name="glass_performance">ประสิทธิภาพกระจกที่ดีขึ้น</string>
     <string name="remove_from_history">นำออกจากประวัติ</string>
     <string name="remove_from_history_failed">นำออกจากประวัติไม่ได้</string>
     <string name="addon_blocked_title">เล่นเพลงนี้ไม่ได้</string>

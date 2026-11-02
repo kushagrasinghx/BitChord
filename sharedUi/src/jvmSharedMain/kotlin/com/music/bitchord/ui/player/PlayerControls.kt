@@ -866,6 +866,14 @@ private val PILL_OUTPUT_WIDE_SIZE = 21.dp
 /** Watch is drawn the full height of its box. */
 private val PILL_OUTPUT_TALL_SIZE = 17.dp
 
+/**
+ * The earphones are half again as wide as they are tall, so at 23dp the width
+ * limit leaves them little over half their box tall, well short of the glyphs
+ * either side. Past that limit on purpose: the pair is mostly air, and reads no
+ * wider than its neighbours do.
+ */
+private val PILL_OUTPUT_BUDS_SIZE = 29.dp
+
 /** What a segment's glyph is drawn at when it has no optical quirk to correct. */
 private val PILL_ICON_SIZE = 24.dp
 
@@ -1002,7 +1010,7 @@ private fun rememberOutputGlyph(): OutputGlyph {
             // on the phone itself the button's job is to send it elsewhere.
             null, AudioOutputKind.PHONE -> OutputGlyph(Icons.Rounded.Cast, PILL_OUTPUT_WIDE_SIZE)
             AudioOutputKind.BLUETOOTH -> when (active.form) {
-                BluetoothForm.BUDS -> OutputGlyph(vectorResource(Res.drawable.ic_output_buds))
+                BluetoothForm.BUDS -> OutputGlyph(vectorResource(Res.drawable.ic_output_buds), PILL_OUTPUT_BUDS_SIZE)
                 BluetoothForm.SPEAKER -> OutputGlyph(vectorResource(Res.drawable.ic_output_speaker))
                 BluetoothForm.CAR -> OutputGlyph(Icons.Rounded.DirectionsCar)
                 // Headphones doubles as the neutral "some audio device" glyph:

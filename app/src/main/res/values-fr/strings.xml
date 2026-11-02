@@ -1409,6 +1409,7 @@
     <string name="direct_source_stream">Flux direct depuis la source</string>
     <string name="find_your_mood">Trouvez votre humeur</string>
     <string name="progressive_blur">Flou progressif</string>
+    <string name="glass_performance">Meilleures performances du verre</string>
     <string name="remove_from_history">Retirer de l\'historique</string>
     <string name="remove_from_history_failed">Impossible de retirer de l\'historique</string>
     <string name="addon_blocked_title">Impossible de lire ce titre</string>

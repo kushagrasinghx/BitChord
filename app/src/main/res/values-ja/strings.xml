@@ -1386,6 +1386,7 @@
     <string name="direct_source_stream">ソースから直接ストリーミング</string>
     <string name="find_your_mood">気分で探す</string>
     <string name="progressive_blur">段階的なぼかし</string>
+    <string name="glass_performance">ガラスのパフォーマンス向上</string>
     <string name="remove_from_history">履歴から削除</string>
     <string name="remove_from_history_failed">履歴から削除できませんでした</string>
     <string name="addon_blocked_title">この曲は再生できません</string>

@@ -372,7 +372,7 @@
     <string name="artist_signatures_unconfigured">Not configured — tap to set the API URL</string>
     <string name="artist_signatures_test_failed">Could not reach the API at that URL</string>
     <string name="synced_lyrics">Synced lyrics</string>
-    <string name="synced_lyrics_subtitle">Lights up the words on the player as they're sung</string>
+    <string name="synced_lyrics_subtitle">Lights up the words on the player as they’re sung</string>
     <string name="hide_lyrics_preview">Hide lyrics</string>
     <string name="hide_lyrics_preview_subtitle">Hides the lyrics line on the main player screen</string>
     <string name="lyrics_sources">Lyrics sources</string>

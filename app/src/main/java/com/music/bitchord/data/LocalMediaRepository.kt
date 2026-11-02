@@ -530,6 +530,7 @@ object LocalMediaRepository {
         var albumName: String? = null
         var durationText: String? = null
         var trackNumber: Int? = null
+        var embeddedArt: String? = null
 
         runCatching {
             val retriever = MediaMetadataRetriever()
@@ -546,6 +547,12 @@ object LocalMediaRepository {
                 albumName = metaAlbum.cleanTag()
                 if (metaDur != null && metaDur > 0) durationText = formatDuration(metaDur)
                 trackNumber = trackNumberFromTag(metaTrack)
+                // The cover is in the file; nothing else will say so for a file
+                // MediaStore doesn't index. Media3 reads it for the notification,
+                // and only this makes the player show it too (#1352).
+                if (scanned?.artworkUrl == null) {
+                    embeddedArt = cachedEmbeddedArt(File(context.cacheDir, EMBEDDED_ART_DIR), uriStr, retriever.embeddedPicture)
+                }
             } finally {
                 retriever.release()
             }
@@ -555,7 +562,7 @@ object LocalMediaRepository {
             videoId = uriStr,
             title = title,
             artist = artist,
-            thumbnailUrl = scanned?.artworkUrl,
+            thumbnailUrl = scanned?.artworkUrl ?: embeddedArt,
             durationText = durationText,
             albumName = albumName ?: scanned?.albumName,
             localUri = uriStr,
@@ -575,6 +582,26 @@ object LocalMediaRepository {
         val track = if (raw >= 1000) raw % 1000 else raw
         return track.takeIf { it in 1..999 }
     }
+
+    /**
+     * [picture] kept as a file under [dir], one per source [key], for Coil to
+     * load like any other cover. Null when there is no picture, or it can't be
+     * written. Written once: the same file opened again reuses it.
+     *
+     * ponytail: lives in the cache, so Android may clear it; a like or playlist
+     * entry saved from here then shows no cover until the file is opened again.
+     */
+    internal fun cachedEmbeddedArt(dir: File, key: String, picture: ByteArray?): String? {
+        if (picture == null || picture.isEmpty()) return null
+        return runCatching {
+            dir.mkdirs()
+            val file = File(dir, "${key.hashCode().toUInt()}-${picture.size}.img")
+            if (!file.exists()) file.writeBytes(picture)
+            "file://${file.absolutePath}"
+        }.getOrNull()
+    }
+
+    private const val EMBEDDED_ART_DIR = "embedded_art"
 
     /**
      * `CD_TRACK_NUMBER` arrives as `"3"` or `"3/12"`. Takes the head; null when

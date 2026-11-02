@@ -62,6 +62,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
@@ -362,6 +363,12 @@ private const val TOP_FADE_START = 0.55f
 private const val TOP_FADE_RAMP = 0.3f
 
 private const val INITIAL_RADIO_TRACKS = 24
+
+/** Duration of the smooth scroll-to-top animation in milliseconds. */
+private const val SCROLL_TO_TOP_DURATION_MS = 550
+
+/** Number of items above which we treat a list as "far" and do a bounded jump near the top. */
+private const val FAR_LIST_THRESHOLD = 15
 
 internal fun shouldSkipAfterDislike(
     previousStatus: LikeStatus,
@@ -3958,7 +3965,42 @@ private fun BitChordApp(
                     haptics.play(Haptic.Select)
                     scrollJob?.cancel()
                     scrollJob = scrollScope.launch {
-                        currentListState.animateScrollToItem(0)
+                        val listState = currentListState
+                        val firstIndex = listState.firstVisibleItemIndex
+                        val scrollOffset = listState.firstVisibleItemScrollOffset
+                        if (firstIndex == 0 && scrollOffset == 0) return@launch // already at top
+
+                        val visibleItems = listState.layoutInfo.visibleItemsInfo
+                        val avgHeight = visibleItems.sumOf { it.size } / visibleItems.size.toFloat()
+                        val estimatedDistance = avgHeight * firstIndex + scrollOffset
+
+                        if (firstIndex > FAR_LIST_THRESHOLD) {
+                            // Far list: jump to a bounded index near the top, then animate the remainder.
+                            val targetIndex = firstIndex - FAR_LIST_THRESHOLD.coerceAtMost(firstIndex)
+                            listState.scrollToItem(targetIndex)
+                            // Brief delay to let layout settle (required after scrollToItem).
+                            kotlinx.coroutines.delay(16L)
+                            val remainingOffset = listState.firstVisibleItemScrollOffset +
+                                visibleItems.getOrNull(0)?.size?.toFloat() ?: 0f
+                            if (remainingOffset > 0) {
+                                listState.animateScrollBy(
+                                    value = -remainingOffset,
+                                    animationSpec = tween(SCROLL_TO_TOP_DURATION_MS, easing = FastOutSlowInEasing),
+                                )
+                            }
+                        } else {
+                            // Near distance: animate the full estimated distance.
+                            if (estimatedDistance > 0) {
+                                listState.animateScrollBy(
+                                    value = -estimatedDistance,
+                                    animationSpec = tween(SCROLL_TO_TOP_DURATION_MS, easing = FastOutSlowInEasing),
+                                )
+                            }
+                        }
+                        // Finish at exactly index 0 with a short settling scroll.
+                        if (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0) {
+                            listState.animateScrollToItem(0)
+                        }
                     }
                 }
 

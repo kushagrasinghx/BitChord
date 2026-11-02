@@ -13,6 +13,7 @@ import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { useHasVideo } from '@/state/video';
 import { albumPageFor, artistPageFor } from './nowPlayingLinks';
+import { MixWindowHighlight } from './NerdStats';
 import { useScrubber } from './useScrubber';
 
 // The title and each artist: plain until hovered, then underlined on their own.
@@ -201,7 +202,8 @@ function Progress() {
         className="absolute inset-x-0 bottom-1.5 h-0.5 overflow-hidden rounded-[1px] bg-quaternary transition-[height,left,right] duration-100 ease-in group-hover/scrub:bottom-[5px] group-hover/scrub:h-1 group-data-dragging/scrub:bottom-[5px] group-data-dragging/scrub:h-1"
         aria-hidden="true"
       >
-        <div ref={bar} className="size-full origin-left scale-x-(--progress) bg-secondary [--progress:0]" />
+        <MixWindowHighlight />
+        <div ref={bar} className="relative size-full origin-left scale-x-(--progress) bg-secondary [--progress:0]" />
       </div>
     </div>
   );

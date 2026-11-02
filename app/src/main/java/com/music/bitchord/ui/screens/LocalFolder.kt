@@ -7,6 +7,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -30,7 +31,9 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FileUpload
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
@@ -64,6 +67,7 @@ import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.LocalGroup
 import com.music.bitchord.data.LocalGroups
+import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.ROW_ART_PX
@@ -134,9 +138,37 @@ class LocalFolder(
     val onDownload: ((List<Song>) -> Unit)? = null,
     /** Cached songs only: takes the selection out of the song cache. */
     val onRemoveFromCache: ((List<Song>) -> Unit)? = null,
+    /** Which ways of looking at the tracks this folder offers, in order. */
+    val tabs: List<LocalFolderTab> = LocalFolderTab.BASIC,
+    /**
+     * Local Music only: the offline player's own playlists, Liked first, as
+     * the Playlists tab lists them — see [com.music.bitchord.data.OfflinePlaylists].
+     */
+    val playlists: List<LocalGroup> = emptyList(),
+    /** Puts "New playlist" at the head of the Playlists tab. */
+    val onCreatePlaylist: (() -> Unit)? = null,
 )
 
-enum class LocalFolderTab { SONGS, ARTISTS, ALBUMS }
+enum class LocalFolderTab {
+    SONGS,
+    ARTISTS,
+    ALBUMS,
+
+    /** Playlists made on this device, of files on this device. */
+    PLAYLISTS,
+
+    /** The device's own directories, as a file manager shows them. */
+    FOLDERS,
+    ;
+
+    companion object {
+        /** Every folder's: the three readings any set of tracks has. */
+        val BASIC = listOf(SONGS, ARTISTS, ALBUMS)
+
+        /** Local Music's: the whole device, so its playlists and directories too. */
+        val DEVICE = entries.toList()
+    }
+}
 
 /**
  * A folder's own state while its page is on the stack: the tab showing, and
@@ -202,7 +234,7 @@ fun rememberLocalFolderGroups(
     tab: LocalFolderTab,
     songs: List<Song>,
     query: String,
-): List<LocalGroup> = remember(browseId, tab, songs, folder.collections, query) {
+): List<LocalGroup> = remember(browseId, tab, songs, folder.collections, folder.playlists, query) {
     fun LocalGroup.matches() = query.isBlank() ||
         title.contains(query, ignoreCase = true) ||
         subtitle.contains(query, ignoreCase = true)
@@ -210,6 +242,8 @@ fun rememberLocalFolderGroups(
         LocalFolderTab.SONGS -> emptyList()
         LocalFolderTab.ARTISTS -> LocalGroups.artistsOf(browseId, songs).filter { it.matches() }
         LocalFolderTab.ALBUMS -> LocalGroups.albumsOf(browseId, songs, folder.collections).filter { it.matches() }
+        LocalFolderTab.PLAYLISTS -> folder.playlists.filter { it.matches() }
+        LocalFolderTab.FOLDERS -> LocalGroups.foldersOf(browseId, songs).filter { it.matches() }
     }
 }
 
@@ -235,17 +269,25 @@ internal fun LazyListScope.localFolderItems(
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
 ) {
+    val tabs = folder.tabs
     item(key = "folder-tabs") {
         SegmentedControl(
-            options = listOf(
-                stringResource(R.string.songs),
-                stringResource(R.string.artists),
-                stringResource(R.string.albums),
-            ),
-            selectedIndex = state.tab.ordinal,
-            onSelect = { state.tab = LocalFolderTab.entries[it] },
+            options = tabs.map { it.label() },
+            selectedIndex = tabs.indexOf(state.tab).coerceAtLeast(0),
+            onSelect = { state.tab = tabs[it] },
             modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 14.dp),
         )
+    }
+
+    // Ahead of the list rather than in the top bar: making a playlist is the
+    // one thing this tab is for before there is anything on it.
+    if (state.tab == LocalFolderTab.PLAYLISTS && query.isBlank()) {
+        folder.onCreatePlaylist?.let { create ->
+            item(key = "folder-new-playlist") {
+                NewPlaylistRow(palette, onClick = create)
+                FolderDivider(palette)
+            }
+        }
     }
 
     val grid = folder.viewType == LibraryViewType.GRID
@@ -260,6 +302,8 @@ internal fun LazyListScope.localFolderItems(
                     stringResource(R.string.nothing_matches, query)
                 } else if (state.tab == LocalFolderTab.ALBUMS) {
                     stringResource(R.string.no_local_albums)
+                } else if (state.tab == LocalFolderTab.FOLDERS) {
+                    stringResource(R.string.no_local_folders)
                 } else {
                     stringResource(R.string.no_tracks_here)
                 },
@@ -334,7 +378,7 @@ internal fun LazyListScope.localFolderItems(
             }
         }
 
-        LocalFolderTab.ALBUMS -> if (grid) {
+        LocalFolderTab.ALBUMS, LocalFolderTab.PLAYLISTS, LocalFolderTab.FOLDERS -> if (grid) {
             gridRows(groups, columns, key = { it.browseId }) { group ->
                 AlbumGridCard(
                     group = group,
@@ -356,6 +400,51 @@ internal fun LazyListScope.localFolderItems(
                 FolderDivider(palette)
             }
         }
+    }
+}
+
+@Composable
+private fun LocalFolderTab.label(): String = stringResource(
+    when (this) {
+        LocalFolderTab.SONGS -> R.string.songs
+        LocalFolderTab.ARTISTS -> R.string.artists
+        LocalFolderTab.ALBUMS -> R.string.albums
+        LocalFolderTab.PLAYLISTS -> R.string.playlists
+        LocalFolderTab.FOLDERS -> R.string.folders
+    },
+)
+
+@Composable
+private fun NewPlaylistRow(palette: ArtworkPalette, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(8.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(shape)
+                .background(palette.accent.copy(alpha = 0.16f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                BitChordIcons.Plus,
+                contentDescription = null,
+                tint = palette.accent,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = stringResource(R.string.new_playlist),
+            style = MaterialTheme.typography.titleMedium,
+            color = palette.onBackground,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -491,7 +580,11 @@ private fun ArtistRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+            .longPressMenuClickable(
+                onClick = onClick,
+                onLongClick = onLongPress,
+                liftPadding = PaddingValues(horizontal = PAGE_GUTTER),
+            )
             .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -552,6 +645,9 @@ private fun ArtistGridCard(
 private fun LocalGroup.albumSubtitle(): String {
     val count = pluralStringResource(R.plurals.song_count_plural, songs.size, songs.size)
     return when {
+        // A directory's subtitle is where it is, which is what tells two
+        // "Music" folders apart.
+        LocalGroups.isDirectory(browseId) -> if (subtitle.isNotBlank()) "$subtitle · $count" else count
         type == BrowseType.PLAYLIST -> "${stringResource(R.string.playlist)} · $count"
         subtitle.isNotBlank() && subtitle != title -> "$subtitle · $count"
         else -> count
@@ -568,8 +664,12 @@ private fun LocalGroup.coverArt(): String? {
     return thumbnailUrl ?: fetched
 }
 
-private fun LocalGroup.placeholderIcon(): ImageVector =
-    if (type == BrowseType.PLAYLIST) Icons.AutoMirrored.Rounded.QueueMusic else Icons.Rounded.Album
+private fun LocalGroup.placeholderIcon(): ImageVector = when {
+    OfflinePlaylists.isLikedPage(browseId) -> Icons.Rounded.Favorite
+    LocalGroups.isDirectory(browseId) -> Icons.Rounded.Folder
+    type == BrowseType.PLAYLIST -> Icons.AutoMirrored.Rounded.QueueMusic
+    else -> Icons.Rounded.Album
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -639,7 +739,11 @@ private fun AlbumRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(selectionFill(selected))
-            .longPressMenuClickable(onClick = { onClick(group.copy(thumbnailUrl = art)) }, onLongClick = onLongPress)
+            .longPressMenuClickable(
+                onClick = { onClick(group.copy(thumbnailUrl = art)) },
+                onLongClick = onLongPress,
+                liftPadding = PaddingValues(horizontal = PAGE_GUTTER),
+            )
             .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

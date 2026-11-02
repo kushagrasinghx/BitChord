@@ -113,7 +113,8 @@ export function UpNext() {
   const autoplay = inParty ? partyAutoplay : localAutoplay;
   const repeat = usePlayer((s) => s.repeat);
   const crossfadeSec = usePlayer((s) => s.crossfadeSec);
-  const { clearUpNext, setAutoplay, setCrossfade, move } = usePlayer.getState();
+  const automix = usePlayer((s) => s.automix);
+  const { clearUpNext, setAutoplay, setCrossfade, setAutomix, move } = usePlayer.getState();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const close = useCallback(() => setAnchor(null), []);
@@ -166,10 +167,13 @@ export function UpNext() {
           <Menu anchor={anchor} onClose={close} label="Playback options">
             <MenuHeader>Crossfade</MenuHeader>
             {CROSSFADE_CHOICES.map((seconds) => (
-              <MenuItem key={seconds} checked={crossfadeSec === seconds} onSelect={() => (close(), setCrossfade(seconds))}>
+              <MenuItem key={seconds} checked={!automix && crossfadeSec === seconds} onSelect={() => (close(), setCrossfade(seconds))}>
                 {seconds === 0 ? 'Off' : `${seconds} seconds`}
               </MenuItem>
             ))}
+            <MenuItem checked={automix} onSelect={() => (close(), setAutomix(true))}>
+              Automix
+            </MenuItem>
           </Menu>
         )}
       </div>

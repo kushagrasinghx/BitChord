@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.icons.SfIcons
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Watch
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,7 +61,7 @@ internal fun WearOsSettingsRow(onClick: () -> Unit) {
     LaunchedEffect(Unit) { WatchInstaller.refresh(context) }
     val list = watches.orEmpty()
     SettingsRow(
-        icon = Icons.Rounded.Watch,
+        icon = SfIcons.Watch,
         title = stringResource(R.string.wear_os_section),
         value = when {
             watches == null -> null
@@ -98,11 +98,8 @@ fun WearOsScreen(contentPadding: PaddingValues, modifier: Modifier = Modifier) {
             .verticalScroll(rememberScrollState())
             .padding(contentPadding),
     ) {
-        Text(
-            text = stringResource(if (installingNode != null) R.string.wear_os_install_title else R.string.wear_os_page_title),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
+        SettingsPageTitle(
+            stringResource(if (installingNode != null) R.string.wear_os_install_title else R.string.wear_os_page_title),
         )
 
         val node = installingNode
@@ -119,11 +116,11 @@ fun WearOsScreen(contentPadding: PaddingValues, modifier: Modifier = Modifier) {
             val list = watches
             when {
                 list == null -> SettingsRow(
-                    icon = Icons.Rounded.Watch,
+                    icon = SfIcons.Watch,
                     title = stringResource(R.string.wear_os_looking),
                 )
                 list.isEmpty() -> SettingsRow(
-                    icon = Icons.Rounded.Watch,
+                    icon = SfIcons.Watch,
                     title = stringResource(R.string.wear_os_no_watch),
                     subtitle = stringResource(R.string.wear_os_no_watch_subtitle),
                 )
@@ -171,7 +168,7 @@ private fun WatchRow(
         }
     }
     SettingsRow(
-        icon = Icons.Rounded.Watch,
+        icon = SfIcons.Watch,
         title = watch.name,
         subtitle = subtitle,
         trailing = {
@@ -183,7 +180,7 @@ private fun WatchRow(
                 watch.status == WatchAppStatus.UPDATE_AVAILABLE || watch.status == WatchAppStatus.UNKNOWN ->
                     ActionPill(stringResource(R.string.wear_os_update), onUpdate)
                 else -> Icon(
-                    Icons.Rounded.Check,
+                    SfIcons.Check,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp),
@@ -312,7 +309,7 @@ private fun StatusLine(state: WatchPairingState) {
             Spacer(Modifier.width(10.dp))
         } else if (state is WatchPairingState.Found || state is WatchPairingState.Installed) {
             Icon(
-                Icons.Rounded.Check,
+                SfIcons.Check,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.size(18.dp),

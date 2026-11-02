@@ -78,6 +78,10 @@ object Innertube {
     val currentRegion: String
         get() = com.music.bitchord.data.LocaleTags.ytGl(currentLocaleTag)
 
+    /** [currentRegion] for search, where null lets YouTube place us — see [LocaleTags.ytSearchGl]. */
+    private val searchRegion: String?
+        get() = com.music.bitchord.data.LocaleTags.ytSearchGl(currentLocaleTag)
+
     private val acceptLanguageHeader: String
         get() = com.music.bitchord.data.LocaleTags.acceptLanguage(currentLocaleTag)
 
@@ -602,6 +606,19 @@ object Innertube {
         put("isAudioOnly", true)
     }
 
+    /**
+     * A watch queue started from a playlist rather than a track: a mix such as
+     * My Supermix, a playlist radio (`RDAMPL…`), or an artist's Mix / Shuffle
+     * button, which also carry their own seed [videoId] and [params].
+     */
+    suspend fun nextPlaylist(playlistId: String, videoId: String? = null, params: String? = null): JsonObject =
+        postMusic("next") {
+            videoId?.let { put("videoId", it) }
+            put("playlistId", playlistId)
+            params?.let { put("params", it) }
+            put("isAudioOnly", true)
+        }
+
     /** Timed caption transcript used as a last-resort lyrics source. */
     suspend fun transcript(videoId: String): JsonObject = postMusic("get_transcript") {
         // get_transcript expects a tiny protobuf: field 1, length, video id.
@@ -611,12 +628,12 @@ object Innertube {
 
     suspend fun search(query: String, params: String? = null, anonymous: Boolean = true): JsonObject =
         if (anonymous) {
-            postMusicAnonymous("search") {
+            postMusicAnonymous("search", region = searchRegion) {
                 put("query", query)
                 params?.let { put("params", it) }
             }
         } else {
-            postMusic("search") {
+            postMusic("search", region = searchRegion) {
                 put("query", query)
                 params?.let { put("params", it) }
             }
@@ -626,6 +643,7 @@ object Innertube {
     suspend fun searchContinuation(token: String): JsonObject = postMusic(
         endpoint = "search",
         query = mapOf("ctoken" to token, "continuation" to token, "type" to "next"),
+        region = searchRegion,
     ) {
         put("continuation", token)
     }
@@ -640,7 +658,7 @@ object Innertube {
      * it affordable per keystroke where a search is not.
      */
     suspend fun searchSuggestions(input: String): JsonObject =
-        postMusic("music/get_search_suggestions") {
+        postMusic("music/get_search_suggestions", region = searchRegion) {
             put("input", input)
         }
 
@@ -656,7 +674,7 @@ object Innertube {
      * land as anonymous lookups that don't touch the user's account history.
      */
     suspend fun searchTypeahead(query: String): JsonObject =
-        postMusicAnonymous("search") {
+        postMusicAnonymous("search", region = searchRegion) {
             put("query", query)
         }
 
@@ -1097,6 +1115,8 @@ object Innertube {
     private suspend fun postMusic(
         endpoint: String,
         query: Map<String, String> = emptyMap(),
+        /** The context's `gl`; null sends none. */
+        region: String? = currentRegion,
         bodyExtras: JsonObjectBuilder.() -> Unit,
     ): JsonObject {
         // This is the common authenticated request path: Home, Library,
@@ -1138,7 +1158,7 @@ object Innertube {
                                 put("clientName", "WEB_REMIX")
                                 put("clientVersion", clientVersion)
                                 put("hl", currentLanguage)
-                                put("gl", currentRegion)
+                                region?.let { put("gl", it) }
                                 visitorData?.let { put("visitorData", it) }
                             }
                             putJsonObject("user") {
@@ -1174,6 +1194,8 @@ object Innertube {
      */
     private suspend fun postMusicAnonymous(
         endpoint: String,
+        /** The context's `gl`; null sends none. */
+        region: String? = currentRegion,
         bodyExtras: JsonObjectBuilder.() -> Unit,
     ): JsonObject {
         val clientVersion = webRemixVersion
@@ -1197,7 +1219,7 @@ object Innertube {
                                 put("clientName", "WEB_REMIX")
                                 put("clientVersion", clientVersion)
                                 put("hl", currentLanguage)
-                                put("gl", currentRegion)
+                                region?.let { put("gl", it) }
                                 visitorData?.let { put("visitorData", it) }
                             }
                             putJsonObject("user") {

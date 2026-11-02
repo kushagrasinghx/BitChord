@@ -11,7 +11,7 @@ import type { SourceState } from '@/lyrics/repository';
 import { enabledSources } from '@/lyrics/settings';
 import { sourceById, type LyricsSourceId } from '@/lyrics/sources';
 import { useLyrics, useLyricsUi } from '@/lyrics/useLyrics';
-import { getAudio, usePlayer } from '@/state/player';
+import { getAudio, getPlayhead, usePlayer } from '@/state/player';
 import { LyricsSettings } from './LyricsSettings';
 
 type AmLyricsElement = HTMLElement & {
@@ -97,6 +97,7 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
   const host = useRef<HTMLDivElement>(null);
   const element = useRef<AmLyricsElement | null>(null);
   const deck = usePlayer((s) => s.deck);
+  const mixing = usePlayer((s) => s.mixing);
   const videoId = usePlayer((s) => s.nowPlaying?.videoId);
 
   // Created by hand, with its TTML set before it's attached: am-lyrics starts
@@ -155,6 +156,26 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
     const audio = getAudio();
     const el = element.current;
     if (!audio || !el) return;
+    if (mixing) {
+      // A loop mix plays the song from a deck while its element sits paused:
+      // follow the mix's playhead, which loops and moves at the ramped tempo.
+      // A loop's wrap (or the handover) is a jump on purpose, not drift to steer out.
+      const start = getPlayhead()?.sec ?? audio.currentTime;
+      const clock = new LyricClock(start * 1000);
+      let discontinuity = 0;
+      let last = start;
+      let frame = 0;
+      const tick = () => {
+        const now = performance.now();
+        const sec = getPlayhead()?.sec ?? last;
+        if (sec < last - 0.15 || sec > last + 1) discontinuity++;
+        last = sec;
+        el.currentTime = clock.frame(now, Math.trunc(sec * 1000), now, discontinuity);
+        frame = requestAnimationFrame(tick);
+      };
+      frame = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(frame);
+    }
     const clock = new LyricClock(audio.currentTime * 1000);
     let discontinuity = 0;
     let frame = 0;
@@ -192,7 +213,7 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
       audio.removeEventListener('pause', hold);
       audio.removeEventListener('play', resume);
     };
-  }, [deck, videoId, ttml]);
+  }, [deck, videoId, ttml, mixing]);
 
   // am-lyrics renders and scrolls itself; it only needs the space. Full screen fades it out at the top and bottom.
   return (
@@ -357,6 +378,10 @@ const fullSizes =
 export function LyricsPanel({ variant = 'panel' }: { variant?: 'panel' | 'full' }) {
   const lyrics = useLyrics();
   const hasTrack = usePlayer((s) => s.nowPlaying !== null);
+  const videoId = usePlayer((s) => s.nowPlaying?.videoId ?? '');
+  // A provider picked by hand that came back with nothing is named in the
+  // empty state: the lyrics didn't go missing, this one provider hasn't got them.
+  const picked = useLyricsUi((s) => s.picked[videoId]);
   const ungranted = useUngranted();
   const canvas = useCanvas();
   const fontReady = useLyricFont();
@@ -384,6 +409,11 @@ export function LyricsPanel({ variant = 'panel' }: { variant?: 'panel' | 'full' 
         </div>
       ) : result ? (
         <LyricsView ttml={result.ttml} full={full} />
+      ) : picked ? (
+        <div className={empty}>
+          <p className={emptyTitle}>Not on {sourceById(picked)?.label ?? 'this provider'}</p>
+          <p>This provider hasn’t got this song. Pick another, or Best available, in the list above.</p>
+        </div>
       ) : (
         <div className={empty}>
           <p className={emptyTitle}>No lyrics available</p>

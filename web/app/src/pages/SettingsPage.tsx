@@ -9,6 +9,8 @@ import { useExtension } from '@/extension/useExtension';
 import { useYtAuth } from '@/extension/useYtAuth';
 import { useParty } from '@/party/useParty';
 import { useHistorySettings } from '@/playback/historyReporting';
+import { Select } from '@/components/Select';
+import { AUTOMIX_BARS } from '@/playback/automix/choices';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
 import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegration, LyricSourcesAccess, SpotifyIntegration, Toggle } from './IntegrationSettings';
 import { settingsUi } from './settingsStyles';
@@ -58,9 +60,12 @@ export default function SettingsPage() {
   const party = useParty();
   const autoplay = usePlayer((s) => s.autoplay);
   const crossfadeSec = usePlayer((s) => s.crossfadeSec);
+  const automix = usePlayer((s) => s.automix);
+  const automixBars = usePlayer((s) => s.automixBars);
+  const showNerdStats = usePlayer((s) => s.showNerdStats);
   const shareHistory = useHistorySettings((s) => s.share);
   const setShareHistory = useHistorySettings((s) => s.setShare);
-  const { setAutoplay, setCrossfade } = usePlayer.getState();
+  const { setAutoplay, setCrossfade, setAutomix, setAutomixBars, setShowNerdStats } = usePlayer.getState();
   const [lyrics, setLyrics] = useState(false);
   const present = extension.state === 'present';
   const discordText =
@@ -143,15 +148,41 @@ export default function SettingsPage() {
           />
           <label className={settingsUi.controlRow}>
             <span>Crossfade</span>
-            <select className={settingsUi.select} value={crossfadeSec} onChange={(e) => setCrossfade(Number(e.currentTarget.value))}>
-              {CROSSFADE_CHOICES.map((seconds) => (
-                <option key={seconds} value={seconds}>
-                  {seconds === 0 ? 'Off' : `${seconds} seconds`}
-                </option>
-              ))}
-            </select>
+            <Select<number | 'automix'>
+              label="Crossfade"
+              value={automix ? 'automix' : crossfadeSec}
+              options={[
+                ...CROSSFADE_CHOICES.map((seconds) => ({ value: seconds, label: seconds === 0 ? 'Off' : `${seconds} seconds` })),
+                { value: 'automix', label: 'Automix' },
+              ]}
+              onChange={(value) => (value === 'automix' ? setAutomix(true) : setCrossfade(value))}
+            />
           </label>
+          {automix && (
+            <label className={settingsUi.controlRow}>
+              <span>Blend Length</span>
+              <Select
+                label="Blend Length"
+                value={automixBars}
+                options={AUTOMIX_BARS.map((bars) => ({ value: bars, label: `Up to ${bars} bars` }))}
+                onChange={setAutomixBars}
+              />
+            </label>
+          )}
+          <Toggle
+            label="Show Stats for Nerds"
+            detail="Codec, bitrate and sample rate under the artist in the full-screen player, and what Automix is doing."
+            checked={showNerdStats}
+            onChange={setShowNerdStats}
+          />
         </section>
+        {automix && (
+          <p className={settingsUi.footer}>
+            Automix finds each song’s tempo, key and phrases, then blends on the beat: the next song is time-stretched to match, and
+            the bass swaps over halfway. Where it can, it loops a few instrumental bars of each song and ramps the tempo between
+            them. Songs it can’t read in time play to the end and crossfade. Based on AutoMix by David Finnegan (AGPL-3.0).
+          </p>
+        )}
 
         <h2 className={settingsUi.sectionHeader}>Lyrics</h2>
         <section className={settingsUi.group}>

@@ -175,6 +175,7 @@
     <string name="italian">義大利語</string>
     <string name="turkish">土耳其語</string>
     <string name="thai">泰語</string>
+    <string name="korean">韓語</string>
     <string name="show_all">檢視全部</string>
     <string name="grid_view">網格</string>
     <string name="list_view">列表</string>
@@ -437,6 +438,8 @@
     <string name="signed_in_as">已登入為 %1$s</string>
     <string name="signing_in">正在登入…</string>
     <string name="sleep_timer">睡眠定時器</string>
+    <string name="sleep_timer_custom">自訂</string>
+    <string name="start_sleep_timer">開始計時</string>
     <string name="sources_no_lossless">已啟用的來源均無法提供無損音訊。新增自定義模組即可播放可用的無損檔案，而無需轉碼。</string>
     <string name="sources_order_footer">如果某個來源沒有該曲目或無法訪問，BitChord 會嘗試下一個來源。排在 YouTube 之前的來源如果返回更好的版本，可以替換其錄音。</string>
     <string name="sources_order_header">來源，按此順序嘗試</string>
@@ -448,7 +451,7 @@
     <string name="source_matching">來源匹配</string>
     <string name="upgrade_length_slack">曲目時長容差</string>
     <string name="upgrade_length_slack_subtitle">替換音訊流允許的最大時長差</string>
-    <string name="upgrade_length_slack_footer">容差越大，接受的來源匹配越多；容差越小則越嚴格。預設為 3 秒。</string>
+    <string name="upgrade_length_slack_footer">容差越大，接受的來源匹配越多；容差越小則越嚴格。預設為 5 秒。</string>
     <string name="seconds_short">%1$d 秒</string>
     <string name="spdc_token">sp_dc 令牌</string>
     <string name="spotify_canvas_setup">Spotify Canvas 設定</string>
@@ -819,19 +822,25 @@
 
     <string name="default_youtube_profile">YouTube Music 預設個人資料</string>
 
-    <string name="dolby_atmos">杜比全景聲 (Dolby Atmos)</string>
+    <string name="dolby_atmos">杜比全景聲 （Dolby Atmos）</string>
 
     <string name="dolby_atmos_subtitle">如果歌曲有更沉浸的環繞聲版本，則優先播放。</string>
 
     <string name="dolby_atmos_unavailable">此裝置不支援杜比全景聲，歌曲將以普通版本播放</string>
 
     <string name="export_compatible_downloads">匯出相容的下載</string>
+    <string name="sync_downloaded_playlists">保持播放清單更新</string>
+    <string name="sync_downloaded_playlists_subtitle">每天檢查兩次，並下載已下載播放清單中新加入的歌曲</string>
+    <string name="playlist_sync_ask_title">%1$s 有新歌曲：%2$d</string>
+    <string name="playlist_sync_ask_text">輕觸即可下載</string>
+    <string name="playlist_sync_done_title">已新增至 %1$s：%2$d</string>
+    <string name="playlist_updates_channel">播放清單更新</string>
 
     <string name="legacy_mesh_gradient">經典網格漸變</string>
 
     <string name="legacy_mesh_gradient_subtitle">恢復 v1.5 中播放器背後的流動色塊效果</string>
 
-    <string name="liquid_glass">液態玻璃 (Liquid Glass)</string>
+    <string name="liquid_glass">液態玻璃 （Liquid Glass）</string>
 
     <string name="liquid_glass_subtitle">浮動導航欄上的折射玻璃效果。僅限 Android 12+；會佔用更多 GPU。</string>
 
@@ -1036,13 +1045,11 @@
 
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
     <string name="smart_version_alignment">智慧音訊對齊</string>
     <string name="smart_version_alignment_subtitle">分析音訊波形，精確匹配對應的播放時刻</string>
 
-    <string name="equalizer_footer">Shapes the sound inside BitChord, before it reaches the system.</string>
+    <string name="equalizer_footer">Shapes the sound inside BitChord， before it reaches the system.</string>
 
     <string name="equalizer_dynamic">Dynamic</string>
 
@@ -1058,9 +1065,9 @@
 
     <string name="equalizer_focused">Focused</string>
 
-    <string name="equalizer_broad_footer">Drag left for a warmer sound and right for a brighter one; down scoops the middle, up brings it forward. Broad moves wide stretches of the spectrum at once.</string>
+    <string name="equalizer_broad_footer">Drag left for a warmer sound and right for a brighter one； down scoops the middle， up brings it forward. Broad moves wide stretches of the spectrum at once.</string>
 
-    <string name="equalizer_focused_footer">Drag left for a warmer sound and right for a brighter one; down scoops the middle, up brings it forward. Focused works on narrower stretches, so it changes less around what it moves.</string>
+    <string name="equalizer_focused_footer">Drag left for a warmer sound and right for a brighter one； down scoops the middle， up brings it forward. Focused works on narrower stretches， so it changes less around what it moves.</string>
 
     <string name="equalizer_preset">Preset</string>
 
@@ -1085,7 +1092,7 @@
 
     <string name="system_equalizer_subtitle">Your device\'s own panel</string>
 
-    <string name="system_equalizer_footer">Runs after BitChord\'s, on the whole audio session. Using both applies both.</string>
+    <string name="system_equalizer_footer">Runs after BitChord\'s， on the whole audio session. Using both applies both.</string>
 
     <string name="eq_preset_flat">Flat</string>
 
@@ -1212,7 +1219,7 @@
 
     <string name="paxsenix_api_key_configured">PaxSenix API key — configured</string>
 
-    <string name="paxsenix_api_key_missing">PaxSenix API key — optional, not configured</string>
+    <string name="paxsenix_api_key_missing">PaxSenix API key — optional， not configured</string>
 
 
 
@@ -1227,6 +1234,7 @@
     <string name="source_needs_lossless_output">需要無損輸出 · 請使用支援無損的裝置</string>
     <string name="source_needs_lossless_bt_codec">需要無損輸出 · 藍芽當前為 %1$s；請使用支援無損的裝置</string>
     <string name="source_needs_lossless_bt_unknown">需要無損輸出 · 無法識別正在使用的藍芽編解碼器</string>
+    <string name="source_downloads_on">允許下載</string>
     <string name="source_downloads_off">僅限線上播放</string>
     <string name="lossless_output_permission">檢查藍芽編解碼器</string>
     <string name="lossless_output_permission_detail">允許“附近的裝置”許可權，LDAC 或 LHDC 耳機即可解鎖僅限無損的外掛</string>
@@ -1348,4 +1356,61 @@
     <string name="song_info_unavailable">暫無資訊</string>
     <string name="song_info_error">部分資訊無法載入。</string>
     <string name="song_info_retry">重試</string>
+    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="no_video_version">No video version found for this song</string>
+    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="opened_file">已開啟的檔案</string>
+    <string name="folders">資料夾</string>
+    <string name="folder">資料夾</string>
+    <string name="no_local_folders">沒有包含音樂的資料夾</string>
+    <string name="offline_playlist_empty">這個播放清單還是空的。可從歌曲選單中加入。</string>
+    <string name="offline_liked_empty">你在這部裝置上喜歡的歌曲會顯示在這裡</string>
+    <string name="saved_on_this_device">已儲存在這部裝置上</string>
+    <string name="direct_source_stream_in_party">在 Listen Together 派對中時關閉</string>
+    <string name="direct_source_stream">直接從來源串流</string>
+    <string name="find_your_mood">尋找你的心情</string>
+    <string name="progressive_blur">漸進模糊</string>
+    <string name="remove_from_history">從歷史記錄中移除</string>
+    <string name="remove_from_history_failed">無法從歷史記錄中移除</string>
+    <string name="addon_blocked_title">無法播放這首歌</string>
+    <string name="addon_blocked_quality">%1$s 下的音訊質量設為%2$s。來自 %3$s 的歌曲僅以無損播放——請在 設定 → 音訊質量 中變更後再播放。</string>
+    <string name="addon_blocked_watch">音樂正透過你的手錶播放，手錶會將音訊限制在無損以下。手機重新接手播放後，來自 %1$s 的歌曲即可再次播放。</string>
+    <string name="download_addon_left_out_title">正在下載（不使用 %1$s）</string>
+    <string name="download_addon_not_allowed">%1$s 不允許下載，因此你的歌曲將從其他來源儲存。</string>
+    <string name="download_addon_needs_lossless_output">%1$s 僅在連接有線、USB 或 LDAC 等級耳機時提供音樂。在連接此類耳機前，下載會略過它，因此你的歌曲將從其他來源儲存。</string>
+    <string name="show_listen_together_button">顯示「一起聽」按鈕</string>
+    <string name="show_listen_together_button_subtitle">關閉後，播放器在歌詞和播放佇列之間只顯示音訊輸出按鈕</string>
+    <string name="font">字型</string>
+    <string name="font_default">預設</string>
+    <string name="font_legacy">舊版</string>
+    <string name="font_default_subtitle">SF Pro Display · Apple Music 字重</string>
+    <string name="font_legacy_subtitle">SF Pro Display · 原始粗字重</string>
+    <string name="font_footer">舊版會恢復應用程式在配合 Apple Music 之前使用的較粗、較緊湊的字型。</string>
+    <string name="bit_perfect_output">位元完美輸出</string>
+    <string name="bit_perfect_bypassed_footer">位元完美輸出已就緒，因此變灰的設定會被略過，也不會要求 Dolby Atmos 版本。中斷 DAC 連線或關閉此模式後，它們會恢復運作。</string>
+    <string name="bit_perfect_sheet_warning">將曲目原樣傳送到 DAC。均衡器、響度標準化、交叉淡入淡出、Automix、播放速度和 BitChord 的音量都會被略過。</string>
+    <string name="bit_perfect_mode_off_subtitle">音訊會經過 Android 的混音器和 BitChord 的音效。</string>
+    <string name="bit_perfect_mode_usb_android">USB DAC</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14 會以每首曲目本身的取樣率和位元深度開啟 DAC，不進行混音或重新取樣。</string>
+    <string name="bit_perfect_requires_android_14">需要 Android 14 或以上版本</string>
+    <string name="bit_perfect_mode_dap_exclusive">內建 DAC（AAudio 獨佔）</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">適用於內建 DAC 的音樂播放器。以每首曲目本身的取樣率獨佔開啟耳機或線路輸出。並非所有裝置都允許獨佔模式。</string>
+    <string name="bit_perfect_requires_android_8_1">需要 Android 8.1 或以上版本</string>
+    <string name="bit_perfect_mode_usb_direct">USB DAC（直接驅動）</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord 可在任何 Android 版本上直接驅動 DAC，並在 DAC 上設定音量。需要 USB 權限。聲音可能比一般輸出大得多。</string>
+    <string name="dac_volume">DAC 音量</string>
+    <string name="dac_volume_subtitle">在 DAC 本身設定；音樂資料不會被縮放</string>
+    <string name="usb_allow_fixed_volume">允許沒有音量控制的 DAC</string>
+    <string name="usb_allow_fixed_volume_subtitle">否則這類 DAC 會透過一般輸出播放</string>
+    <string name="usb_allow_fixed_volume_confirm_title">以滿刻度播放？</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord 無法設定這類 DAC 的音量，因此會以滿刻度播放，只有 DAC 本身的旋鈕（如果有）才能控制響度。使用靈敏的耳機時，聲音可能大到危險。</string>
+    <string name="convert_for_limited_dac">為低規格 DAC 轉換</string>
+    <string name="convert_for_limited_dac_subtitle">將超出 DAC 上限的曲目轉換為其支援的最高格式。曲目可能需要更久才能開始播放，且相對原始音訊不再是位元完美。</string>
+    <string name="bit_perfect_confirm_title">開啟位元完美輸出？</string>
+    <string name="bit_perfect_confirm_message">DAC 會以滿刻度接收音樂，手機的音量鍵可能會失效。播放前請先調低 DAC 或擴大機的音量。</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s kHz · %3$d 位元</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s kHz · %3$d 位元 · DAC 上限，由此曲目的格式轉換而來</string>
+    <string name="bit_perfect_status_inexact">%1$s · 不精確：此音源不是無損 PCM</string>
+    <string name="bit_perfect_status_waiting">正在等待受支援輸出上的無損曲目</string>
+    <string name="bit_perfect_status_unavailable">此曲目無法使用（%1$s）</string>
 </resources>

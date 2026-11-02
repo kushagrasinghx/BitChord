@@ -199,6 +199,35 @@ object SourceRegistry {
     fun activeForDownload(): List<MusicSource> =
         active().filter { config(it.configId)?.allowDownloads != false }
 
+    /** Why an enabled addon has no part in downloads right now — see [addonsLeftOutOfDownloads]. */
+    enum class DownloadExclusion {
+        /** Its manifest says `allowDownloads: 0`. */
+        DOWNLOADS_NOT_ALLOWED,
+
+        /** It asks for a lossless output (`checkValidLossless`) and none is connected. */
+        NEEDS_LOSSLESS_OUTPUT,
+    }
+
+    /**
+     * The enabled addons [activeForDownload] leaves out, and why.
+     *
+     * Both are the addon's own rules, and both used to be applied in silence: a
+     * listener with an addon connected watched downloads arrive from JioSaavn
+     * or YouTube with nothing to say the addon had been passed over on purpose.
+     * The second is the one that catches people out — the phone speaker and
+     * ordinary Bluetooth don't count as lossless outputs.
+     */
+    fun addonsLeftOutOfDownloads(): List<Pair<SourceConfig, DownloadExclusion>> =
+        enabledConfigs(configs.value)
+            .filter { it.kind == SourceKind.ADDON }
+            .mapNotNull { config ->
+                when {
+                    !config.allowDownloads -> config to DownloadExclusion.DOWNLOADS_NOT_ALLOWED
+                    config.awaitsLosslessOutput -> config to DownloadExclusion.NEEDS_LOSSLESS_OUTPUT
+                    else -> null
+                }
+            }
+
     /**
      * Records what an addon's manifest said about downloads and lossless
      * output, if it changed.
@@ -241,6 +270,22 @@ object SourceRegistry {
     fun activeForPlayback(): List<MusicSource> {
         val ceiling = AppSettings.effectiveAudioQuality
         return active().filter { ceiling.permits(it.kind) }
+    }
+
+    /**
+     * Whether a stream [configId] served may still be played under the ceiling
+     * in force — the same test as [activeForPlayback], asked of a stream that
+     * was found earlier, under whatever ceiling applied then.
+     *
+     * Null or unknown is a yes: a stream that names no source is YouTube's own,
+     * and YouTube is permitted on every rung.
+     */
+    fun permitsForPlayback(
+        configId: String?,
+        ceiling: AudioQuality = AppSettings.effectiveAudioQuality,
+    ): Boolean {
+        val kind = configId?.let { config(it)?.kind } ?: return true
+        return ceiling.permits(kind)
     }
 
     fun instance(configId: String): MusicSource? = instances[configId]

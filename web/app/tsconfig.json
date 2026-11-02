@@ -8,6 +8,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "signalsmith-stretch": [
+        "./src/playback/automix/engine/stretch-types.d.ts"
       ]
     }
   },

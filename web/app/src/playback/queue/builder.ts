@@ -64,8 +64,17 @@ export function isSameRecording(a: Track, b: Track): boolean {
   return !left.size || !right.size || [...left].some((name) => right.has(name));
 }
 
-/** The candidates worth appending after [existing]: nothing already queued, nothing repeated, at most [limit]. */
-export function extendStation(existing: readonly Track[], candidates: readonly Candidate[], limit: number): Track[] {
+/**
+ * The candidates worth appending after [existing]: nothing already queued,
+ * nothing repeated, at most [limit]. [preferVideo] when the station was seeded
+ * on a music video, which keeps it on music videos.
+ */
+export function extendStation(
+  existing: readonly Track[],
+  candidates: readonly Candidate[],
+  limit: number,
+  preferVideo = false,
+): Track[] {
   const taken = [...existing];
   const perArtist = new Map<string, number>();
   const last = existing.at(-1);
@@ -74,9 +83,10 @@ export function extendStation(existing: readonly Track[], candidates: readonly C
 
   // A mix pairs most tracks with their music-video upload, titled too
   // differently for any title match. The catalogue cut is what a music app
-  // wants; videos only stand in when there's nothing else.
-  const songs = candidates.filter((c) => !c.isVideo);
-  const ordered = (songs.length ? songs : candidates).map((c) => c.track);
+  // wants — unless a music video is playing, when the station carries on in
+  // pictures. Either way the other kind only stands in when there's nothing else.
+  const wanted = candidates.filter((c) => c.isVideo === preferVideo);
+  const ordered = (wanted.length ? wanted : candidates).map((c) => c.track);
 
   for (const candidate of ordered) {
     if (out.length >= limit) break;

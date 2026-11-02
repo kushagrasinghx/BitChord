@@ -196,6 +196,7 @@
     <string name="hebrew">Tiếng Do Thái</string>
     <string name="italian">Tiếng Ý</string>
     <string name="turkish">Tiếng Thổ Nhĩ Kỳ</string>
+    <string name="korean">Tiếng Hàn</string>
     <string name="vietnamese">Tiếng Việt</string>
     <string name="show_all">Xem tất cả</string>
     <string name="grid_view">Lưới</string>
@@ -481,6 +482,8 @@
     <string name="signed_in_as">Đã đăng nhập dưới tên %1$s</string>
     <string name="signing_in">Đang đăng nhập…</string>
     <string name="sleep_timer">Hẹn giờ tắt</string>
+    <string name="sleep_timer_custom">Tùy chỉnh</string>
+    <string name="start_sleep_timer">Bắt đầu hẹn giờ</string>
     <string name="sources_no_lossless">Không có nguồn nào được bật có thể cung cấp âm thanh Lossless. Hãy thêm tiện ích mở rộng để phát các tệp Lossless mà không cần chuyển mã.</string>
     <string name="sources_order_footer">Nếu một nguồn không có bản nhạc hoặc không thể kết nối, BitChord sẽ thử nguồn tiếp theo. Các nguồn nằm trên YouTube có thể thay thế bản ghi âm của YouTube khi tìm được phiên bản tốt hơn.</string>
     <string name="sources_order_header">Các nguồn nhạc, được thử theo thứ tự này</string>
@@ -489,7 +492,7 @@
     <string name="source_matching">Khớp nguồn</string>
     <string name="upgrade_length_slack">Dung sai độ dài bản nhạc</string>
     <string name="upgrade_length_slack_subtitle">Chênh lệch thời lượng tối đa cho phép của luồng thay thế</string>
-    <string name="upgrade_length_slack_footer">Dung sai lớn hơn chấp nhận nhiều kết quả khớp hơn; dung sai nhỏ hơn sẽ chặt chẽ hơn. Mặc định là 3 giây.</string>
+    <string name="upgrade_length_slack_footer">Dung sai lớn hơn chấp nhận nhiều kết quả khớp hơn; dung sai nhỏ hơn sẽ chặt chẽ hơn. Mặc định là 5 giây.</string>
     <string name="seconds_short">%1$d giây</string>
     <string name="spdc_token">Token sp_dc</string>
     <string name="spotify_canvas_setup">Thiết lập Spotify</string>
@@ -704,6 +707,12 @@
     <string name="switch_profile_hint">Chuyển đổi bằng ảnh đại diện, sau đó sử dụng hồ sơ này.</string>
     <string name="profile_unavailable">Chưa có hồ sơ đã đăng nhập nào trên trang này.</string>
     <string name="export_compatible_downloads">Xuất bản tải xuống tương thích</string>
+    <string name="sync_downloaded_playlists">Luôn cập nhật danh sách phát</string>
+    <string name="sync_downloaded_playlists_subtitle">Kiểm tra hai lần mỗi ngày và tải các bài hát mới trong danh sách phát đã tải</string>
+    <string name="playlist_sync_ask_title">Bài hát mới trong %1$s: %2$d</string>
+    <string name="playlist_sync_ask_text">Nhấn để tải xuống</string>
+    <string name="playlist_sync_done_title">Đã thêm vào %1$s: %2$d</string>
+    <string name="playlist_updates_channel">Cập nhật danh sách phát</string>
     <string name="output_precision">Độ chính xác đầu ra</string>
     <string name="prefer_usb_dac">Ưu tiên DAC USB</string>
     <string name="loudness_normalization">Chuẩn hóa âm lượng</string>
@@ -808,9 +817,7 @@
 
     <string name="thai">Thai</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
 
     <string name="smart_version_alignment">Smart audio alignment</string>
 
@@ -1167,6 +1174,7 @@
     <string name="source_needs_lossless_output">Cần đầu ra lossless · hãy dùng thiết bị hỗ trợ lossless</string>
     <string name="source_needs_lossless_bt_codec">Cần đầu ra lossless · Bluetooth đang dùng %1$s; hãy dùng thiết bị hỗ trợ lossless</string>
     <string name="source_needs_lossless_bt_unknown">Cần đầu ra lossless · không xác định được codec Bluetooth đang dùng</string>
+    <string name="source_downloads_on">Cho phép tải xuống</string>
     <string name="source_downloads_off">Chỉ phát trực tuyến</string>
     <string name="lossless_output_permission">Kiểm tra codec Bluetooth</string>
     <string name="lossless_output_permission_detail">Cho phép Thiết bị lân cận để tai nghe LDAC hoặc LHDC mở khóa addon lossless</string>
@@ -1288,4 +1296,61 @@
     <string name="song_info_unavailable">Không có thông tin</string>
     <string name="song_info_error">Không thể tải một số thông tin.</string>
     <string name="song_info_retry">Thử lại</string>
+    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="no_video_version">No video version found for this song</string>
+    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="opened_file">Tệp đã mở</string>
+    <string name="folders">Thư mục</string>
+    <string name="folder">Thư mục</string>
+    <string name="no_local_folders">Không có thư mục nào chứa nhạc</string>
+    <string name="offline_playlist_empty">Danh sách phát này vẫn trống. Thêm bài hát từ menu của chúng.</string>
+    <string name="offline_liked_empty">Các bài hát bạn thích trên thiết bị này sẽ hiện ở đây</string>
+    <string name="saved_on_this_device">Đã lưu trên thiết bị này</string>
+    <string name="direct_source_stream_in_party">Tắt khi bạn đang trong bữa tiệc Listen Together</string>
+    <string name="direct_source_stream">Phát trực tiếp từ nguồn</string>
+    <string name="find_your_mood">Tìm tâm trạng của bạn</string>
+    <string name="progressive_blur">Làm mờ dần</string>
+    <string name="remove_from_history">Xóa khỏi lịch sử</string>
+    <string name="remove_from_history_failed">Không thể xóa khỏi lịch sử</string>
+    <string name="addon_blocked_title">Không thể phát bài hát này</string>
+    <string name="addon_blocked_quality">Chất lượng âm thanh khi dùng %1$s đang đặt là %2$s. Bài hát từ %3$s chỉ phát ở Lossless — hãy đổi trong Cài đặt → Chất lượng âm thanh để phát bài này.</string>
+    <string name="addon_blocked_watch">Nhạc đang phát qua đồng hồ của bạn, vốn giới hạn âm thanh dưới Lossless. Bài hát từ %1$s sẽ phát lại khi điện thoại lấy lại quyền phát nhạc.</string>
+    <string name="download_addon_left_out_title">Đang tải xuống không dùng %1$s</string>
+    <string name="download_addon_not_allowed">%1$s không cho phép tải xuống, nên bài hát của bạn được lưu từ các nguồn khác.</string>
+    <string name="download_addon_needs_lossless_output">%1$s chỉ phát nhạc khi có tai nghe có dây, USB hoặc chuẩn LDAC được kết nối. Lượt tải xuống sẽ bỏ qua nó cho đến khi có tai nghe như vậy, nên bài hát của bạn được lưu từ các nguồn khác.</string>
+    <string name="show_listen_together_button">Hiện nút Listen together</string>
+    <string name="show_listen_together_button_subtitle">Khi tắt, trình phát chỉ hiện nút đầu ra âm thanh giữa lời bài hát và hàng đợi</string>
+    <string name="font">Phông chữ</string>
+    <string name="font_default">Mặc định</string>
+    <string name="font_legacy">Cổ điển</string>
+    <string name="font_default_subtitle">SF Pro Display · Độ đậm của Apple Music</string>
+    <string name="font_legacy_subtitle">SF Pro Display · Độ đậm dày ban đầu</string>
+    <string name="font_footer">Cổ điển mang lại kiểu chữ dày và khít hơn mà ứng dụng từng dùng trước khi được đồng bộ với Apple Music.</string>
+    <string name="bit_perfect_output">Đầu ra bit-perfect</string>
+    <string name="bit_perfect_bypassed_footer">Đầu ra bit-perfect đã sẵn sàng nên các cài đặt bị làm mờ sẽ được bỏ qua và các phiên bản Dolby Atmos không được yêu cầu. Chúng hoạt động lại khi ngắt kết nối DAC hoặc tắt chế độ này.</string>
+    <string name="bit_perfect_sheet_warning">Gửi bản nhạc đến DAC mà không thay đổi. Bộ chỉnh âm, chuẩn hóa âm lượng, chuyển bài mượt, Automix, tốc độ phát và âm lượng của BitChord được bỏ qua.</string>
+    <string name="bit_perfect_mode_off_subtitle">Âm thanh đi qua bộ trộn của Android và các hiệu ứng của BitChord.</string>
+    <string name="bit_perfect_mode_usb_android">DAC USB</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14 mở DAC ở tần số và độ sâu bit của từng bản nhạc, không trộn và không lấy mẫu lại.</string>
+    <string name="bit_perfect_requires_android_14">Yêu cầu Android 14 trở lên</string>
+    <string name="bit_perfect_mode_dap_exclusive">DAC tích hợp (AAudio độc quyền)</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">Dành cho máy nghe nhạc có DAC riêng. Mở đầu ra tai nghe hoặc line độc quyền ở tần số của từng bản nhạc. Không phải thiết bị nào cũng cho phép chế độ độc quyền.</string>
+    <string name="bit_perfect_requires_android_8_1">Yêu cầu Android 8.1 trở lên</string>
+    <string name="bit_perfect_mode_usb_direct">DAC USB (trình điều khiển trực tiếp)</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord tự điều khiển DAC trên mọi phiên bản Android và đặt âm lượng ngay trên DAC. Cần quyền USB. Có thể to hơn nhiều so với đầu ra thông thường.</string>
+    <string name="dac_volume">Âm lượng DAC</string>
+    <string name="dac_volume_subtitle">Đặt trên chính DAC; nhạc không bị co giãn mức tín hiệu</string>
+    <string name="usb_allow_fixed_volume">Cho phép DAC không có điều khiển âm lượng</string>
+    <string name="usb_allow_fixed_volume_subtitle">Nếu không, DAC như vậy sẽ phát qua đầu ra thông thường</string>
+    <string name="usb_allow_fixed_volume_confirm_title">Phát ở mức tối đa?</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord không thể đặt âm lượng cho loại DAC này, nên nó phát ở mức tối đa và chỉ núm vặn của chính DAC, nếu có, mới điều chỉnh độ to. Âm thanh có thể to đến mức nguy hiểm với tai nghe nhạy.</string>
+    <string name="convert_for_limited_dac">Chuyển đổi cho DAC cấu hình thấp</string>
+    <string name="convert_for_limited_dac_subtitle">Chuyển đổi các bản nhạc vượt giới hạn của DAC sang định dạng cao nhất của nó. Bản nhạc có thể mất nhiều thời gian hơn để bắt đầu và sẽ không bit-perfect so với bản gốc.</string>
+    <string name="bit_perfect_confirm_title">Bật đầu ra bit-perfect?</string>
+    <string name="bit_perfect_confirm_message">DAC nhận nhạc ở mức tối đa và các nút âm lượng của điện thoại có thể ngừng hoạt động. Hãy giảm âm lượng DAC hoặc bộ khuếch đại trước khi phát.</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s kHz · %3$d-bit</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s kHz · %3$d-bit · mức tối đa của DAC, đã chuyển đổi từ định dạng của bản nhạc này</string>
+    <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
+    <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
+    <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
 </resources>

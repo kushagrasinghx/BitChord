@@ -31,7 +31,19 @@ enum class EntityType {
     @SerialName("ALBUM") ALBUM,
     @SerialName("ARTIST") ARTIST,
     @SerialName("PLAYLIST") PLAYLIST,
+    /** Any other page that opens rather than plays — a podcast show, for one. */
+    @SerialName("OTHER") OTHER,
 }
+
+/**
+ * This entry with its type put right, if an older build got it wrong.
+ *
+ * Those builds filed every page that wasn't an album, artist or playlist as a
+ * TRACK, so a podcast show already in someone's history would go on trying to
+ * play its browse id as a video.
+ */
+fun SearchHistoryEntity.withCorrectedType(): SearchHistoryEntity =
+    if (entityType == EntityType.TRACK && id.startsWith("MPSPP")) copy(entityType = EntityType.OTHER) else this
 
 /**
  * The track this entry plays, or null when it isn't one. A raw search term is

@@ -1,5 +1,7 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.components.trackArtSize
+import androidx.compose.ui.layout.ContentScale
 import com.music.bitchord.data.model.toSong
 import com.music.bitchord.ui.components.SwipeToQueueBox
 import com.music.bitchord.ui.components.contextClick
@@ -14,8 +16,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import com.music.bitchord.ui.components.PillSegmentedControl
 import com.music.bitchord.ui.components.longPressMenuClickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +35,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -57,6 +58,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,15 +81,12 @@ import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.RowMoreButton
-import com.music.bitchord.ui.components.PlayingAccent
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SearchField
 import com.music.bitchord.ui.components.SongRow
 import com.music.bitchord.ui.components.SearchPlayingBars
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.songListSkeleton
-import com.music.bitchord.ui.haptics.Haptic
-import com.music.bitchord.ui.haptics.rememberHaptics
 import java.util.Locale
 
 @Composable
@@ -148,6 +147,13 @@ fun SearchScreen(
     searchingAddons: Boolean = false,
     /** The Addons source's tracks for the submitted query; null until one is submitted. */
     addonResults: UiState<List<Song>>? = null,
+    /**
+     * Addon rows the connection's quality setting won't play. Shown dimmed,
+     * kept out of the queue a tap builds, and answered by [onBlockedSongClick]
+     * instead of being played.
+     */
+    isBlocked: (Song) -> Boolean = { false },
+    onBlockedSongClick: (Song) -> Unit = {},
     /** Words searched in the Addons tab before, newest first; shown while the field is empty. */
     addonHistory: List<String> = emptyList(),
     onAddonHistoryClick: (String) -> Unit = {},
@@ -240,8 +246,15 @@ fun SearchScreen(
             // they stay up for an empty or failed search too, or picking a filter
             // that finds nothing would take away the control needed to leave it.
             // They are YouTube's categories, so the Library source has none.
+            // The same selector as the sources above it and a folder's tabs, so
+            // the app has one look for "pick one of these".
             if (results != null && !suggesting && !searchingLibrary && !searchingAddons) {
-                SearchFilterTabs(filter = filter, onFilterChange = onFilterChange)
+                PillSegmentedControl(
+                    options = SearchFilter.entries.map { it.label },
+                    selectedIndex = filter.ordinal,
+                    onSelect = { onFilterChange(SearchFilter.entries[it]) },
+                    modifier = Modifier.padding(start = PAGE_GUTTER, end = PAGE_GUTTER, bottom = 6.dp),
+                )
             }
         }
 
@@ -264,6 +277,8 @@ fun SearchScreen(
                     onSongClick = onLibrarySongClick,
                     onSongLongPress = onSongLongPress,
                     onSongSwipe = onSongSwipe,
+                    isBlocked = if (searchingAddons) isBlocked else { _ -> false },
+                    onBlockedSongClick = onBlockedSongClick,
                 )
                 suggesting -> {
                     searchSuggestions(
@@ -368,7 +383,6 @@ fun SearchScreen(
                                     isCurrent = isCurrentRow(row.song),
                                     isPlaying = isPlaying && isCurrentRow(row.song),
                                     searchPlayingStyle = true,
-                                    activeTint = PlayingAccent,
                                 )
                                 is SearchResult.Browse -> BrowseRow(
                                     item = row.item,
@@ -430,6 +444,8 @@ private fun LazyListScope.librarySearchResults(
     onSongClick: (List<Song>, Int) -> Unit,
     onSongLongPress: (Song) -> Unit,
     onSongSwipe: (Song) -> Unit,
+    isBlocked: (Song) -> Boolean,
+    onBlockedSongClick: (Song) -> Unit,
 ) {
     when (results) {
         null -> if (addons && query.isEmpty() && addonHistory.isNotEmpty()) {
@@ -455,15 +471,27 @@ private fun LazyListScope.librarySearchResults(
             val tracks = results.data
             val isCurrentRow = playingRowMatcher(tracks, currentSong)
             itemsIndexed(tracks, key = { index, song -> "${if (addons) "addon" else "library"}_${song.videoId}_$index" }) { index, song ->
+                val blocked = isBlocked(song)
                 SongRow(
                     song = song,
-                    onClick = { onSongClick(tracks, index) },
+                    // Dimmed rather than hidden, so the listener can see the
+                    // addon has the song and tap to learn why it won't play.
+                    modifier = if (blocked) Modifier.alpha(BLOCKED_ROW_ALPHA) else Modifier,
+                    onClick = {
+                        if (blocked) {
+                            onBlockedSongClick(song)
+                        } else {
+                            // The queue skips blocked rows, or playing through
+                            // it would stop at the first one with an error.
+                            val playable = tracks.filterNot(isBlocked)
+                            onSongClick(playable, playable.indexOfFirst { it === song })
+                        }
+                    },
                     onLongPress = { onSongLongPress(song) },
-                    onSwipeToQueue = { onSongSwipe(song) },
+                    onSwipeToQueue = { if (blocked) onBlockedSongClick(song) else onSongSwipe(song) },
                     isCurrent = isCurrentRow(song),
                     isPlaying = isPlaying && isCurrentRow(song),
                     searchPlayingStyle = true,
-                    activeTint = PlayingAccent,
                     showSourceQuality = addons,
                 )
                 if (index < tracks.lastIndex) {
@@ -506,7 +534,8 @@ private fun TopResultCard(
             AsyncImage(
                 model = song.thumbnailUrl?.artworkAt(ROW_ART_PX),
                 contentDescription = null,
-                modifier = Modifier.size(72.dp).clip(RoundedCornerShape(10.dp)),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.trackArtSize(72.dp, song.isVideo).clip(RoundedCornerShape(10.dp)),
             )
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -722,17 +751,22 @@ private fun TypeaheadSongRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+            .longPressMenuClickable(
+                onClick = onClick,
+                onLongClick = onLongPress,
+                liftPadding = PaddingValues(horizontal = PAGE_GUTTER),
+            )
             .contextClick(onLongPress)
             .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(52.dp)) {
+        Box(Modifier.trackArtSize(52.dp, song.isVideo)) {
             AsyncImage(
                 model = song.artworkAt(ROW_ART_PX),
                 contentDescription = null,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(52.dp)
+                    .matchParentSize()
                     .clip(RoundedCornerShape(8.dp))
                     .thumbnailBorder(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant),
@@ -744,7 +778,7 @@ private fun TypeaheadSongRow(
             Text(
                 text = song.title,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (isCurrent) PlayingAccent else MaterialTheme.colorScheme.onBackground,
+                color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -912,7 +946,11 @@ private fun RecentSearchEntityRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
-                .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+                .longPressMenuClickable(
+                    onClick = onClick,
+                    onLongClick = onLongPress,
+                    liftPadding = PaddingValues(start = PAGE_GUTTER, end = 8.dp),
+                )
                 .contextClick(onLongPress)
                 .padding(start = PAGE_GUTTER, end = 8.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -936,7 +974,7 @@ private fun RecentSearchEntityRow(
                 Text(
                     text = entity.title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (isCurrent) PlayingAccent else MaterialTheme.colorScheme.onBackground,
+                    color = MaterialTheme.colorScheme.onBackground,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -973,7 +1011,11 @@ private fun BrowseRow(item: BrowseItem, onClick: () -> Unit, onLongPress: (() ->
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+            .longPressMenuClickable(
+                onClick = onClick,
+                onLongClick = onLongPress,
+                liftPadding = PaddingValues(horizontal = PAGE_GUTTER),
+            )
             .contextClick(onLongPress)
             .padding(horizontal = PAGE_GUTTER, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1013,51 +1055,5 @@ private fun BrowseRow(item: BrowseItem, onClick: () -> Unit, onLongPress: (() ->
     }
 }
 
-/**
- * Filter pills rather than a tab row: squarish rounded rectangles, the selected
- * one inverted. They scroll horizontally so a long label set never squeezes the
- * text, and the gutter padding sits inside the scroll so it scrolls with them.
- */
-@Composable
-private fun SearchFilterTabs(filter: SearchFilter, onFilterChange: (SearchFilter) -> Unit) {
-    val haptics = rememberHaptics()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = PAGE_GUTTER, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SearchFilter.entries.forEach { entry ->
-            val selected = entry == filter
-            Box(
-                modifier = Modifier
-                    .clip(FILTER_PILL_SHAPE)
-                    .background(
-                        if (selected) MaterialTheme.colorScheme.onBackground
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                    )
-                    // Only the pill that isn't already selected has anything to
-                    // report — re-tapping the current filter changes nothing, so
-                    // buzzing for it would be feedback for a no-op.
-                    .clickable {
-                        if (!selected) haptics.play(Haptic.Select)
-                        onFilterChange(entry)
-                    }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = entry.label,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (selected) MaterialTheme.colorScheme.background
-                    else MaterialTheme.colorScheme.onBackground,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
-}
-
-/** Rounded, but well short of a capsule — the corner reads as a cut, not a curve. */
-private val FILTER_PILL_SHAPE = RoundedCornerShape(12.dp)
+/** How far an addon row the quality setting won't play is dimmed; Material's disabled level. */
+private const val BLOCKED_ROW_ALPHA = 0.38f

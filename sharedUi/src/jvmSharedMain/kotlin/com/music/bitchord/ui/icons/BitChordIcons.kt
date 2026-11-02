@@ -1,6 +1,7 @@
 package com.music.bitchord.ui.icons
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -154,7 +155,8 @@ object BitChordIcons {
     /**
      * The phone tab bar's Explore, Library and Search glyphs: solid-weight
      * iOS shapes rather than this file's stroked family, taken from the
-     * outlines of Flutter's cupertino_icons font (MIT) — square_grid_2x2,
+     * outlines of Flutter's cupertino_icons font (MIT) — square_grid_2x2
+     * with its four counters dropped so the squares fill solid,
      * square_stack_fill and search.
      *
      * Each is the glyph laid out the way the font sets it: the 512-unit em
@@ -167,12 +169,8 @@ object BitChordIcons {
             "bc_tab_explore",
             "M99.5 230.24Q58.5 230.24 58.5 188.24V93.24Q58.5 51.24 99.5 51.24H197.5Q238.5 51.24 238.5 93.24V188.24Q238.5 230.24 197.5 230.24Z" +
                 "M314.5 230.24Q273.5 230.24 273.5 188.24V93.24Q273.5 51.24 314.5 51.24H412.5Q453.5 51.24 453.5 93.24V188.24Q453.5 230.24 412.5 230.24Z" +
-                "M99.5 200.24H196.5Q207.5 200.24 207.5 188.24V93.24Q207.5 81.24 196.5 81.24H99.5Q88.5 81.24 88.5 93.24V188.24Q88.5 200.24 99.5 200.24Z" +
-                "M314.5 200.24H411.5Q422.5 200.24 422.5 188.24V93.24Q422.5 81.24 411.5 81.24H314.5Q303.5 81.24 303.5 93.24V188.24Q303.5 200.24 314.5 200.24Z" +
                 "M99.5 445.24Q58.5 445.24 58.5 403.24V307.24Q58.5 266.24 99.5 266.24H197.5Q238.5 266.24 238.5 307.24V403.24Q238.5 445.24 197.5 445.24Z" +
-                "M314.5 445.24Q273.5 445.24 273.5 403.24V307.24Q273.5 266.24 314.5 266.24H412.5Q453.5 266.24 453.5 307.24V403.24Q453.5 445.24 412.5 445.24Z" +
-                "M99.5 415.24H196.5Q207.5 415.24 207.5 403.24V308.24Q207.5 296.24 196.5 296.24H99.5Q88.5 296.24 88.5 308.24V403.24Q88.5 415.24 99.5 415.24Z" +
-                "M314.5 415.24H411.5Q422.5 415.24 422.5 403.24V308.24Q422.5 296.24 411.5 296.24H314.5Q303.5 296.24 303.5 308.24V403.24Q303.5 415.24 314.5 415.24Z",
+                "M314.5 445.24Q273.5 445.24 273.5 403.24V307.24Q273.5 266.24 314.5 266.24H412.5Q453.5 266.24 453.5 307.24V403.24Q453.5 445.24 412.5 445.24Z",
         )
     }
 
@@ -361,6 +359,28 @@ object BitChordIcons {
                 moveTo(10f, 6.7f); lineTo(20f, 4.9f)
             }
         }.build()
+    }
+
+    /**
+     * Two beamed notes, filled, sitting level — what the lyrics show through an
+     * instrumental section. Apart from [MusicNote], which stays the artwork
+     * placeholder elsewhere.
+     */
+    val Instrumental: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_instrumental",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).addPath(
+            pathData = addPathNodes(
+                "M19.952 1.651a.75.75 0 0 1 .298.599V16.303a3 3 0 0 1-2.176 2.884l-1.32.377a2.553 2.553 0 1 1-1.403-4.909" +
+                    "l2.311-.66a1.5 1.5 0 0 0 1.088-1.442V6.994l-9 2.572v9.737a3 3 0 0 1-2.176 2.884l-1.32.377" +
+                    "a2.553 2.553 0 1 1-1.402-4.909l2.31-.66a1.5 1.5 0 0 0 1.088-1.442V5.25a.75.75 0 0 1 .544-.721" +
+                    "l10.5-3a.75.75 0 0 1 .658.122Z",
+            ),
+            pathFillType = PathFillType.EvenOdd,
+            fill = stroke,
+        ).build()
     }
 
     /** Speech bubble with two lines of words. */

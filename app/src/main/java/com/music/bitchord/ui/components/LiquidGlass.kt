@@ -107,9 +107,9 @@ fun glassContentColor(): Color =
  * Selected-tab indicator colour for a glass surface: white in both themes.
  *
  * In light theme that is the inverse of [glassContentColor], a bright lift
- * behind a dark glyph. In dark theme it is a lighter step of the bar's own
- * white-tinted glass (see [glassBarTint]) rather than a black scrim pressed
- * into it — the selected tab is raised out of the bar, as on iOS, not sunk.
+ * behind a dark glyph. In dark theme it is a faint white lift over the bar's
+ * dark glass rather than a black scrim pressed into it — the selected tab is
+ * raised out of the bar, as on iOS, not sunk.
  */
 @Composable
 fun glassIndicatorColor(): Color =
@@ -118,21 +118,6 @@ fun glassIndicatorColor(): Color =
     } else {
         Color.White.copy(alpha = DARK_INDICATOR_OPACITY)
     }
-
-/**
- * The surface tint the navigation bar's glass is drawn with.
- *
- * In dark theme the default near-black tint makes the bar a darker hole in a
- * dark page, with nothing to say where its edge is. A faint white instead
- * gives it the frosted grey of iOS's bar, which reads as glass over black.
- * Light theme keeps the default.
- */
-@Composable
-fun glassBarTint(): Color? =
-    if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) null else Color.White.copy(alpha = DARK_BAR_OPACITY)
-
-/** How white the nav bar's glass is in dark theme — see [glassBarTint]. */
-private const val DARK_BAR_OPACITY = 0.09f
 
 /** The selected tab's pill in dark theme, a step whiter than the bar. */
 private const val DARK_INDICATOR_OPACITY = 0.14f

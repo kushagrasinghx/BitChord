@@ -181,6 +181,7 @@
     <string name="italian">איטלקית</string>
     <string name="turkish">טורקית</string>
     <string name="thai">תאית</string>
+    <string name="korean">קוריאנית</string>
     <string name="show_all">הצג הכול</string>
     <string name="grid_view">רשת</string>
     <string name="list_view">רשימה</string>
@@ -416,6 +417,8 @@
     <string name="signed_in_as">מחובר כ-%1$s</string>
     <string name="signing_in">מתחבר…</string>
     <string name="sleep_timer">טיימר שינה</string>
+    <string name="sleep_timer_custom">מותאם אישית</string>
+    <string name="start_sleep_timer">הפעל טיימר</string>
     <string name="sources_no_lossless">שום מקור מופעל אינו יכול לספק שמע ללא אובדן נתונים. הוסף מודול מותאם אישית כדי להפעיל קבצים זמינים ללא אובדן נתונים ללא המרה.</string>
     <string name="sources_order_footer">אם למקור אין רצועה, BitChord מנסה את הבא. מקורות מעל YouTube יכולים להחליפו כשהם מוצאים גרסה טובה יותר.</string>
     <string name="sources_order_header">מקורות, נוסו בסדר זה</string>
@@ -427,7 +430,7 @@
     <string name="source_matching">התאמת מקורות</string>
     <string name="upgrade_length_slack">סבילות אורך רצועה</string>
     <string name="upgrade_length_slack_subtitle">הפרש המשך המרבי המותר לזרם חלופי</string>
-    <string name="upgrade_length_slack_footer">סבילות גדולה יותר מקבלת יותר התאמות ממקורות; סבילות קטנה יותר מחמירה יותר. ברירת המחדל היא 3 שניות.</string>
+    <string name="upgrade_length_slack_footer">סבילות גדולה יותר מקבלת יותר התאמות ממקורות; סבילות קטנה יותר מחמירה יותר. ברירת המחדל היא 5 שניות.</string>
     <string name="seconds_short">%1$d שנ׳</string>
     <string name="spdc_token">אסימון sp_dc</string>
     <string name="spotify_canvas_setup">הגדרת Spotify</string>
@@ -852,6 +855,12 @@
     <string name="dolby_atmos_unavailable">מכשיר זה אינו תומך ב-Atmos, שירים ינוגנו בגרסה רגילה</string>
 
     <string name="export_compatible_downloads">ייצא הורדות תואמות</string>
+    <string name="sync_downloaded_playlists">שמירה על רשימות השמעה מעודכנות</string>
+    <string name="sync_downloaded_playlists_subtitle">בדיקה פעמיים ביום והורדה של שירים חדשים ברשימות ההשמעה שהורדת</string>
+    <string name="playlist_sync_ask_title">שירים חדשים ב-%1$s: %2$d</string>
+    <string name="playlist_sync_ask_text">יש להקיש כדי להוריד</string>
+    <string name="playlist_sync_done_title">נוספו אל %1$s: %2$d</string>
+    <string name="playlist_updates_channel">עדכוני רשימות השמעה</string>
 
     <string name="legacy_mesh_gradient">גרדיאנט רשת קלאסי</string>
 
@@ -1062,9 +1071,7 @@
 
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
     <string name="smart_version_alignment">יישור אודיו חכם</string>
     <string name="smart_version_alignment_subtitle">ניתוח צורות הגל כדי למצוא בדיוק את רגע ההשמעה התואם</string>
 
@@ -1255,6 +1262,7 @@
     <string name="source_needs_lossless_output">דורש פלט ללא אובדן · השתמשו במכשיר שתומך באודיו ללא אובדן</string>
     <string name="source_needs_lossless_bt_codec">דורש פלט ללא אובדן · ה‑Bluetooth משתמש ב‑%1$s; השתמשו במכשיר שתומך באודיו ללא אובדן</string>
     <string name="source_needs_lossless_bt_unknown">דורש פלט ללא אובדן · לא ניתן לדעת באיזה קודק Bluetooth נעשה שימוש</string>
+    <string name="source_downloads_on">הורדות מותרות</string>
     <string name="source_downloads_off">הזרמה בלבד</string>
     <string name="lossless_output_permission">בדיקת קודק Bluetooth</string>
     <string name="lossless_output_permission_detail">אפשרו מכשירים בקרבת מקום כדי שאוזניות LDAC או LHDC יפתחו תוספים ללא אובדן</string>
@@ -1376,4 +1384,61 @@
     <string name="song_info_unavailable">לא זמין</string>
     <string name="song_info_error">לא ניתן לטעון חלק מהמידע.</string>
     <string name="song_info_retry">ניסיון חוזר</string>
+    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="no_video_version">No video version found for this song</string>
+    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="opened_file">קובץ שנפתח</string>
+    <string name="folders">תיקיות</string>
+    <string name="folder">תיקייה</string>
+    <string name="no_local_folders">אין תיקיות עם מוזיקה</string>
+    <string name="offline_playlist_empty">הפלייליסט עדיין ריק. אפשר להוסיף שירים מהתפריט שלהם.</string>
+    <string name="offline_liked_empty">שירים שאהבת במכשיר הזה יופיעו כאן</string>
+    <string name="saved_on_this_device">נשמר במכשיר הזה</string>
+    <string name="direct_source_stream_in_party">כבוי בזמן מסיבת Listen Together</string>
+    <string name="direct_source_stream">הזרמה ישירה מהמקור</string>
+    <string name="find_your_mood">מצא את מצב הרוח שלך</string>
+    <string name="progressive_blur">טשטוש הדרגתי</string>
+    <string name="remove_from_history">הסרה מההיסטוריה</string>
+    <string name="remove_from_history_failed">לא ניתן להסיר מההיסטוריה</string>
+    <string name="addon_blocked_title">לא ניתן לנגן את השיר הזה</string>
+    <string name="addon_blocked_quality">איכות האודיו ב-%1$s מוגדרת ל-%2$s. שירים מ-%3$s מתנגנים רק ב-Lossless — יש לשנות זאת בהגדרות → איכות אודיו כדי לנגן את השיר.</string>
+    <string name="addon_blocked_watch">המוזיקה מתנגנת דרך השעון שלך, שמגביל את האודיו מתחת ל-Lossless. שירים מ-%1$s יתנגנו שוב כשהטלפון יחזור לנגן את המוזיקה.</string>
+    <string name="download_addon_left_out_title">מוריד בלי %1$s</string>
+    <string name="download_addon_not_allowed">%1$s לא מאפשר הורדות, ולכן השירים שלך נשמרים מהמקורות האחרים שלך.</string>
+    <string name="download_addon_needs_lossless_output">%1$s מספק מוזיקה רק כשמחוברות אוזניות חוטיות, USB או ברמת LDAC. ההורדות מדלגות עליו עד שיתחברו אוזניות כאלה, ולכן השירים שלך נשמרים מהמקורות האחרים שלך.</string>
+    <string name="show_listen_together_button">הצגת הכפתור להאזין ביחד</string>
+    <string name="show_listen_together_button_subtitle">כשהאפשרות כבויה, הנגן מציג רק את כפתור פלט השמע בין המילים לתור ההשמעה</string>
+    <string name="font">גופן</string>
+    <string name="font_default">ברירת מחדל</string>
+    <string name="font_legacy">קלאסי</string>
+    <string name="font_default_subtitle">SF Pro Display · משקלי Apple Music</string>
+    <string name="font_legacy_subtitle">SF Pro Display · המשקלים העבים המקוריים</string>
+    <string name="font_footer">האפשרות קלאסי מחזירה את הגופן העבה והצפוף יותר שהאפליקציה השתמשה בו לפני שהותאמה ל-Apple Music.</string>
+    <string name="bit_perfect_output">פלט Bit-perfect</string>
+    <string name="bit_perfect_bypassed_footer">פלט Bit-perfect מוכן, ולכן ההגדרות המעומעמות אינן פעילות ולא מתבקשות גרסאות Dolby Atmos. הן יפעלו שוב כשה-DAC ינותק או כשהמצב ייכבה.</string>
+    <string name="bit_perfect_sheet_warning">שולח את הרצועה ל-DAC ללא שינוי. האקולייזר, נרמול העוצמה, ה-Crossfade, ה-Automix, מהירות ההשמעה ועוצמת הקול של BitChord אינם פעילים.</string>
+    <string name="bit_perfect_mode_off_subtitle">השמע עובר דרך המיקסר של Android והאפקטים של BitChord.</string>
+    <string name="bit_perfect_mode_usb_android">USB DAC</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14 פותח את ה-DAC בקצב ובעומק הסיביות של כל רצועה, ללא מיקס וללא דגימה מחדש.</string>
+    <string name="bit_perfect_requires_android_14">נדרש Android 14 ומעלה</string>
+    <string name="bit_perfect_mode_dap_exclusive">DAC מובנה (AAudio בלעדי)</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">לנגני מוזיקה עם DAC משלהם. פותח את יציאת האוזניות או הקו באופן בלעדי בקצב של כל רצועה. לא כל מכשיר מאפשר מצב בלעדי.</string>
+    <string name="bit_perfect_requires_android_8_1">נדרש Android 8.1 ומעלה</string>
+    <string name="bit_perfect_mode_usb_direct">USB DAC (מנהל התקן ישיר)</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord מפעיל את ה-DAC בעצמו, בכל גרסת Android, וקובע את עוצמת הקול ב-DAC. מבקש הרשאת USB. עשוי להישמע חזק בהרבה מהפלט הרגיל.</string>
+    <string name="dac_volume">עוצמת קול של ה-DAC</string>
+    <string name="dac_volume_subtitle">נקבעת ב-DAC עצמו; המוזיקה אינה משתנה</string>
+    <string name="usb_allow_fixed_volume">אפשר רכיבי DAC ללא בקרת עוצמה</string>
+    <string name="usb_allow_fixed_volume_subtitle">אחרת, DAC כזה ינגן דרך הפלט הרגיל</string>
+    <string name="usb_allow_fixed_volume_confirm_title">לנגן בעוצמה מלאה?</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord לא יכול לקבוע את עוצמת הקול של DAC מסוג זה, ולכן הוא מנגן בעוצמה מלאה ורק הכפתור שלו עצמו, אם יש כזה, שולט בעוצמה. הצליל עלול להיות חזק באופן מסוכן עם אוזניות רגישות.</string>
+    <string name="convert_for_limited_dac">המרה לרכיבי DAC מוגבלים</string>
+    <string name="convert_for_limited_dac_subtitle">ממיר רצועות שמעל למגבלת ה-DAC שלך לפורמט הגבוה ביותר שלו. ייתכן שהרצועות יתחילו לאט יותר, והן לא יהיו Bit-perfect ביחס למקור.</string>
+    <string name="bit_perfect_confirm_title">להפעיל פלט Bit-perfect?</string>
+    <string name="bit_perfect_confirm_message">ה-DAC מקבל את המוזיקה בעוצמה מלאה, וייתכן שכפתורי עוצמת הקול של הטלפון יפסיקו לעבוד. יש להנמיך את ה-DAC או המגבר לפני ההשמעה.</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s kHz · %3$d-bit</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s kHz · %3$d-bit · מקסימום ה-DAC, הומר מהפורמט של הרצועה</string>
+    <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
+    <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
+    <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
 </resources>

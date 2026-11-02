@@ -189,8 +189,6 @@
     <string name="sign_in">साइन इन करें</string>
     <string name="sign_in_youtube_music">YouTube Music में साइन इन करें</string>
     <string name="subscriptions">सदस्यताएं</string>
-    <string name="switch_to_grid_view">ग्रिड व्यू पर स्विच करें</string>
-    <string name="switch_to_list_view">लिस्ट व्यू पर स्विच करें</string>
     <string name="your_replay">आपका Replay</string>
     <string name="your_listening_experience">आपका सुनने का अनुभव</string>
     <string name="default_replay_holder">BitChord श्रोता</string>

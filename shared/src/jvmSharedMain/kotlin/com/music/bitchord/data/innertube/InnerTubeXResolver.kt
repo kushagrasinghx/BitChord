@@ -31,6 +31,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -258,6 +262,105 @@ object InnerTubeXResolver {
         return extracted
     }
 
+    /** A music video's picture: a video-only stream, and the identity its fetch has to wear. */
+    class VideoStream(
+        val videoId: String,
+        val url: String,
+        val width: Int,
+        val height: Int,
+        val mimeType: String,
+        val headers: Map<String, String>,
+        /** Every height this video is offered at, largest first — what a quality picker lists. */
+        val heights: List<Int>,
+        /** InnerTubeX's catalog id for the client that minted [url]; what a refusal skips. */
+        val profileId: String,
+    ) {
+        val aspect: Float get() = if (height > 0) width.toFloat() / height else 0f
+    }
+
+    /**
+     * The picture for [videoId], at most [maxHeight] tall, for the player to
+     * show over its own audio — as the web player's videoDeck does. The audio
+     * this resolves alongside is ignored: the main player already has its own.
+     *
+     * [ageRestricted] matters more for video than for audio: asked for video,
+     * InnerTubeX ranks the TV, VR and iOS clients first and WEB_REMIX last, and
+     * several of those front-runners can't serve an age-gated video at all, so
+     * the request budget goes on `LOGIN_REQUIRED`s. Saying so drops them, puts
+     * the signed-in clients first and retries a refused one with a fresh PoToken.
+     *
+     * @param skipClients profiles refused for this picture already.
+     * @return null when InnerTubeX found no video-only stream, which for a
+     *   catalogue track (a still image as its "video") is the normal answer.
+     * @throws com.metrolist.innertubex.extraction.StreamResolveException with
+     *   [AGE_RESTRICTED][com.metrolist.innertubex.extraction.StreamResolveException.Reason.AGE_RESTRICTED]
+     *   when every client asked was turned away by the age gate.
+     */
+    suspend fun extractVideo(
+        videoId: String,
+        maxHeight: Int,
+        skipClients: Set<String> = emptySet(),
+        ageRestricted: Boolean = false,
+    ): VideoStream? {
+        innerTube.cookie = Innertube.cookie
+        innerTube.visitorData = Innertube.ensureVisitorData()
+        innerTube.locale = YouTubeLocale(gl = Innertube.currentRegion, hl = Innertube.currentLanguage)
+        val stream = extractor.extract(
+            videoId = videoId,
+            hints = ContentHints(
+                isAgeRestricted = true.takeIf { ageRestricted },
+                wantVideo = true,
+                maxVideoHeight = maxHeight,
+            ).withStreamCapabilities(allowHls = false, allowSabr = false, allowBoundedRange = true),
+            excludedClients = excludedFor(videoId) + skipClients,
+            audioQuality = AudioQuality.LOW,
+            clientPlaybackNonce = generateClientPlaybackNonce(),
+        ) ?: return null
+        // A live broadcast's video-only URL is a window that ends in seconds,
+        // like its audio one; no picture beats a frozen one.
+        val url = stream.videoUrl?.takeUnless(StreamResolver::isLiveUrl) ?: return null
+        val width = stream.videoWidth ?: 0
+        val height = stream.videoHeight ?: 0
+        val mime = stream.videoMimeType.orEmpty()
+        TrackLog.d(
+            TAG,
+            "video: ${width}x$height $mime ${stream.videoCodecs.orEmpty()} via ${stream.profileId}" +
+                if (ageRestricted) " (age-restricted)" else "",
+            about = videoId,
+        )
+        return VideoStream(
+            videoId = videoId,
+            url = url,
+            width = width,
+            height = height,
+            mimeType = mime,
+            headers = stream.headers,
+            heights = (stream.availableVideoHeights.orEmpty() + height)
+                .filter { it > 0 }
+                .distinct()
+                .sortedDescending(),
+            profileId = stream.profileId,
+        )
+    }
+
+    /**
+     * A picture's URL was refused mid-playback: the same signal [onRefused]
+     * acts on for audio, minus the exclusion — the picture keeps its own, so a
+     * video-only refusal doesn't bench a client the audio is fine on.
+     */
+    fun onVideoRefused() {
+        scope.launch { runCatching { cipherService.refreshAfterStreamRejection() } }
+    }
+
+    private val _sessionGeneration = MutableStateFlow(0)
+
+    /**
+     * Bumped on every sign-in and sign-out, so what's remembered against the
+     * old session elsewhere (the picture's "no video here" verdicts) can tell
+     * it is stale.
+     */
+    val sessionGeneration: StateFlow<Int> = _sessionGeneration.asStateFlow()
+
     /** Headers the media fetch for [url] must carry, when InnerTubeX minted it. */
     fun headersFor(url: String): Map<String, String>? = minted[url]?.headers
 
@@ -284,6 +387,7 @@ object InnerTubeXResolver {
         minted.clear()
         // A new cookie or visitor means a new player config and PoToken binding.
         if (prefs != null) warm(0)
+        _sessionGeneration.update { it + 1 }
     }
 
     private fun excludedFor(videoId: String): Set<String> {

@@ -36,6 +36,7 @@ import org.schabi.newpipe.extractor.exceptions.YoutubeMusicPremiumContentExcepti
 import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.DeliveryMethod
+import org.schabi.newpipe.extractor.stream.StreamType
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -427,6 +428,13 @@ object StreamResolver {
         val resolveStart = MonotonicClock.nowMs()
         val stream = try {
             timed("$videoId InnerTubeX") { innerTubeXStreamAllowingUploads(videoId) }
+                ?.let { found ->
+                    // A live broadcast's adaptive URL is one window of a stream
+                    // that keeps growing: it plays the few seconds that exist
+                    // and then ends. Live is played from its HLS playlist.
+                    if (!isLiveUrl(found.url)) found
+                    else timed("$videoId live HLS") { liveHlsStream(videoId) } ?: found
+                }
                 ?: run {
                     TrackLog.w(TAG, "InnerTubeX found no usable stream for $videoId; falling back to extraction")
                     timed("$videoId newPipeStream") { newPipeStream(videoId, ::pickForQuality) }
@@ -1016,6 +1024,43 @@ object StreamResolver {
             }
         }
         throw failure ?: IllegalStateException("Track unavailable: no audio streams")
+    }
+
+    /**
+     * Whether [url] is a window onto a live broadcast. googlevideo marks those
+     * with `live=1` and `source=yt_live_broadcast`; a finished video has neither.
+     */
+    fun isLiveUrl(url: String): Boolean {
+        val parsed = url.toHttpUrlOrNull() ?: return false
+        return parsed.queryParameter("live") == "1" ||
+            parsed.queryParameter("source") == "yt_live_broadcast"
+    }
+
+    /**
+     * The HLS playlist of a live broadcast, or null when [videoId] is not live
+     * or has none. Media3 plays it through `HlsMediaSource` — the `.m3u8` ending
+     * is what [com.music.bitchord.playback.StreamContainer.manifestMimeOf] reads.
+     */
+    private suspend fun liveHlsStream(videoId: String): Stream? = try {
+        extractionGate.withLock {
+            withContext(Dispatchers.IO) {
+                val extractor = ServiceList.YouTube.getStreamExtractor(
+                    "https://www.youtube.com/watch?v=$videoId",
+                )
+                extractor.fetchPage()
+                val live = extractor.streamType == StreamType.LIVE_STREAM ||
+                    extractor.streamType == StreamType.AUDIO_LIVE_STREAM
+                extractor.hlsUrl.takeIf { live && it.isNotBlank() }?.let {
+                    TrackLog.d(TAG, "live stream $videoId served from its HLS playlist")
+                    Stream(url = it, kbps = 0, mimeType = "application/x-mpegURL")
+                }
+            }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        TrackLog.w(TAG, "live HLS lookup failed for $videoId: ${e.message}")
+        null
     }
 
     /**

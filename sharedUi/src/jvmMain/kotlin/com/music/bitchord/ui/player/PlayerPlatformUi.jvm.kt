@@ -34,7 +34,7 @@ internal actual fun KeepScreenOn(enabled: Boolean) = Unit
 internal actual fun appLanguageTag(): String = Locale.getDefault().toLanguageTag()
 
 @Composable
-internal actual fun PlayerBackHandler(enabled: Boolean, onBack: () -> Unit) {
+actual fun PlayerBackHandler(enabled: Boolean, onBack: () -> Unit) {
     val current = rememberUpdatedState(onBack)
     val entry = remember { PlayerBack.Entry { current.value() } }
     DisposableEffect(enabled) {

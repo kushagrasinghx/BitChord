@@ -569,21 +569,18 @@ object AppSettings {
     val fullBleedArtwork = MutableStateFlow(true)
 
     /**
-     * Puts v1.5's backdrop back on the player: four quantised blobs drifting
-     * behind the whole screen, rather than the artwork's own colours hung off
-     * the sleeve's bottom edge.
+     * What the main player stands on below the artwork.
      *
-     * Off by default, because the current backdrop replaced it for two reasons
-     * that have not gone away — see [ArtworkMesh][com.music.bitchord.ui.player.ArtworkMesh]
-     * for the colour one (a cover that is nine-tenths black with a red stripe
-     * comes back from the quantiser as a red screen) and
-     * [ArtworkMeshBackdrop][com.music.bitchord.ui.player.ArtworkMeshBackdrop]
-     * for the cost one (blobs that drift are a full-screen blur redrawn while
-     * they move, where a mesh is drawn once per track and then composited).
-     * Kept as a switch because people asked for the old look back, and neither
-     * reason is one a listener has to agree with.
+     * [PlayerTheme.DEFAULT] because that is the look people asked to have back,
+     * and because the alternatives each give something up: see
+     * [ArtworkMesh][com.music.bitchord.ui.player.ArtworkMesh] for what
+     * [PlayerTheme.LEGACY]'s quantiser does to a cover that is nine-tenths black
+     * with a red stripe (a red screen), and
+     * [ArtworkMeshBackdrop][com.music.bitchord.ui.player.ArtworkMeshBackdrop] for
+     * its cost (blobs that drift are a full-screen blur redrawn while they move,
+     * where a mesh is drawn once per track and then composited).
      */
-    val legacyMeshGradient = MutableStateFlow(false)
+    val playerTheme = MutableStateFlow(PlayerTheme.DEFAULT)
 
     /** Restores the expanded player to the surface the listener left open. */
     val lastPlayerScreen = MutableStateFlow(LastPlayerScreen.MAIN)
@@ -1025,7 +1022,12 @@ object AppSettings {
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
-        legacyMeshGradient.value = prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)
+        // The old legacy mesh switch answers until a theme has been picked.
+        playerTheme.value = runCatching {
+            PlayerTheme.valueOf(prefs.getString(KEY_PLAYER_THEME, null).orEmpty())
+        }.getOrElse {
+            if (prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)) PlayerTheme.LEGACY else PlayerTheme.DEFAULT
+        }
         lastPlayerScreen.value = runCatching {
             LastPlayerScreen.valueOf(
                 prefs.getString(KEY_LAST_PLAYER_SCREEN, null) ?: LastPlayerScreen.MAIN.name,
@@ -1649,9 +1651,9 @@ object AppSettings {
         prefs.edit().putBoolean(KEY_FULL_BLEED_ARTWORK, value).apply()
     }
 
-    fun setLegacyMeshGradient(value: Boolean) {
-        legacyMeshGradient.value = value
-        prefs.edit().putBoolean(KEY_LEGACY_MESH_GRADIENT, value).apply()
+    fun setPlayerTheme(value: PlayerTheme) {
+        playerTheme.value = value
+        prefs.edit().putString(KEY_PLAYER_THEME, value.name).apply()
     }
 
     fun setLastPlayerScreen(value: LastPlayerScreen) {
@@ -2254,6 +2256,7 @@ object AppSettings {
     private const val KEY_SIGNATURE_API_ENABLED = "signature_api_enabled"
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
+    private const val KEY_PLAYER_THEME = "player_theme"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"

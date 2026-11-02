@@ -857,9 +857,14 @@
     <string name="playlist_sync_done_title">%1$s में जोड़े गए: %2$d</string>
     <string name="playlist_updates_channel">प्लेलिस्ट अपडेट</string>
 
-    <string name="legacy_mesh_gradient">क्लासिक मेश ग्रेडिएंट</string>
+    <string name="player_theme">प्लेयर थीम</string>
+    <string name="player_theme_default">डिफ़ॉल्ट</string>
+    <string name="player_theme_legacy">पुराना</string>
+    <string name="player_theme_simple">सरल</string>
+    <string name="player_theme_default_subtitle">कवर के रंग उसके नीचे तक फैलते हैं</string>
+    <string name="player_theme_simple_subtitle">पूरे प्लेयर के पीछे धुंधला कवर</string>
 
-    <string name="legacy_mesh_gradient_subtitle">v1.5 से प्लेयर के पीछे बहने वाले रंग लौटाएं</string>
+    <string name="player_theme_legacy_subtitle">v1.5 से प्लेयर के पीछे बहने वाले रंग लौटाएं</string>
 
     <string name="liquid_glass">लिक्विड ग्लास</string>
 

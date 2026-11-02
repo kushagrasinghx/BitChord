@@ -2816,8 +2816,13 @@ private fun BitChordApp(
         // one child it always had and changes nothing.
         //
         // Everything a page's menu floats over, and so what [pageBackdrop]
-        // takes its still of; the menus themselves are drawn outside it.
-        Row(Modifier.fillMaxSize().snapshotBackdropSource(pageBackdrop)) {
+        // takes its still of; the menus themselves are drawn outside it. On the
+        // window's background, which the pages don't paint: see `paintBackdrop`.
+        Row(
+            Modifier
+                .fillMaxSize()
+                .snapshotBackdropSource(pageBackdrop, floor = MaterialTheme.colorScheme.background),
+        ) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 AnimatedContent(
                     // Whatever is on top of the back stack — see [AppNavigator].

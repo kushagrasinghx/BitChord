@@ -841,9 +841,14 @@
     <string name="playlist_sync_done_title">Añadidas a %1$s: %2$d</string>
     <string name="playlist_updates_channel">Actualizaciones de playlists</string>
 
-    <string name="legacy_mesh_gradient">Gradiente de malla clásico</string>
+    <string name="player_theme">Tema del reproductor</string>
+    <string name="player_theme_default">Predeterminado</string>
+    <string name="player_theme_legacy">Clásico</string>
+    <string name="player_theme_simple">Simple</string>
+    <string name="player_theme_default_subtitle">Los colores de la portada continúan debajo de ella</string>
+    <string name="player_theme_simple_subtitle">La portada difuminada detrás de todo el reproductor</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Recupera las manchas de color en movimiento detrás del reproductor de la v1.5</string>
+    <string name="player_theme_legacy_subtitle">Recupera las manchas de color en movimiento detrás del reproductor de la v1.5</string>
 
     <string name="lyrics_debug_logs">Registros de depuración de letras</string>
 

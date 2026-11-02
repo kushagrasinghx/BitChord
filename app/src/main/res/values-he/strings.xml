@@ -862,9 +862,14 @@
     <string name="playlist_sync_done_title">נוספו אל %1$s: %2$d</string>
     <string name="playlist_updates_channel">עדכוני רשימות השמעה</string>
 
-    <string name="legacy_mesh_gradient">גרדיאנט רשת קלאסי</string>
+    <string name="player_theme">ערכת נושא לנגן</string>
+    <string name="player_theme_default">ברירת מחדל</string>
+    <string name="player_theme_legacy">קלאסי</string>
+    <string name="player_theme_simple">פשוט</string>
+    <string name="player_theme_default_subtitle">צבעי העטיפה ממשיכים מתחתיה</string>
+    <string name="player_theme_simple_subtitle">העטיפה מטושטשת מאחורי הנגן כולו</string>
 
-    <string name="legacy_mesh_gradient_subtitle">מחזיר את כתמי הצבע הנעים מגרסה v1.5</string>
+    <string name="player_theme_legacy_subtitle">מחזיר את כתמי הצבע הנעים מגרסה v1.5</string>
 
     <string name="liquid_glass">זכוכית נוזלית</string>
 

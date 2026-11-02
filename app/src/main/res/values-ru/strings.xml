@@ -885,9 +885,14 @@
     <string name="playlist_sync_done_title">Добавлено в «%1$s»: %2$d</string>
     <string name="playlist_updates_channel">Обновления плейлистов</string>
 
-    <string name="legacy_mesh_gradient">Классический сетчатый градиент</string>
+    <string name="player_theme">Тема плеера</string>
+    <string name="player_theme_default">По умолчанию</string>
+    <string name="player_theme_legacy">Прежняя</string>
+    <string name="player_theme_simple">Простая</string>
+    <string name="player_theme_default_subtitle">Цвета обложки продолжаются под ней</string>
+    <string name="player_theme_simple_subtitle">Размытая обложка за всем плеером</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Возвращает мягкие анимированные цветные пятна из v1.5</string>
+    <string name="player_theme_legacy_subtitle">Возвращает мягкие анимированные цветные пятна из v1.5</string>
 
     <string name="liquid_glass">Жидкое стекло</string>
 

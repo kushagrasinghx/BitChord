@@ -857,9 +857,14 @@
     <string name="playlist_sync_done_title">Zu %1$s hinzugefügt: %2$d</string>
     <string name="playlist_updates_channel">Playlist-Updates</string>
 
-    <string name="legacy_mesh_gradient">Klassischer Netzverlauf</string>
+    <string name="player_theme">Player-Design</string>
+    <string name="player_theme_default">Standard</string>
+    <string name="player_theme_legacy">Klassisch</string>
+    <string name="player_theme_simple">Einfach</string>
+    <string name="player_theme_default_subtitle">Die Farben des Covers setzen sich darunter fort</string>
+    <string name="player_theme_simple_subtitle">Ein weich gezeichnetes Cover hinter dem gesamten Player</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Bringt die sanft fließenden Farbflecken aus v1.5 zurück</string>
+    <string name="player_theme_legacy_subtitle">Bringt die sanft fließenden Farbflecken aus v1.5 zurück</string>
 
     <string name="liquid_glass">Flüssiges Glas</string>
 

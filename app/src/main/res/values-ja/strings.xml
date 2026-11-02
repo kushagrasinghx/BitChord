@@ -952,9 +952,14 @@
 
     <string name="dolby_atmos_unavailable">このデバイスは Atmos を再生できないため、通常バージョンで再生されます</string>
 
-    <string name="legacy_mesh_gradient">従来のメッシュ グラデーション</string>
+    <string name="player_theme">プレーヤーのテーマ</string>
+    <string name="player_theme_default">デフォルト</string>
+    <string name="player_theme_legacy">従来</string>
+    <string name="player_theme_simple">シンプル</string>
+    <string name="player_theme_default_subtitle">カバーの色がその下へと続きます</string>
+    <string name="player_theme_simple_subtitle">ぼかしたカバーをプレーヤー全体の背景に表示します</string>
 
-    <string name="legacy_mesh_gradient_subtitle">v1.5 のプレーヤー背面の流れるカラー アニメーションを復元します</string>
+    <string name="player_theme_legacy_subtitle">v1.5 のプレーヤー背面の流れるカラー アニメーションを復元します</string>
 
     <string name="liquid_glass">リキッド グラス</string>
 

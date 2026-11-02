@@ -711,6 +711,7 @@ private fun CustomSleepTimerPage(
 ) {
     var minutes by remember { mutableIntStateOf(initialMinutes) }
     val foreground = MaterialTheme.colorScheme.onBackground
+    val readout = iosMenuColors().label
 
     Column(Modifier.fillMaxWidth()) {
         SleepTimerHeader(
@@ -723,7 +724,7 @@ private fun CustomSleepTimerPage(
         Text(
             text = sleepDuration(minutes),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
-            color = foreground,
+            color = readout,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
@@ -779,7 +780,7 @@ private fun StepButton(
         Text(
             text = label,
             style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = if (enabled) 0.85f else 0.25f),
+            color = if (enabled) iosMenuColors().label else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.25f),
         )
     }
 }

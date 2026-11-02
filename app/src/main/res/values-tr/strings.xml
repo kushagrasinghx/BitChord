@@ -853,9 +853,14 @@
     <string name="playlist_sync_done_title">%1$s listesine eklendi: %2$d</string>
     <string name="playlist_updates_channel">Çalma listesi güncellemeleri</string>
 
-    <string name="legacy_mesh_gradient">Klasik ağ gradyanı</string>
+    <string name="player_theme">Oynatıcı teması</string>
+    <string name="player_theme_default">Varsayılan</string>
+    <string name="player_theme_legacy">Eski</string>
+    <string name="player_theme_simple">Sade</string>
+    <string name="player_theme_default_subtitle">Kapağın renkleri altında devam eder</string>
+    <string name="player_theme_simple_subtitle">Tüm oynatıcının arkasında bulanık kapak</string>
 
-    <string name="legacy_mesh_gradient_subtitle">v1.5\'teki oynatıcı arkasındaki akıcı renk geçişlerini geri getirir</string>
+    <string name="player_theme_legacy_subtitle">v1.5\'teki oynatıcı arkasındaki akıcı renk geçişlerini geri getirir</string>
 
     <string name="lyrics_debug_logs">Şarkı sözü hata ayıklama günlükleri</string>
 

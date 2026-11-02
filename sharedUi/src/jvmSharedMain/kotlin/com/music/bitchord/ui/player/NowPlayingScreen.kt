@@ -1,6 +1,5 @@
 package com.music.bitchord.ui.player
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
@@ -20,11 +19,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.Animatable
-import com.music.bitchord.ui.theme.rememberPlayerTint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.Channel
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
@@ -78,6 +77,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -164,6 +164,7 @@ import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.settings.LastPlayerScreen
+import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.PLAYER_ART_PX
@@ -298,6 +299,70 @@ private const val SUBVIEW_STATUS_SCRIM_MIN_ALPHA = 0.40f
  * over well inside the gap, which leaves the backdrop still for most of it.
  */
 private const val MESH_REFRESH_MS = 3_000L
+
+/** How long the mesh's seam takes to reach a clip's edge, in step with the clip's own fade. */
+private const val MESH_SEAM_MOVE_MS = 320
+
+/**
+ * The widest portrait clip that still gets [PortraitClipScrim]. Narrower than a
+ * 3:4 cover, which stops above the controls and has the mesh to stand on there.
+ */
+private const val PORTRAIT_SCRIM_MAX_ASPECT = 0.7f
+
+private val PortraitClipScrim = Brush.verticalGradient(
+    0f to Color.Transparent,
+    0.40f to Color.Transparent,
+    1f to Color.Black.copy(alpha = 0.70f),
+)
+
+/**
+ * The default theme's backdrop — see [ArtworkMeshBackdrop] — in a scope of its
+ * own: a clip's new frame every few seconds, and the seam moving, reach only
+ * this rather than the whole of the player.
+ */
+@Composable
+private fun PlayerMeshBackdrop(
+    trackKey: String,
+    imageUrl: String?,
+    canvasFrame: () -> ImageBitmap?,
+    seamTarget: () -> Dp,
+    alpha: () -> Float,
+) {
+    val mesh = key(trackKey) { rememberArtworkMesh(imageUrl, canvasFrame(), ART_PX) }
+    val currentSeamTarget by rememberUpdatedState(seamTarget)
+    val seam = remember { Animatable(Snapshot.withoutReadObservation { seamTarget() }, Dp.VectorConverter) }
+    // Glides to a clip's edge as the clip fades in, and is put straight where
+    // the first measure says: nothing should be seen settling as the player opens.
+    LaunchedEffect(seam) {
+        snapshotFlow { currentSeamTarget() }.collectLatest { target ->
+            if (seam.value == 0.dp || target == 0.dp) {
+                seam.snapTo(target)
+            } else {
+                seam.animateTo(target, tween(MESH_SEAM_MOVE_MS, easing = FastOutSlowInEasing))
+            }
+        }
+    }
+    ArtworkMeshBackdrop(
+        mesh = mesh,
+        seam = { seam.value },
+        modifier = Modifier.graphicsLayer { this.alpha = alpha() },
+    )
+}
+
+/** The legacy theme's backdrop, in a scope of its own for the same reason. */
+@Composable
+private fun LegacyMeshBackdrop(
+    imageUrl: String?,
+    canvasFrame: () -> ImageBitmap?,
+    trackKey: String,
+    modifier: Modifier,
+) {
+    MeshGradientBackground(
+        palette = rememberArtworkColors(imageUrl, canvasFrame()),
+        trackKey = trackKey,
+        modifier = modifier,
+    )
+}
 
 /** How long a full-screen Spotify Canvas holds still after the player has opened. */
 private const val SPOTIFY_CANVAS_RESUME_DELAY_MS = 1_000L
@@ -654,7 +719,13 @@ private fun SlidingPlayerDeck(
     if (mounted) {
         Box(
             modifier = modifier
-                .graphicsLayer { this.alpha = alpha.value }
+                .graphicsLayer {
+                    this.alpha = alpha.value
+                    // No buffer of its own to fade through: one would cut the
+                    // glyphs' blend off from the backdrop, and they would jump
+                    // brighter on the fade's last frame.
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
+                }
                 .layout { measurable, constraints ->
                     val placeable = measurable.measure(constraints.copy(minHeight = 0))
                     val animatedHeight = (placeable.height * reveal.value)
@@ -809,10 +880,6 @@ fun NowPlayingScreen(
     // lies beneath the status bar when the player expands to full bleed.
     val artTopLuminance = rememberArtworkTopBandLuminance(remoteArt, ART_PX)
     val artworkStatusScrimAlpha = topBandScrimAlpha(artTopLuminance)
-    // The sleeve's own colour, lifted pale, read off the decode the scrim above
-    // already made. Plain white until it is known, and for a sleeve with no
-    // colour to give.
-    val artworkTint = rememberPlayerTint(remoteArt, ART_PX) ?: Color.White
 
     // Media-player convention: the player always owns light status icons. The
     // top treatment below, rather than a window-flag flip per cover, provides
@@ -920,13 +987,14 @@ fun NowPlayingScreen(
     // frame of the fade, and the still art it governs is an AsyncImage whose
     // request is rebuilt on each pass and so would not be skipped.
     val canvasCover = remember(canvas?.url) { mutableFloatStateOf(0f) }
-    // v1.5's backdrop, kept behind a switch — see [PlayerSettings.legacyMeshGradient].
-    val legacyMesh by PlayerSettings.legacyMeshGradient.collectAsStateWithLifecycle()
-    // How often a playing clip's colours are re-read for the legacy mesh — see
-    // CanvasArtworkPlayer's refreshFrameEveryMs. Null otherwise: the blurred
-    // still cover under every other phone player has nothing to re-tint, and
-    // each read is a GPU readback.
-    val meshRefreshMs = MESH_REFRESH_MS.takeIf { legacyMesh }
+    // What the main player stands on — see [PlayerTheme].
+    val playerTheme by PlayerSettings.playerTheme.collectAsStateWithLifecycle()
+    // Both meshes follow a playing clip's colours. The blurred still cover has
+    // nothing to re-tint, and each read is a GPU readback.
+    val tintsOffClip = playerTheme != PlayerTheme.SIMPLE
+    // How often those colours are re-read — see CanvasArtworkPlayer's
+    // refreshFrameEveryMs.
+    val meshRefreshMs = MESH_REFRESH_MS.takeIf { tintsOffClip }
 
     val scrub = rememberPlayerScrub(song.videoId, position, durationMs)
     // Read by the scrubber itself — see [PlayerScrubber.shown].
@@ -1375,8 +1443,6 @@ fun NowPlayingScreen(
     val spotifyCanvasFullscreen = spotifyCanvasOnPhone &&
         heroClip?.source == CanvasSource.SPOTIFY
     val spotifyCanvasPresentation = spotifyCanvasFullscreen && canvasRendered
-    val canvasFirstPortrait = !spotifyCanvasFullscreen &&
-        heroClip != null && canvasAspect > 0f && canvasAspect < 1f
     // The clip's player, which outlives [heroClip] by the second half of a
     // collapse: mounted from the moment the player is asked back, and let go
     // of once the sleeve has settled into the header. Faded out by the half
@@ -1693,7 +1759,7 @@ fun NowPlayingScreen(
     // sleeve never has to get out of anything's way.
     val landscape = sideways
     // Tablet-sized players use the full-cover blur in all three states, and so
-    // does the phone unless the legacy mesh is switched on — see the backdrop.
+    // does the phone under the simple theme — see the backdrop.
     val tabletArtworkBackdrop = tabletSizedPlayer(windowWidth)
     // Owned by the song-level player composition, not by any one screen state.
     // Opening lyrics/queue, and rotating into or out of landscape, therefore
@@ -1705,8 +1771,8 @@ fun NowPlayingScreen(
         // Straight away when it is the main player's backdrop too: the decode
         // and blur run off the main thread, and the last cover's blur is held
         // on screen until this one is ready.
-        prepare = !legacyMesh || landscape || tabletArtworkBackdrop || lyricsOpen || queueOpen ||
-            playerPrewarmStage >= 1,
+        prepare = playerTheme == PlayerTheme.SIMPLE || landscape || tabletArtworkBackdrop ||
+            lyricsOpen || queueOpen || playerPrewarmStage >= 1,
     )
     // One movable Image node, not two backdrop call sites. Compose carries it
     // between the portrait and landscape players; only the cached bitmap
@@ -1876,16 +1942,6 @@ fun NowPlayingScreen(
         // look at and keeps the subtree drawing.
         .graphicsLayer { alpha = if (docking()) dockFade().coerceAtLeast(DOCK_FADE_FLOOR) else 1f }
 
-    // Every secondary line and glyph in the player — artist, timestamps,
-    // quality badge, the lyrics/output/queue row — reads this rather than a
-    // fixed white, see [LocalPlayerTint].
-    // Back to plain white while a Spotify Canvas fills the screen: the video
-    // is the backdrop then, not the sleeve the tint was read from.
-    val playerTint by animateColorAsState(
-        targetValue = if (spotifyCanvasPresentation) Color.White else artworkTint,
-        animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
-        label = "playerTint",
-    )
     // The ⋯ menu's frost for the drawers and popups over the player — see
     // [FrostedPlayerFrame], which records the player for it and draws them
     // beside it. None under "reduce dynamic blur": the panels go opaque, and a
@@ -1897,7 +1953,8 @@ fun NowPlayingScreen(
     val frost = if (frostOff) null else PlayerPlatform.host.rememberPlayerFrost()
     FrostedPlayerFrame(
         modifier = modifier,
-        tint = playerTint,
+        // Off where a video is the backdrop: it can go bright under the controls.
+        chrome = !spotifyCanvasPresentation && !(landscape && videoMode),
         frost = frost,
         live = spotifyCanvasPresentation,
         // Not the host's ⋯ menu: that takes its own still, of everything.
@@ -2279,7 +2336,10 @@ fun NowPlayingScreen(
                     .then(dockHost)
                     .background(Color.Black),
             ) {
-                // The same blurred still cover the lyrics and queue use, under the
+                // Three themes, one rule between them: a full-screen Spotify Canvas
+                // is its own backdrop until a panel opens.
+                //
+                // Simple: the blurred still cover the lyrics and queue use, under the
                 // main player as well — square or portrait clip, or still art. The
                 // banner and the clip each feather their own bottom edge into it.
                 // It is one image blurred once per song off the main thread, so
@@ -2287,14 +2347,20 @@ fun NowPlayingScreen(
                 // collapses, or while a clip plays over it.
                 //
                 // Legacy mesh is the whole backdrop on every page, so the lyrics and
-                // queue panels must not crossfade the blurred artwork over it. A
-                // full-screen Spotify Canvas is its own backdrop until a panel opens.
-                val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasPresentation && legacyMesh
+                // queue panels must not crossfade the blurred artwork over it.
+                //
+                // Default: the artwork's own mesh under the main player, with the
+                // blurred cover fading in over it for the lyrics and queue, which
+                // have no sleeve for a mesh to carry on from.
+                val legacyMeshBackdrop = !tabletArtworkBackdrop && !spotifyCanvasPresentation &&
+                    playerTheme == PlayerTheme.LEGACY
+                val artworkMeshBackdrop = !tabletArtworkBackdrop && playerTheme == PlayerTheme.DEFAULT
                 val fullArtworkBackdropAlpha by animateFloatAsState(
                     targetValue = if (
                         !legacyMeshBackdrop &&
                         (tabletArtworkBackdrop || fullArtworkBlurImage != null) &&
-                        (!spotifyCanvasPresentation || lyricsOpen || queueOpen)
+                        (!spotifyCanvasPresentation || lyricsOpen || queueOpen) &&
+                        (!artworkMeshBackdrop || lyricsOpen || queueOpen)
                     ) 1f else 0f,
                     animationSpec = tween(durationMillis = 360, easing = FastOutSlowInEasing),
                     label = "fullArtworkBackdropCrossfade",
@@ -2304,13 +2370,42 @@ fun NowPlayingScreen(
                     // are not anchored to anything on screen — they fill the player and
                     // the artwork simply sits on top of them. Keyed on the track, so
                     // they drift when the player opens and on every skip, then rest.
-                    // Position ticks recompose this screen twice a second and must not
-                    // drag a full-screen blur along with them, which is why the palette
-                    // is passed as one immutable value.
-                    MeshGradientBackground(
-                        palette = rememberArtworkColors(remoteArt, canvasFrame),
+                    LegacyMeshBackdrop(
+                        imageUrl = remoteArt,
+                        canvasFrame = { canvasFrame },
                         trackKey = song.videoId,
                         modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
+                    )
+                }
+                if (artworkMeshBackdrop) {
+                    // Hung from where the picture stops, so the screen carries on in
+                    // the colours the artwork ended in: the banner's bottom edge, or
+                    // a portrait clip's or its still's. Left there as the player
+                    // collapses rather than following the sleeve down, since above
+                    // the seam the mesh holds one colour, so a seam left behind a
+                    // collapsed sleeve shows nothing at all.
+                    //
+                    // Stays mounted under a full-screen Spotify Canvas, undrawn, for
+                    // a panel opening over it to find ready.
+                    PlayerMeshBackdrop(
+                        trackKey = song.videoId,
+                        imageUrl = remoteArt,
+                        canvasFrame = { canvasFrame },
+                        seamTarget = {
+                            val stillBottom = stillBottomPx()
+                            when {
+                                clipPortrait -> clipBottom
+                                stillBottom > 0f -> with(density) { stillBottom.toDp() }
+                                heroMode -> heroHeight
+                                else -> 0.dp
+                            }
+                        },
+                        // Whole until the blurred cover has covered it, rather than
+                        // the two fading through each other and dipping toward the
+                        // black beneath, and out of the frame altogether after that.
+                        alpha = {
+                            if (spotifyCanvasPresentation || fullArtworkBackdropAlpha >= 1f) 0f else 1f
+                        },
                     )
                 }
                 fullArtworkBlurContent(
@@ -2373,9 +2468,12 @@ fun NowPlayingScreen(
                             onStillCaptured = onStillCaptured,
                             onResumed = onClipResumed,
                             onRenderedChanged = { canvasRendered = it },
-                            // Frames only for the legacy mesh, the one backdrop still
-                            // tinted off the clip.
-                            frameCapturePx = if (legacyMesh) CANVAS_FRAME_CAPTURE_PX else 0,
+                            // Frames only for a mesh that will use them.
+                            frameCapturePx = if (tintsOffClip && !clipFullscreen && !tabletArtworkBackdrop) {
+                                CANVAS_FRAME_CAPTURE_PX
+                            } else {
+                                0
+                            },
                             onFrameCaptured = {
                                 if (!clipFullscreen && !tabletArtworkBackdrop &&
                                     !lyricsOpen && !queueOpen && !queueDragging
@@ -2437,6 +2535,19 @@ fun NowPlayingScreen(
                     Brush.verticalGradient(gradientColors)
                 }
                 // Painted by the handle strip rather than laid out here — see there.
+
+                if (artworkMeshBackdrop && clipPortrait && canvasAspect < PORTRAIT_SCRIM_MAX_ASPECT) {
+                    // A clip tall enough to run on under the controls stays visible
+                    // through them; a plain scrim protects text and touch targets
+                    // without erasing the video. A 3:4 cover has stopped by then.
+                    Box(
+                        Modifier.matchParentSize()
+                            .graphicsLayer {
+                                alpha = canvasCover.floatValue * (1f - 2f * p()).coerceIn(0f, 1f) * dockFade()
+                            }
+                            .background(PortraitClipScrim),
+                    )
+                }
 
                 // Spotify Canvas keeps its pixels sharp across the whole phone. Pure
                 // glass blur belongs only under the temporary lower control deck,
@@ -2596,7 +2707,8 @@ fun NowPlayingScreen(
                                 .graphicsLayer { alpha = spotifyChromeAlpha }
                                 .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
                                 .clip(RoundedCornerShape(3.dp))
-                                .background(LocalPlayerTint.current.copy(alpha = 0.70f)),
+                                .additiveChrome(LocalPlayerChrome.current)
+                                .background(chromeWhite(0.70f)),
                         )
                         // [p] is the shared album-to-panel transition. Keeping this in
                         // composition until its final frame gives the caption a real
@@ -3329,7 +3441,11 @@ fun NowPlayingScreen(
                                         onStillCaptured = onStillCaptured,
                                         onResumed = onClipResumed,
                                         onRenderedChanged = { canvasRendered = it },
-                                        frameCapturePx = if (legacyMesh) CANVAS_FRAME_CAPTURE_PX else 0,
+                                        frameCapturePx = if (tintsOffClip && !tabletArtworkBackdrop) {
+                                            CANVAS_FRAME_CAPTURE_PX
+                                        } else {
+                                            0
+                                        },
                                         onFrameCaptured = {
                                             if (!tabletArtworkBackdrop && !lyricsOpen && !queueOpen) {
                                                 canvasFrame = it
@@ -3594,11 +3710,15 @@ fun NowPlayingScreen(
                                 // it.
                                 Crossfade(
                                     targetState = song.title to song.artist,
+                                    // Round the fade and the marquee's edge masks, whose
+                                    // layers would otherwise hide the backdrop from it. The
+                                    // title is in it too and stays white: see [additiveChrome].
+                                    modifier = Modifier.additiveChrome(LocalPlayerChrome.current),
                                     animationSpec = tween(durationMillis = 300),
                                     label = "playerCredits",
                                 ) {
                                     val scrolling = scrolls()
-                                    val artistColor = LocalPlayerTint.current.copy(alpha = 0.55f)
+                                    val artistColor = chromeWhite(0.55f)
                                     Column {
                                         MarqueeText(
                                             text = song.title,

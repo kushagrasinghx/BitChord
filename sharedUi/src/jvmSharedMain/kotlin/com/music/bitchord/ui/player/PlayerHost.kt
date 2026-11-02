@@ -11,6 +11,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.LastPlayerScreen
+import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.MixTransitionView
@@ -245,7 +246,7 @@ interface PlayerSettingsSource {
     /** Hide the device status bar while the player is up. Always false where there is none. */
     val hideStatusBar: StateFlow<Boolean>
     val lastPlayerScreen: StateFlow<LastPlayerScreen>
-    val legacyMeshGradient: StateFlow<Boolean>
+    val playerTheme: StateFlow<PlayerTheme>
     val lyricsBlur: StateFlow<Boolean>
     val lyricsOffsetMs: StateFlow<Int>
     val lyricsSourceOrder: StateFlow<List<LyricsSource>>
@@ -408,8 +409,11 @@ fun CanvasArtworkPlayer(
     onRenderedChanged: (Boolean) -> Unit = {},
     onFrameCaptured: (ImageBitmap) -> Unit = {},
     refreshFrameEveryMs: Long? = null,
-    /** 0 for no frames at all, which saves a main-thread readback on each fade-in. */
-    frameCapturePx: Int = CANVAS_FRAME_CAPTURE_PX,
+    /**
+     * 0 for no frames at all, which saves a main-thread readback on each
+     * fade-in: only a caller that takes [onFrameCaptured] asks for a size.
+     */
+    frameCapturePx: Int = 0,
     onCoverChanged: (Float) -> Unit = {},
     bottomFade: Float = 0f,
     bottomFadeEndPx: Float? = null,

@@ -242,8 +242,13 @@
     <string name="liquid_glass_subtitle">Hiệu ứng kính khúc xạ trên thanh điều hướng nổi. Chỉ dành cho Android 12+; sử dụng nhiều GPU hơn.</string>
     <string name="liquid_glass_unavailable">Yêu cầu Android 12 trở lên</string>
     <string name="full_screen_cover_art">Ảnh bìa toàn màn hình</string>
-    <string name="legacy_mesh_gradient">Dải màu lưới kiểu cũ</string>
-    <string name="legacy_mesh_gradient_subtitle">Mang lại các đốm màu chuyển động phía sau trình phát từ phiên bản 1.5</string>
+    <string name="player_theme">Giao diện trình phát</string>
+    <string name="player_theme_default">Mặc định</string>
+    <string name="player_theme_legacy">Cổ điển</string>
+    <string name="player_theme_simple">Đơn giản</string>
+    <string name="player_theme_default_subtitle">Màu của ảnh bìa kéo dài xuống bên dưới</string>
+    <string name="player_theme_simple_subtitle">Ảnh bìa làm mờ phía sau toàn bộ trình phát</string>
+    <string name="player_theme_legacy_subtitle">Mang lại các đốm màu chuyển động phía sau trình phát từ phiên bản 1.5</string>
     <string name="animated_cover_art">Ảnh bìa động</string>
     <string name="synced_lyrics">Lời bài hát đồng bộ</string>
     <string name="synced_lyrics_subtitle">Làm sáng các từ trên trình phát khi đang được hát</string>

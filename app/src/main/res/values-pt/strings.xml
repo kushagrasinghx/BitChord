@@ -862,9 +862,14 @@
     <string name="playlist_sync_done_title">Adicionadas a %1$s: %2$d</string>
     <string name="playlist_updates_channel">Atualizações de playlists</string>
 
-    <string name="legacy_mesh_gradient">Gradiente de malha clássico</string>
+    <string name="player_theme">Tema do reprodutor</string>
+    <string name="player_theme_default">Padrão</string>
+    <string name="player_theme_legacy">Clássico</string>
+    <string name="player_theme_simple">Simples</string>
+    <string name="player_theme_default_subtitle">As cores da capa continuam abaixo dela</string>
+    <string name="player_theme_simple_subtitle">A capa desfocada atrás de todo o reprodutor</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Traz de volta os tons suaves em movimento da v1.5</string>
+    <string name="player_theme_legacy_subtitle">Traz de volta os tons suaves em movimento da v1.5</string>
 
     <string name="liquid_glass">Vidro Líquido</string>
 

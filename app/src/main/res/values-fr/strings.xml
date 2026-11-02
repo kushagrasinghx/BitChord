@@ -858,9 +858,14 @@
     <string name="playlist_sync_done_title">Ajoutés à %1$s : %2$d</string>
     <string name="playlist_updates_channel">Mises à jour des playlists</string>
 
-    <string name="legacy_mesh_gradient">Dégradé fluide classique</string>
+    <string name="player_theme">Thème du lecteur</string>
+    <string name="player_theme_default">Par défaut</string>
+    <string name="player_theme_legacy">Classique</string>
+    <string name="player_theme_simple">Simple</string>
+    <string name="player_theme_default_subtitle">Les couleurs de la pochette se prolongent en dessous</string>
+    <string name="player_theme_simple_subtitle">La pochette floutée derrière tout le lecteur</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Restaure les formes colorées animées de la v1.5</string>
+    <string name="player_theme_legacy_subtitle">Restaure les formes colorées animées de la v1.5</string>
 
     <string name="liquid_glass">Verre liquide</string>
 

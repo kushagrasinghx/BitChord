@@ -345,8 +345,13 @@
     <string name="liquid_glass_subtitle">플로팅 탐색 막대에 사실적인 유리 질감을 적용합니다. Android 12 이상, GPU 사용량 증가.</string>
     <string name="liquid_glass_unavailable">Android 12 이상 필요</string>
     <string name="full_screen_cover_art">전체화면 커버 아트</string>
-    <string name="legacy_mesh_gradient">구형 메시 그라데이션</string>
-    <string name="legacy_mesh_gradient_subtitle">v1.5 버전의 플레이어 뒤에서 떠다니던 색상 거품을 다시 표시합니다</string>
+    <string name="player_theme">플레이어 테마</string>
+    <string name="player_theme_default">기본</string>
+    <string name="player_theme_legacy">이전</string>
+    <string name="player_theme_simple">심플</string>
+    <string name="player_theme_default_subtitle">커버의 색상이 아래로 이어집니다</string>
+    <string name="player_theme_simple_subtitle">플레이어 전체 뒤에 흐린 커버를 표시합니다</string>
+    <string name="player_theme_legacy_subtitle">v1.5 버전의 플레이어 뒤에서 떠다니던 색상 거품을 다시 표시합니다</string>
     <string name="animated_cover_art">움직이는 커버 아트</string>
     <string name="artist_signatures">아티스트 서명</string>
     <string name="artist_signatures_subtitle">Apple Music에 타이틀 로고가 없으면 자필 서명을 표시합니다</string>

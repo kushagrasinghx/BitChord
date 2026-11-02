@@ -836,9 +836,14 @@
     <string name="playlist_sync_done_title">Ditambahkan ke %1$s: %2$d</string>
     <string name="playlist_updates_channel">Pembaruan playlist</string>
 
-    <string name="legacy_mesh_gradient">Gradien mesh klasik</string>
+    <string name="player_theme">Tema pemutar</string>
+    <string name="player_theme_default">Default</string>
+    <string name="player_theme_legacy">Lama</string>
+    <string name="player_theme_simple">Sederhana</string>
+    <string name="player_theme_default_subtitle">Warna sampul berlanjut di bawahnya</string>
+    <string name="player_theme_simple_subtitle">Sampul buram di belakang seluruh pemutar</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Kembalikan efek warna mengalir di belakang pemutar dari v1.5</string>
+    <string name="player_theme_legacy_subtitle">Kembalikan efek warna mengalir di belakang pemutar dari v1.5</string>
 
     <string name="liquid_glass">Kaca Cair</string>
 

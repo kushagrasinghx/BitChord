@@ -835,9 +835,14 @@
     <string name="playlist_sync_done_title">已新增至 %1$s：%2$d</string>
     <string name="playlist_updates_channel">播放清單更新</string>
 
-    <string name="legacy_mesh_gradient">經典網格漸變</string>
+    <string name="player_theme">播放器主題</string>
+    <string name="player_theme_default">預設</string>
+    <string name="player_theme_legacy">舊版</string>
+    <string name="player_theme_simple">簡潔</string>
+    <string name="player_theme_default_subtitle">封面的色彩向下延伸</string>
+    <string name="player_theme_simple_subtitle">在整個播放器背後顯示模糊的封面</string>
 
-    <string name="legacy_mesh_gradient_subtitle">恢復 v1.5 中播放器背後的流動色塊效果</string>
+    <string name="player_theme_legacy_subtitle">恢復 v1.5 中播放器背後的流動色塊效果</string>
 
     <string name="liquid_glass">液態玻璃 （Liquid Glass）</string>
 

@@ -950,9 +950,14 @@
 
     <string name="eq_preset_custom">Custom</string>
 
-    <string name="legacy_mesh_gradient">Legacy mesh gradient</string>
+    <string name="player_theme">ธีมเครื่องเล่น</string>
+    <string name="player_theme_default">ค่าเริ่มต้น</string>
+    <string name="player_theme_legacy">แบบเดิม</string>
+    <string name="player_theme_simple">เรียบง่าย</string>
+    <string name="player_theme_default_subtitle">สีของปกต่อเนื่องลงมาด้านล่าง</string>
+    <string name="player_theme_simple_subtitle">ปกแบบเบลอด้านหลังเครื่องเล่นทั้งหมด</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
+    <string name="player_theme_legacy_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
 
     <string name="add_addon">Add an addon</string>
 

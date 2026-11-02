@@ -895,9 +895,14 @@
     <string name="playlist_sync_done_title">Dodano do %1$s: %2$d</string>
     <string name="playlist_updates_channel">Aktualizacje playlist</string>
 
-    <string name="legacy_mesh_gradient">Klasyczny gradient siatkowy</string>
+    <string name="player_theme">Motyw odtwarzacza</string>
+    <string name="player_theme_default">Domyślny</string>
+    <string name="player_theme_legacy">Klasyczny</string>
+    <string name="player_theme_simple">Prosty</string>
+    <string name="player_theme_default_subtitle">Kolory okładki ciągną się pod nią</string>
+    <string name="player_theme_simple_subtitle">Rozmyta okładka za całym odtwarzaczem</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Przywraca płynne plamy kolorów z wersji v1.5</string>
+    <string name="player_theme_legacy_subtitle">Przywraca płynne plamy kolorów z wersji v1.5</string>
 
     <string name="liquid_glass">Płynne szkło</string>
 

@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.player.additiveChrome
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -227,7 +228,10 @@ fun <T : Any> HeldContextMenu(
                     .iosMenuPanel(fillOverride = plate, rimOverride = hairline)
                     .padding(vertical = 8.dp),
             ) {
-                actions(menuItem)
+                // Added onto the plate, on a dark one only: see [IosMenuPopover].
+                Column(Modifier.additiveChrome(dark)) {
+                    actions(menuItem)
+                }
             }
         },
     ) { measurables, constraints ->

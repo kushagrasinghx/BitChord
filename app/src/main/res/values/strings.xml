@@ -372,8 +372,13 @@
     <string name="progressive_blur">Progressive Blur</string>
     <string name="liquid_glass_unavailable">Requires Android 12 or newer</string>
     <string name="full_screen_cover_art">Full-screen cover art</string>
-    <string name="legacy_mesh_gradient">Legacy mesh gradient</string>
-    <string name="legacy_mesh_gradient_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
+    <string name="player_theme">Player theme</string>
+    <string name="player_theme_default">Default</string>
+    <string name="player_theme_legacy">Legacy</string>
+    <string name="player_theme_simple">Simple</string>
+    <string name="player_theme_default_subtitle">The cover\'s own colours carry on below it</string>
+    <string name="player_theme_simple_subtitle">A soft blur of the cover behind the whole player</string>
+    <string name="player_theme_legacy_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
     <string name="animated_cover_art">Animated cover art</string>
     <string name="artist_signatures">Artist signatures</string>
     <string name="artist_signatures_subtitle">Shows a handwritten signature when Apple Music has no title logo</string>

@@ -3951,14 +3951,14 @@ private fun BitChordApp(
                 var scrollJob by remember { mutableStateOf<Job?>(null) }
                 /** Scroll the current tab's list back to top when the active tab is tapped (excludes Search). */
                 val onActiveTabTap: () -> Unit = {
-                    // Don't scroll if an overlay/release page is open — only navigate.
-                    if (route != null || detail != null) return@Unit
-                    if (selectedTab != TAB_SEARCH) {
-                        haptics.play(Haptic.Select)
-                        scrollJob?.cancel()
-                        scrollJob = scrollScope.launch {
-                            currentListState.animateScrollToItem(0, animationSpec = tween(500, easing = FastOutSlowInEasing))
-                        }
+                    // Capture overlay state at tap time, before any navigation handler clears it.
+                    val wasOverlayOpen = route != null || detail != null || selectedMoodGenre != null
+                    if (wasOverlayOpen) return@Unit
+                    if (selectedTab == TAB_SEARCH) return@Unit
+                    haptics.play(Haptic.Select)
+                    scrollJob?.cancel()
+                    scrollJob = scrollScope.launch {
+                        currentListState.animateScrollToItem(0)
                     }
                 }
 

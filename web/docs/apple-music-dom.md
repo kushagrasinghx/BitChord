@@ -232,7 +232,7 @@ The same template as the album page: `container-detail-header`, a description, `
 - **Focus ring**: `outline: 4px solid rgba(var(--keyColor-rgb), .6)` (`--keyColor-focus-color`), offset 1–2px; ⋯ triggers use `box-shadow: 0 0 0 4px` instead. Only on `:focus-visible`.
 - **z-index scale**: default 1 · bubbles 50 · gpu 1001 · web chrome 9901 · context menus 9951 · modal 10001.
 - **Global transition**: `opacity .1s ease-in` (`--global-transition`). Panel and player motion: `.3s cubic-bezier(.215,.61,.355,1)`. Shelf arrows: `.25s linear`.
-- **Keyboard** (the web player's shortcuts, which BitChord matches): Space play/pause; ⌘/Ctrl+→ / ← next/previous; ⌘/Ctrl+↑ / ↓ volume; ⌘/Ctrl+F or `/` focuses search; Esc closes full screen or a modal.
+- **Keyboard** (the web player's shortcuts, which BitChord matches): Space / K play/pause; ⌘/Ctrl+→ / ← or Shift+N / P next/previous; J / L seek 10s; ← / → seek 5s; ⌘/Ctrl+↑ / ↓ volume; M mute; S shuffle; R repeat; ⌘/Ctrl+F or `/` focuses search; Esc closes full screen or a modal.
 
 ## 9. Colour tokens
 

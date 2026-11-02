@@ -81,6 +81,8 @@
         <item>Almost found the words</item>
     </string-array>
     <string name="lyrics_not_available">Lyrics not available</string>
+    <string name="hide_lyrics_preview">Hide lyrics</string>
+    <string name="hide_lyrics_preview_subtitle">Hides the lyrics line on the main player screen</string>
     <string name="lyrics_offset">Lyrics offset</string>
     <string name="lyrics_offset_description">Positive values show lyrics later</string>
     <string name="lyrics_offset_reset">Reset</string>

@@ -605,7 +605,8 @@ internal fun PlayerActionRow(
         // hold still as they swap. A lone output glyph is spaced as though the
         // two-up capsule held it — closer in, without crowding — and they part
         // again as the queue opens to make room.
-        val edgeInset = ((maxWidth - BOTTOM_ACTION_SIZE * 2 - pillWidth(3)) / 4).coerceAtLeast(0.dp)
+        val modeSegment = modeSegmentWidth(maxWidth)
+        val edgeInset = ((maxWidth - BOTTOM_ACTION_SIZE * 2 - modeSegment * 3 - 2.dp) / 4).coerceAtLeast(0.dp)
         val compactInset = ((maxWidth - BOTTOM_ACTION_SIZE * 2 - pillWidth(2)) / 4).coerceAtLeast(0.dp)
         val closeIn = compactInset - edgeInset
         // Held as State and read only in the glyphs' placement, so the slide
@@ -659,6 +660,7 @@ internal fun PlayerActionRow(
                             highlighted = shuffleEnabled,
                             haptic = if (shuffleEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
                             tapWindowMs = SHUFFLE_TAP_WINDOW_MS,
+                            width = modeSegment,
                         )
                         PillDivider()
                         PillSegment(
@@ -680,6 +682,7 @@ internal fun PlayerActionRow(
                                 RepeatModes.ONE -> Haptic.ToggleOff
                                 else -> Haptic.Select
                             },
+                            width = modeSegment,
                         )
                         PillDivider()
                         PillSegment(
@@ -691,6 +694,7 @@ internal fun PlayerActionRow(
                             highlighted = autoplayEnabled,
                             haptic = if (autoplayEnabled) Haptic.ToggleOff else Haptic.ToggleOn,
                             tapWindowMs = AUTOPLAY_TAP_WINDOW_MS,
+                            width = modeSegment,
                         )
                     }
                 } else {
@@ -871,6 +875,21 @@ private val PILL_OUTPUT_TALL_SIZE = 17.dp
 private val PILL_ICON_SIZE = 24.dp
 
 /** How wide a capsule of [segments] comes out, dividers included. */
+/**
+ * How wide each of the three playback-mode segments can be in a row [rowWidth]
+ * wide: [PILL_SEGMENT_WIDTH], or less when that would not leave the capsule
+ * clear of the lyrics and queue glyphs on either side.
+ *
+ * Fixed at full width, the capsule needed about 342dp of screen, and on a
+ * narrower one — a small phone, or a larger display size — it was drawn over
+ * both glyphs (#1314).
+ */
+internal fun modeSegmentWidth(rowWidth: Dp): Dp =
+    ((rowWidth - BOTTOM_ACTION_SIZE * 2 - MODE_PILL_CLEARANCE * 2 - 2.dp) / 3).coerceAtMost(PILL_SEGMENT_WIDTH)
+
+/** The least room kept between the playback-mode capsule and the glyph on each side of it. */
+private val MODE_PILL_CLEARANCE = 6.dp
+
 private fun pillWidth(segments: Int): Dp =
     PILL_SEGMENT_WIDTH * segments + 1.dp * (segments - 1)
 

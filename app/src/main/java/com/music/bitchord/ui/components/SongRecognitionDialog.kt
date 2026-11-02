@@ -34,6 +34,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -1070,7 +1071,16 @@ private fun String.matchKey(): String = lowercase(Locale.ROOT)
     .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
     .trim()
 
-/** A settled answer or a failed request, with one clear way to start over. */
+/**
+ * A settled answer or a failed request, with one clear way to start over.
+ *
+ * The sheet's centre slot is generous in portrait and barely a ribbon in
+ * landscape, and the unreachable thing below was the button itself — the one
+ * child that matters — sliding under the Cancel pill. So the rhythm reads its
+ * own limits: the relaxed spacing is the portrait look, and a short slot
+ * compresses the steps and lets the disc give back some room until the button
+ * always sits whole above it.
+ */
 @Composable
 private fun RecognitionMessageContent(
     icon: ImageVector,
@@ -1079,55 +1089,72 @@ private fun RecognitionMessageContent(
     actionLabel: String,
     onAction: () -> Unit,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier.padding(horizontal = 8.dp),
+    BoxWithConstraints(
+        modifier = Modifier
+            .padding(horizontal = 8.dp)
+            .fillMaxWidth(),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            modifier = Modifier
-                .size(96.dp)
-                .recognitionGlass(CircleShape),
-            contentAlignment = Alignment.Center,
+        // Portrait and tall contracts keep the roomy layout; a landscape sheet
+        // (or any short slot) tightens everything except the label sizes.
+        val compact = maxHeight < 300.dp
+        val disc = if (compact) 64.dp else 96.dp
+        val discIcon = if (compact) 28.dp else 40.dp
+        val gapUnderDisc = if (compact) 14.dp else 24.dp
+        val gapUnderTitle = if (compact) 6.dp else 10.dp
+        val gapUnderBody = if (compact) 14.dp else 28.dp
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.72f),
-                modifier = Modifier.size(40.dp),
-            )
-        }
-        Spacer(Modifier.height(24.dp))
-        Text(
-            text = title,
-            color = Color.White,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = body,
-            color = Color.White.copy(alpha = 0.62f),
-            fontSize = 15.sp,
-            lineHeight = 21.sp,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(28.dp))
-        Button(
-            onClick = onAction,
-            shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.White,
-                contentColor = Color.Black,
-            ),
-            contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp),
-        ) {
+            Box(
+                modifier = Modifier
+                    .size(disc)
+                    .recognitionGlass(CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.size(discIcon),
+                )
+            }
+            Spacer(Modifier.height(gapUnderDisc))
             Text(
-                text = actionLabel,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
+                text = title,
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
             )
+            Spacer(Modifier.height(gapUnderTitle))
+            Text(
+                text = body,
+                color = Color.White.copy(alpha = 0.62f),
+                fontSize = 15.sp,
+                lineHeight = 21.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(gapUnderBody))
+            Button(
+                onClick = onAction,
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black,
+                ),
+                contentPadding = PaddingValues(
+                    horizontal = 28.dp,
+                    vertical = if (compact) 10.dp else 14.dp,
+                ),
+            ) {
+                Text(
+                    text = actionLabel,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                )
+            }
         }
     }
 }

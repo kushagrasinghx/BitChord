@@ -404,11 +404,18 @@ class PlaybackService : MediaLibraryService() {
         if (songs.isEmpty()) return emptyList()
         val context = AutoBrowseContext(YtMusicRepository.SongPage(songs, continuation), cookie, source)
         val token = synchronized(autoBrowseContexts) {
-            autoBrowseContexts.entries.firstOrNull { it.value == context }?.key
-                ?: UUID.randomUUID().toString().also { key ->
+            val existing = autoBrowseContexts.entries.firstOrNull { it.value == context }
+            if (existing != null) {
+                // Re-insert to refresh MRU order in LinkedHashMap
+                autoBrowseContexts.remove(existing.key)
+                autoBrowseContexts[existing.key] = context
+                existing.key
+            } else {
+                UUID.randomUUID().toString().also { key ->
                     if (autoBrowseContexts.size >= 32) autoBrowseContexts.remove(autoBrowseContexts.keys.first())
                     autoBrowseContexts[key] = context
                 }
+            }
         }
         return songs.mapIndexed { index, song ->
             song.toMediaItem().buildUpon()
@@ -8667,8 +8674,13 @@ class PlaybackService : MediaLibraryService() {
                         if (songs.isNotEmpty()) {
                             likedMutex.withLock {
                                 val page = cachedLikedPage
-                                if (page == null || cachedLikedCookie != com.music.bitchord.data.innertube.Innertube.cookie) emptyList()
-                                else autoBrowseItems(page.songs, QueueSource(getString(R.string.auto_liked), PlaybackSourceType.BROWSE, YtMusicRepository.LIKED_MUSIC), page.continuation, cachedLikedCookie)
+                                if (cachedLikedCookie != com.music.bitchord.data.innertube.Innertube.cookie) emptyList()
+                                else autoBrowseItems(
+                                    page?.songs ?: songs,
+                                    QueueSource(getString(R.string.auto_liked), PlaybackSourceType.BROWSE, YtMusicRepository.LIKED_MUSIC),
+                                    page?.continuation,
+                                    cachedLikedCookie,
+                                )
                             }
                         } else {
                             listOf(
@@ -8684,7 +8696,7 @@ class PlaybackService : MediaLibraryService() {
                 MEDIA_DOWNLOADS_ID -> {
                     val downloaded = Downloads.getDownloadedSongs(this@PlaybackService)
                     downloaded.forEach { songCache[it.videoId] = it }
-                    if (downloaded.isNotEmpty()) autoBrowseItems(downloaded, QueueSource(getString(R.string.downloads), PlaybackSourceType.BROWSE, parentId)) else listOf(
+                    if (downloaded.isNotEmpty()) autoBrowseItems(downloaded, QueueSource(getString(R.string.downloads), PlaybackSourceType.BROWSE, parentId), cookie = null) else listOf(
                         createInfoItem(
                             "msg:empty_downloads",
                             getString(R.string.auto_empty_offline_title),
@@ -8719,7 +8731,7 @@ class PlaybackService : MediaLibraryService() {
                 MEDIA_LOCAL_MUSIC_ID -> {
                     val local = LocalMediaRepository.getLocalMusic(this@PlaybackService)
                     local.forEach { songCache[it.videoId] = it }
-                    if (local.isNotEmpty()) autoBrowseItems(local, QueueSource(getString(R.string.local_music), PlaybackSourceType.BROWSE, parentId)) else listOf(
+                    if (local.isNotEmpty()) autoBrowseItems(local, QueueSource(getString(R.string.local_music), PlaybackSourceType.BROWSE, parentId), cookie = null) else listOf(
                         createInfoItem(
                             "msg:empty_local",
                             getString(R.string.auto_empty_offline_title),
@@ -8773,10 +8785,13 @@ class PlaybackService : MediaLibraryService() {
             mediaId: String,
         ): ListenableFuture<LibraryResult<MediaItem>> = scope.future(Dispatchers.IO) {
             if (mediaId.startsWith("auto-browse:")) {
-                val (context, index) = autoBrowseSelection(mediaId)
-                return@future LibraryResult.ofItem(
-                    context.page.songs[index].toMediaItem().buildUpon().setMediaId(mediaId).build(), null,
-                )
+                val selection = runCatching { autoBrowseSelection(mediaId) }.getOrNull()
+                if (selection != null) {
+                    val (context, index) = selection
+                    return@future LibraryResult.ofItem(
+                        context.page.songs[index].toMediaItem().buildUpon().setMediaId(mediaId).build(), null,
+                    )
+                }
             }
             val item = when (mediaId) {
                 MEDIA_ROOT_ID -> MediaItem.Builder()
@@ -8935,12 +8950,16 @@ class PlaybackService : MediaLibraryService() {
             startIndex: Int,
             startPositionMs: Long,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = scope.future(Dispatchers.IO) {
-            val selected = mediaItems.singleOrNull() ?: mediaItems.getOrNull(startIndex.coerceAtLeast(0))
+            val selected = (if (startIndex in mediaItems.indices) mediaItems[startIndex] else null)
+                ?: mediaItems.singleOrNull()
+                ?: mediaItems.firstOrNull { it.mediaId.startsWith("auto-browse:") }
             if (selected?.mediaId?.startsWith("auto-browse:") == true) {
                 val (context, index) = autoBrowseSelection(selected.mediaId)
                 val bounded = withContext(Dispatchers.Main) {
-                    check(context.cookie == com.music.bitchord.data.innertube.Innertube.cookie) {
-                        "Account changed; reopen the folder"
+                    if (context.cookie != null) {
+                        check(context.cookie == com.music.bitchord.data.innertube.Innertube.cookie) {
+                            "Account changed; reopen the folder"
+                        }
                     }
                     if (CastController.state.value.casting || castPlayback.active) return@withContext null
                     val token = BoundedContextRequests.put(
@@ -8994,8 +9013,10 @@ class PlaybackService : MediaLibraryService() {
             require(parts.size == 3 && parts[0] == "auto-browse") { "Invalid browse id" }
             val context = synchronized(autoBrowseContexts) { autoBrowseContexts[parts[1]] }
             requireNotNull(context) { "Browse context expired; reopen the folder" }
-            require(context.cookie == com.music.bitchord.data.innertube.Innertube.cookie) {
-                "Account changed; reopen the folder"
+            if (context.cookie != null) {
+                require(context.cookie == com.music.bitchord.data.innertube.Innertube.cookie) {
+                    "Account changed; reopen the folder"
+                }
             }
             val index = parts[2].toIntOrNull()
             require(index != null && index in context.page.songs.indices) { "Invalid browse index" }
@@ -9011,8 +9032,11 @@ class PlaybackService : MediaLibraryService() {
                     // Adding one browsed track to an existing queue must resolve
                     // the browser-only id too, without replacing that queue.
                     id.startsWith("auto-browse:") -> {
-                        val (context, index) = autoBrowseSelection(id)
-                        resolved.add(context.page.songs[index].toMediaItem())
+                        val selection = runCatching { autoBrowseSelection(id) }.getOrNull()
+                        if (selection != null) {
+                            val (context, index) = selection
+                            resolved.add(context.page.songs[index].toMediaItem())
+                        }
                     }
                     !searchQuery.isNullOrBlank() -> {
                         val cached = searchResults[searchQuery]

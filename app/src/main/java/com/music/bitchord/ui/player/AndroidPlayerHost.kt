@@ -1,7 +1,10 @@
 package com.music.bitchord.ui.player
 
 import com.music.bitchord.wear.WearBridge
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.database.ContentObserver
 import android.media.AudioManager
 import android.os.Handler
@@ -14,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
@@ -322,6 +326,24 @@ private class MusicStreamVolume(private val context: Context) : SystemVolume {
     private val _level = MutableStateFlow(read())
     override val level: StateFlow<Float> = _level.asStateFlow()
 
+    // Hardware keys and the volume panel each take their own road to the same
+    // change, and only some of those roads write back through a Settings uri:
+    // per-device media volume lives inside AudioService, and on many devices a
+    // key step barely disturbs Settings at all, which let the bar freeze until
+    // an unrelated screen touched it. The service does announce every step, so
+    // the key press is watched directly and either notice refreshes the read.
+    private val volumeChanged = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            // The broadcast carries every stream's step; only the music one
+            // is this bar's business.
+            if (intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", Int.MIN_VALUE) ==
+                AudioManager.STREAM_MUSIC
+            ) {
+                refresh()
+            }
+        }
+    }
+
     init {
         context.contentResolver.registerContentObserver(
             Settings.System.CONTENT_URI,
@@ -329,6 +351,12 @@ private class MusicStreamVolume(private val context: Context) : SystemVolume {
             object : ContentObserver(Handler(Looper.getMainLooper())) {
                 override fun onChange(selfChange: Boolean) = refresh()
             },
+        )
+        ContextCompat.registerReceiver(
+            context,
+            volumeChanged,
+            IntentFilter("android.media.VOLUME_CHANGED_ACTION"),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
         )
     }
 

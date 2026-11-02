@@ -291,7 +291,7 @@ object YtMusicRepository {
     }
 
     private const val HISTORY = "FEmusic_history"
-    private const val RECENT_TITLE = "Recents"
+    const val RECENT_TITLE = "Recents"
 
     /** Enough to scroll through, short of turning the shelf into the history page. */
     private const val RECENT_LIMIT = 20

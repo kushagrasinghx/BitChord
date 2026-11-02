@@ -286,6 +286,11 @@ fun SettingsScreen(
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
     val preferMusicOnly by AppSettings.preferMusicOnly.collectAsStateWithLifecycle()
+    val squareVideoThumbnails by AppSettings.squareVideoThumbnails.collectAsStateWithLifecycle()
+    val hideRecents by AppSettings.hideRecents.collectAsStateWithLifecycle()
+    val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
+    val hideTopPicks by AppSettings.hideTopPicks.collectAsStateWithLifecycle()
+    val hideHomeMoods by AppSettings.hideHomeMoods.collectAsStateWithLifecycle()
     val smartVersionAlignment by AppSettings.smartVersionAlignment.collectAsStateWithLifecycle()
     val filterNonMusicAudio by AppSettings.filterNonMusicAudio.collectAsStateWithLifecycle()
     val localMusicFolderUri by AppSettings.localMusicFolderUri.collectAsStateWithLifecycle()
@@ -888,7 +893,7 @@ fun SettingsScreen(
             }
         }
 
-        if (shows(SettingsCategory.HOME_AND_VIDEOS)) SearchableSettingsGroup(search, header = stringResource(R.string.home_and_videos)) {
+        if (shows(SettingsCategory.CONTENT_PREFERENCES)) SearchableSettingsGroup(search, header = stringResource(R.string.content_preferences)) {
             val preferMusicOnlyTitle = stringResource(R.string.prefer_music_only)
             row(preferMusicOnlyTitle, "video", "audio", "music video", "convert", "song") {
                 SettingsRow(
@@ -902,6 +907,78 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setPreferMusicOnly(!preferMusicOnly) },
+                )
+            }
+            val hideRecentsTitle = stringResource(R.string.hide_recents)
+            row(hideRecentsTitle, "recents", "recent", "history", "feed", "home") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideRecentsTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideRecents,
+                            onCheckedChange = AppSettings::setHideRecents,
+                        )
+                    },
+                    onClick = { AppSettings.setHideRecents(!hideRecents) },
+                )
+            }
+            val hideHomeVideosTitle = stringResource(R.string.hide_home_videos)
+            row(hideHomeVideosTitle, "video", "music video", "feed", "home") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideHomeVideosTitle,
+                    subtitle = stringResource(R.string.hide_home_videos_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = hideHomeVideos,
+                            onCheckedChange = AppSettings::setHideHomeVideos,
+                        )
+                    },
+                    onClick = { AppSettings.setHideHomeVideos(!hideHomeVideos) },
+                )
+            }
+            val hideTopPicksTitle = stringResource(R.string.hide_top_picks)
+            row(hideTopPicksTitle, "top picks", "recommendations", "feed", "home") {
+                SettingsRow(
+                    icon = SfIcons.AutoAwesome,
+                    title = hideTopPicksTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideTopPicks,
+                            onCheckedChange = AppSettings::setHideTopPicks,
+                        )
+                    },
+                    onClick = { AppSettings.setHideTopPicks(!hideTopPicks) },
+                )
+            }
+            val hideHomeMoodsTitle = stringResource(R.string.hide_home_moods)
+            row(hideHomeMoodsTitle, "mood", "moods", "find your mood", "feed", "home") {
+                SettingsRow(
+                    icon = SfIcons.Star,
+                    title = hideHomeMoodsTitle,
+                    trailing = {
+                        IosSwitch(
+                            checked = hideHomeMoods,
+                            onCheckedChange = AppSettings::setHideHomeMoods,
+                        )
+                    },
+                    onClick = { AppSettings.setHideHomeMoods(!hideHomeMoods) },
+                )
+            }
+            val squareVideoThumbnailsTitle = stringResource(R.string.square_video_thumbnails)
+            row(squareVideoThumbnailsTitle, "video", "thumbnail", "cover", "artwork", "player") {
+                SettingsRow(
+                    icon = SfIcons.Apps,
+                    title = squareVideoThumbnailsTitle,
+                    subtitle = stringResource(R.string.square_video_thumbnails_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = squareVideoThumbnails,
+                            onCheckedChange = AppSettings::setSquareVideoThumbnails,
+                        )
+                    },
+                    onClick = { AppSettings.setSquareVideoThumbnails(!squareVideoThumbnails) },
                 )
             }
         }
@@ -2667,7 +2744,7 @@ internal fun SegmentedControl(
 enum class SettingsCategory(@param:StringRes val title: Int) {
     DOWNLOADS(R.string.downloads),
     PLAYBACK(R.string.playback),
-    HOME_AND_VIDEOS(R.string.home_and_videos),
+    CONTENT_PREFERENCES(R.string.content_preferences),
     APPEARANCE(R.string.appearance),
     PERFORMANCE(R.string.performance),
     LOCAL_MUSIC(R.string.local_music),
@@ -2682,7 +2759,7 @@ enum class SettingsCategory(@param:StringRes val title: Int) {
         get() = when (this) {
             DOWNLOADS -> SfIcons.Download
             PLAYBACK -> SfIcons.PlayCircle
-            HOME_AND_VIDEOS -> SfIcons.Video
+            CONTENT_PREFERENCES -> SfIcons.Video
             APPEARANCE -> SfIcons.Appearance
             PERFORMANCE -> SfIcons.Performance
             LOCAL_MUSIC -> SfIcons.LibraryMusic

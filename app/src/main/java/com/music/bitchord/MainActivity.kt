@@ -146,6 +146,7 @@ import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.model.UiState
+import com.music.bitchord.data.model.withoutVideos
 import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
@@ -824,6 +825,22 @@ private fun BitChordApp(
     )
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
+    val hideRecents by AppSettings.hideRecents.collectAsStateWithLifecycle()
+    val hideHomeVideos by AppSettings.hideHomeVideos.collectAsStateWithLifecycle()
+    val hideTopPicks by AppSettings.hideTopPicks.collectAsStateWithLifecycle()
+    val hideHomeMoods by AppSettings.hideHomeMoods.collectAsStateWithLifecycle()
+    // Only what Home draws: Top Picks reads the unfiltered feed from the view model.
+    val visibleHomeState = remember(homeState, hideHomeVideos, hideRecents) {
+        val loaded = homeState as? UiState.Success
+        if (loaded != null && (hideHomeVideos || hideRecents)) {
+            var shelves = loaded.data
+            if (hideRecents) shelves = shelves.filterNot { it.title == YtMusicRepository.RECENT_TITLE }
+            if (hideHomeVideos) shelves = shelves.withoutVideos()
+            UiState.Success(shelves)
+        } else {
+            homeState
+        }
+    }
     val homeLoadingMore by viewModel.homeLoadingMore.collectAsStateWithLifecycle()
     val homeRecentlyPlayedLoading by viewModel.homeRecentlyPlayedLoading.collectAsStateWithLifecycle()
     val topPicks by viewModel.topPicks.collectAsStateWithLifecycle()
@@ -3327,7 +3344,7 @@ private fun BitChordApp(
                             )
                         } else when ((destination as? AppDestination.Tab)?.index ?: selectedTab) {
                             TAB_HOME -> HomeScreen(
-                                state = homeState,
+                                state = visibleHomeState,
                                 listState = homeListState,
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
@@ -3361,12 +3378,13 @@ private fun BitChordApp(
                                 contentPadding = listPadding,
                                 onLoadMore = viewModel::loadMoreHome,
                                 loadingMore = homeLoadingMore,
-                                recentlyPlayedLoading = homeRecentlyPlayedLoading,
+                                recentlyPlayedLoading = homeRecentlyPlayedLoading && !hideRecents,
                                 topPicks = topPicks,
                                 topPicksLoading = topPicksLoading,
                                 listenerName = account?.name,
-                                onTopPickClick = openTopPick,
-                                onMoodClick = playMood,
+                                // Neither shelf is drawn without its callback.
+                                onTopPickClick = openTopPick.takeUnless { hideTopPicks },
+                                onMoodClick = playMood.takeUnless { hideHomeMoods },
                                 onMoodsShowAll = { navigator.push(AppRoute.Moods) },
                                 artworkMotion = artworkMotion,
                                 onTopPickLongPress = { pick ->

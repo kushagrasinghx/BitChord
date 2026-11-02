@@ -388,7 +388,7 @@ private fun GlassNowPlaying(
             // the floating mini player; the full player takes it over when up.
             val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
             val artWidth by animateDpAsState(
-                targetValue = if (showsPicture) ACCESSORY_ART_SIZE * (16f / 9f) else ACCESSORY_ART_SIZE,
+                targetValue = if (showsPicture && !VideoThumbnails.square) ACCESSORY_ART_SIZE * (16f / 9f) else ACCESSORY_ART_SIZE,
                 label = "glassMiniArtWidth",
             )
             Box(

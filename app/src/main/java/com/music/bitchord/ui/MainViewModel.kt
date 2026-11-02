@@ -1109,24 +1109,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val name = title.trim().ifBlank { text(R.string.new_playlist) }
         viewModelScope.launch {
             if (authStore.isSignedIn) {
-                val initialBatch = videoIds.take(50)
+                val batches = playlistImportBatches(videoIds)
                 YtMusicRepository.createPlaylist(
                     title = name,
                     privacy = privacy,
-                    videoIds = initialBatch,
+                    videoIds = batches.firstOrNull().orEmpty(),
                 ).fold(
                     onSuccess = { playlistId ->
-                        if (videoIds.size > 50) {
-                            videoIds.drop(50).chunked(50).forEach { chunk ->
-                                YtMusicRepository.addToPlaylist(playlistId, chunk)
-                            }
+                        batches.drop(1).forEach { chunk ->
+                            YtMusicRepository.addToPlaylist(playlistId, chunk)
                         }
                         setPlaylistOwned("VL$playlistId", true)
                         libraryStale = true
                         val created = UserPlaylist(
                             playlistId = playlistId,
                             title = name,
-                            subtitle = "${videoIds.size} songs",
+                            subtitle = "${batches.sumOf { it.size }} songs",
                             thumbnailUrl = null,
                         )
                         _playlists.value = listOf(created) +
@@ -3637,3 +3635,16 @@ internal fun lyricsLookupKey(
     order: List<LyricsSource>,
     prioritizeSyllableSync: Boolean,
 ): List<Any> = listOf(videoId, sources, order, prioritizeSyllableSync)
+
+/**
+ * The requests a playlist import is sent in: the first seeds the new playlist,
+ * the rest are added to it.
+ *
+ * Each video once. YouTube refuses an add that holds a video already in the
+ * playlist — the whole request, not the one row — and an import matches two
+ * Spotify tracks to the same video often enough. Sent as they came, every
+ * batch of 50 holding such a pair was dropped without a word, which is how a
+ * 270-track import came out at 100 (#1117).
+ */
+internal fun playlistImportBatches(videoIds: List<String>): List<List<String>> =
+    videoIds.distinct().chunked(50)

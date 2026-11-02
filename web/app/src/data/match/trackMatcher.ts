@@ -128,6 +128,20 @@ export function normalize(text: string): string {
     .replace(CJK_CLOSE, ')');
 }
 
+/**
+ * TrackMatcher.foldLatin: Latin letters without their accents, for comparing
+ * only ("Şımarık" / "Simarik"). Other scripts keep their combining marks.
+ */
+export function foldLatin(text: string): string {
+  return [...text]
+    .map((c) => {
+      if (c === 'ı') return 'i';
+      if (c.charCodeAt(0) < 0x80 || !/\p{Script=Latin}/u.test(c)) return c;
+      return c.normalize('NFD').replace(/\p{Mn}/gu, '');
+    })
+    .join('');
+}
+
 // ── Asking ─────────────────────────────────────────────────────────────────
 
 /** What to put to a search box, best query first (TrackMatcher.queries). */
@@ -296,7 +310,7 @@ export function parseTitle(raw: string, artist = ''): TitleParts {
     } else break;
   }
 
-  const core = containsCJK ? text.replace(CJK_CORE_STRIP, '') : words.join('');
+  const core = containsCJK ? text.replace(CJK_CORE_STRIP, '') : foldLatin(words.join(''));
   return { words, core, versions, context };
 }
 
@@ -476,7 +490,7 @@ function artistScore(wanted: string, got: string): number | null {
 /** The credited artists, each as its own list of words; a Set in Kotlin, de-duplicated here. */
 export function artistNames(value: string): string[][] {
   const seen = new Map<string, string[]>();
-  for (const name of normalize(value).split(ARTIST_SEPARATORS)) {
+  for (const name of foldLatin(normalize(value)).split(ARTIST_SEPARATORS)) {
     const words = name.split(WORD_SPLIT).map(strip).filter((w) => [...w].length > 1);
     if (words.length) seen.set(words.join(' '), words);
   }

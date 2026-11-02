@@ -1,7 +1,10 @@
 package com.music.bitchord.playback
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -73,7 +76,12 @@ object AudioRouting {
         val kind: Kind,
         /** Where the audio is going right now — see [activeOf]. */
         val isActive: Boolean = false,
+        /** For a [Kind.BLUETOOTH] device, what it is you listen with — see [formOf]. */
+        val form: Form = Form.UNKNOWN,
     )
+
+    /** What shape of thing a Bluetooth sink is, as far as can be told. */
+    enum class Form { UNKNOWN, BUDS, HEADPHONES, SPEAKER, CAR }
 
     private val _selectedId = MutableStateFlow<Int?>(null)
 
@@ -107,12 +115,14 @@ object AudioRouting {
         return infos
             .mapNotNull { info -> kindOf(info.type)?.let { info to it } }
             .map { (info, kind) ->
+                val name = nameOf(info, kind)
                 Device(
                     id = info.id,
                     type = info.type,
-                    name = nameOf(info, kind),
+                    name = name,
                     kind = kind,
                     isActive = info.id == active?.id,
+                    form = if (kind == Kind.BLUETOOTH) formOf(info, name) else Form.UNKNOWN,
                 )
             }
             // One row per physical device. Several entries under one name is
@@ -190,6 +200,98 @@ object AudioRouting {
         -> Kind.HDMI
         else -> null
     }
+
+    /**
+     * What a Bluetooth sink is. Buds and speakers both arrive as
+     * `TYPE_BLUETOOTH_A2DP`, so outside LE Audio — which has a type of its own
+     * for speakers — it has to be inferred, from three things in turn:
+     *
+     *  1. The LE Audio type, where there is one.
+     *  2. The name. It is what the owner sees in Android's own Bluetooth list,
+     *     and the product lines are distinctive enough to read: an "EMBERTON
+     *     III" is a speaker whatever the radio says.
+     *  3. The paired device's class of device. Second, not first, because it
+     *     is the less reliable of the two: it needs BLUETOOTH_CONNECT from
+     *     Android 12, and the stack's stored copy can go stale — an Emberton
+     *     here was measured reporting a loudspeaker in one place and
+     *     "uncategorized" in another — and plenty of earbuds call themselves
+     *     headphones.
+     *
+     * Nothing conclusive is [Form.UNKNOWN], which the UI draws as a generic
+     * output rather than guessing buds at a speaker.
+     */
+    private fun formOf(info: AudioDeviceInfo, name: String): Form {
+        when (info.type) {
+            AudioDeviceInfo.TYPE_BLE_SPEAKER -> return Form.SPEAKER
+            AudioDeviceInfo.TYPE_HEARING_AID -> return Form.BUDS
+        }
+        return formFromName(name) ?: formFromClass(info) ?: Form.UNKNOWN
+    }
+
+    @Suppress("DEPRECATION", "MissingPermission")
+    private fun formFromClass(info: AudioDeviceInfo): Form? {
+        if (Build.VERSION.SDK_INT < 28) return null
+        // From Android 14 an app without BLUETOOTH_CONNECT gets an anonymised
+        // address here, which this check turns away.
+        val address = info.address.takeIf { BluetoothAdapter.checkBluetoothAddress(it) } ?: return null
+        val deviceClass = runCatching {
+            BluetoothAdapter.getDefaultAdapter()?.getRemoteDevice(address)?.bluetoothClass?.deviceClass
+        }.getOrNull() ?: return null
+        return when (deviceClass) {
+            BluetoothClass.Device.AUDIO_VIDEO_WEARABLE_HEADSET,
+            BluetoothClass.Device.AUDIO_VIDEO_HANDSFREE,
+            -> Form.BUDS
+            BluetoothClass.Device.AUDIO_VIDEO_HEADPHONES -> Form.HEADPHONES
+            BluetoothClass.Device.AUDIO_VIDEO_LOUDSPEAKER,
+            BluetoothClass.Device.AUDIO_VIDEO_PORTABLE_AUDIO,
+            BluetoothClass.Device.AUDIO_VIDEO_HIFI_AUDIO,
+            BluetoothClass.Device.AUDIO_VIDEO_VIDEO_DISPLAY_AND_LOUDSPEAKER,
+            -> Form.SPEAKER
+            BluetoothClass.Device.AUDIO_VIDEO_CAR_AUDIO -> Form.CAR
+            else -> null
+        }
+    }
+
+    /**
+     * The name, matched against product lines whose shape is not in doubt.
+     * Worn things are checked first, so "Echo Buds" or "SoundLink Flex
+     * headphones" land on the head rather than the shelf.
+     */
+    internal fun formFromName(name: String): Form? {
+        val lower = name.lowercase()
+        if (lower.isBlank()) return null
+        fun matches(words: List<String>) = words.any { it in lower }
+        return when {
+            matches(HEADPHONE_NAMES) -> Form.HEADPHONES
+            matches(BUDS_NAMES) -> Form.BUDS
+            matches(SPEAKER_NAMES) -> Form.SPEAKER
+            else -> null
+        }
+    }
+
+    private val HEADPHONE_NAMES = listOf(
+        "headphone", "airpods max", "wh-", "qc35", "qc45",
+        "quietcomfort ultra headphones", "momentum 4", "studio pro", "solo", "major iv",
+        "major v", "monitor ii",
+    )
+
+    private val BUDS_NAMES = listOf(
+        "buds", "airpods", "pods", "earbud", "earphone", "wf-", "tws", "liberty",
+        "freebuds", "nothing ear", "jabra elite", "motif", "minor iv", "earfun",
+    )
+
+    private val SPEAKER_NAMES = listOf(
+        "speaker", "soundbar", "sound bar",
+        // Marshall
+        "emberton", "kilburn", "stanmore", "acton", "woburn", "middleton", "willen", "tufton",
+        "stockwell", "uxbridge",
+        // JBL, UE, Bose, Sony, Anker, Tribit, Beats, Sonos and the rest
+        "jbl flip", "jbl charge", "jbl go", "jbl clip", "jbl xtreme", "jbl boombox",
+        "jbl pulse", "partybox", "wonderboom", "megaboom", "boom 3", "everboom", "hyperboom",
+        "soundlink", "srs-", "ult field", "soundcore motion", "soundcore flare",
+        "soundcore boom", "stormbox", "beats pill", "sonos", "homepod", "echo", "nest audio",
+        "bose home", "beosound", "beoplay a", "boombox",
+    )
 
     /**
      * `productName` is the phone's model for the built-in speaker and for wired

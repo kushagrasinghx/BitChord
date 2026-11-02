@@ -3,7 +3,6 @@ package com.music.bitchord.ui.player
 import com.music.bitchord.wear.WearBridge
 import android.content.Context
 import android.database.ContentObserver
-import android.media.AudioFormat
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
@@ -11,7 +10,10 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
@@ -23,7 +25,14 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
+import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
+import com.music.bitchord.playback.audio.bitperfect.DacVolume
 import com.music.bitchord.playback.cast.CastController
+import com.music.bitchord.ui.components.backdrop.backdrops.SnapshotBackdrop
+import com.music.bitchord.ui.components.backdrop.backdrops.rememberSnapshotBackdrop
+import com.music.bitchord.ui.components.backdrop.backdrops.snapshotBackdropSource
+import com.music.bitchord.ui.components.isGlassSupported
+import com.music.bitchord.ui.components.menuBackdropFrost
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -65,15 +74,20 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val lyricsOffsetMs get() = AppSettings.lyricsOffsetMs
         override val lyricsSourceOrder get() = AppSettings.lyricsSourceOrder
         override val meteredConnection get() = AppSettings.meteredConnection
+        override val streamCeilingOverride get() = AppSettings.streamCeilingOverride
         override val preferUsbDac get() = AppSettings.preferUsbDac
         override val prioritizeSpotifyCanvas get() = AppSettings.prioritizeSpotifyCanvas
         override val reduceAnimation get() = AppSettings.reduceAnimation
         override val reduceDynamicBlur get() = AppSettings.reduceDynamicBlur
         override val showNerdStats get() = AppSettings.showNerdStats
+        override val showListenTogetherButton get() = AppSettings.showListenTogetherButton
         override val smartAnalysis get() = AppSettings.smartAnalysis
+        override val automixDetail get() = AppSettings.automixDetail
         override val smartFadeEnabled get() = AppSettings.smartFadeEnabled
         override val smartMixInProgress get() = AppSettings.smartMixInProgress
         override val smartMixBlend get() = AppSettings.smartMixBlend
+        override val smartMixView get() = AppSettings.smartMixView
+        override val smartMixProgress get() = AppSettings.smartMixProgress
         override val smartTransitionWindow get() = AppSettings.smartTransitionWindow
         override val spotifyCanvasAutoHide get() = AppSettings.spotifyCanvasAutoHide
         override val syncedLyrics get() = AppSettings.syncedLyrics
@@ -90,6 +104,18 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
 
     @Composable
     override fun CanvasVideo(spec: CanvasVideoSpec, modifier: Modifier) = AndroidCanvasVideo(spec, modifier)
+
+    override val musicVideoSupported: Boolean get() = true
+
+    @Composable
+    override fun MusicVideo(videoId: String, fit: Boolean, onRenderedChanged: (Boolean) -> Unit, modifier: Modifier) =
+        AndroidMusicVideo(videoId, fit, onRenderedChanged, modifier)
+
+    override val musicVideoAspect: StateFlow<Float> get() = MusicVideoEngine.aspect
+
+    override val musicVideoQuality: StateFlow<MusicVideoQualityUi> get() = MusicVideoEngine.quality
+
+    override fun setMusicVideoQuality(height: Int?) = MusicVideoEngine.setQuality(height)
 
     @Composable
     override fun rememberRemoteArtworkUrl(song: Song?): String? =
@@ -136,9 +162,13 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     }
 
     override val outputFormat: StateFlow<OutputFormatUi> by lazy {
-        AudioOutputStatus.current
-            .map { it.toOutputFormat() }
-            .stateIn(scope, SharingStarted.Eagerly, AudioOutputStatus.current.value.toOutputFormat())
+        combine(AudioOutputStatus.current, BitPerfectOutput.status) { status, bitPerfect ->
+            status.toOutputFormat(bitPerfect)
+        }.stateIn(
+            scope,
+            SharingStarted.Eagerly,
+            AudioOutputStatus.current.value.toOutputFormat(BitPerfectOutput.status.value),
+        )
     }
 
     override val party: StateFlow<PartyUi> by lazy {
@@ -192,6 +222,16 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
             isPlaying = isPlaying,
         )
 
+    // The ⋯ menu's own material: a still of the player, blurred under each
+    // panel exactly as [menuBackdropFrost] blurs it under the menu. Below
+    // Android 12 there is no RenderEffect to blur it with.
+    @Composable
+    override fun rememberPlayerFrost(): PlayerFrost? {
+        if (!isGlassSupported()) return null
+        val backdrop = rememberSnapshotBackdrop()
+        return remember(backdrop) { BackdropPlayerFrost(backdrop) }
+    }
+
     // The phone is the platform that can turn picked lyrics into a picture: a
     // bitmap, a canvas, the gallery and the chooser are all Android's here. The
     // desktop has no answer to it, so it never sees the pick mode at all.
@@ -205,23 +245,25 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
     ) = AndroidLyricsShareSheet(hazeState = hazeState, request = request, onDismiss = onDismiss)
 }
 
-private fun AudioOutputStatus.Snapshot.toOutputFormat(): OutputFormatUi {
-    val encoding = AudioOutputStatus.encodingLabel(this)
-    val rate = actualSampleRateHz?.takeIf { it > 0 }
-    val summary = if (rate == null) {
+/**
+ * The output's format line, and whether the track is reaching the DAC
+ * bit-perfect. On the exclusive output the format is the one written to
+ * the DAC, not the ordinary AudioTrack's, which is idle meanwhile.
+ */
+private fun AudioOutputStatus.Snapshot.toOutputFormat(bitPerfect: BitPerfectOutput.Status): OutputFormatUi {
+    val encoding = if (bitPerfect.active) "${bitPerfect.outputBits}-bit PCM" else AudioOutputStatus.encodingLabel(this)
+    val rate = (if (bitPerfect.active) bitPerfect.sampleRateHz else actualSampleRateHz)?.takeIf { it > 0 }
+    val format = if (rate == null) {
         encoding
     } else {
         "$encoding · ${"%.1f".format(Locale.ROOT, rate / 1000f).removeSuffix(".0")} kHz"
     }
-    // What the route is *capable* of, read off the negotiated AudioTrack.
-    val carriesHiRes = when (actualEncoding) {
-        AudioFormat.ENCODING_PCM_24BIT_PACKED,
-        AudioFormat.ENCODING_PCM_32BIT,
-        AudioFormat.ENCODING_PCM_FLOAT,
-        -> true
-        else -> (actualSampleRateHz ?: 0) > 48_000
-    }
-    return OutputFormatUi(summary = summary, carriesHiRes = carriesHiRes)
+    val dacLimited = bitPerfect.active && bitPerfect.dacLimited
+    return OutputFormatUi(
+        summary = if (dacLimited) "$format · DAC max" else format,
+        bitPerfect = bitPerfect.active && bitPerfect.exact,
+        dacLimited = dacLimited,
+    )
 }
 
 private fun ListenTogether.State.toPartyUi() = PartyUi(
@@ -233,8 +275,8 @@ private fun ListenTogether.State.toPartyUi() = PartyUi(
 )
 
 /**
- * The volume bar's level: the receiver's while the music is on one, the music
- * stream's otherwise. The two are different numbers on different devices, and
+ * The volume bar's level: the receiver's while the music is on one, the DAC's
+ * own while direct USB output drives it, the music stream's otherwise. The two are different numbers on different devices, and
  * the bar must never show one while moving the other.
  */
 private class CastAwareVolume(
@@ -246,10 +288,14 @@ private class CastAwareVolume(
         CastController.volume,
         CastController.state.map { it.casting },
         WearBridge.watchOutput,
-    ) { phone, receiver, casting, watch ->
+        DacVolume.level,
+    ) { phone, receiver, casting, watch, dac ->
         when {
             casting -> receiver
             watch.active -> watch.volume
+            // Direct USB: the music stream no longer reaches the DAC, so its
+            // own hardware volume is the only one that means anything.
+            dac != null -> dac
             else -> phone
         }
     }
@@ -259,6 +305,7 @@ private class CastAwareVolume(
         when {
             CastController.state.value.casting -> CastController.setVolume(level)
             WearBridge.watchOutput.value.active -> WearBridge.setWatchVolume(level)
+            DacVolume.level.value != null -> DacVolume.set(level)
             else -> system.set(level)
         }
     }
@@ -297,4 +344,15 @@ private class MusicStreamVolume(private val context: Context) : SystemVolume {
     override fun refresh() {
         _level.value = read()
     }
+}
+
+private class BackdropPlayerFrost(private val backdrop: SnapshotBackdrop) : PlayerFrost {
+    @Composable
+    override fun Modifier.frostSource(): Modifier = snapshotBackdropSource(backdrop)
+
+    override fun capture() = backdrop.capture()
+
+    override fun release() = backdrop.release()
+
+    override fun Modifier.frostPanel(shape: Shape, fill: Color): Modifier = menuBackdropFrost(backdrop, shape, fill)
 }

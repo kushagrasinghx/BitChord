@@ -189,6 +189,14 @@ fun ReplayPeriod.localizedChip(context: Context): String = when (this) {
     ReplayPeriod.ALL_TIME -> context.getString(R.string.all_time)
 }
 
+/** The period picker's short name for each stretch — see `PeriodPicker`. */
+fun ReplayPeriod.localizedTab(context: Context): String = when (this) {
+    ReplayPeriod.THIS_WEEK -> context.getString(R.string.replay_period_weekly)
+    ReplayPeriod.THIS_MONTH -> context.getString(R.string.replay_period_monthly)
+    ReplayPeriod.THIS_YEAR -> context.getString(R.string.replay_period_yearly)
+    ReplayPeriod.ALL_TIME -> context.getString(R.string.replay_period_lifetime)
+}
+
 fun ReplaySummary.localizedLabel(context: Context): String = when (period) {
     ReplayPeriod.THIS_WEEK -> "This week"
     ReplayPeriod.THIS_MONTH -> DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())

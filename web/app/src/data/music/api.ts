@@ -306,16 +306,32 @@ function isMusicVideo(item: YTNodes.PlaylistPanelVideo): boolean {
   return type !== undefined ? type !== 'MUSIC_VIDEO_TYPE_ATV' : !item.album;
 }
 
+/** A station, and which cut it was seeded on: a music video's station is built from music videos. */
+export interface Radio {
+  candidates: Candidate[];
+  /** [videoId] is itself a music video, not the catalogue song. */
+  seedIsVideo: boolean;
+}
+
 /**
  * The radio YouTube Music would play after [videoId]: its "RDAMVM" mix, as
  * Innertube.next asks for it on the phone. Signed in it's the user's own
- * station. Music videos are flagged so the station builder can prefer the
- * catalogue cut (QueueBuilder).
+ * station.
+ *
+ * Most rows carry both cuts of a track, and which one is taken follows what
+ * is playing: a music video's station stays on music videos, a song's on the
+ * catalogue cuts. The seed's own row says which of the two it is.
  */
-export async function fetchRadio(videoId: string): Promise<Candidate[]> {
+export async function fetchRadio(videoId: string): Promise<Radio> {
   const yt = await getMusicClient();
   const panel = await yt.music.getUpNext(videoId, true);
-  return (panel.contents as unknown as Raw[]).map(panelCandidate).filter((c): c is Candidate => c !== null);
+  const rows = panel.contents as unknown as Raw[];
+  const seedCut = rows.flatMap(panelCuts).find((cut) => cut.video_id === videoId);
+  const seedIsVideo = seedCut ? isMusicVideo(seedCut) : false;
+  return {
+    candidates: rows.map((raw) => panelCandidate(raw, seedIsVideo)).filter((c): c is Candidate => c !== null),
+    seedIsVideo,
+  };
 }
 
 /**
@@ -329,10 +345,10 @@ function panelCuts(raw: Raw): YTNodes.PlaylistPanelVideo[] {
   return cuts.filter((c): c is YTNodes.PlaylistPanelVideo => c?.type === 'PlaylistPanelVideo');
 }
 
-/** One watch-queue row as a track: the catalogue song (the cut with an album). */
-function panelCandidate(raw: Raw): Candidate | null {
+/** One watch-queue row as a track: the catalogue song (the cut with an album), or its music video for [wantVideo]. */
+function panelCandidate(raw: Raw, wantVideo = false): Candidate | null {
   const panelVideos = panelCuts(raw);
-  const item = panelVideos.find((c) => !isMusicVideo(c)) ?? panelVideos[0];
+  const item = panelVideos.find((c) => isMusicVideo(c) === wantVideo) ?? panelVideos[0];
   if (!item?.video_id) return null;
   const thumbs = [...(item.thumbnail ?? [])].sort((a, b) => b.width - a.width);
   return {

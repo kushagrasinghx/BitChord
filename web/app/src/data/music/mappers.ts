@@ -422,6 +422,24 @@ export function mapCategories(raw: unknown): CategoryGroup[] {
   return groups;
 }
 
+/**
+ * The cover a category tile borrows: the first real artwork on the page the
+ * tile opens, as on the phone (YtMusicRepository.moodGenreArtwork). The
+ * moods page itself carries no artwork, only titles and stripe colours, so
+ * the tile takes its cover from the category's own shelves — playlists
+ * first, then a See All grid, then track rows. The shape comes with it:
+ * the URL as served is small, so the caller asks the CDN for the size it
+ * displays (sizedArtwork) — for square covers, not wide video stills.
+ */
+export function firstBrowseArtwork(page: BrowsePage): { thumbnail: string; wide: boolean } | null {
+  for (const shelf of page.shelves) {
+    for (const item of shelf.items) if (item.thumbnail) return { thumbnail: item.thumbnail, wide: item.wide };
+  }
+  for (const item of page.grid) if (item.thumbnail) return { thumbnail: item.thumbnail, wide: item.wide };
+  for (const track of page.tracks) if (track.thumbnail) return { thumbnail: track.thumbnail, wide: false };
+  return null;
+}
+
 /** A See All, mood or genre page: shelves, or a single grid, or a track list. */
 export function mapBrowse(page: { header?: unknown; sections?: readonly unknown[] }, fallbackTitle: string): BrowsePage {
   const sections = (page.sections ?? []) as AnyNode[];

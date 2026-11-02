@@ -5,6 +5,7 @@ import com.music.bitchord.data.sources.StreamFormat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Architectural provenance of audio pipeline telemetry statistics.
@@ -59,6 +60,8 @@ object NerdStats {
         val bitrateProvenance: TelemetryProvenance = TelemetryProvenance.UNKNOWN,
         /** True PCM throughput (sampleRate * bitDepth * channels / 1000). Never conflated with encoded bitrate. */
         val pcmDataRateKbps: Int? = null,
+        /** The queue item this describes; see [publish]. */
+        val mediaId: String? = null,
     ) {
         /**
          * Whether what arrived is measurably worse than what was promised.
@@ -223,7 +226,41 @@ object NerdStats {
         }
     }
 
+    private val generation = AtomicLong(1L)
+
+    /**
+     * Bumped by every [onTrackTransition] and [forgetLastSession]. Read once at
+     * the start of building a [Snapshot] and handed back to [publish], so a
+     * build that a track change overtook is dropped instead of landing.
+     */
+    val currentGeneration: Long get() = generation.get()
+
+    /** The queue item [current] may describe, as of the last [onTrackTransition]. */
+    @Volatile
+    private var activeMediaId: String? = null
+
     val current = MutableStateFlow<Snapshot?>(null)
+
+    /**
+     * Sets [current], unless the track [snapshot] describes has stopped being
+     * the one playing.
+     *
+     * Building a snapshot reads the renderer, the declared format and the
+     * source name one after another, and a track change can land between
+     * those reads; the nulling [onTrackTransition] does would then be
+     * overwritten by figures for the track it just replaced. A snapshot naming
+     * a different item than the last transition did — the standby deck's
+     * incoming track during a crossfade — is refused for the same reason.
+     *
+     * @return whether [current] was set.
+     */
+    fun publish(snapshot: Snapshot, expectedGeneration: Long): Boolean {
+        if (expectedGeneration != currentGeneration) return false
+        val active = activeMediaId
+        if (active != null && snapshot.mediaId != null && snapshot.mediaId != active) return false
+        current.value = snapshot
+        return true
+    }
 
     /**
      * YouTube video ids with a module lookup racing YouTube's own resolve
@@ -309,6 +346,38 @@ object NerdStats {
     fun pickedBitrateKbps(videoId: String?): Int? = videoId?.let { picked[it] }
 
     /**
+     * The bitrate the stream behind [mediaId] is being served at, for when the
+     * decoder doesn't say, and how much that figure is worth.
+     *
+     * A declared format is the stream the player was handed, so when there is
+     * one the YouTube resolver's [picked] figure for the same id describes the
+     * stream it replaced. That is how an upgrade to a FLAC that states no
+     * bitrate used to read "160 kbps": the claim had none, and the lookup fell
+     * through to the Opus it upgraded from. A declared lossless stream gets no
+     * encoded bitrate here at all; its PCM rate is reported separately.
+     *
+     * A bitrate filled in from the tier an addon was asked for
+     * ([StreamFormat.kbpsInferred]) is a guess. [measuredKbps], the stream's
+     * real size over its length, gets the first word, and the guess is
+     * reported as [TelemetryProvenance.DERIVED] only when nothing better is
+     * known yet.
+     *
+     * @param measuredKbps only called when its answer would be used.
+     */
+    fun sourceBitrate(mediaId: String?, measuredKbps: () -> Int?): Pair<Int, TelemetryProvenance>? {
+        val declared = declaredFormat(mediaId)
+        declared?.takeUnless { it.kbpsInferred }?.kbps
+            ?.let { return it to TelemetryProvenance.AUTHORITATIVE }
+        if (declared?.isLossless == true) return null
+        if (declared != null) {
+            measuredKbps()?.let { return it to TelemetryProvenance.MEASURED }
+            declared.kbps?.let { return it to TelemetryProvenance.DERIVED }
+        }
+        pickedBitrateKbps(mediaId)?.let { return it to TelemetryProvenance.AUTHORITATIVE }
+        return measuredKbps()?.let { it to TelemetryProvenance.MEASURED }
+    }
+
+    /**
      * Undoes [onSourceStream] for [trackId].
      *
      * For when a swap to a claimed-better stream doesn't pan out and the
@@ -316,7 +385,8 @@ object NerdStats {
      * [PlaybackService][com.music.bitchord.playback.PlaybackService]'s
      * upgrade revert. Without this the claim from the abandoned stream keeps
      * describing the one that's actually playing, which is how a reverted
-     * FLAC swap leaves the "Lossless" badge lit over plain Opus.
+     * FLAC swap leaves the "Lossless" badge lit over plain Opus. [picked] is
+     * left alone: it is the stream being reverted *to*.
      */
     fun clearDeclared(trackId: String?) {
         if (trackId != null) {
@@ -336,7 +406,19 @@ object NerdStats {
             ?: SourceTrackKeys.parse(key)?.second?.let { declared[it] }
     }
 
-    fun onTrackTransition() {
+    /**
+     * [mediaId] has become the playing track.
+     *
+     * Only [current] goes. What was declared, picked and sourced for
+     * [mediaId] is keyed by the track and was recorded by the resolver before
+     * this point: a read-ahead resolve, or the standby deck's during a
+     * crossfade. Clearing it here would erase the incoming track's own claim,
+     * which [PlaybackService][com.music.bitchord.playback.PlaybackService]
+     * reads straight after this call to decide whether it is Dolby Atmos.
+     */
+    fun onTrackTransition(mediaId: String? = null) {
+        generation.incrementAndGet()
+        activeMediaId = mediaId
         current.value = null
     }
 
@@ -372,6 +454,8 @@ object NerdStats {
      *   rather than merely how it is labelled.
      */
     fun forgetLastSession() {
+        generation.incrementAndGet()
+        activeMediaId = null
         current.value = null
         racingLossless.value = emptySet()
         picked.clear()

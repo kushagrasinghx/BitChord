@@ -19,6 +19,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.AudioRouting
@@ -74,11 +77,20 @@ internal fun rememberAndroidAudioOutputs(): List<AudioOutputDevice> {
         AudioOutputStatus.current.map { it.activeDeviceId }.distinctUntilChanged()
     }.collectAsStateWithLifecycle(initialValue = AudioOutputStatus.current.value.activeDeviceId)
 
-    DisposableEffect(manager, selectedId) {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(manager, selectedId, lifecycle) {
         fun refresh() {
             outputs = AudioRouting.outputs(manager)
         }
         refresh()
+
+        // Back from the Bluetooth permission prompt (or from Android's own
+        // settings) the same devices can suddenly say what they are — see
+        // [AudioRouting.formOf] — with no device event to announce it.
+        val resumeObserver = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refresh()
+        }
+        lifecycle.addObserver(resumeObserver)
 
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         // Now, and again once the framework has caught up with itself.
@@ -112,6 +124,7 @@ internal fun rememberAndroidAudioOutputs(): List<AudioOutputDevice> {
         }
 
         onDispose {
+            lifecycle.removeObserver(resumeObserver)
             manager.unregisterAudioDeviceCallback(deviceCallback)
             runCatching { context.unregisterReceiver(receiver) }
             handler.removeCallbacksAndMessages(null)
@@ -143,6 +156,13 @@ private fun AudioRouting.Device.toOutputDevice() = AudioOutputDevice(
         AudioRouting.Kind.OTHER -> AudioOutputKind.OTHER
     },
     isActive = isActive,
+    form = when (form) {
+        AudioRouting.Form.UNKNOWN -> BluetoothForm.UNKNOWN
+        AudioRouting.Form.BUDS -> BluetoothForm.BUDS
+        AudioRouting.Form.HEADPHONES -> BluetoothForm.HEADPHONES
+        AudioRouting.Form.SPEAKER -> BluetoothForm.SPEAKER
+        AudioRouting.Form.CAR -> BluetoothForm.CAR
+    },
 )
 
 /**

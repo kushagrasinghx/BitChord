@@ -78,4 +78,20 @@ class KuGouTest {
     fun `empty input yields empty output`() {
         assertEquals("", strip(""))
     }
+
+    private fun instrumental(text: String): Boolean = with(KuGou) { text.isInstrumentalNotice() }
+
+    @Test
+    fun `the pure-music notice is recognised as no lyrics`() {
+        assertTrue(instrumental("[00:00.00]纯音乐，请欣赏"))
+        assertTrue(instrumental("[00:00.00]纯音乐,请欣赏"))
+        assertTrue(instrumental("[00:00.00]此歌曲为没有填词的纯音乐，请您欣赏"))
+    }
+
+    @Test
+    fun `real lyrics are not mistaken for the notice`() {
+        assertFalse(instrumental(strip(fixture)))
+        assertFalse(instrumental("[00:00.00]纯音乐，请欣赏\n[00:05.00]first sung line"))
+        assertFalse(instrumental(""))
+    }
 }

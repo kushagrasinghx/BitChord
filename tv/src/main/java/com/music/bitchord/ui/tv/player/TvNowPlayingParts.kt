@@ -93,6 +93,7 @@ import com.music.bitchord.sharedui.resources.ic_player_pause
 import com.music.bitchord.sharedui.resources.ic_player_play
 import com.music.bitchord.sharedui.resources.ic_player_previous
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.data.settings.TvPlayerStyle
 import com.music.bitchord.ui.player.ArtworkMeshBackdrop
 import com.music.bitchord.ui.player.CanvasArtworkPlayer
 import com.music.bitchord.ui.player.SyncedLyricsPanel
@@ -118,13 +119,18 @@ import java.util.Locale
 
 /**
  * The artwork's colours, smeared into the phone's moving mesh, darkened a touch
- * so white type always reads over it.
+ * so white type always reads over it — or plain black under [TvPlayerStyle.AMOLED].
  */
 @Composable
 fun TvPlayerBackground(
     artworkUrl: String?,
+    style: TvPlayerStyle,
     modifier: Modifier = Modifier,
 ) {
+    if (style == TvPlayerStyle.AMOLED) {
+        Box(modifier = modifier.fillMaxSize().background(Color.Black))
+        return
+    }
     val mesh = rememberArtworkMesh(imageUrl = artworkUrl)
     Box(modifier = modifier.fillMaxSize()) {
         ArtworkMeshBackdrop(
@@ -284,6 +290,7 @@ internal fun TvNowPlayingStage(
                         looking = lyricsLoading,
                         isPlaying = isPlaying,
                         onSeekToLine = onSeek,
+                        centerFocus = true,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -358,8 +365,8 @@ internal fun TvTransport(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                 TvTransportButton(
-                    icon = if (isLiked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
-                    contentDescription = if (isLiked) "Unlove" else "Love",
+                    icon = if (isLiked) BitChordIcons.StarFilled else BitChordIcons.Star,
+                    contentDescription = if (isLiked) "Unfavorite" else "Favorite",
                     onClick = onToggleLike,
                 )
                 TvTransportButton(

@@ -63,9 +63,10 @@ import kotlin.math.roundToInt
  * grid tile comes up as that tile and a search row as that row. It sits on a
  * frosted plate so it reads as picked up rather than pasted over the blur.
  *
- * Only a hold opens this. The ⋮ keeps opening the bottom sheet — a tap on a
- * small button is a request for the full menu, while a hold on the item itself
- * is a gesture about *that item*, answered where the finger is.
+ * Only a hold opens this. The ⋮ opens the same actions hung off itself instead
+ * (see [IosMenuPopover]) — the button is already where the finger is, while a
+ * hold on the item itself is a gesture about *that item*, answered by lifting
+ * it. The ⋮ is left out of the lifted picture: see [leftOutOfHeldPicture].
  *
  * [item] and [held] come and go together: non-null while the menu is wanted,
  * null once anything has closed it. The last pair is kept here so the menu can
@@ -145,9 +146,12 @@ fun <T : Any> HeldContextMenu(
         dark -> Color.Black.copy(alpha = 0.30f)
         else -> Color.Black.copy(alpha = 0.10f)
     }
-    val cardShape = RoundedCornerShape(20.dp)
-    val menuShape = RoundedCornerShape(16.dp)
+    val cardShape = RoundedCornerShape(CARD_RADIUS)
     val platePadding = 8.dp
+    // The picture's corners run parallel to the plate's. It is taken inside
+    // whatever clip the item had, so a card rounded by a parent comes up
+    // square — and a square on a rounded plate reads as cut out of it.
+    val pictureShape = RoundedCornerShape(CARD_RADIUS - platePadding)
 
     val insets = WindowInsets.safeDrawing
     var overlayOffset by remember { mutableStateOf(Offset.Zero) }
@@ -210,7 +214,7 @@ fun <T : Any> HeldContextMenu(
                         bitmap = image,
                         contentDescription = null,
                         contentScale = ContentScale.FillBounds,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().clip(pictureShape),
                     )
                 }
             }
@@ -218,9 +222,10 @@ fun <T : Any> HeldContextMenu(
                 Modifier
                     // Taps between rows land on the menu, not the scrim under it.
                     .pointerInput(Unit) {}
-                    .clip(menuShape)
-                    .background(plate)
-                    .border(0.5.dp, hairline, menuShape),
+                    // The same frosted plate the held item sits on, so the
+                    // item and its menu read as one thing lifted off the page.
+                    .iosMenuPanel(fillOverride = plate, rimOverride = hairline)
+                    .padding(vertical = 8.dp),
             ) {
                 actions(menuItem)
             }
@@ -248,7 +253,7 @@ fun <T : Any> HeldContextMenu(
         val visualW = plateW * liftScale
         val visualH = plateH * liftScale
 
-        val menuWidth = (width - margin * 2).coerceAtMost(280.dp.roundToPx()).coerceAtLeast(0)
+        val menuWidth = (width - margin * 2).coerceAtMost(IosMenuWidth.roundToPx()).coerceAtLeast(0)
         val menuMaxHeight = (bottom - top - visualH.roundToInt() - gap).coerceAtLeast(0)
         val menu = measurables[2].measure(
             Constraints(minWidth = menuWidth, maxWidth = menuWidth, maxHeight = menuMaxHeight),
@@ -334,6 +339,8 @@ fun <T : Any> HeldContextMenu(
         }
     }
 }
+
+private val CARD_RADIUS = 20.dp
 
 private suspend fun PointerInputScope.swallowAll() {
     awaitPointerEventScope {

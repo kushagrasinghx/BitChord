@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LyricClock } from './clock';
 
-// Ported from desktopUi/src/jvmTest/…/LyricClockTest.kt.
+// Ported from the native app's LyricClockTest.kt.
 
 const FRAME_MS = 1000 / 60;
 

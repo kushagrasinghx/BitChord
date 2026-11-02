@@ -104,14 +104,23 @@ fun glassContentColor(): Color =
     if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) Color.Black else Color.White
 
 /**
- * Selected-tab indicator colour for a glass surface: the inverse of
- * [glassContentColor] rather than the same tint at lower alpha — white in
- * light theme, black in dark theme, so the pill reads as a shaded scrim
- * rather than as more of the same tint already on the glyph and label.
+ * Selected-tab indicator colour for a glass surface: white in both themes.
+ *
+ * In light theme that is the inverse of [glassContentColor], a bright lift
+ * behind a dark glyph. In dark theme it is a faint white lift over the bar's
+ * dark glass rather than a black scrim pressed into it — the selected tab is
+ * raised out of the bar, as on iOS, not sunk.
  */
 @Composable
 fun glassIndicatorColor(): Color =
-    if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) Color.White else Color.Black
+    if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
+        Color.White.copy(alpha = 0.5f)
+    } else {
+        Color.White.copy(alpha = DARK_INDICATOR_OPACITY)
+    }
+
+/** The selected tab's pill in dark theme, a step whiter than the bar. */
+private const val DARK_INDICATOR_OPACITY = 0.14f
 
 /**
  * A lightweight visual match for liquid glass over a stable background.
@@ -190,7 +199,11 @@ fun Modifier.liquidGlassRim(shape: CornerBasedShape): Modifier {
  * throws for any other shape type.
  */
 @Composable
-fun Modifier.liquidGlass(shape: CornerBasedShape): Modifier {
+fun Modifier.liquidGlass(
+    shape: CornerBasedShape,
+    /** Drawn over the glass in place of the theme's default tint, when set. */
+    surfaceTint: Color? = null,
+): Modifier {
     if (!isGlassSupported()) return this
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     if (reduceDynamicBlur) {
@@ -203,11 +216,12 @@ fun Modifier.liquidGlass(shape: CornerBasedShape): Modifier {
     val blurPx = with(density) { BLUR_RADIUS_DP.dp.toPx() } * GLASS_RESOLUTION_SCALE
     val lensHeightPx = with(density) { (LENS_HEIGHT * LENS_MAX_DP).dp.toPx() } * GLASS_RESOLUTION_SCALE
     val lensAmountPx = with(density) { (LENS_AMOUNT * LENS_MAX_DP).dp.toPx() } * GLASS_RESOLUTION_SCALE
-    val surfaceTintColor = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
+    val themeTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
         Color(0xFFFAFAFA)
     } else {
         Color(0xFF121212)
     }
+    val surfaceTintColor = surfaceTint ?: themeTint.copy(alpha = SURFACE_OPACITY)
 
     return drawBackdrop(
         backdrop = backdrop,
@@ -227,7 +241,7 @@ fun Modifier.liquidGlass(shape: CornerBasedShape): Modifier {
         highlight = { Highlight.Default },
         shadow = { Shadow.Default },
         onDrawSurface = {
-            drawRect(color = surfaceTintColor.copy(alpha = SURFACE_OPACITY), size = size)
+            drawRect(color = surfaceTintColor, size = size)
         },
         exportedBackdrop = exportedBackdrop,
         backdropScale = GLASS_RESOLUTION_SCALE,

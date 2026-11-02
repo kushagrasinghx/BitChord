@@ -189,8 +189,6 @@
     <string name="sign_in">Đăng nhập</string>
     <string name="sign_in_youtube_music">Đăng nhập vào YouTube Music</string>
     <string name="subscriptions">Đã đăng ký</string>
-    <string name="switch_to_grid_view">Chuyển sang dạng lưới</string>
-    <string name="switch_to_list_view">Chuyển sang dạng danh sách</string>
     <string name="your_replay">BitChord Replay của bạn</string>
     <string name="your_listening_experience">Trải nghiệm nghe nhạc của bạn</string>
     <string name="default_replay_holder">Người nghe BitChord</string>

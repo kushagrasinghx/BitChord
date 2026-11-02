@@ -2,8 +2,11 @@ package com.music.bitchord.playback
 
 import android.content.Context
 import android.media.MediaDataSource
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.SystemClock
+import com.music.bitchord.R
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import androidx.media3.common.C
@@ -26,6 +29,7 @@ import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
+import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.download.Downloads
 import kotlinx.coroutines.CoroutineScope
@@ -33,11 +37,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
@@ -193,21 +199,35 @@ object AudioCache {
 
     private lateinit var cache: SimpleCache
 
+    private lateinit var appContext: Context
+
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     /**
-     * Kept in the app's cache directory: this is disposable by definition, and
-     * that is where the system and the "clear cache" button expect to reclaim
-     * it from. [SimpleCache] copes with files disappearing underneath it by
+     * Kept in the app's no-backup files directory, not its cache directory.
+     *
+     * It used to live in `cacheDir`, on the reasoning that it is disposable.
+     * It is not disposable to the listener any more: the Cached songs folder
+     * lists it, offline playback reads from it, and Settings lets it grow
+     * without a ceiling. Android treats `cacheDir` as its own to reclaim — it
+     * empties whole cache directories, largest-over-quota first, during idle
+     * maintenance whenever storage runs low — and a multi-gigabyte song cache
+     * is exactly the app it picks first. That is the "everything vanished
+     * overnight, all at once" report: the evictor never touched it, the system
+     * did. Here only [DynamicLruCacheEvictor], [clear] and the folder's own
+     * remove actions take anything out. No-backup rather than plain
+     * `filesDir` so gigabytes of audio are never offered to Auto Backup.
+     *
+     * [SimpleCache] still copes with files disappearing underneath it by
      * dropping the spans that named them.
      */
     fun init(context: Context) {
+        appContext = context.applicationContext
         evictor.maxBytes = AppSettings.audioCacheLimitBytes.value
-        cache = SimpleCache(
-            File(context.cacheDir, "audio"),
-            evictor,
-            StandaloneDatabaseProvider(context),
-        )
+        val dir = File(context.noBackupFilesDir, CACHE_DIR_NAME)
+        val databaseProvider = StandaloneDatabaseProvider(context)
+        migrateFromCacheDir(File(context.cacheDir, LEGACY_CACHE_DIR_NAME), dir, databaseProvider)
+        cache = SimpleCache(dir, evictor, databaseProvider)
         // Builds before album/explicit/video-aware and credit-aware matching
         // may have cached a completely different recording under a YouTube
         // track's `#alt` key.
@@ -216,14 +236,25 @@ object AudioCache {
         // no quality gain. Drop only the substitution-capable entries once;
         // ordinary YouTube cache entries remain warm.
         val state = context.getSharedPreferences(CACHE_STATE_PREFS, Context.MODE_PRIVATE)
+        // Replaces wiping the whole cache on every app update, which emptied
+        // the Cached songs folder each time a new build was installed. Only a
+        // build that actually changes what a key means, or how its bytes are
+        // laid out, bumps [CACHE_FORMAT]. An install that has never recorded a
+        // format is taken to be current rather than wiped.
+        val format = state.getInt(KEY_CACHE_FORMAT, -1)
+        if (format in 0 until CACHE_FORMAT) {
+            cache.keys.toList().forEach { runCatching { cache.removeResource(it) } }
+            TrackLog.d(TAG, "cleared the song cache for cache format $CACHE_FORMAT")
+        }
+        if (format != CACHE_FORMAT) state.edit().putInt(KEY_CACHE_FORMAT, CACHE_FORMAT).apply()
         if (state.getInt(KEY_MATCHING_SCHEMA, 0) < MATCHING_SCHEMA) {
             val stale = cache.keys.filter { it.endsWith(ALT_SUFFIX) }
             stale.forEach { runCatching { cache.removeResource(it) } }
             state.edit().putInt(KEY_MATCHING_SCHEMA, MATCHING_SCHEMA).apply()
             TrackLog.d(TAG, "invalidated ${stale.size} source cache entries after matcher upgrade")
         }
-        // Nothing is playing yet, so nothing an addon served is worth keeping —
-        // see [dropForeignEntries].
+        // Nothing is playing yet, so a partial addon file has nobody to finish
+        // it — see [dropForeignEntries]. Whole ones stay.
         dropForeignEntries(keep = emptySet())
         // A SimpleCache can only be opened once per process, so the ceiling
         // moves by mutating this evictor rather than reopening the cache —
@@ -234,6 +265,26 @@ object AudioCache {
                 evictor.applyNow(cache)
             }
         }
+    }
+
+    /**
+     * Moves a cache left in `cacheDir` by an older build to [dir], keeping
+     * every track in it. A rename within app storage, so instant and free; the
+     * index survives with it, because [SimpleCache] keys its database tables on
+     * the uid file inside the directory. Should the rename fail, the old copy
+     * is deleted rather than left for the system to find.
+     */
+    private fun migrateFromCacheDir(legacy: File, dir: File, databaseProvider: StandaloneDatabaseProvider) {
+        if (!legacy.isDirectory) return
+        if (!dir.exists()) {
+            dir.parentFile?.mkdirs()
+            if (legacy.renameTo(dir)) {
+                TrackLog.d(TAG, "moved the song cache out of the system-clearable cache directory")
+                return
+            }
+        }
+        runCatching { SimpleCache.delete(legacy, databaseProvider) }
+            .onFailure { legacy.deleteRecursively() }
     }
 
     /** Drops everything on disk. The listener asked; no grace period. */
@@ -275,14 +326,25 @@ object AudioCache {
      * Runs on the caller's thread rather than off in [scope], so that a caller
      * about to re-open the track can be sure the old bytes are gone first.
      * Call it off the main thread.
+     *
+     * @param keepComplete spare every entry that is on disk in full. For a
+     *   failure that was the network's rather than the file's — a dropped
+     *   connection, an expired URL, no connection at all. A complete entry is
+     *   never written to again, so it cannot be the half-filled seam this
+     *   exists to clear, and throwing it away for a network error is how
+     *   playing offline used to delete the very songs it was playing.
      */
-    fun discard(uri: Uri) {
+    fun discard(uri: Uri, keepComplete: Boolean = false) {
         val exact = keyFactory.buildCacheKey(DataSpec(uri))
         val about = mediaIdIn(uri)
         val family = uri.getQueryParameter("v")?.let { videoId ->
             cache.keys.filter { it == videoId || it.startsWith("$videoId#") }
         } ?: emptyList()
         (family + exact).distinct().forEach { key ->
+            if (keepComplete && isComplete(key)) {
+                TrackLog.d(TAG, "kept complete cache entry $key through a network failure", about = about)
+                return@forEach
+            }
             runCatching { cache.removeResource(key) }
                 .onSuccess { TrackLog.d(TAG, "discarded cache entry $key", about = about) }
                 .onFailure { TrackLog.d(TAG, "cache entry $key still in use: ${it.message}", about = about) }
@@ -403,8 +465,9 @@ object AudioCache {
                 val rendition = QualityUpgrade.cacheTag(spec.uri)
                 when {
                     rendition != null -> "$videoId#$rendition"
-                    SourceResolver.canSubstituteForYouTube() -> "$videoId#alt${atmosKeySuffix()}"
-                    else -> videoId
+                    SourceResolver.canSubstituteForYouTube() ->
+                        "$videoId#alt${atmosKeySuffix()}".let { completeSibling(videoId, it) ?: it }
+                    else -> completeSibling(videoId, videoId) ?: videoId
                 }
             }
             // A source-backed track keys on the source and its track id alone.
@@ -430,6 +493,111 @@ object AudioCache {
             ?: spec.uri.toString()
 
     /**
+     * The complete copy of [videoId] the cache holds under a sibling key, when
+     * [preferred] — the key the current settings name — holds nothing at all.
+     *
+     * Which key a track lands under depends on settings that can change after
+     * it was cached: ranking a source above YouTube, or turning Dolby Atmos
+     * off, moves it from `videoId` to `videoId#alt` or `#alt-noatmos`, and
+     * un-ranking it moves it back. Offline that made a track the Cached songs
+     * folder lists — fully on disk — fail to play at all, because the player
+     * asked for an empty entry and the network to fill it was not there.
+     *
+     * Only for a copy that is complete: a complete entry is never written to
+     * again, so reading it cannot start the mixed-file seam [phoneKey] keeps
+     * renditions apart to prevent.
+     *
+     * Online it depends on the direction. With a source ranked above YouTube
+     * the preferred `#alt` key keeps its own rendition — falling back to the
+     * plain entry would hand back a YouTube Opus copy in place of the better
+     * one a source would resolve, and `#alt` against `#alt-noatmos` is the
+     * Atmos setting itself. With nothing ranked above YouTube, the plain key
+     * would only ever resolve the same YouTube stream, so a kept YouTube or
+     * JioSaavn copy under `#alt` is taken online too. Measured: East Side Flow
+     * cached under `#alt` while a source was ranked first, the source then
+     * dropped — every online play re-resolved through InnerTubeX and wrote a
+     * second, byte-identical 3.8 MB itag 251 file under the plain key, while
+     * offline plays came straight off disk.
+     */
+    private fun completeSibling(videoId: String, preferred: String): String? {
+        if (!::cache.isInitialized) return null
+        // Ahead of the connectivity check, which is a binder call: nearly every
+        // open is of an entry that already holds something.
+        if (cache.getCachedSpans(preferred).isNotEmpty()) return null
+        val siblings = listOf(videoId, "$videoId$ALT_SUFFIX", "$videoId$ALT_SUFFIX-noatmos")
+            .filter { it != preferred }
+        if (isOffline()) return siblings.firstOrNull(::isComplete)
+        if (preferred != videoId) return null
+        return siblings.firstOrNull { key -> isComplete(key) && isKeptOrigin(key) }
+    }
+
+    /**
+     * Whether [key]'s bytes came from YouTube or JioSaavn — see [Origin]. An
+     * addon's file can sit under `#alt` too, as an Atmos or lossless rendition
+     * kept from an earlier play, and is not taken here: with nothing ranked
+     * above YouTube any more, the addon that served it is no longer one the
+     * listener has asked to hear.
+     */
+    private fun isKeptOrigin(key: String): Boolean = runCatching {
+        val origin = cache.getContentMetadata(key).get(META_ORIGIN, null as String?)
+        origin == Origin.YOUTUBE.name || origin == Origin.JIOSAAVN.name
+    }.getOrDefault(false)
+
+    /**
+     * Who filled the entry the player reads [uri] from, as [recordServed]
+     * tagged it — null when nothing is cached for it, or the tag is missing.
+     *
+     * The one record of a track's provenance that outlives the process.
+     * [StreamChoice] answers the same question only for a track resolved in
+     * this one, and a track replayed from disk after a restart is never
+     * resolved at all.
+     */
+    fun originOf(uri: Uri): Origin? {
+        if (!::cache.isInitialized || uri.scheme != "bitchord") return null
+        val key = keyFactory.buildCacheKey(DataSpec(uri))
+        return runCatching { cache.getContentMetadata(key).get(META_ORIGIN, null as String?) }
+            .getOrNull()
+            ?.let { name -> Origin.values().firstOrNull { it.name == name } }
+    }
+
+    /**
+     * Whether [key] already holds bytes of YouTube's own stream.
+     *
+     * Such an entry may only be finished by YouTube. [CacheDataSource] serves
+     * what is on disk without a resolve and calls the resolver only where the
+     * bytes run out, so any other source answering that call is a different
+     * file streamed into the middle of a WebM — the corruption [StreamChoice]
+     * exists to prevent, reachable whenever [StreamChoice] has nothing to say:
+     * after a restart, or once its choice has expired.
+     */
+    fun heldByYouTube(key: String?): Boolean {
+        if (key == null || !::cache.isInitialized) return false
+        return runCatching {
+            cache.getCachedSpans(key).isNotEmpty() &&
+                cache.getContentMetadata(key).get(META_ORIGIN, null as String?) == Origin.YOUTUBE.name
+        }.getOrDefault(false)
+    }
+
+    /** Whether every byte of the entry [key] is on disk. */
+    private fun isComplete(key: String): Boolean = runCatching {
+        val length = ContentMetadata.getContentLength(cache.getContentMetadata(key))
+        length > 0 && cache.isCached(key, 0, length)
+    }.getOrDefault(false)
+
+    /**
+     * Whether the device has no usable connection right now. Asked by the
+     * places that must behave differently offline — choosing a cache entry,
+     * and deciding whether a failed read means the bytes on disk are bad.
+     */
+    fun isOffline(): Boolean {
+        if (!::appContext.isInitialized) return false
+        val connectivity = appContext.getSystemService(ConnectivityManager::class.java) ?: return false
+        val capabilities = runCatching { connectivity.getNetworkCapabilities(connectivity.activeNetwork) }
+            .getOrNull()
+        return capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) != true
+    }
+
+    /**
      * Splits the `#alt` bucket in two along whatever this process currently
      * believes about Dolby Atmos, so a listener who turns the setting off
      * cannot be handed an Atmos file back out of the cache.
@@ -447,19 +615,22 @@ object AudioCache {
      * rather than re-fetching it.
      */
     private fun atmosKeySuffix(): String =
-        if (DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value) "" else "-noatmos"
+        if (DeviceCodecs.atmosWanted) "" else "-noatmos"
 
     /**
      * Which kind of server a cache entry's bytes came from, as recorded by
      * [recordServed].
      *
-     * Only [YOUTUBE] and [JIOSAAVN] are kept on disk once a track stops
+     * [YOUTUBE] and [JIOSAAVN] are always kept on disk once a track stops
      * playing — they are what the player reaches first, before any addon
      * has answered, so they are the copies worth having instantly next time.
      * Everything else — an addon's or a module's stream, a lossless upgrade
-     * from one of them — is [OTHER]: cached while it plays, so seeking and
-     * Automix's analysis work exactly as before, then dropped by
-     * [dropForeignEntries].
+     * from one of them — is [OTHER]: kept when it is a whole audio file that
+     * the track's own entry will read again, dropped by [dropForeignEntries]
+     * otherwise. See [keepsAddonCopy]. None of it is read ahead whole the way
+     * YouTube's and JioSaavn's are ([fetchWhole]): an addon's file is filled by
+     * being played, past the one head [prefetchDirect] takes so the next track
+     * can start on time.
      *
      * The origin alone is not what the Cached songs folder shows. An entry is
      * listed only once the player has actually played the track from it
@@ -478,6 +649,12 @@ object AudioCache {
         val bytes: Long,
         /** When any of those bytes were last read or written, epoch millis. */
         val lastUsedMs: Long,
+        /**
+         * Whether one of those renditions is on disk from first byte to last —
+         * what playing it with no connection, and saving it to Downloads
+         * straight from the cache, both need. See [completeCopyOf].
+         */
+        val complete: Boolean,
     )
 
     private val _contentsChanged = MutableStateFlow(0)
@@ -670,21 +847,28 @@ object AudioCache {
      */
     suspend fun cachedSongs(): List<CachedSong> = withContext(Dispatchers.IO) {
         if (!::cache.isInitialized) return@withContext emptyList()
-        class Entry(val origin: Origin, val meta: ContentMetadata, val bytes: Long, val touched: Long)
+        class Entry(
+            val origin: Origin,
+            val meta: ContentMetadata,
+            val bytes: Long,
+            val touched: Long,
+            val complete: Boolean,
+        )
         val byTrack = LinkedHashMap<String, MutableList<Entry>>()
         for (key in cache.keys) {
             val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: continue
             val origin = meta.get(META_ORIGIN, null as String?)
                 ?.let { runCatching { Origin.valueOf(it) }.getOrNull() }
                 ?: continue
-            if (origin == Origin.OTHER) continue
             if (meta.get(META_PLAYED, null as String?) == null) continue
             val mediaId = meta.get(META_MEDIA_ID, null as String?) ?: continue
             val spans = cache.getCachedSpans(key).filter { it.isCached && it.file?.exists() == true }
             val bytes = spans.sumOf { it.length }
             if (bytes <= 0L) continue
             val touched = spans.maxOf { it.lastTouchTimestamp }
-            byTrack.getOrPut(mediaId) { mutableListOf() } += Entry(origin, meta, bytes, touched)
+            val length = ContentMetadata.getContentLength(meta)
+            val complete = length > 0 && bytes >= length && cache.isCached(key, 0, length)
+            byTrack.getOrPut(mediaId) { mutableListOf() } += Entry(origin, meta, bytes, touched, complete)
         }
         byTrack.map { (mediaId, entries) ->
             fun field(name: String): String? =
@@ -692,6 +876,7 @@ object AudioCache {
             val bytes = entries.sumOf { it.bytes }
             val lastUsed = entries.maxOf { it.touched }
             val origin = entries.maxBy { it.bytes }.origin
+            val complete = entries.any { it.complete }
             val noted = notedSongs[mediaId]
             val art = field(META_ART) ?: noted?.thumbnailUrl
                 ?: mediaId.takeIf { SourceRegistry.parseTrackKey(it) == null }
@@ -704,38 +889,207 @@ object AudioCache {
                     thumbnailUrl = art,
                     durationText = field(META_DURATION) ?: noted?.durationText,
                     albumName = field(META_ALBUM) ?: noted?.albumName,
-                    // The row's second line: where the copy came from and
-                    // what it costs on disk.
-                    downloadFormat = "${origin.label} · ${formatBytes(bytes)}",
+                    // The row's second line: where the copy came from, what
+                    // it costs on disk, and — when only part of it is there —
+                    // that it will need a connection to play to the end.
+                    downloadFormat = listOfNotNull(
+                        origin.label,
+                        formatBytes(bytes),
+                        appContext.getString(R.string.cached_song_partial).takeUnless { complete },
+                    ).joinToString(" · "),
                     localDateAddedSeconds = lastUsed / 1000,
                 ),
                 origin = origin,
                 bytes = bytes,
                 lastUsedMs = lastUsed,
+                complete = complete,
             )
         }.sortedByDescending { it.lastUsedMs }
     }
 
+    /** Every cache key holding a rendition of [mediaId]; see [keyFactory]. */
+    private fun keysOf(mediaId: String): List<String> {
+        val base = cacheKeyBaseOf(mediaId)
+        return cache.keys.filter { key ->
+            key == base || key.startsWith("$base#") ||
+                runCatching { cache.getContentMetadata(key).get(META_MEDIA_ID, null as String?) }
+                    .getOrNull() == mediaId
+        }
+    }
+
     /**
-     * Drops every entry an addon or module filled ([Origin.OTHER]), and every
-     * copy Automix downloaded for analysis alone that playback never read,
-     * except the ones belonging to [keep] — the tracks around the playhead,
-     * whose bytes are still being read, seeked through and analysed.
+     * Whether the cache holds any bytes of [mediaId] — what decides whether a
+     * song's menu offers to remove it from the cache. Reads the index, so call
+     * it off the main thread.
+     */
+    fun holds(mediaId: String): Boolean {
+        if (!::cache.isInitialized || mediaId.isBlank()) return false
+        return keysOf(mediaId).any { key -> cache.getCachedSpans(key).any { it.isCached } }
+    }
+
+    /**
+     * Takes every rendition of [mediaId] off disk, and with it the track's row
+     * in the Cached songs folder. The listener asked, from a song's menu or
+     * the folder itself.
      *
-     * This is what "only the YouTube and JioSaavn audio that played is cached"
-     * means in practice: the bytes an addon serves pass through the cache so
-     * playback behaves the same as ever, and leave it once the track does.
+     * A track that is playing right now keeps playing: the reader already has
+     * its file open, and whatever it fetches after this is written back. It is
+     * forgotten as played, though, so those bytes come back as ordinary cache
+     * the folder does not list rather than undoing the removal in front of the
+     * listener.
+     *
+     * @return how many entries went.
+     */
+    suspend fun remove(mediaId: String): Int = withContext(Dispatchers.IO) {
+        if (!::cache.isInitialized || mediaId.isBlank()) return@withContext 0
+        playedIds.remove(mediaId)
+        analysisHeads.remove(mediaId)
+        analysisHeadsInFlight.remove(mediaId)
+        analysisHeadWant.remove(mediaId)
+        renditionKeys.remove(mediaId)
+        var removed = 0
+        keysOf(mediaId).forEach { key ->
+            runCatching { cache.removeResource(key) }
+                .onSuccess { removed++ }
+                .onFailure { TrackLog.d(TAG, "cache entry $key still in use: ${it.message}", about = mediaId) }
+        }
+        TrackLog.d(TAG, "removed $removed cache entries at the listener's request", about = mediaId)
+        _contentsChanged.value++
+        removed
+    }
+
+    /**
+     * One rendition of a track that is on disk in full, ready to be copied out
+     * by [copyOut] — see [completeCopyOf].
+     */
+    class CompleteCopy(
+        internal val key: String,
+        val length: Long,
+        /** The file extension its container is saved under: `webm`, `m4a` or `flac`. */
+        val extension: String,
+        val mimeType: String,
+    )
+
+    /**
+     * The best complete copy of [mediaId] the cache holds, or null when none
+     * is whole or its container is not one a download can be filed as.
+     *
+     * This is what lets the Cached songs folder save a track to Downloads
+     * without the network — the bytes are already here, and fetching them
+     * again would spend the listener's data on a file they have. The largest
+     * complete rendition is taken, which across one track's renditions is the
+     * highest quality. A copy made for the watch is never offered: it is
+     * capped below what the phone would keep.
+     *
+     * The container is read off the file's own first bytes rather than
+     * inferred from where it came from: a substituted rendition can be any of
+     * several, and a manifest cached by mistake must not become a `.flac`.
+     */
+    fun completeCopyOf(mediaId: String): CompleteCopy? {
+        if (!::cache.isInitialized || mediaId.isBlank()) return null
+        return keysOf(mediaId)
+            .filterNot { it.endsWith("#watch") }
+            // Never an addon's own file. Those are kept to be *played* — see
+            // [keepsAddonCopy] — and an addon whose manifest says
+            // `allowDownloads: 0` plays but does not download. Copying its file
+            // out of the cache would be a download it was never asked about,
+            // so the network route decides instead, where that rule is applied.
+            .filterNot { key ->
+                runCatching { cache.getContentMetadata(key).get(META_ORIGIN, null as String?) }
+                    .getOrNull() == Origin.OTHER.name
+            }
+            .mapNotNull { key ->
+                val length = runCatching { ContentMetadata.getContentLength(cache.getContentMetadata(key)) }
+                    .getOrDefault(C.LENGTH_UNSET.toLong())
+                if (length <= 0 || !cache.isCached(key, 0, length)) return@mapNotNull null
+                val (extension, mime) = containerOf(key) ?: return@mapNotNull null
+                CompleteCopy(key, length, extension, mime)
+            }
+            .maxByOrNull { it.length }
+    }
+
+    /** The container of the entry [key], from the magic at its very start. */
+    private fun containerOf(key: String): Pair<String, String>? {
+        val head = cache.getCachedSpans(key)
+            .firstOrNull { it.position == 0L && it.isCached }
+            ?.file
+            ?.takeIf { it.exists() }
+            ?: return null
+        val magic = ByteArray(CONTAINER_MAGIC_BYTES)
+        val read = runCatching { head.inputStream().use { it.read(magic) } }.getOrDefault(-1)
+        if (read < magic.size) return null
+        return cachedContainerOf(magic)
+    }
+
+    /**
+     * Writes [copy] to [sink] from disk alone, never the network.
+     *
+     * Read through a [CacheDataSource] with no upstream at all, so a span that
+     * has gone missing since [completeCopyOf] looked fails the copy instead of
+     * being quietly filled from a stream that may be a different file.
+     */
+    suspend fun copyOut(
+        copy: CompleteCopy,
+        sink: java.io.OutputStream,
+        onProgress: (written: Long, total: Long) -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        // No upstream factory, so anything not on disk fails rather than streams.
+        val source = CacheDataSource.Factory().setCache(cache).createDataSource()
+        val spec = DataSpec.Builder()
+            .setUri(Uri.parse("bitchord://cache"))
+            .setKey(copy.key)
+            .setPosition(0)
+            .setLength(copy.length)
+            .build()
+        try {
+            source.open(spec)
+            val buffer = ByteArray(COPY_BUFFER_BYTES)
+            var written = 0L
+            while (written < copy.length) {
+                ensureActive()
+                val read = source.read(buffer, 0, buffer.size)
+                if (read == C.RESULT_END_OF_INPUT) break
+                sink.write(buffer, 0, read)
+                written += read
+                onProgress(written, copy.length)
+            }
+            if (written < copy.length) {
+                throw IOException("cached copy ended at $written of ${copy.length} bytes")
+            }
+        } finally {
+            source.close()
+        }
+    }
+
+    /**
+     * Drops every entry an addon or module filled ([Origin.OTHER]) that cannot
+     * be kept — see [keepsAddonCopy] — and every copy Automix downloaded for
+     * analysis alone that playback never read, except the ones belonging to
+     * [keep]: the tracks around the playhead, whose bytes are still being
+     * read, seeked through and analysed.
+     *
+     * A complete addon copy stays, and plays straight off disk next time —
+     * after a restart, or with no connection at all. What goes is what cannot
+     * be finished safely: a partial addon file has nobody left to finish it
+     * once its signed URL and its [StreamChoice] are gone, and the next
+     * resolve may land on a different file and stream it into the middle.
      * Analysis results are kept in their own store, so the analysis-only
      * audio has done its job by then.
+     *
+     * @param keepAnalysis leaves the analysis-only copies alone, for a caller
+     *   that is only after the addon entries — a lowered quality ceiling, which
+     *   says nothing about Automix's YouTube Opus heads for the tracks ahead.
      */
-    fun dropForeignEntries(keep: Set<String>) {
+    fun dropForeignEntries(keep: Set<String>, keepAnalysis: Boolean = false) {
         if (!::cache.isInitialized) return
         scope.launch {
             var dropped = 0
             cache.keys.toList().forEach { key ->
                 val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: return@forEach
-                val foreign = meta.get(META_ORIGIN, null as String?) == Origin.OTHER.name
-                val analysisOnly = meta.get(META_ANALYSIS, null as String?) != null &&
+                val foreign = meta.get(META_ORIGIN, null as String?) == Origin.OTHER.name &&
+                    !keepsAddonCopy(key)
+                val analysisOnly = !keepAnalysis &&
+                    meta.get(META_ANALYSIS, null as String?) != null &&
                     meta.get(META_PLAYBACK, null as String?) == null &&
                     meta.get(META_PLAYED, null as String?) == null
                 if (!foreign && !analysisOnly) return@forEach
@@ -755,6 +1109,24 @@ object AudioCache {
             if (dropped > 0) TrackLog.d(TAG, "dropped $dropped addon / analysis-only cache entries")
         }
     }
+
+    /**
+     * Whether the addon or module file under [key] is worth keeping once the
+     * queue has moved past it. Three things, each ruling out a copy that would
+     * do harm if it were read again:
+     *
+     *  - **Complete.** A whole entry is never written to again, so it can't
+     *    become the mixed-file seam a partial one is.
+     *  - **Not an upgrade's rendition.** A `#hifi` entry is reached only
+     *    through the marked item that swapped it in, which no restored or
+     *    newly queued item carries — kept, it would sit on disk unread.
+     *  - **Audio, by its first bytes.** Tidal answers with a DASH manifest, and
+     *    the XML lands under the track's own key; kept, the next play would
+     *    read a manifest of expired segment URLs off disk as if it were the
+     *    song. WebM, MP4 and FLAC pass, as [cachedContainerOf] reads them.
+     */
+    private fun keepsAddonCopy(key: String): Boolean =
+        !key.contains("#hifi") && isComplete(key) && containerOf(key) != null
 
     /** The part of a cache key that names the track, before any `#rendition`; see [keyFactory]. */
     private fun cacheKeyBaseOf(mediaId: String): String =
@@ -789,8 +1161,19 @@ object AudioCache {
     /** Set once the player has played the track from this entry. */
     private const val META_PLAYED = "bc_played"
     private const val MAX_NOTED_SONGS = 256
+    private const val COPY_BUFFER_BYTES = 64 * 1024
 
+    private const val CACHE_DIR_NAME = "audio_cache"
+    private const val LEGACY_CACHE_DIR_NAME = "audio"
     private const val CACHE_STATE_PREFS = "audio_cache_state"
+    private const val KEY_CACHE_FORMAT = "cache_format"
+
+    /**
+     * Bumped only by a build whose keys or bytes the previous one's cache
+     * cannot be read under. Bumping it empties the Cached songs folder for
+     * everyone who updates, so it is not for ordinary releases.
+     */
+    private const val CACHE_FORMAT = 1
     private const val KEY_MATCHING_SCHEMA = "matching_schema"
     private const val MATCHING_SCHEMA = 2
     private const val ALT_SUFFIX = "#alt"
@@ -816,6 +1199,7 @@ object AudioCache {
                 activeDs = if (scheme == "file" || scheme == "content") {
                     upstreamDs
                 } else {
+                    settleDirectEntry(dataSpec.uri)
                     cacheDs
                 }
                 return activeDs.open(dataSpec)
@@ -830,6 +1214,90 @@ object AudioCache {
                 activeDs.close()
             }
         }
+    }
+
+    /**
+     * Direct Source Stream's half of [heldByYouTube]: a track whose entry holds
+     * YouTube's Opus from an earlier play — one made before the setting was
+     * on, or one that started on YouTube and swapped up mid-song — goes to the
+     * addon that has it rather than being played from that entry.
+     *
+     * Direct mode is decided in the resolver, and [CacheDataSource] never
+     * calls the resolver for bytes it already holds. So the Opus played
+     * instead, and nothing said so: until something pins YouTube, Direct Source
+     * Stream also holds the second look off (see
+     * [QualityUpgrade.couldStillUpgrade]), so there was no badge and no upgrade,
+     * and only clearing the song from the cache brought the addon's copy back.
+     *
+     * Asked here, before the cache is read, and once per track: an addon
+     * answer is pinned in [StreamChoice] and the Opus dropped, so the open that
+     * follows misses and resolves to that pin. No answer pins YouTube instead
+     * — what the direct resolve falls back to anyway — so the entry is
+     * finished by the stream that started it, and the addon's late answer swaps
+     * in under it. Either pin ends this check for every later open of the track.
+     *
+     * Runs on the loader thread, which the resolver blocks in exactly the same
+     * way on a direct-mode miss.
+     */
+    private fun settleDirectEntry(uri: Uri) {
+        if (uri.scheme != "bitchord" || uri.authority != "watch") return
+        val videoId = uri.getQueryParameter("v") ?: return
+        // A rendition of its own (an upgrade, a revert), the watch's capped
+        // copy and Automix's Opus are none of this: each has its own entry.
+        if (QualityUpgrade.cacheTag(uri) != null ||
+            uri.getQueryParameter(WATCH_READ_PARAM) != null ||
+            AutomixAnalysisSource.requestsYouTubeOpus(
+                uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
+            )
+        ) {
+            return
+        }
+        if (!DirectSourceGate.isActive() || StreamChoice.of(videoId) != null) return
+        val key = keyFactory.buildCacheKey(DataSpec(uri))
+        if (!heldByYouTube(key) || isOffline()) return
+        try {
+            runBlocking<Unit>(TrackLog.about(videoId)) {
+                // The same hold the resolver applies, so a track prepared early
+                // for a gapless start is not searched for before its window.
+                DirectSourceGate.awaitOpen(videoId)
+                val addon = runCatching { DirectSourceGate.lookup(videoId, SourceResolver.targetIn(uri)) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                    .getOrNull()
+                // Read-ahead may have settled it while this waited.
+                if (StreamChoice.of(videoId) != null) return@runBlocking
+                if (addon != null) {
+                    dropYouTubeEntry(key, videoId)
+                    // Pinned only once the Opus is really gone. Otherwise the
+                    // addon's file would continue it, and YouTube finishing its
+                    // own entry is the lesser loss.
+                    if (!heldByYouTube(key)) {
+                        StreamChoice.remember(videoId, addon, substituted = true)
+                        return@runBlocking
+                    }
+                }
+                runCatching { StreamResolver.resolve(videoId) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                    .getOrNull()
+                    ?.let { url ->
+                        StreamChoice.remember(
+                            videoId,
+                            SourceStream(url, headers = StreamResolver.mediaHeadersFor(url)),
+                            substituted = false,
+                        )
+                        DirectSourceGate.startedOnYouTube(videoId, SourceResolver.targetIn(uri))
+                    }
+            }
+        } catch (e: InterruptedException) {
+            // A released media period interrupts its loader; that is a skip.
+            throw java.io.InterruptedIOException("direct lookup for $videoId interrupted")
+        }
+    }
+
+    /** Clears [key]'s YouTube bytes so an addon's file can fill it from the top. */
+    private fun dropYouTubeEntry(key: String, videoId: String) {
+        runCatching { cache.removeResource(key) }
+            .onSuccess { TrackLog.d(TAG, "dropped cached YouTube copy $key for the addon's", about = videoId) }
+            .onFailure { TrackLog.d(TAG, "cache entry $key still in use: ${it.message}", about = videoId) }
     }
 
     private fun cacheFactory(upstream: DataSource.Factory) = CacheDataSource.Factory()
@@ -966,7 +1434,12 @@ object AudioCache {
                 // leaves nothing pinned, and this falls through to the same
                 // URL-only warm-up it did before — YouTube resolves the track at
                 // playback time as usual.
-                val warmed = if (substitutable && target != null && !pinnedToYouTube) {
+                // Not over an entry YouTube's own bytes already fill, from an
+                // earlier play: the player reads that head straight off disk,
+                // and the pin would then stream the substitute after it. That
+                // track's way up is the second look — see [heldByYouTube].
+                val youTubeFilled = heldByYouTube(cacheKeyOf(Uri.parse("bitchord://watch?v=$next")))
+                val warmed = if (substitutable && target != null && !pinnedToYouTube && !youTubeFilled) {
                     runCatching { SourceResolver.prefetchSubstitute(target) }
                         .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $next: ${it.message}", about = next) }
                         .getOrNull()
@@ -1000,6 +1473,71 @@ object AudioCache {
                 }
             }
         }
+    }
+
+    private var directJob: Job? = null
+
+    /**
+     * Direct Source Stream's read-ahead: one track, the next, started once the
+     * playing one is inside [DirectSourceGate.WINDOW_MS] of its transition.
+     *
+     * Resolves the track the way playback will — the addon first, YouTube when
+     * no addon has it — pins the answer in [StreamChoice] so the player's own
+     * open lands on the same stream, and caches the first [PRELOAD_BYTES] of
+     * it. Only the head: the player reads the rest itself a few seconds later,
+     * so fetching more here would only download it twice.
+     *
+     * The pin is skipped when something is already pinned. The player may
+     * have got there first and settled on YouTube after the addon timed out,
+     * and an addon answer arriving late must not be written over that half-
+     * filled entry — see [StreamChoice]. It reaches the track as an upgrade
+     * instead, see [DirectSourceGate.startedOnYouTube].
+     */
+    fun prefetchDirect(upcoming: Upcoming) {
+        directJob?.cancel()
+        val id = upcoming.mediaId
+        // A source-backed row resolves through its own source when opened, and
+        // a downloaded or reverted track never reads this entry at all.
+        if (SourceRegistry.parseTrackKey(id) != null || id in Downloads.saved.value || OriginalVersion.isPinned(id)) {
+            directJob = null
+            return
+        }
+        directJob = scope.launch(TrackLog.about(id)) {
+            if (StreamChoice.of(id) == null) {
+                val addon = runCatching { DirectSourceGate.lookup(id, upcoming.target) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                    .getOrNull()
+                val stream = addon ?: runCatching {
+                    val url = StreamResolver.resolve(id)
+                    SourceStream(url, headers = StreamResolver.mediaHeadersFor(url))
+                }
+                    .onFailure {
+                        if (it is kotlinx.coroutines.CancellationException) throw it
+                        TrackLog.d(TAG, "direct read-ahead could not resolve $id: ${it.message}", about = id)
+                    }
+                    .getOrNull()
+                    ?: return@launch
+                if (StreamChoice.of(id) == null) {
+                    // An addon pinned over YouTube's Opus from an earlier play
+                    // would have its head read straight off that Opus and its
+                    // rest streamed after it — see [settleDirectEntry]. The
+                    // Opus goes first, or the addon is not pinned at all and
+                    // playback's own open settles it.
+                    val key = cacheKeyOf(Uri.parse("bitchord://watch?v=$id"))
+                    if (addon != null && heldByYouTube(key)) dropYouTubeEntry(key, id)
+                    if (addon != null && heldByYouTube(key)) return@launch
+                    StreamChoice.remember(id, stream, substituted = addon != null)
+                    if (addon == null) DirectSourceGate.startedOnYouTube(id, upcoming.target)
+                }
+            }
+            fetch(id, 0, PRELOAD_BYTES)
+        }
+    }
+
+    /** Drops [prefetchDirect]'s work for a track the queue has moved away from. */
+    fun cancelDirect() {
+        directJob?.cancel()
+        directJob = null
     }
 
     /**
@@ -1881,5 +2419,26 @@ object AudioCache {
                 about = about,
             )
         }
+    }
+}
+
+/** How many leading bytes [cachedContainerOf] needs to tell the containers apart. */
+internal const val CONTAINER_MAGIC_BYTES = 12
+
+/**
+ * The file extension and MIME type a download of a cached file is filed under,
+ * from the file's first [CONTAINER_MAGIC_BYTES] — or null for anything that is
+ * not WebM, MP4 or FLAC, which a download made from the cache refuses rather
+ * than misnames. See [AudioCache.completeCopyOf].
+ */
+internal fun cachedContainerOf(magic: ByteArray): Pair<String, String>? {
+    if (magic.size < CONTAINER_MAGIC_BYTES) return null
+    fun ascii(from: Int, to: Int) = String(magic, from, to - from, Charsets.US_ASCII)
+    return when {
+        magic[0] == 0x1A.toByte() && magic[1] == 0x45.toByte() &&
+            magic[2] == 0xDF.toByte() && magic[3] == 0xA3.toByte() -> "webm" to "audio/webm"
+        ascii(4, 8) == "ftyp" -> "m4a" to "audio/mp4"
+        ascii(0, 4) == "fLaC" -> "flac" to "audio/flac"
+        else -> null
     }
 }

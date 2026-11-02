@@ -117,6 +117,7 @@ fun LyricsSidePanel(
                         onRevealControls = {},
                         onHideControls = {},
                         translationProgress = particleProgress,
+                        centerFocus = true,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

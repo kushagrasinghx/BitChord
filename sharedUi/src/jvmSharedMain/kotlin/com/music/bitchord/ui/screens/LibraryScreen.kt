@@ -402,7 +402,7 @@ fun LibraryGridPage(
     onNewPlaylist: (() -> Unit)? = null,
 ) {
     // Re-read live rather than trusting [shelf] to already be sorted: this page
-    // is opened from a snapshot (see `libraryShowAll` in MainActivity), and a
+    // is opened from a snapshot (see `AppRoute.LibraryShowAll`), and a
     // pin toggled from this page's own long-press menu must move the card
     // immediately rather than waiting for the row underneath to be revisited.
     val pinnedPlaylists by AppUi.host.pinnedPlaylists.collectAsStateWithLifecycle()

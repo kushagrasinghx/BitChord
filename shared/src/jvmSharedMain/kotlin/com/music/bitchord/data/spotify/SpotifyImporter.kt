@@ -233,23 +233,63 @@ object SpotifyImporter {
 
     /**
      * Resolves a list of Spotify tracks to full Song objects using Innertube search.
+     * Optionally filters or prioritizes matches by specified [language].
      * Reports real-time progress via [onProgress].
      */
     suspend fun resolveToSongs(
         tracks: List<SpotifyImportTrack>,
+        language: String? = null,
         onProgress: (completed: Int, total: Int) -> Unit,
     ): Pair<List<Song>, List<SpotifyImportTrack>> = coroutineScope {
         val total = tracks.size
         val completedCount = AtomicInteger(0)
         val semaphore = Semaphore(4) // Bounded concurrency for search queries
 
+        val cleanLang = language?.trim()?.takeIf {
+            !it.equals("No Preference", ignoreCase = true) &&
+            !it.equals("Multilingual", ignoreCase = true) &&
+            it.isNotBlank()
+        }
+
+        val knownLanguages = listOf(
+            "Tamil", "Telugu", "Kannada", "Malayalam", "Hindi",
+            "English", "Punjabi", "Marathi", "Bengali", "Bhojpuri", "Gujarati"
+        )
+
         val deferredResults = tracks.map { track ->
             async(Dispatchers.IO) {
                 semaphore.withPermit {
-                    val query = "${track.title} ${track.artist}".trim()
+                    val query = if (cleanLang != null) {
+                        "${track.title} ${track.artist} $cleanLang".trim()
+                    } else {
+                        "${track.title} ${track.artist}".trim()
+                    }
+
                     val searchResult = YtMusicRepository.search(query, SearchFilter.SONGS).getOrNull()
-                    val matchedSong = searchResult?.filterIsInstance<SearchResult.Track>()
-                        ?.firstOrNull()?.song
+                    val candidates = searchResult?.filterIsInstance<SearchResult.Track>()?.map { it.song }.orEmpty()
+
+                    val target = TrackMatcher.Target(
+                        title = track.title,
+                        artist = track.artist,
+                    )
+                    val bestMatch = TrackMatcher.best(candidates, target) ?: candidates.firstOrNull()
+
+                    val matchedSong = if (cleanLang != null && candidates.isNotEmpty()) {
+                        val conflictingLangs = knownLanguages.filter { !it.equals(cleanLang, ignoreCase = true) }
+                        val nonConflictingCandidates = candidates.filter { candidate ->
+                            val meta = "${candidate.title} ${candidate.artist} ${candidate.albumName.orEmpty()}".lowercase()
+                            !conflictingLangs.any {
+                                meta.contains("(${it.lowercase()})") ||
+                                meta.contains("${it.lowercase()} version") ||
+                                meta.contains("${it.lowercase()} song")
+                            }
+                        }
+                        TrackMatcher.best(nonConflictingCandidates, target)
+                            ?: nonConflictingCandidates.firstOrNull()
+                            ?: bestMatch
+                    } else {
+                        bestMatch
+                    }
 
                     val done = completedCount.incrementAndGet()
                     onProgress(done, total)

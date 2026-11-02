@@ -286,6 +286,13 @@ object QualityUpgrade {
         // overruled — see [askByHand].
         if (mediaId !in handAsked && uri.getQueryParameter(MARKER) != null) return false
         if (mediaId in asked || mediaId in refused || pending.containsKey(mediaId)) return false
+        // Direct Source Stream never swaps an addon's answer on its own. A track
+        // it had to start on YouTube is still looked for, as it is with the
+        // setting off. Asking by hand always works: that is the listener
+        // overruling the copy, not a background hunt.
+        if (mediaId !in handAsked && DirectSourceGate.isActive() && !StreamChoice.isYouTube(mediaId)) {
+            return false
+        }
         // Same widening as [settledForLess]: a track playing off the cache is
         // worth a second look whenever anything outranks YouTube, not only
         // when lossless was asked for.
@@ -358,7 +365,12 @@ object QualityUpgrade {
         // entry here at all: [pending] keeps [couldStillUpgrade] off it for
         // exactly as long as the question is genuinely open, and marking it
         // answered before it has been asked is what made a skip permanent.
-        if (NerdStats.isLosslessMime(playingMime)) {
+        // Dolby Atmos counts as done too, as it does everywhere else here — see
+        // [needsLosslessFollowUp]. A whole addon file now stays in the cache, so
+        // an Atmos mix can be replayed from disk, and [cachedFloor] describes it
+        // only by bitrate: judged as lossy, it would have a stereo FLAC cut in
+        // over the mix the listener chose.
+        if (NerdStats.isLosslessMime(playingMime) || NerdStats.isDolbyAtmosMime(playingMime)) {
             asked += mediaId
             // The codec is named because this line is a dead end — the track is
             // in [asked] by now and will never be offered an upgrade again — and
@@ -464,9 +476,23 @@ object QualityUpgrade {
             // which played for five seconds of silence and was then put back.
             waiting.inFlight?.let { lookup ->
                 val late = runCatching { lookup.await() }.getOrNull()
-                if (late != null &&
-                    SourceResolver.worthSwapping(late.format, waiting.playing) &&
-                    SourceResolver.sameRecordingAs(late.durationSec, effectiveDurationSec)
+                val slack = SourceResolver.upgradeSlackSec()
+                val sameLength = late != null &&
+                    SourceResolver.sameRecordingAs(late.durationSec, effectiveDurationSec, slack)
+                // The live lookup logs "substituted … at <format>" on finding
+                // this, so a refusal that said nothing read as a swap that had
+                // happened. Named, with both runtimes and the bar between them.
+                if (late != null && !sameLength) {
+                    TrackLog.d(
+                        TAG,
+                        "'${waiting.target.title}': the live lookup's ${late.format.summary} runs " +
+                            "${late.durationSec ?: "?"}s against ${effectiveDurationSec ?: "?"}s playing, " +
+                            "outside the ±${slack}s tolerance; searching again",
+                        about = mediaId,
+                    )
+                }
+                if (late != null && sameLength &&
+                    SourceResolver.worthSwapping(late.format, waiting.playing)
                 ) {
                     found = late
                     if (needsLosslessFollowUp(late.format)) {
@@ -600,14 +626,25 @@ object QualityUpgrade {
      *    playing its upgraded copy is exactly the one that should be offered
      *    the revert.
      *  - **A recorded choice that is not a substitute.** `null` means nothing
-     *    resolved this track in this process — it is playing off the disk cache
-     *    — and what is in that entry is genuinely unknown. Today's behaviour is
-     *    kept there deliberately: revert stays on offer as the escape hatch for
-     *    a substitution nothing announced, which is the case it was written for.
+     *    resolved this track in this process — it is playing off the disk cache.
+     *    The entry's own origin tag answers it then, see [cachedOrigin]. Only
+     *    an entry with no tag is genuinely unknown, and revert stays on offer
+     *    there as the escape hatch for a substitution nothing announced.
+     *
+     * @param cachedOrigin who filled the cache entry the item reads from — see
+     *   [AudioCache.originOf]. Without it every track replayed from the cache
+     *   after a restart read as unknown, which is every such track: the menu
+     *   offered "Revert to original" over YouTube's own Opus and hid "Upgrade
+     *   quality", the one row that could have helped.
      */
-    fun isKnownToBePlayingYouTubesOwn(mediaId: String, rendition: String?): Boolean {
+    fun isKnownToBePlayingYouTubesOwn(
+        mediaId: String,
+        rendition: String?,
+        cachedOrigin: AudioCache.Origin? = null,
+    ): Boolean {
         if (rendition != null) return false
-        return StreamChoice.of(mediaId) != null && !StreamChoice.isSubstitute(mediaId)
+        if (StreamChoice.of(mediaId) != null) return !StreamChoice.isSubstitute(mediaId)
+        return cachedOrigin == AudioCache.Origin.YOUTUBE
     }
 
     /**
@@ -723,6 +760,33 @@ object QualityUpgrade {
         (pending.keys + followUps.keys + forced.keys + shelved.keys + auditioning).forEach(::forget)
         asked.clear()
         refused.clear()
+    }
+
+    /**
+     * The quality ceiling just dropped — Settings, a move onto mobile data, or
+     * the watch taking the music. Everything here that was found, or is still
+     * being looked for, under the old one stops counting.
+     *
+     *  - A live lookup still running for a [pending] track was started against
+     *    sources the new ceiling may not pay for. It is cancelled, and the
+     *    track left pending, so the second look runs [SourceResolver.upgradeFor]
+     *    afresh against the sources the new ceiling allows.
+     *  - [followUps] only ever exist to chase a lossless copy, which a lowered
+     *    ceiling is by definition no longer asking for.
+     *  - A [shelved] or [forced] stream from a source the new ceiling skips is
+     *    dropped — except a forced one in [keep]: that is the copy the player
+     *    is reading right now, and every re-open of it has to reach the same
+     *    bytes. It plays out and the next track honours the new ceiling.
+     */
+    fun onCeilingLowered(keep: Set<String>, permitted: (SourceStream) -> Boolean) {
+        pending.replaceAll { _, waiting ->
+            waiting.inFlight?.cancel()
+            waiting.copy(inFlight = null)
+        }
+        followUps.values.forEach { it.inFlight?.cancel() }
+        followUps.clear()
+        shelved.entries.removeIf { !permitted(it.value) }
+        forced.entries.removeIf { (mediaId, stream) -> mediaId !in keep && !permitted(stream) }
     }
 
     // ── Handing the stream to the player ────────────────────────────────────

@@ -96,7 +96,7 @@ object KuGou {
         val decoded = runCatching {
             Base64.getDecoder().decode(response.content).toString(Charsets.UTF_8)
         }.getOrNull() ?: return null
-        return decoded.stripCredits()
+        return decoded.stripCredits().takeUnless { it.isInstrumentalNotice() }
     }
 
     private fun keyword(title: String, artist: String, album: String?) = Keyword(
@@ -133,6 +133,19 @@ object KuGou {
         return body.dropLast(tailCut).joinToString("\n")
     }
 
+    /**
+     * For a song it has no words for, KuGou still hands back a "lyric" — a
+     * single stamped "纯音乐，请欣赏" ("pure music, please enjoy") or a longer
+     * variant of it. Treat a file made of nothing but that notice as no lyrics
+     * at all, so the next source gets a turn instead of the notice being sung.
+     */
+    fun String.isInstrumentalNotice(): Boolean {
+        val lines = lineSequence().map { it.replace(STAMP, "").trim() }.filter { it.isNotEmpty() }.toList()
+        return lines.isNotEmpty() && lines.all { INSTRUMENTAL.containsMatchIn(it) }
+    }
+
+    private val STAMP = Regex("""\[\d{2}:\d{2}\.\d{2,3}]""")
+    private val INSTRUMENTAL = Regex("""纯音乐.*欣赏""")
     private val STAMPED = Regex("""\[\d{2}:\d{2}\.\d{2,3}].*""")
     private val CREDIT = Regex(""".+][^\[]+[:：].+""")
 

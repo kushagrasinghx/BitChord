@@ -20,6 +20,13 @@ data class StreamFormat(
     val kbps: Int? = null,
     val sampleRateHz: Int? = null,
     val bitDepth: Int? = null,
+    /**
+     * True when [kbps] was filled in from the tier the source was asked for
+     * rather than stated by the source — an addon's HIGH meaning 320. Still
+     * worth ranking a stream by, but not a measurement of what arrived; see
+     * [NerdStats.sourceBitrate][com.music.bitchord.data.NerdStats.sourceBitrate].
+     */
+    val kbpsInferred: Boolean = false,
 ) {
     /**
      * Whether this is a bit-exact copy of the master the source holds.

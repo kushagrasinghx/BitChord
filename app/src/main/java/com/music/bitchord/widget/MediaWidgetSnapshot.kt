@@ -34,11 +34,11 @@ internal data class MediaWidgetSnapshot(
     val isPlaying: Boolean,
     val hasPrevious: Boolean,
     val hasNext: Boolean,
-    /** Whether the track is liked. Drawn by the 4×1 widget's heart. */
+    /** Whether the track is liked. Drawn by the 4×1 widget's star. */
     val isLiked: Boolean = false,
     /**
      * Whether Like is offered for this track at all — the player's own rule:
-     * signed in, and not a local file or a download. The heart is hidden, not
+     * signed in, and not a local file or a download. The star is hidden, not
      * disabled, when it is false, as it is in the player.
      */
     val canLike: Boolean = false,

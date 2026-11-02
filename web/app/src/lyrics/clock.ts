@@ -1,7 +1,7 @@
 /**
  * The lyric playhead: a clock that runs on its own frames and is *steered* by
  * the player's readings rather than set by them. A verbatim port of the
- * desktop's LyricClock.kt (desktopUi/…/ui/player/LyricClock.kt), which fixed
+ * native app's LyricClock.kt, which fixed
  * every "stuck" and "back-and-forth" lyric bug the apps had:
  *
  *  1. A reading is dated by when it was taken, not when it was seen.

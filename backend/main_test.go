@@ -324,6 +324,34 @@ func TestPresence(t *testing.T) {
 		t.Fatalf("got %+v, want the closed pc gone", got)
 	}
 
+	// The web player counts as its own platform, from its allowed origin only.
+	const web = "5a6b7c8d-1e2f-4a3b-9c4d-0e1f2a3b4c5d"
+	const webOrigin = "https://web.example.test"
+	prev := config.AllowedOrigins
+	config.AllowedOrigins = []string{webOrigin}
+	defer func() { config.AllowedOrigins = prev }()
+	webPing := `{"id":"` + web + `","platform":"browser","open":true}`
+	if res := postPresence(t, ts, webPing, webOrigin); res.StatusCode != http.StatusOK {
+		t.Fatalf("browser ping: status %d", res.StatusCode)
+	}
+	presenceTracker.Sweep(clock.NowMs())
+	if got := liveStats(t, ts); got.Online != 2 || got.Android != 1 || got.Browser != 1 {
+		t.Fatalf("got %+v, want 2 online (1 android, 1 browser)", got)
+	}
+	for name, origin := range map[string]string{"no origin": "", "other origin": "https://example.com"} {
+		if res := postPresence(t, ts, webPing, origin); res.StatusCode != http.StatusForbidden {
+			t.Errorf("browser ping with %s: status %d, want 403", name, res.StatusCode)
+		}
+	}
+	if res := postPresence(t, ts, `{"id":"`+pc+`","platform":"pc","open":true}`, webOrigin); res.StatusCode != http.StatusForbidden {
+		t.Errorf("native platform from the web origin: status %d, want 403", res.StatusCode)
+	}
+	postPresence(t, ts, `{"id":"`+web+`","platform":"browser","open":false}`, webOrigin)
+	presenceTracker.Sweep(clock.NowMs())
+	if got := liveStats(t, ts); got.Online != 1 || got.Browser != 0 {
+		t.Fatalf("got %+v, want the closed browser gone", got)
+	}
+
 	rejected := []struct {
 		name   string
 		body   string

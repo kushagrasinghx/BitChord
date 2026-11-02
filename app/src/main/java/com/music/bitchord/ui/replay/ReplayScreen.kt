@@ -34,6 +34,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -122,13 +125,21 @@ fun ReplayScreen(
     // corresponding chart rather than making the user find it again. Wait for
     // a loaded summary because the loading/empty layouts do not contain these
     // keyed sections yet.
+    //
+    // Once only per opening, though. Back from an artist or album opened off
+    // this page composes it again, and landing a second time threw away
+    // wherever it had been scrolled to. Saveable, so it outlives that trip —
+    // the page's state is kept while it is on the back stack.
+    var landed by rememberSaveable(landingPage, state.period) { mutableStateOf(false) }
     LaunchedEffect(landingPage, state.period, summary == null) {
+        if (landed) return@LaunchedEffect
         val target = when {
             landingPage == ReplayStoryPage.INTRO || landingPage == ReplayStoryPage.MINUTES -> 0
             summary == null || summary.isEmpty -> 0
             else -> replayChartIndex(summary, landingPage)
         }
         listState.scrollToItem(target)
+        if (summary != null) landed = true
     }
 
     Box(modifier.fillMaxSize()) {
@@ -288,8 +299,12 @@ private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, 
 private fun PeriodPicker(selected: ReplayPeriod, onSelect: (ReplayPeriod) -> Unit, dark: Boolean) {
     val context = LocalContext.current
     val textColor = if (dark) Color.White else Color.Black
+    // Four equal shares of the full width, each held to one line. Sized to
+    // their labels instead, the chips ran past the edge on a narrow phone and
+    // the last was squeezed into whatever was left, one letter to a line.
     Row(
         Modifier
+            .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(textColor.copy(alpha = 0.10f))
             .padding(3.dp),
@@ -303,15 +318,19 @@ private fun PeriodPicker(selected: ReplayPeriod, onSelect: (ReplayPeriod) -> Uni
                 label = "periodChip",
             )
             Text(
-                text = period.localizedChip(context),
+                text = period.localizedTab(context),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.W700,
                 color = if (active) if (dark) Color.Black else Color.White else textColor.copy(alpha = 0.75f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
+                    .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
                     .background(background)
                     .clickable { onSelect(period) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
             )
         }
     }

@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -43,6 +46,18 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
+private val IMPORT_LANGUAGES = listOf(
+    "Tamil",
+    "Telugu",
+    "Kannada",
+    "Malayalam",
+    "Hindi",
+    "English",
+    "Multilingual",
+    "No Preference",
+    "Manual / Other",
+)
+
 /**
  * Paste a Spotify playlist link, match its songs on YouTube Music, keep the result.
  *
@@ -65,6 +80,8 @@ fun SpotifyImportAlert(
     val scope = rememberCoroutineScope()
     var link by remember { mutableStateOf("") }
     var privacy by remember { mutableStateOf(PlaylistPrivacy.PRIVATE) }
+    var selectedLanguage by remember { mutableStateOf("No Preference") }
+    var customLanguageInput by remember { mutableStateOf("") }
     var working by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var failed by remember { mutableStateOf(false) }
@@ -77,13 +94,18 @@ fun SpotifyImportAlert(
             failed = true
             return
         }
+        val effectiveLanguage = if (selectedLanguage == "Manual / Other") {
+            customLanguageInput.trim().ifBlank { null }
+        } else {
+            selectedLanguage
+        }
         working = true
         failed = false
         status = context.getString(R.string.spotify_import_fetching)
         scope.launch {
             try {
                 val (name, tracks) = SpotifyImporter.fetchPlaylistTracks(id)
-                val (songs, missed) = SpotifyImporter.resolveToSongs(tracks) { done, total ->
+                val (songs, missed) = SpotifyImporter.resolveToSongs(tracks, effectiveLanguage) { done, total ->
                     status = context.getString(R.string.spotify_import_matching, done, total)
                 }
                 if (songs.isEmpty()) error(context.getString(R.string.spotify_import_none))
@@ -103,6 +125,8 @@ fun SpotifyImportAlert(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = 520.dp)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 19.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -168,6 +192,53 @@ fun SpotifyImportAlert(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { if (link.isNotBlank() && !working) start() }),
                 )
+                Text(
+                    text = stringResource(R.string.spotify_import_language_preference),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 14.dp, bottom = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    IMPORT_LANGUAGES.forEach { lang ->
+                        val selected = lang == selectedLanguage
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(percent = 50))
+                                .background(
+                                    if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant,
+                                )
+                                .clickable(enabled = !working) {
+                                    selectedLanguage = lang
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = lang,
+                                style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp),
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                if (selectedLanguage == "Manual / Other") {
+                    Spacer(Modifier.height(8.dp))
+                    PillTextField(
+                        value = customLanguageInput,
+                        onValueChange = { customLanguageInput = it },
+                        placeholder = stringResource(R.string.spotify_import_language_hint),
+                        enabled = !working,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                    )
+                }
                 if (signedIn) {
                     Text(
                         text = stringResource(R.string.who_can_see_it),

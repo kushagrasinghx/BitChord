@@ -169,7 +169,7 @@ class MediaWidgetPill : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_like, if (snapshot.canLike) View.VISIBLE else View.GONE)
             views.setImageViewResource(
                 R.id.widget_like,
-                if (snapshot.isLiked) R.drawable.ic_widget_heart_filled else R.drawable.ic_widget_heart,
+                if (snapshot.isLiked) R.drawable.ic_widget_star_filled else R.drawable.ic_widget_star,
             )
             views.setContentDescription(
                 R.id.widget_like,

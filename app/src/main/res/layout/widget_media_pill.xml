@@ -32,8 +32,8 @@
   a plain View — the launcher shows "Couldn't add widget" instead.
 
   Each glyph gets its own padding because the drawables don't share an optical
-  size: the heart and shuffle fill most of their 24-unit box, the transport
-  glyphs barely half of it. Equal padding made the heart look large and
+  size: the star and shuffle fill most of their 24-unit box, the transport
+  glyphs barely half of it. Equal padding made the star look large and
   previous/next look small; these numbers make them read as one set.
 
   The root is transparent and not clickable, so a tap beside the capsule falls
@@ -86,9 +86,9 @@
                 android:orientation="vertical">
 
                 <!--
-                  Inset by the heart's own inset inside its button (9dp of padding
+                  Inset by the star's own inset inside its button (9dp of padding
                   plus the glyph's side bearing), so the text starts exactly above
-                  the heart rather than to the left of it.
+                  the star rather than to the left of it.
                 -->
                 <TextView
                     android:id="@+id/widget_title"
@@ -116,7 +116,7 @@
                         android:background="@drawable/widget_transport_button"
                         android:contentDescription="@string/like"
                         android:padding="9dp"
-                        android:src="@drawable/ic_widget_heart" />
+                        android:src="@drawable/ic_widget_star" />
 
                     <FrameLayout
                         android:layout_width="0dp"

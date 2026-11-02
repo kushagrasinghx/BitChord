@@ -47,9 +47,9 @@
                 android:orientation="vertical">
 
                 <!--
-                  Inset by the heart's own inset inside its button (9dp of padding
+                  Inset by the star's own inset inside its button (9dp of padding
                   plus the glyph's side bearing), so the text starts exactly above
-                  the heart rather than to the left of it.
+                  the star rather than to the left of it.
                 -->
                 <TextView
                     android:layout_width="match_parent"
@@ -75,7 +75,7 @@
                         android:layout_height="@dimen/widget_button_pill"
                         android:contentDescription="@string/like"
                         android:padding="9dp"
-                        android:src="@drawable/ic_widget_heart" />
+                        android:src="@drawable/ic_widget_star" />
 
                     <FrameLayout
                         android:layout_width="0dp"

@@ -10,13 +10,13 @@ import {
   RepeatOneIcon,
   ShuffleIcon,
   UpNextIcon,
-  VolumeIcon,
 } from '@/components/icons/Transport';
 import { FavoriteButton } from '@/components/music/FavoriteButton';
-import { useLyrics } from '@/lyrics/useLyrics';
+import { TrackMenu } from '@/components/music/TrackMenu';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { Lcd } from './Lcd';
+import { fadeForVolume, VolumeControl } from './VolumeControl';
 
 const control = 'grid place-items-center rounded-[6px] disabled:opacity-40';
 // Shuffle and repeat: secondary, and the key colour when on, as Apple's toggles.
@@ -24,65 +24,19 @@ const toggle = `${control} size-7 text-secondary aria-pressed:text-key`;
 const transport = `${control} size-7 text-primary`;
 const action = 'grid h-7 w-6 place-items-center rounded-[4px] text-primary aria-pressed:text-key';
 // The actions the volume level slides in over: they fade out while it's open.
-const fading = `${action} transition-opacity group-data-volume-open/actions:pointer-events-none group-data-volume-open/actions:opacity-0`;
-
-const slider = [
-  'absolute top-1/2 right-[33px] mx-0 mb-0 -mt-2 block h-4 w-24 cursor-pointer appearance-none bg-transparent',
-  'pointer-events-none translate-x-2 opacity-0 transition-[opacity,translate]',
-  'data-open:pointer-events-auto data-open:translate-none data-open:opacity-100',
-  '[&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-[2px] [&::-webkit-slider-runnable-track]:bg-[linear-gradient(to_right,var(--systemPrimary)_var(--fill),var(--systemQuaternary)_var(--fill))]',
-  '[&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-[2px] [&::-moz-range-track]:bg-[linear-gradient(to_right,var(--systemPrimary)_var(--fill),var(--systemQuaternary)_var(--fill))]',
-  '[&::-webkit-slider-thumb]:-mt-1 [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_2px_#0006]',
-  '[&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-[0_0_2px_#0006]',
-].join(' ');
-
-/**
- * Apple's volume control: the speaker mutes, and hovering it slides the level
- * in where the other actions were (they fade out while it's open).
- */
-function VolumeControl({ open, onOpen }: { open: boolean; onOpen: () => void }) {
-  const volume = usePlayer((s) => s.volume);
-  const muted = usePlayer((s) => s.muted);
-  const setVolume = usePlayer((s) => s.setVolume);
-  const toggleMute = usePlayer((s) => s.toggleMute);
-  const level = muted ? 0 : volume;
-  return (
-    <>
-      <input
-        className={slider}
-        data-open={open || undefined}
-        type="range"
-        min={0}
-        max={1}
-        step={0.01}
-        value={level}
-        aria-label="Volume"
-        tabIndex={open ? 0 : -1}
-        style={{ '--fill': `${level * 100}%` } as React.CSSProperties}
-        onChange={(e) => setVolume(Number(e.currentTarget.value))}
-      />
-      <button
-        className={action}
-        aria-label={muted ? 'Unmute' : 'Mute'}
-        aria-pressed={muted}
-        onClick={toggleMute}
-        onPointerEnter={onOpen}
-        onFocus={onOpen}
-      >
-        <VolumeIcon level={level} size={20} />
-      </button>
-    </>
-  );
-}
+const fading = `${action} ${fadeForVolume}`;
 
 /** The floating glass player pill (report §1). */
 export function PlayerBar() {
   const sidePanel = useUi((s) => s.sidePanel);
   const toggleSidePanel = useUi((s) => s.toggleSidePanel);
-  const lyrics = useLyrics();
-  const hasLyrics = !!lyrics.data || sidePanel === 'lyrics';
   const hasTrack = usePlayer((s) => s.nowPlaying !== null);
   const videoId = usePlayer((s) => s.nowPlaying?.videoId ?? null);
+  // The queue's entry for what's playing: the track menu needs the full track.
+  const track = usePlayer((s) => {
+    const entry = s.queue[s.index]?.track;
+    return entry && entry.videoId === s.nowPlaying?.videoId ? entry : null;
+  });
   const playing = usePlayer((s) => s.status === 'playing' || s.status === 'buffering');
   const hasNext = usePlayer((s) => s.index + 1 < s.queue.length || s.repeat !== 'off' || (s.autoplay && s.index >= 0));
   const shuffle = usePlayer((s) => s.shuffle);
@@ -139,16 +93,11 @@ export function PlayerBar() {
           }}
         >
           <FavoriteButton videoId={videoId} className={fading} />
-          {hasLyrics && (
-            <button
-              className={fading}
-              aria-label="Lyrics"
-              aria-pressed={sidePanel === 'lyrics'}
-              onClick={() => toggleSidePanel('lyrics')}
-            >
-              {sidePanel === 'lyrics' ? <LyricsActiveIcon size={18} /> : <LyricsIcon size={18} />}
-            </button>
-          )}
+          {track && <TrackMenu track={track} className={fading} placement="above-end" />}
+          {/* Always here: the panel itself says whether this track has lyrics, and from where. */}
+          <button className={fading} aria-label="Lyrics" aria-pressed={sidePanel === 'lyrics'} onClick={() => toggleSidePanel('lyrics')}>
+            {sidePanel === 'lyrics' ? <LyricsActiveIcon size={18} /> : <LyricsIcon size={18} />}
+          </button>
           <button
             className={fading}
             aria-label="Up Next"
@@ -157,7 +106,7 @@ export function PlayerBar() {
           >
             <UpNextIcon size={18} />
           </button>
-          <VolumeControl open={volumeOpen} onOpen={() => setVolumeOpen(true)} />
+          <VolumeControl open={volumeOpen} onOpen={() => setVolumeOpen(true)} className={action} />
         </div>
       </div>
     </div>

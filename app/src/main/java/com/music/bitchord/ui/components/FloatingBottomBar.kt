@@ -386,8 +386,8 @@ private fun BottomBarItem(
                     onActiveTabTap()
                 } else {
                     haptics.play(Haptic.Select)
-                    onClick()
                 }
+                onClick()
             }
             .padding(vertical = TAB_VERTICAL_PADDING),
     ) {

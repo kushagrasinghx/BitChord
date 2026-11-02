@@ -236,8 +236,8 @@ fun GlassNavBar(
                     onActiveTabTap()
                 } else {
                     haptics.play(Haptic.Select)
-                    currentOnTabSelected(index)
                 }
+                currentOnTabSelected(index)
             }
             if (index == standaloneIndex) {
                 standaloneTab(

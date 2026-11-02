@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 namespace bitchord::smart {
 namespace {
@@ -51,6 +52,135 @@ double Blackman(double position) {
 
 }  // namespace
 
+namespace {
+
+// The filter's value at `offset` input samples from an output sample's centre.
+double KernelAt(double offset, double cutoff, double half_width) {
+  offset = std::abs(offset);
+  if (offset >= half_width) return 0.0;
+  const double window = Blackman((offset + half_width) / (2.0 * half_width));
+  return 2.0 * cutoff * Sinc(2.0 * cutoff * offset) * window;
+}
+
+// The most distinct fractional positions [ResamplePolyphase] precomputes a
+// filter for. 44.1 and 48 kHz into 11.025 or 22.05 kHz need at most 147; a
+// pair of rates that would need more takes the general path below.
+constexpr long kMaxPhases = 1024;
+
+// Both rates as whole numbers, or false when either isn't one.
+bool WholeRate(double rate, long* whole) {
+  const double rounded = std::round(rate);
+  if (rounded < 1.0 || std::abs(rate - rounded) > 1e-9) return false;
+  *whole = static_cast<long>(rounded);
+  return true;
+}
+
+long Gcd(long a, long b) {
+  while (b != 0) {
+    const long next = a % b;
+    a = b;
+    b = next;
+  }
+  return a;
+}
+
+// The same filter as the general path below, for rates in a whole-number
+// ratio -- which is every pair this app converts between. Output sample i
+// sits at i * down / up input samples, so its fractional position is one of
+// only `up` values, and each of those gets its filter worked out once,
+// exactly, up front. Away from the edges an output sample is then a plain
+// dot product of that filter with a contiguous run of input: no table
+// lookup, no interpolation and no clamping per tap, and a loop the compiler
+// turns into vector multiply-adds. The general path spent nearly all of the
+// analysis thread's time here on a phone; this is the same arithmetic done
+// once instead of once per tap.
+//
+// Within a few hundredths of a part per million of the general path: its
+// kernel is read off a table and interpolated where this one is exact, and it
+// accumulates in double where this accumulates in float.
+bool ResamplePolyphase(
+  const std::vector<float>& input,
+  long input_rate,
+  long output_rate,
+  std::vector<float>* out
+) {
+  const long divisor = Gcd(input_rate, output_rate);
+  const long up = output_rate / divisor;
+  const long down = input_rate / divisor;
+  if (up > kMaxPhases) return false;
+
+  const double ratio = static_cast<double>(up) / static_cast<double>(down);
+  const double cutoff = 0.5 * std::min(1.0, ratio);
+  const double half_width = static_cast<double>(kResamplerZeroCrossings) / (2.0 * cutoff);
+
+  const size_t output_count =
+    static_cast<size_t>(std::floor(static_cast<double>(input.size()) * ratio));
+  if (output_count == 0) {
+    out->clear();
+    return true;
+  }
+
+  // Per phase: the first tap, relative to the output sample's whole input
+  // position, and the taps' weights from there, normalized to unity gain.
+  // Every phase gets the same tap count -- the widest any needs -- and the
+  // taps a phase doesn't reach weigh zero, so each filter is one fixed-length
+  // row the loop below never has to bound separately.
+  const long reach = static_cast<long>(std::ceil(half_width)) + 1;
+  const long taps = 2 * reach + 1;
+  std::vector<float> weights(static_cast<size_t>(up * taps), 0.0f);
+  for (long phase = 0; phase < up; ++phase) {
+    const double fraction = static_cast<double>(phase) / static_cast<double>(up);
+    double sum = 0.0;
+    std::vector<double> row(static_cast<size_t>(taps));
+    for (long k = 0; k < taps; ++k) {
+      row[k] = KernelAt(fraction - static_cast<double>(k - reach), cutoff, half_width);
+      sum += row[k];
+    }
+    float* destination = weights.data() + phase * taps;
+    for (long k = 0; k < taps; ++k) {
+      destination[k] = static_cast<float>(sum != 0.0 ? row[k] / sum : 0.0);
+    }
+  }
+
+  out->assign(output_count, 0.0f);
+  const long size = static_cast<long>(input.size());
+  const float* samples = input.data();
+  for (size_t index = 0; index < output_count; ++index) {
+    // 64-bit whatever `long` is: a long track times a 640 step overflows 32.
+    const int64_t position = static_cast<int64_t>(index) * down;
+    const long whole = static_cast<long>(position / up);
+    const long phase = static_cast<long>(position % up);
+    const float* row = weights.data() + phase * taps;
+    const long first = whole - reach;
+
+    if (first >= 0 && first + taps <= size) {
+      const float* run = samples + first;
+      float sum = 0.0f;
+      {
+        // Reassociated so the sum can be split across vector lanes; the
+        // rounding this changes is far below the audio's own.
+#pragma clang fp reassociate(on)
+        for (long k = 0; k < taps; ++k) sum += row[k] * run[k];
+      }
+      (*out)[index] = sum;
+    } else {
+      // The edges, clamped as the general path clamps them and normalized
+      // by the weight the taps actually landed on.
+      double sum = 0.0;
+      double weight_sum = 0.0;
+      for (long k = 0; k < taps; ++k) {
+        const long tap = std::min(std::max(first + k, 0L), size - 1);
+        sum += static_cast<double>(row[k]) * static_cast<double>(samples[tap]);
+        weight_sum += row[k];
+      }
+      (*out)[index] = static_cast<float>(weight_sum != 0.0 ? sum / weight_sum : 0.0);
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
 std::vector<float> Resample(
   const std::vector<float>& input,
   double input_rate,
@@ -58,6 +188,13 @@ std::vector<float> Resample(
 ) {
   if (input.empty() || input_rate <= 0.0 || output_rate <= 0.0) return {};
   if (std::abs(input_rate - output_rate) < 1e-6) return input;
+
+  long whole_input = 0;
+  long whole_output = 0;
+  if (WholeRate(input_rate, &whole_input) && WholeRate(output_rate, &whole_output)) {
+    std::vector<float> output;
+    if (ResamplePolyphase(input, whole_input, whole_output, &output)) return output;
+  }
 
   const double ratio = output_rate / input_rate;
   // Cutoff in cycles per *input* sample. When downsampling the limit is the

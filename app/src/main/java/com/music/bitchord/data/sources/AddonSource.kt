@@ -335,13 +335,8 @@ class AddonSource(
         }
 
         val format = formatOf(answer, url, tier)
-        val playsAtmos = DeviceCodecs.playsDolbyAtmos
-        if (ModuleSource.unplayable(format, atmosAllowed = playsAtmos && AppSettings.dolbyAtmos.value)) {
-            val why = if (playsAtmos) {
-                "which is switched off in Settings"
-            } else {
-                "which this device has no decoder for"
-            }
+        if (ModuleSource.unplayable(format, atmosAllowed = DeviceCodecs.atmosWanted)) {
+            val why = DeviceCodecs.atmosRefusal()
             TrackLog.w(
                 TAG,
                 "${config.displayName}: answered a $tier request with ${format.summary}, $why — passing",

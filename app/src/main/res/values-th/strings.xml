@@ -187,6 +187,7 @@
     <string name="italian">อิตาลี</string>
     <string name="turkish">ตุรกี</string>
     <string name="thai">ไทย</string>
+    <string name="korean">เกาหลี</string>
     <string name="show_all">แสดงทั้งหมด</string>
     <string name="grid_view">กริด</string>
     <string name="list_view">รายการ</string>
@@ -465,6 +466,8 @@
     <string name="signed_in_as">ลงชื่อเข้าใช้ในชื่อ %1$s</string>
     <string name="signing_in">กำลังลงชื่อเข้าใช้…</string>
     <string name="sleep_timer">ตัวจับเวลาปิดเพลง</string>
+    <string name="sleep_timer_custom">กำหนดเอง</string>
+    <string name="start_sleep_timer">เริ่มตั้งเวลา</string>
     <string name="sources_no_lossless">ไม่มีแหล่งข้อมูลที่เปิดใช้งานสามารถให้เสียงแบบไม่สูญเสียคุณภาพได้ เพิ่มแอดออนเพื่อเล่นไฟล์ไม่สูญเสียคุณภาพโดยไม่ต้องแปลงไฟล์</string>
     <string name="sources_order_footer">หากแหล่งข้อมูลหนึ่งไม่มีแทร็กหรือเชื่อมต่อไม่ได้ BitChord จะลองแหล่งถัดไป แหล่งข้อมูลที่อยู่เหนือ YouTube สามารถแทนที่การบันทึกของ YouTube ได้เมื่อให้เวอร์ชันที่ดีกว่า</string>
     <string name="sources_order_header">แหล่งข้อมูล เรียงตามลำดับที่ลอง</string>
@@ -476,7 +479,7 @@
     <string name="source_matching">การจับคู่แหล่งที่มา</string>
     <string name="upgrade_length_slack">ค่าคลาดเคลื่อนของความยาวแทร็ก</string>
     <string name="upgrade_length_slack_subtitle">ความต่างของความยาวสูงสุดที่ยอมรับสำหรับสตรีมทดแทน</string>
-    <string name="upgrade_length_slack_footer">ค่าคลาดเคลื่อนที่มากขึ้นจะยอมรับการจับคู่ได้มากขึ้น ค่าที่น้อยลงจะเข้มงวดกว่า ค่าเริ่มต้นคือ 3 วินาที</string>
+    <string name="upgrade_length_slack_footer">ค่าคลาดเคลื่อนที่มากขึ้นจะยอมรับการจับคู่ได้มากขึ้น ค่าที่น้อยลงจะเข้มงวดกว่า ค่าเริ่มต้นคือ 5 วินาที</string>
     <string name="seconds_short">%1$d วิ</string>
     <string name="spdc_token">โทเคน sp_dc</string>
     <string name="spotify_canvas_setup">ตั้งค่า Spotify</string>
@@ -854,9 +857,7 @@
 
     <string name="dolby_atmos_unavailable">This device can\'t play Atmos, so these songs play in their usual version</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
     <string name="smart_version_alignment">จัดตำแหน่งเสียงอัจฉริยะ</string>
     <string name="smart_version_alignment_subtitle">วิเคราะห์รูปคลื่นเสียงเพื่อหาจุดเล่นที่ตรงกันพอดี</string>
 
@@ -1069,6 +1070,12 @@
 
 
     <string name="export_compatible_downloads">Export compatible downloads</string>
+    <string name="sync_downloaded_playlists">อัปเดตเพลย์ลิสต์อยู่เสมอ</string>
+    <string name="sync_downloaded_playlists_subtitle">ตรวจสอบวันละสองครั้งและดาวน์โหลดเพลงใหม่ในเพลย์ลิสต์ที่ดาวน์โหลดไว้</string>
+    <string name="playlist_sync_ask_title">เพลงใหม่ใน %1$s: %2$d</string>
+    <string name="playlist_sync_ask_text">แตะเพื่อดาวน์โหลด</string>
+    <string name="playlist_sync_done_title">เพิ่มไปยัง %1$s แล้ว: %2$d</string>
+    <string name="playlist_updates_channel">การอัปเดตเพลย์ลิสต์</string>
 
 
     <string name="output_precision">Output precision</string>
@@ -1233,6 +1240,7 @@
     <string name="source_needs_lossless_output">ต้องใช้เอาต์พุตแบบ lossless · ใช้อุปกรณ์ที่รองรับ lossless</string>
     <string name="source_needs_lossless_bt_codec">ต้องใช้เอาต์พุตแบบ lossless · Bluetooth ใช้ %1$s อยู่ ใช้อุปกรณ์ที่รองรับ lossless</string>
     <string name="source_needs_lossless_bt_unknown">ต้องใช้เอาต์พุตแบบ lossless · ไม่ทราบว่ากำลังใช้ตัวแปลงสัญญาณ Bluetooth ใด</string>
+    <string name="source_downloads_on">อนุญาตให้ดาวน์โหลด</string>
     <string name="source_downloads_off">สตรีมมิงเท่านั้น</string>
     <string name="lossless_output_permission">ตรวจสอบตัวแปลงสัญญาณ Bluetooth</string>
     <string name="lossless_output_permission_detail">อนุญาตอุปกรณ์ใกล้เคียงเพื่อให้หูฟัง LDAC หรือ LHDC ปลดล็อกส่วนเสริมแบบ lossless</string>
@@ -1354,4 +1362,61 @@
     <string name="song_info_unavailable">ไม่มีข้อมูล</string>
     <string name="song_info_error">ไม่สามารถโหลดข้อมูลบางส่วนได้</string>
     <string name="song_info_retry">ลองอีกครั้ง</string>
+    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="no_video_version">No video version found for this song</string>
+    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="opened_file">ไฟล์ที่เปิด</string>
+    <string name="folders">โฟลเดอร์</string>
+    <string name="folder">โฟลเดอร์</string>
+    <string name="no_local_folders">ไม่มีโฟลเดอร์ที่มีเพลง</string>
+    <string name="offline_playlist_empty">เพลย์ลิสต์นี้ยังว่างอยู่ เพิ่มเพลงได้จากเมนูของเพลง</string>
+    <string name="offline_liked_empty">เพลงที่คุณถูกใจในอุปกรณ์นี้จะแสดงที่นี่</string>
+    <string name="saved_on_this_device">บันทึกไว้ในอุปกรณ์นี้</string>
+    <string name="direct_source_stream_in_party">ปิดอยู่ขณะอยู่ในปาร์ตี้ Listen Together</string>
+    <string name="direct_source_stream">สตรีมตรงจากแหล่งที่มา</string>
+    <string name="find_your_mood">ค้นหาอารมณ์ของคุณ</string>
+    <string name="progressive_blur">เบลอแบบไล่ระดับ</string>
+    <string name="remove_from_history">นำออกจากประวัติ</string>
+    <string name="remove_from_history_failed">นำออกจากประวัติไม่ได้</string>
+    <string name="addon_blocked_title">เล่นเพลงนี้ไม่ได้</string>
+    <string name="addon_blocked_quality">คุณภาพเสียงบน %1$s ตั้งไว้ที่ %2$s เพลงจาก %3$s เล่นได้เฉพาะแบบไม่สูญเสียคุณภาพ — เปลี่ยนได้ที่ การตั้งค่า → คุณภาพเสียง เพื่อเล่นเพลงนี้</string>
+    <string name="addon_blocked_watch">เพลงกำลังเล่นผ่านนาฬิกาของคุณ ซึ่งจำกัดเสียงให้ต่ำกว่าแบบไม่สูญเสียคุณภาพ เพลงจาก %1$s จะเล่นได้อีกครั้งเมื่อโทรศัพท์กลับมาเล่นเพลง</string>
+    <string name="download_addon_left_out_title">กำลังดาวน์โหลดโดยไม่ใช้ %1$s</string>
+    <string name="download_addon_not_allowed">%1$s ไม่อนุญาตให้ดาวน์โหลด เพลงของคุณจึงถูกบันทึกจากแหล่งอื่นแทน</string>
+    <string name="download_addon_needs_lossless_output">%1$s ให้บริการเพลงเฉพาะเมื่อเชื่อมต่อหูฟังแบบมีสาย USB หรือระดับ LDAC เท่านั้น การดาวน์โหลดจะข้ามไปจนกว่าจะเชื่อมต่อ เพลงของคุณจึงถูกบันทึกจากแหล่งอื่นแทน</string>
+    <string name="show_listen_together_button">แสดงปุ่มฟังด้วยกัน</string>
+    <string name="show_listen_together_button_subtitle">เมื่อปิด เครื่องเล่นจะแสดงเฉพาะปุ่มเอาต์พุตเสียงระหว่างเนื้อเพลงกับคิว</string>
+    <string name="font">ฟอนต์</string>
+    <string name="font_default">ค่าเริ่มต้น</string>
+    <string name="font_legacy">แบบเดิม</string>
+    <string name="font_default_subtitle">SF Pro Display · น้ำหนักแบบ Apple Music</string>
+    <string name="font_legacy_subtitle">SF Pro Display · น้ำหนักหนาแบบดั้งเดิม</string>
+    <string name="font_footer">แบบเดิมจะนำตัวอักษรที่หนาและชิดกว่าซึ่งแอปเคยใช้ก่อนปรับให้เข้ากับ Apple Music กลับมา</string>
+    <string name="bit_perfect_output">เอาต์พุต Bit-perfect</string>
+    <string name="bit_perfect_bypassed_footer">เอาต์พุต Bit-perfect พร้อมแล้ว การตั้งค่าที่จางจึงถูกข้ามและจะไม่ขอเวอร์ชัน Dolby Atmos การตั้งค่าเหล่านี้จะกลับมาทำงานเมื่อถอด DAC หรือปิดโหมดนี้</string>
+    <string name="bit_perfect_sheet_warning">ส่งแทร็กไปยัง DAC โดยไม่เปลี่ยนแปลง อีควอไลเซอร์ การปรับระดับความดัง ครอสเฟด Automix ความเร็วในการเล่น และระดับเสียงของ BitChord จะถูกข้าม</string>
+    <string name="bit_perfect_mode_off_subtitle">เสียงจะผ่านมิกเซอร์ของ Android และเอฟเฟกต์ของ BitChord</string>
+    <string name="bit_perfect_mode_usb_android">USB DAC</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14 เปิด DAC ที่อัตราและความลึกบิตของแต่ละแทร็ก โดยไม่มิกซ์หรือรีแซมเปิล</string>
+    <string name="bit_perfect_requires_android_14">ต้องใช้ Android 14 ขึ้นไป</string>
+    <string name="bit_perfect_mode_dap_exclusive">DAC ในตัว (AAudio แบบเอกสิทธิ์)</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">สำหรับเครื่องเล่นเพลงที่มี DAC ของตัวเอง เปิดเอาต์พุตหูฟังหรือไลน์แบบเอกสิทธิ์ที่อัตราของแต่ละแทร็ก บางอุปกรณ์อาจไม่อนุญาตโหมดเอกสิทธิ์</string>
+    <string name="bit_perfect_requires_android_8_1">ต้องใช้ Android 8.1 ขึ้นไป</string>
+    <string name="bit_perfect_mode_usb_direct">USB DAC (ไดรเวอร์โดยตรง)</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord ควบคุม DAC เองบน Android ทุกเวอร์ชัน และตั้งระดับเสียงที่ DAC ต้องขอสิทธิ์ USB เสียงอาจดังกว่าเอาต์พุตปกติมาก</string>
+    <string name="dac_volume">ระดับเสียงของ DAC</string>
+    <string name="dac_volume_subtitle">ตั้งที่ตัว DAC เอง เพลงจะไม่ถูกปรับสเกล</string>
+    <string name="usb_allow_fixed_volume">อนุญาต DAC ที่ไม่มีการควบคุมระดับเสียง</string>
+    <string name="usb_allow_fixed_volume_subtitle">มิฉะนั้น DAC ดังกล่าวจะเล่นผ่านเอาต์พุตปกติ</string>
+    <string name="usb_allow_fixed_volume_confirm_title">เล่นที่ระดับเต็มสเกลไหม</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord ตั้งระดับเสียงของ DAC ประเภทนี้ไม่ได้ จึงเล่นที่ระดับเต็มสเกล และมีเพียงปุ่มหมุนของ DAC เอง (หากมี) ที่ควบคุมความดังได้ เสียงอาจดังจนเป็นอันตรายกับหูฟังที่มีความไวสูง</string>
+    <string name="convert_for_limited_dac">แปลงสำหรับ DAC สเปกต่ำ</string>
+    <string name="convert_for_limited_dac_subtitle">แปลงแทร็กที่เกินขีดจำกัดของ DAC เป็นฟอร์แมตสูงสุดของ DAC แทร็กอาจเริ่มเล่นช้าลงและจะไม่เป็น Bit-perfect เมื่อเทียบกับต้นฉบับ</string>
+    <string name="bit_perfect_confirm_title">เปิดเอาต์พุต Bit-perfect ไหม</string>
+    <string name="bit_perfect_confirm_message">DAC จะได้รับเพลงที่ระดับเต็มสเกล และปุ่มระดับเสียงของโทรศัพท์อาจใช้ไม่ได้ ลดระดับเสียงของ DAC หรือแอมป์ก่อนเล่น</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s kHz · %3$d บิต</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s kHz · %3$d บิต · สูงสุดของ DAC แปลงจากฟอร์แมตของแทร็กนี้</string>
+    <string name="bit_perfect_status_inexact">%1$s · ไม่ตรงทุกบิต: แหล่งนี้ไม่ใช่ PCM แบบไม่สูญเสียคุณภาพ</string>
+    <string name="bit_perfect_status_waiting">กำลังรอแทร็กแบบไม่สูญเสียคุณภาพบนเอาต์พุตที่รองรับ</string>
+    <string name="bit_perfect_status_unavailable">ไม่พร้อมใช้งานสำหรับแทร็กนี้ (%1$s)</string>
 </resources>

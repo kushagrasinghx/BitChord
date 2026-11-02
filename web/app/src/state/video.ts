@@ -6,6 +6,12 @@ import { create } from 'zustand';
  * player's preview, the full-screen player) take turns holding it, the one
  * mounted last in front, as only one can be on screen at a time.
  */
+/**
+ * What the listener picked in the full-screen player's quality switcher: a
+ * height to hold, or 'auto' to let the stream adapt to the connection.
+ */
+export type VideoQuality = 'auto' | number;
+
 interface VideoState {
   /** The track whose picture is loaded, once its first frame is ready to show. */
   videoId: string | null;
@@ -13,12 +19,50 @@ interface VideoState {
   aspect: number;
   /** How many surfaces want the picture; with none it isn't streamed. */
   surfaces: number;
+  /** The heights the loaded picture offers, largest first. */
+  heights: number[];
+  /** The listener's choice, remembered across sessions. */
+  quality: VideoQuality;
+  /** The height actually on screen, as Shaka reports the active rendition. */
+  activeHeight: number | null;
 }
 
-export const useVideo = create<VideoState>()(() => ({ videoId: null, aspect: 16 / 9, surfaces: 0 }));
+const QUALITY_KEY = 'bitchord:video-quality';
+
+function storedQuality(): VideoQuality {
+  const stored = localStorage.getItem(QUALITY_KEY);
+  const height = Number(stored);
+  return stored && Number.isFinite(height) && height > 0 ? height : 'auto';
+}
+
+export const useVideo = create<VideoState>()(() => ({
+  videoId: null,
+  aspect: 16 / 9,
+  surfaces: 0,
+  heights: [],
+  quality: storedQuality(),
+  activeHeight: null,
+}));
+
+/** Holds the picture at [quality] from now on; the deck reloads it at the same moment. */
+export function setVideoQuality(quality: VideoQuality): void {
+  if (quality === 'auto') localStorage.removeItem(QUALITY_KEY);
+  else localStorage.setItem(QUALITY_KEY, String(quality));
+  useVideo.setState({ quality });
+}
 
 /** Whether [videoId]'s picture is ready to show. */
 export const useHasVideo = (videoId: string | null | undefined) => useVideo((s) => !!videoId && s.videoId === videoId);
+
+/** How a height is named on screen: the marketing name where there is one, the height otherwise. */
+export function qualityLabel(height: number): string {
+  if (height >= 4320) return '8K';
+  if (height >= 2160) return '4K';
+  if (height >= 1440) return '2K';
+  if (height >= 1080) return 'FullHD';
+  if (height >= 720) return 'HD';
+  return `${height}p`;
+}
 
 let element: HTMLVideoElement | null = null;
 

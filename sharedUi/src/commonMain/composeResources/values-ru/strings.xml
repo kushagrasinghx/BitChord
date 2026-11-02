@@ -189,8 +189,6 @@
     <string name="sign_in">Войти</string>
     <string name="sign_in_youtube_music">Войти в YouTube Music</string>
     <string name="subscriptions">Подписки</string>
-    <string name="switch_to_grid_view">Переключить на сетку</string>
-    <string name="switch_to_list_view">Переключить на список</string>
     <string name="your_replay">Ваш Replay</string>
     <string name="your_listening_experience">Ваш опыт прослушивания</string>
     <string name="default_replay_holder">Слушатель BitChord</string>

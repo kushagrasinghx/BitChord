@@ -7,6 +7,8 @@ import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.download.DownloadStore
+import com.music.bitchord.download.Downloader
+import com.music.bitchord.download.Downloads
 import com.music.bitchord.download.SavedSongMetadata
 import com.music.bitchord.download.resolvedDownloadDates
 import com.music.bitchord.download.youtubeDownloadBadge
@@ -236,5 +238,77 @@ class DownloadStoreTest {
             AppSettings.audioQualityCellular.value = cellular
             AppSettings.meteredConnection.value = metered
         }
+    }
+
+    // ---- What a source's file really is -----------------------------------
+
+    private fun bytes(vararg values: Int) = ByteArray(values.size) { values[it].toByte() }
+
+    private fun sniffed(head: ByteArray, contentType: String = "", stated: String? = null) =
+        Downloader.sniff(head, contentType, stated, totalBytes = null)
+
+    private fun containerOf(head: ByteArray, stated: String? = null) =
+        (sniffed(head, stated = stated) as? Downloader.Probe.File)?.container
+
+    /**
+     * Named for the bytes, not the label. An addon's `aac` and `mp3` used to
+     * have nowhere to land and went to YouTube; JioSaavn's `mp4` always did.
+     */
+    @Test
+    fun `a source file is filed by what its opening bytes are`() {
+        assertEquals(Downloader.Container.FLAC, containerOf("fLaC\u0000\u0000".toByteArray()))
+        assertEquals(Downloader.Container.MP4, containerOf("\u0000\u0000\u0000 ftypM4A ".toByteArray()))
+        assertEquals(Downloader.Container.WAV, containerOf("RIFF\u0000\u0000\u0000\u0000WAVEfmt ".toByteArray()))
+        assertEquals(Downloader.Container.OGG, containerOf("OggS\u0000\u0002".toByteArray()))
+        assertEquals(Downloader.Container.WEBM, containerOf(bytes(0x1A, 0x45, 0xDF, 0xA3, 0x01)))
+        assertEquals(Downloader.Container.ADTS, containerOf(bytes(0xFF, 0xF1, 0x50, 0x80)))
+        assertEquals(Downloader.Container.MP3, containerOf(bytes(0xFF, 0xFB, 0x90, 0x64)))
+        assertEquals(Downloader.Container.MP3, containerOf("ID3\u0004\u0000".toByteArray()))
+        assertEquals(Downloader.Container.ADTS, containerOf("ID3\u0004\u0000".toByteArray(), stated = "aac"))
+        assertEquals("m4a", Downloader.Container.MP4.extension)
+        assertEquals("audio/mpeg", Downloader.Container.MP3.mimeType)
+    }
+
+    /**
+     * The reference addon serves HLS from an extensionless `/dash/{id}` and
+     * calls it FLAC. Fetched as a file, that was a tiny `.flac` reported as a
+     * success; it has to be recognised as the index it is.
+     */
+    @Test
+    fun `a manifest is recognised whatever its URL or label says`() {
+        assertEquals(
+            Downloader.Probe.Manifest(dash = false),
+            sniffed("#EXTM3U\n#EXT-X-VERSION:7\n".toByteArray(), stated = "flac"),
+        )
+        assertEquals(
+            Downloader.Probe.Manifest(dash = false),
+            sniffed("﻿\n#EXTM3U\n".toByteArray()),
+        )
+        assertEquals(
+            Downloader.Probe.Manifest(dash = true),
+            sniffed("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<MPD xmlns=".toByteArray()),
+        )
+        assertEquals(
+            Downloader.Probe.Manifest(dash = false),
+            sniffed("garbage".toByteArray(), contentType = "application/vnd.apple.mpegurl"),
+        )
+    }
+
+    @Test
+    fun `bytes that are no audio container are not kept`() {
+        assertNull(sniffed("<html><body>Not found".toByteArray()))
+        assertNull(sniffed(ByteArray(0)))
+        // AIFF has no extractor in the player, so a saved one could never play.
+        assertNull(sniffed("FORM\u0000\u0000\u0000\u0000AIFFCOMM".toByteArray()))
+    }
+
+    /** A file whose source stated no bitrate is judged on its size over its length. */
+    @Test
+    fun `an unstated bitrate is measured from the file's size`() {
+        // 9.6 MB over four minutes is 320 kbps.
+        assertEquals(320, Downloads.estimatedKbps(9_600_000, 240))
+        assertNull(Downloads.estimatedKbps(null, 240))
+        assertNull(Downloads.estimatedKbps(9_600_000, null))
+        assertNull(Downloads.estimatedKbps(9_600_000, 0))
     }
 }

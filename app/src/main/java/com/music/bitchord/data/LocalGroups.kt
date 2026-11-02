@@ -49,10 +49,14 @@ object LocalGroups {
     const val PREFIX = "local:group:"
     private const val ALBUM = "album"
     private const val ARTIST = "artist"
+    private const val FOLDER = "folder"
 
     fun albumPageId(folderId: String, name: String): String = pageId(ALBUM, folderId, name)
 
     fun artistPageId(folderId: String, name: String): String = pageId(ARTIST, folderId, name)
+
+    /** One directory on the device, by its full path — see [foldersOf]. */
+    fun directoryPageId(folderId: String, path: String): String = pageId(FOLDER, folderId, path)
 
     // `local:group:album:downloads:Some: Name` — the folder id is always
     // `local:<word>`, so only its word is stored and the name, which may hold
@@ -60,12 +64,14 @@ object LocalGroups {
     private fun pageId(kind: String, folderId: String, name: String) =
         "$PREFIX$kind:${folderId.removePrefix("local:")}:$name"
 
+    private val KINDS = setOf(ALBUM, ARTIST, FOLDER)
+
     private class Parsed(val kind: String, val folderId: String, val name: String)
 
     private fun parse(browseId: String?): Parsed? {
         if (browseId == null || !browseId.startsWith(PREFIX)) return null
         val parts = browseId.removePrefix(PREFIX).split(':', limit = 3)
-        if (parts.size != 3 || (parts[0] != ALBUM && parts[0] != ARTIST) || parts[1].isEmpty()) return null
+        if (parts.size != 3 || parts[0] !in KINDS || parts[1].isEmpty()) return null
         return Parsed(parts[0], "local:" + parts[1], parts[2])
     }
 
@@ -74,17 +80,27 @@ object LocalGroups {
 
     /** What kind of page [browseId] is, or null if it isn't a grouping. */
     fun typeOf(browseId: String): BrowseType? =
-        parse(browseId)?.let { if (it.kind == ALBUM) BrowseType.ALBUM else BrowseType.OTHER }
+        parse(browseId)?.let {
+            when (it.kind) {
+                ALBUM -> BrowseType.ALBUM
+                // A directory is a list somebody put together by hand, which is
+                // what a playlist is too — and it plays like one.
+                FOLDER -> BrowseType.PLAYLIST
+                else -> BrowseType.OTHER
+            }
+        }
 
     fun isArtist(browseId: String?): Boolean = parse(browseId)?.kind == ARTIST
+
+    fun isDirectory(browseId: String?): Boolean = parse(browseId)?.kind == FOLDER
 
     /** The rows of [folderSongs] the grouping [browseId] names, in the order its page lists them. */
     fun songsOf(browseId: String, folderSongs: List<Song>): List<Song> {
         val group = parse(browseId) ?: return emptyList()
-        return if (group.kind == ALBUM) {
-            folderSongs.filter { it.albumName == group.name }.sortedForAlbum()
-        } else {
-            folderSongs.filter { it.artist == group.name }.sortedByTitle()
+        return when (group.kind) {
+            ALBUM -> folderSongs.filter { it.albumName == group.name }.sortedForAlbum()
+            FOLDER -> folderSongs.filter { it.directory() == group.name }.sortedByTitle()
+            else -> folderSongs.filter { it.artist == group.name }.sortedByTitle()
         }
     }
 
@@ -135,14 +151,7 @@ object LocalGroups {
                 // and there is no row to draw for "no album" — those are the
                 // Songs tab's and nothing else's.
                 if (name == null || name.lowercase(Locale.ROOT) in claimed) return@mapNotNull null
-                LocalGroup(
-                    browseId = albumPageId(folderId, name),
-                    title = name,
-                    subtitle = group.firstOrNull()?.artist.orEmpty(),
-                    thumbnailUrl = group.firstNotNullOfOrNull { it.thumbnailUrl },
-                    type = BrowseType.ALBUM,
-                    songs = group.sortedForAlbum(),
-                )
+                album(folderId, name, group)
             }
         return (asked + derived).sortedWith(
             compareByDescending<LocalGroup> { it.downloadId != null }
@@ -156,17 +165,83 @@ object LocalGroups {
      */
     fun artistsOf(folderId: String, songs: List<Song>): List<LocalGroup> =
         songs.groupBy { it.artist }
-            .map { (name, group) ->
-                LocalGroup(
-                    browseId = artistPageId(folderId, name),
-                    title = name,
-                    subtitle = "",
-                    thumbnailUrl = null,
-                    type = BrowseType.OTHER,
-                    songs = group.sortedByTitle(),
-                )
-            }
+            .map { (name, group) -> artist(folderId, name, group) }
             .sortedBy { it.title.lowercase(Locale.ROOT) }
+
+    /**
+     * The Folders tab: every directory on the device holding any of [songs],
+     * the way a file manager would name it, with where it sits under it.
+     *
+     * A track with no path — one off a file server, or a scanner row that never
+     * said — has no directory to be in, and is the Songs tab's alone. Two
+     * directories of the same name in different places stay two rows; the
+     * subtitle is what tells them apart.
+     */
+    fun foldersOf(folderId: String, songs: List<Song>): List<LocalGroup> =
+        songs.groupBy { it.directory() }
+            .mapNotNull { (path, group) ->
+                if (path == null) return@mapNotNull null
+                folder(folderId, path, group)
+            }
+            .sortedWith(compareBy<LocalGroup> { it.title.lowercase(Locale.ROOT) }.thenBy { it.subtitle })
+
+    /**
+     * The grouping [browseId] names, rebuilt from [songs] — its own rows, as
+     * [songsOf] picks them — or null if it isn't a grouping.
+     *
+     * For a page opened by its id alone, such as from the player's "Playing
+     * from", so it gets the same cover and credit as when its tab row opens it.
+     */
+    fun groupOf(browseId: String, songs: List<Song>): LocalGroup? {
+        val group = parse(browseId) ?: return null
+        return when (group.kind) {
+            ALBUM -> album(group.folderId, group.name, songs)
+            FOLDER -> folder(group.folderId, group.name, songs)
+            else -> artist(group.folderId, group.name, songs)
+        }
+    }
+
+    private fun album(folderId: String, name: String, songs: List<Song>) = LocalGroup(
+        browseId = albumPageId(folderId, name),
+        title = name,
+        subtitle = songs.firstOrNull()?.artist.orEmpty(),
+        thumbnailUrl = songs.firstNotNullOfOrNull { it.thumbnailUrl },
+        type = BrowseType.ALBUM,
+        songs = songs.sortedForAlbum(),
+    )
+
+    private fun artist(folderId: String, name: String, songs: List<Song>) = LocalGroup(
+        browseId = artistPageId(folderId, name),
+        title = name,
+        subtitle = "",
+        thumbnailUrl = null,
+        type = BrowseType.OTHER,
+        songs = songs.sortedByTitle(),
+    )
+
+    private fun folder(folderId: String, path: String, songs: List<Song>) = LocalGroup(
+        browseId = directoryPageId(folderId, path),
+        title = path.substringAfterLast('/').ifBlank { path },
+        subtitle = path.substringBeforeLast('/', "").readablePath(),
+        thumbnailUrl = songs.firstNotNullOfOrNull { it.thumbnailUrl },
+        type = BrowseType.PLAYLIST,
+        songs = songs.sortedByTitle(),
+    )
+
+    /** The directory a device file sits in, or null when its path isn't known. */
+    private fun Song.directory(): String? =
+        localPath?.replace('\\', '/')?.substringBeforeLast('/', "")?.takeIf { it.isNotEmpty() }
+
+    /**
+     * `/storage/emulated/0/Music/Rock` as `Music/Rock`: the volume is the same
+     * for nearly everything on a phone and reads as noise. A memory card keeps
+     * its name, since that is exactly what tells its folders apart.
+     */
+    private fun String.readablePath(): String = when {
+        startsWith("/storage/emulated/0") -> removePrefix("/storage/emulated/0").trimStart('/')
+        startsWith("/storage/") -> removePrefix("/storage/")
+        else -> trimStart('/')
+    }
 }
 
 /**

@@ -20,11 +20,14 @@ import {
 // ---- EnhancedLrc.decodeEntities -------------------------------------------------------------
 
 /** SimpMusic and friends serve HTML-escaped text; "&#x27;" would otherwise be sung literally. */
+/** fromCodePoint throws past U+10FFFF, which would take the whole lookup down: keep such an entity as written. */
+const codePoint = (entity: string, value: number) => (value <= 0x10ffff ? String.fromCodePoint(value) : entity);
+
 export function decodeEntities(text: string): string {
   if (!text.includes('&')) return text;
   return text
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (entity, hex: string) => codePoint(entity, Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (entity, dec: string) => codePoint(entity, Number(dec)))
     .replace(/&apos;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/&nbsp;/g, ' ')
@@ -229,7 +232,14 @@ export function parseLrc(lrc: string): LyricLine[] {
   for (const raw of lrc.split(/\r?\n/)) {
     const match = LRC_STAMP.exec(raw);
     if (!match) continue;
-    let body = raw.slice((match.index ?? 0) + match[0].length);
+    // `[00:12.00][00:45.00]Chorus` is one line sung at each stamp: the compressed form for a repeat.
+    const stamps = [match];
+    let end = match.index + match[0].length;
+    for (let next = LRC_STAMP.exec(raw.slice(end)); next?.index === 0; next = LRC_STAMP.exec(raw.slice(end))) {
+      stamps.push(next);
+      end += next[0].length;
+    }
+    let body = raw.slice(end);
     let alignment: LyricLine['alignment'] = 'start';
     if (body.startsWith(ALIGNMENT_MARKER)) {
       body = body.slice(ALIGNMENT_MARKER.length);
@@ -246,12 +256,14 @@ export function parseLrc(lrc: string): LyricLine[] {
         raw: body.slice((mark.index ?? 0) + mark[0].length, until),
       };
     });
-    all.push(
-      line(stamp(match[1]!, match[2]!, match[3]!), body.replace(WORD_STAMP, '').trim(), {
-        words: marks.length ? wordsFromRuns(runs) : [],
-        alignment,
-      }),
-    );
+    for (const at of stamps) {
+      all.push(
+        line(stamp(at[1]!, at[2]!, at[3]!), body.replace(WORD_STAMP, '').trim(), {
+          words: marks.length ? wordsFromRuns(runs) : [],
+          alignment,
+        }),
+      );
+    }
   }
   all.sort((a, b) => a.timeMs - b.timeMs);
   const kept = all.filter((l, index) => {

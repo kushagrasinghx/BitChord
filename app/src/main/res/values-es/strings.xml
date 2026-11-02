@@ -181,6 +181,7 @@
     <string name="italian">Italiano</string>
     <string name="turkish">Turco</string>
     <string name="thai">Tailandés</string>
+    <string name="korean">Coreano</string>
     <string name="show_all">Ver todo</string>
     <string name="grid_view">Cuadrícula</string>
     <string name="list_view">Lista</string>
@@ -464,6 +465,8 @@
     <string name="signed_in_as">Sesión iniciada como %1$s</string>
     <string name="signing_in">Iniciando sesión…</string>
     <string name="sleep_timer">Temporizador</string>
+    <string name="sleep_timer_custom">Personalizado</string>
+    <string name="start_sleep_timer">Iniciar temporizador</string>
     <string name="sources_no_lossless">Ninguna fuente activa ofrece audio sin pérdida. Agrega un módulo personalizado para reproducir archivos sin pérdida disponibles sin transcodificarlos.</string>
     <string name="sources_order_footer">Si una fuente no tiene una canción o no responde, BitChord prueba la siguiente. Las fuentes situadas antes de YouTube pueden reemplazar su grabación si devuelven una versión mejor.</string>
     <string name="sources_order_header">Fuentes, en orden de prioridad</string>
@@ -475,7 +478,7 @@
     <string name="source_matching">Coincidencia de fuentes</string>
     <string name="upgrade_length_slack">Tolerancia de duración</string>
     <string name="upgrade_length_slack_subtitle">Diferencia máxima de duración permitida para un stream de reemplazo</string>
-    <string name="upgrade_length_slack_footer">Una tolerancia mayor acepta más coincidencias de fuentes; una menor es más estricta. El valor predeterminado es 3 segundos.</string>
+    <string name="upgrade_length_slack_footer">Una tolerancia mayor acepta más coincidencias de fuentes; una menor es más estricta. El valor predeterminado es 5 segundos.</string>
     <string name="seconds_short">%1$d s</string>
     <string name="spdc_token">Token sp_dc</string>
     <string name="spotify_canvas_setup">Configurar Spotify</string>
@@ -831,6 +834,12 @@
     <string name="dolby_atmos_unavailable">Este dispositivo no admite Atmos, por lo que las canciones se reproducirán en su versión habitual</string>
 
     <string name="export_compatible_downloads">Exportar descargas compatibles</string>
+    <string name="sync_downloaded_playlists">Mantener playlists actualizadas</string>
+    <string name="sync_downloaded_playlists_subtitle">Comprueba dos veces al día y descarga las canciones nuevas de tus playlists descargadas</string>
+    <string name="playlist_sync_ask_title">Canciones nuevas en %1$s: %2$d</string>
+    <string name="playlist_sync_ask_text">Toca para descargar</string>
+    <string name="playlist_sync_done_title">Añadidas a %1$s: %2$d</string>
+    <string name="playlist_updates_channel">Actualizaciones de playlists</string>
 
     <string name="legacy_mesh_gradient">Gradiente de malla clásico</string>
 
@@ -1029,9 +1038,7 @@
 
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
     <string name="smart_version_alignment">Alineación de audio inteligente</string>
     <string name="smart_version_alignment_subtitle">Analiza las formas de onda para encontrar el momento exacto de reproducción correspondiente</string>
 
@@ -1222,6 +1229,7 @@
     <string name="source_needs_lossless_output">Necesita una salida sin pérdida · usa un dispositivo compatible con audio sin pérdida</string>
     <string name="source_needs_lossless_bt_codec">Necesita una salida sin pérdida · el Bluetooth usa %1$s; usa un dispositivo compatible con audio sin pérdida</string>
     <string name="source_needs_lossless_bt_unknown">Necesita una salida sin pérdida · no se puede saber qué códec Bluetooth se usa</string>
+    <string name="source_downloads_on">Descargas permitidas</string>
     <string name="source_downloads_off">Solo streaming</string>
     <string name="lossless_output_permission">Comprobar códec Bluetooth</string>
     <string name="lossless_output_permission_detail">Permite Dispositivos cercanos para que los auriculares LDAC o LHDC desbloqueen los complementos sin pérdida</string>
@@ -1343,4 +1351,61 @@
     <string name="song_info_unavailable">No disponible</string>
     <string name="song_info_error">No se pudo cargar parte de la información.</string>
     <string name="song_info_retry">Reintentar</string>
+    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="no_video_version">No video version found for this song</string>
+    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="opened_file">Archivo abierto</string>
+    <string name="folders">Carpetas</string>
+    <string name="folder">Carpeta</string>
+    <string name="no_local_folders">No hay carpetas con música</string>
+    <string name="offline_playlist_empty">Esta lista aún está vacía. Añade canciones desde su menú.</string>
+    <string name="offline_liked_empty">Las canciones que te gusten en este dispositivo aparecerán aquí</string>
+    <string name="saved_on_this_device">Guardada en este dispositivo</string>
+    <string name="direct_source_stream_in_party">Desactivado mientras estás en una fiesta de Listen Together</string>
+    <string name="direct_source_stream">Transmisión directa desde la fuente</string>
+    <string name="find_your_mood">Encuentra tu estado de ánimo</string>
+    <string name="progressive_blur">Desenfoque progresivo</string>
+    <string name="remove_from_history">Quitar del historial</string>
+    <string name="remove_from_history_failed">No se pudo quitar del historial</string>
+    <string name="addon_blocked_title">No se puede reproducir esta canción</string>
+    <string name="addon_blocked_quality">La calidad de audio con %1$s está en %2$s. Las canciones de %3$s solo se reproducen en Sin pérdida: cámbiala en Ajustes → Calidad de audio para reproducir esta.</string>
+    <string name="addon_blocked_watch">La música se reproduce a través de tu reloj, que limita el audio por debajo de Sin pérdida. Las canciones de %1$s volverán a sonar cuando tu teléfono recupere la música.</string>
+    <string name="download_addon_left_out_title">Descargando sin %1$s</string>
+    <string name="download_addon_not_allowed">%1$s no permite descargas, así que tus canciones se guardan desde tus otras fuentes.</string>
+    <string name="download_addon_needs_lossless_output">%1$s solo sirve música con auriculares con cable, USB o de clase LDAC conectados. Las descargas lo omiten hasta que conectes unos, así que tus canciones se guardan desde tus otras fuentes.</string>
+    <string name="show_listen_together_button">Mostrar botón de Escuchar juntos</string>
+    <string name="show_listen_together_button_subtitle">Si está desactivado, el reproductor solo muestra el botón de salida de audio entre la letra y la cola</string>
+    <string name="font">Fuente</string>
+    <string name="font_default">Predeterminada</string>
+    <string name="font_legacy">Clásica</string>
+    <string name="font_default_subtitle">SF Pro Display · Pesos de Apple Music</string>
+    <string name="font_legacy_subtitle">SF Pro Display · Pesos gruesos originales</string>
+    <string name="font_footer">Clásica recupera la tipografía más gruesa y compacta que usaba la app antes de adaptarla a Apple Music.</string>
+    <string name="bit_perfect_output">Salida bit-perfect</string>
+    <string name="bit_perfect_bypassed_footer">La salida bit-perfect está lista, por lo que se omiten los ajustes atenuados y no se solicitan versiones Dolby Atmos. Vuelven a funcionar al desconectar el DAC o desactivar el modo.</string>
+    <string name="bit_perfect_sheet_warning">Envía la pista al DAC sin cambios. Se omiten el ecualizador, la normalización de volumen, el fundido cruzado, la mezcla automática, la velocidad de reproducción y el volumen de BitChord.</string>
+    <string name="bit_perfect_mode_off_subtitle">El audio pasa por el mezclador de Android y los efectos de BitChord.</string>
+    <string name="bit_perfect_mode_usb_android">DAC USB</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14 abre el DAC con la frecuencia y la profundidad de bits de cada pista, sin mezclar ni remuestrear.</string>
+    <string name="bit_perfect_requires_android_14">Requiere Android 14 o posterior</string>
+    <string name="bit_perfect_mode_dap_exclusive">DAC integrado (AAudio exclusivo)</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">Para reproductores de música con DAC propio. Abre la salida de auriculares o de línea en exclusiva con la frecuencia de cada pista. No todos los dispositivos conceden el modo exclusivo.</string>
+    <string name="bit_perfect_requires_android_8_1">Requiere Android 8.1 o posterior</string>
+    <string name="bit_perfect_mode_usb_direct">DAC USB (controlador directo)</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord controla el DAC directamente, en cualquier versión de Android, y ajusta el volumen en el DAC. Pide permiso USB. Puede sonar mucho más alto que la salida normal.</string>
+    <string name="dac_volume">Volumen del DAC</string>
+    <string name="dac_volume_subtitle">Se ajusta en el propio DAC; la música no se escala</string>
+    <string name="usb_allow_fixed_volume">Permitir DAC sin control de volumen</string>
+    <string name="usb_allow_fixed_volume_subtitle">Si no, ese DAC reproduce por la salida normal</string>
+    <string name="usb_allow_fixed_volume_confirm_title">¿Reproducir a escala completa?</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord no puede ajustar el volumen de este tipo de DAC, así que reproduce a escala completa y solo su propio mando, si lo tiene, controla el nivel. Puede sonar peligrosamente alto con auriculares sensibles.</string>
+    <string name="convert_for_limited_dac">Convertir para DAC más limitados</string>
+    <string name="convert_for_limited_dac_subtitle">Convierte las pistas que superan el límite de tu DAC a su formato más alto. Pueden tardar más en empezar y no serán bit-perfect respecto al original.</string>
+    <string name="bit_perfect_confirm_title">¿Activar la salida bit-perfect?</string>
+    <string name="bit_perfect_confirm_message">El DAC recibe la música a escala completa y es posible que los botones de volumen del teléfono dejen de funcionar. Baja el volumen del DAC o del amplificador antes de reproducir.</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s kHz · %3$d bits</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s kHz · %3$d bits · máximo del DAC, convertido desde el formato de esta pista</string>
+    <string name="bit_perfect_status_inexact">%1$s · no exacto: esta fuente no es PCM sin pérdida</string>
+    <string name="bit_perfect_status_waiting">Esperando una pista sin pérdida en una salida compatible</string>
+    <string name="bit_perfect_status_unavailable">No disponible para esta pista (%1$s)</string>
 </resources>

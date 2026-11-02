@@ -175,6 +175,7 @@
     <string name="italian">Italia</string>
     <string name="turkish">Turki</string>
     <string name="thai">Thai</string>
+    <string name="korean">Korea</string>
     <string name="show_all">Lihat semua</string>
     <string name="grid_view">Grid</string>
     <string name="list_view">Daftar</string>
@@ -437,6 +438,8 @@
     <string name="signed_in_as">Masuk sebagai %1$s</string>
     <string name="signing_in">Sedang masuk…</string>
     <string name="sleep_timer">Timer tidur</string>
+    <string name="sleep_timer_custom">Kustom</string>
+    <string name="start_sleep_timer">Mulai timer</string>
     <string name="sources_no_lossless">Tidak ada sumber aktif yang dapat menyediakan audio lossless. Tambahkan modul kustom untuk memutar file lossless yang tersedia tanpa transcoding.</string>
     <string name="sources_order_footer">Jika suatu sumber tidak memiliki trek atau tidak dapat dijangkau, BitChord mencoba sumber berikutnya. Sumber di atas YouTube dapat menggantikan rekamannya saat menghasilkan versi yang lebih baik.</string>
     <string name="sources_order_header">Sumber, dicoba dalam urutan ini</string>
@@ -448,7 +451,7 @@
     <string name="source_matching">Pencocokan sumber</string>
     <string name="upgrade_length_slack">Toleransi durasi lagu</string>
     <string name="upgrade_length_slack_subtitle">Selisih durasi maksimum yang diizinkan untuk stream pengganti</string>
-    <string name="upgrade_length_slack_footer">Toleransi lebih besar menerima lebih banyak kecocokan sumber; toleransi lebih kecil lebih ketat. Bawaannya 3 detik.</string>
+    <string name="upgrade_length_slack_footer">Toleransi lebih besar menerima lebih banyak kecocokan sumber; toleransi lebih kecil lebih ketat. Bawaannya 5 detik.</string>
     <string name="seconds_short">%1$d dtk</string>
     <string name="spdc_token">Token sp_dc</string>
     <string name="spotify_canvas_setup">Siapkan Spotify</string>
@@ -826,6 +829,12 @@
     <string name="dolby_atmos_unavailable">Perangkat ini tidak mendukung Atmos, lagu diputar dalam versi standar</string>
 
     <string name="export_compatible_downloads">Ekspor unduhan yang kompatibel</string>
+    <string name="sync_downloaded_playlists">Selalu perbarui playlist</string>
+    <string name="sync_downloaded_playlists_subtitle">Memeriksa dua kali sehari dan mengunduh lagu baru di playlist yang telah diunduh</string>
+    <string name="playlist_sync_ask_title">Lagu baru di %1$s: %2$d</string>
+    <string name="playlist_sync_ask_text">Ketuk untuk mengunduh</string>
+    <string name="playlist_sync_done_title">Ditambahkan ke %1$s: %2$d</string>
+    <string name="playlist_updates_channel">Pembaruan playlist</string>
 
     <string name="legacy_mesh_gradient">Gradien mesh klasik</string>
 
@@ -1036,9 +1045,7 @@
 
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
     <string name="smart_version_alignment">Penyelarasan audio cerdas</string>
     <string name="smart_version_alignment_subtitle">Menganalisis gelombang audio untuk mencocokkan momen pemutaran yang tepat</string>
 
@@ -1227,6 +1234,7 @@
     <string name="source_needs_lossless_output">Perlu output lossless · gunakan perangkat yang mendukung lossless</string>
     <string name="source_needs_lossless_bt_codec">Perlu output lossless · Bluetooth memakai %1$s; gunakan perangkat yang mendukung lossless</string>
     <string name="source_needs_lossless_bt_unknown">Perlu output lossless · codec Bluetooth yang dipakai tidak bisa diketahui</string>
+    <string name="source_downloads_on">Unduhan diizinkan</string>
     <string name="source_downloads_off">Hanya streaming</string>
     <string name="lossless_output_permission">Periksa codec Bluetooth</string>
     <string name="lossless_output_permission_detail">Izinkan Perangkat di sekitar agar headphone LDAC atau LHDC bisa membuka addon lossless</string>
@@ -1348,4 +1356,61 @@
     <string name="song_info_unavailable">Tidak tersedia</string>
     <string name="song_info_error">Sebagian informasi tidak dapat dimuat.</string>
     <string name="song_info_retry">Coba lagi</string>
+    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="no_video_version">No video version found for this song</string>
+    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="opened_file">File yang dibuka</string>
+    <string name="folders">Folder</string>
+    <string name="folder">Folder</string>
+    <string name="no_local_folders">Tidak ada folder berisi musik</string>
+    <string name="offline_playlist_empty">Playlist ini masih kosong. Tambahkan lagu dari menunya.</string>
+    <string name="offline_liked_empty">Lagu yang kamu sukai di perangkat ini muncul di sini</string>
+    <string name="saved_on_this_device">Disimpan di perangkat ini</string>
+    <string name="direct_source_stream_in_party">Nonaktif selama kamu dalam pesta Listen Together</string>
+    <string name="direct_source_stream">Streaming langsung dari sumber</string>
+    <string name="find_your_mood">Temukan Mood Anda</string>
+    <string name="progressive_blur">Blur progresif</string>
+    <string name="remove_from_history">Hapus dari riwayat</string>
+    <string name="remove_from_history_failed">Tidak dapat menghapus dari riwayat</string>
+    <string name="addon_blocked_title">Tidak dapat memutar lagu ini</string>
+    <string name="addon_blocked_quality">Kualitas audio di %1$s diatur ke %2$s. Lagu dari %3$s hanya diputar dalam Lossless — ubah di Pengaturan → Kualitas audio untuk memutar lagu ini.</string>
+    <string name="addon_blocked_watch">Musik diputar melalui jam tangan Anda, yang membatasi audio di bawah Lossless. Lagu dari %1$s akan diputar lagi setelah ponsel Anda mengambil alih musik.</string>
+    <string name="download_addon_left_out_title">Mengunduh tanpa %1$s</string>
+    <string name="download_addon_not_allowed">%1$s tidak mengizinkan unduhan, jadi lagu Anda disimpan dari sumber Anda yang lain.</string>
+    <string name="download_addon_needs_lossless_output">%1$s hanya menyajikan musik saat headphone kabel, USB, atau kelas LDAC terhubung. Unduhan melewatinya sampai ada yang terhubung, jadi lagu Anda disimpan dari sumber Anda yang lain.</string>
+    <string name="show_listen_together_button">Tampilkan tombol Dengar bersama</string>
+    <string name="show_listen_together_button_subtitle">Jika nonaktif, pemutar hanya menampilkan tombol output audio di antara lirik dan antrean</string>
+    <string name="font">Font</string>
+    <string name="font_default">Default</string>
+    <string name="font_legacy">Lama</string>
+    <string name="font_default_subtitle">SF Pro Display · Ketebalan Apple Music</string>
+    <string name="font_legacy_subtitle">SF Pro Display · Ketebalan tebal asli</string>
+    <string name="font_footer">Lama mengembalikan huruf yang lebih tebal dan rapat yang dipakai aplikasi sebelum disamakan dengan Apple Music.</string>
+    <string name="bit_perfect_output">Output bit-perfect</string>
+    <string name="bit_perfect_bypassed_footer">Output bit-perfect sudah siap, jadi pengaturan yang redup dilewati dan versi Dolby Atmos tidak diminta. Semuanya berfungsi lagi saat DAC dilepas atau mode dimatikan.</string>
+    <string name="bit_perfect_sheet_warning">Mengirim trek ke DAC tanpa perubahan. Equalizer, normalisasi kenyaringan, crossfade, Automix, kecepatan putar, dan volume BitChord dilewati.</string>
+    <string name="bit_perfect_mode_off_subtitle">Audio melewati mixer Android dan efek BitChord.</string>
+    <string name="bit_perfect_mode_usb_android">DAC USB</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14 membuka DAC pada rate dan kedalaman bit masing-masing trek, tanpa mixing atau resampling.</string>
+    <string name="bit_perfect_requires_android_14">Memerlukan Android 14 atau lebih baru</string>
+    <string name="bit_perfect_mode_dap_exclusive">DAC bawaan (AAudio eksklusif)</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">Untuk pemutar musik dengan DAC sendiri. Membuka output headphone atau line secara eksklusif pada rate masing-masing trek. Tidak semua perangkat memberikan mode eksklusif.</string>
+    <string name="bit_perfect_requires_android_8_1">Memerlukan Android 8.1 atau lebih baru</string>
+    <string name="bit_perfect_mode_usb_direct">DAC USB (driver langsung)</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord mengendalikan DAC sendiri, di versi Android apa pun, dan mengatur volumenya di DAC. Meminta izin USB. Bisa jauh lebih keras daripada output normal.</string>
+    <string name="dac_volume">Volume DAC</string>
+    <string name="dac_volume_subtitle">Diatur di DAC itu sendiri; musik tidak diskalakan</string>
+    <string name="usb_allow_fixed_volume">Izinkan DAC tanpa kontrol volume</string>
+    <string name="usb_allow_fixed_volume_subtitle">Jika tidak, DAC seperti itu memutar lewat output normal</string>
+    <string name="usb_allow_fixed_volume_confirm_title">Putar pada skala penuh?</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord tidak bisa mengatur volume DAC jenis ini, jadi DAC memutar pada skala penuh dan hanya kenopnya sendiri, jika ada, yang mengatur kenyaringan. Ini bisa sangat keras dan berbahaya dengan headphone sensitif.</string>
+    <string name="convert_for_limited_dac">Konversi untuk DAC spesifikasi rendah</string>
+    <string name="convert_for_limited_dac_subtitle">Mengonversi trek di atas batas DAC Anda ke format tertingginya. Trek mungkin lebih lama dimulai dan tidak akan bit-perfect terhadap aslinya.</string>
+    <string name="bit_perfect_confirm_title">Aktifkan output bit-perfect?</string>
+    <string name="bit_perfect_confirm_message">DAC menerima musik pada skala penuh, dan tombol volume ponsel mungkin berhenti berfungsi. Kecilkan DAC atau amplifier sebelum memutar.</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s kHz · %3$d-bit</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s kHz · %3$d-bit · maksimum DAC, dikonversi dari format trek ini</string>
+    <string name="bit_perfect_status_inexact">%1$s · tidak persis: sumber ini bukan PCM lossless</string>
+    <string name="bit_perfect_status_waiting">Menunggu trek lossless pada output yang didukung</string>
+    <string name="bit_perfect_status_unavailable">Tidak tersedia untuk trek ini (%1$s)</string>
 </resources>

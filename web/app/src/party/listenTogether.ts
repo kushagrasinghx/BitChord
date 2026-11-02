@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { config } from '@/config';
 import { ytAuthSnapshot } from '@/extension/useYtAuth';
 import { ServerClock } from './clock';
 import { cleanCode, CODE_LENGTH, sanitizeServerUrl } from './invite';
@@ -35,7 +36,8 @@ import {
  * the server's 45 s grace, so a refresh is invisible to everyone else.
  */
 
-export const DEFAULT_SERVER = 'https://api.bitchord.kushagrasingh.in';
+/** Empty only in a dev build run without VITE_PARTY_SERVER_URL; parties then need a custom server. */
+export const DEFAULT_SERVER = sanitizeServerUrl(config.partyServerUrl) ?? '';
 export const MAX_UPCOMING = 25;
 const PING_INTERVAL_MS = 15_000;
 const REPORT_INTERVAL_MS = 10_000;

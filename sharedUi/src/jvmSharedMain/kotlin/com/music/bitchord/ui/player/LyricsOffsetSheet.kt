@@ -54,12 +54,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.utils.containSheetGestures
-import com.music.bitchord.ui.components.optimizedHazeEffect
+import com.music.bitchord.ui.components.MENU_FROST_ALPHA
+import com.music.bitchord.ui.components.MenuFrostDark
+import com.music.bitchord.ui.components.liveMenuFrost
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
-import dev.chrisbanes.haze.materials.HazeMaterials
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -71,7 +71,6 @@ private const val StepMs = 100
 private const val DismissDragFraction = 0.25f
 
 /** A player drawer for shifting all synced lyrics against the playback clock. */
-@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 internal fun LyricsOffsetSheet(
     hazeState: HazeState,
@@ -95,6 +94,7 @@ internal fun LyricsOffsetSheet(
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { shown = true }
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val frost = LocalPlayerFrost.current
 
     Box(
         modifier = modifier
@@ -120,16 +120,15 @@ internal fun LyricsOffsetSheet(
                     .onSizeChanged { height = it.height }
                     .offset { IntOffset(0, drawerOffset.roundToInt()) }
                     .clip(DrawerShape)
+                    // The ⋯ menu's frost, as every drawer over the player — see
+                    // [PlayerDrawer].
                     .then(
-                        if (reduceDynamicBlur) {
-                            Modifier.background(Color(0xFF121212))
-                        } else {
-                            Modifier
-                                .optimizedHazeEffect(
-                                    state = hazeState,
-                                    style = HazeMaterials.regular(Color(0xFF141414)),
-                                )
-                                .background(Color(0xFF121212).copy(alpha = 0.9f))
+                        when {
+                            reduceDynamicBlur -> Modifier.background(MenuFrostDark)
+                            frost != null -> with(frost) {
+                                Modifier.frostPanel(DrawerShape, MenuFrostDark.copy(alpha = MENU_FROST_ALPHA))
+                            }
+                            else -> Modifier.liveMenuFrost(hazeState, MenuFrostDark)
                         },
                     )
                     .clickable(

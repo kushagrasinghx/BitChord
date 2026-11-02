@@ -3,6 +3,7 @@ package com.music.bitchord
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.toSong
+import com.music.bitchord.data.model.withCorrectedType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -57,5 +58,32 @@ class SearchHistoryTrackMappingTest {
         )
 
         assertNull(query.toSong())
+    }
+
+    @Test
+    fun `podcast show saved as a track by an older build no longer plays`() {
+        val show = SearchHistoryEntity(
+            id = "MPSPPLE0Jo6NF_JYO5-phess8GKafKMtPv3tfZ",
+            title = "Huberman Lab",
+            subtitle = "Podcast",
+            artworkUrl = null,
+            entityType = EntityType.TRACK,
+        ).withCorrectedType()
+
+        assertEquals(EntityType.OTHER, show.entityType)
+        assertNull(show.toSong())
+    }
+
+    @Test
+    fun `correcting types leaves a real track alone`() {
+        val track = SearchHistoryEntity(
+            id = "vid_123",
+            title = "Test Song",
+            subtitle = "Test Artist",
+            artworkUrl = null,
+            entityType = EntityType.TRACK,
+        )
+
+        assertEquals(track, track.withCorrectedType())
     }
 }

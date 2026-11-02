@@ -41,12 +41,24 @@ describe('LRC', () => {
     expect(lines.map((l) => l.text)).toEqual(['', 'I been tryna', 'call']);
     expect(lines[1]!.words[2]).toMatchObject({ startMs: 27740, endMs: 30000 });
   });
+  it('sings a line with several stamps at each of them', () => {
+    const lines = parseLrc('[00:12.00][00:45.00]chorus\n[00:20.00]verse').filter((l) => l.text);
+    expect(lines.map((l) => [l.timeMs, l.text])).toEqual([
+      [12_000, 'chorus'],
+      [20_000, 'verse'],
+      [45_000, 'chorus'],
+    ]);
+  });
+
   it('reads plain LRC, dropping metadata tags and short breaks', () => {
     const lines = parseLrc('[ar:Someone]\n[00:01.00]one\n[00:02.00]\n[00:03.50]two');
     expect(lines.map((l) => l.text)).toEqual(['one', 'two']);
   });
   it('decodes HTML entities', () => {
     expect(decodeEntities('don&#x27;t &amp; won&#39;t')).toBe("don't & won't");
+  });
+  it('leaves an entity that names no character as written', () => {
+    expect(decodeEntities('&#99999999999; &#x110000; &#128293;')).toBe('&#99999999999; &#x110000; \u{1F525}');
   });
 });
 

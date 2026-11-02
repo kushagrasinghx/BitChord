@@ -2,7 +2,7 @@ import { Check } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
-export type MenuPlacement = 'above-start' | 'below-end';
+export type MenuPlacement = 'above-start' | 'above-end' | 'below-end';
 
 interface MenuProps {
   /** The element the menu opens from. */
@@ -10,6 +10,8 @@ interface MenuProps {
   placement?: MenuPlacement;
   onClose: () => void;
   label: string;
+  /** At least as wide as the anchor (a pop-up button's menu). */
+  matchWidth?: boolean;
   children: ReactNode;
 }
 
@@ -18,23 +20,28 @@ interface MenuProps {
  * items, hairline separators, red for destructive items. Closes on Escape, a
  * click outside, or a scroll of the page under it.
  */
-export function Menu({ anchor, placement = 'below-end', onClose, label, children }: MenuProps) {
+export function Menu({ anchor, placement = 'below-end', onClose, label, matchWidth, children }: MenuProps) {
   const panel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<React.CSSProperties>({ visibility: 'hidden' });
 
   useLayoutEffect(() => {
     const rect = anchor.getBoundingClientRect();
     const gap = 6;
+    const width = matchWidth ? { minWidth: rect.width } : {};
+    const above = { bottom: window.innerHeight - rect.top + gap, maxHeight: rect.top - 2 * gap, ...width };
     setPosition(
       placement === 'above-start'
-        ? { left: Math.max(8, rect.left), bottom: window.innerHeight - rect.top + gap, maxHeight: rect.top - 2 * gap }
-        : {
-            right: Math.max(8, window.innerWidth - rect.right),
-            top: rect.bottom + gap,
-            maxHeight: window.innerHeight - rect.bottom - 2 * gap,
-          },
+        ? { left: Math.max(8, rect.left), ...above }
+        : placement === 'above-end'
+          ? { right: Math.max(8, window.innerWidth - rect.right), ...above }
+          : {
+              right: Math.max(8, window.innerWidth - rect.right),
+              top: rect.bottom + gap,
+              maxHeight: window.innerHeight - rect.bottom - 2 * gap,
+              ...width,
+            },
     );
-  }, [anchor, placement]);
+  }, [anchor, placement, matchWidth]);
 
   useEffect(() => {
     panel.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus({ preventScroll: true });

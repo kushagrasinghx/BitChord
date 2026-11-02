@@ -190,6 +190,7 @@
     <string name="italian">Итальянский</string>
     <string name="turkish">Турецкий</string>
     <string name="thai">Тайский</string>
+    <string name="korean">Корейский</string>
     <string name="show_all">Показать все</string>
     <string name="grid_view">Сетка</string>
     <string name="list_view">Список</string>
@@ -470,6 +471,8 @@
     <string name="signed_in_as">Вход выполнен как %1$s</string>
     <string name="signing_in">Выполняется вход…</string>
     <string name="sleep_timer">Таймер сна</string>
+    <string name="sleep_timer_custom">Свой</string>
+    <string name="start_sleep_timer">Запустить таймер</string>
     <string name="sources_no_lossless">Ни один включённый источник не может предоставить аудио без потерь. Добавьте пользовательский модуль, чтобы воспроизводить доступные файлы без потерь без перекодирования.</string>
     <string name="sources_order_footer">Если у источника нет трека или он недоступен, BitChord пробует следующий. Источники выше YouTube могут заменить его запись, если предоставляют более качественную версию.</string>
     <string name="sources_order_header">Источники, пробуются в этом порядке</string>
@@ -481,7 +484,7 @@
     <string name="source_matching">Сопоставление источников</string>
     <string name="upgrade_length_slack">Допуск по длительности</string>
     <string name="upgrade_length_slack_subtitle">Максимальная разница в длительности для замещающего потока</string>
-    <string name="upgrade_length_slack_footer">Больший допуск принимает больше совпадений из источников; меньший — строже. По умолчанию 3 секунды.</string>
+    <string name="upgrade_length_slack_footer">Больший допуск принимает больше совпадений из источников; меньший — строже. По умолчанию 5 секунды.</string>
     <string name="seconds_short">%1$d с</string>
     <string name="spdc_token">Токен sp_dc</string>
     <string name="spotify_canvas_setup">Настроить Spotify</string>
@@ -875,6 +878,12 @@
     <string name="dolby_atmos_unavailable">Это устройство не поддерживает Atmos, треки будут играть в обычном формате</string>
 
     <string name="export_compatible_downloads">Экспорт совместимых загрузок</string>
+    <string name="sync_downloaded_playlists">Обновлять плейлисты</string>
+    <string name="sync_downloaded_playlists_subtitle">Проверяет дважды в день и загружает новые песни в загруженных плейлистах</string>
+    <string name="playlist_sync_ask_title">Новые песни в «%1$s»: %2$d</string>
+    <string name="playlist_sync_ask_text">Нажмите, чтобы загрузить</string>
+    <string name="playlist_sync_done_title">Добавлено в «%1$s»: %2$d</string>
+    <string name="playlist_updates_channel">Обновления плейлистов</string>
 
     <string name="legacy_mesh_gradient">Классический сетчатый градиент</string>
 
@@ -1085,9 +1094,7 @@
 
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
-    <string name="prefer_music_only">Prefer music-only version</string>
 
-    <string name="prefer_music_only_subtitle">For music videos, show the video details while finding and loading the catalogue audio version</string>
     <string name="smart_version_alignment">Умное выравнивание аудио</string>
     <string name="smart_version_alignment_subtitle">Анализирует звуковые волны, чтобы найти точно соответствующий момент воспроизведения</string>
 
@@ -1282,6 +1289,7 @@
     <string name="source_needs_lossless_output">Нужен выход без потерь · используйте устройство с поддержкой звука без потерь</string>
     <string name="source_needs_lossless_bt_codec">Нужен выход без потерь · Bluetooth работает на %1$s; используйте устройство с поддержкой звука без потерь</string>
     <string name="source_needs_lossless_bt_unknown">Нужен выход без потерь · не удаётся определить используемый Bluetooth-кодек</string>
+    <string name="source_downloads_on">Загрузки разрешены</string>
     <string name="source_downloads_off">Только стриминг</string>
     <string name="lossless_output_permission">Проверить Bluetooth-кодек</string>
     <string name="lossless_output_permission_detail">Разрешите доступ к устройствам поблизости, чтобы наушники LDAC или LHDC открыли аддоны без потерь</string>
@@ -1403,4 +1411,61 @@
     <string name="song_info_unavailable">Недоступно</string>
     <string name="song_info_error">Не удалось загрузить часть информации.</string>
     <string name="song_info_retry">Повторить</string>
+    <string name="no_audio_version">No audio version found for this video</string>
+    <string name="no_video_version">No video version found for this song</string>
+    <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="opened_file">Открытый файл</string>
+    <string name="folders">Папки</string>
+    <string name="folder">Папка</string>
+    <string name="no_local_folders">Нет папок с музыкой</string>
+    <string name="offline_playlist_empty">Этот плейлист пока пуст. Добавляйте треки из их меню.</string>
+    <string name="offline_liked_empty">Треки, которые вам понравились на этом устройстве, появятся здесь</string>
+    <string name="saved_on_this_device">Сохранено на этом устройстве</string>
+    <string name="direct_source_stream_in_party">Отключено во время вечеринки Listen Together</string>
+    <string name="direct_source_stream">Прямой поток из источника</string>
+    <string name="find_your_mood">Найдите своё настроение</string>
+    <string name="progressive_blur">Плавное размытие</string>
+    <string name="remove_from_history">Удалить из истории</string>
+    <string name="remove_from_history_failed">Не удалось удалить из истории</string>
+    <string name="addon_blocked_title">Не удаётся воспроизвести этот трек</string>
+    <string name="addon_blocked_quality">Качество звука через %1$s установлено на «%2$s». Треки из %3$s воспроизводятся только без потерь — измените это в Настройки → Качество звука, чтобы воспроизвести этот трек.</string>
+    <string name="addon_blocked_watch">Музыка играет через часы, которые ограничивают звук ниже качества без потерь. Треки из %1$s снова заиграют, когда телефон вернёт себе воспроизведение.</string>
+    <string name="download_addon_left_out_title">Загрузка без %1$s</string>
+    <string name="download_addon_not_allowed">%1$s не разрешает загрузки, поэтому треки сохраняются из других ваших источников.</string>
+    <string name="download_addon_needs_lossless_output">%1$s отдаёт музыку, только когда подключены проводные, USB или LDAC-наушники. Пока их нет, загрузки его пропускают, поэтому треки сохраняются из других ваших источников.</string>
+    <string name="show_listen_together_button">Показывать кнопку «Слушать вместе»</string>
+    <string name="show_listen_together_button_subtitle">Если выключено, плеер показывает между текстом песни и очередью только кнопку аудиовыхода</string>
+    <string name="font">Шрифт</string>
+    <string name="font_default">По умолчанию</string>
+    <string name="font_legacy">Прежний</string>
+    <string name="font_default_subtitle">SF Pro Display · Начертания Apple Music</string>
+    <string name="font_legacy_subtitle">SF Pro Display · Исходные жирные начертания</string>
+    <string name="font_footer">«Прежний» возвращает более жирный и плотный шрифт, который приложение использовало до того, как его привели в соответствие с Apple Music.</string>
+    <string name="bit_perfect_output">Вывод bit-perfect</string>
+    <string name="bit_perfect_bypassed_footer">Вывод bit-perfect готов, поэтому затенённые настройки не применяются, а версии Dolby Atmos не запрашиваются. Они снова заработают, когда ЦАП будет отключён или режим выключен.</string>
+    <string name="bit_perfect_sheet_warning">Отправляет трек на ЦАП без изменений. Эквалайзер, нормализация громкости, кроссфейд, автомикс, скорость воспроизведения и громкость BitChord не применяются.</string>
+    <string name="bit_perfect_mode_off_subtitle">Звук проходит через микшер Android и эффекты BitChord.</string>
+    <string name="bit_perfect_mode_usb_android">USB-ЦАП</string>
+    <string name="bit_perfect_mode_usb_android_subtitle">Android 14 открывает ЦАП с частотой и разрядностью каждого трека, без микширования и передискретизации.</string>
+    <string name="bit_perfect_requires_android_14">Требуется Android 14 или новее</string>
+    <string name="bit_perfect_mode_dap_exclusive">Встроенный ЦАП (AAudio, эксклюзивно)</string>
+    <string name="bit_perfect_mode_dap_exclusive_subtitle">Для музыкальных плееров с собственным ЦАП. Открывает выход на наушники или линейный выход эксклюзивно с частотой каждого трека. Эксклюзивный режим доступен не на всех устройствах.</string>
+    <string name="bit_perfect_requires_android_8_1">Требуется Android 8.1 или новее</string>
+    <string name="bit_perfect_mode_usb_direct">USB-ЦАП (прямой драйвер)</string>
+    <string name="bit_perfect_mode_usb_direct_subtitle">BitChord сам управляет ЦАП в любой версии Android и задаёт громкость на ЦАП. Запрашивает разрешение USB. Звук может быть намного громче обычного вывода.</string>
+    <string name="dac_volume">Громкость ЦАП</string>
+    <string name="dac_volume_subtitle">Задаётся на самом ЦАП; музыка не масштабируется</string>
+    <string name="usb_allow_fixed_volume">Разрешить ЦАП без регулировки громкости</string>
+    <string name="usb_allow_fixed_volume_subtitle">Иначе такой ЦАП играет через обычный вывод</string>
+    <string name="usb_allow_fixed_volume_confirm_title">Воспроизводить на полной шкале?</string>
+    <string name="usb_allow_fixed_volume_confirm_message">BitChord не может задать громкость такого ЦАП, поэтому он играет на полной шкале, а уровень регулирует только его собственная ручка, если она есть. С чувствительными наушниками это может быть опасно громко.</string>
+    <string name="convert_for_limited_dac">Преобразование для слабых ЦАП</string>
+    <string name="convert_for_limited_dac_subtitle">Преобразует треки сверх предела вашего ЦАП в его наивысший формат. Треки могут запускаться дольше и не будут bit-perfect относительно оригинала.</string>
+    <string name="bit_perfect_confirm_title">Включить вывод bit-perfect?</string>
+    <string name="bit_perfect_confirm_message">ЦАП получает музыку на полной шкале, а кнопки громкости телефона могут перестать работать. Перед воспроизведением убавьте громкость ЦАП или усилителя.</string>
+    <string name="bit_perfect_status_active">%1$s · %2$s кГц · %3$d бит</string>
+    <string name="bit_perfect_status_dac_limited">%1$s · %2$s кГц · %3$d бит · максимум ЦАП, преобразовано из формата этого трека</string>
+    <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
+    <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
+    <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
 </resources>

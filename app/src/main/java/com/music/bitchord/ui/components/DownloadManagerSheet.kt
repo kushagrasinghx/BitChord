@@ -12,11 +12,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -175,7 +177,7 @@ fun TopBarDownloadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
  * became of it, and a way out of the ones still going.
  *
  * A list rather than a single line because the thing being reported on is a
- * batch. `SongActionsSheet`'s download row already answers "what about *this*
+ * batch. `SongActionsMenu`'s download row already answers "what about *this*
  * song" perfectly well and is the right size for that question; the question
  * here is the one it cannot answer — forty tracks were asked for, which of them
  * arrived — and that has as many answers as there were tracks.
@@ -185,99 +187,109 @@ fun TopBarDownloadButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
  * user cannot tell from a name whether the right thing is being fetched: the
  * track that fails is one of forty and the only way to recognise it is to see it.
  *
- * @param onDismiss closes the sheet. Called by the header's own control rather
- *   than left to the drag, so there is something obvious to press once the list
- *   is read — and the host marks the batch seen on the way out, which is what
- *   takes the indicator down.
+ * A page on the back stack, so leaving it is whatever leaves any other page.
+ * Leaving is also what marks the batch seen and takes the indicator down, and
+ * marking it on the way *out* rather than on the way in is deliberate: it is the
+ * outcome the user is signing off on, and while the page is up there may not be
+ * one yet.
+ *
+ * @param onCleared leaves the page once its list has been cleared, there being
+ *   nothing left on it to read.
  */
 @Composable
-fun DownloadManagerSheet(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+fun DownloadManagerPage(
+    onCleared: () -> Unit,
+    contentPadding: PaddingValues,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val session by DownloadSession.state.collectAsStateWithLifecycle()
     // Newest ask last, the order the queue will actually reach them in.
     val items = remember(session.items) { session.items.sortedBy { it.sequence } }
 
-    Column(modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.downloads),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    text = session.summary(),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (session.failed > 0 && !session.busy) {
-                        MaterialTheme.colorScheme.error
+    DisposableEffect(Unit) {
+        onDispose { DownloadSession.markSeen() }
+    }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = contentPadding,
+    ) {
+        item(key = "header") {
+            Column(Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // The title is the bar's, in the same style as the new-playlist
+                    // form's; a second one here would only repeat it.
+                    Text(
+                        text = session.summary(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (session.failed > 0 && !session.busy) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (session.busy) {
+                        TextButton(
+                            onClick = {
+                                // Only what is still going. Cancelling a finished
+                                // row would drop it from the list, which is the
+                                // one thing this page exists to still be showing.
+                                items.filterNot { it.progress.settled }
+                                    .forEach { Downloads.cancel(it.videoId) }
+                            },
+                        ) {
+                            Text(stringResource(R.string.cancel_all))
+                        }
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
-            if (session.busy) {
-                TextButton(
-                    onClick = {
-                        // Only what is still going. Cancelling a finished row
-                        // would drop it from the list, which is the one thing
-                        // this sheet exists to still be showing.
-                        items.filterNot { it.progress.settled }
-                            .forEach { Downloads.cancel(it.videoId) }
-                    },
-                ) {
-                    Text(stringResource(R.string.cancel_all))
+                        TextButton(
+                            onClick = {
+                                DownloadSession.clear()
+                                onCleared()
+                            },
+                        ) {
+                            Text(stringResource(R.string.clear))
+                        }
+                    }
                 }
-            } else {
-                TextButton(
-                    onClick = {
-                        DownloadSession.clear()
-                        onDismiss()
-                    },
-                ) {
-                    Text(stringResource(R.string.clear))
+
+                // The batch's own bar, under the heading it belongs to. The
+                // per-row bars below are about one track each; this is the one
+                // that answers "how much longer", which is what someone opening
+                // this page mid-album wants.
+                if (session.busy) {
+                    LinearProgressIndicator(
+                        progress = { session.fraction },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .height(3.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
+                        strokeCap = StrokeCap.Round,
+                        gapSize = 0.dp,
+                        drawStopIndicator = {},
+                    )
+                    Spacer(Modifier.height(8.dp))
                 }
+
+                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
             }
         }
 
-        // The batch's own bar, under the heading it belongs to. The per-row bars
-        // below are about one track each; this is the one that answers "how much
-        // longer", which is what someone opening this sheet mid-album wants.
-        if (session.busy) {
-            LinearProgressIndicator(
-                progress = { session.fraction },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .height(3.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
-                strokeCap = StrokeCap.Round,
-                gapSize = 0.dp,
-                drawStopIndicator = {},
+        items(items, key = { it.videoId }) { item ->
+            DownloadManagerRow(
+                item = item,
+                onCancel = { Downloads.cancel(item.videoId) },
+                onRetry = { Downloads.enqueue(context, item.song, item.from) },
             )
-            Spacer(Modifier.height(8.dp))
         }
-
-        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
-
-        // Capped rather than left to grow: a hundred-track playlist would
-        // otherwise be a sheet that covers the screen and has to be scrolled
-        // back up before anything else can be reached.
-        LazyColumn(Modifier.heightIn(max = LIST_MAX_HEIGHT)) {
-            items(items, key = { it.videoId }) { item ->
-                DownloadManagerRow(
-                    item = item,
-                    onCancel = { Downloads.cancel(item.videoId) },
-                    onRetry = { Downloads.enqueue(context, item.song, item.from) },
-                )
-            }
-        }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -434,7 +446,7 @@ private fun RowAction(
 /**
  * The one line under the heading — what state the batch as a whole is in.
  *
- * Counts rather than a percentage: the sheet already draws the percentage as a
+ * Counts rather than a percentage: the page already draws the percentage as a
  * bar, and what a percentage cannot say is that thirty-nine of forty arrived and
  * one did not, which is the only outcome anybody needs to act on.
  */
@@ -469,6 +481,3 @@ private val GLYPH_SIZE = 22.dp
 
 /** A row's cover: under a track row's 52dp, since this is a status list. */
 private val ART_SIZE = 44.dp
-
-/** How much of the screen the list may take before it scrolls instead. */
-private val LIST_MAX_HEIGHT = 380.dp

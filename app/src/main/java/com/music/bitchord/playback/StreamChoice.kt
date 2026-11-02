@@ -111,6 +111,9 @@ object StreamChoice {
      */
     fun isSubstitute(videoId: String): Boolean = chosen[videoId]?.substituted == true
 
+    /** Whether [videoId] has been settled on YouTube's own copy; false when nothing has been chosen. */
+    fun isYouTube(videoId: String): Boolean = chosen[videoId]?.substituted == false
+
     /**
      * Releases [videoId] to be resolved afresh.
      *
@@ -121,6 +124,18 @@ object StreamChoice {
      */
     fun forget(videoId: String) {
         chosen.remove(videoId)
+    }
+
+    /**
+     * Releases every choice [drop] says no longer stands — a lowered quality
+     * ceiling, which an addon pinned under the old one must not outlive.
+     *
+     * Only safe for tracks nothing is reading yet. A track already being read
+     * has a half-filled cache entry that only its own stream may finish, which
+     * is why the caller passes the tracks around the playhead in [keep].
+     */
+    fun forgetWhere(keep: Set<String>, drop: (SourceStream) -> Boolean) {
+        chosen.entries.removeIf { (videoId, choice) -> videoId !in keep && drop(choice.stream) }
     }
 
     /**

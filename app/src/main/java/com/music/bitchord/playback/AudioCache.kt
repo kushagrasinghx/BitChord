@@ -29,6 +29,7 @@ import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
+import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.download.Downloads
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +43,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
@@ -251,8 +253,8 @@ object AudioCache {
             state.edit().putInt(KEY_MATCHING_SCHEMA, MATCHING_SCHEMA).apply()
             TrackLog.d(TAG, "invalidated ${stale.size} source cache entries after matcher upgrade")
         }
-        // Nothing is playing yet, so nothing an addon served is worth keeping —
-        // see [dropForeignEntries].
+        // Nothing is playing yet, so a partial addon file has nobody to finish
+        // it — see [dropForeignEntries]. Whole ones stay.
         dropForeignEntries(keep = emptySet())
         // A SimpleCache can only be opened once per process, so the ceiling
         // moves by mutating this evictor rather than reopening the cache —
@@ -530,15 +532,51 @@ object AudioCache {
     }
 
     /**
-     * Whether [key]'s bytes came from YouTube or JioSaavn — the copies kept
-     * past playback, see [Origin]. An addon's file is dropped once the queue
-     * moves past it, but until then may sit under `#alt` as an Atmos or
-     * lossless rendition nothing ranked above YouTube would serve.
+     * Whether [key]'s bytes came from YouTube or JioSaavn — see [Origin]. An
+     * addon's file can sit under `#alt` too, as an Atmos or lossless rendition
+     * kept from an earlier play, and is not taken here: with nothing ranked
+     * above YouTube any more, the addon that served it is no longer one the
+     * listener has asked to hear.
      */
     private fun isKeptOrigin(key: String): Boolean = runCatching {
         val origin = cache.getContentMetadata(key).get(META_ORIGIN, null as String?)
         origin == Origin.YOUTUBE.name || origin == Origin.JIOSAAVN.name
     }.getOrDefault(false)
+
+    /**
+     * Who filled the entry the player reads [uri] from, as [recordServed]
+     * tagged it — null when nothing is cached for it, or the tag is missing.
+     *
+     * The one record of a track's provenance that outlives the process.
+     * [StreamChoice] answers the same question only for a track resolved in
+     * this one, and a track replayed from disk after a restart is never
+     * resolved at all.
+     */
+    fun originOf(uri: Uri): Origin? {
+        if (!::cache.isInitialized || uri.scheme != "bitchord") return null
+        val key = keyFactory.buildCacheKey(DataSpec(uri))
+        return runCatching { cache.getContentMetadata(key).get(META_ORIGIN, null as String?) }
+            .getOrNull()
+            ?.let { name -> Origin.values().firstOrNull { it.name == name } }
+    }
+
+    /**
+     * Whether [key] already holds bytes of YouTube's own stream.
+     *
+     * Such an entry may only be finished by YouTube. [CacheDataSource] serves
+     * what is on disk without a resolve and calls the resolver only where the
+     * bytes run out, so any other source answering that call is a different
+     * file streamed into the middle of a WebM — the corruption [StreamChoice]
+     * exists to prevent, reachable whenever [StreamChoice] has nothing to say:
+     * after a restart, or once its choice has expired.
+     */
+    fun heldByYouTube(key: String?): Boolean {
+        if (key == null || !::cache.isInitialized) return false
+        return runCatching {
+            cache.getCachedSpans(key).isNotEmpty() &&
+                cache.getContentMetadata(key).get(META_ORIGIN, null as String?) == Origin.YOUTUBE.name
+        }.getOrDefault(false)
+    }
 
     /** Whether every byte of the entry [key] is on disk. */
     private fun isComplete(key: String): Boolean = runCatching {
@@ -577,19 +615,22 @@ object AudioCache {
      * rather than re-fetching it.
      */
     private fun atmosKeySuffix(): String =
-        if (DeviceCodecs.playsDolbyAtmos && AppSettings.dolbyAtmos.value) "" else "-noatmos"
+        if (DeviceCodecs.atmosWanted) "" else "-noatmos"
 
     /**
      * Which kind of server a cache entry's bytes came from, as recorded by
      * [recordServed].
      *
-     * Only [YOUTUBE] and [JIOSAAVN] are kept on disk once a track stops
+     * [YOUTUBE] and [JIOSAAVN] are always kept on disk once a track stops
      * playing — they are what the player reaches first, before any addon
      * has answered, so they are the copies worth having instantly next time.
      * Everything else — an addon's or a module's stream, a lossless upgrade
-     * from one of them — is [OTHER]: cached while it plays, so seeking and
-     * Automix's analysis work exactly as before, then dropped by
-     * [dropForeignEntries].
+     * from one of them — is [OTHER]: kept when it is a whole audio file that
+     * the track's own entry will read again, dropped by [dropForeignEntries]
+     * otherwise. See [keepsAddonCopy]. None of it is read ahead whole the way
+     * YouTube's and JioSaavn's are ([fetchWhole]): an addon's file is filled by
+     * being played, past the one head [prefetchDirect] takes so the next track
+     * can start on time.
      *
      * The origin alone is not what the Cached songs folder shows. An entry is
      * listed only once the player has actually played the track from it
@@ -819,7 +860,6 @@ object AudioCache {
             val origin = meta.get(META_ORIGIN, null as String?)
                 ?.let { runCatching { Origin.valueOf(it) }.getOrNull() }
                 ?: continue
-            if (origin == Origin.OTHER) continue
             if (meta.get(META_PLAYED, null as String?) == null) continue
             val mediaId = meta.get(META_MEDIA_ID, null as String?) ?: continue
             val spans = cache.getCachedSpans(key).filter { it.isCached && it.file?.exists() == true }
@@ -949,6 +989,15 @@ object AudioCache {
         if (!::cache.isInitialized || mediaId.isBlank()) return null
         return keysOf(mediaId)
             .filterNot { it.endsWith("#watch") }
+            // Never an addon's own file. Those are kept to be *played* — see
+            // [keepsAddonCopy] — and an addon whose manifest says
+            // `allowDownloads: 0` plays but does not download. Copying its file
+            // out of the cache would be a download it was never asked about,
+            // so the network route decides instead, where that rule is applied.
+            .filterNot { key ->
+                runCatching { cache.getContentMetadata(key).get(META_ORIGIN, null as String?) }
+                    .getOrNull() == Origin.OTHER.name
+            }
             .mapNotNull { key ->
                 val length = runCatching { ContentMetadata.getContentLength(cache.getContentMetadata(key)) }
                     .getOrDefault(C.LENGTH_UNSET.toLong())
@@ -1013,25 +1062,34 @@ object AudioCache {
     }
 
     /**
-     * Drops every entry an addon or module filled ([Origin.OTHER]), and every
-     * copy Automix downloaded for analysis alone that playback never read,
-     * except the ones belonging to [keep] — the tracks around the playhead,
-     * whose bytes are still being read, seeked through and analysed.
+     * Drops every entry an addon or module filled ([Origin.OTHER]) that cannot
+     * be kept — see [keepsAddonCopy] — and every copy Automix downloaded for
+     * analysis alone that playback never read, except the ones belonging to
+     * [keep]: the tracks around the playhead, whose bytes are still being
+     * read, seeked through and analysed.
      *
-     * This is what "only the YouTube and JioSaavn audio that played is cached"
-     * means in practice: the bytes an addon serves pass through the cache so
-     * playback behaves the same as ever, and leave it once the track does.
+     * A complete addon copy stays, and plays straight off disk next time —
+     * after a restart, or with no connection at all. What goes is what cannot
+     * be finished safely: a partial addon file has nobody left to finish it
+     * once its signed URL and its [StreamChoice] are gone, and the next
+     * resolve may land on a different file and stream it into the middle.
      * Analysis results are kept in their own store, so the analysis-only
      * audio has done its job by then.
+     *
+     * @param keepAnalysis leaves the analysis-only copies alone, for a caller
+     *   that is only after the addon entries — a lowered quality ceiling, which
+     *   says nothing about Automix's YouTube Opus heads for the tracks ahead.
      */
-    fun dropForeignEntries(keep: Set<String>) {
+    fun dropForeignEntries(keep: Set<String>, keepAnalysis: Boolean = false) {
         if (!::cache.isInitialized) return
         scope.launch {
             var dropped = 0
             cache.keys.toList().forEach { key ->
                 val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: return@forEach
-                val foreign = meta.get(META_ORIGIN, null as String?) == Origin.OTHER.name
-                val analysisOnly = meta.get(META_ANALYSIS, null as String?) != null &&
+                val foreign = meta.get(META_ORIGIN, null as String?) == Origin.OTHER.name &&
+                    !keepsAddonCopy(key)
+                val analysisOnly = !keepAnalysis &&
+                    meta.get(META_ANALYSIS, null as String?) != null &&
                     meta.get(META_PLAYBACK, null as String?) == null &&
                     meta.get(META_PLAYED, null as String?) == null
                 if (!foreign && !analysisOnly) return@forEach
@@ -1051,6 +1109,24 @@ object AudioCache {
             if (dropped > 0) TrackLog.d(TAG, "dropped $dropped addon / analysis-only cache entries")
         }
     }
+
+    /**
+     * Whether the addon or module file under [key] is worth keeping once the
+     * queue has moved past it. Three things, each ruling out a copy that would
+     * do harm if it were read again:
+     *
+     *  - **Complete.** A whole entry is never written to again, so it can't
+     *    become the mixed-file seam a partial one is.
+     *  - **Not an upgrade's rendition.** A `#hifi` entry is reached only
+     *    through the marked item that swapped it in, which no restored or
+     *    newly queued item carries — kept, it would sit on disk unread.
+     *  - **Audio, by its first bytes.** Tidal answers with a DASH manifest, and
+     *    the XML lands under the track's own key; kept, the next play would
+     *    read a manifest of expired segment URLs off disk as if it were the
+     *    song. WebM, MP4 and FLAC pass, as [cachedContainerOf] reads them.
+     */
+    private fun keepsAddonCopy(key: String): Boolean =
+        !key.contains("#hifi") && isComplete(key) && containerOf(key) != null
 
     /** The part of a cache key that names the track, before any `#rendition`; see [keyFactory]. */
     private fun cacheKeyBaseOf(mediaId: String): String =
@@ -1123,6 +1199,7 @@ object AudioCache {
                 activeDs = if (scheme == "file" || scheme == "content") {
                     upstreamDs
                 } else {
+                    settleDirectEntry(dataSpec.uri)
                     cacheDs
                 }
                 return activeDs.open(dataSpec)
@@ -1137,6 +1214,90 @@ object AudioCache {
                 activeDs.close()
             }
         }
+    }
+
+    /**
+     * Direct Source Stream's half of [heldByYouTube]: a track whose entry holds
+     * YouTube's Opus from an earlier play — one made before the setting was
+     * on, or one that started on YouTube and swapped up mid-song — goes to the
+     * addon that has it rather than being played from that entry.
+     *
+     * Direct mode is decided in the resolver, and [CacheDataSource] never
+     * calls the resolver for bytes it already holds. So the Opus played
+     * instead, and nothing said so: until something pins YouTube, Direct Source
+     * Stream also holds the second look off (see
+     * [QualityUpgrade.couldStillUpgrade]), so there was no badge and no upgrade,
+     * and only clearing the song from the cache brought the addon's copy back.
+     *
+     * Asked here, before the cache is read, and once per track: an addon
+     * answer is pinned in [StreamChoice] and the Opus dropped, so the open that
+     * follows misses and resolves to that pin. No answer pins YouTube instead
+     * — what the direct resolve falls back to anyway — so the entry is
+     * finished by the stream that started it, and the addon's late answer swaps
+     * in under it. Either pin ends this check for every later open of the track.
+     *
+     * Runs on the loader thread, which the resolver blocks in exactly the same
+     * way on a direct-mode miss.
+     */
+    private fun settleDirectEntry(uri: Uri) {
+        if (uri.scheme != "bitchord" || uri.authority != "watch") return
+        val videoId = uri.getQueryParameter("v") ?: return
+        // A rendition of its own (an upgrade, a revert), the watch's capped
+        // copy and Automix's Opus are none of this: each has its own entry.
+        if (QualityUpgrade.cacheTag(uri) != null ||
+            uri.getQueryParameter(WATCH_READ_PARAM) != null ||
+            AutomixAnalysisSource.requestsYouTubeOpus(
+                uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
+            )
+        ) {
+            return
+        }
+        if (!DirectSourceGate.isActive() || StreamChoice.of(videoId) != null) return
+        val key = keyFactory.buildCacheKey(DataSpec(uri))
+        if (!heldByYouTube(key) || isOffline()) return
+        try {
+            runBlocking<Unit>(TrackLog.about(videoId)) {
+                // The same hold the resolver applies, so a track prepared early
+                // for a gapless start is not searched for before its window.
+                DirectSourceGate.awaitOpen(videoId)
+                val addon = runCatching { DirectSourceGate.lookup(videoId, SourceResolver.targetIn(uri)) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                    .getOrNull()
+                // Read-ahead may have settled it while this waited.
+                if (StreamChoice.of(videoId) != null) return@runBlocking
+                if (addon != null) {
+                    dropYouTubeEntry(key, videoId)
+                    // Pinned only once the Opus is really gone. Otherwise the
+                    // addon's file would continue it, and YouTube finishing its
+                    // own entry is the lesser loss.
+                    if (!heldByYouTube(key)) {
+                        StreamChoice.remember(videoId, addon, substituted = true)
+                        return@runBlocking
+                    }
+                }
+                runCatching { StreamResolver.resolve(videoId) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                    .getOrNull()
+                    ?.let { url ->
+                        StreamChoice.remember(
+                            videoId,
+                            SourceStream(url, headers = StreamResolver.mediaHeadersFor(url)),
+                            substituted = false,
+                        )
+                        DirectSourceGate.startedOnYouTube(videoId, SourceResolver.targetIn(uri))
+                    }
+            }
+        } catch (e: InterruptedException) {
+            // A released media period interrupts its loader; that is a skip.
+            throw java.io.InterruptedIOException("direct lookup for $videoId interrupted")
+        }
+    }
+
+    /** Clears [key]'s YouTube bytes so an addon's file can fill it from the top. */
+    private fun dropYouTubeEntry(key: String, videoId: String) {
+        runCatching { cache.removeResource(key) }
+            .onSuccess { TrackLog.d(TAG, "dropped cached YouTube copy $key for the addon's", about = videoId) }
+            .onFailure { TrackLog.d(TAG, "cache entry $key still in use: ${it.message}", about = videoId) }
     }
 
     private fun cacheFactory(upstream: DataSource.Factory) = CacheDataSource.Factory()
@@ -1273,7 +1434,12 @@ object AudioCache {
                 // leaves nothing pinned, and this falls through to the same
                 // URL-only warm-up it did before — YouTube resolves the track at
                 // playback time as usual.
-                val warmed = if (substitutable && target != null && !pinnedToYouTube) {
+                // Not over an entry YouTube's own bytes already fill, from an
+                // earlier play: the player reads that head straight off disk,
+                // and the pin would then stream the substitute after it. That
+                // track's way up is the second look — see [heldByYouTube].
+                val youTubeFilled = heldByYouTube(cacheKeyOf(Uri.parse("bitchord://watch?v=$next")))
+                val warmed = if (substitutable && target != null && !pinnedToYouTube && !youTubeFilled) {
                     runCatching { SourceResolver.prefetchSubstitute(target) }
                         .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $next: ${it.message}", about = next) }
                         .getOrNull()
@@ -1307,6 +1473,71 @@ object AudioCache {
                 }
             }
         }
+    }
+
+    private var directJob: Job? = null
+
+    /**
+     * Direct Source Stream's read-ahead: one track, the next, started once the
+     * playing one is inside [DirectSourceGate.WINDOW_MS] of its transition.
+     *
+     * Resolves the track the way playback will — the addon first, YouTube when
+     * no addon has it — pins the answer in [StreamChoice] so the player's own
+     * open lands on the same stream, and caches the first [PRELOAD_BYTES] of
+     * it. Only the head: the player reads the rest itself a few seconds later,
+     * so fetching more here would only download it twice.
+     *
+     * The pin is skipped when something is already pinned. The player may
+     * have got there first and settled on YouTube after the addon timed out,
+     * and an addon answer arriving late must not be written over that half-
+     * filled entry — see [StreamChoice]. It reaches the track as an upgrade
+     * instead, see [DirectSourceGate.startedOnYouTube].
+     */
+    fun prefetchDirect(upcoming: Upcoming) {
+        directJob?.cancel()
+        val id = upcoming.mediaId
+        // A source-backed row resolves through its own source when opened, and
+        // a downloaded or reverted track never reads this entry at all.
+        if (SourceRegistry.parseTrackKey(id) != null || id in Downloads.saved.value || OriginalVersion.isPinned(id)) {
+            directJob = null
+            return
+        }
+        directJob = scope.launch(TrackLog.about(id)) {
+            if (StreamChoice.of(id) == null) {
+                val addon = runCatching { DirectSourceGate.lookup(id, upcoming.target) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                    .getOrNull()
+                val stream = addon ?: runCatching {
+                    val url = StreamResolver.resolve(id)
+                    SourceStream(url, headers = StreamResolver.mediaHeadersFor(url))
+                }
+                    .onFailure {
+                        if (it is kotlinx.coroutines.CancellationException) throw it
+                        TrackLog.d(TAG, "direct read-ahead could not resolve $id: ${it.message}", about = id)
+                    }
+                    .getOrNull()
+                    ?: return@launch
+                if (StreamChoice.of(id) == null) {
+                    // An addon pinned over YouTube's Opus from an earlier play
+                    // would have its head read straight off that Opus and its
+                    // rest streamed after it — see [settleDirectEntry]. The
+                    // Opus goes first, or the addon is not pinned at all and
+                    // playback's own open settles it.
+                    val key = cacheKeyOf(Uri.parse("bitchord://watch?v=$id"))
+                    if (addon != null && heldByYouTube(key)) dropYouTubeEntry(key, id)
+                    if (addon != null && heldByYouTube(key)) return@launch
+                    StreamChoice.remember(id, stream, substituted = addon != null)
+                    if (addon == null) DirectSourceGate.startedOnYouTube(id, upcoming.target)
+                }
+            }
+            fetch(id, 0, PRELOAD_BYTES)
+        }
+    }
+
+    /** Drops [prefetchDirect]'s work for a track the queue has moved away from. */
+    fun cancelDirect() {
+        directJob?.cancel()
+        directJob = null
     }
 
     /**

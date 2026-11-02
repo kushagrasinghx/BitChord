@@ -1,6 +1,7 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.sources.SourceStream
+import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.playback.QualityUpgrade
 import com.music.bitchord.playback.StreamChoice
 import org.junit.After
@@ -58,12 +59,52 @@ class PlayerQualityMenuTest {
     }
 
     /**
-     * Nothing resolved it in this process — it is playing off the disk cache and
-     * what is in that entry is genuinely unknown. The revert stays on offer,
+     * Nothing resolved it in this process and its cache entry carries no
+     * origin, so what is in it is genuinely unknown. The revert stays on offer,
      * because it is the escape hatch for a substitution nothing announced.
      */
     @Test
-    fun `an unresolved cached track keeps its revert row`() {
+    fun `an unresolved cached track of unknown origin keeps its revert row`() {
         assertFalse(QualityUpgrade.isKnownToBePlayingYouTubesOwn(videoId, rendition = null))
+    }
+
+    /**
+     * The reported case after a restart: YouTube's Opus replayed straight off
+     * disk, so nothing resolved it and [StreamChoice] is empty. The entry's
+     * own tag says whose bytes those are, and the menu offers the upgrade.
+     */
+    @Test
+    fun `a track replayed from YouTube's cached copy is offered an upgrade`() {
+        assertTrue(
+            QualityUpgrade.isKnownToBePlayingYouTubesOwn(
+                videoId,
+                rendition = null,
+                cachedOrigin = AudioCache.Origin.YOUTUBE,
+            ),
+        )
+    }
+
+    /** A cached substitute is still a substitute, and keeps the revert row. */
+    @Test
+    fun `a track replayed from a substitute's cached copy keeps its revert row`() {
+        listOf(AudioCache.Origin.JIOSAAVN, AudioCache.Origin.OTHER).forEach { origin ->
+            assertFalse(
+                QualityUpgrade.isKnownToBePlayingYouTubesOwn(videoId, rendition = null, cachedOrigin = origin),
+            )
+        }
+    }
+
+    /** What this process resolved outranks the tag a previous one left. */
+    @Test
+    fun `a substitute resolved this session outranks a YouTube cache tag`() {
+        StreamChoice.remember(videoId, SourceStream("https://tidal/flac"), substituted = true)
+
+        assertFalse(
+            QualityUpgrade.isKnownToBePlayingYouTubesOwn(
+                videoId,
+                rendition = null,
+                cachedOrigin = AudioCache.Origin.YOUTUBE,
+            ),
+        )
     }
 }

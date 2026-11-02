@@ -3957,50 +3957,14 @@ private fun BitChordApp(
                 val scrollScope = rememberCoroutineScope()
                 var scrollJob by remember { mutableStateOf<Job?>(null) }
                 /** Scroll the current tab's list back to top when the active tab is tapped (excludes Search). */
-                val onActiveTabTap: () -> Unit = {
+                val onActiveTabTap: () -> Unit = fun() {
                     // Capture overlay state at tap time, before any navigation handler clears it.
-                    val wasOverlayOpen = route != null || detail != null || selectedMoodGenre != null
-                    if (wasOverlayOpen) return@Unit
-                    if (selectedTab == TAB_SEARCH) return@Unit
+                    if (route != null || detail != null || selectedMoodGenre != null) return
+                    if (selectedTab == TAB_SEARCH) return
                     haptics.play(Haptic.Select)
                     scrollJob?.cancel()
                     scrollJob = scrollScope.launch {
-                        val listState = currentListState
-                        val firstIndex = listState.firstVisibleItemIndex
-                        val scrollOffset = listState.firstVisibleItemScrollOffset
-                        if (firstIndex == 0 && scrollOffset == 0) return@launch // already at top
-
-                        val visibleItems = listState.layoutInfo.visibleItemsInfo
-                        val avgHeight = visibleItems.sumOf { it.size } / visibleItems.size.toFloat()
-                        val estimatedDistance = avgHeight * firstIndex + scrollOffset
-
-                        if (firstIndex > FAR_LIST_THRESHOLD) {
-                            // Far list: jump to a bounded index near the top, then animate the remainder.
-                            val targetIndex = firstIndex - FAR_LIST_THRESHOLD.coerceAtMost(firstIndex)
-                            listState.scrollToItem(targetIndex)
-                            // Brief delay to let layout settle (required after scrollToItem).
-                            kotlinx.coroutines.delay(16L)
-                            val remainingOffset = listState.firstVisibleItemScrollOffset +
-                                visibleItems.getOrNull(0)?.size?.toFloat() ?: 0f
-                            if (remainingOffset > 0) {
-                                listState.animateScrollBy(
-                                    value = -remainingOffset,
-                                    animationSpec = tween(SCROLL_TO_TOP_DURATION_MS, easing = FastOutSlowInEasing),
-                                )
-                            }
-                        } else {
-                            // Near distance: animate the full estimated distance.
-                            if (estimatedDistance > 0) {
-                                listState.animateScrollBy(
-                                    value = -estimatedDistance,
-                                    animationSpec = tween(SCROLL_TO_TOP_DURATION_MS, easing = FastOutSlowInEasing),
-                                )
-                            }
-                        }
-                        // Finish at exactly index 0 with a short settling scroll.
-                        if (listState.firstVisibleItemIndex != 0 || listState.firstVisibleItemScrollOffset != 0) {
-                            listState.animateScrollToItem(0)
-                        }
+                        currentListState.scrollToTopEased()
                     }
                 }
 
@@ -5937,3 +5901,52 @@ private const val TAB_HOME = 0
 private const val TAB_EXPLORE = 1
 private const val TAB_LIBRARY = 2
 private const val TAB_SEARCH = 3
+
+/**
+ * Smoothly scroll a LazyList back to the top with eased deceleration.
+ *
+ * For near lists (≤ FAR_LIST_THRESHOLD items above), animates the full estimated distance then
+ * finishes at exactly index 0. For far lists, does a bounded jump near the top first, then
+ * animates the remaining short distance — avoiding long-distance scroll inconsistencies.
+ */
+private suspend fun LazyListState.scrollToTopEased() {
+    val firstIndex = this.firstVisibleItemIndex
+    val scrollOffset = this.firstVisibleItemScrollOffset
+    if (firstIndex == 0 && scrollOffset == 0) return // already at top
+
+    val visibleItems = this.layoutInfo.visibleItemsInfo
+    if (visibleItems.isEmpty()) return // empty list guard
+
+    val avgHeight: Float = visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
+    val estimatedDistance: Float = avgHeight * firstIndex + scrollOffset
+
+    if (firstIndex > FAR_LIST_THRESHOLD) {
+        // Far list: jump to a bounded index near the top, then animate the remainder.
+        val targetIndex = firstIndex - FAR_LIST_THRESHOLD.coerceAtMost(firstIndex)
+        this.scrollToItem(targetIndex)
+        kotlinx.coroutines.delay(16L) // layout settle after scrollToItem
+        val remainingOffset: Float = this.firstVisibleItemScrollOffset.toFloat() +
+            visibleItems.getOrNull(0)?.size?.toFloat().orZero()
+        if (remainingOffset > 0) {
+            this.animateScrollBy(
+                value = -remainingOffset,
+                animationSpec = tween(SCROLL_TO_TOP_DURATION_MS, easing = FastOutSlowInEasing),
+            )
+        }
+    } else {
+        // Near distance: animate the full estimated distance.
+        if (estimatedDistance > 0) {
+            this.animateScrollBy(
+                value = -estimatedDistance,
+                animationSpec = tween(SCROLL_TO_TOP_DURATION_MS, easing = FastOutSlowInEasing),
+            )
+        }
+    }
+    // Finish at exactly index 0 with a short settling scroll.
+    if (this.firstVisibleItemIndex != 0 || this.firstVisibleItemScrollOffset != 0) {
+        this.animateScrollToItem(0)
+    }
+}
+
+/** Safely converts a nullable Float to non-null, defaulting to 0f for null. */
+private fun Float?.orZero(): Float = this ?: 0f

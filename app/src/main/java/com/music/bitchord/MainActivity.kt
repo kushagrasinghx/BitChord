@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.EnterTransition
@@ -150,6 +151,7 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
@@ -3946,14 +3948,16 @@ private fun BitChordApp(
 
                 val haptics = rememberHaptics()
                 val scrollScope = rememberCoroutineScope()
+                var scrollJob by remember { mutableStateOf<Job?>(null) }
                 /** Scroll the current tab's list back to top when the active tab is tapped (excludes Search). */
                 val onActiveTabTap: () -> Unit = {
                     // Don't scroll if an overlay/release page is open — only navigate.
                     if (route != null || detail != null) return@Unit
                     if (selectedTab != TAB_SEARCH) {
                         haptics.play(Haptic.Select)
-                        scrollScope.launch {
-                            currentListState.animateScrollToItem(0)
+                        scrollJob?.cancel()
+                        scrollJob = scrollScope.launch {
+                            currentListState.animateScrollToItem(0, animationSpec = tween(500, easing = FastOutSlowInEasing))
                         }
                     }
                 }

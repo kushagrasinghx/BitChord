@@ -1136,6 +1136,8 @@ class PlaybackService : MediaLibraryService() {
             // The player this fired on, which is by definition the one the
             // session is currently pointed at.
             val exoPlayer = player ?: return
+            // Whether or not it is playing: a held video buffers until this answers.
+            convertVideosAround(exoPlayer)
             if (exoPlayer.isPlaying) prefetchAround(exoPlayer)
             // A queue edit can change what follows gaplessly, and the loudness
             // stage switches to that track on its own at the boundary.
@@ -1747,7 +1749,7 @@ class PlaybackService : MediaLibraryService() {
         // DsdExtractorsFactory: the stock extractors plus DSF/DFF, which Media3
         // cannot open at all. A DSD file leaves the extractor as float PCM.
         mediaSourceFactory = DefaultMediaSourceFactory(
-            AudioCache.playbackFactory(defaultDataSourceFactory),
+            MusicOnlyPlayback.holdingFactory(AudioCache.playbackFactory(defaultDataSourceFactory)),
             DsdExtractorsFactory(),
         )
             .setLoadErrorHandlingPolicy(PermanentAwareLoadErrorPolicy())
@@ -1978,7 +1980,11 @@ class PlaybackService : MediaLibraryService() {
             // seconds before the blend, so the marker waits for its audio:
             // a window shown over a track that may still fall back to YouTube
             // promises a blend that could start late or not at all.
-            nextStreamReady = { item -> !DirectSourceGate.isActive() || DirectSourceGate.isStreamReady(item) },
+            // The same for a next track still waiting to become its audio version.
+            nextStreamReady = { item ->
+                !MusicOnlyPlayback.wants(item) &&
+                    (!DirectSourceGate.isActive() || DirectSourceGate.isStreamReady(item))
+            },
             mixWaveform = { item, durationMs, from, to, bins ->
                 item.localConfiguration?.uri?.let { uri ->
                     trackAnalyzer.mixWaveform(item.mediaId, uri, durationMs / 1000.0, from, to, bins)
@@ -3799,6 +3805,7 @@ class PlaybackService : MediaLibraryService() {
         }
         if (exoPlayer.isPlaying) registerCurrentPlay()
         savePlaybackState(exoPlayer)
+        convertVideosAround(exoPlayer)
         prefetchAround(exoPlayer)
         // The second look belongs to the track it was started for; the
         // queue moving on ends it — unless it is already proving what it
@@ -6371,7 +6378,11 @@ class PlaybackService : MediaLibraryService() {
         val nextIndex = player.nextMediaItemIndex
         val upcomingSongs = if (nextIndex != C.INDEX_UNSET) {
             val end = (nextIndex + AudioCache.QUEUE_DEPTH - 1).coerceAtMost(player.mediaItemCount - 1)
-            (nextIndex..end).map { index -> player.getMediaItemAt(index).toSong() }
+            // A video about to be converted plays under another id, so every
+            // byte warmed for it now would be wasted.
+            (nextIndex..end).map(player::getMediaItemAt)
+                .filterNot(MusicOnlyPlayback::wants)
+                .map { it.toSong() }
         } else {
             emptyList()
         }
@@ -6397,6 +6408,84 @@ class PlaybackService : MediaLibraryService() {
         }
 
         warm(upcomingSongs)
+    }
+
+    /** Audio-version lookups running for the music-only setting, by video id. */
+    private val musicOnlyLookups = HashMap<String, Job>()
+
+    /**
+     * Turns the playing row and the next one into their audio versions, for
+     * "Prefer music-only version" — see [MusicOnlyPlayback]. Run whenever either
+     * could have changed; a row already answered costs a map lookup.
+     *
+     * Not mid-blend or mid-swap, which both copy this queue onto the standby
+     * player. Both end in [onTrackBecameCurrent], which comes back here.
+     */
+    private fun convertVideosAround(exoPlayer: ExoPlayer) {
+        if (!MusicOnlyPlayback.isActive()) return
+        if (crossfade?.isTransitioning() == true || versionSwapJob?.isActive == true) return
+        val rows = listOf(exoPlayer.currentMediaItemIndex, exoPlayer.nextMediaItemIndex)
+            .filter { it in 0 until exoPlayer.mediaItemCount }
+            .distinct()
+        MusicOnlyPlayback.forgetExcept(rows.map { exoPlayer.getMediaItemAt(it).mediaId }.toSet())
+        for (index in rows) {
+            val item = exoPlayer.getMediaItemAt(index)
+            if (!MusicOnlyPlayback.wants(item)) continue
+            val video = item.toSong()
+            val audio = YtMusicRepository.cachedAudioVersion(video.videoId)
+            when {
+                audio == null -> lookUpMusicOnly(video)
+                audio.videoId == video.videoId || audio.isVideo -> MusicOnlyPlayback.settle(video.videoId)
+                else -> {
+                    applyMusicOnly(exoPlayer, index, item, video, audio)
+                    // Replacing a row can run the whole transition, which trims
+                    // history, so the indexes above may no longer hold.
+                    convertVideosAround(exoPlayer)
+                    return
+                }
+            }
+        }
+    }
+
+    private fun lookUpMusicOnly(video: Song) {
+        if (musicOnlyLookups[video.videoId]?.isActive == true) return
+        musicOnlyLookups[video.videoId] = scope.launch {
+            val audio = withTimeoutOrNull(MusicOnlyPlayback.ANSWER_TIMEOUT_MS) {
+                runCatching { YtMusicRepository.resolveAudio(video) }.getOrNull()
+            }
+            musicOnlyLookups.remove(video.videoId)
+            if (audio == null || audio.videoId == video.videoId) {
+                TrackLog.d("BitChord", "music-only: no audio version, playing the video's own audio", about = video.videoId)
+                MusicOnlyPlayback.settle(video.videoId)
+            }
+            val live = player ?: return@launch
+            convertVideosAround(live)
+            if (live.isPlaying) prefetchAround(live)
+        }
+    }
+
+    private fun applyMusicOnly(exoPlayer: ExoPlayer, index: Int, item: MediaItem, video: Song, audio: Song) {
+        TrackLog.d("BitChord", "music-only: playing '${audio.title}' (${audio.videoId})", about = video.videoId)
+        YtMusicRepository.rememberVideoVersion(audio.videoId, video)
+        val replacement = QueueShuffle.withQueueMetadata(
+            audio.asMusicOnlyOf(video).toMediaItem(),
+            newCanonicalIndex = item.canonicalIndex,
+            newContextCycleId = item.contextCycleId,
+        )
+        val isCurrent = index == exoPlayer.currentMediaItemIndex
+        // Only already audible when the setting was turned on with a video
+        // playing: that one is switched over like the player menu's switch.
+        if (isCurrent && exoPlayer.isPlaying) {
+            smoothSwapCurrentTrackVersion(replacement)
+            return
+        }
+        val position = if (isCurrent) exoPlayer.currentPosition else 0L
+        exoPlayer.replaceMediaItem(index, replacement)
+        // A queue restored paused part-way through a video resumes where it was.
+        if (position > 0L) {
+            val mapped = YtMusicRepository.versionTimeMap(video.videoId, audio.videoId)?.map(position) ?: position
+            exoPlayer.seekTo(exoPlayer.currentMediaItemIndex, mapped.coerceAtLeast(0L))
+        }
     }
 
     /** When the listener last seeked, so [driveDirectWindow] can tell a scrub from playback. */
@@ -6438,6 +6527,7 @@ class PlaybackService : MediaLibraryService() {
         val nextIndex = exoPlayer.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val next = exoPlayer.getMediaItemAt(nextIndex)
+        if (MusicOnlyPlayback.wants(next)) return
         val duration = exoPlayer.duration
         if (duration == C.TIME_UNSET || duration <= 0L) return
         val boundary = crossfade?.plannedTransitionFor(current.mediaId) ?: duration
@@ -7029,6 +7119,18 @@ class PlaybackService : MediaLibraryService() {
     private fun observeSettings() {
         scope.launch {
             AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
+        }
+        scope.launch {
+            // The queue as it stands is re-judged at once, rather than at the
+            // next track, and read-ahead may have been warming a video.
+            AppSettings.preferMusicOnly.drop(1).collect {
+                MusicOnlyPlayback.reset()
+                cancelPrefetch()
+                player?.let { live ->
+                    convertVideosAround(live)
+                    if (live.isPlaying) prefetchAround(live)
+                }
+            }
         }
         scope.launch {
             AppSettings.preferUsbDac.drop(1).collect { requestOutputReconfiguration() }
@@ -8465,6 +8567,12 @@ class PlaybackService : MediaLibraryService() {
                     val bundle = args.getBundle(EXTRA_SWAP_MEDIA_ITEM)
                     if (bundle != null) {
                         val targetSong = songFromBundle(bundle)
+                        // The listener's own choice outranks the music-only setting.
+                        if (targetSong.isVideo) {
+                            MusicOnlyPlayback.keep(targetSong.videoId)
+                        } else {
+                            session.player.currentMediaItem?.mediaId?.let(MusicOnlyPlayback::letGo)
+                        }
                         smoothSwapCurrentTrackVersion(targetSong.toMediaItem())
                     }
                 }

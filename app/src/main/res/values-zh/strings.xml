@@ -1046,6 +1046,9 @@
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
 
+    <string name="home_and_videos">Home and Videos</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">智能音频对齐</string>
     <string name="smart_version_alignment_subtitle">分析音频波形，精确匹配对应的播放时刻</string>
 

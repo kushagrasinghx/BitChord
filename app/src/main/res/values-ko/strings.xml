@@ -265,6 +265,9 @@
     <string name="skip_silence">무음 건너뛰기</string>
     <string name="skip_silence_subtitle">1초보다 긴 공백 자르기</string>
     <string name="skip_silence_float_subtitle">32비트 부동소수점 출력에서는 이용 불가</string>
+    <string name="home_and_videos">Home and Videos</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">스마트 오디오 정렬</string>
     <string name="smart_version_alignment_subtitle">오디오 파형을 분석해 정확히 일치하는 재생 시점을 맞춥니다</string>
     <string name="equalizer">이퀄라이저</string>

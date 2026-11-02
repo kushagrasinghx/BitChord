@@ -57,6 +57,9 @@ interface PlayerHost {
     @Composable
     fun MusicVideo(videoId: String, fit: Boolean, onRenderedChanged: (Boolean) -> Unit, modifier: Modifier) = Unit
 
+    /** Whether [videoId] shows its picture, rather than playing as audio by the listener's choice. */
+    fun showsMusicVideoPicture(videoId: String): Boolean = true
+
     /** The playing music video's width over its height. */
     val musicVideoAspect: StateFlow<Float> get() = DefaultVideoAspect
 
@@ -183,7 +186,8 @@ internal fun videoQualityLabel(height: Int): String = when {
 
 /** Whether [song]'s picture can be shown here — a music video, on a platform that plays one. */
 internal fun showsMusicVideo(song: Song): Boolean =
-    song.isVideo && PlayerPlatform.host.musicVideoSupported
+    song.isVideo && PlayerPlatform.host.musicVideoSupported &&
+        PlayerPlatform.host.showsMusicVideoPicture(song.videoId)
 
 /** @see PlayerHost.MusicVideo */
 @Composable

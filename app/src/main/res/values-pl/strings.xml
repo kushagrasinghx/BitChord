@@ -1106,6 +1106,9 @@
 
 
 
+    <string name="home_and_videos">Home and Videos</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Inteligentne dopasowanie dźwięku</string>
 
     <string name="smart_version_alignment_subtitle">Analizuje ścieżkę dźwiękową, by idealnie zgrać moment utworu (np. omijając intro w wideo)</string>

@@ -1022,6 +1022,9 @@
     <string name="settings_search_empty">“%1$s” ile eşleşen ayar yok</string>
 
 
+    <string name="home_and_videos">Home and Videos</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Akıllı ses hizalama</string>
     <string name="smart_version_alignment_subtitle">Tam karşılık gelen çalma anını bulmak için ses dalga biçimlerini analiz eder</string>
 

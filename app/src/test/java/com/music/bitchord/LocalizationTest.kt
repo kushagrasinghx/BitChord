@@ -20,6 +20,14 @@ class LocalizationTest {
     }
 
     @Test
+    fun supportedLanguages_containsPersian() {
+        val faLanguage = SUPPORTED_LANGUAGES.firstOrNull { it.tag == "fa" }
+        assertNotNull("Persian language must be in SUPPORTED_LANGUAGES", faLanguage)
+        assertEquals(R.string.persian, faLanguage?.nameRes)
+        assertEquals(R.string.persian, languageDisplayNameRes("fa"))
+    }
+
+    @Test
     fun localesConfig_matchesSupportedLanguages() {
         val projectRoot = File(".").canonicalFile
         val resDir = if (File(projectRoot, "app/src/main/res").exists()) {
@@ -43,6 +51,7 @@ class LocalizationTest {
         }
 
         assertTrue("locales_config.xml must include 'vi'", configuredLocales.contains("vi"))
+        assertTrue("locales_config.xml must include 'fa'", configuredLocales.contains("fa"))
 
         for (lang in SUPPORTED_LANGUAGES) {
             assertTrue(

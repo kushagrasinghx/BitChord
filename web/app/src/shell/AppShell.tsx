@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect } from 'react';
 import { resumeSession } from '@/party/listenTogether';
 import { startPartySync } from '@/party/partySync';
 import { useDiscordPresence } from '@/playback/discordPresence';
@@ -14,6 +14,7 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
 import { MobileTopBar } from './MobileTopBar';
 import { PlayerBar } from './PlayerBar';
+import { ShortcutSheet } from './ShortcutSheet';
 import { SidePanel } from './SidePanel';
 import { Sidebar } from './Sidebar';
 
@@ -42,6 +43,9 @@ export function AppShell() {
   const bannerDismissed = useUi((s) => s.installBannerDismissed);
   const dismissBanner = useUi((s) => s.dismissInstallBanner);
   const fullScreen = useUi((s) => s.fullScreen);
+  const shortcutsOpen = useUi((s) => s.shortcutsOpen);
+  const setShortcutsOpen = useUi((s) => s.setShortcutsOpen);
+  const closeShortcuts = useCallback(() => setShortcutsOpen(false), [setShortcutsOpen]);
 
   let banner = null;
   if (mobile) {
@@ -91,6 +95,7 @@ export function AppShell() {
         <SidePanel />
       </div>
       {banner}
+      {shortcutsOpen && <ShortcutSheet onClose={closeShortcuts} />}
       {fullScreen && (
         <Suspense fallback={null}>
           <FullScreenPlayer />

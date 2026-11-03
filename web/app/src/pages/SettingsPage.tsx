@@ -13,6 +13,7 @@ import { Select } from '@/components/Select';
 import { AUTOMIX_BARS } from '@/playback/automix/choices';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
 import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegration, LyricSourcesAccess, SpotifyIntegration, Toggle } from './IntegrationSettings';
+import { useUi } from '@/state/ui';
 import { settingsUi } from './settingsStyles';
 
 const LyricsSettings = lazy(() => import('@/shell/LyricsSettings').then((m) => ({ default: m.LyricsSettings })));
@@ -183,6 +184,17 @@ export default function SettingsPage() {
             them. Songs it can’t read in time play to the end and crossfade. Based on AutoMix by David Finnegan (AGPL-3.0).
           </p>
         )}
+
+        <h2 className={settingsUi.sectionHeader}>Keyboard</h2>
+        <section className={settingsUi.group}>
+          <button className={`${settingsUi.integrationPlain} ${settingsUi.linkRow}`} onClick={() => useUi.getState().setShortcutsOpen(true)}>
+            <span className={settingsUi.integrationName}>Keyboard Shortcuts</span>
+            <span className={settingsUi.value}>
+              Press ?
+              <ChevronRight size={16} />
+            </span>
+          </button>
+        </section>
 
         <h2 className={settingsUi.sectionHeader}>Lyrics</h2>
         <section className={settingsUi.group}>

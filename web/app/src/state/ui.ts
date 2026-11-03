@@ -13,6 +13,9 @@ interface UiState {
   /** The sidebar as a drawer, below 484px where it's otherwise hidden. */
   drawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
+  /** The keyboard shortcut sheet (?). */
+  shortcutsOpen: boolean;
+  setShortcutsOpen: (open: boolean) => void;
   /** The extension install banner, dismissed for this tab only. */
   installBannerDismissed: boolean;
   dismissInstallBanner: () => void;
@@ -28,6 +31,8 @@ export const useUi = create<UiState>()((set) => ({
   setFullScreen: (fullScreen) => set({ fullScreen }),
   drawerOpen: false,
   setDrawerOpen: (drawerOpen) => set({ drawerOpen }),
+  shortcutsOpen: false,
+  setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
   installBannerDismissed: sessionStorage.getItem(BANNER_KEY) === '1',
   dismissInstallBanner: () => {
     sessionStorage.setItem(BANNER_KEY, '1');

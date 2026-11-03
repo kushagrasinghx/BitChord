@@ -118,6 +118,8 @@ fun PlaylistPickerSheet(
     offline: Boolean = false,
     headerTitle: String? = null,
     songs: List<Song> = emptyList(),
+    /** Offered on the create form as the other way to start a playlist. */
+    onImportSpotify: (() -> Unit)? = null,
 ) {
     var creating by remember { mutableStateOf(startCreating) }
     // By id rather than by value: the list is re-fetched under an open sheet,
@@ -175,6 +177,7 @@ fun PlaylistPickerSheet(
                     onClose = { closeAfter {} },
                     onCreate = { name, privacy -> closeAfter { onCreate(name, privacy) } },
                     offline = offline,
+                    onImportSpotify = onImportSpotify?.let { start -> { closeAfter(start) } },
                 )
             } else {
                 SheetTopBar(
@@ -418,6 +421,7 @@ private fun NewPlaylistForm(
     onClose: () -> Unit,
     onCreate: (String, PlaylistPrivacy) -> Unit,
     offline: Boolean,
+    onImportSpotify: (() -> Unit)? = null,
 ) {
     var name by remember { mutableStateOf("") }
     var privacy by remember { mutableStateOf(PlaylistPrivacy.PRIVATE) }
@@ -532,6 +536,18 @@ private fun NewPlaylistForm(
                     )
                 }
             }
+        }
+
+        if (onImportSpotify != null) {
+            Spacer(Modifier.height(12.dp))
+            ActionRow(
+                icon = BitChordIcons.Download,
+                label = stringResource(R.string.spotify_import_title),
+                onClick = {
+                    focusManager.clearFocus()
+                    onImportSpotify()
+                },
+            )
         }
 
     }

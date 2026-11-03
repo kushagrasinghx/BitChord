@@ -152,6 +152,9 @@ function Palette({ closing }: { closing: boolean }) {
   const [value, setValue] = useState('');
   const [active, setActive] = useState(0);
   const [starting, setStarting] = useState<string | null>(null);
+  // Where the pointer last was. Chrome sends mousemove when rows shift under a
+  // still pointer (new results, scrolling); only a real move picks a row.
+  const pointer = useRef<{ x: number; y: number } | null>(null);
   const query = useDebounced(value.trim(), 200);
   const typing = value.trim().length > 0;
 
@@ -324,7 +327,10 @@ function Palette({ closing }: { closing: boolean }) {
                     data-active={selected || undefined}
                     className="group/row grid animate-row-in cursor-default grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-x-3.5 rounded-[10px] px-3 py-2 transition-[background-color,transform] duration-150 ease-out data-active:bg-quaternary active:scale-[0.99]"
                     style={{ animationDelay: `${Math.min(i, 10) * 18}ms` }}
-                    onMouseMove={() => {
+                    onMouseMove={(e) => {
+                      const last = pointer.current;
+                      pointer.current = { x: e.clientX, y: e.clientY };
+                      if (!last || (last.x === e.clientX && last.y === e.clientY)) return;
                       if (!selected) setActive(i);
                     }}
                     onMouseDown={(e) => e.preventDefault()}

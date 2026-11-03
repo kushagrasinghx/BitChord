@@ -508,6 +508,14 @@ object AppSettings {
     val animatedCanvas = MutableStateFlow(true)
 
     /**
+     * The LAN web remote (see [com.music.bitchord.remote.RemoteControl]):
+     * a small web server in the app that lets a browser on the same Wi-Fi
+     * drive this phone's player. Off by default — an open port, however
+     * small and PIN-gated, is not something to hand out unasked.
+     */
+    val remoteControlEnabled = MutableStateFlow(false)
+
+    /**
      * Whether [animatedCanvas] is allowed to actually stream on a metered
      * connection, as distinct from the switch that turns the feature off
      * altogether.
@@ -993,6 +1001,7 @@ object AppSettings {
             reduceDynamicBlur.value = false
         }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
+        remoteControlEnabled.value = prefs.getBoolean(KEY_REMOTE_CONTROL_ENABLED, false)
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
@@ -1558,6 +1567,11 @@ object AppSettings {
     fun setAnimatedCanvas(value: Boolean) {
         animatedCanvas.value = value
         prefs.edit().putBoolean(KEY_ANIMATED_CANVAS, value).apply()
+    }
+
+    fun setRemoteControlEnabled(value: Boolean) {
+        remoteControlEnabled.value = value
+        prefs.edit().putBoolean(KEY_REMOTE_CONTROL_ENABLED, value).apply()
     }
 
     fun setCanvasOverCellular(value: Boolean) {
@@ -2185,6 +2199,7 @@ object AppSettings {
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
+    private const val KEY_REMOTE_CONTROL_ENABLED = "remote_control_enabled"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"

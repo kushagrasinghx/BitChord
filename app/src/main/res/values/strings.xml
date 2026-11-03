@@ -929,6 +929,9 @@
     <!-- Listen together -->
     <string name="listen_together">Listen together</string>
     <string name="listen_together_subtitle">Share a code and play the same music, in time</string>
+    <string name="remote_control">Remote control</string>
+    <string name="remote_control_subtitle">Control this phone\u2019s player from a browser on the same Wi-Fi</string>
+    <string name="remote_control_running">Open %1$s \u00b7 PIN %2$s</string>
     <string name="listen_together_in_party">In a party · %1$s</string>
     <string name="listen_together_sign_in_footer">Listening together needs an account, so everyone in the party can see who else is in it.</string>
     <string name="listen_together_server">Party server</string>

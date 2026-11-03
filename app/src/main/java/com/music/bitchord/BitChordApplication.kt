@@ -142,6 +142,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // Starts the LAN web remote if its switch was left on; a no-op
+        // otherwise. After settings load, before anything can be asked to
+        // serve a page.
+        com.music.bitchord.remote.RemoteControl.init(this)
         // Before anything resolves a track: an addon with `checkValidLossless`
         // is gated on this, and the gate reads "no" until it has looked.
         com.music.bitchord.playback.audio.LosslessOutput.init(this)

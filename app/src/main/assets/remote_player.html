@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BitChord Remote</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #151a23; --panel-2: #1c2330; --border: #262f42;
+    --text: #e8ecf4; --muted: #8b94a7; --mint: #69f0ae; --sky: #4fc3f7; --danger: #ff5c7a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px; line-height: 1.45; padding: 16px 16px 48px;
+    max-width: 560px; margin: 0 auto;
+  }
+  header { display: flex; align-items: center; gap: 10px; padding: 4px 2px 14px; }
+  header .note { width: 28px; height: 28px; flex: none; }
+  header h1 { font-size: 19px; letter-spacing: -0.2px; }
+  header .sub { font-size: 12px; color: var(--muted); }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; margin: 12px 0;
+  }
+  .muted { color: var(--muted); } .small { font-size: 12px; } .center { text-align: center; }
+  .art {
+    width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px;
+    background: var(--panel-2); display: block;
+  }
+  .now-title { font-size: 22px; font-weight: 700; margin-top: 14px; line-height: 1.2; }
+  .now-artist { color: var(--muted); margin-top: 2px; font-size: 16px; }
+  .progress { height: 6px; border-radius: 3px; background: var(--panel-2); margin: 18px 0 6px; overflow: hidden; cursor: pointer; }
+  .progress-fill { height: 100%; width: 0%; background: var(--mint); }
+  .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .transport { display: flex; align-items: center; justify-content: center; gap: 20px; margin-top: 8px; }
+  .tbtn {
+    width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--panel-2); color: var(--text); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .tbtn svg { width: 22px; height: 22px; }
+  .tbtn-main { width: 62px; height: 62px; background: var(--mint); border-color: var(--mint); color: #06281a; }
+  .tbtn-main svg { width: 28px; height: 28px; }
+  .tbtn.small { width: 40px; height: 40px; } .tbtn.small svg { width: 18px; height: 18px; }
+  .tbtn.on { color: var(--mint); border-color: var(--mint); }
+  .row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  .row label { font-size: 12px; color: var(--muted); flex: none; }
+  input[type="range"] { flex: 1; accent-color: var(--mint); }
+  .list { display: grid; gap: 6px; margin-top: 10px; }
+  .item {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 10px; color: var(--text); cursor: pointer;
+  }
+  .item.current { border-color: var(--mint); }
+  .item img { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; background: var(--panel); flex: none; }
+  .item .main { flex: 1; min-width: 0; }
+  .item .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .a { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .dur { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+  .item .add {
+    flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--panel); color: var(--mint); font-size: 18px; cursor: pointer; line-height: 1;
+  }
+  .search-row { display: flex; gap: 8px; }
+  .text-input {
+    flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); padding: 11px 12px; font-size: 15px; outline: none; min-width: 0;
+  }
+  .text-input:focus { border-color: var(--sky); }
+  .btn {
+    background: var(--mint); border: 1px solid var(--mint); color: #06281a; border-radius: 10px;
+    padding: 11px 16px; font-size: 15px; font-weight: 700; cursor: pointer; min-height: 44px;
+  }
+  h2 { font-size: 16px; margin-bottom: 2px; }
+  .pin-box { text-align: center; padding: 28px 16px; }
+  .pin-box input {
+    text-align: center; letter-spacing: 8px; font-size: 22px; font-weight: 700;
+    max-width: 200px; margin: 14px auto; display: block;
+  }
+  .eq { display: flex; gap: 3px; align-items: flex-end; height: 14px; }
+  .eq span { width: 3px; background: var(--mint); animation: eq 0.9s ease-in-out infinite; }
+  .eq span:nth-child(2) { animation-delay: 0.25s; } .eq span:nth-child(3) { animation-delay: 0.5s; }
+  @keyframes eq { 0%, 100% { height: 5px; } 50% { height: 14px; } }
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 16px; border-radius: 999px; font-size: 13px; z-index: 9; max-width: 88vw; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="note" viewBox="0 0 24 24" aria-hidden="true"><path fill="#69F0AE" d="M9 18.5a2.8 2.1 0 1 0 5.6 0A2.8 2.1 0 1 0 9 18.5Z M13.6 4h1.1v14.5h-1.1Z M14.7 4c3 .6 4.4 2.4 4.1 4.9-1-1.9-2.2-2.6-4.1-2.9Z"/></svg>
+  <div>
+    <h1>BitChord Remote</h1>
+    <div class="sub" id="connLabel">Connecting…</div>
+  </div>
+</header>
+
+<!-- PIN gate -->
+<section class="card pin-box" id="pinCard" hidden>
+  <h2>This remote is locked</h2>
+  <p class="muted">Enter the PIN shown in BitChord under Settings → Remote control.</p>
+  <input class="text-input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
+  <button class="btn" id="unlockBtn">Unlock</button>
+  <p class="muted small" id="pinError"></p>
+</section>
+
+<!-- Player -->
+<main id="playerUi" hidden>
+  <section class="card">
+    <img class="art" id="art" alt="" hidden>
+    <div class="now-title" id="nowTitle">Nothing playing</div>
+    <div class="now-artist" id="nowArtist">Search below, or pick from the queue</div>
+    <div class="progress" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="times"><span id="posLabel">0:00</span><span id="durLabel">0:00</span></div>
+    <div class="transport">
+      <button class="tbtn small" id="shuffleBtn" title="Shuffle">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M10.6 8.6 8 6H3V4h5.6L14 9.4 17.6 6H15V4h7v5h-2V6.4L16.4 10l3.6 3.6V11h2v5h-7v-2h2.6L14 10.4 10.6 8.6ZM3 18v-2h3.4l2.1-2.1 1.5 1.4L7.6 18H3Zm13.4 0-1.9-1.9 1.5-1.4 1.4 1.3H20v-3h2v7h-7v-2h1.4Z" transform="scale(0.92) translate(1,1)"/></svg>
+      </button>
+      <button class="tbtn" id="prevBtn" title="Previous">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9.5 12z"/></svg>
+      </button>
+      <button class="tbtn tbtn-main" id="playBtn" title="Play or pause">
+        <svg id="playIcon" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+        <svg id="pauseIcon" viewBox="0 0 24 24" hidden><path fill="currentColor" d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+      </button>
+      <button class="tbtn" id="nextBtn" title="Next">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M16 5h2v14h-2zM4 5v14l10.5-7z"/></svg>
+      </button>
+      <button class="tbtn small" id="repeatBtn" title="Repeat">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+      </button>
+    </div>
+    <div class="row">
+      <label for="vol">Volume</label>
+      <input type="range" id="vol" min="0" max="100" value="50">
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Play something</h2>
+    <div class="search-row">
+      <input class="text-input" id="searchInput" type="search" placeholder="Search YouTube Music" autocomplete="off">
+      <button class="btn" id="searchBtn">Search</button>
+    </div>
+    <div class="list" id="resultsList"></div>
+  </section>
+
+  <section class="card">
+    <h2>Queue</h2>
+    <p class="muted small" id="queueMeta"></p>
+    <div class="list" id="queueList"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+let token = localStorage.getItem('bitchordRemoteToken') || '';
+let state = null;
+let lastQueueKey = '';
+let pollTimer = null;
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+function fmtTime(ms) {
+  if (!ms || ms < 0) ms = 0;
+  const s = Math.round(ms / 1000);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+let toastTimer = null;
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2400);
+}
+
+async function api(path, options) {
+  const opts = options || {};
+  opts.headers = Object.assign({ 'X-Remote-Token': token }, opts.headers || {});
+  const res = await fetch(path, opts);
+  if (res.status === 401) {
+    token = '';
+    localStorage.removeItem('bitchordRemoteToken');
+    showPin();
+    throw new Error('locked');
+  }
+  return res;
+}
+
+async function unlock() {
+  const pin = $('pinInput').value.trim();
+  if (!pin) return;
+  try {
+    const res = await fetch('/api/unlock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    if (!res.ok) { $('pinError').textContent = 'Wrong PIN — check the app and try again.'; return; }
+    const data = await res.json();
+    token = data.token;
+    localStorage.setItem('bitchordRemoteToken', token);
+    $('pinCard').hidden = true;
+    $('playerUi').hidden = false;
+    startPolling();
+  } catch (e) {
+    $('pinError').textContent = 'Could not reach the app.';
+  }
+}
+
+function showPin() {
+  stopPolling();
+  $('playerUi').hidden = true;
+  $('pinCard').hidden = false;
+  $('connLabel').textContent = 'Locked';
+}
+
+async function refresh() {
+  try {
+    const res = await api('/api/state');
+    if (!res.ok) { $('connLabel').textContent = 'Player is starting…'; return; }
+    state = await res.json();
+    render();
+  } catch (e) {
+    if (e.message !== 'locked') $('connLabel').textContent = 'Reconnecting…';
+  }
+}
+
+function render() {
+  if (!state) return;
+  const cur = state.current;
+  $('connLabel').textContent = 'Connected · controlling this phone\u2019s BitChord';
+  if (cur) {
+    $('nowTitle').textContent = cur.title;
+    $('nowArtist').textContent = cur.artist || '';
+    if (cur.thumbnailUrl) { $('art').src = cur.thumbnailUrl; $('art').hidden = false; }
+    else $('art').hidden = true;
+  } else {
+    $('nowTitle').textContent = 'Nothing playing';
+    $('nowArtist').textContent = 'Search below, or pick from the queue';
+    $('art').hidden = true;
+  }
+  $('progressFill').style.width = state.durationMs > 0
+    ? (state.positionMs / state.durationMs * 100) + '%' : '0%';
+  $('posLabel').textContent = fmtTime(state.positionMs);
+  $('durLabel').textContent = fmtTime(state.durationMs);
+  $('playIcon').toggleAttribute('hidden', state.playing);
+  $('pauseIcon').toggleAttribute('hidden', !state.playing);
+  $('shuffleBtn').classList.toggle('on', !!state.shuffle);
+  $('repeatBtn').classList.toggle('on', state.repeat !== 0);
+  const volPct = state.volumeMax > 0 ? Math.round(state.volume / state.volumeMax * 100) : 50;
+  if (document.activeElement !== $('vol')) $('vol').value = volPct;
+
+  const key = state.queue.map((q) => q.videoId).join(',') + '|' + state.index;
+  if (key !== lastQueueKey) {
+    lastQueueKey = key;
+    $('queueMeta').textContent = state.queueSize + ' tracks';
+    $('queueList').innerHTML = state.queue.map((q, i) =>
+      '<button class="item' + (i === state.index ? ' current' : '') + '" data-play-index="' + i + '">'
+      + (q.thumbnailUrl ? '<img src="' + esc(q.thumbnailUrl) + '" alt="">' : '<img alt="">')
+      + '<span class="main"><span class="t">' + esc(q.title) + '</span><br><span class="a">' + esc(q.artist || '') + '</span></span>'
+      + (i === state.index && state.playing ? '<span class="eq"><span></span><span></span><span></span></span>' : '')
+      + '<span class="dur">' + esc(q.durationText || '') + '</span></button>',
+    ).join('') || '<p class="muted small">The queue is empty.</p>';
+    for (const el of document.querySelectorAll('[data-play-index]')) {
+      el.addEventListener('click', () => command({ action: 'playIndex', index: Number(el.dataset.playIndex) }));
+    }
+  }
+}
+
+async function command(obj) {
+  try {
+    await api('/api/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(obj),
+    });
+    setTimeout(refresh, 120);
+  } catch (e) { /* locked handled in api() */ }
+}
+
+let searchSeq = 0;
+async function search() {
+  const q = $('searchInput').value.trim();
+  if (!q) return;
+  const seq = ++searchSeq;
+  $('resultsList').innerHTML = '<p class="muted small">Searching…</p>';
+  try {
+    const res = await api('/api/search?q=' + encodeURIComponent(q));
+    const data = await res.json();
+    if (seq !== searchSeq) return;
+    const results = data.results || [];
+    $('resultsList').innerHTML = results.map((r, i) =>
+      '<div class="item" data-play-result="' + i + '">'
+      + (r.thumbnailUrl ? '<img src="' + esc(r.thumbnailUrl) + '" alt="">' : '<img alt="">')
+      + '<span class="main"><span class="t">' + esc(r.title) + '</span><br><span class="a">' + esc(r.artist || '') + '</span></span>'
+      + '<span class="dur">' + esc(r.durationText || '') + '</span>'
+      + '<button class="add" data-add-result="' + i + '" title="Add to queue">+</button></div>',
+    ).join('') || '<p class="muted small">No results.</p>';
+    for (const el of document.querySelectorAll('[data-play-result]')) {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-add-result]')) return;
+        command({ action: 'playSong', song: results[Number(el.dataset.playResult)] });
+        toast('Playing on BitChord');
+      });
+    }
+    for (const el of document.querySelectorAll('[data-add-result]')) {
+      el.addEventListener('click', () => {
+        command({ action: 'addSong', song: results[Number(el.dataset.addResult)] });
+        toast('Added to the queue');
+      });
+    }
+  } catch (e) {
+    if (e.message !== 'locked') $('resultsList').innerHTML = '<p class="muted small">Search failed — is the phone online?</p>';
+  }
+}
+
+function startPolling() {
+  stopPolling();
+  refresh();
+  pollTimer = setInterval(refresh, 1000);
+}
+function stopPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('unlockBtn').addEventListener('click', unlock);
+  $('pinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(); });
+  $('playBtn').addEventListener('click', () => command({ action: 'toggle' }));
+  $('prevBtn').addEventListener('click', () => command({ action: 'prev' }));
+  $('nextBtn').addEventListener('click', () => command({ action: 'next' }));
+  $('shuffleBtn').addEventListener('click', () => command({ action: 'shuffle' }));
+  $('repeatBtn').addEventListener('click', () => command({ action: 'repeat' }));
+  $('progressBar').addEventListener('click', (e) => {
+    if (!state || !state.durationMs) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const frac = (e.clientX - rect.left) / rect.width;
+    command({ action: 'seek', ms: Math.round(frac * state.durationMs) });
+  });
+  $('vol').addEventListener('change', () => {
+    command({ action: 'volume', level: Number($('vol').value) / 100 });
+  });
+  $('searchBtn').addEventListener('click', search);
+  $('searchInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+
+  if (token) {
+    $('playerUi').hidden = false;
+    startPolling();
+  } else {
+    showPin();
+  }
+});
+</script>
+</body>
+</html>

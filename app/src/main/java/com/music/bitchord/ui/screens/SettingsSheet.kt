@@ -241,6 +241,8 @@ fun SettingsScreen(
     val spatialAudio by AppSettings.spatialAudio.collectAsStateWithLifecycle()
     val nerdStats by AppSettings.showNerdStats.collectAsStateWithLifecycle()
     val listenTogetherButton by AppSettings.showListenTogetherButton.collectAsStateWithLifecycle()
+    val remoteControlEnabled by AppSettings.remoteControlEnabled.collectAsStateWithLifecycle()
+    val remoteControlState by com.music.bitchord.remote.RemoteControl.state.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
@@ -474,6 +476,50 @@ fun SettingsScreen(
                         } ?: stringResource(R.string.listen_together_subtitle),
                         badge = party.members.size.takeIf { party.inParty && it > 1 }?.toString(),
                         onClick = onListenTogether,
+                    )
+                }
+                // The other way of listening with people: not app-to-app sync
+                // through a relay, but a web page this phone serves on the LAN
+                // that drives its own player. The switch starts and stops the
+                // server; while it runs, the subtitle is the address and the
+                // PIN a browser needs, because a settings row is where the
+                // person holding the phone will look for both.
+                val remoteControlTitle = stringResource(R.string.remote_control)
+                row(remoteControlTitle, "browser", "web", "lan", "wifi", "remote") {
+                    SettingsRow(
+                        icon = SfIcons.Wifi,
+                        title = remoteControlTitle,
+                        subtitle = if (remoteControlState.running) {
+                            stringResource(
+                                R.string.remote_control_running,
+                                remoteControlState.url ?: "",
+                                remoteControlState.pin ?: "",
+                            )
+                        } else {
+                            stringResource(R.string.remote_control_subtitle)
+                        },
+                        trailing = {
+                            IosSwitch(
+                                checked = remoteControlEnabled,
+                                onCheckedChange = { enabled ->
+                                    AppSettings.setRemoteControlEnabled(enabled)
+                                    if (enabled) {
+                                        com.music.bitchord.remote.RemoteControl.start(context)
+                                    } else {
+                                        com.music.bitchord.remote.RemoteControl.stop()
+                                    }
+                                },
+                            )
+                        },
+                        onClick = {
+                            val enabled = !remoteControlEnabled
+                            AppSettings.setRemoteControlEnabled(enabled)
+                            if (enabled) {
+                                com.music.bitchord.remote.RemoteControl.start(context)
+                            } else {
+                                com.music.bitchord.remote.RemoteControl.stop()
+                            }
+                        },
                     )
                 }
             }

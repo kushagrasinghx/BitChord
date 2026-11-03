@@ -26,8 +26,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Dns
@@ -68,7 +71,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
+import com.music.bitchord.data.applemusic.AppleMusicTokens
+import com.music.bitchord.data.applemusic.AppleMusicLibrary
+import com.music.bitchord.BuildConfig
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.PlaybackProvider
 import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.smb.SmbRepository
 import com.music.bitchord.data.webdav.WebDavRepository
@@ -121,6 +128,10 @@ fun SourcesScreen(
     onEditSmb: () -> Unit,
     /** Opens the full-window warning before JioSaavn is opted into. */
     onConfirmJioSaavn: () -> Unit,
+    /** Starts MusicKit's sign-in; the activity owns the native result. */
+    onAppleMusicConnect: () -> Unit,
+    /** Clears the Apple Music session and returns the provider to YouTube Music. */
+    onAppleMusicDisconnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -136,6 +147,10 @@ fun SourcesScreen(
     val smbShare by AppSettings.smbShare.collectAsStateWithLifecycle()
     val smbUsername by AppSettings.smbUsername.collectAsStateWithLifecycle()
     val smbPassword by AppSettings.smbPassword.collectAsStateWithLifecycle()
+    val playbackProvider by AppSettings.playbackProvider.collectAsStateWithLifecycle()
+    val appleMusicConnected by AppleMusicTokens.connected.collectAsStateWithLifecycle()
+    val appleMusicStorefront by AppSettings.appleMusicStorefront.collectAsStateWithLifecycle()
+    val appleMusicFallback by AppSettings.appleMusicFallbackToYouTube.collectAsStateWithLifecycle()
 
     /** Last known reachability per source, filled in as the probes come back. */
     val health = remember { mutableStateMapOf<String, SourceHealth>() }
@@ -196,6 +211,17 @@ fun SourcesScreen(
             .padding(contentPadding),
     ) {
         SettingsPageTitle(stringResource(R.string.source))
+
+        AppleMusicProviderSection(
+            provider = playbackProvider,
+            connected = appleMusicConnected,
+            storefront = appleMusicStorefront,
+            fallback = appleMusicFallback,
+            onSelect = { AppSettings.setPlaybackProvider(it) },
+            onConnect = onAppleMusicConnect,
+            onDisconnect = onAppleMusicDisconnect,
+            onFallbackChange = AppSettings::setAppleMusicFallbackToYouTube,
+        )
 
         SettingsGroup(
             header = stringResource(R.string.sources_order_header),
@@ -373,6 +399,125 @@ fun SourcesScreen(
 
 }
 
+
+/**
+ * Where audio comes from, above the ranked source list because it decides the
+ * one thing that list cannot: whether a matched track plays through Apple's
+ * own transport or through the sources below.
+ *
+ * Recommendations, radio and autoplay are untouched by this choice — they stay
+ * on YouTube Music, which is why the footer says so.
+ */
+@Composable
+private fun AppleMusicProviderSection(
+    provider: PlaybackProvider,
+    connected: Boolean,
+    storefront: String,
+    fallback: Boolean,
+    onSelect: (PlaybackProvider) -> Unit,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
+    onFallbackChange: (Boolean) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var testing by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(connected, storefront) { testResult = null }
+    SettingsGroup(
+        header = stringResource(R.string.apple_music_default_service),
+        footer = stringResource(R.string.apple_music_service_footer),
+    ) {
+        SettingsRow(
+            icon = SfIcons.PlayCircle,
+            title = stringResource(R.string.apple_music_youtube_music),
+            subtitle = stringResource(R.string.apple_music_youtube_subtitle),
+            onClick = { onSelect(PlaybackProvider.YOUTUBE_MUSIC) },
+            trailing = { SelectionMark(provider == PlaybackProvider.YOUTUBE_MUSIC) },
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.MusicNote,
+            title = stringResource(R.string.apple_music),
+            subtitle = when {
+                !connected -> stringResource(R.string.apple_music_connect_first)
+                storefront.isNotBlank() -> stringResource(
+                    R.string.apple_music_connected_storefront,
+                    storefront.uppercase(),
+                )
+                else -> stringResource(R.string.connected)
+            },
+            // Apple Music is only a choice once it can actually play: an
+            // account that isn't connected would send every track down the
+            // fallback path while claiming to be the default.
+            enabled = connected && BuildConfig.APPLE_MUSIC_AVAILABLE,
+            onClick = if (connected && BuildConfig.APPLE_MUSIC_AVAILABLE) ({ onSelect(PlaybackProvider.APPLE_MUSIC) }) else null,
+            trailing = { SelectionMark(provider == PlaybackProvider.APPLE_MUSIC) },
+        )
+        if (connected) {
+            RowDivider()
+            SettingsRow(
+                icon = SfIcons.Dns,
+                title = if (testing) stringResource(R.string.testing) else testResult ?: stringResource(R.string.test),
+                subtitle = stringResource(R.string.apple_music_library_subtitle),
+                enabled = !testing,
+                onClick = {
+                    if (!testing) {
+                        testing = true
+                        scope.launch {
+                            val token = AppleMusicTokens.userToken()
+                            try {
+                                AppleMusicLibrary.storefront()
+                                if (token == AppleMusicTokens.userToken()) testResult = context.getString(R.string.connected)
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                if (token == AppleMusicTokens.userToken()) testResult = context.getString(R.string.apple_music_test_failed)
+                            } finally {
+                                testing = false
+                            }
+                        }
+                    }
+                },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.MusicNote,
+                title = stringResource(R.string.apple_music_fallback),
+                subtitle = stringResource(R.string.apple_music_fallback_subtitle),
+                trailing = { IosSwitch(checked = fallback, onCheckedChange = onFallbackChange) },
+            )
+            Text(
+                stringResource(R.string.apple_music_audio_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+            RowDivider()
+            DestructiveRow(label = stringResource(R.string.apple_music_disconnect), onClick = onDisconnect)
+        } else {
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.MusicNote,
+                title = stringResource(R.string.apple_music_connect),
+                subtitle = stringResource(R.string.apple_music_connect_subtitle),
+                onClick = onConnect,
+            )
+        }
+    }
+}
+
+/** The tick on whichever of the two services is the current one. */
+@Composable
+private fun SelectionMark(selected: Boolean) {
+    if (!selected) return
+    Icon(
+        imageVector = Icons.Rounded.Check,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.size(20.dp),
+    )
+}
 
 /**
  * A personal library section: the server row, plus test and disconnect rows

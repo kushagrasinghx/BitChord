@@ -108,6 +108,9 @@ class PlaylistSyncTest {
         assertNull(PlaylistSync.syncableBrowseId(record("VLOLAK1", playlist = false)))
         assertNull(PlaylistSync.syncableBrowseId(record("local:playlist:sp_local_1")))
         assertNull(PlaylistSync.syncableBrowseId(record("spotify:playlist:1")))
+        assertNull(PlaylistSync.syncableBrowseId(record("applemusic:playlist:p.real")))
+        assertNull(PlaylistSync.syncableBrowseId(record("am:pending")))
+        assertNull(PlaylistSync.syncableBrowseId(record("am-miss:123")))
     }
 
     @Test

@@ -18,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.spotify_logo
+import com.music.bitchord.data.applemusic.AppleMusicTokens
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.download.Downloads
@@ -43,6 +44,7 @@ fun libraryLinks(): List<LibraryLink> {
     val smbShare by AppSettings.smbShare.collectAsStateWithLifecycle()
     val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val appleMusicConnected by AppleMusicTokens.connected.collectAsStateWithLifecycle()
     fun link(title: String, subtitle: String, browseId: String, icon: ImageVector = deviceFolderIcon(browseId) ?: Icons.Rounded.Cloud) = LibraryLink(
         item = ShelfItem(
             title = title,
@@ -89,6 +91,13 @@ fun libraryLinks(): List<LibraryLink> {
             stringResource(R.string.spotify_library_subtitle),
             SPOTIFY_BROWSE_ID,
         ).takeIf { spotifyConnected.isNotBlank() }?.copy(logo = Res.drawable.spotify_logo),
+        // Only while signed in to Apple Music in Settings → Accounts; it opens
+        // that account's library rather than a browse page.
+        link(
+            stringResource(R.string.apple_music),
+            stringResource(R.string.apple_music_library_subtitle),
+            APPLE_MUSIC_BROWSE_ID,
+        ).takeIf { appleMusicConnected },
     )
 }
 
@@ -134,6 +143,9 @@ fun deviceFolderIcon(browseId: String): ImageVector? = when (browseId) {
 
 /** The Library row that opens the connected Spotify account; handled by the app, not a browse page. */
 const val SPOTIFY_BROWSE_ID = "app:spotify"
+
+/** The Library row that opens the connected Apple Music account; handled by the app. */
+const val APPLE_MUSIC_BROWSE_ID = "app:apple-music"
 
 /** The Cached songs folder's page id — one of the `local:` device folders. */
 const val CACHE_FOLDER_BROWSE_ID = "local:cache"

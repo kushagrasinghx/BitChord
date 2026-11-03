@@ -386,6 +386,9 @@ class PlaybackService : MediaLibraryService() {
     private var cachedLikedCookie: String? = null
     private var cachedLikedPage: YtMusicRepository.SongPage? = null
 
+    private class ExpiredBrowseContextException :
+        IllegalArgumentException("Browse context expired; reopen the folder")
+
     private data class AutoBrowseContext(
         val page: YtMusicRepository.SongPage,
         val cookie: String?,
@@ -8954,7 +8957,19 @@ class PlaybackService : MediaLibraryService() {
                 ?: mediaItems.singleOrNull()
                 ?: mediaItems.firstOrNull { it.mediaId.startsWith("auto-browse:") }
             if (selected?.mediaId?.startsWith("auto-browse:") == true) {
-                val (context, index) = autoBrowseSelection(selected.mediaId)
+                val (context, index) = try {
+                    autoBrowseSelection(selected.mediaId)
+                } catch (expired: ExpiredBrowseContextException) {
+                    // Report the stale row to the requesting controller. Failing the
+                    // future rejects the request before it can replace the active queue.
+                    withContext(Dispatchers.Main) {
+                        mediaSession.sendError(
+                            controller,
+                            SessionError(SessionError.ERROR_BAD_VALUE, "Reopen the folder and select the track again"),
+                        )
+                    }
+                    throw expired
+                }
                 val bounded = withContext(Dispatchers.Main) {
                     if (context.cookie != null) {
                         check(context.cookie == com.music.bitchord.data.innertube.Innertube.cookie) {
@@ -9012,7 +9027,7 @@ class PlaybackService : MediaLibraryService() {
             val parts = mediaId.split(':')
             require(parts.size == 3 && parts[0] == "auto-browse") { "Invalid browse id" }
             val context = synchronized(autoBrowseContexts) { autoBrowseContexts[parts[1]] }
-            requireNotNull(context) { "Browse context expired; reopen the folder" }
+            if (context == null) throw ExpiredBrowseContextException()
             if (context.cookie != null) {
                 require(context.cookie == com.music.bitchord.data.innertube.Innertube.cookie) {
                     "Account changed; reopen the folder"

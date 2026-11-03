@@ -515,6 +515,15 @@ func TestQueueRemoveAndMoveActOnTheUpcomingCopy(t *testing.T) {
 	if ps.RemoveUpcoming(nil, "x") {
 		t.Fatalf("a track that is only in history should not be removable")
 	}
+
+	// With two upcoming copies, dragging the second one moves that copy.
+	ps.SetQueue(nil, []*Track{a, x, b, x}, 0)
+	if !ps.MoveUpcoming(nil, 3, 1, "x") {
+		t.Fatalf("moving the second upcoming x should succeed")
+	}
+	if got := videoIds(ps.Queue); got != "a,x,x,b" {
+		t.Fatalf("expected a,x,x,b after moving the second x, got %s", got)
+	}
 }
 
 func videoIds(queue []*Track) string {

@@ -1,6 +1,7 @@
 package com.music.bitchord.data.innertube
 
 import com.music.bitchord.auth.normalizeDataSyncId
+import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.ArtistNameIndex
@@ -1417,22 +1418,127 @@ object InnertubeParser {
         return segments.takeIf { it.isNotEmpty() }?.let(::VersionTimeMap)
     }
 
+    // TEMP-DIAG: diagnostic counter for history rows — resets per fetch call.
+    private var _diagHistoryCount = 0
+
     /**
      * The "Remove from history" feedback token on a history row's menu, or
      * null. The same plain menu items also carry other feedback actions —
      * "Don't recommend this", for one — so only the item wearing the DELETE
      * icon is taken; sending a stranger's token would quietly do something
      * else to the account.
+     *
+     * Now searches every non-toggle menu item's subtree for a feedbackToken,
+     * covering both the old `serviceEndpoint.feedbackEndpoint` path and newer
+     * wrapped paths (`commandExecutorCommand.commands[]`).
      */
-    private fun extractFeedbackToken(renderer: JsonObject): String? =
-        renderer.o("menu")
-            ?.o("menuRenderer")
-            ?.a("items")
-            ?.firstNotNullOfOrNull { item ->
-                val service = item.o("menuServiceItemRenderer") ?: return@firstNotNullOfOrNull null
-                if (service.o("icon")?.s("iconType") != "DELETE") return@firstNotNullOfOrNull null
-                service.o("serviceEndpoint")?.o("feedbackEndpoint")?.s("feedbackToken")
+    private fun extractFeedbackToken(renderer: JsonObject): String? {
+        val items = renderer.o("menu")?.o("menuRenderer")?.a("items") ?: return null
+
+        // Collect all candidate tokens with their icon types.
+        data class Candidate(val iconType: String?, val token: String)
+
+        val candidates = mutableListOf<Candidate>()
+        var deleteCandidate: Candidate? = null
+
+        for (item in items) {
+            // Each item is a JsonObject with a single key being the renderer type.
+            val rendererKey = (item as? JsonObject)?.keys?.firstOrNull() ?: continue
+
+            // Skip toggle items (like, dislike, etc.) — never use their tokens.
+            if (rendererKey == "toggleMenuServiceItemRenderer") continue
+
+            val service = item.o("menuServiceItemRenderer") ?: continue
+
+            // TEMP-DIAG: log first 3 history rows' menu items.
+            val diagId = ++_diagHistoryCount
+            if (diagId <= 3) {
+                val iconType = service.o("icon")?.s("iconType")
+                    ?: service.o("defaultIcon")?.s("iconType")
+                val tokenSnippet = findFeedbackTokenInSubtree(service)?.let { it.take(8) }
+                val text = service.o("text")?.runs().orEmpty()
+                TrackLog.d(
+                    "HistoryRemoveDiag",
+                    "row#$diagId item: $rendererKey icon=$iconType token=${tokenSnippet ?: "none"} text=$text",
+                )
             }
+
+            // Find feedback token in this item's subtree (bounded depth).
+            val token = findFeedbackTokenInSubtree(service) ?: continue
+
+            // Check icon type for priority.
+            val iconType = service.o("icon")?.s("iconType")
+                ?: service.o("defaultIcon")?.s("iconType")
+
+            if (iconType == "DELETE") {
+                deleteCandidate = Candidate(iconType, token)
+            } else {
+                candidates.add(Candidate(iconType, token))
+            }
+        }
+
+        // TEMP-DIAG: log the final result for each of the first 3 rows.
+        if (_diagHistoryCount <= 3) {
+            val finalToken = when {
+                deleteCandidate != null -> "DELETE:${deleteCandidate!!.token.take(8)}"
+                candidates.size == 1 -> "single:${candidates[0].token.take(8)} icon=${candidates[0].iconType}"
+                else -> "ambiguous(${candidates.size})"
+            }
+            TrackLog.d(
+                "HistoryRemoveDiag",
+                "row#$_diagHistoryCount result: $finalToken",
+            )
+        }
+
+        // Priority 1: DELETE icon wins unconditionally.
+        deleteCandidate?.let { return it.token }
+
+        // Priority 2 & 3: exactly one non-toggle candidate with a safe icon type.
+        if (candidates.size == 1) {
+            val c = candidates[0]
+            // Never use tokens for library/playlist/favorite actions.
+            val forbiddenIcons = setOf(
+                "LIBRARY_ADD", "LIBRARY_REMOVE", "LIBRARY_SAVED",
+                "FAVORITE", "UNFAVORITE",
+                "BOOKMARK", "BOOKMARK_BORDER",
+                "ADD_TO_PLAYLIST", "ADD_TO_REMOTE_QUEUE",
+                "QUEUE_PLAY_NEXT", "ADD_TO_QUEUE",
+            )
+            if (c.iconType !in forbiddenIcons) {
+                return c.token
+            }
+        }
+
+        // Two or more candidates without a DELETE icon: never guess.
+        return null
+    }
+
+    /**
+     * Search [root]'s subtree (up to 6 levels deep) for a
+     * `feedbackEndpoint.feedbackToken` string, regardless of nesting.
+     * Covers both `serviceEndpoint.feedbackEndpoint.feedbackToken` and
+     * `commandExecutorCommand.commands[].feedbackEndpoint.feedbackToken`.
+     */
+    private fun findFeedbackTokenInSubtree(root: JsonElement?, depth: Int = 0): String? {
+        if (depth > 6 || root == null) return null
+        // Check current level for feedbackEndpoint → feedbackToken.
+        if (root is JsonObject) {
+            val fe = root["feedbackEndpoint"] as? JsonObject ?: return null
+            val token = fe["feedbackToken"] as? JsonPrimitive ?: return null
+            token.contentOrNull?.takeIf { it.isNotBlank() }?.let { return it }
+        }
+        // Recurse into children.
+        if (root is JsonObject) {
+            for (value in root.values) {
+                findFeedbackTokenInSubtree(value, depth + 1)?.let { return it }
+            }
+        } else if (root is JsonArray) {
+            for (element in root) {
+                findFeedbackTokenInSubtree(element, depth + 1)?.let { return it }
+            }
+        }
+        return null
+    }
 
     /**
      * The account's own state for one track, read off the watch queue's row

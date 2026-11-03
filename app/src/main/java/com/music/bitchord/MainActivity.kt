@@ -4388,6 +4388,13 @@ private fun BitChordApp(
                 value = song.localUri == null &&
                     withContext(Dispatchers.IO) { AudioCache.holds(song.videoId) }
             }
+            // TEMP-DIAG: log menu context for history flyout debugging.
+            if (menuFromHistory) {
+                TrackLog.d(
+                    "HistoryRemoveDiag",
+                    "SongActionsMenu: videoId=${song.videoId} menuFromHistory=$menuFromHistory hasToken=${song.feedbackToken != null}",
+                )
+            }
             SongActionsMenu(
                 song = song,
                 signedIn = signedIn,

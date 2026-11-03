@@ -3,7 +3,8 @@ import { useSyncExternalStore } from 'react';
 import type { SpotifyTrack } from '@bitchord/shared/bridge';
 import type { Track } from '@/data/music/types';
 import { useSpotifyAuth, useSpotifySignedIn } from '@/extension/useSpotifyAuth';
-import { fetchSpotifyPlaylistInfo, fetchSpotifyPlaylists, fetchSpotifyTracks, matchToYouTube, pendingTrack } from './api';
+import type { MusicItem } from '@/data/music/types';
+import { fetchSpotifyPlaylistInfo, fetchSpotifyPlaylists, fetchSpotifyTracks, matchToYouTube, pendingTrack, searchSpotifyPlaylists } from './api';
 
 export function useSpotifyPlaylists() {
   const signedIn = useSpotifySignedIn();
@@ -12,6 +13,36 @@ export function useSpotifyPlaylists() {
     queryFn: fetchSpotifyPlaylists,
     enabled: signedIn,
     staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * Spotify's public playlists for [query], as items that open BitChord's
+ * Spotify playlist page. Off while signed out of Spotify; an extension too old
+ * to search answers with an error, which simply shows nothing.
+ */
+export function useSpotifyPlaylistSearch(query: string) {
+  const signedIn = useSpotifySignedIn();
+  const q = query.trim();
+  return useQuery({
+    queryKey: ['spotify', 'data', 'search-playlists', q],
+    queryFn: async (): Promise<MusicItem[]> =>
+      (await searchSpotifyPlaylists(q)).map((p) => ({
+        kind: 'spotify-playlist',
+        id: p.id,
+        title: p.name,
+        subtitle: ['Spotify Playlist', p.owner].filter(Boolean).join(' • '),
+        artists: [],
+        album: null,
+        thumbnail: p.imageUrl,
+        wide: false,
+        durationSec: null,
+        explicit: false,
+      })),
+    enabled: signedIn && q.length > 0,
+    staleTime: 10 * 60_000,
+    retry: false,
+    placeholderData: (previous) => previous,
   });
 }
 

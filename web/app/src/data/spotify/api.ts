@@ -1,7 +1,7 @@
 import type { SpotifyPlaylist, SpotifyTrack } from '@bitchord/shared/bridge';
 import { best, type MatchCandidate } from '@/data/match/trackMatcher';
 import { searchSongs } from '@/data/music/api';
-import type { Track } from '@/data/music/types';
+import type { MusicItem, Track } from '@/data/music/types';
 import { getBridge } from '@/extension/bridge';
 
 /**
@@ -11,6 +11,29 @@ import { getBridge } from '@/extension/bridge';
  */
 
 export const LIKED_ID = 'liked';
+
+/**
+ * Spotify's daylist: one playlist id for everyone, which Spotify answers with
+ * the signed-in listener's own (renamed through the day, "chill indie tuesday
+ * afternoon"). Empty for an account with too little listening yet.
+ */
+export const DAYLIST_ID = '37i9dQZF1EP6YuccBxUcC1';
+
+/** A Spotify playlist as an item that opens BitChord's Spotify playlist page. */
+export function spotifyPlaylistItem(p: { id: string; name: string; owner?: string | null; imageUrl?: string | null }): MusicItem {
+  return {
+    kind: 'spotify-playlist',
+    id: p.id,
+    title: p.name,
+    subtitle: p.owner ?? 'Spotify',
+    artists: [],
+    album: null,
+    thumbnail: p.imageUrl ?? null,
+    wide: false,
+    durationSec: null,
+    explicit: false,
+  };
+}
 
 function bridge() {
   const b = getBridge();

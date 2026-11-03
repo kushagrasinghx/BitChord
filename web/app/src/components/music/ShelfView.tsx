@@ -131,6 +131,22 @@ export function TrackShelf({ title, to, tracks, source }: { title: string; to?: 
   );
 }
 
+/** A shelf of the app's own (the library, Spotify), titled with a link to its page. */
+export function ItemShelf({ title, to, items }: { title: string; to: string; items: MusicItem[] }) {
+  return (
+    <section className={shelfSection} aria-label={title}>
+      <ShelfTitle title={title} to={to} />
+      <ShelfScroller key={items.length} kind="square">
+        {items.map((item, i) => (
+          <li key={`${item.id}-${i}`}>
+            <SquareLockup item={item} />
+          </li>
+        ))}
+      </ShelfScroller>
+    </section>
+  );
+}
+
 /** A titled horizontal shelf (report §2): grid columns per breakpoint, scroll-snap, hover arrows. */
 export function ShelfView({ shelf }: { shelf: Shelf }) {
   return (

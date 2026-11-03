@@ -1132,10 +1132,10 @@ private fun BitChordApp(
         inAppRecognitionAutoPlay = autoPlayRecognizedSong
         searchRecognizedSong(query)
     }
-    // Notification playback resolves the title silently. It deliberately does
+    // Notification actions resolve the title silently. They deliberately do
     // not navigate to Search: the result is only an intermediate lookup before
-    // the player card opens.
-    val resolveNotificationSongForPlayback: (String) -> Unit = { query ->
+    // the player card or playlist picker opens.
+    val resolveNotificationSong: (String) -> Unit = { query ->
         viewModel.onFilterChange(SearchFilter.ALL)
         viewModel.searchFor(query, SearchSource.YOUTUBE)
     }
@@ -5557,14 +5557,13 @@ private fun BitChordApp(
             val action = notificationAction ?: return@LaunchedEffect
             RecognitionNotificationActions.handled()
             notificationRecognitionMode = action
-            // Play-now resolves silently so the notification tap goes straight
-            // to the player card. Playlist still uses the visible app search
-            // handoff because its picker needs the normal app context.
+            // Both notification actions resolve silently so neither one opens
+            // the Search screen before handing the result to its destination.
             when (action) {
                 is RecognitionNotificationActions.Action.PlayNow ->
-                    resolveNotificationSongForPlayback(action.query)
+                    resolveNotificationSong(action.query)
                 is RecognitionNotificationActions.Action.AddToPlaylist ->
-                    searchRecognizedSong(action.query)
+                    resolveNotificationSong(action.query)
             }
         }
         LaunchedEffect(notificationRecognitionMode, results, resultsQuery, controller, query) {

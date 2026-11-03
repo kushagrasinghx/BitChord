@@ -56,7 +56,10 @@ class RecognitionOverlayView(context: Context) : View(context) {
             val follow = (deltaSeconds * 9f).coerceAtMost(1f)
             displayAudioLevel += (targetAudioLevel - displayAudioLevel) * follow
             val energy = 0.18f + displayAudioLevel * 0.82f
-            colorPhase = (colorPhase + deltaSeconds * (0.72f + energy * 1.8f)) % TAU
+            // Keep this phase continuous. The orbit itself is periodic, but
+            // wrapping here made the hue expression jump when its multiplier
+            // reached the end of a cycle.
+            colorPhase += deltaSeconds * (0.72f + energy * 1.8f)
             wavePhase = (wavePhase + deltaSeconds * WAVE_PHASE_SPEED) % TAU
             postInvalidateOnAnimation()
             choreographer.postFrameCallback(this)

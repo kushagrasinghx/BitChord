@@ -364,6 +364,7 @@ import com.music.bitchord.data.canvas.AppleArtistArtRepository
 import com.music.bitchord.data.canvas.keyColors
 import com.music.bitchord.ui.theme.SystemBarIcons
 import com.music.bitchord.widget.RecognitionNotificationActions
+import com.music.bitchord.widget.RecognitionNotifications
 import com.music.bitchord.ui.utils.guardSheetFromContentTouches
 import com.music.bitchord.ui.utils.rememberIosOverscrollFactory
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
@@ -401,7 +402,9 @@ class MainActivity : AppCompatActivity() {
         JamInviteLink.consume(intent)
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
-        RecognitionNotificationActions.consume(intent)
+        if (RecognitionNotificationActions.consume(intent)) {
+            RecognitionNotifications.cancel(this)
+        }
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val appFont by AppSettings.appFont.collectAsStateWithLifecycle()
@@ -509,7 +512,9 @@ class MainActivity : AppCompatActivity() {
         PlayerDeepLink.consume(intent)
         JamInviteLink.consume(intent)
         MusicLink.consume(intent)
-        RecognitionNotificationActions.consume(intent)
+        if (RecognitionNotificationActions.consume(intent)) {
+            RecognitionNotifications.cancel(this)
+        }
     }
 }
 
@@ -5480,24 +5485,29 @@ private fun BitChordApp(
         }
 
         var widgetRecognitionMode by remember { mutableStateOf(false) }
+        var widgetRecognitionQuery by remember { mutableStateOf<String?>(null) }
         val widgetMatch by com.music.bitchord.widget.RecognitionDeepLink.pendingMatch.collectAsStateWithLifecycle()
         val notificationAction by RecognitionNotificationActions.pending.collectAsStateWithLifecycle()
         LaunchedEffect(widgetMatch) {
             val query = widgetMatch ?: return@LaunchedEffect
             com.music.bitchord.widget.RecognitionDeepLink.matchHandled()
             widgetRecognitionMode = true
-            // The widget's recognizer found the song in its own window and
-            // handed the query over; this picks up exactly where the sheet's
-            // own hand-off resumes: Search on All, the query branded as a
-            // recognition hand-off, and the results running up behind the
-            // player that opens over them.
-            searchRecognizedSong(query)
+            widgetRecognitionQuery = query
+            // Resolve silently. The widget and Quick Settings auto-play path
+            // goes straight from the handoff to the player card, without
+            // navigating through the Search screen.
+            resolveNotificationSong(query)
         }
         // Widget recognition auto-plays the matched song and opens the player.
-        LaunchedEffect(widgetRecognitionMode, results, controller) {
+        LaunchedEffect(widgetRecognitionMode, results, resultsQuery, controller, query) {
             if (!widgetRecognitionMode) return@LaunchedEffect
+            val expectedQuery = widgetRecognitionQuery ?: return@LaunchedEffect
+            if (query != expectedQuery || resultsQuery != expectedQuery) return@LaunchedEffect
             when (val state = results) {
-                is UiState.Error -> widgetRecognitionMode = false
+                is UiState.Error -> {
+                    widgetRecognitionMode = false
+                    widgetRecognitionQuery = null
+                }
                 is UiState.Success -> {
                     val data = state.data
                     val song = data?.filterIsInstance<SearchResult.TopTrack>()?.firstOrNull()?.song
@@ -5511,6 +5521,7 @@ private fun BitChordApp(
                         // the connection is live.
                         val c = controller ?: return@LaunchedEffect
                         widgetRecognitionMode = false
+                        widgetRecognitionQuery = null
                         playRadio(song, QueueSource("Recognition", PlaybackSourceType.SEARCH))
                         showNowPlaying = true
                     } else {
@@ -5520,6 +5531,7 @@ private fun BitChordApp(
                         // rather than end the ride on silence; play() is a
                         // well-mannered no-op if nothing had been paused.
                         widgetRecognitionMode = false
+                        widgetRecognitionQuery = null
                         controller?.play()
                     }
                 }

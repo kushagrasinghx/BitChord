@@ -20,19 +20,38 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.shazam.ShazamTrack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /** Notifications for matches found from the home-screen widget or QS tile. */
 object RecognitionNotifications {
 
+    private val artworkScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var artworkJob: Job? = null
+    @Volatile
+    private var notificationGeneration = 0L
+
+    fun cancel(context: Context) {
+        notificationGeneration++
+        artworkJob?.cancel()
+        artworkJob = null
+        runCatching {
+            context.getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
+        }
+    }
+
     /** Posts the text immediately, then refreshes it with cover art if it loads. */
     fun post(context: Context, track: ShazamTrack) {
         val appContext = context.applicationContext
+        val generation = ++notificationGeneration
+        artworkJob?.cancel()
         publish(appContext, track, artwork = null)
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        artworkJob = artworkScope.launch {
             loadArtwork(appContext, track.artworkUrl)?.let { artwork ->
-                publish(appContext, track, artwork)
+                if (generation == notificationGeneration) {
+                    publish(appContext, track, artwork)
+                }
             }
         }
     }

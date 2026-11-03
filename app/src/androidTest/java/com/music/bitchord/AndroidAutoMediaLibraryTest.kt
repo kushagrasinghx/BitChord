@@ -80,21 +80,44 @@ class AndroidAutoMediaLibraryTest {
         assertNotNull("Children list must not be null", items)
         assertTrue("Top-level children must not be empty", items!!.isNotEmpty())
 
-        val mediaIds = items.map { it.mediaId }
-        assertTrue("Must contain 'recents'", mediaIds.contains("recents"))
-        assertTrue("Must contain 'quick_picks'", mediaIds.contains("quick_picks"))
-        assertTrue("Must contain 'playlists'", mediaIds.contains("playlists"))
-        assertTrue("Must contain 'more'", mediaIds.contains("more"))
+        val expectedRootOrder = listOf("quick_picks", "recents", "playlists", "liked", "more")
+        assertEquals("Root must expose the pinned Android Auto folders", expectedRootOrder, items.map { it.mediaId })
+        items.forEach {
+            assertTrue("Root child ${it.mediaId} must be browsable", it.mediaMetadata.isBrowsable == true)
+        }
     }
 
     @Test
     fun testGetItem() = runBlocking {
-        val itemResult = withContext(Dispatchers.Main) {
-            mediaBrowser.getItem("recents").get(10, TimeUnit.SECONDS)
+        for (id in listOf("quick_picks", "recents", "playlists", "liked", "more")) {
+            val itemResult = withContext(Dispatchers.Main) {
+                mediaBrowser.getItem(id).get(10, TimeUnit.SECONDS)
+            }
+            assertNotNull("Item result for $id must not be null", itemResult)
+            assertNotNull("Item for $id must not be null", itemResult.value)
+            assertEquals(id, itemResult.value?.mediaId)
         }
-        assertNotNull("Item result must not be null", itemResult)
-        assertNotNull("Item must not be null", itemResult.value)
-        assertEquals("recents", itemResult.value?.mediaId)
+    }
+
+    @Test
+    fun testPaginationBoundaries() = runBlocking {
+        val firstPage = withContext(Dispatchers.Main) {
+            mediaBrowser.getChildren("root", 0, 2, null).get(10, TimeUnit.SECONDS)
+        }
+        assertNotNull(firstPage.value)
+        assertTrue(firstPage.value!!.size <= 2)
+
+        val outOfRange = withContext(Dispatchers.Main) {
+            mediaBrowser.getChildren("root", 99, 20, null).get(10, TimeUnit.SECONDS)
+        }
+        assertNotNull(outOfRange.value)
+        assertTrue(outOfRange.value!!.isEmpty())
+
+        val overflowAttempt = withContext(Dispatchers.Main) {
+            mediaBrowser.getChildren("root", Int.MAX_VALUE, 50, null).get(10, TimeUnit.SECONDS)
+        }
+        assertNotNull(overflowAttempt.value)
+        assertTrue(overflowAttempt.value!!.isEmpty())
     }
 
     @Test

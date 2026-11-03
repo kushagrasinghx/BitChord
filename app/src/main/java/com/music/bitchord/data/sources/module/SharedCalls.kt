@@ -101,6 +101,20 @@ internal class SharedCalls<T>(
     /** Everything held, dropped — the configuration it was all about is gone. */
     fun clear() = entries.clear()
 
+    /**
+     * Drops answers that have already completed while preserving work still in
+     * flight.
+     *
+     * An explicit refresh should ask the server again instead of accepting a
+     * cached empty response, but it should not detach from a request which is
+     * already on the wire and cause a duplicate call beside it. The next
+     * caller therefore still joins running work and starts fresh for everything
+     * else.
+     */
+    fun clearCompleted() {
+        entries.entries.removeIf { !it.value.work.isActive }
+    }
+
     /** For tests and diagnostics: how many answers are being held. */
     internal fun size() = entries.size
 

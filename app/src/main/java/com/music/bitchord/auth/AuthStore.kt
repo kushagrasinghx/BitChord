@@ -2,9 +2,6 @@ package com.music.bitchord.auth
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.music.bitchord.data.DebugLog as Log
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 
 /**
  * Encrypted-at-rest storage for credentials.
@@ -16,25 +13,15 @@ import androidx.security.crypto.MasterKey
  * full access to their account, so they don't go in the plain prefs the
  * scrobbler tokens use.
  *
- * Keystore init fails on a handful of OEM builds, so it degrades to plain
- * prefs rather than crashing on launch.
+ * A restored file whose keyset this device can't unwrap is recreated, and a
+ * Keystore that can't be used at all degrades to plain prefs rather than
+ * crashing on launch; see [EncryptedPrefs]. Kept out of backups for the first
+ * reason, in backup_rules.xml and data_extraction_rules.xml.
  */
 class AuthStore(context: Context) {
 
-    private val prefs: SharedPreferences = runCatching {
-        EncryptedSharedPreferences.create(
-            context,
-            "bitchord_auth",
-            MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build(),
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }.getOrElse {
-        Log.w("BitChord", "EncryptedSharedPreferences unavailable, falling back: ${it.message}")
-        context.getSharedPreferences("bitchord_auth_plain", Context.MODE_PRIVATE)
-    }
+    private val prefs: SharedPreferences =
+        EncryptedPrefs.open(context, "bitchord_auth", "bitchord_auth_plain")
 
     var cookie: String?
         get() = prefs.getString(KEY_COOKIE, null)
@@ -82,7 +69,13 @@ class AuthStore(context: Context) {
     }
 
     fun upsertSession(session: GoogleAccountSession, activate: Boolean = true) {
-        val next = sessions.filterNot { it.accountId == session.accountId } + session
+        val existing = sessions
+        val index = existing.indexOfFirst { it.accountId == session.accountId }
+        val next = if (index >= 0) {
+            existing.toMutableList().also { it[index] = session }
+        } else {
+            existing + session
+        }
         replaceSessions(next)
         if (activate) select(session.accountId, session.activeProfileId)
     }
@@ -98,6 +91,7 @@ class AuthStore(context: Context) {
         val fallback = remaining.firstOrNull()
         select(fallback?.accountId.orEmpty(), fallback?.activeProfileId)
         prefs.edit().putString(KEY_COOKIE, fallback?.cookie).apply()
+        BrowserSession.clearGoogleCookies()
         return fallback
     }
 
@@ -108,6 +102,24 @@ class AuthStore(context: Context) {
     var discordToken: String?
         get() = prefs.getString(KEY_DISCORD_TOKEN, null)
         set(value) = prefs.edit().putString(KEY_DISCORD_TOKEN, value).apply()
+
+    /**
+     * The WebDAV server password. Encrypted like every other credential here:
+     * a backup export carries the server URL and username in plain prefs, but
+     * never this.
+     */
+    var webdavPassword: String?
+        get() = prefs.getString(KEY_WEBDAV_PASSWORD, null)
+        set(value) = prefs.edit().putString(KEY_WEBDAV_PASSWORD, value).apply()
+
+    /**
+     * The SMB share password. Encrypted like every other credential here:
+     * exports carry the server, share and username in plain prefs, but never
+     * this.
+     */
+    var smbPassword: String?
+        get() = prefs.getString(KEY_SMB_PASSWORD, null)
+        set(value) = prefs.edit().putString(KEY_SMB_PASSWORD, value).apply()
 
     /**
      * The channel the listener chose to act as, if they chose one.
@@ -216,5 +228,7 @@ class AuthStore(context: Context) {
         private const val KEY_CHANNEL_NAME = "channel_name"
         private const val KEY_CHANNEL_AUTH_USER = "channel_auth_user"
         private const val KEY_DISCORD_TOKEN = "discord_token"
+        private const val KEY_WEBDAV_PASSWORD = "webdav_password"
+        private const val KEY_SMB_PASSWORD = "smb_password"
     }
 }

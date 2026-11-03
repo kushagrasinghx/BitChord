@@ -1,11 +1,19 @@
 package com.music.bitchord
 
+import com.music.bitchord.data.lyrics.CharGrowth
 import com.music.bitchord.data.lyrics.EnhancedLrc
+import com.music.bitchord.data.lyrics.GrowingWord
+import com.music.bitchord.data.lyrics.LyricAlignment
 import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.LyricSyllable
 import com.music.bitchord.data.lyrics.LyricWord
 import com.music.bitchord.data.lyrics.LyricsPlus
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
 import com.music.bitchord.data.lyrics.TtmlLyrics
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -108,6 +116,65 @@ class WordSyncTest {
         assertTrue(lines.single().words.isEmpty())
     }
 
+    /** Two named voices trading lines, as Apple writes a duet. */
+    private val duet = """
+        <tt xmlns="http://www.w3.org/ns/ttml">
+          <head><metadata>
+            <ttm:agent type="person" xml:id="v1"/>
+            <ttm:agent type="person" xml:id="v2"/>
+            <ttm:agent type="group" xml:id="v1000"/>
+          </metadata></head>
+          <body><div>
+            <p begin="1.0" end="2.0" ttm:agent="v1">mine</p>
+            <p begin="2.0" end="3.0" ttm:agent="v2">yours</p>
+            <p begin="3.0" end="4.0" ttm:agent="v2">still yours</p>
+            <p begin="4.0" end="5.0" ttm:agent="v1">mine again</p>
+            <p begin="5.0" end="6.0" ttm:agent="v1000">both of us</p>
+          </div></body>
+        </tt>
+    """.trimIndent()
+
+    @Test
+    fun `lays a duet out on alternating sides`() {
+        val sides = TtmlLyrics.parse(duet).sung().map { it.alignment }
+        assertEquals(
+            listOf(
+                LyricAlignment.Start,
+                LyricAlignment.End,
+                // The same voice twice running stays where it was: the side
+                // changes when the singer does, not once per line.
+                LyricAlignment.End,
+                LyricAlignment.Start,
+                // Sung by everyone, so it belongs to neither side.
+                LyricAlignment.Start,
+            ),
+            sides,
+        )
+    }
+
+    @Test
+    fun `a song with one voice is all on one side`() {
+        val sides = TtmlLyrics.parse(ttml).sung().map { it.alignment }
+        assertEquals(listOf(LyricAlignment.Start, LyricAlignment.Start), sides)
+    }
+
+    @Test
+    fun `a song that would land entirely on the right is flipped back`() {
+        // One voice, declared `other`, which is the side the walk starts away
+        // from — left alone this reads as a song sung entirely down the
+        // right-hand margin.
+        val sides = TtmlLyrics.parse(
+            """
+            <tt><head><metadata><ttm:agent type="other" xml:id="v2"/></metadata></head>
+            <body><div>
+              <p begin="1.0" end="2.0" ttm:agent="v2">one</p>
+              <p begin="2.0" end="3.0" ttm:agent="v2">two</p>
+            </div></body></tt>
+            """.trimIndent(),
+        ).sung().map { it.alignment }
+        assertEquals(listOf(LyricAlignment.Start, LyricAlignment.Start), sides)
+    }
+
     @Test
     fun `parses every ttml clock shape`() {
         assertEquals(27_395L, TtmlLyrics.time("27.395"))
@@ -163,6 +230,95 @@ class WordSyncTest {
     }
 
     // ---- LyricsPlus / YouLy+ syllables --------------------------------------
+
+    private fun singer(id: String) = buildJsonObject { put("singer", JsonPrimitive(id)) }
+
+    /**
+     * The same duet the TTML tests cover, as LyricsPlus states it: the voices
+     * are declared in the payload's metadata and each line names the one that
+     * sang it. Field names taken from am-lyrics, which is the only description
+     * of this part of the API there is.
+     */
+    @Test
+    fun `lays out a lyricsplus duet from the voices it names`() {
+        val sides = LyricsPlus.parse(
+            LyricsPlus.Response(
+                metadata = LyricsPlus.Metadata(
+                    agents = mapOf(
+                        "v1" to LyricsPlus.Agent(type = "person"),
+                        "v2" to LyricsPlus.Agent(type = "person"),
+                        "v1000" to LyricsPlus.Agent(type = "group"),
+                    ),
+                ),
+                lyrics = listOf(
+                    LyricsPlus.Line(time = 1_000, duration = 1_000, text = "mine", element = singer("v1")),
+                    LyricsPlus.Line(time = 2_000, duration = 1_000, text = "yours", element = singer("v2")),
+                    LyricsPlus.Line(time = 3_000, duration = 1_000, text = "still yours", element = singer("v2")),
+                    LyricsPlus.Line(time = 4_000, duration = 1_000, text = "mine again", element = singer("v1")),
+                    LyricsPlus.Line(time = 5_000, duration = 1_000, text = "both", element = singer("v1000")),
+                ),
+            ),
+        ).filterNot { it.isGap }.map { it.alignment }
+        assertEquals(
+            listOf(
+                LyricAlignment.Start,
+                LyricAlignment.End,
+                LyricAlignment.End,
+                LyricAlignment.Start,
+                LyricAlignment.Start,
+            ),
+            sides,
+        )
+    }
+
+    @Test
+    fun `a voice named by alias is matched to its declaration`() {
+        val sides = LyricsPlus.parse(
+            LyricsPlus.Response(
+                metadata = LyricsPlus.Metadata(
+                    // Declared under one key, referred to by another.
+                    agents = mapOf("agent1" to LyricsPlus.Agent(type = "group", alias = "v1")),
+                ),
+                lyrics = listOf(
+                    LyricsPlus.Line(time = 1_000, duration = 500, text = "everyone", element = singer("v1")),
+                ),
+            ),
+        ).filterNot { it.isGap }.map { it.alignment }
+        // A group line stays left; without the alias it would read as a person
+        // and start the alternation.
+        assertEquals(listOf(LyricAlignment.Start), sides)
+    }
+
+    @Test
+    fun `the older tag list still marks the answering side`() {
+        val sides = LyricsPlus.parse(
+            LyricsPlus.Response(
+                lyrics = listOf(
+                    LyricsPlus.Line(time = 1_000, duration = 500, text = "mine"),
+                    LyricsPlus.Line(
+                        time = 2_000,
+                        duration = 500,
+                        text = "yours",
+                        element = buildJsonArray { add(JsonPrimitive("opposite")) },
+                    ),
+                ),
+            ),
+        ).filterNot { it.isGap }.map { it.alignment }
+        assertEquals(listOf(LyricAlignment.Start, LyricAlignment.End), sides)
+    }
+
+    @Test
+    fun `a payload that says nothing about voices stays on one side`() {
+        val sides = LyricsPlus.parse(
+            LyricsPlus.Response(
+                lyrics = listOf(
+                    LyricsPlus.Line(time = 1_000, duration = 500, text = "one"),
+                    LyricsPlus.Line(time = 2_000, duration = 500, text = "two"),
+                ),
+            ),
+        ).filterNot { it.isGap }.map { it.alignment }
+        assertEquals(listOf(LyricAlignment.Start, LyricAlignment.Start), sides)
+    }
 
     @Test
     fun `merges lyricsplus syllables on their trailing space`() {
@@ -323,60 +479,95 @@ class WordSyncTest {
         assertEquals(6f, repeated.revealedChars(2_000), 0.01f)
     }
 
-    // ---- Glow intensity ------------------------------------------------------
+    // ---- Words held long enough to animate letter by letter -----------------
 
-    /** Peak intensity reached anywhere inside a word of the given length. */
-    private fun peakGlowFor(heldMs: Long): Float {
-        val held = LyricLine(
+    private fun held(text: String, heldMs: Long) = LyricLine(
+        timeMs = 0,
+        text = text,
+        words = listOf(LyricWord(0, heldMs, text)),
+    )
+
+    private fun GrowingWord.at(charIndex: Int, positionMs: Long) =
+        CharGrowth().also { sampleInto(charIndex, positionMs, it) }
+
+    @Test
+    fun `a note carried earns the letter-by-letter treatment and patter does not`() {
+        assertEquals(1, held("hold", 1_500).growingWords.size)
+        assertTrue(held("hold", 300).growingWords.isEmpty())
+    }
+
+    @Test
+    fun `how long a word must be held depends on how long it is`() {
+        // Two letters over a second and a half is unmistakably a held note; the
+        // same second and a half spread over seven letters is ordinary singing.
+        assertTrue(held("ah", 1_500).growingWords.isNotEmpty())
+        assertTrue(held("holding", 900).growingWords.isEmpty())
+        assertTrue(held("holding", 1_500).growingWords.isNotEmpty())
+        // Past seven letters there is no wave left to run, however long it goes.
+        assertTrue(held("standing", 4_000).growingWords.isEmpty())
+    }
+
+    @Test
+    fun `words that do not come apart into letters are left alone`() {
+        assertTrue(held("一二三", 2_000).growingWords.isEmpty())
+        assertTrue(held("re-do", 2_000).growingWords.isEmpty())
+    }
+
+    @Test
+    fun `the swell travels along the word rather than pulsing at once`() {
+        val word = held("golden", 2_000).growingWords.single()
+        // Early on, the first letter is well up and the last has not started.
+        assertTrue(word.at(0, 500).scale > word.at(5, 500).scale)
+        assertEquals(1f, word.at(5, 500).scale, 0.001f)
+        // Later the order reverses: the front of the word is settling back
+        // while the tail of it is still coming up.
+        assertTrue(word.at(5, 2_600).scale > word.at(0, 2_600).scale)
+    }
+
+    @Test
+    fun `every letter comes to rest at the lift an ordinary sung word carries`() {
+        val word = held("golden", 2_000).growingWords.single()
+        val settled = word.at(0, word.restsAtMs)
+        assertEquals(1f, settled.scale, 0.001f)
+        assertEquals(0f, settled.shift, 0.001f)
+        assertEquals(1f, settled.rise, 0.001f)
+        assertEquals(0f, settled.bloom, 0.001f)
+    }
+
+    @Test
+    fun `the bloom peaks partway up and is gone before the letter settles`() {
+        val word = held("golden", 2_000).growingWords.single()
+        assertEquals(0f, word.at(0, 0).bloom, 0.001f)
+        assertTrue(word.at(0, 800).bloom > 0.3f)
+        assertEquals(0f, word.at(0, 2_400).bloom, 0.001f)
+    }
+
+    @Test
+    fun `letters lean away from the middle of the word as it swells`() {
+        val word = held("golden", 2_000).growingWords.single()
+        assertTrue(word.at(0, 800).shift < 0f)
+        assertTrue(word.at(5, 2_300).shift > 0f)
+    }
+
+    @Test
+    fun `a line of ordinary syllables has nothing to animate`() {
+        val patter = LyricLine(
             timeMs = 0,
-            text = "ah",
-            words = listOf(LyricWord(0, heldMs, "ah")),
+            text = "one two three",
+            words = listOf(
+                LyricWord(0, 200, "one"),
+                LyricWord(200, 400, "two"),
+                LyricWord(400, 700, "three"),
+            ),
         )
-        return (0..heldMs step 5).maxOf { held.glowIntensity(it) }
+        assertTrue(patter.growingWords.isEmpty())
+        assertFalse(patter.isGrowing(300))
     }
 
     @Test
-    fun `a held note blooms and patter barely does`() {
-        val slow = peakGlowFor(900)
-        val quick = peakGlowFor(120)
-        assertEquals(1f, slow, 0.02f)
-        assertTrue("patter should stay dim, was $quick", quick < 0.3f)
-        assertTrue("a held note should far outglow patter", slow > quick * 3f)
-    }
-
-    @Test
-    fun `intensity climbs with how long the word is held`() {
-        val steps = listOf(150L, 300L, 500L, 800L).map { peakGlowFor(it) }
-        steps.zipWithNext { lower, higher ->
-            assertTrue("$lower should not exceed $higher", lower <= higher + 0.001f)
-        }
-        assertTrue("the shortest and longest should differ", steps.last() - steps.first() > 0.5f)
-    }
-
-    @Test
-    fun `each word blooms and lets go rather than staying lit`() {
-        val word = LyricLine(0, "ah", listOf(LyricWord(0, 1_000, "ah")))
-        // Dark at both ends of the word, brightest somewhere in the middle.
-        assertEquals(0f, word.glowIntensity(0), 0.01f)
-        assertEquals(0f, word.glowIntensity(1_000), 0.01f)
-        assertTrue(word.glowIntensity(500) > 0.9f)
-    }
-
-    @Test
-    fun `pauses between and after words are dark`() {
-        val gapped = LyricLine(
-            timeMs = 0,
-            text = "one two",
-            words = listOf(LyricWord(0, 200, "one"), LyricWord(900, 1_100, "two")),
-        )
-        assertEquals(0f, gapped.glowIntensity(500), 0.001f)
-        assertEquals(0f, gapped.glowIntensity(5_000), 0.001f)
-    }
-
-    @Test
-    fun `a line with no word timings never glows`() {
-        val plain = LyricLine(0, "no timings here")
-        assertEquals(0f, plain.glowIntensity(500), 0.001f)
+    fun `a line with no word timings has nothing to animate`() {
+        assertTrue(LyricLine(0, "no timings here").growingWords.isEmpty())
+        assertFalse(LyricLine(0, "no timings here").isGrowing(500))
     }
 
     @Test
@@ -384,5 +575,93 @@ class WordSyncTest {
         val plain = LyricLine(1_000, "no timings here")
         assertEquals(0f, plain.revealedChars(999), 0.01f)
         assertEquals(15f, plain.revealedChars(1_000), 0.01f)
+    }
+
+    // ---- Syllables and the lift -----------------------------------------------
+
+    @Test
+    fun `ttml keeps each syllable's own timing on the word`() {
+        val enough = TtmlLyrics.parse(ttml).sung()[1].words[1]
+        assertEquals(
+            listOf(LyricSyllable(31_839, 31_996, 0, 1), LyricSyllable(31_996, 32_529, 1, 6)),
+            enough.syllables,
+        )
+        // A word written as one span is its own single syllable.
+        assertTrue(TtmlLyrics.parse(ttml).sung()[1].words[0].syllables.isEmpty())
+    }
+
+    @Test
+    fun `the sweep follows syllables rather than spreading over the word`() {
+        val line = TtmlLyrics.parse(ttml).sung()[1]
+        // "long enough": the word starts at character 5.
+        // Halfway through the 157 ms "e" is half a letter in, not a fifth of
+        // the way through the whole word.
+        assertEquals(5.5f, line.revealedChars(31_917), 0.05f)
+        // Halfway through "nough", the other half of the word.
+        assertEquals(8.5f, line.revealedChars(32_262), 0.05f)
+        assertEquals(listOf(0..3, 5..5, 6..10), line.sweepSpans)
+    }
+
+    @Test
+    fun `lyricsplus keeps each syllable's own timing on the word`() {
+        val line = LyricsPlus.parse(
+            LyricsPlus.Response(
+                type = "Word",
+                lyrics = listOf(
+                    LyricsPlus.Line(
+                        time = 30_189,
+                        duration = 2_340,
+                        text = "long enough",
+                        syllabus = listOf(
+                            LyricsPlus.Syllable(time = 30_189, duration = 341, text = "long "),
+                            LyricsPlus.Syllable(time = 31_839, duration = 157, text = "e"),
+                            LyricsPlus.Syllable(time = 31_996, duration = 533, text = "nough"),
+                        ),
+                    ),
+                ),
+            ),
+        ).sung().single()
+        assertTrue(line.words[0].syllables.isEmpty())
+        assertEquals(
+            listOf(LyricSyllable(31_839, 31_996, 0, 1), LyricSyllable(31_996, 32_529, 1, 6)),
+            line.words[1].syllables,
+        )
+    }
+
+    @Test
+    fun `a pause between two syllables rests on the boundary`() {
+        val word = LyricWord(
+            1_000, 2_000, "hello",
+            listOf(LyricSyllable(1_000, 1_200, 0, 3), LyricSyllable(1_600, 2_000, 3, 5)),
+        )
+        assertEquals(3f, word.charsSungAt(1_400), 0.01f)
+        assertEquals(4f, word.charsSungAt(1_800), 0.01f)
+    }
+
+    @Test
+    fun `stripping brackets moves the syllables with the letters`() {
+        val word = LyricWord(
+            0, 600, "(enough)",
+            listOf(LyricSyllable(0, 100, 0, 2), LyricSyllable(100, 600, 2, 8)),
+        )
+        val stripped = word.withoutChars { it == '(' || it == ')' }!!
+        assertEquals("enough", stripped.text)
+        assertEquals(listOf(LyricSyllable(0, 100, 0, 1), LyricSyllable(100, 600, 1, 6)), stripped.syllables)
+        assertNull(LyricWord(0, 1, "()").withoutChars { it == '(' || it == ')' })
+    }
+
+    @Test
+    fun `a quick word barely lifts and a held one goes all the way up`() {
+        val line = LyricLine(
+            timeMs = 1_000,
+            text = "a hold",
+            words = listOf(LyricWord(1_000, 1_100, "a"), LyricWord(2_000, 3_200, "hold")),
+        )
+        val quickPeak = (1_000L..2_000L step 10).maxOf { line.wordLift(0, it) }
+        val heldPeak = (2_000L..4_000L step 10).maxOf { line.wordLift(1, it) }
+        assertTrue("quick word rose to $quickPeak", quickPeak < 0.3f)
+        assertEquals(1f, heldPeak, 0.01f)
+        // The settle hands over without a step: past the rise, the lift is the fall.
+        assertEquals(line.wordFall(1, 3_400), line.wordLift(1, 3_400), 0.001f)
     }
 }

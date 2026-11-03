@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 class GeniusTest {
@@ -105,5 +106,50 @@ class GeniusTest {
         assertTrue(lines[3].isGap)
         assertEquals("[Chorus]", lines[4].text)
         assertEquals("Line 3", lines[5].text)
+    }
+
+    @Test
+    fun `live genius search and scraping test with noisy titles`() = kotlinx.coroutines.runBlocking {
+        // Scrapes the real genius.com, which answers a CI runner's datacenter address
+        // with a block or a rate limit (Genius.lyrics turns that into null), so it
+        // would fail the build for reasons that have nothing to do with the code.
+        // Run it by hand with LIVE_TESTS=1.
+        assumeTrue("needs the network; set LIVE_TESTS=1", System.getenv("LIVE_TESTS") == "1")
+        println("--- TEST 1: Queen - Bohemian Rhapsody (Official Video) ---")
+        val lyrics1 = Genius.lyrics("Bohemian Rhapsody (Official Video)", "Queen")
+        assertNotNull(lyrics1)
+        assertTrue(lyrics1!!.isNotEmpty())
+        println("Lyrics preview (first 5 lines):")
+        lyrics1.take(5).forEach { println("  [LyricLine] ${it.text}") }
+
+        println("\n--- TEST 2: Ed Sheeran - Shape of You [Official Lyric Video] ---")
+        val lyrics2 = Genius.lyrics("Shape of You [Official Lyric Video]", "Ed Sheeran")
+        assertNotNull(lyrics2)
+        assertTrue(lyrics2!!.isNotEmpty())
+        println("Lyrics preview (first 5 lines):")
+        lyrics2.take(5).forEach { println("  [LyricLine] ${it.text}") }
+
+        println("\n--- TEST 3: GEJLON - USA (YouTube: lrJLIE3jGOs) ---")
+        val lyrics3 = Genius.lyrics("USA", "GEJLON")
+        if (lyrics3 != null) {
+            println("Lyrics found for 'USA' by 'GEJLON' (${lyrics3.size} lines):")
+            lyrics3.take(10).forEach { println("  [LyricLine] ${it.text}") }
+        } else {
+            println("No lyrics found on Genius for 'USA' by 'GEJLON'")
+        }
+
+        println("\n--- TEST 4: Full YouTube title: ♪ GEJLON - USA [OFFICIAL MUSIC VIDEO] Prod. Jake Angel Beats ♪ ---")
+        val lyrics4 = Genius.lyrics("♪ GEJLON - USA [OFFICIAL MUSIC VIDEO] Prod. Jake Angel Beats ♪", "Gejlon")
+        assertNotNull(lyrics4)
+        if (lyrics4 != null) {
+            println("Lyrics found for full YouTube video title (${lyrics4.size} lines):")
+            lyrics4.take(10).forEach { println("  [LyricLine] ${it.text}") }
+        } else {
+            println("No lyrics found on Genius for full YouTube title")
+        }
+
+        assertNotNull(lyrics3)
+        assertNotNull(lyrics4)
+        assertEquals(lyrics3, lyrics4)
     }
 }

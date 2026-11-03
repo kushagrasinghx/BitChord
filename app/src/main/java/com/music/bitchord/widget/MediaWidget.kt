@@ -118,7 +118,7 @@ abstract class MediaWidget : AppWidgetProvider() {
         const val WIDE_LAYOUT_MIN_DP = 215
 
         /**
-         * Redraws every placed widget of either kind.
+         * Redraws every placed widget of any kind, the 4×1 included.
          *
          * Called by
          * [PlaybackService][com.music.bitchord.playback.PlaybackService] whenever
@@ -129,6 +129,7 @@ abstract class MediaWidget : AppWidgetProvider() {
          */
         fun refresh(context: Context) {
             val app = context.applicationContext
+            MediaWidgetPill.refresh(app)
             scope.launch {
                 val manager = runCatching { AppWidgetManager.getInstance(app) }.getOrNull() ?: return@launch
                 for ((provider, fallbackWidthDp) in PROVIDERS) {

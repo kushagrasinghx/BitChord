@@ -138,6 +138,111 @@ internal object MediaWidgetArt {
     fun peek(key: String?, widthPx: Int, heightPx: Int, bandPx: Int): Bitmap? =
         key?.let { composites[cacheKey(it, widthPx, heightPx, bandPx)] }?.takeIf { !it.isRecycled }
 
+    /**
+     * The cover cut to a [sizePx] circle, for the 4×1 widget.
+     *
+     * Cut here rather than by the host, because clipping a RemoteViews image to
+     * its outline only exists from API 31. Null when there is no picture to
+     * draw, so the layout's own placeholder disc shows instead. Shares the
+     * failure cool-off and the cache with [render], under a key of its own.
+     */
+    suspend fun circle(context: Context, artworkUrl: String?, sizePx: Int, key: String): Bitmap? {
+        peekCircle(key, sizePx)?.let { return it }
+        if (isCoolingOff(key)) return null
+        val cover = loadArtwork(context, artworkUrl, sizePx)
+        if (cover == null) {
+            if (!artworkUrl.isNullOrBlank()) failures[key] = SystemClock.elapsedRealtime()
+            return null
+        }
+        val square = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        Canvas(square).fillCentreCropped(cover)
+        val round = square.withRoundedCorners(sizePx / 2f)
+        square.recycle()
+        composites.put(circleKey(key, sizePx), round)
+        return round
+    }
+
+    /** [circle]'s result if it has already been drawn. @see peek */
+    fun peekCircle(key: String, sizePx: Int): Bitmap? =
+        composites[circleKey(key, sizePx)]?.takeIf { !it.isRecycled }
+
+    private fun circleKey(key: String, sizePx: Int) = "circle|$key|$sizePx"
+
+    /**
+     * The 4×1 widget's body: the cover filling a [widthPx] × [heightPx] capsule,
+     * blurred until only its colours are left and darkened just enough for white
+     * text — the backdrop the player's lyrics and queue stand on
+     * ([ArtworkMeshBackdrop][com.music.bitchord.ui.player.ArtworkMeshBackdrop]),
+     * cut to the widget's shape.
+     *
+     * The blur runs on a working image a few dozen pixels across and is drawn
+     * back up. That is the soft-rectangle trap [blurBottom] warns about only
+     * when the working image still has detail finer than its pixels; blurred
+     * this hard it has none, so sampling it up is invisible. Null key or a
+     * failed cover gives the placeholder gradient, uncached.
+     */
+    suspend fun pill(context: Context, artworkUrl: String?, widthPx: Int, heightPx: Int, key: String?): Bitmap {
+        key?.let { peekPill(it, widthPx, heightPx) }?.let { return it }
+        val cover = if (key == null || isCoolingOff(key)) null else loadArtwork(context, artworkUrl, ROW_ART_PX)
+        val failed = cover == null && !artworkUrl.isNullOrBlank()
+        if (failed && key != null) failures[key] = SystemClock.elapsedRealtime()
+
+        val composed = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(composed)
+        if (cover == null) {
+            canvas.fillPlaceholder()
+        } else {
+            val workW = PILL_WORKING_WIDTH_PX
+            val workH = (workW * heightPx / widthPx.coerceAtLeast(1)).coerceAtLeast(4)
+            // Cropped at 4× the working size and halved down, so the reduction
+            // averages the whole cover rather than sampling a sparse grid of it.
+            val crop = Bitmap.createBitmap(workW * 4, workH * 4, Bitmap.Config.ARGB_8888)
+            Canvas(crop).fillCentreCropped(cover)
+            val small = crop.halvedTo(workH.toFloat())
+            if (small !== crop) crop.recycle()
+            val w = small.width
+            val h = small.height
+            val pixels = IntArray(w * h)
+            small.getPixels(pixels, 0, w, 0, 0, w, h)
+            blurInPlace(pixels, IntArray(pixels.size), w, h, (w * PILL_BLUR_FRACTION).roundToInt().coerceAtLeast(1))
+            small.setPixels(pixels, 0, w, 0, 0, w, h)
+            canvas.drawBitmap(
+                small,
+                Rect(0, 0, w, h),
+                Rect(0, 0, widthPx, heightPx),
+                Paint().apply { isFilterBitmap = true },
+            )
+            small.recycle()
+        }
+        // Heavier than the player's 6–30%: that backdrop carries large type,
+        // this one a 16sp title and thin glyphs, over sleeves that can be white.
+        canvas.drawRect(
+            0f,
+            0f,
+            widthPx.toFloat(),
+            heightPx.toFloat(),
+            Paint().apply {
+                shader = LinearGradient(
+                    0f, 0f, 0f, heightPx.toFloat(),
+                    0x40000000, 0x70000000, Shader.TileMode.CLAMP,
+                )
+            },
+        )
+
+        // A little of the wallpaper through it too, so the capsule sits on
+        // the home screen rather than being pasted over it.
+        val rounded = composed.withRoundedCorners(heightPx / 2f, PILL_ALPHA)
+        composed.recycle()
+        if (!failed && key != null) composites.put(pillKey(key, widthPx, heightPx), rounded)
+        return rounded
+    }
+
+    /** [pill]'s result if it has already been drawn. @see peek */
+    fun peekPill(key: String, widthPx: Int, heightPx: Int): Bitmap? =
+        composites[pillKey(key, widthPx, heightPx)]?.takeIf { !it.isRecycled }
+
+    private fun pillKey(key: String, widthPx: Int, heightPx: Int) = "pill|$key|$widthPx|$heightPx"
+
     /** Drops every remembered composite — the last widget has just been removed. */
     fun clear() {
         composites.evictAll()
@@ -509,8 +614,8 @@ internal object MediaWidgetArt {
      * arc. Drawn through a shader instead, the round rect's own antialiasing
      * does the work.
      */
-    private fun Bitmap.withRoundedCorners(radiusPx: Float): Bitmap {
-        if (radiusPx <= 0f) return this
+    private fun Bitmap.withRoundedCorners(radiusPx: Float, alpha: Int = 255): Bitmap {
+        if (radiusPx <= 0f && alpha == 255) return this
         val out = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         Canvas(out).drawRoundRect(
             RectF(0f, 0f, width.toFloat(), height.toFloat()),
@@ -518,6 +623,7 @@ internal object MediaWidgetArt {
             radiusPx,
             Paint().apply {
                 isAntiAlias = true
+                this.alpha = alpha
                 shader = BitmapShader(this@withRoundedCorners, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
             },
         )
@@ -588,6 +694,19 @@ internal object MediaWidgetArt {
 
     /** How far below its stop a level takes to arrive in full. */
     private const val STOP_FEATHER = 0.26f
+
+    /** [pill]'s opacity: mostly the blurred cover, with some wallpaper through it. */
+    private const val PILL_ALPHA = 210
+
+    /** Width of the working image [pill] blurs on. Height follows the capsule. */
+    private const val PILL_WORKING_WIDTH_PX = 64
+
+    /**
+     * [pill]'s box radius as a fraction of the working width. At a tenth, three
+     * passes spread each colour across about a third of the capsule — the sleeve
+     * reads as its colours, not as a picture, like the player's backdrop.
+     */
+    private const val PILL_BLUR_FRACTION = 0.1f
 
     /** How far above the band the scrim starts, in bands. */
     private const val SCRIM_SCALE = 1.2f

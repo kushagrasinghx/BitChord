@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.icons.SfIcons
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -20,16 +21,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,8 +54,10 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
+import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.discord.DiscordRPC
 import com.music.bitchord.data.discord.SuperProperties
+import com.music.bitchord.data.discord.discordAudioQualityLine
 import com.music.bitchord.data.model.CARD_ART_PX
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.artworkAt
@@ -167,6 +169,7 @@ fun DiscordScreen(
     val avatar by AppSettings.discordAvatar.collectAsStateWithLifecycle()
     val rpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
     val useDetails by AppSettings.discordUseDetails.collectAsStateWithLifecycle()
+    val showAudioQuality by AppSettings.discordShowAudioQuality.collectAsStateWithLifecycle()
     val advancedMode by AppSettings.discordAdvancedMode.collectAsStateWithLifecycle()
     val status by AppSettings.discordStatus.collectAsStateWithLifecycle()
     val activityType by AppSettings.discordActivityType.collectAsStateWithLifecycle()
@@ -176,6 +179,7 @@ fun DiscordScreen(
     val button2Text by AppSettings.discordButton2Text.collectAsStateWithLifecycle()
     val button2Visible by AppSettings.discordButton2Visible.collectAsStateWithLifecycle()
     val infoDismissed by AppSettings.discordInfoDismissed.collectAsStateWithLifecycle()
+    val nerdStats by NerdStats.current.collectAsStateWithLifecycle()
 
     val connected = token.isNotEmpty()
     val discordIcon = ImageVector.vectorResource(R.drawable.ic_discord)
@@ -206,12 +210,7 @@ fun DiscordScreen(
             .verticalScroll(rememberScrollState())
             .padding(contentPadding),
     ) {
-        Text(
-            text = stringResource(R.string.discord),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
-        )
+        SettingsPageTitle(stringResource(R.string.discord))
 
         DiscordAccountCard(
             connected = connected,
@@ -228,7 +227,7 @@ fun DiscordScreen(
                 footer = stringResource(R.string.discord_sign_in_footer),
             ) {
                 SettingsRow(
-                    icon = Icons.Rounded.Key,
+                    icon = SfIcons.Key,
                     title = stringResource(R.string.enter_token_instead),
                     subtitle = stringResource(R.string.enter_token_instead_subtitle),
                     onClick = { onOpenDialog(DiscordDialog.TOKEN) },
@@ -253,52 +252,55 @@ fun DiscordScreen(
                 subtitle = if (connected) null else stringResource(R.string.connect_account_first),
                 enabled = connected,
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = rpcEnabled && connected,
                         onCheckedChange = AppSettings::setDiscordRpcEnabled,
                         enabled = connected,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = { AppSettings.setDiscordRpcEnabled(!rpcEnabled) },
             )
             RowDivider()
             SettingsRow(
-                icon = Icons.AutoMirrored.Rounded.Label,
+                icon = SfIcons.Label,
                 title = stringResource(R.string.lead_with_song),
                 subtitle = stringResource(R.string.lead_with_song_subtitle),
                 enabled = connected && rpcEnabled,
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = useDetails,
                         onCheckedChange = AppSettings::setDiscordUseDetails,
                         enabled = connected && rpcEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = { AppSettings.setDiscordUseDetails(!useDetails) },
             )
             RowDivider()
             SettingsRow(
-                icon = Icons.Rounded.Tune,
+                icon = SfIcons.GraphicEq,
+                title = stringResource(R.string.discord_show_audio_quality),
+                subtitle = stringResource(R.string.discord_show_audio_quality_subtitle),
+                enabled = connected && rpcEnabled,
+                trailing = {
+                    IosSwitch(
+                        checked = showAudioQuality,
+                        onCheckedChange = AppSettings::setDiscordShowAudioQuality,
+                        enabled = connected && rpcEnabled,
+                    )
+                },
+                onClick = { AppSettings.setDiscordShowAudioQuality(!showAudioQuality) },
+            )
+            RowDivider()
+            SettingsRow(
+                icon = SfIcons.Tune,
                 title = stringResource(R.string.customize_card),
                 subtitle = stringResource(R.string.customize_card_subtitle),
                 enabled = connected && rpcEnabled,
                 trailing = {
-                    Switch(
+                    IosSwitch(
                         checked = advancedMode,
                         onCheckedChange = AppSettings::setDiscordAdvancedMode,
                         enabled = connected && rpcEnabled,
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            checkedBorderColor = MaterialTheme.colorScheme.primary,
-                        ),
                     )
                 },
                 onClick = { AppSettings.setDiscordAdvancedMode(!advancedMode) },
@@ -309,21 +311,21 @@ fun DiscordScreen(
             Column(Modifier.fillMaxWidth()) {
                 SettingsGroup(header = stringResource(R.string.presence)) {
                     SettingsRow(
-                        icon = Icons.Rounded.RadioButtonChecked,
+                        icon = SfIcons.RadioButtonChecked,
                         title = stringResource(R.string.status),
                         value = statusOf(status).localizedLabel(),
                         onClick = { onOpenDialog(DiscordDialog.STATUS) },
                     )
                     RowDivider()
                     SettingsRow(
-                        icon = Icons.Rounded.Tune,
+                        icon = SfIcons.Tune,
                         title = stringResource(R.string.activity),
                         value = kindOf(activityType).localizedLabel(),
                         onClick = { onOpenDialog(DiscordDialog.ACTIVITY_TYPE) },
                     )
                     RowDivider()
                     SettingsRow(
-                        icon = Icons.AutoMirrored.Rounded.Label,
+                        icon = SfIcons.Label,
                         title = stringResource(R.string.name),
                         subtitle = activityName.ifEmpty { appName() },
                         onClick = { onOpenDialog(DiscordDialog.ACTIVITY_NAME) },
@@ -335,34 +337,26 @@ fun DiscordScreen(
                     footer = stringResource(R.string.discord_buttons_footer),
                 ) {
                     SettingsRow(
-                        icon = Icons.Rounded.SmartButton,
+                        icon = SfIcons.SmartButton,
                         title = stringResource(R.string.first_button),
                         subtitle = button1Text.ifEmpty { DiscordRPC.DEFAULT_BUTTON_1 },
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = button1Visible,
                                 onCheckedChange = AppSettings::setDiscordButton1Visible,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { onOpenDialog(DiscordDialog.BUTTON_1) },
                     )
                     RowDivider()
                     SettingsRow(
-                        icon = Icons.Rounded.SmartButton,
+                        icon = SfIcons.SmartButton,
                         title = stringResource(R.string.second_button),
                         subtitle = button2Text.ifEmpty { DiscordRPC.DEFAULT_BUTTON_2 },
                         trailing = {
-                            Switch(
+                            IosSwitch(
                                 checked = button2Visible,
                                 onCheckedChange = AppSettings::setDiscordButton2Visible,
-                                colors = SwitchDefaults.colors(
-                                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                                ),
                             )
                         },
                         onClick = { onOpenDialog(DiscordDialog.BUTTON_2) },
@@ -382,6 +376,7 @@ fun DiscordScreen(
                 heading = activityName.ifEmpty { appName() },
                 verb = kindOf(activityType).localizedVerb(),
                 useDetails = useDetails,
+                audioQuality = discordAudioQualityLine(nerdStats).takeIf { showAudioQuality },
                 button1Text = button1Text,
                 button1Visible = button1Visible,
                 button2Text = button2Text,
@@ -535,7 +530,7 @@ private fun NoticeCard(text: String, onDismiss: () -> Unit) {
 }
 
 /**
- * The card as Discord will draw it: heading, sleeve, three lines of text, a
+ * The card as Discord will draw it: heading, sleeve, an optional quality line, a
  * countdown, and up to two buttons.
  *
  * Deliberately not built from our own row primitives — this is a picture of
@@ -550,6 +545,7 @@ private fun RichPresencePreview(
     heading: String,
     verb: String,
     useDetails: Boolean,
+    audioQuality: String?,
     button1Text: String,
     button1Visible: Boolean,
     button2Text: String,
@@ -607,7 +603,7 @@ private fun RichPresencePreview(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                song?.albumName?.takeIf { it.isNotBlank() }?.let {
+                audioQuality?.let {
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),

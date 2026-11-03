@@ -94,21 +94,36 @@ object AppUpdateChecker {
     }
 
     /**
-     * The release usually carries exactly one `.apk`; take its direct download
-     * URL. A release without one (source-only draft, renamed asset) leaves
+     * One release carries the phone app and the TV app, each as a universal
+     * APK plus per-ABI splits:
+     *
+     *     BitChord-v1.8.apk     BitChord-v1.8_arm64-v8a.apk     ...
+     *     BitChordTV-v1.8.apk   BitChordTV-v1.8_arm64-v8a.apk   ...
+     *
+     * so this app's APKs are the ones named with its own
+     * [BuildConfig.UPDATE_APK_PREFIX] — "BitChord-" never matches a TV file,
+     * since the prefix ends at the hyphen. The universal build (no `_ABI`
+     * suffix) is taken first, as it installs anywhere; failing that, the split
+     * for this device's ABI. A release with neither leaves
      * [UpdateInfo.apkUrl] null and the UI falls back to opening the releases
-     * page as before.
+     * page.
      */
     private fun apkAssetUrl(release: JsonObject): String? = runCatching {
-        release["assets"]?.jsonArray
+        val apks = release["assets"]?.jsonArray
             ?.mapNotNull { it as? JsonObject }
-            ?.firstOrNull { asset ->
-                asset["name"]?.jsonPrimitive?.contentOrNull?.endsWith(".apk", ignoreCase = true) == true &&
+            ?.mapNotNull { asset ->
+                val name = asset["name"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                val url = asset["browser_download_url"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                val ours = name.startsWith(BuildConfig.UPDATE_APK_PREFIX, ignoreCase = true) &&
+                    name.endsWith(".apk", ignoreCase = true) &&
                     asset["state"]?.jsonPrimitive?.contentOrNull == "uploaded"
+                if (ours) name.removeSuffix(".apk").removeSuffix(".APK") to url else null
             }
-            ?.get("browser_download_url")
-            ?.jsonPrimitive
-            ?.contentOrNull
+            .orEmpty()
+        apks.firstOrNull { (name, _) -> '_' !in name }?.second
+            ?: Build.SUPPORTED_ABIS.firstNotNullOfOrNull { abi ->
+                apks.firstOrNull { (name, _) -> name.endsWith("_$abi") }?.second
+            }
     }.getOrNull()
 
     /**
@@ -182,17 +197,21 @@ object AppUpdateChecker {
      * Sideloaded apps need the user's blessing per app ("install unknown apps");
      * without it the installer intent silently does nothing on most ROMs, so
      * the user is sent to that one switch first and taps Install again after.
+     * Some TV builds have no such settings screen; there the installer is
+     * launched anyway and shows its own "not allowed" prompt with a way in.
      */
     fun installApk(context: Context, file: File) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !context.packageManager.canRequestPackageInstalls()
         ) {
-            context.startActivity(
-                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
-                    .setData(Uri.parse("package:${context.packageName}"))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            return
+            val opened = runCatching {
+                context.startActivity(
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                        .setData(Uri.parse("package:${context.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }.isSuccess
+            if (opened) return
         }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         context.startActivity(
@@ -207,15 +226,31 @@ object AppUpdateChecker {
         )
     }
 
-    /** Numeric, dot-separated comparison — "1.10" outranks "1.9". */
+    /** A version split into its numeric dotted parts and whether it carries a "-suffix" (e.g. "-beta2"). */
+    private data class ParsedVersion(val parts: List<Int>, val isPreRelease: Boolean)
+
+    private fun parseVersion(raw: String): ParsedVersion {
+        val dash = raw.indexOf('-')
+        val base = if (dash >= 0) raw.substring(0, dash) else raw
+        return ParsedVersion(base.split(".").map { it.toIntOrNull() ?: 0 }, dash >= 0)
+    }
+
+    /**
+     * Numeric, dot-separated comparison — "1.10" outranks "1.9" — with one
+     * extra rule: a "-betaN" build (see the debug build type's
+     * `versionNameSuffix` in app/build.gradle.kts) is treated as older than a
+     * plain release of the same numbers, since the beta by definition predates
+     * the tag it was testing toward. Without this, a beta and the release it
+     * matches compare equal and testers never get nudged onto the real build.
+     */
     private fun isNewer(latest: String, current: String): Boolean {
-        val l = latest.split(".").map { it.toIntOrNull() ?: 0 }
-        val c = current.split(".").map { it.toIntOrNull() ?: 0 }
-        for (i in 0 until maxOf(l.size, c.size)) {
-            val a = l.getOrElse(i) { 0 }
-            val b = c.getOrElse(i) { 0 }
+        val l = parseVersion(latest)
+        val c = parseVersion(current)
+        for (i in 0 until maxOf(l.parts.size, c.parts.size)) {
+            val a = l.parts.getOrElse(i) { 0 }
+            val b = c.parts.getOrElse(i) { 0 }
             if (a != b) return a > b
         }
-        return false
+        return c.isPreRelease && !l.isPreRelease
     }
 }

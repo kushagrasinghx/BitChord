@@ -40,6 +40,7 @@ object WebmTagger {
     private val ID_ATTACHMENTS = byteArrayOf(0x19, 0x41, 0xA4.toByte(), 0x69)
     private val ID_ATTACHEDFILE = byteArrayOf(0x61, 0xA7.toByte())
     private val ID_FILENAME = byteArrayOf(0x46, 0x6E)
+    private val ID_FILEDESCRIPTION = byteArrayOf(0x46, 0x7E)
     private val ID_FILEMIMETYPE = byteArrayOf(0x46, 0x60)
     private val ID_FILEDATA = byteArrayOf(0x46, 0x5C)
     private val ID_FILEUID = byteArrayOf(0x46, 0xAE.toByte())
@@ -123,12 +124,13 @@ object WebmTagger {
 
         if (cover != null && cover.isNotEmpty()) {
             val fileName = elem(ID_FILENAME, "cover.jpg".toByteArray(Charsets.UTF_8))
+            val description = elem(ID_FILEDESCRIPTION, "Cover (front)".toByteArray(Charsets.UTF_8))
             val fileMime = elem(ID_FILEMIMETYPE, coverMime.toByteArray(Charsets.US_ASCII))
             // A fixed id is fine: one attachment, and nothing here needs to
             // reference it back from a Tag.
             val fileUid = elem(ID_FILEUID, byteArrayOf(0, 0, 0, 0, 0, 0, 0, 1))
             val fileData = elem(ID_FILEDATA, cover)
-            val attachedFile = elem(ID_ATTACHEDFILE, fileName + fileMime + fileUid + fileData)
+            val attachedFile = elem(ID_ATTACHEDFILE, fileName + description + fileMime + fileUid + fileData)
             out += elem(ID_ATTACHMENTS, attachedFile)
         }
 

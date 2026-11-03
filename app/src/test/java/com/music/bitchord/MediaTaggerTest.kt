@@ -164,6 +164,7 @@ class MediaTaggerTest {
         assertTrue(tagged.indexOfBytes("TITLE".toByteArray(Charsets.US_ASCII)) >= 0)
         assertTrue(tagged.indexOfBytes("ARTIST".toByteArray(Charsets.US_ASCII)) >= 0)
         assertTrue(tagged.indexOfBytes("ALBUM".toByteArray(Charsets.US_ASCII)) >= 0)
+        assertTrue(tagged.indexOfBytes("Cover (front)".toByteArray(Charsets.UTF_8)) >= 0)
         assertTrue(tagged.indexOfBytes(cover) >= 0)
     }
 

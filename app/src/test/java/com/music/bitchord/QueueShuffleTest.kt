@@ -1,8 +1,8 @@
 package com.music.bitchord
 
 import com.music.bitchord.playback.QueueShuffle
+import com.music.bitchord.playback.queueStartIndex
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -11,65 +11,89 @@ import org.junit.Test
  */
 class QueueShuffleTest {
 
-    /** Runs the moves the way [androidx.media3.common.Player] would. */
-    private fun applied(current: List<String>, from: Int, target: List<String>): List<String> {
-        val ids = current.toMutableList()
-        QueueShuffle.moves(current, from, target).forEach { (at, to) ->
-            ids.add(to, ids.removeAt(at))
-        }
-        return ids
+    /** The upcoming stretch of the queue as turning shuffle off leaves it. */
+    private fun restored(upcoming: List<String>, original: List<String>): List<String> =
+        QueueShuffle.restoreOrder(upcoming, original).map { upcoming[it] }
+
+    @Test
+    fun `a shuffled queue starts at the tapped track moved to its head`() {
+        assertEquals(0, queueStartIndex(requestedIndex = 3, itemCount = 5, shuffled = true))
     }
 
     @Test
-    fun `the queue ends up in the order asked for`() {
-        val queue = listOf("a", "b", "c", "d", "e")
+    fun `an unshuffled queue starts at the tapped track's list position`() {
+        assertEquals(3, queueStartIndex(requestedIndex = 3, itemCount = 5, shuffled = false))
+    }
+
+    @Test
+    fun `a random identity is rotated so the first shuffle always moves a track`() {
         assertEquals(
-            listOf("a", "b", "e", "c", "d"),
-            applied(queue, from = 2, target = listOf("e", "c", "d")),
+            listOf(1, 2, 0),
+            QueueShuffle.avoidIdentityShuffle(
+                original = listOf(0, 1, 2),
+                shuffled = listOf(0, 1, 2),
+            ),
         )
     }
 
     @Test
-    fun `everything up to and including the playing track is left alone`() {
-        val queue = listOf("a", "b", "c", "d")
-        // Shuffle at index 1 may only touch what comes after it.
-        val out = applied(queue, from = 2, target = listOf("d", "c"))
-        assertEquals(listOf("a", "b"), out.take(2))
-        assertEquals(listOf("a", "b", "d", "c"), out)
+    fun `a genuinely shuffled order is kept`() {
+        assertEquals(
+            listOf(2, 0, 1),
+            QueueShuffle.avoidIdentityShuffle(
+                original = listOf(0, 1, 2),
+                shuffled = listOf(2, 0, 1),
+            ),
+        )
     }
 
     @Test
-    fun `an order already in place costs no moves`() {
-        val queue = listOf("a", "b", "c", "d")
-        assertTrue(QueueShuffle.moves(queue, from = 1, target = listOf("b", "c", "d")).isEmpty())
+    fun `a one track section remains unchanged`() {
+        assertEquals(
+            listOf(0),
+            QueueShuffle.avoidIdentityShuffle(original = listOf(0), shuffled = listOf(0)),
+        )
+    }
+
+    @Test
+    fun `the queue goes back into the order it was queued in`() {
+        assertEquals(
+            listOf("b", "c", "d"),
+            restored(upcoming = listOf("d", "b", "c"), original = listOf("a", "b", "c", "d")),
+        )
+    }
+
+    @Test
+    fun `an order already in place is left as it is`() {
+        assertEquals(
+            listOf("b", "c", "d"),
+            restored(upcoming = listOf("b", "c", "d"), original = listOf("a", "b", "c", "d")),
+        )
     }
 
     @Test
     fun `a queue holding the same track twice keeps both copies`() {
-        val queue = listOf("a", "b", "c", "b")
         assertEquals(
-            listOf("a", "b", "b", "c"),
-            applied(queue, from = 1, target = listOf("b", "b", "c")),
+            listOf("b", "b", "c"),
+            restored(upcoming = listOf("b", "c", "b"), original = listOf("a", "b", "b", "c")),
         )
     }
 
     @Test
-    fun `tracks the target does not name trail behind the ones it does`() {
-        val queue = listOf("a", "b", "c", "d", "e")
+    fun `tracks the old order does not name trail behind the ones it does`() {
         // "e" was queued after the shuffle, so the restored order says nothing
         // about it — it stays at the end rather than displacing anything.
         assertEquals(
-            listOf("a", "d", "b", "c", "e"),
-            applied(queue, from = 1, target = listOf("d", "b", "c")),
+            listOf("b", "c", "d", "e"),
+            restored(upcoming = listOf("e", "d", "b", "c"), original = listOf("a", "b", "c", "d")),
         )
     }
 
     @Test
     fun `a track that has since been removed is skipped`() {
-        val queue = listOf("a", "b", "c")
         assertEquals(
-            listOf("a", "c", "b"),
-            applied(queue, from = 1, target = listOf("c", "gone", "b")),
+            listOf("b", "d"),
+            restored(upcoming = listOf("d", "b"), original = listOf("a", "b", "c", "d")),
         )
     }
 
@@ -77,11 +101,20 @@ class QueueShuffleTest {
     fun `shuffling then restoring returns the original running order`() {
         val original = ('a'..'j').map { it.toString() }
         repeat(50) {
-            val from = 1
-            val shuffled = applied(original, from, original.drop(from).shuffled())
-            assertEquals(original.take(from), shuffled.take(from))
-            assertEquals(original.sorted(), shuffled.sorted())
-            assertEquals(original, applied(shuffled, from, original.drop(from)))
+            val upcoming = original.drop(1).shuffled()
+            assertEquals(original.drop(1), restored(upcoming, original))
         }
+    }
+
+    /**
+     * The queues this runs on are playlists, and a per-track linear search over
+     * one is quadratic — the shape that used to hang the app. Ten thousand
+     * tracks is a fraction of a second here and minutes if that ever comes back.
+     */
+    @Test
+    fun `a very long queue is restored without a per-track search`() {
+        val original = (0 until 10_000).map { it.toString() }
+        val upcoming = original.shuffled()
+        assertEquals(original, restored(upcoming, original))
     }
 }

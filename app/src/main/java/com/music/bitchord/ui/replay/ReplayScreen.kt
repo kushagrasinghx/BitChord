@@ -4,6 +4,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +33,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,20 +73,14 @@ private fun isDarkMode(): Boolean =
     MaterialTheme.colorScheme.background.luminance() < 0.5f
 
 /**
- * The Replay page: four cards, four charts and a way to share the lot.
+ * The Replay page: four headline cards, four charts and a way to play or share
+ * the lot.
  *
  * ## Two ways in to the same numbers
  *
- * The cards along the top are the *story* — one fact each, tappable, and what
- * anyone who opened this page out of curiosity actually wants. Everything under
- * them is the *table* — the same four categories ranked out to ten, for the
- * person who wants to know what came fourth. Wrapped-style apps usually ship
- * only the first and leave the second to a support article; the ranked lists
- * cost a scroll and answer every follow-up question the cards provoke.
- *
- * The Library page carries the *first* of those cards — the minutes — on its
- * own, as the way in. One card there is an invitation; four is a second copy of
- * this page's opening on a page that is about something else.
+ * The headline cards also live on the Library page, where each one opens this
+ * page at its matching chart. They remain here as Replay's own visual summary;
+ * the ranked lists below answer the follow-up questions those cards provoke.
  *
  * ## Why the page is washed in the top song's colours
  *
@@ -93,10 +93,7 @@ private fun isDarkMode(): Boolean =
 @Composable
 fun ReplayScreen(
     state: ReplayState,
-    /**
-     * The name on the cards — the signed-in account's, or blank for a guest,
-     * where [DEFAULT_HOLDER] stands in.
-     */
+    /** The signed-in account name embossed on the Replay cards. */
     holder: String,
     onPeriodChange: (ReplayPeriod) -> Unit,
     onOpenStory: (ReplayStoryPage) -> Unit,
@@ -113,6 +110,7 @@ fun ReplayScreen(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
+    landingPage: ReplayStoryPage = ReplayStoryPage.INTRO,
 ) {
     val context = LocalContext.current
     val summary = state.summary
@@ -122,6 +120,27 @@ fun ReplayScreen(
     val topArtists = stringResource(R.string.top_artists)
     val topAlbums = stringResource(R.string.top_albums)
     val topGenres = stringResource(R.string.top_genres)
+
+    // Library cards open this same page, but category cards should land on the
+    // corresponding chart rather than making the user find it again. Wait for
+    // a loaded summary because the loading/empty layouts do not contain these
+    // keyed sections yet.
+    //
+    // Once only per opening, though. Back from an artist or album opened off
+    // this page composes it again, and landing a second time threw away
+    // wherever it had been scrolled to. Saveable, so it outlives that trip —
+    // the page's state is kept while it is on the back stack.
+    var landed by rememberSaveable(landingPage, state.period) { mutableStateOf(false) }
+    LaunchedEffect(landingPage, state.period, summary == null) {
+        if (landed) return@LaunchedEffect
+        val target = when {
+            landingPage == ReplayStoryPage.INTRO || landingPage == ReplayStoryPage.MINUTES -> 0
+            summary == null || summary.isEmpty -> 0
+            else -> replayChartIndex(summary, landingPage)
+        }
+        listState.scrollToItem(target)
+        if (summary != null) landed = true
+    }
 
     Box(modifier.fillMaxSize()) {
         MeshGradientBackground(palette = palette, trackKey = leadArtwork, animated = false)
@@ -170,7 +189,7 @@ fun ReplayScreen(
                             cards = summary.cards(context),
                             holder = holder,
                             memberSince = state.memberSince,
-                            onOpenStory = onOpenStory,
+                            onCardClick = onOpenStory,
                         )
                     }
                     item("open") {
@@ -222,7 +241,7 @@ fun ReplayScreen(
                             Note(
                                 text = stringResource(R.string.genres_pending),
                                 dark = dark,
-                                modifier = Modifier.padding(horizontal = PAGE_GUTTER + 10.dp),
+                                modifier = Modifier.padding(horizontal = PAGE_GUTTER + 4.dp),
                             )
                         }
                     }
@@ -239,6 +258,7 @@ fun ReplayScreen(
                 }
             }
         }
+
     }
 }
 
@@ -248,7 +268,7 @@ fun ReplayScreen(
 private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, dark: Boolean) {
     val context = LocalContext.current
     val textColor = if (dark) Color.White else Color.Black
-    Column(Modifier.padding(horizontal = PAGE_GUTTER + 10.dp)) {
+    Column(Modifier.padding(horizontal = PAGE_GUTTER + 4.dp)) {
         Spacer(Modifier.height(48.dp))
         Text(
             text = stringResource(R.string.replay),
@@ -268,9 +288,9 @@ private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, 
 }
 
 /**
- * The three stretches a Replay can cover.
+ * The four stretches a Replay can cover.
  *
- * Months and years rather than a date range, because that is the granularity the
+ * Weeks and months rather than a date range, because that is the granularity the
  * listening is actually kept at — see [com.music.bitchord.data.stats.ListeningStats].
  * A "last 30 days" chip would have to be answered from monthly totals, which
  * would make it a lie for the first thirty days of every month.
@@ -279,8 +299,12 @@ private fun Heading(state: ReplayState, onPeriodChange: (ReplayPeriod) -> Unit, 
 private fun PeriodPicker(selected: ReplayPeriod, onSelect: (ReplayPeriod) -> Unit, dark: Boolean) {
     val context = LocalContext.current
     val textColor = if (dark) Color.White else Color.Black
+    // Four equal shares of the full width, each held to one line. Sized to
+    // their labels instead, the chips ran past the edge on a narrow phone and
+    // the last was squeezed into whatever was left, one letter to a line.
     Row(
         Modifier
+            .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(textColor.copy(alpha = 0.10f))
             .padding(3.dp),
@@ -294,15 +318,19 @@ private fun PeriodPicker(selected: ReplayPeriod, onSelect: (ReplayPeriod) -> Uni
                 label = "periodChip",
             )
             Text(
-                text = period.localizedChip(context),
+                text = period.localizedTab(context),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.W700,
                 color = if (active) if (dark) Color.Black else Color.White else textColor.copy(alpha = 0.75f),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
+                    .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
                     .background(background)
                     .clickable { onSelect(period) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
             )
         }
     }
@@ -317,18 +345,23 @@ private fun PeriodPicker(selected: ReplayPeriod, onSelect: (ReplayPeriod) -> Uni
  * where each half of Replay belongs — but it is defined alongside the page it
  * summarises, because the two have to keep saying the same thing.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ReplayCardRow(
+internal fun ReplayCardRow(
     cards: List<ReplayHeroCard>,
     holder: String,
     memberSince: String?,
-    onOpenStory: (ReplayStoryPage) -> Unit,
+    onCardClick: (ReplayStoryPage) -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = PAGE_GUTTER + 4.dp),
 ) {
+    val rowState = rememberLazyListState()
     LazyRow(
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = PAGE_GUTTER + 10.dp),
+        state = rowState,
+        contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
+        flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState),
     ) {
         items(cards, key = { it.label }) { card ->
             ReplayCreditCard(
@@ -338,10 +371,27 @@ private fun ReplayCardRow(
                 artworkUrl = card.artworkUrl,
                 holder = holder,
                 memberSince = memberSince,
-                onClick = { onOpenStory(card.page) },
+                onClick = { onCardClick(card.page) },
                 modifier = Modifier.width(300.dp),
             )
         }
+    }
+}
+
+/**
+ * Lazy-list index of a chart title after the heading, card row and Replay action.
+ * Each preceding chart contributes its title, visible rows and trailing gap.
+ */
+private fun replayChartIndex(summary: ReplaySummary, page: ReplayStoryPage): Int {
+    val songs = summary.songRows(CHART_LENGTH)
+    val artists = summary.artistRows(CHART_LENGTH)
+    fun span(rows: List<ReplayRow>): Int = if (rows.isEmpty()) 0 else rows.size + 2
+
+    return when (page) {
+        ReplayStoryPage.SONGS -> 3
+        ReplayStoryPage.ARTISTS -> 3 + span(songs)
+        ReplayStoryPage.ALBUMS -> 3 + span(songs) + span(artists)
+        else -> 0
     }
 }
 
@@ -358,7 +408,7 @@ private fun ReplayActionRow(icon: ImageVector, label: String, dark: Boolean, onC
     val textColor = if (dark) Color.White else Color.Black
     Row(
         Modifier
-            .padding(horizontal = PAGE_GUTTER + 10.dp, vertical = 18.dp)
+            .padding(horizontal = PAGE_GUTTER + 4.dp, vertical = 18.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(textColor.copy(alpha = 0.12f))
@@ -415,8 +465,8 @@ private fun SectionTitle(text: String, dark: Boolean) {
         fontWeight = FontWeight.W800,
         color = textColor,
         modifier = Modifier.padding(
-            start = PAGE_GUTTER + 10.dp,
-            end = PAGE_GUTTER + 10.dp,
+            start = PAGE_GUTTER + 4.dp,
+            end = PAGE_GUTTER + 4.dp,
             top = 8.dp,
             bottom = 10.dp,
         ),
@@ -432,7 +482,7 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = PAGE_GUTTER + 10.dp, vertical = 7.dp),
+            .padding(horizontal = PAGE_GUTTER + 4.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RankBadge(row.rank, AccentRed)
@@ -480,7 +530,7 @@ private fun ReplayChartRow(row: ReplayRow, circular: Boolean, dark: Boolean, onC
 @Composable
 private fun Habits(summary: ReplaySummary, dark: Boolean) {
     val context = LocalContext.current
-    Column(Modifier.padding(horizontal = PAGE_GUTTER + 10.dp)) {
+    Column(Modifier.padding(horizontal = PAGE_GUTTER + 4.dp)) {
         SectionTitleInline(stringResource(R.string.listening_shape), dark)
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -578,6 +628,7 @@ private fun EmptyReplay(period: ReplayPeriod, dark: Boolean) {
         Spacer(Modifier.height(8.dp))
         Text(
             text = when (period) {
+                ReplayPeriod.THIS_WEEK -> stringResource(R.string.not_enough_this_week)
                 ReplayPeriod.THIS_MONTH -> stringResource(R.string.not_enough_this_month)
                 else -> stringResource(R.string.replay_empty_description)
             },

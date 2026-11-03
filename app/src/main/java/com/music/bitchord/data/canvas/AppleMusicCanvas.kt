@@ -94,7 +94,10 @@ object AppleMusicCanvas {
             attributes["editorialVideo"]?.jsonObject?.let { video ->
                 motionUrls(video)?.let { (primary, alternate) ->
                     Log.d(TAG, "inline motion artwork for '$songName'")
-                    return CanvasArtwork(primary, alternate, songName, songArtist, albumName)
+                    return CanvasArtwork(
+                        primary, alternate, songName, songArtist, albumName,
+                        portraitUrl = tallUrl(video),
+                    )
                 }
             }
 
@@ -296,25 +299,31 @@ object AppleMusicCanvas {
             title = songTitle,
             artist = songArtist ?: attributes["artistName"]?.jsonPrimitive?.contentOrNull,
             album = albumName,
+            portraitUrl = tallUrl(video),
         )
     }
 
+    private fun link(video: JsonObject, key: String): String? = video[key]?.jsonObject?.let { asset ->
+        asset["video"]?.jsonPrimitive?.contentOrNull
+            ?: asset["videoUrl"]?.jsonPrimitive?.contentOrNull
+            ?: asset["hlsUrl"]?.jsonPrimitive?.contentOrNull
+            ?: asset["url"]?.jsonPrimitive?.contentOrNull
+    }?.takeIf { it.isNotBlank() }
+
+    /** The 3:4 rendition Apple's own player runs under its whole phone screen. */
+    private fun tallUrl(video: JsonObject): String? =
+        link(video, "motionDetailTall") ?: link(video, "motionTallVideo3x4")
+
     /**
      * The square rendition first — it fills a square sleeve without cropping.
-     * The tall one is the same clip framed for a phone-shaped surface and is
-     * only worth having as the retry when the square won't play.
+     * The tall one is the same clip framed for a phone-shaped surface; the
+     * phone player takes it from [CanvasArtwork.portraitUrl], and it is the
+     * retry everywhere else when the square won't play.
      */
     private fun motionUrls(video: JsonObject): Pair<String, String?>? {
-        fun link(key: String): String? = video[key]?.jsonObject?.let { asset ->
-            asset["video"]?.jsonPrimitive?.contentOrNull
-                ?: asset["videoUrl"]?.jsonPrimitive?.contentOrNull
-                ?: asset["hlsUrl"]?.jsonPrimitive?.contentOrNull
-                ?: asset["url"]?.jsonPrimitive?.contentOrNull
-        }?.takeIf { it.isNotBlank() }
-
-        val square = link("motionDetailSquare") ?: link("motionSquareVideo1x1")
-        val raw = link("motionDetailRaw")
-        val tall = link("motionDetailTall") ?: link("motionTallVideo3x4")
+        val square = link(video, "motionDetailSquare") ?: link(video, "motionSquareVideo1x1")
+        val raw = link(video, "motionDetailRaw")
+        val tall = tallUrl(video)
         val primary = square ?: raw ?: tall ?: return null
         val alternate = listOfNotNull(square, raw, tall).firstOrNull { it != primary }
         return primary to alternate

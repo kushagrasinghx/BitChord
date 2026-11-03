@@ -335,6 +335,18 @@ private class DrawBackdropNode(
             layer.topLeft =
                 if (padding != 0f) IntOffset(-padding.toInt(), -padding.toInt())
                 else IntOffset.Zero
+            drawRecordedBackdrop()
+        }
+    }
+
+    // Vendored change: the export below draws the layer this frame already
+    // recorded, rather than recording the backdrop a second time. Upstream
+    // re-runs the whole capture and effect chain for the export, which doubles
+    // the surface's cost on every frame it is exported.
+    private val drawRecordedBackdrop: DrawScope.() -> Unit = {
+        val layer = graphicsLayer
+        if (layer != null) {
+            val scale = backdropScale
             if (scale != 1f) {
                 // Vendored addition: stretch the low resolution layer back over the
                 // full surface; the blur in the effect chain masks the upscaling.
@@ -371,7 +383,7 @@ private class DrawBackdropNode(
         exportedBackdrop?.graphicsLayer?.let { layer ->
             recordLayer(this@DrawBackdropNode, layer) {
                 onDrawBehind?.invoke(this)
-                drawBackdropLayer()
+                drawRecordedBackdrop()
                 onDrawSurface?.invoke(this)
                 onDrawFront?.invoke(this)
             }

@@ -129,7 +129,7 @@ enum class SourceKind(
 
     JIOSAAVN(
         label = "JioSaavn",
-        detail = "JioSaavn high-quality streams up to 320kbps AAC/MP4. A lossy fallback, tried before YouTube.",
+        detail = "Optional JioSaavn streams up to 320kbps AAC/MP4. Catalogue matching can select the wrong song.",
         labels = listOf("High Quality", "320kbps"),
         needsServer = false,
         canServeLossless = false,

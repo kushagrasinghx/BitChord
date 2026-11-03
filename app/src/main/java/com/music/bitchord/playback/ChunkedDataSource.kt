@@ -9,6 +9,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
+import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
 import java.io.InterruptedIOException
 
@@ -37,9 +38,8 @@ import java.io.InterruptedIOException
  * writer), so without this it is the one track that always streams throttled.
  *
  * Transparent to everything above it. [CacheDataSource][androidx.media3.datasource.cache.CacheDataSource]
- * sees one continuous stream of the length it asked for, and a request that is
- * already bounded — every read-ahead fetch — is passed straight through
- * untouched rather than chunked twice.
+ * sees one continuous stream of the length it asked for. Bounded requests are
+ * split too, so no caller can exceed [PlayerClient.rangeBytesFor].
  */
 @UnstableApi
 class ChunkedDataSource(
@@ -52,6 +52,7 @@ class ChunkedDataSource(
     private var bytesRemaining = 0L
     private var chunkRemaining = 0L
     private var chunkOpen = false
+    private var rangeBytes = chunkBytes
 
     /** Set when the request can't be improved on, and is simply forwarded. */
     private var passthrough = false
@@ -70,7 +71,7 @@ class ChunkedDataSource(
         position = dataSpec.position
 
         val total = dataSpec.uri.getQueryParameter("clen")?.toLongOrNull()
-        if (dataSpec.length != C.LENGTH_UNSET.toLong() || total == null) {
+        if (total == null) {
             passthrough = true
             chunkOpen = true
             // Reported, not just thrown. Nothing but googlevideo carries `clen`,
@@ -95,13 +96,19 @@ class ChunkedDataSource(
         }
 
         passthrough = false
-        bytesRemaining = (total - position).coerceAtLeast(0L)
+        val end = if (dataSpec.length == C.LENGTH_UNSET.toLong()) {
+            total
+        } else {
+            minOf(total, position + dataSpec.length)
+        }
+        bytesRemaining = (end - position).coerceAtLeast(0L)
+        rangeBytes = minOf(chunkBytes, PlayerClient.rangeBytesFor(dataSpec.uri.toString()))
         if (bytesRemaining > 0) openChunk()
         return bytesRemaining
     }
 
     private fun openChunk() {
-        val length = minOf(chunkBytes, bytesRemaining)
+        val length = minOf(rangeBytes, bytesRemaining)
         val spec = requireNotNull(baseSpec).buildUpon()
             .setPosition(position)
             .setLength(length)

@@ -121,8 +121,13 @@ object DownloadStore {
      * will keep: the media store's audio collection accepts a closed list of
      * MIME types, and one it doesn't recognise is refused outright at [begin] —
      * which is a download that cannot start rather than one that sounds worse
-     * than hoped. Anything not answered for here falls the caller back to
-     * YouTube's AAC, so an unfamiliar codec costs quality and not the download.
+     * than hoped.
+     *
+     * Only asked of manifests now, whose segments [ManifestFile] joins into one
+     * of these. A plain file is named for what its opening bytes are — see
+     * [Downloader.Container] — because a codec label alone can't tell raw ADTS
+     * from AAC-in-MP4, and this table used to send every addon `aac` and `mp3`
+     * to YouTube for want of an entry.
      *
      * Kept as a table rather than derived from the codec string because two of
      * these are not the identity mapping they look like. WAV's registered type

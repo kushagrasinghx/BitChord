@@ -28,6 +28,13 @@ sealed interface LinkRequest {
 
     /** "Play music", with nothing said about what. */
     data object Resume : LinkRequest
+
+    /**
+     * An audio file another app asked to have played — "Open with" from a file
+     * manager, a tapped attachment — by the `content://` or `file://` uri it
+     * handed over. See [com.music.bitchord.data.LocalMediaRepository.songFromUri].
+     */
+    data class LocalFile(val uri: Uri) : LinkRequest
 }
 
 /**
@@ -65,7 +72,11 @@ object MusicLink {
     fun consume(intent: Intent?): Boolean {
         if (intent == null || intent.getBooleanExtra(EXTRA_CONSUMED, false)) return false
         val request = when (intent.action) {
-            Intent.ACTION_VIEW -> intent.data?.let(::parse)
+            // Only the audio filter in the manifest takes these two schemes, so
+            // either one is a file to play rather than a link to look up.
+            Intent.ACTION_VIEW -> intent.data?.let { uri ->
+                if (uri.scheme == "content" || uri.scheme == "file") LinkRequest.LocalFile(uri) else parse(uri)
+            }
             Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
                 ?.let(::firstUrl)
                 ?.let { parse(Uri.parse(it)) }

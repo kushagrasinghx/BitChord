@@ -12,6 +12,7 @@ import com.music.bitchord.data.settings.OutputPcmMode
  * explicitly selected external route that advertises PCM float is allowed.
  */
 internal object AudioOutputPolicy {
+    /** Backwards-compatible USB-specific check. */
     fun shouldUseFloatOutput(
         requestedMode: OutputPcmMode,
         isPreferredUsbRoute: Boolean,
@@ -19,6 +20,31 @@ internal object AudioOutputPolicy {
     ): Boolean = requestedMode == OutputPcmMode.FLOAT_32 &&
         isPreferredUsbRoute &&
         advertisesPcmFloat
+
+    /**
+     * Route-aware float output decision.
+     *
+     * - Built-in phone speaker (PHONE) must remain capped at 16-bit to prevent OEM mixer
+     *   issues and distortion on affected device paths.
+     * - External routes (USB, Bluetooth, Wired, HDMI) are allowed to use Float32 output
+     *   if requested and actively advertised by the route's AudioDeviceInfo encodings.
+     * - A Bluetooth route whose negotiated A2DP codec carries more than 16 bits
+     *   (LDAC / aptX HD at 24 or 32 bits) uses float regardless of the requested mode.
+     *   A2DP devices almost never list PCM_FLOAT in their encodings, and without a
+     *   float track Media3 truncates a hi-res source to 16 bits before the codec
+     *   ever sees it. [bluetoothCodecBitDepth] must come from authoritative telemetry.
+     */
+    fun shouldUseFloatOutput(
+        requestedMode: OutputPcmMode,
+        routeKind: AudioRouting.Kind,
+        advertisesPcmFloat: Boolean,
+        bluetoothCodecBitDepth: Int? = null,
+    ): Boolean {
+        if (routeKind == AudioRouting.Kind.PHONE) return false
+        if (routeKind == AudioRouting.Kind.BLUETOOTH && (bluetoothCodecBitDepth ?: 0) > 16) return true
+        if (requestedMode != OutputPcmMode.FLOAT_32) return false
+        return advertisesPcmFloat
+    }
 
     /** Samsung's vendor FLAC decoder emits invalid timestamps with PCM float. */
     fun isUnsafeFloatFlacDecoder(name: String): Boolean {

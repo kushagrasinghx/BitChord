@@ -142,7 +142,14 @@ internal object OfflineDash {
         if (Regex("<Period[\\s>]").findAll(manifest).count() > 1) {
             error("Multi-period DASH cannot be saved")
         }
-        val template = Regex("<SegmentTemplate([^>]*)>", RegexOption.IGNORE_CASE).find(manifest)?.groupValues?.get(1)
+        // Tidal lists every rendition of the track in one manifest — HE-AAC,
+        // then AAC-LC, then FLAC — and reading the first SegmentTemplate in the
+        // file took HE-AAC every time: 97kbps saved under a FLAC badge. The
+        // player never showed it because Media3 picks the best one itself.
+        val rendition = best(manifest)
+        val scope = rendition?.body?.takeIf { Regex("<SegmentTemplate", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+            ?: manifest
+        val template = Regex("<SegmentTemplate([^>]*)>", RegexOption.IGNORE_CASE).find(scope)?.groupValues?.get(1)
             ?: error("DASH manifest has no segment template")
         fun attr(name: String) =
             Regex("""\b$name\s*=\s*"([^"]*)"""", RegexOption.IGNORE_CASE).find(template)?.groupValues?.get(1)
@@ -161,8 +168,10 @@ internal object OfflineDash {
         // short final one, which is what makes the EXTINF values below exact
         // rather than a division that leaves the last segment overstated.
         val ticks = mutableListOf<Long>()
+        // From the chosen rendition's own template: each one ends on a
+        // different final segment length.
         Regex("<SegmentTimeline>(.*?)</SegmentTimeline>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-            .find(manifest)?.groupValues?.get(1)
+            .find(scope)?.groupValues?.get(1)
             ?.let { timeline ->
                 Regex("<S\\b([^>]*)/?>", RegexOption.IGNORE_CASE).findAll(timeline).forEach { entry ->
                     val body = entry.groupValues[1]
@@ -192,6 +201,34 @@ internal object OfflineDash {
         if (media.isEmpty()) error("DASH manifest has no segments")
         return Plan(initialization, media, ticks.map { it / timescale })
     }
+
+    private class Rendition(val bandwidth: Long, val codecs: String, val body: String)
+
+    /**
+     * The rendition to keep: lossless if there is one, else the highest
+     * bandwidth. Null for a manifest with no `Representation` at all, which
+     * leaves the template wherever the manifest put it.
+     */
+    private fun best(manifest: String): Rendition? {
+        val renditions = Regex(
+            """<Representation\b([^>]*?)(?:/>|>(.*?)</Representation>)""",
+            setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+        ).findAll(manifest).map { match ->
+            val attrs = match.groupValues[1]
+            fun attr(name: String) =
+                Regex("""\b$name\s*=\s*"([^"]*)"""", RegexOption.IGNORE_CASE).find(attrs)?.groupValues?.get(1)
+            Rendition(
+                bandwidth = attr("bandwidth")?.toLongOrNull() ?: 0L,
+                codecs = attr("codecs").orEmpty().lowercase(Locale.ROOT),
+                body = match.groupValues[2],
+            )
+        }.toList()
+        return renditions.maxWithOrNull(
+            compareBy<Rendition>({ it.codecs.isLossless() }, { it.bandwidth }),
+        )
+    }
+
+    private fun String.isLossless() = startsWith("flac") || startsWith("alac")
 
     /** The playlist Media3 will read back, pointing at the files just written. */
     internal fun playlist(plan: Plan): String = buildString {

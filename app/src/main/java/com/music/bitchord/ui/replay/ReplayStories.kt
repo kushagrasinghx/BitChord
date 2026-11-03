@@ -143,7 +143,7 @@ fun ReplayStories(
     val scope = rememberCoroutineScope()
     var held by remember { mutableStateOf(false) }
     val progress = remember { Animatable(0f) }
-    val current by remember { derivedStateOf { pagerState.currentPage } }
+    val current by remember { derivedStateOf { pagerState.settledPage } }
 
     /**
      * Where a tap sends the story.
@@ -173,13 +173,25 @@ fun ReplayStories(
         }
     }
 
-    fun step(forward: Boolean) =
-        goTo(pagerState.settledPage + if (forward) 1 else -1, animate = false)
+    fun step(forward: Boolean) {
+        val currentPage = pagerState.settledPage
+        // On the last slide, forward tap closes the replay instead of staying put.
+        if (forward && currentPage == pages.lastIndex) {
+            scope.launch { onClose() }
+            return
+        }
+        goTo(currentPage + if (forward) 1 else -1, animate = false)
+    }
 
     LaunchedEffect(current) { progress.snapTo(0f) }
     LaunchedEffect(current, held, paused) {
         if (held || paused) return@LaunchedEffect
-        if (current >= pages.lastIndex) return@LaunchedEffect
+        // On the final slide: animate progress to 1f then close the replay.
+        if (current == pages.lastIndex) {
+            progress.animateTo(1f, tween(PAGE_MILLIS.toInt(), easing = LinearEasing))
+            scope.launch { onClose() }
+            return@LaunchedEffect
+        }
         // Resumed from where the hold left it rather than restarted, so letting
         // go doesn't hand back a card that was nearly finished.
         val remaining = ((1f - progress.value) * PAGE_MILLIS).toInt().coerceAtLeast(0)
@@ -391,7 +403,7 @@ private fun StoryChrome(
                 // by. A month or "All time" has no two-digit form and is spelt
                 // out rather than truncated into nonsense.
                 text = if (label.length == 4 && label.all { it.isDigit() }) {
-                    "Replay'${label.takeLast(2)}"
+                    "Replay ${label.takeLast(2)}"
                 } else {
                     "Replay · $label"
                 },
@@ -553,16 +565,24 @@ private fun ColumnScope.Minutes(summary: ReplaySummary, headline: List<HeadlineR
                 append(context.getString(R.string.replay_hours_across, grouped(summary.hours)))
             } else {
                 append(context.getString(R.string.replay_across))
+                append(" ")
+            }
+            // Add a comma+space separator between the hours and the track count
+            if (summary.hours >= 1) {
+                append(", ")
             }
             append(context.resources.getQuantityString(
                 R.plurals.replay_play_count,
                 summary.totalPlays,
                 grouped(summary.totalPlays.toLong()),
             ))
-            append(".")
-            summary.peakHour?.let {
-                append(" ")
-                append(context.getString(R.string.replay_mostly_around, formatHour(context, it)))
+            // Replace period+comma with just a comma
+            if (summary.peakHour != null) {
+                append(", mostly around ")
+                append(formatHour(context, summary.peakHour!!))
+                append(".")
+            } else {
+                append(".")
             }
         },
         style = MaterialTheme.typography.bodyLarge,
@@ -712,7 +732,7 @@ private fun ColumnScope.Habits(summary: ReplaySummary, headline: List<HeadlineRu
         )
     }
     summary.peakHour?.let {
-        BigStat(formatHour(context, it), stringResource(R.string.when_you_listen_most))
+        BigStat(formatHour(context, it), stringResource(R.string.when_you_listen_the_most))
     }
     Spacer(Modifier.height(8.dp))
 }
@@ -904,7 +924,7 @@ private const val STORY_ROWS = 5
 private const val STORY_ASPECT = 9f / 16f
 
 /** How long a card holds before moving on, unless a finger is on the screen. */
-private const val PAGE_MILLIS = 6_000f
+private const val PAGE_MILLIS = 14_000f
 
 /** The share of the width that means "back" — the left edge, as everywhere else. */
 private const val BACK_ZONE = 0.32f

@@ -27,14 +27,15 @@ enum class WebSessionMode {
  * showing is not a question at all — it is written down in the page. Reading
  * it there is what lets "switch to the channel I want, then save" work.
  *
- * All identity fields are nullable: a page that will not give them up leaves
- * the app exactly where it was before, scraping the shell for its best guess.
+ * Individual identity fields are nullable because a personal viewer need not
+ * have a channel. The capture itself is accepted only from a page whose config
+ * says it is signed in, and the API verifies it before it is persisted.
  */
 data class CapturedSession(
     val cookie: String,
     /** `DELEGATED_SESSION_ID` — set only while a brand channel is selected. */
     val pageId: String?,
-    /** `DATASYNC_ID`, account half only. */
+    /** Active identity used as `context.user.onBehalfOfUser`. */
     val dataSyncId: String?,
     /** `SESSION_INDEX` — which Google account in the cookie jar. */
     val authUser: String?,
@@ -56,6 +57,34 @@ data class CapturedSession(
  * else, and shows barely a flicker while refusing to.
  */
 object BrowserSession {
+
+    /**
+     * Makes the in-app YouTube page use a saved account without asking Google
+     * to sign any account out.
+     *
+     * The encrypted account registry owns independent cookie snapshots. The
+     * WebView, however, has one process-wide jar, so opening the channel picker
+     * after selecting an older account would otherwise show whichever account
+     * happened to sign in most recently. Replace the local jar with that
+     * account's snapshot before loading YouTube Music.
+     */
+    fun installGoogleCookies(cookieHeader: String) {
+        clearGoogleCookies()
+        val manager = runCatching { CookieManager.getInstance() }.getOrElse {
+            Log.w("BitChord", "no cookie manager to restore: ${it.message}")
+            return
+        }
+        val entries = cookieHeader.split(';').mapNotNull { entry ->
+            val name = entry.substringBefore('=').trim()
+            val value = entry.substringAfter('=', "").trim()
+            if (name.isEmpty() || value.isEmpty()) null else "$name=$value; Path=/; Secure"
+        }
+        YOUTUBE_ORIGINS.forEach { origin ->
+            entries.forEach { cookie -> manager.setCookie(origin, cookie) }
+        }
+        runCatching { manager.flush() }
+        Log.d("BitChord", "restored ${entries.size} browser cookies for the selected account")
+    }
 
     /**
      * Forgets the Google login the in-app browser is holding.
@@ -85,13 +114,20 @@ object BrowserSession {
                 // Both the host-only and the domain-wide form: a cookie set on
                 // `.google.com` is not removed by expiring it on the host, and
                 // which of the two a given cookie used is not recorded here.
-                manager.setCookie(origin, "$name=; Max-Age=0; Path=/")
-                manager.setCookie(origin, "$name=; Max-Age=0; Path=/; Domain=$host")
-                manager.setCookie(origin, "$name=; Max-Age=0; Path=/; Domain=.$host")
+                val expired = "$name=; Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0"
+                manager.setCookie(origin, "$expired; Path=/")
+                manager.setCookie(origin, "$expired; Path=/; Domain=$host")
+                manager.setCookie(origin, "$expired; Path=/; Domain=.$host")
+                manager.setCookie(origin, "$expired; Path=/accounts")
+                manager.setCookie(origin, "$expired; Path=/ServiceLogin")
                 cleared++
             }
         }
-        runCatching { manager.flush() }
+        runCatching {
+            val storage = android.webkit.WebStorage.getInstance()
+            GOOGLE_ORIGINS.forEach { origin -> storage.deleteOrigin(origin) }
+            manager.flush()
+        }
         Log.d("BitChord", "cleared $cleared browser cookies for Google")
     }
 
@@ -102,5 +138,11 @@ object BrowserSession {
         "https://accounts.google.com",
         "https://www.google.com",
         "https://google.com",
+    )
+
+    private val YOUTUBE_ORIGINS = listOf(
+        "https://music.youtube.com",
+        "https://www.youtube.com",
+        "https://youtube.com",
     )
 }

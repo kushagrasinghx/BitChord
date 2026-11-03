@@ -59,8 +59,8 @@ class LoudnessProcessorTest {
 
     @Test
     fun blendTrimIsAPlainGainThatNeverReshapesLoudTracks() {
-        // The midpoint of a blend: trim 1/sqrt(1.414).
-        val trim = 1f / kotlin.math.sqrt(1.4142135f)
+        // The midpoint of a blend: reserve the two decks' combined peak.
+        val trim = AutomixHeadroom.trimFor(0.70710677f, 0.70710677f)
         val proc = processor(emptyMap()).apply { track("a", null) }
         proc.setBlendTrim(trim)
         proc.process(sine(0.98f))

@@ -186,12 +186,12 @@ class CrossfadeController(
     private val onArmIncoming: (MediaItem, String?) -> Unit = { _, _ -> },
     /**
      * A smooth headroom trim for both players while two tracks overlap:
-     * `1 / sqrt(incomingGain + outgoingGain)`, 1 otherwise.
+     * `1 / (incomingGain + outgoingGain)`, 1 otherwise.
      *
      * Equal-power gains sum to more than 1 — up to 1.41 at the midpoint — so
      * two loud masters peaking together pass full scale in the platform mixer
-     * and are hard-clipped into a crackle. The trim holds that to 1.19 at a
-     * cost of at most 1.5 dB mid-blend. A gain rather than a limiter on
+     * and are hard-clipped into a crackle. The trim holds the combined peak
+     * within full scale at a cost of at most 3 dB mid-blend. A gain rather than a limiter on
      * purpose — see [LoudnessProcessor].
      */
     private val onBlendHeadroom: (Float) -> Unit = {},
@@ -3634,8 +3634,7 @@ class CrossfadeController(
 
     /** See [onBlendHeadroom]. */
     private fun headroomFor(incomingGain: Float, outgoingGain: Float): Float {
-        val sum = incomingGain + outgoingGain
-        return if (sum <= 1f) 1f else 1f / kotlin.math.sqrt(sum)
+        return AutomixHeadroom.trimFor(incomingGain, outgoingGain)
     }
 
     // There is deliberately no second, equal-gain pair here any more. It existed

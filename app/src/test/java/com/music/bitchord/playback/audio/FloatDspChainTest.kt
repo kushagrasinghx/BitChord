@@ -26,6 +26,38 @@ class FloatDspChainTest {
 
     private val sampleRate = 44100
 
+    @Test
+    fun `six alternating automix transitions restore the unfiltered signal on both sinks`() {
+        // Reuse both physical DSP chains, as the service does after every handoff.
+        val chains = listOf(DspChain(), DspChain())
+        val frames = 1024
+        val block = AudioBlock(channelCount = 2, capacityFrames = frames)
+        repeat(6) { transitionIndex ->
+            for ((sinkIndex, chain) in chains.withIndex()) {
+                val rate = if (transitionIndex % 2 == 0) 44_100 else 48_000
+                chain.configure(rate, 2)
+                chain.transition.setCutoffs(500f, 200f)
+                chain.transition.setEcho(0.1f, 0.8f, 0.2f)
+                chain.loudness.setBlendTrim(0.70710677f)
+                val source = FloatArray(frames * 2) { i ->
+                    (0.5 * sin(2 * PI * 5_000 * (i / 2) / rate)).toFloat()
+                }
+                fun pass() {
+                    source.copyInto(block.samples)
+                    block.setFrameCount(frames)
+                    chain.process(block)
+                }
+                repeat(4) { pass() }
+                chain.transition.open()
+                chain.transition.parkEcho()
+                chain.loudness.setBlendTrim(1f)
+                repeat(80) { pass() }
+                assertFalse("Sink $sinkIndex remains filtered after transition $transitionIndex", chain.transition.isFiltering)
+                for (i in source.indices) assertEquals(source[i], block.samples[i], 0f)
+            }
+        }
+    }
+
     // ── EqualizerProcessor Float32 Tests ────────────────────────────────────
 
     @Test

@@ -53,10 +53,10 @@ import kotlin.math.exp
  * while they overlap. It was first done by limiting each side's peaks to
  * `1 / (inGain + outGain)`, which on modern masters (peaking near 0 dBFS
  * almost continuously) meant limiting both songs by 3 dB for the whole blend:
- * audible pumping and grit, heard as the two songs clashing. A smooth trim of
- * `1 / sqrt(inGain + outGain)` costs at most 1.5 dB at the midpoint, keeps
- * the sum's peaks within 1.19 — rare enough to leave to the mixer — and
- * changes no waveform's shape.
+ * audible pumping and grit, heard as the two songs clashing. A smooth plain
+ * gain of `1 / (inGain + outGain)` costs at most 3 dB at the midpoint without
+ * changing either waveform's shape. The previous square-root trim left up to
+ * 1.19 at the mixer, where correlated peaks could still be hard-clipped.
  */
 class LoudnessProcessor {
 

@@ -27,6 +27,8 @@ interface TrackListProps {
   onNearEnd?: () => void;
   /** Where the list comes from: playing a row queues the list from there. Without it, a row plays alone. */
   source?: ListContext['source'];
+  /** The user's own playlist: each row's menu offers "Remove from Playlist". */
+  onRemove?: (track: Track) => void;
 }
 
 /* Track lists (report §3 album rows, §14 playlist rows). */
@@ -90,9 +92,10 @@ interface RowProps {
   position: number;
   fallbackArtwork: string | null | undefined;
   onPlayRow: () => void;
+  onRemove: (() => void) | undefined;
 }
 
-function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps) {
+function Row({ track, variant, position, fallbackArtwork, onPlayRow, onRemove }: RowProps) {
   const current = usePlayer((s) => s.nowPlaying?.videoId === track.videoId);
   const playing = usePlayer((s) => s.nowPlaying?.videoId === track.videoId && (s.status === 'playing' || s.status === 'buffering'));
   const togglePlay = usePlayer((s) => s.togglePlay);
@@ -188,6 +191,7 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
         {!unavailable && (
           <TrackMenu
             track={track}
+            onRemove={onRemove}
             className="absolute end-2.5 hidden size-7 place-items-center rounded-full text-key group-focus-within/row:grid group-hover/row:grid hover:bg-quinary data-open:grid"
           />
         )}
@@ -212,7 +216,7 @@ function Header() {
  * hover fill, the number (or artwork) turning into a play button. Long lists
  * are virtualized against the page's scroll container (prompt §3).
  */
-export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, onNearEnd, source }: TrackListProps) {
+export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, onNearEnd, source, onRemove }: TrackListProps) {
   const playRow = (i: number) => {
     // Rows from another catalogue that found no YouTube Music song stay out of the queue.
     if (source) {
@@ -265,6 +269,7 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
                   position={item.index + 1}
                   fallbackArtwork={fallbackArtwork}
                   onPlayRow={() => playRow(item.index)}
+                  onRemove={onRemove && (() => onRemove(tracks[item.index]!))}
                 />
               </div>
             ))}
@@ -278,6 +283,7 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
               position={i + 1}
               fallbackArtwork={fallbackArtwork}
               onPlayRow={() => playRow(i)}
+              onRemove={onRemove && (() => onRemove(track))}
             />
           ))
         )}

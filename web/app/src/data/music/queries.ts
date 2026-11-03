@@ -13,6 +13,8 @@ import { useYtAuth, ytAuthSnapshot } from '@/extension/useYtAuth';
 import { queryClient } from '@/lib/queryClient';
 import {
   addToPlaylist,
+  deletePlaylist,
+  editPlaylist,
   fetchAlbum,
   fetchArtist,
   fetchBrowse,
@@ -26,13 +28,14 @@ import {
   fetchPlaylistOptions,
   fetchSearch,
   fetchSuggestions,
+  removeFromPlaylist,
   setListSaved,
   setTrackLiked,
   type LikeStatus,
   type Paged,
 } from './api';
 import { isLibrarySection, LIKED_MUSIC_PLAYLIST, type LibrarySection } from './library';
-import type { AlbumPage, BrowseLink, BrowsePage, HeaderInfo, PlaylistPage, Shelf, Track } from './types';
+import type { AlbumPage, BrowseLink, BrowsePage, HeaderInfo, PlaylistPage, PlaylistPrivacy, Shelf, Track } from './types';
 
 // TanStack Query for every browse request (prompt §1: caching, dedupe,
 // retries). YouTube requests need the extension, so every query waits for it;
@@ -265,6 +268,47 @@ export function useAddToPlaylist() {
     onSettled: (_data, _error, { playlistId }) => {
       void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', playlistId] });
       void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', `VL${playlistId.replace(/^VL/, '')}`] });
+    },
+  });
+}
+
+/** Both cache keys a playlist can be under: the page is reached with and without the VL prefix. */
+function refreshPlaylist(playlistId: string) {
+  const bareId = playlistId.replace(/^VL/, '');
+  void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', bareId] });
+  void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', `VL${bareId}`] });
+}
+
+/** Rename, describe or change the privacy of one of the user's playlists. */
+export function useEditPlaylist() {
+  return useMutation({
+    mutationFn: ({ playlistId, ...changes }: { playlistId: string; title?: string; description?: string; privacy?: PlaylistPrivacy }) =>
+      editPlaylist(playlistId, changes),
+    onSettled: (_data, _error, { playlistId }) => {
+      refreshPlaylist(playlistId);
+      // The sidebar and All Playlists show the name.
+      void queryClient.invalidateQueries({ queryKey: ['music', 'library'] });
+    },
+  });
+}
+
+/** "Remove from Playlist" on a row of one of the user's playlists. */
+export function useRemoveFromPlaylist() {
+  return useMutation({
+    mutationFn: ({ playlistId, videoId }: { playlistId: string; videoId: string }) => removeFromPlaylist(playlistId, videoId),
+    onSettled: (_data, _error, { playlistId }) => refreshPlaylist(playlistId),
+  });
+}
+
+/** Deletes one of the user's playlists. */
+export function useDeletePlaylist() {
+  return useMutation({
+    mutationFn: ({ playlistId }: { playlistId: string }) => deletePlaylist(playlistId),
+    onSuccess: (_data, { playlistId }) => {
+      const bareId = playlistId.replace(/^VL/, '');
+      queryClient.removeQueries({ queryKey: ['music', 'playlist', bareId] });
+      queryClient.removeQueries({ queryKey: ['music', 'playlist', `VL${bareId}`] });
+      void queryClient.invalidateQueries({ queryKey: ['music', 'library'] });
     },
   });
 }

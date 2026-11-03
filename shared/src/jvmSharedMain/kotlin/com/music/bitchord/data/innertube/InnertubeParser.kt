@@ -1420,125 +1420,51 @@ object InnertubeParser {
         return segments.takeIf { it.isNotEmpty() }?.let(::VersionTimeMap)
     }
 
-    // TEMP-DIAG: unconditional diagnostic counter — caps at 3 per history fetch cycle.
-    // Resets to 0 when it overflows (after ~33 fetches), ensuring logs stay reachable.
-    private var _diagHistoryCount = 0
-
     /**
      * The "Remove from history" feedback token on a history row's menu, or
-     * null. The same plain menu items also carry other feedback actions —
-     * "Don't recommend this", for one — so only the item wearing the DELETE
-     * icon is taken; sending a stranger's token would quietly do something
-     * else to the account.
-     *
-     * Now searches every non-toggle menu item's subtree for a feedbackToken,
-     * covering both the old `serviceEndpoint.feedbackEndpoint` path and newer
-     * wrapped paths (`commandExecutorCommand.commands[]`).
+     * null. Only accepts items with icon type REMOVE_FROM_HISTORY or DELETE.
      */
     private fun extractFeedbackToken(renderer: JsonObject): String? {
         val items = renderer.o("menu")?.o("menuRenderer")?.a("items") ?: return null
 
-        // Collect all candidate tokens with their icon types.
-        data class Candidate(val iconType: String?, val token: String)
-
-        val candidates = mutableListOf<Candidate>()
-        var deleteCandidate: Candidate? = null
-
         for (item in items) {
-            // Each item is a JsonObject with a single key being the renderer type.
             val rendererKey = (item as? JsonObject)?.keys?.firstOrNull() ?: continue
-
-            // Skip toggle items (like, dislike, etc.) — never use their tokens.
+            // Skip toggle items (like, dislike, library add/remove, etc.)
             if (rendererKey == "toggleMenuServiceItemRenderer") continue
 
             val service = item.o("menuServiceItemRenderer") ?: continue
 
-            // TEMP-DIAG: unconditional D3 — log first 3 rows that have a menu with items.
-            // Counter wraps at Int.MAX_VALUE to guarantee periodic reachability.
-            val diagId = ++_diagHistoryCount % 100
-            if (diagId <= 3) {
-                val iconType = service.o("icon")?.s("iconType")
-                    ?: service.o("defaultIcon")?.s("iconType")
-                val tokenSnippet = findFeedbackTokenInSubtree(service)?.let { it.take(8) }
-                val text = service.o("text")?.runs().orEmpty()
-                TrackLog.d(
-                    "HistoryRemoveDiag",
-                    "D3-item row#$diagId: $rendererKey icon=$iconType token=${tokenSnippet ?: "none"} text=$text",
-                )
-            }
-
-            // Find feedback token in this item's subtree (bounded depth).
-            val token = findFeedbackTokenInSubtree(service) ?: continue
-
-            // Check icon type for priority.
+            // Check icon type — accept both the old DELETE and the current REMOVE_FROM_HISTORY.
             val iconType = service.o("icon")?.s("iconType")
                 ?: service.o("defaultIcon")?.s("iconType")
+            if (iconType != "DELETE" && iconType != "REMOVE_FROM_HISTORY") continue
 
-            if (iconType == "DELETE") {
-                deleteCandidate = Candidate(iconType, token)
-            } else {
-                candidates.add(Candidate(iconType, token))
-            }
+            // Find the token at any depth inside this item's subtree.
+            return findFeedbackTokenInSubtree(service)
         }
 
-        // TEMP-DIAG: unconditional D3 result log for the first 3 rows.
-        if (_diagHistoryCount % 100 <= 3) {
-            val finalToken = when {
-                deleteCandidate != null -> "DELETE:${deleteCandidate!!.token.take(8)}"
-                candidates.size == 1 -> "single:${candidates[0].token.take(8)} icon=${candidates[0].iconType}"
-                else -> "ambiguous(${candidates.size})"
-            }
-            TrackLog.d(
-                "HistoryRemoveDiag",
-                "D3-result row#${_diagHistoryCount % 100}: $finalToken",
-            )
-        }
-
-        // Priority 1: DELETE icon wins unconditionally.
-        deleteCandidate?.let { return it.token }
-
-        // Priority 2 & 3: exactly one non-toggle candidate with a safe icon type.
-        if (candidates.size == 1) {
-            val c = candidates[0]
-            // Never use tokens for library/playlist/favorite actions.
-            val forbiddenIcons = setOf(
-                "LIBRARY_ADD", "LIBRARY_REMOVE", "LIBRARY_SAVED",
-                "FAVORITE", "UNFAVORITE",
-                "BOOKMARK", "BOOKMARK_BORDER",
-                "ADD_TO_PLAYLIST", "ADD_TO_REMOTE_QUEUE",
-                "QUEUE_PLAY_NEXT", "ADD_TO_QUEUE",
-            )
-            if (c.iconType !in forbiddenIcons) {
-                return c.token
-            }
-        }
-
-        // Two or more candidates without a DELETE icon: never guess.
         return null
     }
 
     /**
-     * Search [root]'s subtree (up to 6 levels deep) for a
-     * `feedbackEndpoint.feedbackToken` string, regardless of nesting.
-     * Covers both `serviceEndpoint.feedbackEndpoint.feedbackToken` and
-     * `commandExecutorCommand.commands[].feedbackEndpoint.feedbackToken`.
+     * Search [root]'s subtree for a `feedbackEndpoint.feedbackToken` string
+     * at any depth. JSON trees have no cycles, so unbounded recursion is safe.
      */
-    private fun findFeedbackTokenInSubtree(root: JsonElement?, depth: Int = 0): String? {
-        if (depth > 6 || root == null) return null
-        // Check current level for feedbackEndpoint → feedbackToken.
+    private fun findFeedbackTokenInSubtree(root: JsonElement?): String? {
+        if (root == null) return null
         if (root is JsonObject) {
-            val fe = root["feedbackEndpoint"] as? JsonObject ?: return null
-            val token = fe["feedbackToken"] as? JsonPrimitive ?: return null
-            token.contentOrNull?.takeIf { it.isNotBlank() }?.let { return it }
-        }
-        // Recurse into children.
-        if (root is JsonObject) {
-            for (value in root.values) {
-                findFeedbackTokenInSubtree(value, depth + 1)?.let { return it }
+            val fe = root["feedbackEndpoint"] as? JsonObject ?: let {
+                for (value in root.values) {
+                    findFeedbackTokenInSubtree(value)?.let { return it }
+                }
+                return null
             }
-        } else if (root is JsonArray) {
+            val token = fe["feedbackToken"] as? JsonPrimitive ?: return null
+            return token.contentOrNull?.takeIf { it.isNotBlank() }
+        }
+        if (root is JsonArray) {
             for (element in root) {
-                findFeedbackTokenInSubtree(element, depth + 1)?.let { return it }
+                findFeedbackTokenInSubtree(element)?.let { return it }
             }
         }
         return null

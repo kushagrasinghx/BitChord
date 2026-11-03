@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Picker artwork for the recognition widget, on hosts older than API 31. The
-  solid black capsule filling the 2x2 cell's proportions, and the sheet's
+  solid dark capsule filling the 2×1 row's proportions, and the sheet's
   five-bar waveform in full voice — the LiveWaveform arithmetic at level one
   and phase 1.1, the state the widget performs in while listening, so the
   picker sells what the tap does. API 31+ hosts render the live layout
@@ -13,28 +13,28 @@
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="120dp"
-    android:height="128dp"
+    android:height="64dp"
     android:viewportWidth="120"
-    android:viewportHeight="128">
+    android:viewportHeight="64">
 
     <path
         android:fillColor="#FF141619"
-        android:pathData="M60,0 A60,60 0,0,1 120,60 A60,60 0,0,1 60,128 A60,60 0,0,1 0,60 A60,60 0,0,1 60,0 Z" />
+        android:pathData="M32,0 L88,0 A32,32 0,0,1 120,32 A32,32 0,0,1 88,64 L32,64 A32,32 0,0,1 0,32 A32,32 0,0,1 32,0 Z" />
 
     <!-- The five bars in full voice, each a stadium 10.6 wide, h tall. -->
-    <group android:translateX="16" android:translateY="39.85">
+    <group android:translateX="16" android:translateY="4.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,43 A5.3,5.3 0,0,1 0,43 L0,5.3 Z" />
     </group>
-    <group android:translateX="35.4" android:translateY="39.45">
+    <group android:translateX="35.4" android:translateY="4.45">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,43.8 A5.3,5.3 0,0,1 0,43.8 L0,5.3 Z" />
     </group>
-    <group android:translateX="54.7" android:translateY="46.85">
+    <group android:translateX="54.7" android:translateY="11.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,29 A5.3,5.3 0,0,1 0,29 L0,5.3 Z" />
     </group>
-    <group android:translateX="74.1" android:translateY="44.85">
+    <group android:translateX="74.1" android:translateY="9.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,33 A5.3,5.3 0,0,1 0,33 L0,5.3 Z" />
     </group>
-    <group android:translateX="93.4" android:translateY="38.85">
+    <group android:translateX="93.4" android:translateY="3.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,45 A5.3,5.3 0,0,1 0,45 L0,5.3 Z" />
     </group>
 </vector>

@@ -11,23 +11,22 @@ import android.widget.RemoteViews
 import com.music.bitchord.R
 
 /**
- * Home-screen widget that starts song recognition on tap. One provider serves
- * every instance on the screen — [RecognitionWidgetWide] is only a second
- * manifest entry so the picker lists this under its own, recognizable name —
- * and all of them look the same, so one [RemoteViews] build covers each face:
+ * Home-screen widgets that start song recognition on tap. The circle and pill
+ * providers share the same interaction and animation stream, but keep their
+ * own layout so the launcher never has to stretch one shape into the other:
  *
- * - sleeping: the sheet's five-bar waveform, white on the black capsule, at
- *   rest — the state between takes and the face the picker previews;
+ * - sleeping: the sheet's five-bar waveform at rest — the state between takes
+ *   and the face the picker previews;
  * - listening: the bars breathe and rise with the room, frame bitmaps
  *   rendered by [RecognitionActivity] and handed here through [showWave].
  *   RemoteViews has no frame of its own to animate in — the animation is a
- *   stream of measured pictures, which is what makes the widget react to the
+ *   stream of measured pictures, which makes both widget sizes react to the
  *   sound instead of merely pulsing.
  */
 open class RecognitionWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = buildViews(context)
+        val views = buildViews(context, layoutFor(javaClass))
         for (id in ids) {
             runCatching { manager.updateAppWidget(id, views) }
         }
@@ -36,47 +35,47 @@ open class RecognitionWidgetProvider : AppWidgetProvider() {
     companion object {
 
         /**
-         * Puts every recognition pill back to sleep. The take's ending calls
+         * Puts every recognition widget back to sleep. The take's ending calls
          * this last — including the endings where the activity is about to
-         * finish — so a widget never stands at a frozen frame. A full apply,
-         * because it also restores the tap's PendingIntent and description
-         * whatever the frames last replaced.
+         * finish — so neither size stands at a frozen frame. A full apply also
+         * restores the tap's PendingIntent and description after frame updates.
          */
         fun showSleep(context: Context) {
             val appContext = context.applicationContext
-            val views = buildViews(appContext)
-            runCatching {
-                AppWidgetManager.getInstance(appContext).updateAppWidget(
-                    ComponentName(appContext, RecognitionWidgetWide::class.java),
-                    views,
-                )
+            val manager = runCatching { AppWidgetManager.getInstance(appContext) }.getOrNull() ?: return
+            for (widget in WIDGETS) {
+                runCatching {
+                    manager.updateAppWidget(
+                        ComponentName(appContext, widget.provider),
+                        buildViews(appContext, widget.layout),
+                    )
+                }
             }
         }
 
         /**
-         * One listening frame, shared by every pill on the screen. The frames
-         * go out as *partial* updates — only the ImageView of each pill is
-         * replaced, leaving the RemoteViews tree the sleep face installed
-         * standing — because a full re-apply at the taking cadence is what
-         * made the pill stutter: the launcher re-rendered the whole widget
-         * eleven times a second instead of re-drawing one bar picture.
+         * One listening frame, shared by every recognition widget on the
+         * screen. The frames go out as *partial* updates — only the ImageView
+         * is replaced, leaving each sleep face's RemoteViews tree standing —
+         * because a full re-apply at the taking cadence makes the launcher
+         * re-render the whole widget instead of one bar picture.
          */
         fun showWave(context: Context, bitmap: Bitmap) {
             val appContext = context.applicationContext
             runCatching {
                 val manager = AppWidgetManager.getInstance(appContext)
-                val ids = manager.getAppWidgetIds(
-                    ComponentName(appContext, RecognitionWidgetWide::class.java),
-                )
-                if (ids.isEmpty()) return
-                val views = RemoteViews(appContext.packageName, R.layout.widget_recognition_wide).apply {
-                    setImageViewBitmap(R.id.widget_wave, bitmap)
-                    setContentDescription(
-                        R.id.widget_wave,
-                        appContext.getString(R.string.widget_recognition_listening),
-                    )
+                for (widget in WIDGETS) {
+                    val ids = manager.getAppWidgetIds(ComponentName(appContext, widget.provider))
+                    if (ids.isEmpty()) continue
+                    val views = RemoteViews(appContext.packageName, widget.layout).apply {
+                        setImageViewBitmap(R.id.widget_wave, bitmap)
+                        setContentDescription(
+                            R.id.widget_wave,
+                            appContext.getString(R.string.widget_recognition_listening),
+                        )
+                    }
+                    manager.partiallyUpdateAppWidget(ids, views)
                 }
-                manager.partiallyUpdateAppWidget(ids, views)
             }
         }
 
@@ -92,7 +91,8 @@ open class RecognitionWidgetProvider : AppWidgetProvider() {
             }
 
         /**
-         * The pill at rest: the sleeping face and the tap's PendingIntent.
+         * A recognition widget at rest: the sleeping face and the tap's
+         * PendingIntent.
          * The ImageView reset is recorded as its own action on purpose: when
          * the launcher re-applies this view set over a host whose ImageView
          * still carries a listening frame's bitmap (the same-layout update
@@ -100,17 +100,31 @@ open class RecognitionWidgetProvider : AppWidgetProvider() {
          * actions), without the reset the stale frame would keep standing on
          * the bars — a stop that never looked like one.
          */
-        private fun buildViews(context: Context): RemoteViews {
+        private fun buildViews(context: Context, layout: Int): RemoteViews {
             val pending = PendingIntent.getActivity(
                 context,
                 0,
                 tapIntent(context),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            return RemoteViews(context.packageName, R.layout.widget_recognition_wide).apply {
+            return RemoteViews(context.packageName, layout).apply {
                 setOnClickPendingIntent(R.id.widget_root, pending)
                 setImageViewResource(R.id.widget_wave, R.drawable.ic_widget_wave_sleep)
             }
         }
+
+        private data class WidgetSpec(
+            val provider: Class<out AppWidgetProvider>,
+            val layout: Int,
+        )
+
+        private val WIDGETS = listOf(
+            WidgetSpec(RecognitionWidgetCircle::class.java, R.layout.widget_recognition_circle),
+            WidgetSpec(RecognitionWidgetWide::class.java, R.layout.widget_recognition_wide),
+        )
+
+        private fun layoutFor(provider: Class<*>): Int =
+            WIDGETS.firstOrNull { it.provider == provider }?.layout
+                ?: R.layout.widget_recognition_wide
     }
 }

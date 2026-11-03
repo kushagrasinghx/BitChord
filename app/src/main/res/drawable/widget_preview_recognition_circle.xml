@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Circular picker artwork for hosts below API 31. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <path
+        android:fillColor="#FF141619"
+        android:pathData="M60,0 A60,60 0,1,1 60,120 A60,60 0,1,1 60,0 Z" />
+
+    <group android:translateX="16" android:translateY="39.85">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,43 A5.3,5.3 0,0,1 0,43 L0,5.3 Z" />
+    </group>
+    <group android:translateX="35.4" android:translateY="39.45">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,43.8 A5.3,5.3 0,0,1 0,43.8 L0,5.3 Z" />
+    </group>
+    <group android:translateX="54.7" android:translateY="46.85">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,29 A5.3,5.3 0,0,1 0,29 L0,5.3 Z" />
+    </group>
+    <group android:translateX="74.1" android:translateY="44.85">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,33 A5.3,5.3 0,0,1 0,33 L0,5.3 Z" />
+    </group>
+    <group android:translateX="93.4" android:translateY="38.85">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,45 A5.3,5.3 0,0,1 0,45 L0,5.3 Z" />
+    </group>
+</vector>

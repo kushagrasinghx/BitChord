@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The recognition pill: a solid black capsule with the sheet's waveform on
+  The 2×1 recognition pill: a solid dark capsule with the sheet's waveform on
   it — white bars in the round shapes the sheet draws them in, with nothing
   behind them to frame them.
 
@@ -10,7 +10,7 @@
     LiveWaveform draws — phase-breathing idle heights, level-driven rises —
     and pushes the frames here through [RecognitionWidgetProvider.showWave].
 
-  There is no text and no separate mic anywhere: the waveform on black is
+  There is no text and no separate mic anywhere: the waveform on the pill is
   the whole vocabulary.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -22,7 +22,7 @@
     <ImageView
         android:id="@+id/widget_wave"
         android:layout_width="88dp"
-        android:layout_height="54dp"
+        android:layout_height="34dp"
         android:layout_gravity="center"
         android:contentDescription="@string/widget_recognition_label"
         android:src="@drawable/ic_widget_wave_sleep"

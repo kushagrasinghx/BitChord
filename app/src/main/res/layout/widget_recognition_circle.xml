@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The compact recognition widget: one circular touch target with the same
+  five-bar waveform used by the pill. RecognitionActivity replaces widget_wave
+  with measured frames while the microphone is listening.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_recognition_circle_background">
+
+    <ImageView
+        android:id="@+id/widget_wave"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:contentDescription="@string/widget_recognition_label"
+        android:padding="4dp"
+        android:src="@drawable/ic_widget_wave_sleep"
+        android:scaleType="fitCenter" />
+</FrameLayout>

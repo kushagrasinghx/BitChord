@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Picker preview for the circular recognition face. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_recognition_circle_background">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:contentDescription="@string/widget_recognition_label"
+        android:padding="4dp"
+        android:src="@drawable/ic_widget_wave_reactive"
+        android:scaleType="fitCenter" />
+</FrameLayout>

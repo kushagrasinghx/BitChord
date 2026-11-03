@@ -116,6 +116,8 @@
     </plurals>
     <string name="source">Sources</string>
     <string name="direct_source_stream">Direct Source Stream</string>
+    <string name="direct_source_early_lookup">Find next song early</string>
+    <string name="direct_source_early_lookup_subtitle">Asks the addon for the next song while this one plays, so it starts without waiting. Audio still downloads only near the end.</string>
     <string name="direct_source_stream_in_party">Off while you\'re in a Listen Together party</string>
     <string name="lossless_audio">Lossless audio</string>
     <string name="prefer_lossless">Prefer lossless</string>

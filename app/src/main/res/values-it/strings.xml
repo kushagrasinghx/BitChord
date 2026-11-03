@@ -1348,6 +1348,8 @@
     <string name="saved_on_this_device">Salvata su questo dispositivo</string>
     <string name="direct_source_stream_in_party">Disattivato durante una festa Listen Together</string>
     <string name="direct_source_stream">Streaming diretto dalla fonte</string>
+    <string name="direct_source_early_lookup">Cerca prima il brano successivo</string>
+    <string name="direct_source_early_lookup_subtitle">Chiede all\'addon il brano successivo mentre questo è in riproduzione, così parte senza attese. L\'audio viene comunque scaricato solo verso la fine.</string>
     <string name="find_your_mood">Trova il tuo mood</string>
     <string name="progressive_blur">Sfocatura progressiva</string>
     <string name="glass_performance">Prestazioni migliori per il vetro</string>

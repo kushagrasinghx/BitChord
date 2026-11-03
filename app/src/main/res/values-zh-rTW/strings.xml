@@ -1386,6 +1386,8 @@
     <string name="saved_on_this_device">已儲存在這部裝置上</string>
     <string name="direct_source_stream_in_party">在 Listen Together 派對中時關閉</string>
     <string name="direct_source_stream">直接從來源串流</string>
+    <string name="direct_source_early_lookup">提前尋找下一首</string>
+    <string name="direct_source_early_lookup_subtitle">在目前歌曲播放時向外掛請求下一首，讓它無需等待即可開始。音訊仍只會在接近結尾時下載。</string>
     <string name="find_your_mood">尋找你的心情</string>
     <string name="progressive_blur">漸進模糊</string>
     <string name="glass_performance">提升玻璃效能</string>

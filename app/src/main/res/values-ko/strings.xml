@@ -1229,6 +1229,8 @@
     <string name="wear_os_done">완료</string>
     <string name="signed_by">%1$s 서명</string>
     <string name="direct_source_stream">소스에서 직접 스트리밍</string>
+    <string name="direct_source_early_lookup">다음 곡 미리 찾기</string>
+    <string name="direct_source_early_lookup_subtitle">현재 곡이 재생되는 동안 애드온에 다음 곡을 요청해 기다림 없이 시작합니다. 오디오는 여전히 곡이 끝날 무렵에만 다운로드합니다.</string>
     <string name="direct_source_stream_in_party">함께 듣기 파티 중에는 꺼집니다</string>
     <string name="progressive_blur">점진적 흐림</string>
     <string name="glass_performance">유리 효과 성능 향상</string>

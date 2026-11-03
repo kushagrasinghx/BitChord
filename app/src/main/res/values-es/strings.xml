@@ -1381,6 +1381,8 @@
     <string name="saved_on_this_device">Guardada en este dispositivo</string>
     <string name="direct_source_stream_in_party">Desactivado mientras estás en una fiesta de Listen Together</string>
     <string name="direct_source_stream">Transmisión directa desde la fuente</string>
+    <string name="direct_source_early_lookup">Buscar la siguiente canción antes</string>
+    <string name="direct_source_early_lookup_subtitle">Pide al addon la siguiente canción mientras suena esta, para que empiece sin esperar. El audio solo se descarga cerca del final.</string>
     <string name="find_your_mood">Encuentra tu estado de ánimo</string>
     <string name="progressive_blur">Desenfoque progresivo</string>
     <string name="glass_performance">Mejor rendimiento del cristal</string>

@@ -1495,6 +1495,10 @@ object AudioCache {
      */
     fun prefetchDirect(upcoming: Upcoming) {
         directJob?.cancel()
+        // The window has opened, and the lookup below joins any early one
+        // still running rather than starting a second search — so the early
+        // job has nothing left to do that this one won't.
+        earlyJob?.cancel()
         val id = upcoming.mediaId
         // A source-backed row resolves through its own source when opened, and
         // a downloaded or reverted track never reads this entry at all.
@@ -1534,10 +1538,87 @@ object AudioCache {
         }
     }
 
-    /** Drops [prefetchDirect]'s work for a track the queue has moved away from. */
+    /** Drops [prefetchDirect]'s and [lookAheadDirect]'s work for a track the queue has moved away from. */
     fun cancelDirect() {
         directJob?.cancel()
         directJob = null
+        earlyJob?.cancel()
+        earlyJob = null
+        earlyId = null
+    }
+
+    private var earlyJob: Job? = null
+
+    /** The track [lookAheadDirect] was last asked about, so a tick can't ask twice. */
+    @Volatile
+    private var earlyId: String? = null
+
+    /** Whether [lookAheadDirect] has already been asked about [mediaId] for this transition. */
+    fun isLookingAhead(mediaId: String): Boolean = earlyId == mediaId
+
+    /**
+     * Direct Source Stream's early lookup: the next track's addon answer,
+     * found and pinned while the playing one still has minutes to go — see
+     * [AppSettings.directSourceEarlyLookup][com.music.bitchord.data.settings.AppSettings.directSourceEarlyLookup].
+     *
+     * The answer only. Not a byte is fetched here: [prefetchDirect] still reads
+     * the head once the window opens, and finds the stream already pinned, so
+     * it skips its own lookup and starts on the bytes at once. The player's
+     * own open — at the transition, or on a skip made before the window — is
+     * held to the same pin by [StreamChoice] and starts without the search.
+     *
+     * Writing nothing is also what makes pinning this early safe. The pin
+     * names who may fill the cache entry; with no bytes behind it, a pin that
+     * expires before the track is reached leaves nothing that a different
+     * stream could be appended to, and the window simply looks again.
+     *
+     * Skipped wherever [prefetchDirect] would not pin either — a source-backed,
+     * downloaded or reverted track — and over an entry YouTube's bytes already
+     * fill, which only [settleDirectEntry] or [prefetchDirect] may clear: a pin
+     * set over it would have the player read the Opus head off disk and then
+     * stream the addon's file after it.
+     *
+     * No answer pins nothing. YouTube is not pinned in its place, because
+     * that is a decision for the window, which may yet get an answer.
+     */
+    fun lookAheadDirect(upcoming: Upcoming) {
+        val id = upcoming.mediaId
+        if (earlyId == id) return
+        earlyJob?.cancel()
+        earlyId = id
+        earlyJob = null
+        if (SourceRegistry.parseTrackKey(id) != null || id in Downloads.saved.value || OriginalVersion.isPinned(id)) return
+        if (StreamChoice.of(id) != null) return
+        val key = cacheKeyOf(Uri.parse("bitchord://watch?v=$id"))
+        if (heldByYouTube(key)) return
+        earlyJob = scope.launch(TrackLog.about(id)) {
+            val addon = runCatching { DirectSourceGate.lookAhead(id, upcoming.target) }
+                .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) throw it
+                    TrackLog.d(TAG, "early lookup failed for $id: ${it.message}", about = id)
+                }
+                .getOrNull()
+            if (addon == null) {
+                // Not necessarily "no addon has it": an addon that found the
+                // track but could not produce its stream in time — a torrent
+                // still downloading, say — comes back the same way.
+                TrackLog.d(
+                    TAG,
+                    "early lookup: no addon stream for $id (not held, or not served in time); leaving it to the window",
+                    about = id,
+                )
+                return@launch
+            }
+            // The player or the window may have settled it while the search
+            // ran, and a pin is never written over another — see [StreamChoice].
+            if (heldByYouTube(key)) return@launch
+            if (!StreamChoice.rememberIfUnchosen(id, addon, substituted = true)) return@launch
+            TrackLog.d(
+                TAG,
+                "early lookup: pinned $id to the addon at ${addon.format.summary}, ahead of its window",
+                about = id,
+            )
+        }
     }
 
     /**

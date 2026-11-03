@@ -1311,6 +1311,8 @@
     <string name="search_source_addons">外掛</string>
     <string name="search_addons_none">尚未啟用任何外掛。請在「設定 → 來源」中新增。</string>
     <string name="direct_source_stream">直接從來源串流</string>
+    <string name="direct_source_early_lookup">提前尋找下一首</string>
+    <string name="direct_source_early_lookup_subtitle">在目前歌曲播放時向外掛請求下一首，讓它無需等待即可開始。音訊仍只會在接近結尾時下載。</string>
     <string name="spotify_use_spdc_token">使用 sp_dc 權杖</string>
     <string name="korean">韓語</string>
     <string name="app_icon">應用程式圖示</string>

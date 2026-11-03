@@ -1414,6 +1414,8 @@
     <string name="saved_on_this_device">נשמר במכשיר הזה</string>
     <string name="direct_source_stream_in_party">כבוי בזמן מסיבת Listen Together</string>
     <string name="direct_source_stream">הזרמה ישירה מהמקור</string>
+    <string name="direct_source_early_lookup">לחפש את השיר הבא מראש</string>
+    <string name="direct_source_early_lookup_subtitle">מבקש מהתוסף את השיר הבא בזמן שהשיר הנוכחי מתנגן, כדי שיתחיל בלי המתנה. האודיו עדיין יורד רק לקראת הסוף.</string>
     <string name="find_your_mood">מצא את מצב הרוח שלך</string>
     <string name="progressive_blur">טשטוש הדרגתי</string>
     <string name="glass_performance">ביצועים טובים יותר לזכוכית</string>

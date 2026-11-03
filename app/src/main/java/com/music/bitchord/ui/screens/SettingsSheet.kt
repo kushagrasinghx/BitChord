@@ -235,6 +235,7 @@ fun SettingsScreen(
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
     val directSourceStream by AppSettings.directSourceStream.collectAsStateWithLifecycle()
+    val directSourceEarlyLookup by AppSettings.directSourceEarlyLookup.collectAsStateWithLifecycle()
     // A property of the hardware, so it is read once rather than remembered
     // against a key that can never change — see [DeviceCodecs.playsDolbyAtmos],
     // which caches the codec-list walk for the life of the process.
@@ -530,6 +531,19 @@ fun SettingsScreen(
                         onCheckedChange = AppSettings::setDirectSourceStream,
                         subtitle = stringResource(R.string.direct_source_stream_in_party).takeIf { party.inParty },
                         enabled = !party.inParty,
+                    )
+                }
+                // Qualifies Direct Source Stream in turn, so it is drawn the
+                // same way and only means anything while that is on.
+                val earlyLookupTitle = stringResource(R.string.direct_source_early_lookup)
+                val earlyLookupSubtitle = stringResource(R.string.direct_source_early_lookup_subtitle)
+                row(earlyLookupTitle, earlyLookupSubtitle, "addon", "next", "prefetch", "skip", divided = false) {
+                    SettingsSubRow(
+                        title = earlyLookupTitle,
+                        checked = directSourceEarlyLookup && directSourceStream && !party.inParty,
+                        onCheckedChange = AppSettings::setDirectSourceEarlyLookup,
+                        subtitle = earlyLookupSubtitle,
+                        enabled = directSourceStream && !party.inParty,
                     )
                 }
                 val onWifiTitle = stringResource(R.string.on_wifi)

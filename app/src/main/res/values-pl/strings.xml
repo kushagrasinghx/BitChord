@@ -1449,6 +1449,8 @@
     <string name="saved_on_this_device">Zapisano na tym urządzeniu</string>
     <string name="direct_source_stream_in_party">Wyłączone podczas imprezy Listen Together</string>
     <string name="direct_source_stream">Bezpośredni strumień ze źródła</string>
+    <string name="direct_source_early_lookup">Szukaj następnego utworu wcześniej</string>
+    <string name="direct_source_early_lookup_subtitle">Pyta dodatek o następny utwór, gdy ten jeszcze gra, aby zaczął się bez czekania. Dźwięk nadal jest pobierany dopiero pod koniec.</string>
     <string name="find_your_mood">Znajdź swój nastrój</string>
     <string name="progressive_blur">Stopniowe rozmycie</string>
     <string name="glass_performance">Lepsza wydajność szkła</string>

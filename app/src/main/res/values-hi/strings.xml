@@ -1409,6 +1409,8 @@
     <string name="saved_on_this_device">इस डिवाइस पर सेव किया गया</string>
     <string name="direct_source_stream_in_party">Listen Together पार्टी के दौरान बंद</string>
     <string name="direct_source_stream">स्रोत से सीधी स्ट्रीम</string>
+    <string name="direct_source_early_lookup">अगला गाना पहले से खोजें</string>
+    <string name="direct_source_early_lookup_subtitle">यह गाना चलते समय ऐडऑन से अगला गाना मांगता है, ताकि वह बिना इंतज़ार शुरू हो। ऑडियो अब भी सिर्फ़ अंत के पास डाउनलोड होता है।</string>
     <string name="find_your_mood">अपना मूड खोजें</string>
     <string name="progressive_blur">क्रमिक ब्लर</string>
     <string name="glass_performance">ग्लास के लिए बेहतर परफ़ॉर्मेंस</string>

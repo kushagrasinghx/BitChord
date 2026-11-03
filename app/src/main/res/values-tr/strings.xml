@@ -1366,6 +1366,8 @@
     <string name="saved_on_this_device">Bu cihaza kaydedildi</string>
     <string name="direct_source_stream_in_party">Listen Together partisi sırasında kapalı</string>
     <string name="direct_source_stream">Doğrudan kaynak akışı</string>
+    <string name="direct_source_early_lookup">Sonraki şarkıyı önceden bul</string>
+    <string name="direct_source_early_lookup_subtitle">Bu şarkı çalarken sonraki şarkıyı eklentiden ister, böylece beklemeden başlar. Ses yine yalnızca sona doğru indirilir.</string>
     <string name="find_your_mood">Ruh Halini Bul</string>
     <string name="progressive_blur">Kademeli bulanıklık</string>
     <string name="glass_performance">Cam için daha iyi performans</string>

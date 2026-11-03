@@ -1410,6 +1410,8 @@
     <string name="saved_on_this_device">Enregistrée sur cet appareil</string>
     <string name="direct_source_stream_in_party">Désactivé pendant une fête Listen Together</string>
     <string name="direct_source_stream">Flux direct depuis la source</string>
+    <string name="direct_source_early_lookup">Chercher le titre suivant à l\'avance</string>
+    <string name="direct_source_early_lookup_subtitle">Demande le titre suivant à l\'addon pendant la lecture, pour qu\'il démarre sans attendre. L\'audio n\'est toujours téléchargé que vers la fin.</string>
     <string name="find_your_mood">Trouvez votre humeur</string>
     <string name="progressive_blur">Flou progressif</string>
     <string name="glass_performance">Meilleures performances du verre</string>

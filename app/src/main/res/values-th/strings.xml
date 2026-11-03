@@ -1392,6 +1392,8 @@
     <string name="saved_on_this_device">บันทึกไว้ในอุปกรณ์นี้</string>
     <string name="direct_source_stream_in_party">ปิดอยู่ขณะอยู่ในปาร์ตี้ Listen Together</string>
     <string name="direct_source_stream">สตรีมตรงจากแหล่งที่มา</string>
+    <string name="direct_source_early_lookup">ค้นหาเพลงถัดไปล่วงหน้า</string>
+    <string name="direct_source_early_lookup_subtitle">ขอเพลงถัดไปจากแอดออนระหว่างที่เพลงนี้เล่นอยู่ เพื่อให้เริ่มได้ทันทีโดยไม่ต้องรอ เสียงยังคงดาวน์โหลดเฉพาะช่วงใกล้จบเท่านั้น</string>
     <string name="find_your_mood">ค้นหาอารมณ์ของคุณ</string>
     <string name="progressive_blur">เบลอแบบไล่ระดับ</string>
     <string name="glass_performance">ประสิทธิภาพกระจกที่ดีขึ้น</string>

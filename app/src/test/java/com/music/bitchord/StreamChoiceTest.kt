@@ -5,8 +5,10 @@ import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.playback.StreamChoice
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -91,5 +93,38 @@ class StreamChoiceTest {
         StreamChoice.remember("track-5", stream("aac.saavncdn.com"), substituted = true)
         StreamChoice.forget("track-5")
         assertNull(StreamChoice.of("track-5"))
+    }
+
+    /** An early lookup's pin, for a track nothing has settled yet, is taken. */
+    @Test
+    fun `a speculative pin is recorded when nothing has chosen`() {
+        assertTrue(StreamChoice.rememberIfUnchosen("track-6", stream("addon.example"), substituted = true))
+        assertEquals("https://addon.example/track.mp4", StreamChoice.of("track-6")?.url)
+        assertEquals(true, StreamChoice.isSubstitute("track-6"))
+    }
+
+    /**
+     * The guarantee the early lookup relies on. The player may settle a track
+     * on YouTube while the addon search behind the speculative pin is still
+     * running; the late answer must lose, because the YouTube bytes are already
+     * being written under that choice.
+     */
+    @Test
+    fun `a speculative pin never replaces a choice already made`() {
+        StreamChoice.remember("track-7", stream("googlevideo.com"), substituted = false)
+
+        assertFalse(StreamChoice.rememberIfUnchosen("track-7", stream("addon.example"), substituted = true))
+        assertEquals("https://googlevideo.com/track.mp4", StreamChoice.of("track-7")?.url)
+        assertEquals(true, StreamChoice.isYouTube("track-7"))
+    }
+
+    /** Speculative pins share [StreamChoice.remember]'s overflow policy. */
+    @Test
+    fun `speculative pins evict the oldest choice rather than all of them`() {
+        repeat(40) {
+            StreamChoice.rememberIfUnchosen("track-$it", stream("host-$it.example"), substituted = true)
+        }
+        assertEquals("https://host-39.example/track.mp4", StreamChoice.of("track-39")?.url)
+        assertEquals("https://host-20.example/track.mp4", StreamChoice.of("track-20")?.url)
     }
 }

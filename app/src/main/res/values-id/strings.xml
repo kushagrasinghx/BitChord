@@ -1386,6 +1386,8 @@
     <string name="saved_on_this_device">Disimpan di perangkat ini</string>
     <string name="direct_source_stream_in_party">Nonaktif selama kamu dalam pesta Listen Together</string>
     <string name="direct_source_stream">Streaming langsung dari sumber</string>
+    <string name="direct_source_early_lookup">Cari lagu berikutnya lebih awal</string>
+    <string name="direct_source_early_lookup_subtitle">Meminta lagu berikutnya ke addon saat lagu ini diputar, agar langsung mulai tanpa menunggu. Audio tetap hanya diunduh menjelang akhir.</string>
     <string name="find_your_mood">Temukan Mood Anda</string>
     <string name="progressive_blur">Blur progresif</string>
     <string name="glass_performance">Performa kaca lebih baik</string>

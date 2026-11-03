@@ -1387,6 +1387,8 @@
     <string name="saved_on_this_device">このデバイスに保存</string>
     <string name="direct_source_stream_in_party">Listen Together パーティー中はオフ</string>
     <string name="direct_source_stream">ソースから直接ストリーミング</string>
+    <string name="direct_source_early_lookup">次の曲を早めに検索</string>
+    <string name="direct_source_early_lookup_subtitle">再生中にアドオンへ次の曲を問い合わせ、待たずに再生を始めます。音声のダウンロードは引き続き曲の終わり近くで行います。</string>
     <string name="find_your_mood">気分で探す</string>
     <string name="progressive_blur">段階的なぼかし</string>
     <string name="glass_performance">ガラスのパフォーマンス向上</string>

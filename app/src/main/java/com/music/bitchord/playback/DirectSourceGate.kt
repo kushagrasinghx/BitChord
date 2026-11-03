@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Direct Source Stream: a YouTube-queued track plays from an addon ranked
@@ -49,6 +50,13 @@ import java.util.concurrent.ConcurrentHashMap
  *     past the last seek. Skipping or scrubbing never triggers a fetch for the
  *     track after.
  *
+ * With [AppSettings.directSourceEarlyLookup] also on, the next track's addon
+ * *answer* is found well before the window — see [lookAhead] and
+ * [AudioCache.lookAheadDirect] — and pinned, while its bytes still wait for the
+ * window. A slow addon then has minutes to answer rather than
+ * [LOOKUP_TIMEOUT_MS], and the transition, or a skip made before the window,
+ * starts on the pinned stream with no search to wait for.
+ *
  * Automix analysis is outside all of this: its `automix_opus` reads resolve
  * to YouTube before this gate is consulted, so it keeps measuring the Opus
  * copy it always has.
@@ -72,6 +80,32 @@ object DirectSourceGate {
      * this to produce.
      */
     const val LOOKUP_TIMEOUT_MS = 15_000L
+
+    /**
+     * How long the playing track must have run on its own — no seek, no skip,
+     * and this far into the track — before the next one is looked up early.
+     * See [AppSettings.directSourceEarlyLookup].
+     *
+     * The window only ever opened on playback that reached the end of a track,
+     * so a run of skips cost nothing. An early lookup has no such end to wait
+     * for, and without a settle of its own every skip in a run would send the
+     * addon a search for a track the listener was about to skip past too.
+     */
+    const val EARLY_LOOKUP_AFTER_MS = 10_000L
+
+    /**
+     * The furthest ahead of its transition a track is looked up early.
+     *
+     * The answer is a signed URL pinned in [StreamChoice], which holds a choice
+     * for fifteen minutes and drops it after; an addon's URL is good for about
+     * an hour. Ten minutes leaves the pin comfortably alive at the transition
+     * for any track up to that length, and a longer one is simply looked up
+     * once it is within ten minutes of its end.
+     */
+    const val EARLY_LOOKUP_MAX_LEAD_MS = 10 * 60_000L
+
+    /** Whether the next track is looked up early — see [AppSettings.directSourceEarlyLookup]. */
+    fun looksAheadEarly(): Boolean = AppSettings.directSourceEarlyLookup.value && isActive()
 
     /**
      * Whether Direct Source Stream is on *and* has an addon to stream from.
@@ -184,37 +218,75 @@ object DirectSourceGate {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    private class Lookup(val work: Deferred<SourceStream?>, val startedAtMs: Long)
+    private class Lookup(val work: Deferred<SourceStream?>) {
+        /**
+         * When the first caller began *waiting* on [work] — unset until one
+         * has. An early lookup ([lookAhead]) starts the search without starting
+         * this, so a search begun minutes ahead does not arrive at the window
+         * with its budget already spent.
+         */
+        private val waitingSince = AtomicLong(UNSET)
+
+        /** How long callers have been waiting on [work], counting this one in. */
+        fun waitedMs(now: Long): Long {
+            waitingSince.compareAndSet(UNSET, now)
+            return now - waitingSince.get()
+        }
+
+        private companion object {
+            const val UNSET = Long.MIN_VALUE
+        }
+    }
 
     private val lookups = ConcurrentHashMap<String, Lookup>()
+
+    /** The running lookup for [videoId], or a new one started for it. */
+    private fun lookupFor(videoId: String, target: TrackMatcher.Target): Lookup {
+        val fresh = Lookup(
+            work = scope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
+                SourceResolver.directStream(target)
+            },
+        )
+        val running = lookups.putIfAbsent(videoId, fresh)
+        if (running != null) {
+            fresh.work.cancel()
+            return running
+        }
+        fresh.work.invokeOnCompletion { lookups.remove(videoId, fresh) }
+        fresh.work.start()
+        return fresh
+    }
 
     /**
      * The addon stream for [videoId], shared between whoever asks for it at
      * once. Read-ahead opening the window and the player's own resolve arrive
      * together, and should cost one search, not two.
      *
-     * The wait is bounded by [LOOKUP_TIMEOUT_MS] from when the lookup started,
-     * however late the caller joined it. Null means no addon had it in time,
-     * and the caller falls back to YouTube and says so with [startedOnYouTube].
+     * The wait is bounded by [LOOKUP_TIMEOUT_MS] from when the first caller
+     * began waiting on the lookup, however late this one joined it — which,
+     * for any lookup not started early by [lookAhead], is when it started.
+     * Null means no addon had it in time, and the caller falls back to
+     * YouTube and says so with [startedOnYouTube].
      */
     suspend fun lookup(videoId: String, target: TrackMatcher.Target): SourceStream? {
-        val fresh = Lookup(
-            work = scope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
-                SourceResolver.directStream(target)
-            },
-            startedAtMs = android.os.SystemClock.elapsedRealtime(),
-        )
-        val running = lookups.putIfAbsent(videoId, fresh)
-        if (running != null) {
-            fresh.work.cancel()
-        } else {
-            fresh.work.invokeOnCompletion { lookups.remove(videoId, fresh) }
-            fresh.work.start()
-        }
-        val lookup = running ?: fresh
-        val waited = android.os.SystemClock.elapsedRealtime() - lookup.startedAtMs
+        val lookup = lookupFor(videoId, target)
+        val waited = lookup.waitedMs(android.os.SystemClock.elapsedRealtime())
         return withTimeoutOrNull(LOOKUP_TIMEOUT_MS - waited) { lookup.work.await() }
     }
+
+    /**
+     * Starts — or joins — the lookup for [videoId] ahead of its window, and
+     * waits for its answer with no limit: nothing is playing on it yet, so
+     * there is nothing to fall back to and no reason to give up early.
+     *
+     * Shared with [lookup] like any other caller, so the window opening while
+     * this is still running costs no second search; it starts the
+     * [LOOKUP_TIMEOUT_MS] wait from then, as it would have without this.
+     *
+     * @throws Exception whatever the search threw, or cancellation.
+     */
+    suspend fun lookAhead(videoId: String, target: TrackMatcher.Target): SourceStream? =
+        lookupFor(videoId, target).work.await()
 
     /** The lookup for [videoId] if it is still going, past the point anyone waits for it. */
     fun stillLooking(videoId: String): Deferred<SourceStream?>? = lookups[videoId]?.work

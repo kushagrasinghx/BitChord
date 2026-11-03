@@ -6542,7 +6542,10 @@ class PlaybackService : MediaLibraryService() {
         val boundary = crossfade?.plannedTransitionFor(current.mediaId) ?: duration
         val speed = exoPlayer.playbackParameters.speed.coerceAtLeast(MIN_WINDOW_SPEED)
         val remaining = ((boundary - exoPlayer.currentPosition) / speed).toLong()
-        if (remaining > DirectSourceGate.WINDOW_MS) return
+        if (remaining > DirectSourceGate.WINDOW_MS) {
+            lookAheadEarly(exoPlayer, next, remaining)
+            return
+        }
         if (!DirectSourceGate.openNext(next.mediaId)) return
         TrackLog.d(
             "BitChord",
@@ -6552,6 +6555,31 @@ class PlaybackService : MediaLibraryService() {
         val song = next.toSong()
         AudioCache.noteSongs(listOf(song))
         AudioCache.prefetchDirect(AudioCache.Upcoming(song.videoId, TrackMatcher.targetOf(song)))
+    }
+
+    /**
+     * The early half of [driveDirectWindow], for when the next track is to be
+     * looked up before its window — see [AppSettings.directSourceEarlyLookup].
+     *
+     * Asks [AudioCache.lookAheadDirect] once per transition, once the playing
+     * track has run on its own for [DirectSourceGate.EARLY_LOOKUP_AFTER_MS]
+     * and is within [DirectSourceGate.EARLY_LOOKUP_MAX_LEAD_MS] of its end.
+     * Opens nothing: the window still decides when bytes are fetched, so this
+     * changes when the addon is asked and nothing else.
+     */
+    private fun lookAheadEarly(exoPlayer: ExoPlayer, next: MediaItem, remaining: Long) {
+        if (!DirectSourceGate.looksAheadEarly()) return
+        if (remaining > DirectSourceGate.EARLY_LOOKUP_MAX_LEAD_MS) return
+        if (AudioCache.isLookingAhead(next.mediaId)) return
+        if (SystemClock.elapsedRealtime() - lastSeekAt < DirectSourceGate.EARLY_LOOKUP_AFTER_MS) return
+        if (exoPlayer.currentPosition < DirectSourceGate.EARLY_LOOKUP_AFTER_MS) return
+        TrackLog.d(
+            "BitChord",
+            "early lookup: ${next.mediaId} with ${remaining}ms to the transition",
+            about = next.mediaId,
+        )
+        val song = next.toSong()
+        AudioCache.lookAheadDirect(AudioCache.Upcoming(song.videoId, TrackMatcher.targetOf(song)))
     }
 
     /** Stops both rendition selection and byte read-ahead, and makes resume retry. */

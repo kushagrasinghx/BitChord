@@ -1409,6 +1409,8 @@
     <string name="saved_on_this_device">Auf diesem Gerät gespeichert</string>
     <string name="direct_source_stream_in_party">Während einer Listen Together-Party deaktiviert</string>
     <string name="direct_source_stream">Direkter Quell-Stream</string>
+    <string name="direct_source_early_lookup">Nächsten Titel früh suchen</string>
+    <string name="direct_source_early_lookup_subtitle">Fragt das Addon schon während der Wiedergabe nach dem nächsten Titel, damit er ohne Wartezeit startet. Der Ton wird weiterhin erst kurz vor Schluss geladen.</string>
     <string name="find_your_mood">Finde deine Stimmung</string>
     <string name="progressive_blur">Progressive Unschärfe</string>
     <string name="glass_performance">Bessere Leistung für Glas</string>

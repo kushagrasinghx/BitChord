@@ -1441,6 +1441,8 @@
     <string name="saved_on_this_device">Сохранено на этом устройстве</string>
     <string name="direct_source_stream_in_party">Отключено во время вечеринки Listen Together</string>
     <string name="direct_source_stream">Прямой поток из источника</string>
+    <string name="direct_source_early_lookup">Искать следующий трек заранее</string>
+    <string name="direct_source_early_lookup_subtitle">Запрашивает следующий трек у аддона во время воспроизведения, чтобы он начался без ожидания. Аудио по-прежнему загружается только ближе к концу.</string>
     <string name="find_your_mood">Найдите своё настроение</string>
     <string name="progressive_blur">Плавное размытие</string>
     <string name="glass_performance">Производительность стекла</string>

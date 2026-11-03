@@ -363,6 +363,19 @@ object AppSettings {
     val directSourceStream = MutableStateFlow(false)
 
     /**
+     * Under Direct Source Stream, asks the addons for the next track while the
+     * playing one still has minutes to go, rather than only inside the 25 s
+     * window — see [DirectSourceGate.EARLY_LOOKUP_AFTER_MS][com.music.bitchord.playback.DirectSourceGate.EARLY_LOOKUP_AFTER_MS].
+     *
+     * Only the *answer* moves earlier: the stream is pinned, but no byte of it
+     * is fetched until the window opens as usual, so this costs one addon
+     * search per track that becomes next and no extra data. What it buys is a
+     * next track that starts from the addon without waiting on the search —
+     * at the transition, and on a skip made before the window opened.
+     */
+    val directSourceEarlyLookup = MutableStateFlow(false)
+
+    /**
      * Widens stereo output via [com.music.bitchord.playback.SpatialAudioProcessor],
      * a stereo widening + cross-feed effect running inside ExoPlayer's own
      * pipeline. Not true object-based spatial audio — YouTube only ever hands
@@ -993,6 +1006,7 @@ object AppSettings {
         loudnessOffOnSpeaker.value = prefs.getBoolean(KEY_LOUDNESS_OFF_ON_SPEAKER, true)
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, false)
+        directSourceEarlyLookup.value = prefs.getBoolean(KEY_DIRECT_SOURCE_EARLY_LOOKUP, false)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
@@ -1311,6 +1325,11 @@ object AppSettings {
     fun setDirectSourceStream(value: Boolean) {
         directSourceStream.value = value
         prefs.edit().putBoolean(KEY_DIRECT_SOURCE_STREAM, value).apply()
+    }
+
+    fun setDirectSourceEarlyLookup(value: Boolean) {
+        directSourceEarlyLookup.value = value
+        prefs.edit().putBoolean(KEY_DIRECT_SOURCE_EARLY_LOOKUP, value).apply()
     }
 
     fun setSpatialAudio(value: Boolean) {
@@ -2259,6 +2278,7 @@ object AppSettings {
     private const val KEY_LOUDNESS_OFF_ON_SPEAKER = "loudness_off_on_speaker"
     private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_DIRECT_SOURCE_STREAM = "direct_source_stream"
+    private const val KEY_DIRECT_SOURCE_EARLY_LOOKUP = "direct_source_early_lookup"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"

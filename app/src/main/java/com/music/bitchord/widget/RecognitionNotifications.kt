@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
@@ -55,7 +56,10 @@ object RecognitionNotifications {
                     .setContentTitle(track.title)
                     .setContentText(track.artist)
                     .setContentIntent(contentIntent(context))
-                    .setLargeIcon(artwork)
+                    .setCustomContentView(contentView(context, track, artwork))
+                    .setCustomBigContentView(contentView(context, track, artwork))
+                    .setCustomHeadsUpContentView(contentView(context, track, artwork))
+                    .setStyle(NotificationCompat.DecoratedCustomViewStyle())
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setCategory(NotificationCompat.CATEGORY_EVENT)
                     .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -65,6 +69,38 @@ object RecognitionNotifications {
             )
         }
     }
+
+    private fun contentView(context: Context, track: ShazamTrack, artwork: Bitmap?): RemoteViews =
+        RemoteViews(context.packageName, R.layout.notification_recognition).apply {
+            setTextViewText(R.id.notification_recognition_title, track.title)
+            setTextViewText(R.id.notification_recognition_artist, track.artist)
+            if (artwork != null) {
+                setImageViewBitmap(R.id.notification_recognition_art, artwork)
+            } else {
+                setImageViewResource(R.id.notification_recognition_art, R.drawable.ic_notification_logo)
+            }
+            setOnClickPendingIntent(
+                R.id.notification_recognition_play,
+                actionIntent(context, RecognitionNotificationActions.ACTION_PLAY_NOW, track.searchQuery, PLAY_REQUEST_CODE),
+            )
+            setOnClickPendingIntent(
+                R.id.notification_recognition_playlist,
+                actionIntent(
+                    context,
+                    RecognitionNotificationActions.ACTION_ADD_TO_PLAYLIST,
+                    track.searchQuery,
+                    PLAYLIST_REQUEST_CODE,
+                ),
+            )
+        }
+
+    private fun actionIntent(context: Context, action: String, query: String, requestCode: Int): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            requestCode,
+            RecognitionNotificationActions.intent(context, action, query),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun contentIntent(context: Context): PendingIntent = PendingIntent.getActivity(
         context,
@@ -89,4 +125,6 @@ object RecognitionNotifications {
     private const val CHANNEL_ID = "recognition_matches"
     private const val NOTIFICATION_ID = 0x8177
     private const val NOTIFICATION_REQUEST_CODE = 0x8177
+    private const val PLAY_REQUEST_CODE = 0x8178
+    private const val PLAYLIST_REQUEST_CODE = 0x8179
 }

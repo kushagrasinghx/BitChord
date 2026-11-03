@@ -215,6 +215,10 @@
     <string name="quick_tile_recognition_label">BitChord Recognize</string>
     <string name="recognition_notification_channel">Song recognition</string>
     <string name="recognition_notification_channel_description">Notifications for songs recognized from the widget and Quick Settings.</string>
+    <string name="recognition_notification_art_description">Recognized song cover</string>
+    <string name="recognition_notification_label">SONG RECOGNIZED</string>
+    <string name="recognition_notification_play_now">Play now</string>
+    <string name="recognition_notification_add_to_playlist">Add to playlist</string>
     <string name="download_quality">Download quality</string>
     <string name="download_wifi_only">Download over Wi-Fi only</string>
     <string name="convert_to_audio">Convert to audio</string>

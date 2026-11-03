@@ -363,6 +363,7 @@ import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.data.canvas.AppleArtistArtRepository
 import com.music.bitchord.data.canvas.keyColors
 import com.music.bitchord.ui.theme.SystemBarIcons
+import com.music.bitchord.widget.RecognitionNotificationActions
 import com.music.bitchord.ui.utils.guardSheetFromContentTouches
 import com.music.bitchord.ui.utils.rememberIosOverscrollFactory
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
@@ -400,6 +401,7 @@ class MainActivity : AppCompatActivity() {
         JamInviteLink.consume(intent)
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
+        RecognitionNotificationActions.consume(intent)
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val appFont by AppSettings.appFont.collectAsStateWithLifecycle()
@@ -507,6 +509,7 @@ class MainActivity : AppCompatActivity() {
         PlayerDeepLink.consume(intent)
         JamInviteLink.consume(intent)
         MusicLink.consume(intent)
+        RecognitionNotificationActions.consume(intent)
     }
 }
 
@@ -800,6 +803,11 @@ private fun BitChordApp(
     // The query a recognition run produced; keeps its promoted Top result card
     // on screen after the sheet closes, until the user searches something else.
     var recognitionQuery by remember { mutableStateOf<String?>(null) }
+    // A button in a recognition notification asks the same app flow to either
+    // play the matched result or open the existing playlist picker.
+    var notificationRecognitionMode by remember {
+        mutableStateOf<RecognitionNotificationActions.Action?>(null)
+    }
     // Captures the preference when an in-app recognition match is handed to
     // Search, so the result observer can follow the widget's play path.
     var inAppRecognitionAutoPlay by remember { mutableStateOf(false) }
@@ -5465,6 +5473,7 @@ private fun BitChordApp(
 
         var widgetRecognitionMode by remember { mutableStateOf(false) }
         val widgetMatch by com.music.bitchord.widget.RecognitionDeepLink.pendingMatch.collectAsStateWithLifecycle()
+        val notificationAction by RecognitionNotificationActions.pending.collectAsStateWithLifecycle()
         LaunchedEffect(widgetMatch) {
             val query = widgetMatch ?: return@LaunchedEffect
             com.music.bitchord.widget.RecognitionDeepLink.matchHandled()
@@ -5531,6 +5540,45 @@ private fun BitChordApp(
                     } else {
                         inAppRecognitionAutoPlay = false
                         controller?.play()
+                    }
+                }
+                else -> {}
+            }
+        }
+        LaunchedEffect(notificationAction) {
+            val action = notificationAction ?: return@LaunchedEffect
+            RecognitionNotificationActions.handled()
+            notificationRecognitionMode = action
+            // Resolve the recognized title through the normal Search pipeline,
+            // then let the selected notification action consume its Song.
+            searchRecognizedSong(action.query)
+        }
+        LaunchedEffect(notificationRecognitionMode, results, controller) {
+            val action = notificationRecognitionMode ?: return@LaunchedEffect
+            when (val state = results) {
+                is UiState.Error -> notificationRecognitionMode = null
+                is UiState.Success -> {
+                    val data = state.data
+                    val song = data?.filterIsInstance<SearchResult.TopTrack>()?.firstOrNull()?.song
+                        ?: data?.filterIsInstance<SearchResult.Track>()?.firstOrNull()?.song
+                    if (song == null) {
+                        notificationRecognitionMode = null
+                        return@LaunchedEffect
+                    }
+                    when (action) {
+                        is RecognitionNotificationActions.Action.PlayNow -> {
+                            // A cold notification tap can beat the player
+                            // connection; keep the mode pending until it exists.
+                            controller ?: return@LaunchedEffect
+                            notificationRecognitionMode = null
+                            playRadio(song, QueueSource("Recognition", PlaybackSourceType.SEARCH))
+                            showNowPlaying = true
+                        }
+                        is RecognitionNotificationActions.Action.AddToPlaylist -> {
+                            notificationRecognitionMode = null
+                            viewModel.loadPlaylists()
+                            playlistTarget = song
+                        }
                     }
                 }
                 else -> {}

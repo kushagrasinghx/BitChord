@@ -550,3 +550,80 @@ func TestWebSocketTokenAsSubprotocol(t *testing.T) {
 		t.Fatalf("expected 401 for a wrong subprotocol token, got %v", err)
 	}
 }
+
+func TestLeavingEndsTheSocketsControl(t *testing.T) {
+	ts := setupTestServer()
+	defer ts.Close()
+
+	post := func(path, token string, body interface{}) map[string]interface{} {
+		b, _ := json.Marshal(body)
+		req, _ := http.NewRequest(http.MethodPost, ts.URL+path, bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST %s: %v", path, err)
+		}
+		defer res.Body.Close()
+		var out map[string]interface{}
+		_ = json.NewDecoder(res.Body).Decode(&out)
+		return out
+	}
+
+	created := post("/api/parties", "", map[string]string{"userId": "u1", "deviceId": "d1", "displayName": "Host"})
+	code := created["code"].(string)
+	joined := post("/api/parties/"+code+"/join", "", map[string]string{"userId": "u2", "deviceId": "d2", "displayName": "Guest"})
+	guestToken := joined["token"].(string)
+
+	u, _ := url.Parse(ts.URL)
+	u.Scheme = "ws"
+	u.Path = fmt.Sprintf("/ws/parties/%s", code)
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+guestToken)
+	ws, _, err := websocket.DefaultDialer.Dial(u.String(), headers)
+	if err != nil {
+		t.Fatalf("WebSocket connection failed: %v", err)
+	}
+	defer ws.Close()
+
+	p := store.Find(code)
+	p.Lock()
+	guest, _ := p.Authenticate(guestToken)
+	p.Unlock()
+
+	post("/api/parties/"+code+"/leave", guestToken, map[string]string{})
+
+	// The server says goodbye and then closes the socket itself.
+	sawBye := false
+	for {
+		_ = ws.SetReadDeadline(time.Now().Add(2 * time.Second))
+		var f map[string]interface{}
+		if err := ws.ReadJSON(&f); err != nil {
+			if netErr, ok := err.(interface{ Timeout() bool }); ok && netErr.Timeout() {
+				t.Fatalf("the server kept the socket open after leave")
+			}
+			break
+		}
+		if f["type"] == protocol.FrameBye {
+			sawBye = true
+		}
+	}
+	if !sawBye {
+		t.Fatalf("expected a bye frame before the socket closed")
+	}
+
+	// A frame from that member, already read before the close, changes nothing.
+	p.Lock()
+	seqBefore := p.Playback.Seq
+	p.Unlock()
+	handleSocketFrame(p, guest, nil, map[string]interface{}{
+		"type": protocol.FrameControl, "action": protocol.ActionPause, "positionMs": float64(1000),
+	})
+	p.Lock()
+	defer p.Unlock()
+	if p.Playback.Seq != seqBefore {
+		t.Fatalf("a member who left still paused the party")
+	}
+}

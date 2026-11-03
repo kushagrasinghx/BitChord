@@ -581,6 +581,7 @@ func handleLeaveParty(w http.ResponseWriter, r *http.Request) {
 		"type":   protocol.FrameBye,
 		"reason": "left",
 	})
+	hubInst.CloseMember(p.Code, memberId)
 	hubInst.Broadcast(p.Code, membersFrame, memberId)
 
 	jsonResponse(w, http.StatusOK, map[string]bool{"ok": true})
@@ -939,6 +940,12 @@ func handleSocketFrame(p *party.Party, member *party.Member, sc *hub.SafeConn, f
 
 	p.Lock()
 	defer p.Unlock()
+	// The socket was authenticated once, at the handshake. A member who has
+	// since left or been removed no longer speaks for the party, and a removed
+	// host would otherwise keep its host powers after a new host was chosen.
+	if p.Members[member.MemberId] != member {
+		return
+	}
 	if !p.SpendFrameBudget(member) {
 		_ = sc.WriteJSON(map[string]interface{}{
 			"type": protocol.FrameError, "error": "rate_limited", "message": "Too many messages at once.",

@@ -16,6 +16,7 @@ import { TrackMenu } from '@/components/music/TrackMenu';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { Lcd } from './Lcd';
+import { SleepTimerButton } from './SleepTimerButton';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
 
 const control = 'grid place-items-center rounded-[6px] disabled:opacity-40';
@@ -25,6 +26,8 @@ const transport = `${control} size-7 text-primary`;
 const action = 'grid h-7 w-6 place-items-center rounded-[4px] text-primary aria-pressed:text-key';
 // The actions the volume level slides in over: they fade out while it's open.
 const fading = `${action} ${fadeForVolume}`;
+// The sleep timer's button: as wide as its countdown, which follows the moon.
+const widening = `flex h-7 shrink-0 items-center justify-center gap-1 rounded-[4px] px-0.5 text-primary aria-pressed:text-key ${fadeForVolume}`;
 
 /** The floating glass player pill (report §1). */
 export function PlayerBar() {
@@ -94,6 +97,7 @@ export function PlayerBar() {
         >
           <FavoriteButton videoId={videoId} className={fading} />
           {track && <TrackMenu track={track} className={fading} placement="above-end" />}
+          <SleepTimerButton className={widening} />
           {/* Always here: the panel itself says whether this track has lyrics, and from where. */}
           <button className={fading} aria-label="Lyrics" aria-pressed={sidePanel === 'lyrics'} onClick={() => toggleSidePanel('lyrics')}>
             {sidePanel === 'lyrics' ? <LyricsActiveIcon size={18} /> : <LyricsIcon size={18} />}

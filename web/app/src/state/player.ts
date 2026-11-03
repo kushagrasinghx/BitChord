@@ -211,9 +211,20 @@ function getDecks(): Promise<Deck[]> {
   return decksPromise;
 }
 
+/** The sleep timer's fade-out, over the user's own volume (which it never changes). */
+let sleepFade = 1;
+
+/** Sets the sleep timer's fade, 1 (none) to 0 (silent). */
+export function setSleepFade(level: number): void {
+  const next = Math.min(1, Math.max(0, level));
+  if (next === sleepFade) return;
+  sleepFade = next;
+  applyVolumes();
+}
+
 function applyVolumes() {
   const { volume, muted } = usePlayer.getState();
-  const level = muted ? 0 : Math.min(1, Math.max(0, volume));
+  const level = muted ? 0 : Math.min(1, Math.max(0, volume)) * sleepFade;
   if (graph) {
     // Routed through Web Audio: the elements stay at 1 and the graph carries volume and the fade.
     const now = graph.ctx.currentTime;

@@ -279,6 +279,19 @@ fun SongActionsMenu(
             }
         }
 
+        // Remove from history — only shown when opened from the History screen
+        // and the track has a feedback token. Sits at the top of the action
+        // list, directly below the quick actions and above Add to playlist.
+        onRemoveFromHistory?.let {
+            if (startsGroup()) IosMenuSeparator()
+            ActionRow(
+                icon = SfIcons.History,
+                label = stringResource(R.string.remove_from_history),
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
+
         // The account's rows, or for a local file or download the offline
         // player's own pair: a heart that files the track under this device's
         // Liked playlist, and the device's playlists. [likeStatus] is that
@@ -333,14 +346,6 @@ fun SongActionsMenu(
             )
         }
         WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
-        onRemoveFromHistory?.let {
-            ActionRow(
-                icon = SfIcons.History,
-                label = stringResource(R.string.remove_from_history),
-                accent = palette.accent,
-                onClick = it,
-            )
-        }
 
         if (startsGroup()) IosMenuSeparator()
         // Names where each one leads under it, as a menu's "Go to" does.

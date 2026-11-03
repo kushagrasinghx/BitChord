@@ -8,7 +8,7 @@
 
     <path
         android:fillColor="#FF141619"
-        android:pathData="M60,0 A60,60 0,1,1 60,120 A60,60 0,1,1 60,0 Z" />
+        android:pathData="M60,12 A48,48 0,1,1 60,108 A48,48 0,1,1 60,12 Z" />
 
     <group android:translateX="16" android:translateY="39.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,43 A5.3,5.3 0,0,1 0,43 L0,5.3 Z" />

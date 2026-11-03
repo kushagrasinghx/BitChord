@@ -1,40 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Picker artwork for the recognition widget, on hosts older than API 31. The
-  solid dark capsule filling the 2×1 row's proportions, and the sheet's
-  five-bar waveform in full voice — the LiveWaveform arithmetic at level one
-  and phase 1.1, the state the widget performs in while listening, so the
-  picker sells what the tap does. API 31+ hosts render the live layout
-  (widget_recognition_preview) and never see this.
-
-  The bars are ic_widget_wave_reactive's, same 88x54 run centered in the
-  cell; the capsule's corners clamp to the width like the real widget's
-  200dp radius does at home.
+  Picker artwork for the 2×2 recognition widget on hosts older than API 31.
+  The waveform sits in a smaller curved rectangle with breathing room around
+  it, matching widget_recognition_preview on newer hosts.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="120dp"
-    android:height="64dp"
+    android:height="120dp"
     android:viewportWidth="120"
-    android:viewportHeight="64">
+    android:viewportHeight="120">
 
     <path
         android:fillColor="#FF141619"
-        android:pathData="M32,0 L88,0 A32,32 0,0,1 120,32 A32,32 0,0,1 88,64 L32,64 A32,32 0,0,1 0,32 A32,32 0,0,1 32,0 Z" />
+        android:pathData="M34,36 L86,36 A24,24 0,0,1 110,60 A24,24 0,0,1 86,84 L34,84 A24,24 0,0,1 10,60 A24,24 0,0,1 34,36 Z" />
 
-    <!-- The five bars in full voice, each a stadium 10.6 wide, h tall. -->
-    <group android:translateX="16" android:translateY="4.85">
+    <group android:translateX="16" android:translateY="35.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,43 A5.3,5.3 0,0,1 0,43 L0,5.3 Z" />
     </group>
-    <group android:translateX="35.4" android:translateY="4.45">
+    <group android:translateX="35.4" android:translateY="35.45">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,43.8 A5.3,5.3 0,0,1 0,43.8 L0,5.3 Z" />
     </group>
-    <group android:translateX="54.7" android:translateY="11.85">
+    <group android:translateX="54.7" android:translateY="42.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,29 A5.3,5.3 0,0,1 0,29 L0,5.3 Z" />
     </group>
-    <group android:translateX="74.1" android:translateY="9.85">
+    <group android:translateX="74.1" android:translateY="40.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,33 A5.3,5.3 0,0,1 0,33 L0,5.3 Z" />
     </group>
-    <group android:translateX="93.4" android:translateY="3.85">
+    <group android:translateX="93.4" android:translateY="34.85">
         <path android:fillColor="#FFFFFFFF" android:pathData="M0,5.3 A5.3,5.3 0,0,1 10.6,5.3 L10.6,45 A5.3,5.3 0,0,1 0,45 L0,5.3 Z" />
     </group>
 </vector>

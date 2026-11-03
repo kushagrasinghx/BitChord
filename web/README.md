@@ -13,16 +13,24 @@ The web player and its companion browser extension. The plan, and the decisions 
 
 ## Setup
 
-Node 22 or newer. pnpm comes through corepack, so nothing needs a global install:
+Use Node 22 or newer and pnpm (the workspace pins `pnpm@12.11.2` in `package.json`). If pnpm is not installed, install it with `npm install --global pnpm@12.11.2`.
+
+Run these commands from the repository root:
 
 ```bash
-corepack pnpm --dir web install
+pnpm --dir web install --frozen-lockfile
 ```
+
+If your terminal is already in `web/app`, run `pnpm install --frozen-lockfile` there; pnpm finds the workspace and installs its packages together.
+
+Do not use `npm install` or `npm ci` for this workspace. The app and extension depend on `@bitchord/shared` through `workspace:*`, which npm does not support (`EUNSUPPORTEDPROTOCOL`). Keep those dependencies and use `pnpm-lock.yaml`, not an npm-generated `package-lock.json`.
+
+Older Corepack versions can also fail to launch pnpm 12 with `Cannot find module .../bin/pnpm.cjs`. If that happens, use the installed `pnpm` command directly, as shown here.
 
 ## Run the site
 
 ```bash
-corepack pnpm --dir web/app dev
+pnpm --dir web/app dev
 ```
 
 It serves on `http://localhost:5173`, and only there (`strictPort`): the extension trusts that exact origin.
@@ -32,7 +40,7 @@ It serves on `http://localhost:5173`, and only there (`strictPort`): the extensi
 Build both targets:
 
 ```bash
-corepack pnpm --dir web/extension build
+pnpm --dir web/extension build
 ```
 
 - **Chrome, Edge, Brave:** `chrome://extensions` → Developer mode → *Load unpacked* → `web/extension/.output/chrome-mv3`. The id is always `pkddffeebcmhhanjcigilehaeonkkfih`, pinned by the manifest `key` (`extension/dev-key/`), so the site finds it without configuration.
@@ -41,7 +49,7 @@ corepack pnpm --dir web/extension build
 To offer the extension as a download from the site's Extension page, package it:
 
 ```bash
-corepack pnpm --dir web/extension package
+pnpm --dir web/extension package
 ```
 
 This builds both targets and writes three files to `app/public/downloads/` (git-ignored):
@@ -51,7 +59,7 @@ This builds both targets and writes three files to `app/public/downloads/` (git-
 
 `VITE_EXTENSION_CHROME_URL`, `VITE_EXTENSION_FIREFOX_URL` and `VITE_EXTENSION_MANIFEST_URL` override those links, for example to point at store listings.
 
-The toolbar icons (`extension/public/icon/`) are rendered from `app/public/favicon.svg` by `corepack pnpm --dir web/extension icons`.
+The toolbar icons (`extension/public/icon/`) are rendered from `app/public/favicon.svg` by `pnpm --dir web/extension icons`.
 
 Then open `http://localhost:5173/extension`. It shows "Installed", with the version and the transport: **Direct** on Chromium (`externally_connectable`), **Page relay** on Firefox (content script).
 
@@ -79,6 +87,6 @@ Then open `http://localhost:5173/extension`. It shows "Installed", with the vers
 ## Checks
 
 ```bash
-corepack pnpm --dir web -r typecheck
-corepack pnpm --dir web/app build
+pnpm --dir web -r typecheck
+pnpm --dir web/app build
 ```

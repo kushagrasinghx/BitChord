@@ -4,6 +4,7 @@ name: Web
 # they share (web/shared): typecheck, test and build all three, so a change
 # that only breaks the production build (Vite, WXT) is caught before it ships.
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:

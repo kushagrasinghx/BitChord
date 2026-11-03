@@ -6,7 +6,7 @@ import { EditPlaylistDialog } from '@/components/music/EditPlaylistDialog';
 import { playList, shuffleList } from '@/components/music/play';
 import { LoadError, LoadMoreError, NeedsExtension } from '@/components/music/States';
 import { TrackList } from '@/components/music/TrackList';
-import { usePlaylist, useRemoveFromPlaylist, useSignedIn, useYouTubeReady } from '@/data/music/queries';
+import { useMovePlaylistItem, usePlaylist, useRemoveFromPlaylist, useSignedIn, useYouTubeReady } from '@/data/music/queries';
 import { useArtworkColor } from '@/lib/artworkColor';
 import { usePageTint } from '@/lib/usePageTint';
 import { PlaylistSkeleton } from '@/skeletons/PageSkeletons';
@@ -22,6 +22,7 @@ export default function PlaylistPage() {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const removeTrack = useRemoveFromPlaylist();
+  const moveTrack = useMovePlaylistItem();
   usePageTint(useArtworkColor(header?.thumbnail));
 
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = playlist;
@@ -58,6 +59,7 @@ export default function PlaylistPage() {
         onNearEnd={onNearEnd}
         source={context.source}
         onRemove={editable ? (track) => removeTrack.mutate({ playlistId: id, videoId: track.videoId }) : undefined}
+        onMove={editable ? (from, to) => moveTrack.mutate({ playlistId: id, videoId: tracks[from]!.videoId, from, to }) : undefined}
       />
       {editing && (
         <EditPlaylistDialog

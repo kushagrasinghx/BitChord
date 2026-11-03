@@ -29,6 +29,14 @@ interface TrackListProps {
   source?: ListContext['source'];
   /** The user's own playlist: each row's menu offers "Remove from Playlist". */
   onRemove?: (track: Track) => void;
+  /** The user's own playlist: rows can be dragged up and down; called with the old and new position. */
+  onMove?: (from: number, to: number) => void;
+}
+
+/** A row being dragged, and the gap it would drop into (0 = before the first row). */
+interface Drag {
+  from: number;
+  slot: number | null;
 }
 
 /* Track lists (report §3 album rows, §14 playlist rows). */
@@ -52,6 +60,10 @@ const row = [
   'data-current:bg-[color-mix(in_srgb,var(--systemPrimary)_12%,transparent)]',
   'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:border-t-[0.5px] before:border-t-divider',
   'hover:before:border-t-transparent data-current:before:border-t-transparent [&:hover+&]:before:border-t-transparent [&[data-current]+&]:before:border-t-transparent',
+  // Dragging to reorder: the picked-up row fades, a key-coloured line marks where it lands.
+  'data-dragging:opacity-40',
+  'after:pointer-events-none after:absolute after:inset-x-2 after:hidden after:h-0.5 after:rounded-full after:bg-key',
+  'data-[drop=before]:after:-top-px data-[drop=before]:after:block data-[drop=after]:after:-bottom-px data-[drop=after]:after:block',
 ].join(' ');
 
 const rowVariant: Record<Variant, string> = {
@@ -93,9 +105,19 @@ interface RowProps {
   fallbackArtwork: string | null | undefined;
   onPlayRow: () => void;
   onRemove: (() => void) | undefined;
+  /** Drag to reorder: present only on the user's own playlist. */
+  drag?: {
+    dragging: boolean;
+    /** A line above or below this row where the dragged one would land. */
+    drop: 'before' | 'after' | null;
+    onStart: () => void;
+    onOver: (after: boolean) => void;
+    onDrop: () => void;
+    onEnd: () => void;
+  };
 }
 
-function Row({ track, variant, position, fallbackArtwork, onPlayRow, onRemove }: RowProps) {
+function Row({ track, variant, position, fallbackArtwork, onPlayRow, onRemove, drag }: RowProps) {
   const current = usePlayer((s) => s.nowPlaying?.videoId === track.videoId);
   const playing = usePlayer((s) => s.nowPlaying?.videoId === track.videoId && (s.status === 'playing' || s.status === 'buffering'));
   const togglePlay = usePlayer((s) => s.togglePlay);
@@ -110,6 +132,27 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow, onRemove }:
       data-unavailable={unavailable}
       title={unavailable === 'matching' ? 'Looking for this on YouTube Music…' : unavailable === 'missing' ? 'Not found on YouTube Music' : undefined}
       onDoubleClick={onPlay}
+      data-dragging={drag?.dragging || undefined}
+      data-drop={drag?.drop ?? undefined}
+      {...(drag && {
+        draggable: true,
+        onDragStart: (e: React.DragEvent) => {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', track.title);
+          drag.onStart();
+        },
+        onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          const rect = e.currentTarget.getBoundingClientRect();
+          drag.onOver(e.clientY > rect.top + rect.height / 2);
+        },
+        onDrop: (e: React.DragEvent) => {
+          e.preventDefault();
+          drag.onDrop();
+        },
+        onDragEnd: drag.onEnd,
+      })}
     >
       <div className={`${cell} gap-3`}>
         <div className={`relative grid w-10 shrink-0 place-items-center${variant === 'playlist' ? ' ms-[7px]' : ''}`}>
@@ -216,7 +259,24 @@ function Header() {
  * hover fill, the number (or artwork) turning into a play button. Long lists
  * are virtualized against the page's scroll container (prompt §3).
  */
-export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, onNearEnd, source, onRemove }: TrackListProps) {
+export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, onNearEnd, source, onRemove, onMove }: TrackListProps) {
+  const [drag, setDrag] = useState<Drag | null>(null);
+  const dragProps = (i: number): RowProps['drag'] =>
+    onMove && {
+      dragging: drag?.from === i,
+      // Gaps right next to the dragged row move nothing, so they show no line.
+      drop: drag && drag.slot !== drag.from && drag.slot !== drag.from + 1 ? (drag.slot === i ? 'before' : drag.slot === i + 1 && i === tracks.length - 1 ? 'after' : null) : null,
+      onStart: () => setDrag({ from: i, slot: null }),
+      onOver: (after) => setDrag((d) => (d && d.slot !== i + (after ? 1 : 0) ? { ...d, slot: i + (after ? 1 : 0) } : d)),
+      onDrop: () => {
+        if (drag && drag.slot !== null) {
+          const to = drag.slot > drag.from ? drag.slot - 1 : drag.slot;
+          if (to !== drag.from) onMove(drag.from, to);
+        }
+        setDrag(null);
+      },
+      onEnd: () => setDrag(null),
+    };
   const playRow = (i: number) => {
     // Rows from another catalogue that found no YouTube Music song stay out of the queue.
     if (source) {
@@ -270,6 +330,7 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
                   fallbackArtwork={fallbackArtwork}
                   onPlayRow={() => playRow(item.index)}
                   onRemove={onRemove && (() => onRemove(tracks[item.index]!))}
+                  drag={dragProps(item.index)}
                 />
               </div>
             ))}
@@ -284,6 +345,7 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
               fallbackArtwork={fallbackArtwork}
               onPlayRow={() => playRow(i)}
               onRemove={onRemove && (() => onRemove(track))}
+              drag={dragProps(i)}
             />
           ))
         )}

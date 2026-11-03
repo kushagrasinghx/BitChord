@@ -305,7 +305,8 @@ export function playlistItemIds(node: unknown, found: { videoId: string; setVide
     for (const child of node) playlistItemIds(child, found);
   } else if (node && typeof node === 'object') {
     const data = (node as { playlistItemData?: { videoId?: unknown; playlistSetVideoId?: unknown } }).playlistItemData;
-    if (typeof data?.videoId === 'string' && typeof data.playlistSetVideoId === 'string') {
+    // A row can carry its ids more than once; positions count each row once.
+    if (typeof data?.videoId === 'string' && typeof data.playlistSetVideoId === 'string' && !found.some((r) => r.setVideoId === data.playlistSetVideoId)) {
       found.push({ videoId: data.videoId, setVideoId: data.playlistSetVideoId });
     }
     for (const value of Object.values(node)) playlistItemIds(value, found);
@@ -355,6 +356,57 @@ export async function removeFromPlaylist(playlistId: string, videoId: string): P
     response = await yt.actions.execute('/browse', { continuation: token, client: 'YTMUSIC' });
   }
   throw new Error('That song is no longer in this playlist');
+}
+
+/**
+ * Where a row has to go so that, moved [from] → [to] (both positions in the
+ * list as it is now), it ends up at [to]: YouTube places a row before another
+ * row's id, or at the end when there is none.
+ */
+export function moveSuccessor<T>(rows: readonly T[], from: number, to: number): T | null {
+  if (from === to) return null;
+  return rows[to > from ? to + 1 : to] ?? null;
+}
+
+/** [list] with the item at [from] moved to [to]. */
+export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item!);
+  return next;
+}
+
+/**
+ * Moves the song at position [from] of one of the user's playlists to [to].
+ * Like removing, moving needs the rows' own ids, read from YouTube's answers
+ * page by page until both positions are covered.
+ */
+export async function movePlaylistItem(playlistId: string, videoId: string, from: number, to: number): Promise<void> {
+  if (from === to) return;
+  const yt = await getSignedInnertube();
+  const needed = Math.max(from, to) + 2;
+  let response = await yt.actions.execute('/browse', { browseId: `VL${bare(playlistId)}`, client: 'YTMUSIC' });
+  const rows = playlistItemIds(response.data);
+  for (let page = 0; rows.length < needed && page < 50; page++) {
+    const token = continuationToken(response.data);
+    if (!token) break;
+    response = await yt.actions.execute('/browse', { continuation: token, client: 'YTMUSIC' });
+    rows.push(...playlistItemIds(response.data));
+  }
+  const moved = rows[from];
+  if (moved?.videoId !== videoId) throw new Error('This playlist changed elsewhere; refresh and try again');
+  const successor = moveSuccessor(rows, from, to);
+  await yt.actions.execute('/browse/edit_playlist', {
+    playlistId: bare(playlistId),
+    actions: [
+      {
+        action: 'ACTION_MOVE_VIDEO_BEFORE',
+        setVideoId: moved.setVideoId,
+        ...(successor ? { movedSetVideoIdSuccessor: successor.setVideoId } : {}),
+      },
+    ],
+    client: 'YTMUSIC',
+  });
 }
 
 /** Deletes one of the user's playlists for good. */

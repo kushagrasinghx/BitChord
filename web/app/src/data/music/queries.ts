@@ -15,6 +15,8 @@ import {
   addToPlaylist,
   deletePlaylist,
   editPlaylist,
+  moveItem,
+  movePlaylistItem,
   fetchAlbum,
   fetchArtist,
   fetchBrowse,
@@ -296,6 +298,33 @@ export function useEditPlaylist() {
 export function useRemoveFromPlaylist() {
   return useMutation({
     mutationFn: ({ playlistId, videoId }: { playlistId: string; videoId: string }) => removeFromPlaylist(playlistId, videoId),
+    onSettled: (_data, _error, { playlistId }) => refreshPlaylist(playlistId),
+  });
+}
+
+/** [chunks] with their songs reordered, each page keeping its length. */
+function reorderChunks(data: InfiniteData<PlaylistChunk>, from: number, to: number): InfiniteData<PlaylistChunk> {
+  const all = moveItem(data.pages.flatMap((page) => page.tracks), from, to);
+  let start = 0;
+  const pages = data.pages.map((page) => {
+    const tracks = all.slice(start, start + page.tracks.length);
+    start += page.tracks.length;
+    return { ...page, tracks };
+  });
+  return { ...data, pages };
+}
+
+/** Drag to reorder one of the user's playlists: moved on screen at once, then on YouTube. */
+export function useMovePlaylistItem() {
+  return useMutation({
+    mutationFn: ({ playlistId, videoId, from, to }: { playlistId: string; videoId: string; from: number; to: number }) =>
+      movePlaylistItem(playlistId, videoId, from, to),
+    onMutate: ({ playlistId, from, to }) => {
+      const bareId = playlistId.replace(/^VL/, '');
+      for (const key of [bareId, `VL${bareId}`]) {
+        queryClient.setQueryData<InfiniteData<PlaylistChunk>>(['music', 'playlist', key], (data) => data && reorderChunks(data, from, to));
+      }
+    },
     onSettled: (_data, _error, { playlistId }) => refreshPlaylist(playlistId),
   });
 }

@@ -23,6 +23,9 @@ interface MenuProps {
 export function Menu({ anchor, placement = 'below-end', onClose, label, matchWidth, children }: MenuProps) {
   const panel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<React.CSSProperties>({ visibility: 'hidden' });
+  // Menus sit under modals; one opened from inside a modal (a pop-up button in
+  // a dialog) has to rise above it, or it opens behind the dialog.
+  const inModal = anchor.closest('[aria-modal="true"]') !== null;
 
   useLayoutEffect(() => {
     const rect = anchor.getBoundingClientRect();
@@ -73,12 +76,17 @@ export function Menu({ anchor, placement = 'below-end', onClose, label, matchWid
 
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[calc(var(--z-contextual-menus)-1)]" onPointerDown={onClose} aria-hidden="true" />
+      <div
+        className="fixed inset-0 z-[calc(var(--z-contextual-menus)-1)]"
+        style={inModal ? { zIndex: 'calc(var(--z-modal) + 1)' } : undefined}
+        onPointerDown={onClose}
+        aria-hidden="true"
+      />
       <div
         ref={panel}
         // Apple's amp-contextual-menu (report §8).
         className="fixed z-(--z-contextual-menus) max-w-[300px] min-w-[185px] animate-menu-in overflow-y-auto rounded-[10px] bg-thick-material p-[5px] shadow-[0_0_0_0.5px_var(--vibrantDivider),0_10px_40px_var(--glassMaterialShadowColor)] [backdrop-filter:saturate(2.2)_blur(32px)]"
-        style={position}
+        style={inModal ? { ...position, zIndex: 'calc(var(--z-modal) + 2)' } : position}
         role="menu"
         aria-label={label}
       >

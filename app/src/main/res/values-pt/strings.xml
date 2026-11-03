@@ -13,7 +13,6 @@
     <string name="upload_notification_queued">%1$s · mais %2$d na fila</string>
     <plurals name="uploading_song_count">
         <item quantity="one">Enviando %1$d música</item>
-        <item quantity="many">Enviando %1$d músicas</item>
         <item quantity="other">Enviando %1$d músicas</item>
     </plurals>
     <string name="cancel">Cancelar</string>

@@ -405,7 +405,8 @@ func (p *PlaybackState) ClearUpcoming(memberId *string) bool {
 }
 
 func (p *PlaybackState) MoveUpcoming(memberId *string, fromIdx, toIdx int, videoId string) bool {
-	if videoId != "" {
+	// Trust fromIdx when it already points at this upcoming track, so the right copy of a repeat moves.
+	if videoId != "" && !(fromIdx > p.QueueIndex && fromIdx < len(p.Queue) && p.Queue[fromIdx].VideoId == videoId) {
 		match := p.upcomingIndexOf(videoId)
 		if match == -1 {
 			return false

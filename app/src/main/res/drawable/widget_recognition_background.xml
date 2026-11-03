@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The recognition widget's body: a solid black capsule, the same dark the
-  media widgets tint their own capsules towards instead of the clear one they
-  hand the launcher. The recognition pill reads as an object on its own, so
-  nothing here rolls over with the wallpaper.
+  The recognition widget's body: a dark, softly graduated capsule with a
+  restrained outline so it reads as a deliberate card in the launcher picker
+  and on the home screen.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <corners android:radius="200dp" />
-    <solid android:color="#FF141619" />
+    <corners android:radius="32dp" />
+    <gradient
+        android:angle="135"
+        android:centerColor="#FF151B22"
+        android:endColor="#FF080A0D"
+        android:startColor="#FF29323D" />
+    <stroke
+        android:width="1dp"
+        android:color="#45FFFFFF" />
 </shape>

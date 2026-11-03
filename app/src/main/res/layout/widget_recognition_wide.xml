@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The 2×2 recognition pill: a smaller curved rectangle with the sheet's
+  The 3×3 recognition pill: a polished curved rectangle with the sheet's
   waveform on
   it — white bars in the round shapes the sheet draws them in, with nothing
   behind them to frame them.
@@ -20,19 +20,19 @@
     android:layout_height="match_parent">
 
     <!--
-      Keep the pill smaller than its 2×2 host so the square widget has breathing
-      room around the curved rectangle.
+      Keep the pill centered inside its 3×3 host so the square widget has
+      breathing room around the curved rectangle.
     -->
     <FrameLayout
-        android:layout_width="100dp"
-        android:layout_height="48dp"
+        android:layout_width="150dp"
+        android:layout_height="64dp"
         android:layout_gravity="center"
         android:background="@drawable/widget_recognition_background">
 
         <ImageView
             android:id="@+id/widget_wave"
-            android:layout_width="88dp"
-            android:layout_height="34dp"
+            android:layout_width="120dp"
+            android:layout_height="48dp"
             android:layout_gravity="center"
             android:contentDescription="@string/widget_recognition_label"
             android:src="@drawable/ic_widget_wave_sleep"

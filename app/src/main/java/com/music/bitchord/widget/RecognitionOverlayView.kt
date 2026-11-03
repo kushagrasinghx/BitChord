@@ -107,10 +107,6 @@ class RecognitionOverlayView(context: Context) : View(context) {
         strokeWidth = dp(2.5f)
         strokeCap = Paint.Cap.ROUND
     }
-    private val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(210, 255, 220)
-    }
-
     init {
         isFocusable = true
         contentDescription = context.getString(R.string.quick_tile_recognition_label)
@@ -183,7 +179,6 @@ class RecognitionOverlayView(context: Context) : View(context) {
         val waveCenterY = height * 0.42f
         val waveTop = waveCenterY - waveHeight / 2f
 
-        canvas.drawCircle(centerX, waveTop - dp(34f), dp(4f), accentPaint)
         canvas.drawText(
             if (searching) context.getString(R.string.recognition_searching)
             else context.getString(R.string.quick_tile_listening),

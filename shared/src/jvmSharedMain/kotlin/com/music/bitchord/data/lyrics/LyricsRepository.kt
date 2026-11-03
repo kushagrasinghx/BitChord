@@ -279,6 +279,9 @@ object LyricsRepository {
         },
     )
 
+    /** Cached recording evidence for cross-catalog matching; never starts a lyric lookup. */
+    fun cachedIsrc(videoId: String): String? = isrcs[videoId]
+
     private fun remember(videoId: String, isrc: String?) {
         if (isrc.isNullOrBlank() || videoId.isEmpty()) return
         isrcs.put(videoId, isrc)

@@ -81,6 +81,13 @@ import com.music.bitchord.playback.cast.CastSink
 import com.music.bitchord.playback.cast.RemoteSpeaker
 import com.music.bitchord.playback.cast.Speakers
 import com.music.bitchord.playback.cast.CastStream
+import com.music.bitchord.playback.applemusic.AmPlayerFactory
+import com.music.bitchord.playback.applemusic.AppleMusicDataSource
+import com.music.bitchord.playback.applemusic.AppleMusicPlayback
+import com.music.bitchord.playback.applemusic.AppleMusicQueuePolicy
+import com.music.bitchord.playback.applemusic.AppleMusicSpeaker
+import com.music.bitchord.data.applemusic.AppleMusicTokens
+import com.music.bitchord.data.settings.PlaybackProvider
 import com.music.bitchord.playback.audio.PrecisionAudioSink
 import com.music.bitchord.playback.dsd.DsdExtractorsFactory
 import com.music.bitchord.playback.audio.DirectAudioProbe
@@ -132,7 +139,7 @@ import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
-import com.music.bitchord.data.model.isUnresolvedSpotify
+import com.music.bitchord.data.model.isUnresolvedExternal
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.scrobbling.ListenBrainzManager
 import com.music.bitchord.data.scrobbling.ScrobbleManager
@@ -752,7 +759,7 @@ class PlaybackService : MediaLibraryService() {
      */
     private val castPlayback = CastPlayback(
         scope = scope,
-        localPlayer = { player },
+        localPlayer = ::playerForRemoteSpeaker,
         resolve = ::resolveForCast,
         say = { message -> Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show() },
     )
@@ -763,11 +770,70 @@ class PlaybackService : MediaLibraryService() {
      * [WearBridge.createSpeaker].
      */
     private val watchSpeaker by lazy {
-        WearBridge.createSpeaker(this, scope, localPlayer = { player }, onChanged = { publishWidgetState() })
+        WearBridge.createSpeaker(this, scope, localPlayer = ::playerForRemoteSpeaker, onChanged = { publishWidgetState() })
     }
 
-    /** Every remote speaker, as the one the session player reports. */
-    private val speakers by lazy { Speakers(listOf(castPlayback, watchSpeaker)) }
+    private val appleMusicSpeaker: AppleMusicSpeaker by lazy {
+        AppleMusicSpeaker(
+            scope = scope,
+            localPlayer = { player },
+            amPlayer = AmPlayerFactory.create(this),
+            settings = {
+                AppleMusicSpeaker.Settings(
+                    selected = AppSettings.playbackProvider.value == PlaybackProvider.APPLE_MUSIC,
+                    userToken = AppleMusicTokens.userToken(),
+                    // The credential's storefront is authoritative, never the device locale.
+                    storefront = AppleMusicTokens.storefront()?.trim()?.lowercase(Locale.ROOT),
+                    playbackStorefront = AppleMusicTokens.playbackStorefront(),
+                    fallback = AppSettings.appleMusicFallbackToYouTube.value,
+                )
+            },
+            higherPriorityActive = { castPlayback.active || watchSpeaker.active },
+            developerToken = AppleMusicTokens::developerToken,
+            match = { song, storefront ->
+                withContext(Dispatchers.IO) {
+                    AppleMusicPlayback.matcher(this@PlaybackService).match(song, storefront,
+                        LyricsRepository.cachedIsrc(song.videoId))
+                }
+            },
+            prefetch = { songs, storefront ->
+                withContext(Dispatchers.IO) {
+                    AppleMusicPlayback.matcher(this@PlaybackService).prefetch(songs, storefront) {
+                        LyricsRepository.cachedIsrc(it.videoId)
+                    }
+                }
+            },
+            onChanged = ::onAppleMusicChanged,
+            onTrackEnded = {
+                PlaybackTracker.onPlaybackFinished(lastPositionSeconds)
+                listenBrainzSong?.let { song ->
+                    if (listenBrainzStartMs > 0) {
+                        submitListenBrainzFinished(song, listenBrainzStartMs, listenBrainzDurationMs)
+                    }
+                }
+                listenBrainzSong = null
+                listenBrainzStartMs = 0
+                listenBrainzDurationMs = null
+                scrobbleManager?.onSongStop()
+                ListeningRecorder.onStopped()
+                if (SleepTimer.afterTrack.value) {
+                    appleMusicSpeaker.pause()
+                    SleepTimer.cancel()
+                }
+            },
+            onFailure = { fallback ->
+                Toast.makeText(applicationContext,
+                    getString(if (fallback) R.string.apple_music_playback_fallback
+                        else R.string.apple_music_playback_failed), Toast.LENGTH_SHORT).show()
+            },
+        )
+    }
+
+    /** Cast and watch always outrank the on-phone DRM transport. */
+    private val speakers by lazy {
+        Speakers(listOf(castPlayback, watchSpeaker, appleMusicSpeaker),
+            onRouteChanged = { appleMusicSpeaker.refresh() })
+    }
 
     /**
      * Binds playback to a Listen Together party, when there is one.
@@ -952,7 +1018,7 @@ class PlaybackService : MediaLibraryService() {
             // speaker — an internal path, since the session player's door
             // already sends a listener's play to the receiver. The phone goes
             // quiet again and the receiver is asked instead.
-            if (playWhenReady) player?.let(speakers::onLocalStartedPlaying)
+            if (playWhenReady && !preparingSpeakerHandoff) player?.let(speakers::onLocalStartedPlaying)
             publishWidgetState(playing = playWhenReady)
             // The only place the *reason* can be read. A party has to tell a
             // pause the listener asked for from one another app imposed, and
@@ -1053,6 +1119,10 @@ class PlaybackService : MediaLibraryService() {
             // The player this fired on, which is by definition the one the
             // session is currently pointed at.
             val exoPlayer = player ?: return
+            if (appleMusicSpeaker.active || AppleMusicSpeaker.isAppleRow(exoPlayer.currentMediaItem?.mediaId)) {
+                exoPlayer.pause()
+                return
+            }
             recoverFrom(error, exoPlayer)
         }
 
@@ -1400,6 +1470,9 @@ class PlaybackService : MediaLibraryService() {
             // are fetching. Read-ahead means the track being resolved here is
             // usually *not* the one playing, which is exactly why the lines
             // have to say. See [TrackLog.about].
+            if (AppleMusicSpeaker.isAppleRow(mediaIdIn(dataSpec.uri))) {
+                throw java.io.IOException("Apple Music catalog rows cannot be resolved as audio URLs")
+            }
             val about = TrackLog.about(mediaIdIn(dataSpec.uri))
             // A source-backed track is resolved by whichever source can serve
             // it, which is not necessarily the one it was queued from — see
@@ -1746,8 +1819,12 @@ class PlaybackService : MediaLibraryService() {
         AudioCache.setUpstream(defaultDataSourceFactory)
         // DsdExtractorsFactory: the stock extractors plus DSF/DFF, which Media3
         // cannot open at all. A DSD file leaves the extractor as float PCM.
+        val appleMusic = appleMusicSpeaker // Construct optional native transport on the main thread.
         mediaSourceFactory = DefaultMediaSourceFactory(
-            AudioCache.playbackFactory(defaultDataSourceFactory),
+            DataSource.Factory {
+                AppleMusicDataSource(AudioCache.playbackFactory(defaultDataSourceFactory).createDataSource(),
+                    appleMusic)
+            },
             DsdExtractorsFactory(),
         )
             .setLoadErrorHandlingPolicy(PermanentAwareLoadErrorPolicy())
@@ -1869,6 +1946,70 @@ class PlaybackService : MediaLibraryService() {
         // whose queue is already restored.
         CastController.ensureStarted(this)
         CastController.attach(castPlayback)
+        appleMusicSpeaker.onLocalQueueChanged()
+    }
+
+    private var preparingSpeakerHandoff = false
+
+    private fun playerForRemoteSpeaker(): ExoPlayer? {
+        val local = player ?: return null
+        val handoff = appleMusicSpeaker.handoffToRemote() ?: return local
+        preparingSpeakerHandoff = true
+        try {
+            // IDLE keeps even cached YouTube audio inaudible while the receiver
+            // samples playWhenReady. Cast/watch immediately pause it again.
+            local.stop()
+            local.seekTo(handoff.positionMs)
+            local.playWhenReady = handoff.playWhenReady
+        } finally {
+            preparingSpeakerHandoff = false
+        }
+        return local
+    }
+
+    private var appleWasPlaying = false
+    private var appleRouteActive = false
+    private var appleLyricsKey: Pair<String?, String>? = null
+
+    private fun onAppleMusicChanged() {
+        val apple = appleMusicSpeaker
+        if (apple.active) {
+            if (!appleRouteActive) {
+                crossfade?.onSkipRequested()
+                upgradeJob?.cancel()
+                upgradeJob = null
+                cancelPrefetch()
+                AudioCache.cancelDirect()
+            }
+            val song = player?.currentMediaItem?.toSong()
+            val duration = apple.durationMs.takeIf { it > 0 }
+            scrobbleManager?.onPlayerStateChanged(apple.isPlaying, song, duration)
+            if (apple.isPlaying && !appleWasPlaying) {
+                registerCurrentPlay()
+                if (song != null) {
+                    val lyricsKey = AppleMusicTokens.storefront() to song.videoId
+                    if (appleLyricsKey != lyricsKey) {
+                        appleLyricsKey = lyricsKey
+                        loadLyricsForCurrentTrack()
+                    }
+                    listenBrainzSong = song
+                    if (listenBrainzStartMs == 0L) listenBrainzStartMs = System.currentTimeMillis()
+                    listenBrainzDurationMs = duration
+                    submitListenBrainzPlayingNow(song, apple.positionMs, duration)
+                }
+                startLyricsTicker()
+                player?.let(::pushDiscordPresence)
+            } else if (!apple.isPlaying && appleWasPlaying) {
+                ListeningRecorder.onStopped()
+                clearDiscordPresence()
+                stopLyricsTicker()
+            }
+            if (apple.playbackState == Player.STATE_ENDED) SleepTimer.cancel()
+            publishNerdStats()
+        }
+        appleRouteActive = apple.active
+        appleWasPlaying = apple.isPlaying
+        publishWidgetState()
     }
 
     private fun newSessionPlayer(player: Player, crossfade: CrossfadeController) = SessionPlayer(
@@ -2130,7 +2271,9 @@ class PlaybackService : MediaLibraryService() {
     private fun startStationFromSession() {
         val originalPlayer = player ?: return
         val currentItem = originalPlayer.currentMediaItem ?: return
-        val seed = currentItem.toSong().takeIf { it.canStartStation() } ?: return
+        val seed = AppleMusicQueuePolicy.recommendationSeed(currentItem.toSong(),
+            (0 until originalPlayer.mediaItemCount).map { originalPlayer.getMediaItemAt(it).toSong() },
+            originalPlayer.currentMediaItemIndex)?.takeIf { it.canStartStation() } ?: return
         val originalManualQueue = (0 until originalPlayer.mediaItemCount)
             .map { originalPlayer.getMediaItemAt(it) }
             .filterNot { it.fromAutoplay }
@@ -2794,7 +2937,7 @@ class PlaybackService : MediaLibraryService() {
 
         val source = request.source
         val requestedSongs = request.songs
-            .filterNot { it.isUnresolvedSpotify }
+            .filterNot { it.isUnresolvedExternal }
             .map { it.copy(
                 queueTier = QueueTier.CONTEXT,
                 playbackSource = source.title,
@@ -3130,6 +3273,11 @@ class PlaybackService : MediaLibraryService() {
             return
         }
         val current = exoPlayer.currentMediaItem?.toSong() ?: return
+        val currentSeed = if (AppleMusicSpeaker.isAppleRow(current.videoId)) {
+            AppleMusicQueuePolicy.recommendationSeed(current,
+                (0 until exoPlayer.mediaItemCount).map { exoPlayer.getMediaItemAt(it).toSong() },
+                exoPlayer.currentMediaItemIndex) ?: return
+        } else current
         if (AppSettings.dontRepeatSuggestions.value) sessionSongHistory += current
         // In a party the server's queue is the one being topped up, and this
         // player's copy of it lags behind by however long reconcile is held off
@@ -3168,10 +3316,12 @@ class PlaybackService : MediaLibraryService() {
                     queueSongs
                 }
                 val seedSong = if (seedBack == 0) {
-                    current
+                    currentSeed
                 } else {
                     val at = activePlayer.currentMediaItemIndex - seedBack
-                    if (at >= 0) activePlayer.getMediaItemAt(at).toSong() else current
+                    val candidate = if (at >= 0) activePlayer.getMediaItemAt(at).toSong() else currentSeed
+                    AppleMusicQueuePolicy.recommendationSeed(candidate, queueSongs,
+                        activePlayer.currentMediaItemIndex) ?: currentSeed
                 }
                 val result = loadAutoplayTracks(existing, seedSong, remaining)
                 val resolved = result.getOrElse {
@@ -4511,6 +4661,7 @@ class PlaybackService : MediaLibraryService() {
      * instead — see [adoptCachedTrack] and [QualityUpgrade.adoptUnresolved].
      */
     private fun lookForBetterCopy(player: ExoPlayer) {
+        if (appleMusicSpeaker.active) return
         val item = player.currentMediaItem ?: return
         val mediaId = item.mediaId
         val uri = item.localConfiguration?.uri
@@ -5947,6 +6098,13 @@ class PlaybackService : MediaLibraryService() {
 
     private fun publishNerdStats() {
         val player = player ?: return
+        if (appleMusicSpeaker.active) {
+            // Do not attach ExoPlayer's stale codec/DSP/lossless claims to DRM playback.
+            NerdStats.publish(NerdStats.Snapshot(mimeType = null, bitrateKbps = null,
+                sampleRateHz = null, channels = null, sourceName = "Apple Music",
+                mediaId = player.currentMediaItem?.mediaId), expectedGeneration = NerdStats.currentGeneration)
+            return
+        }
         val format = player.audioFormat
         val mediaId = player.currentMediaItem?.mediaId
         val generation = NerdStats.currentGeneration
@@ -6116,12 +6274,12 @@ class PlaybackService : MediaLibraryService() {
         if (boundedContextWindow != null && !ListenTogether.state.value.inParty) {
             BoundedContextPersistence.savePlaybackState(
                 currentEntryId = player.currentMediaItem?.queueEntryId,
-                positionMs = player.currentPosition,
+                positionMs = if (appleMusicSpeaker.active) appleMusicSpeaker.positionMs else player.currentPosition,
             )
         }
         LastPlayed.savePlaybackState(
             index = player.currentMediaItemIndex - persistedQueueStart,
-            positionMs = player.currentPosition,
+            positionMs = if (appleMusicSpeaker.active) appleMusicSpeaker.positionMs else player.currentPosition,
         )
     }
 
@@ -6360,6 +6518,11 @@ class PlaybackService : MediaLibraryService() {
      * tracks is more than it does anything with, but it decides that, not this.
      */
     private fun prefetchAround(player: ExoPlayer) {
+        if (appleMusicSpeaker.active || player.currentMediaItem?.mediaId?.let(appleMusicSpeaker::holdsLocalAudio) == true) {
+            cancelPrefetch()
+            AudioCache.cancelDirect()
+            return
+        }
         // Direct Source Stream reads ahead from its own window instead — see
         // [driveDirectWindow]. Anything the ordinary read-ahead had running
         // for the old queue is dropped with it.
@@ -6372,6 +6535,7 @@ class PlaybackService : MediaLibraryService() {
         val upcomingSongs = if (nextIndex != C.INDEX_UNSET) {
             val end = (nextIndex + AudioCache.QUEUE_DEPTH - 1).coerceAtMost(player.mediaItemCount - 1)
             (nextIndex..end).map { index -> player.getMediaItemAt(index).toSong() }
+                .filterNot { appleMusicSpeaker.holdsLocalAudio(it.videoId) || AppleMusicSpeaker.isAppleRow(it.videoId) }
         } else {
             emptyList()
         }
@@ -6426,6 +6590,9 @@ class PlaybackService : MediaLibraryService() {
      * track or skipping through a queue never fetches anything ahead.
      */
     private fun driveDirectWindow() {
+        // Also catches credential replacement while connected stays true.
+        appleMusicSpeaker.refresh()
+        if (appleMusicSpeaker.active) return
         val exoPlayer = player ?: return
         val audible = buildSet {
             exoPlayer.currentMediaItem?.mediaId?.let(::add)
@@ -6438,6 +6605,7 @@ class PlaybackService : MediaLibraryService() {
         val nextIndex = exoPlayer.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return
         val next = exoPlayer.getMediaItemAt(nextIndex)
+        if (appleMusicSpeaker.holdsLocalAudio(next.mediaId) || AppleMusicSpeaker.isAppleRow(next.mediaId)) return
         val duration = exoPlayer.duration
         if (duration == C.TIME_UNSET || duration <= 0L) return
         val boundary = crossfade?.plannedTransitionFor(current.mediaId) ?: duration
@@ -6474,8 +6642,9 @@ class PlaybackService : MediaLibraryService() {
                 // moves between two players, and a sampler pinned to the one
                 // that happened to be first would go on reporting a player that
                 // has been silent since the last crossfade.
-                val player = this@PlaybackService.player
-                if (player != null && player.isPlaying) {
+                val local = this@PlaybackService.player
+                val player = mediaSession?.player ?: local
+                if (player != null && local != null && player.isPlaying) {
                     lastPositionSeconds = player.currentPosition / 1000
                     player.currentMediaItem?.mediaId?.let {
                         PlaybackTracker.onProgress(it, lastPositionSeconds)
@@ -6490,7 +6659,7 @@ class PlaybackService : MediaLibraryService() {
                     }
                     // Only two primitive preference values. Queue JSON is
                     // written from onTimelineChanged, never from this loop.
-                    savePlaybackState(player)
+                    savePlaybackState(local)
                     // The renderer can settle on its format a moment after the
                     // track change, which no callback of ours follows up on.
                     publishNerdStats()
@@ -6501,7 +6670,7 @@ class PlaybackService : MediaLibraryService() {
                     // is after its own transition has been and gone. Cheap to
                     // repeat: it returns immediately unless the track is
                     // pending and nothing is already looking.
-                    lookForBetterCopy(player)
+                    lookForBetterCopy(local)
                 }
                 delay(PROGRESS_SAMPLE_MS)
             }
@@ -6520,7 +6689,7 @@ class PlaybackService : MediaLibraryService() {
                 if (deadline == null) return@collectLatest
                 val remaining = deadline - SystemClock.elapsedRealtime()
                 if (remaining > 0) delay(remaining)
-                player?.pause()
+                if (appleMusicSpeaker.active) appleMusicSpeaker.pause() else player?.pause()
                 SleepTimer.cancel()
             }
         }
@@ -7028,6 +7197,11 @@ class PlaybackService : MediaLibraryService() {
 
     private fun observeSettings() {
         scope.launch {
+            combine(AppSettings.playbackProvider, AppSettings.appleMusicFallbackToYouTube,
+                AppSettings.appleMusicStorefront, AppleMusicTokens.connected) { _, _, _, _ -> Unit }
+                .collect { appleMusicSpeaker.refresh() }
+        }
+        scope.launch {
             AppSettings.skipSilence.collect { on -> eachPlayer { it.skipSilenceEnabled = on } }
         }
         scope.launch {
@@ -7501,8 +7675,9 @@ class PlaybackService : MediaLibraryService() {
         // Read on the main thread, before the push is handed to IO: by the time
         // a coroutine gets to run, the queue may have moved on, and ExoPlayer's
         // state is only legal to read from the thread it was built on.
-        val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
-        val durationMs = exoPlayer.duration.takeIf { it > 0 } ?: 0L
+        val reported = mediaSession?.player ?: exoPlayer
+        val positionMs = reported.currentPosition.coerceAtLeast(0L)
+        val durationMs = reported.duration.takeIf { it > 0 } ?: 0L
         // The listener's own rate, not the player's instantaneous one.
         //
         // This is called from the middle of a track change, which is exactly
@@ -7514,7 +7689,7 @@ class PlaybackService : MediaLibraryService() {
         // track that had already been put back on the listener's own tempo.
         // The setting is what the track plays at for all but the handoff, so
         // it is both the honest tag and the right divisor for the countdown.
-        val speed = AppSettings.playbackSpeed.value
+        val speed = if (appleMusicSpeaker.active) 1f else AppSettings.playbackSpeed.value
         val audioQuality = discordAudioQualityLine(NerdStats.current.value)
             .takeIf { AppSettings.discordShowAudioQuality.value }
 
@@ -7601,6 +7776,7 @@ class PlaybackService : MediaLibraryService() {
             if (castPlayback.active) CastController.disconnect(resumeHere = false)
             // Both, or a swipe-away mid-crossfade leaves the outgoing track
             // playing on its own out of a service that is on its way out.
+            appleMusicSpeaker.pause()
             eachPlayer { it.stop() }
             stopSelf()
         }
@@ -7615,6 +7791,7 @@ class PlaybackService : MediaLibraryService() {
         // stop, and the next one picks the session up where it was.
         CastController.detach(castPlayback)
         castPlayback.release()
+        appleMusicSpeaker.release()
         closeAudioEffectSession()
         bluetoothTracker.stop()
         audioManager?.unregisterAudioDeviceCallback(outputDeviceCallback)
@@ -7655,7 +7832,7 @@ class PlaybackService : MediaLibraryService() {
             val lbToken = AppSettings.listenBrainzToken.value
             if (lbEnabled && lbToken.isNotBlank()) {
                 val lastStart = listenBrainzStartMs
-                val lastDuration = player?.duration?.takeIf { it > 0 }
+                val lastDuration = (mediaSession?.player?.duration ?: player?.duration)?.takeIf { it > 0 }
                 CoroutineScope(Dispatchers.IO).launch {
                     ListenBrainzManager.submitFinished(
                         lbToken, lastSong, lastStart, System.currentTimeMillis(), lastDuration,
@@ -7719,7 +7896,7 @@ class PlaybackService : MediaLibraryService() {
             return
         }
 
-        val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0 } ?: 0L
+        val trackDurationMs = (mediaSession?.player?.duration ?: player?.duration ?: 0L).takeIf { it > 0 } ?: 0L
 
         serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {
@@ -7738,12 +7915,17 @@ class PlaybackService : MediaLibraryService() {
                     sources = AppSettings.lyricsSources.value,
                     order = AppSettings.lyricsSourceOrder.value,
                     prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                    isrc = if (AppSettings.playbackProvider.value == PlaybackProvider.APPLE_MUSIC) {
+                        AppleMusicTokens.storefront()?.let { storefront ->
+                            AppleMusicPlayback.matcher(this@PlaybackService).cachedIsrc(storefront, currentSong.videoId)
+                        }
+                    } else null,
                 )
                 lines = found?.lines
             }
             withContext(Dispatchers.Main) {
                 serviceLyrics = lines
-                if (player?.isPlaying == true) {
+                if (mediaSession?.player?.isPlaying == true) {
                     updateLyricSubtitle()
                 }
             }
@@ -7770,7 +7952,8 @@ class PlaybackService : MediaLibraryService() {
         val exoPlayer = player ?: return
         val currentSong = exoPlayer.currentMediaItem?.toSong() ?: return
         val lines = serviceLyrics
-        val pos = crossfade?.loopPositionMs() ?: exoPlayer.currentPosition
+        val pos = if (appleMusicSpeaker.active) appleMusicSpeaker.positionMs
+            else crossfade?.loopPositionMs() ?: exoPlayer.currentPosition
         val subtitleText = if (lines != null && lines.isNotEmpty() && AppSettings.syncedLyrics.value) {
             val idx = lines.indexOfLast { it.timeMs <= pos }
             val currentLine = lines.getOrNull(idx)
@@ -7858,6 +8041,7 @@ class PlaybackService : MediaLibraryService() {
         private var reportedPlayWhenReady = false
         private var reportedPlaybackState = Player.STATE_IDLE
         private var reportedIsPlaying = false
+        private var reportedPlayerError: PlaybackException? = null
 
         init {
             cast.sink = this
@@ -7893,6 +8077,7 @@ class PlaybackService : MediaLibraryService() {
 
         /** The DAC's own volume stands in for the device's, unless a receiver is the speaker. */
         private val dac: Boolean get() = !cast.active && DacVolume.level.value != null
+        private val remoteVolume: Boolean get() = cast.active && !cast.isLocalOutput
 
         private fun dacVolume(): Int = ((DacVolume.level.value ?: 0f) * 100).roundToInt()
 
@@ -7939,6 +8124,13 @@ class PlaybackService : MediaLibraryService() {
         override fun isPlaying() = if (cast.active) cast.isPlaying else super.isPlaying()
 
         override fun getPlaybackState() = if (cast.active) cast.playbackState else super.getPlaybackState()
+
+        override fun getPlayerError(): PlaybackException? =
+            if (cast.active && cast.isLocalOutput) cast.playerError else super.getPlayerError()
+
+        override fun getPlaybackParameters(): androidx.media3.common.PlaybackParameters =
+            if (cast.active && cast.isLocalOutput) androidx.media3.common.PlaybackParameters.DEFAULT
+            else super.getPlaybackParameters()
 
         // During a loop mix the song loops and follows the tempo ramp, so its
         // playhead is the mix's own, not the player's: the seek bar, the
@@ -7993,22 +8185,22 @@ class PlaybackService : MediaLibraryService() {
         // The receiver is a remote output with a volume of its own, which is
         // what makes the hardware keys move it instead of the phone's.
         override fun getDeviceInfo(): DeviceInfo = when {
-            cast.active -> CAST_DEVICE
+            remoteVolume -> CAST_DEVICE
             dac -> DAC_DEVICE
             else -> super.getDeviceInfo()
         }
 
         override fun getDeviceVolume(): Int = when {
-            cast.active -> cast.deviceVolume
+            remoteVolume -> cast.deviceVolume
             dac -> dacVolume()
             else -> super.getDeviceVolume()
         }
 
-        override fun isDeviceMuted(): Boolean = if (cast.active || dac) false else super.isDeviceMuted()
+        override fun isDeviceMuted(): Boolean = if (remoteVolume || dac) false else super.isDeviceMuted()
 
         override fun setDeviceVolume(volume: Int, flags: Int) {
             when {
-                cast.active -> cast.setVolume(volume / 100f)
+                remoteVolume -> cast.setVolume(volume / 100f)
                 dac -> DacVolume.set(volume / 100f)
                 else -> super.setDeviceVolume(volume, flags)
             }
@@ -8017,7 +8209,7 @@ class PlaybackService : MediaLibraryService() {
         @Suppress("DEPRECATION")
         override fun setDeviceVolume(volume: Int) {
             when {
-                cast.active -> cast.setVolume(volume / 100f)
+                remoteVolume -> cast.setVolume(volume / 100f)
                 dac -> DacVolume.set(volume / 100f)
                 else -> super.setDeviceVolume(volume)
             }
@@ -8025,7 +8217,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun increaseDeviceVolume(flags: Int) {
             when {
-                cast.active -> nudgeReceiverVolume(+VOLUME_STEP)
+                remoteVolume -> nudgeReceiverVolume(+VOLUME_STEP)
                 dac -> DacVolume.step(+1)
                 else -> super.increaseDeviceVolume(flags)
             }
@@ -8034,7 +8226,7 @@ class PlaybackService : MediaLibraryService() {
         @Suppress("DEPRECATION")
         override fun increaseDeviceVolume() {
             when {
-                cast.active -> nudgeReceiverVolume(+VOLUME_STEP)
+                remoteVolume -> nudgeReceiverVolume(+VOLUME_STEP)
                 dac -> DacVolume.step(+1)
                 else -> super.increaseDeviceVolume()
             }
@@ -8042,7 +8234,7 @@ class PlaybackService : MediaLibraryService() {
 
         override fun decreaseDeviceVolume(flags: Int) {
             when {
-                cast.active -> nudgeReceiverVolume(-VOLUME_STEP)
+                remoteVolume -> nudgeReceiverVolume(-VOLUME_STEP)
                 dac -> DacVolume.step(-1)
                 else -> super.decreaseDeviceVolume(flags)
             }
@@ -8051,19 +8243,19 @@ class PlaybackService : MediaLibraryService() {
         @Suppress("DEPRECATION")
         override fun decreaseDeviceVolume() {
             when {
-                cast.active -> nudgeReceiverVolume(-VOLUME_STEP)
+                remoteVolume -> nudgeReceiverVolume(-VOLUME_STEP)
                 dac -> DacVolume.step(-1)
                 else -> super.decreaseDeviceVolume()
             }
         }
 
         override fun setDeviceMuted(muted: Boolean, flags: Int) {
-            if (!cast.active && !dac) super.setDeviceMuted(muted, flags)
+            if (!remoteVolume && !dac) super.setDeviceMuted(muted, flags)
         }
 
         @Suppress("DEPRECATION")
         override fun setDeviceMuted(muted: Boolean) {
-            if (!cast.active && !dac) super.setDeviceMuted(muted)
+            if (!remoteVolume && !dac) super.setDeviceMuted(muted)
         }
 
         private fun nudgeReceiverVolume(delta: Float) =
@@ -8074,6 +8266,13 @@ class PlaybackService : MediaLibraryService() {
             val playWhenReady = getPlayWhenReady()
             val state = getPlaybackState()
             val playing = isPlaying()
+            val error = getPlayerError()
+            if (error !== reportedPlayerError) {
+                reportedPlayerError = error
+                flags.add(Player.EVENT_PLAYER_ERROR)
+                listeners.forEach { it.onPlayerErrorChanged(error) }
+                if (error != null) listeners.forEach { it.onPlayerError(error) }
+            }
             if (playWhenReady != reportedPlayWhenReady) {
                 reportedPlayWhenReady = playWhenReady
                 flags.add(Player.EVENT_PLAY_WHEN_READY_CHANGED)
@@ -8185,6 +8384,7 @@ class PlaybackService : MediaLibraryService() {
         // is the listener's own business, and the lifecycle paths that call it
         // are not asking to move the party.
         override fun stop() {
+            if (cast.active && cast.isLocalOutput) cast.pause()
             if (locked()) { super.stop(); return }
             onUserIntent()
             super.stop()

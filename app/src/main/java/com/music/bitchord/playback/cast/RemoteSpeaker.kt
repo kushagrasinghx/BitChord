@@ -3,10 +3,11 @@ package com.music.bitchord.playback.cast
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 
 /**
- * Something other than this phone playing the phone's queue: a Cast receiver,
- * or the BitChord watch app as the speaker.
+ * A transport other than ExoPlayer playing the phone's queue: Cast, the watch,
+ * or an on-device DRM player.
  *
  * The model is [CastPlayback]'s, and every receiver keeps to it: the phone's
  * player stays the owner of the *queue* and is held paused, the receiver owns
@@ -20,6 +21,10 @@ interface RemoteSpeaker {
 
     /** Whether this receiver is the speaker. Everything else is meaningful only while it is. */
     val active: Boolean
+
+    /** On-device DRM playback uses Android's music-stream volume, not receiver volume. */
+    val isLocalOutput: Boolean get() = false
+    val playerError: PlaybackException? get() = null
     val playWhenReady: Boolean
     val isPlaying: Boolean
 
@@ -55,17 +60,31 @@ interface RemoteSpeaker {
  * Every receiver, as one: whichever is the speaker answers, and the phone's
  * moves are told to all of them (each ignores them unless it is active).
  */
-class Speakers(private val all: List<RemoteSpeaker>) : RemoteSpeaker {
+class Speakers(
+    private val all: List<RemoteSpeaker>,
+    private val onRouteChanged: () -> Unit = {},
+) : RemoteSpeaker {
 
     private val current: RemoteSpeaker get() = all.firstOrNull { it.active } ?: all.first()
 
     override var sink: CastSink? = null
         set(value) {
             field = value
-            all.forEach { it.sink = value }
+            all.forEach { speaker ->
+                speaker.sink = if (value == null) null else object : CastSink {
+                    override fun onRemotePlaybackChanged() = value.onRemotePlaybackChanged()
+                    override fun onRemoteVolumeChanged() = value.onRemoteVolumeChanged()
+                    override fun onRemoteRouteChanged() {
+                        onRouteChanged()
+                        value.onRemoteRouteChanged()
+                    }
+                }
+            }
         }
 
     override val active: Boolean get() = all.any { it.active }
+    override val isLocalOutput: Boolean get() = current.isLocalOutput
+    override val playerError: PlaybackException? get() = current.playerError
     override val playWhenReady: Boolean get() = current.playWhenReady
     override val isPlaying: Boolean get() = current.isPlaying
     override val playbackState: Int get() = current.playbackState

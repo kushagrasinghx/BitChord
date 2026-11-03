@@ -99,6 +99,14 @@ var (
 	Port                 = getInt("PORT", 8000)
 )
 
+// Apple Music credentials stay on the server. Only the path to a mounted .p8
+// secret is configured here; key contents are never accepted from clients.
+var (
+	AppleMusicTeamID         = strings.TrimSpace(os.Getenv("APPLE_MUSIC_TEAM_ID"))
+	AppleMusicKeyID          = strings.TrimSpace(os.Getenv("APPLE_MUSIC_KEY_ID"))
+	AppleMusicPrivateKeyFile = strings.TrimSpace(os.Getenv("APPLE_MUSIC_PRIVATE_KEY_FILE"))
+)
+
 // Open-app heartbeats. The interval is handed back on every ping, so it can be
 // raised here under load without an app update. An install stays counted for
 // one interval plus the grace period after its last ping.

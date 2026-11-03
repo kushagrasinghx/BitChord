@@ -160,21 +160,40 @@ object SpotifyImporter {
      * best candidate by title, artist, length and album, and failing that the
      * search's first hit.
      */
-    suspend fun matchTrack(track: SpotifyTrack): Song? {
-        val query = listOf(track.title, track.artist).filter { it.isNotBlank() }.joinToString(" ")
+    suspend fun matchTrack(track: SpotifyTrack): Song? = matchToYouTube(
+        track.title, track.artist, track.album, track.durationMs, strict = false,
+    )
+
+    /** Shared metadata matching; strict imports must never substitute an unrelated first hit. */
+    suspend fun matchToYouTube(
+        title: String,
+        artist: String,
+        album: String?,
+        durationMs: Int,
+        explicit: Boolean? = null,
+        strict: Boolean = true,
+    ): Song? {
+        val query = listOf(title, artist).filter { it.isNotBlank() }.joinToString(" ")
         val candidates = YtMusicRepository.search(query, SearchFilter.SONGS).getOrNull()
             ?.filterIsInstance<SearchResult.Track>()
             ?.map { it.song }
             .orEmpty()
+        val eligible = if (strict) candidates.filter {
+            !it.isVideo && TrackMatcher.sharesArtist(artist, it.artist) &&
+                (durationMs <= 0 || TrackMatcher.secondsOf(it.durationText)?.let { seconds ->
+                    kotlin.math.abs(seconds * 1_000L - durationMs) <= 5_000L
+                } == true)
+        } else candidates
         return TrackMatcher.best(
-            candidates,
+            eligible,
             TrackMatcher.Target(
-                title = track.title,
-                artist = track.artist,
-                durationSec = track.durationMs.takeIf { it > 0 }?.div(1000),
-                album = track.album,
+                title = title,
+                artist = artist,
+                durationSec = durationMs.takeIf { it > 0 }?.div(1000),
+                album = album,
+                isExplicit = explicit,
             ),
-        ) ?: candidates.firstOrNull()
+        ) ?: candidates.firstOrNull().takeUnless { strict }
     }
 
     /** Tracks the embed page lists before it cuts off. */

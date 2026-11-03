@@ -1,2 +1,9 @@
 server
 *.exe
+
+# Apple Music signing keys must never be committed.
+*.p8
+*.pem
+.env
+.env.*
+!.env.example

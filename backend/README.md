@@ -115,6 +115,7 @@ matching Kotlin's naming keeps `@SerialName` off every field.
 |---|---|
 | `GET /healthz` | Render's health check. |
 | `GET /api/time` | `{"serverMs":…}` — a clock sample before the socket exists. |
+| `GET /api/applemusic/token` | Apple Music developer token: `{"token":"JWT","expiresAt":1800003600}` (Unix epoch seconds). `503` when unavailable; `429` after 30 requests per IP per minute. See server setup below. |
 | `POST /api/parties` | Create a party and join it as host. Body: `userId`, `deviceId`, `displayName`, `avatarUrl?`. → `201` with `code`, `token`, `you`, `party`. Creation is capped per IP and by the service-wide party limit. |
 | `POST /api/parties/{code}/join` | Same body. `404` unknown code, `409` full, `422` no identity. The code is normalised first, so lower case, spaces, and `O`/`I`/`L` typed for `0`/`1` all work. |
 | `GET /api/parties/{code}` | Full snapshot. Needs `Authorization: Bearer <token>`. |
@@ -244,6 +245,70 @@ To keep memory, bandwidth, and latency strictly bounded:
   entirely such tracks succeeds without changing the queue. Hand-queued tracks
   are never filtered.
 
+## Apple Music developer tokens (optional)
+
+This is the backend-only MusicKit developer-token foundation. It does not add
+client playback, Apple user authorization, or Music User Token handling. The
+endpoint works without a client secret: the Apple private key stays on the server.
+
+Create a key with **MusicKit** enabled in your Apple Developer account, associate
+it with the appropriate Media ID, and download its `.p8` file. Record your
+10-character Team ID and the key's 10-character Key ID (uppercase letters/digits).
+Configure all three server environment variables before starting the backend:
+
+| Variable | Purpose |
+|---|---|
+| `APPLE_MUSIC_TEAM_ID` | Apple Developer Team ID, used as the JWT issuer (`iss`). |
+| `APPLE_MUSIC_KEY_ID` | MusicKit signing Key ID, used in the JWT header (`kid`). |
+| `APPLE_MUSIC_PRIVATE_KEY_FILE` | Path to the unencrypted PKCS#8 P-256 `.p8` private key file. Prefer an absolute path to a mounted secret outside the repository. Relative paths resolve from the server's working directory. |
+
+For example, from `backend/` (replace the example IDs and path with yours):
+
+```sh
+export APPLE_MUSIC_TEAM_ID=TEAM123456
+export APPLE_MUSIC_KEY_ID=KEY1234567
+export APPLE_MUSIC_PRIVATE_KEY_FILE=/run/secrets/AuthKey_KEY1234567.p8
+go run .
+```
+
+On Render, mount the `.p8` as a Secret File and set the file variable to its mounted
+path. For systemd, provision the file and variables for the `bitchord-jam` service.
+Restrict file permissions (for example `0600`, owned by the service user) and use
+HTTPS in production. Do not commit keys, put them in client builds, pass them in
+requests, or log token responses. `backend/.gitignore` excludes `.p8`, `.pem`, and
+local `.env` files; the server reads its process environment, not `.env` files.
+Inline private-key environment variables and client-supplied keys are not supported.
+
+`GET /api/applemusic/token` returns `200` with exactly:
+
+```json
+{"token":"JWT","expiresAt":1800003600}
+```
+
+`expiresAt` is the same integer Unix timestamp as the signed JWT's `exp` claim,
+**in seconds, not milliseconds**. Tokens use ES256 (`alg`, `kid`, and `typ: JWT`
+headers; `iss`, `iat`, and `exp` claims), are valid for one hour (well below Apple's
+six-month maximum), and are cached in memory under a mutex. The next request in
+the final five minutes refreshes the token. Responses use `Cache-Control: no-store`;
+clients should reuse the token until shortly before `expiresAt`, not fetch it for
+every Apple Music API request.
+
+With no credentials, partial credentials, an unreadable file, an invalid ID, or
+an unsupported/malformed key, only this endpoint is unavailable: it returns `503`
+with `{"error":"applemusic_unavailable","message":"Apple Music developer token is unavailable."}`.
+No key, path, parser error, or token is logged or included in the error. Credentials
+are loaded once when routes are registered; **restart the server after fixing
+configuration or rotating/revoking a key**. Apple permissions and revocation are
+not checked locally; a structurally valid key still needs to be enabled for MusicKit.
+
+The public endpoint has its own 30-request/IP/minute limiter with at most 10,000
+tracked IPs, independent of party and presence quotas; a full table rejects new
+IPs until entries expire. `429` responses include `Retry-After: 60`. Existing
+`JAM_TRUST_PROXY` and `JAM_ALLOWED_ORIGINS` policies apply. Enable proxy trust only
+behind a proxy that replaces untrusted forwarding headers. CORS is not
+authentication: anyone who can reach this endpoint can obtain a developer token.
+Use edge rate limits or network restrictions as appropriate for your deployment.
+
 ## Deploying to Oracle Cloud (Always Free)
 
 This is what runs `https://api.bitchord.kushagrasingh.in`: one Always Free
@@ -343,6 +408,8 @@ Every one of these is optional — `config/config.go` carries the same defaults.
 ## Layout
 
 ```
+applemusic/token.go   Server-only ES256 developer-token signing and cache
+applemusic.go         Optional Apple Music token endpoint and its IP limiter
 clock/clock.go        The one clock, monotonic so anchors never jump
 codes/codes.go        Six-character codes, and reading a mistyped one charitably
 config/config.go      Environment knobs

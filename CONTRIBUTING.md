@@ -26,6 +26,16 @@ The project requires the following tools:
 - **C/C++ NDK & CMake**: CMake 3.22.1+ and Android NDK (for native audio DSP components configured under `app/src/main/cpp`).
 - **Listen Together Backend (Optional)**: Go 1.22+ if developing or testing the party server (`backend/`).
 
+### Apple Music integration (optional, phone only)
+
+Account/library UI, metadata matching, queue coordination, and native adapter
+source are implemented and compiled against the official SDK 1.1.4 distribution.
+SDK-equipped dev builds enable native integration for testing; production remains
+gated pending subscribed-device validation. See [Apple Music setup and implementation status](docs/APPLE_MUSIC.md)
+for backend-only key configuration, the public token endpoint URL, optional
+locally supplied MusicKit AARs, tests, and remaining work for issue #1222.
+Do not commit Apple's SDK binaries or any private key/developer token.
+
 ## Build and Test Commands
 Run Gradle commands from the repository root.
 

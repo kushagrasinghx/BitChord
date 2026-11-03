@@ -16,15 +16,26 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_recognition_background">
+    android:layout_height="match_parent">
 
-    <ImageView
-        android:id="@+id/widget_wave"
-        android:layout_width="88dp"
-        android:layout_height="34dp"
-        android:layout_gravity="center"
-        android:contentDescription="@string/widget_recognition_label"
-        android:src="@drawable/ic_widget_wave_sleep"
-        android:scaleType="fitXY" />
+    <!--
+      Keep the surface at one launcher row even if an older 2×2 instance has
+      not been removed yet. New instances receive the same 2×1 surface without
+      any extra space around it.
+    -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_gravity="center_vertical"
+        android:background="@drawable/widget_recognition_background">
+
+        <ImageView
+            android:id="@+id/widget_wave"
+            android:layout_width="88dp"
+            android:layout_height="34dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/widget_recognition_label"
+            android:src="@drawable/ic_widget_wave_sleep"
+            android:scaleType="fitXY" />
+    </FrameLayout>
 </FrameLayout>

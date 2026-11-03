@@ -774,6 +774,7 @@ private fun BitChordApp(
     // suggestions, and pressing the button appeared to do nothing, because it
     // turned the party's setting on while the label already said so.
     val autoplayEnabled = autoplayEnabledFor(partyState, autoplay)
+    val autoPlayRecognizedSong by AppSettings.autoPlayRecognizedSong.collectAsStateWithLifecycle()
     val partyServerStatus by ListenTogether.serverConnectionState.collectAsStateWithLifecycle()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
     // Set each time the search tab is tapped, which SearchScreen uses as a
@@ -799,6 +800,9 @@ private fun BitChordApp(
     // The query a recognition run produced; keeps its promoted Top result card
     // on screen after the sheet closes, until the user searches something else.
     var recognitionQuery by remember { mutableStateOf<String?>(null) }
+    // Captures the preference when an in-app recognition match is handed to
+    // Search, so the result observer can follow the widget's play path.
+    var inAppRecognitionAutoPlay by remember { mutableStateOf(false) }
     // Invalidates an in-flight radio lookup when a later play request wins.
     var playRequestGeneration by remember { mutableIntStateOf(0) }
     // Starting radio from the item already playing must not replace that media
@@ -1114,6 +1118,10 @@ private fun BitChordApp(
         recognitionQuery = query
         viewModel.onFilterChange(SearchFilter.ALL)
         viewModel.searchFor(query, SearchSource.YOUTUBE)
+    }
+    val searchRecognizedSongFromApp: (String) -> Unit = { query ->
+        inAppRecognitionAutoPlay = autoPlayRecognizedSong
+        searchRecognizedSong(query)
     }
     // A music video's picture follows this controller's clock — see [MusicVideoEngine].
     DisposableEffect(controller) {
@@ -5501,12 +5509,39 @@ private fun BitChordApp(
                 else -> {}
             }
         }
+        // When enabled, in-app recognition follows the widget's same first
+        // playable result into radio playback and opens the now-playing view.
+        // With the setting off, the dialog keeps its existing search-only flow.
+        LaunchedEffect(inAppRecognitionAutoPlay, results, controller) {
+            if (!inAppRecognitionAutoPlay) return@LaunchedEffect
+            when (val state = results) {
+                is UiState.Error -> inAppRecognitionAutoPlay = false
+                is UiState.Success -> {
+                    val data = state.data
+                    val song = data?.filterIsInstance<SearchResult.TopTrack>()?.firstOrNull()?.song
+                        ?: data?.filterIsInstance<SearchResult.Track>()?.firstOrNull()?.song
+                    if (song != null) {
+                        // A cold recognition search can finish before the
+                        // player session is connected; keep the mode pending
+                        // so this retries when the controller arrives.
+                        controller ?: return@LaunchedEffect
+                        inAppRecognitionAutoPlay = false
+                        playRadio(song, QueueSource("Recognition", PlaybackSourceType.SEARCH))
+                        showNowPlaying = true
+                    } else {
+                        inAppRecognitionAutoPlay = false
+                        controller?.play()
+                    }
+                }
+                else -> {}
+            }
+        }
         // The recognition sheet has its own window, so it sits above the tabs
         // and the player alike and owns the back press while it is open.
         if (showSongRecognition) {
             SongRecognitionDialog(
                 onDismiss = dismissSongRecognition,
-                onSearch = searchRecognizedSong,
+                onSearch = searchRecognizedSongFromApp,
                 searchFieldBounds = recognitionFieldBounds,
                 topResultBounds = recognitionTopBounds,
                  onLanded = { onCard -> if (onCard) recognitionLandedTrigger++ else recognitionFieldLandedTrigger++ },

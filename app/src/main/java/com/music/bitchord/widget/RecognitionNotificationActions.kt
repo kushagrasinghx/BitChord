@@ -14,6 +14,7 @@ object RecognitionNotificationActions {
 
         data class PlayNow(override val query: String) : Action
         data class AddToPlaylist(override val query: String) : Action
+        data class OpenSearch(override val query: String) : Action
     }
 
     private val _pending = MutableStateFlow<Action?>(null)
@@ -27,6 +28,7 @@ object RecognitionNotificationActions {
         val action = when (intent.action) {
             ACTION_PLAY_NOW -> Action.PlayNow(query)
             ACTION_ADD_TO_PLAYLIST -> Action.AddToPlaylist(query)
+            ACTION_OPEN_SEARCH -> Action.OpenSearch(query)
             else -> return false
         }
         intent.putExtra(EXTRA_CONSUMED, true)
@@ -47,6 +49,7 @@ object RecognitionNotificationActions {
 
     const val ACTION_PLAY_NOW = "com.music.bitchord.action.RECOGNITION_PLAY_NOW"
     const val ACTION_ADD_TO_PLAYLIST = "com.music.bitchord.action.RECOGNITION_ADD_TO_PLAYLIST"
+    const val ACTION_OPEN_SEARCH = "com.music.bitchord.action.RECOGNITION_OPEN_SEARCH"
 
     private const val EXTRA_QUERY = "com.music.bitchord.extra.RECOGNITION_QUERY"
     private const val EXTRA_CONSUMED = "com.music.bitchord.extra.RECOGNITION_CONSUMED"

@@ -4,7 +4,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
@@ -13,7 +12,6 @@ import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
 import coil3.toBitmap
-import com.music.bitchord.MainActivity
 import com.music.bitchord.R
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.artworkAt
@@ -74,7 +72,7 @@ object RecognitionNotifications {
                     .setSmallIcon(R.drawable.ic_notification_logo)
                     .setContentTitle(track.title)
                     .setContentText(track.artist)
-                    .setContentIntent(contentIntent(context))
+                    .setContentIntent(contentIntent(context, track.searchQuery))
                     .setCustomContentView(compactContentView(context, track, artwork))
                     .setCustomBigContentView(contentView(context, track, artwork))
                     .setCustomHeadsUpContentView(compactContentView(context, track, artwork))
@@ -91,6 +89,10 @@ object RecognitionNotifications {
 
     private fun contentView(context: Context, track: ShazamTrack, artwork: Bitmap?): RemoteViews =
         RemoteViews(context.packageName, R.layout.notification_recognition).apply {
+            setOnClickPendingIntent(
+                R.id.notification_recognition_root,
+                contentIntent(context, track.searchQuery),
+            )
             setTextViewText(R.id.notification_recognition_title, track.title)
             setTextViewText(R.id.notification_recognition_artist, track.artist)
             if (artwork != null) {
@@ -115,6 +117,10 @@ object RecognitionNotifications {
 
     private fun compactContentView(context: Context, track: ShazamTrack, artwork: Bitmap?): RemoteViews =
         RemoteViews(context.packageName, R.layout.notification_recognition_heads_up).apply {
+            setOnClickPendingIntent(
+                R.id.notification_recognition_root,
+                contentIntent(context, track.searchQuery),
+            )
             setTextViewText(R.id.notification_recognition_title, track.title)
             setTextViewText(R.id.notification_recognition_artist, track.artist)
             if (artwork != null) {
@@ -145,12 +151,14 @@ object RecognitionNotifications {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    private fun contentIntent(context: Context): PendingIntent = PendingIntent.getActivity(
+    private fun contentIntent(context: Context, query: String): PendingIntent = PendingIntent.getActivity(
         context,
         NOTIFICATION_REQUEST_CODE,
-        Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        },
+        RecognitionNotificationActions.intent(
+            context,
+            RecognitionNotificationActions.ACTION_OPEN_SEARCH,
+            query,
+        ),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 

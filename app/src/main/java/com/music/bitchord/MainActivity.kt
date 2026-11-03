@@ -5568,14 +5568,18 @@ private fun BitChordApp(
         LaunchedEffect(notificationAction) {
             val action = notificationAction ?: return@LaunchedEffect
             RecognitionNotificationActions.handled()
-            notificationRecognitionMode = action
-            // Both notification actions resolve silently so neither one opens
-            // the Search screen before handing the result to its destination.
             when (action) {
-                is RecognitionNotificationActions.Action.PlayNow ->
+                is RecognitionNotificationActions.Action.OpenSearch -> {
+                    notificationRecognitionMode = null
+                    searchRecognizedSong(action.query)
+                }
+                is RecognitionNotificationActions.Action.PlayNow,
+                is RecognitionNotificationActions.Action.AddToPlaylist -> {
+                    notificationRecognitionMode = action
+                    // Both action buttons resolve silently so neither one opens
+                    // the Search screen before handing the result to its destination.
                     resolveNotificationSong(action.query)
-                is RecognitionNotificationActions.Action.AddToPlaylist ->
-                    resolveNotificationSong(action.query)
+                }
             }
         }
         LaunchedEffect(notificationRecognitionMode, results, resultsQuery, controller, query) {
@@ -5594,6 +5598,8 @@ private fun BitChordApp(
                         return@LaunchedEffect
                     }
                     when (action) {
+                        is RecognitionNotificationActions.Action.OpenSearch ->
+                            return@LaunchedEffect
                         is RecognitionNotificationActions.Action.PlayNow -> {
                             // A cold notification tap can beat the player
                             // connection; keep the mode pending until it exists.

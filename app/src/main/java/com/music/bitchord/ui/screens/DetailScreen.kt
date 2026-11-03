@@ -144,6 +144,7 @@ import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
+import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.BrowseType
 import com.music.bitchord.data.model.DetailPage
 import com.music.bitchord.data.model.CARD_ART_PX
@@ -2360,7 +2361,8 @@ private fun ArtistShelfGridPage(
 private fun DetailPage.headerLines(trackCount: Int, playtime: String? = null): Pair<String, String> {
     val parts = subtitle.split("•", "·").map { it.trim() }.filter { it.isNotEmpty() }
     val year = parts.lastOrNull { it.length == 4 && it.all(Char::isDigit) }
-    val kind = parts.firstOrNull { it.lowercase(Locale.ROOT) in KIND_WORDS }
+    // In the app's language, as YouTube wrote it: "Álbum", not just "Album".
+    val kind = parts.firstOrNull { InnertubeParser.typeWord(it) != null }
     val credit = parts.filter { it != year && it != kind }.joinToString(", ")
     // Title case, "Playlist · 2022 · 10 Tracks · 38 min" — except the
     // playtime, whose "min" and "1h 25m" are units, not words.
@@ -2398,11 +2400,6 @@ private fun String.capitalizeWords(): String =
     split(' ').joinToString(" ") { word ->
         word.replaceFirstChar { it.titlecase(Locale.getDefault()) }
     }
-
-/** Subtitle words that name what a page *is* rather than who made it. */
-private val KIND_WORDS = setOf(
-    "album", "single", "ep", "playlist", "artist", "podcast", "episode", "song", "video",
-)
 
 @Composable
 private fun BrowseType.localizedLabel(): String? = when (this) {

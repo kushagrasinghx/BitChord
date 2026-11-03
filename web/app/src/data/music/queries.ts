@@ -260,12 +260,24 @@ export function usePlaylistOptions(videoId: string, enabled: boolean) {
   });
 }
 
+/**
+ * The library after a playlist is made, renamed or deleted. YouTube's own
+ * library lags the change by a moment, so an answer fetched at once can still
+ * be the old one: ask again once it has caught up.
+ */
+export function refreshLibrary() {
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['music', 'library'] });
+  refresh();
+  for (const ms of LIBRARY_CATCH_UP_MS) setTimeout(refresh, ms);
+}
+const LIBRARY_CATCH_UP_MS = [2_000, 6_000];
+
 /** A new private playlist holding [videoId]: Add to Playlist's "New Playlist". */
 export function useCreatePlaylist() {
   return useMutation({
     mutationFn: ({ title, videoId }: { title: string; videoId: string }) => createPlaylist(title, [videoId]),
     onSettled: (_data, _error, { videoId }) => {
-      void queryClient.invalidateQueries({ queryKey: ['music', 'library'] });
+      refreshLibrary();
       void queryClient.invalidateQueries({ queryKey: ['music', 'playlist-options', videoId] });
     },
   });

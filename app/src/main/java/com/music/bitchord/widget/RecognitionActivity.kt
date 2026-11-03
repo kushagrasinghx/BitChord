@@ -12,6 +12,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.MotionEvent
@@ -25,6 +26,7 @@ import com.music.bitchord.MainActivity
 import com.music.bitchord.R
 import com.music.bitchord.data.shazam.RecognitionSession
 import com.music.bitchord.data.shazam.RecognitionSessionState
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlaybackService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -127,7 +129,7 @@ class RecognitionActivity : Activity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
         ) {
-            startListening()
+            startListeningWhenReady()
         } else {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MICROPHONE)
         }
@@ -139,14 +141,32 @@ class RecognitionActivity : Activity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != REQUEST_MICROPHONE) return
-        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startListening()
+        when (requestCode) {
+            REQUEST_MICROPHONE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startListeningWhenReady()
+                } else {
+                    // A refusal stops here rather than route somewhere that will ask
+                    // again — the answer was taken, not lost.
+                    RecognitionWidgetProvider.showSleep(this)
+                    finish()
+                }
+            }
+            REQUEST_NOTIFICATIONS -> startListening()
+        }
+    }
+
+    /** Notification mode needs the Android 13+ grant before its result can surface. */
+    private fun startListeningWhenReady() {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !AppSettings.autoPlayRecognizedSong.value &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
         } else {
-            // A refusal stops here rather than route somewhere that will ask
-            // again — the answer was taken, not lost.
-            RecognitionWidgetProvider.showSleep(this)
-            finish()
+            startListening()
         }
     }
 
@@ -166,7 +186,7 @@ class RecognitionActivity : Activity() {
             abandon()
             finish()
         } else {
-            startListening()
+            startListeningWhenReady()
         }
     }
 
@@ -215,25 +235,34 @@ class RecognitionActivity : Activity() {
             listening = false
             when (val settled = state) {
                 is RecognitionSessionState.Found -> {
-                    // The match is posted before the launch, not during it:
-                    // the composition reads the flow the moment it builds,
-                    // and the stream is what carries the query whether
-                    // MainActivity comes up cold or arrives warm.
-                    RecognitionDeepLink.postMatch(settled.track.searchQuery)
-                    RecognitionWidgetProvider.showSleep(applicationContext)
-                    startActivity(
-                        Intent(applicationContext, MainActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                    )
-                    // The app arrives on a fade rather than the launcher's
-                    // window-slam: the pill just finished breathing on the
-                    // home screen, so the transition into playing the song
-                    // is the two joining, not one replacing the other.
-                    overridePendingTransition(
-                        android.R.anim.fade_in,
-                        android.R.anim.fade_out,
-                    )
-                    finish()
+                    if (AppSettings.autoPlayRecognizedSong.value) {
+                        // The match is posted before the launch, not during it:
+                        // the composition reads the flow the moment it builds,
+                        // and the stream is what carries the query whether
+                        // MainActivity comes up cold or arrives warm.
+                        RecognitionDeepLink.postMatch(settled.track.searchQuery)
+                        RecognitionWidgetProvider.showSleep(applicationContext)
+                        startActivity(
+                            Intent(applicationContext, MainActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                        )
+                        // The app arrives on a fade rather than the launcher's
+                        // window-slam: the pill just finished breathing on the
+                        // home screen, so the transition into playing the song
+                        // is the two joining, not one replacing the other.
+                        overridePendingTransition(
+                            android.R.anim.fade_in,
+                            android.R.anim.fade_out,
+                        )
+                        finish()
+                    } else {
+                        // Notification mode leaves the room's existing song in
+                        // the same state it had before recognition started.
+                        RecognitionNotifications.post(applicationContext, settled.track)
+                        resumePlayback()
+                        RecognitionWidgetProvider.showSleep(applicationContext)
+                        finish()
+                    }
                 }
 
                 else -> {
@@ -395,6 +424,7 @@ class RecognitionActivity : Activity() {
         const val EXTRA_SHOW_INTERFACE = "com.music.bitchord.widget.SHOW_INTERFACE"
 
         const val REQUEST_MICROPHONE = 41
+        const val REQUEST_NOTIFICATIONS = 42
 
         /**
          * The frames' cadence in a room with music against a room resting.

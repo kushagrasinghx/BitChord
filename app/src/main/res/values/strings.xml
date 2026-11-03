@@ -213,6 +213,8 @@
     <string name="widget_recognition_listening">Listening…</string>
     <string name="widget_recognition_no_match">Couldn\'t recognize anything. Try again while the music plays.</string>
     <string name="quick_tile_recognition_label">BitChord Recognize</string>
+    <string name="recognition_notification_channel">Song recognition</string>
+    <string name="recognition_notification_channel_description">Notifications for songs recognized from the widget and Quick Settings.</string>
     <string name="download_quality">Download quality</string>
     <string name="download_wifi_only">Download over Wi-Fi only</string>
     <string name="convert_to_audio">Convert to audio</string>

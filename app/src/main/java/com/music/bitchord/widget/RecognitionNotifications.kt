@@ -1,0 +1,92 @@
+package com.music.bitchord.widget
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import androidx.core.app.NotificationCompat
+import coil3.SingletonImageLoader
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.request.allowHardware
+import coil3.toBitmap
+import com.music.bitchord.MainActivity
+import com.music.bitchord.R
+import com.music.bitchord.data.model.NOTIFICATION_ART_PX
+import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.shazam.ShazamTrack
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+/** Notifications for matches found from the home-screen widget or QS tile. */
+object RecognitionNotifications {
+
+    /** Posts the text immediately, then refreshes it with cover art if it loads. */
+    fun post(context: Context, track: ShazamTrack) {
+        val appContext = context.applicationContext
+        publish(appContext, track, artwork = null)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            loadArtwork(appContext, track.artworkUrl)?.let { artwork ->
+                publish(appContext, track, artwork)
+            }
+        }
+    }
+
+    private fun publish(context: Context, track: ShazamTrack, artwork: Bitmap?) {
+        runCatching {
+            val manager = context.getSystemService(NotificationManager::class.java) ?: return
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID,
+                    context.getString(R.string.recognition_notification_channel),
+                    NotificationManager.IMPORTANCE_HIGH,
+                ).apply {
+                    description = context.getString(R.string.recognition_notification_channel_description)
+                },
+            )
+            manager.notify(
+                NOTIFICATION_ID,
+                NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_notification_logo)
+                    .setContentTitle(track.title)
+                    .setContentText(track.artist)
+                    .setContentIntent(contentIntent(context))
+                    .setLargeIcon(artwork)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setCategory(NotificationCompat.CATEGORY_EVENT)
+                    .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                    .setAutoCancel(true)
+                    .setOnlyAlertOnce(true)
+                    .build(),
+            )
+        }
+    }
+
+    private fun contentIntent(context: Context): PendingIntent = PendingIntent.getActivity(
+        context,
+        NOTIFICATION_REQUEST_CODE,
+        Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+    private suspend fun loadArtwork(context: Context, url: String?): Bitmap? {
+        if (url.isNullOrBlank()) return null
+        val request = ImageRequest.Builder(context)
+            .data(url.artworkAt(NOTIFICATION_ART_PX) ?: url)
+            .size(NOTIFICATION_ART_PX)
+            .allowHardware(false)
+            .build()
+        val result = runCatching { SingletonImageLoader.get(context).execute(request) }.getOrNull()
+        return (result as? SuccessResult)?.image?.toBitmap()
+    }
+
+    private const val CHANNEL_ID = "recognition_matches"
+    private const val NOTIFICATION_ID = 0x8177
+    private const val NOTIFICATION_REQUEST_CODE = 0x8177
+}

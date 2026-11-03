@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.RectF
@@ -26,19 +25,13 @@ class RecognitionOverlayView(context: Context) : View(context) {
     private var waveBitmap: Bitmap? = null
     private var searching = false
 
-    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = dp(1f)
-        color = Color.argb(72, 255, 255, 255)
-    }
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val wavePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
-    private val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        textSize = sp(22f)
+        textSize = sp(21f)
     }
     private val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(190, 255, 255, 255)
@@ -46,17 +39,35 @@ class RecognitionOverlayView(context: Context) : View(context) {
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         textSize = sp(13f)
     }
-    private val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(170, 255, 255, 255)
+    private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(156, 18, 22, 28)
+        style = Paint.Style.FILL
+    }
+    private val buttonBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(105, 255, 255, 255)
+        style = Paint.Style.STROKE
+        strokeWidth = dp(1f)
+    }
+    private val cancelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
         textAlign = Paint.Align.CENTER
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         textSize = sp(15f)
     }
-    private val footerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(120, 255, 255, 255)
-        textAlign = Paint.Align.CENTER
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        textSize = sp(12f)
+    private val closePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(156, 18, 22, 28)
+        style = Paint.Style.FILL
+    }
+    private val closeBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(95, 255, 255, 255)
+        style = Paint.Style.STROKE
+        strokeWidth = dp(1f)
+    }
+    private val closeLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        style = Paint.Style.STROKE
+        strokeWidth = dp(2f)
+        strokeCap = Paint.Cap.ROUND
     }
     private val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(210, 255, 220)
@@ -85,62 +96,50 @@ class RecognitionOverlayView(context: Context) : View(context) {
         val height = height.toFloat()
         if (width <= 0f || height <= 0f) return
 
-        canvas.drawColor(Color.argb(192, 0, 0, 0))
-
-        val cardWidth = min(width - dp(32f), dp(380f))
-        val cardHeight = min(height - dp(48f), dp(390f)).coerceAtLeast(dp(280f))
-        val card = RectF(
-            (width - cardWidth) / 2f,
-            (height - cardHeight) / 2f,
-            (width + cardWidth) / 2f,
-            (height + cardHeight) / 2f,
-        )
-        val radius = dp(30f)
-
-        fillPaint.shader = LinearGradient(
-            card.left,
-            card.top,
-            card.right,
-            card.bottom,
-            Color.rgb(38, 47, 58),
-            Color.rgb(10, 13, 17),
-            Shader.TileMode.CLAMP,
-        )
-        fillPaint.setShadowLayer(dp(28f), 0f, dp(12f), Color.argb(150, 0, 0, 0))
-        canvas.drawRoundRect(card, radius, radius, fillPaint)
-        fillPaint.shader = null
-        fillPaint.clearShadowLayer()
-        canvas.drawRoundRect(card, radius, radius, borderPaint)
-
         val centerX = width / 2f
-        canvas.drawCircle(centerX, card.top + dp(56f), dp(4f), accentPaint)
-        canvas.drawText(
-            context.getString(R.string.quick_tile_recognition_label),
-            centerX,
-            card.top + dp(39f),
-            headerPaint,
+        val closeCenterX = width - dp(30f)
+        val closeCenterY = dp(34f)
+        canvas.drawCircle(closeCenterX, closeCenterY, dp(20f), closePaint)
+        canvas.drawCircle(closeCenterX, closeCenterY, dp(20f), closeBorderPaint)
+        canvas.drawLine(
+            closeCenterX - dp(6f),
+            closeCenterY - dp(6f),
+            closeCenterX + dp(6f),
+            closeCenterY + dp(6f),
+            closeLinePaint,
         )
+        canvas.drawLine(
+            closeCenterX + dp(6f),
+            closeCenterY - dp(6f),
+            closeCenterX - dp(6f),
+            closeCenterY + dp(6f),
+            closeLinePaint,
+        )
+
+        val waveWidth = min(dp(180f), width * 0.58f)
+        val waveHeight = waveWidth * 54f / 88f
+        val waveCenterY = height * 0.42f
+        val waveTop = waveCenterY - waveHeight / 2f
+        canvas.drawCircle(centerX, waveCenterY, dp(92f), glowPaint.apply {
+            shader = RadialGradient(
+                centerX,
+                waveCenterY,
+                dp(100f),
+                Color.argb(46, 210, 255, 220),
+                Color.TRANSPARENT,
+                Shader.TileMode.CLAMP,
+            )
+        })
+        glowPaint.shader = null
+
+        canvas.drawCircle(centerX, waveTop - dp(34f), dp(4f), accentPaint)
         canvas.drawText(
             if (searching) context.getString(R.string.recognition_searching)
             else context.getString(R.string.recognition_listening),
             centerX,
-            card.top + dp(94f),
-            titlePaint,
+            waveTop - dp(28f),
+            headerPaint,
         )
-
-        val waveWidth = min(dp(180f), card.width() * 0.72f)
-        val waveHeight = waveWidth * 54f / 88f
-        val waveCenterY = card.top + card.height() * 0.51f
-        glowPaint.shader = RadialGradient(
-            centerX,
-            waveCenterY,
-            dp(100f),
-            Color.argb(55, 210, 255, 220),
-            Color.TRANSPARENT,
-            Shader.TileMode.CLAMP,
-        )
-        canvas.drawCircle(centerX, waveCenterY, dp(92f), glowPaint)
-        glowPaint.shader = null
 
         val wave = RectF(
             centerX - waveWidth / 2f,
@@ -155,19 +154,25 @@ class RecognitionOverlayView(context: Context) : View(context) {
             drawStaticWave(canvas, wave)
         }
 
-        if (!searching) {
-            canvas.drawText(
-                context.getString(R.string.recognition_hint),
-                centerX,
-                card.top + card.height() * 0.76f,
-                subtitlePaint,
-            )
-        }
+        canvas.drawText(
+            context.getString(R.string.recognition_tile_hint),
+            centerX,
+            wave.bottom + dp(42f),
+            hintPaint,
+        )
+        val cancelButton = RectF(
+            centerX - dp(68f),
+            height - dp(112f),
+            centerX + dp(68f),
+            height - dp(58f),
+        )
+        canvas.drawRoundRect(cancelButton, dp(27f), dp(27f), buttonPaint)
+        canvas.drawRoundRect(cancelButton, dp(27f), dp(27f), buttonBorderPaint)
         canvas.drawText(
             context.getString(R.string.recognition_cancel),
             centerX,
-            card.bottom - dp(28f),
-            footerPaint,
+            cancelButton.centerY() + dp(5f),
+            cancelPaint,
         )
     }
 

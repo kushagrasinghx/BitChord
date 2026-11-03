@@ -95,6 +95,11 @@ android {
             "LISTEN_TOGETHER_SERVER",
             "\"${listenTogetherServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
+        // TV reuses phone sources but never enables the phone-only MusicKit integration.
+        buildConfigField("boolean", "APPLE_MUSIC_SDK_PRESENT", "false")
+        buildConfigField("boolean", "APPLE_MUSIC_AUTH_AVAILABLE", "false")
+        buildConfigField("boolean", "APPLE_MUSIC_AVAILABLE", "false")
+        buildConfigField("String", "APPLE_MUSIC_TOKEN_URL", "\"\"")
         // The TV APKs share a GitHub release with the phone ones and are told
         // apart by name (BitChordTV-v1.8.apk, BitChordTV-v1.8_x86_64.apk), so
         // the updater installs the TV app here, never the phone app. See
@@ -124,6 +129,7 @@ android {
     sourceSets {
         getByName("main") {
             java.srcDir("../app/src/main/java")
+            java.srcDir("../app/src/appleMusicStub/java")
             res.srcDir("../app/src/main/res")
             assets.srcDir("../app/src/main/assets")
             jniLibs.srcDir("../app/src/main/jniLibs")

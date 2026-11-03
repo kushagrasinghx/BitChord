@@ -123,7 +123,7 @@ export function TrackShelf({ title, to, tracks, source }: { title: string; to?: 
       <ShelfScroller key={tracks.length} kind="tracks">
         {tracks.map((track, i) => (
           <li key={track.videoId}>
-            <TrackLockup item={trackItem(track)} onPlay={() => playList(tracks, i, { source })} />
+            <TrackLockup item={trackItem(track)} onPlay={() => playList(tracks, i, { source })} plays={track.plays} />
           </li>
         ))}
       </ShelfScroller>

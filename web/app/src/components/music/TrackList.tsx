@@ -53,7 +53,8 @@ const row = [
 ].join(' ');
 
 const rowVariant: Record<Variant, string> = {
-  album: 'h-[46px] grid-cols-[minmax(0,1fr)_auto] rounded-row',
+  // Title, plays (when YouTube gives them, as Spotify's album rows have), time.
+  album: 'h-[46px] grid-cols-[minmax(0,1fr)_auto_auto] rounded-row max-md:grid-cols-[minmax(0,1fr)_auto]',
   playlist: `h-[54px] ${playlistColumns} rounded-[12px] max-md:grid-cols-[minmax(0,1fr)_auto]`,
 };
 
@@ -179,6 +180,9 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
             </span>
           </div>
         </>
+      )}
+      {variant === 'album' && (
+        <div className={`${cell} w-[120px] justify-end pe-6 type-body text-secondary tabular-nums max-md:hidden`}>{track.plays}</div>
       )}
       <div className={`${cell} ${time[variant]} ${dimmed}`}>
         {/* The ⋯ button (TrackMenu) takes the time's place on hover, as Apple's rows do. */}

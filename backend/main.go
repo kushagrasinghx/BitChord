@@ -357,7 +357,7 @@ func handleCreateParty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	maxMembers := 5
+	maxMembers := config.MaxMembers
 	if req.MaxMembers != nil { maxMembers = *req.MaxMembers }
 	p, err := store.CreateWithLimits(config.MaxParties, maxMembers)
 	if err != nil {

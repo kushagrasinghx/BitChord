@@ -13,7 +13,9 @@ import android.view.View
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.music.bitchord.R
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 /**
  * The visible, Google-style recognition surface opened from Quick Settings.
@@ -28,7 +30,10 @@ class RecognitionOverlayView(context: Context) : View(context) {
     private var searching = false
     private var topInset = 0f
     private var rightInset = 0f
+    private var audioLevel = 0f
+    private var colorPhase = 0f
 
+    private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val wavePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -93,8 +98,10 @@ class RecognitionOverlayView(context: Context) : View(context) {
         ViewCompat.requestApplyInsets(this)
     }
 
-    fun setWaveBitmap(bitmap: Bitmap) {
+    fun setWaveBitmap(bitmap: Bitmap, level: Float = 0f) {
         waveBitmap = bitmap
+        audioLevel = level.coerceIn(0f, 1f)
+        colorPhase = (colorPhase + 0.08f + audioLevel * 0.16f) % (2f * Math.PI.toFloat())
         invalidate()
     }
 
@@ -109,6 +116,8 @@ class RecognitionOverlayView(context: Context) : View(context) {
         val width = width.toFloat()
         val height = height.toFloat()
         if (width <= 0f || height <= 0f) return
+
+        drawReactiveBackground(canvas, width, height)
 
         val centerX = width / 2f
         val closeCenterX = width - rightInset - dp(30f)
@@ -163,7 +172,9 @@ class RecognitionOverlayView(context: Context) : View(context) {
         )
         val bitmap = waveBitmap
         if (bitmap != null) {
+            wavePaint.alpha = (105 + audioLevel * 55f).toInt()
             canvas.drawBitmap(bitmap, null, wave, wavePaint)
+            wavePaint.alpha = 255
         } else {
             drawStaticWave(canvas, wave)
         }
@@ -194,6 +205,7 @@ class RecognitionOverlayView(context: Context) : View(context) {
         val gap = bounds.width() * 0.10f
         val barWidth = (bounds.width() - gap * 4f) / 5f
         val heights = floatArrayOf(0.38f, 0.52f, 0.70f, 0.48f, 0.62f)
+        wavePaint.color = Color.argb((105 + audioLevel * 55f).toInt(), 255, 255, 255)
         heights.forEachIndexed { index, fraction ->
             val left = bounds.left + index * (barWidth + gap)
             val barHeight = bounds.height() * fraction
@@ -202,9 +214,71 @@ class RecognitionOverlayView(context: Context) : View(context) {
                 RectF(left, top, left + barWidth, top + barHeight),
                 barWidth / 2f,
                 barWidth / 2f,
-                wavePaint.apply { color = Color.argb(220, 255, 255, 255) },
+                wavePaint,
             )
         }
+    }
+
+    private fun drawReactiveBackground(canvas: Canvas, width: Float, height: Float) {
+        canvas.drawColor(Color.rgb(7, 9, 17))
+        val energy = 0.40f + audioLevel * 0.60f
+        val driftX = sin(colorPhase) * width * 0.08f
+        val driftY = cos(colorPhase * 0.82f) * height * 0.045f
+        val radius = maxOf(width, height) * 0.56f
+        val alpha = (82f + energy * 70f).toInt()
+
+        drawColorBlob(
+            canvas,
+            width * 0.16f + driftX,
+            height * 0.22f + driftY,
+            radius,
+            Color.rgb(103, 72, 255),
+            alpha,
+        )
+        drawColorBlob(
+            canvas,
+            width * 0.86f - driftY,
+            height * 0.25f - driftX * 0.35f,
+            radius,
+            Color.rgb(42, 211, 215),
+            alpha,
+        )
+        drawColorBlob(
+            canvas,
+            width * 0.18f - driftX * 0.45f,
+            height * 0.82f - driftY,
+            radius,
+            Color.rgb(232, 64, 148),
+            alpha,
+        )
+        drawColorBlob(
+            canvas,
+            width * 0.86f + driftY * 0.6f,
+            height * 0.78f + driftX * 0.30f,
+            radius,
+            Color.rgb(255, 164, 61),
+            alpha,
+        )
+    }
+
+    private fun drawColorBlob(
+        canvas: Canvas,
+        centerX: Float,
+        centerY: Float,
+        radius: Float,
+        color: Int,
+        alpha: Int,
+    ) {
+        backgroundPaint.shader = RadialGradient(
+            centerX,
+            centerY,
+            radius,
+            Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color)),
+            Color.TRANSPARENT,
+            Shader.TileMode.CLAMP,
+        )
+        canvas.drawCircle(centerX, centerY, radius, backgroundPaint)
+        backgroundPaint.shader = null
     }
 
     private fun dp(value: Float): Float = value * density

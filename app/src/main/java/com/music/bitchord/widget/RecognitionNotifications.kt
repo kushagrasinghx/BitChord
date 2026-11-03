@@ -56,9 +56,9 @@ object RecognitionNotifications {
                     .setContentTitle(track.title)
                     .setContentText(track.artist)
                     .setContentIntent(contentIntent(context))
-                    .setCustomContentView(contentView(context, track, artwork))
+                    .setCustomContentView(compactContentView(context, track, artwork))
                     .setCustomBigContentView(contentView(context, track, artwork))
-                    .setCustomHeadsUpContentView(contentView(context, track, artwork))
+                    .setCustomHeadsUpContentView(compactContentView(context, track, artwork))
                     .setStyle(NotificationCompat.DecoratedCustomViewStyle())
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setCategory(NotificationCompat.CATEGORY_EVENT)
@@ -72,6 +72,30 @@ object RecognitionNotifications {
 
     private fun contentView(context: Context, track: ShazamTrack, artwork: Bitmap?): RemoteViews =
         RemoteViews(context.packageName, R.layout.notification_recognition).apply {
+            setTextViewText(R.id.notification_recognition_title, track.title)
+            setTextViewText(R.id.notification_recognition_artist, track.artist)
+            if (artwork != null) {
+                setImageViewBitmap(R.id.notification_recognition_art, artwork)
+            } else {
+                setImageViewResource(R.id.notification_recognition_art, R.drawable.ic_notification_logo)
+            }
+            setOnClickPendingIntent(
+                R.id.notification_recognition_play,
+                actionIntent(context, RecognitionNotificationActions.ACTION_PLAY_NOW, track.searchQuery, PLAY_REQUEST_CODE),
+            )
+            setOnClickPendingIntent(
+                R.id.notification_recognition_playlist,
+                actionIntent(
+                    context,
+                    RecognitionNotificationActions.ACTION_ADD_TO_PLAYLIST,
+                    track.searchQuery,
+                    PLAYLIST_REQUEST_CODE,
+                ),
+            )
+        }
+
+    private fun compactContentView(context: Context, track: ShazamTrack, artwork: Bitmap?): RemoteViews =
+        RemoteViews(context.packageName, R.layout.notification_recognition_heads_up).apply {
             setTextViewText(R.id.notification_recognition_title, track.title)
             setTextViewText(R.id.notification_recognition_artist, track.artist)
             if (artwork != null) {

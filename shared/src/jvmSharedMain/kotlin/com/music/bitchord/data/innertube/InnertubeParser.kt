@@ -1,7 +1,6 @@
 package com.music.bitchord.data.innertube
 
 import com.music.bitchord.auth.normalizeDataSyncId
-import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Account
 import com.music.bitchord.data.model.AccountChannel
 import com.music.bitchord.data.model.ArtistNameIndex
@@ -811,7 +810,6 @@ object InnertubeParser {
                     .o("durationText").runs(),
             ),
             isExplicit = renderer.hasExplicitBadge(),
-            // TEMP-DIAG: extract feedback token from multi-row items too (e.g. History rows).
             feedbackToken = extractFeedbackToken(renderer),
         )
     }

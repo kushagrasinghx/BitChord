@@ -226,6 +226,8 @@
     <string name="spatial_audio">Spatial audio</string>
     <string name="spatial_audio_subtitle">Widens stereo tracks for a more immersive feel</string>
     <string name="spatial_audio_atmos_subtitle">Paused for this track — Dolby Atmos is already spatial</string>
+    <string name="auto_play_recognized_song">Auto Play Recognized Song</string>
+    <string name="auto_play_recognized_song_subtitle">Automatically play a song after recognition finds it</string>
     <string name="animated_cover_cellular">Play animated cover over cellular</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Your top songs, artists, albums and genres</string>

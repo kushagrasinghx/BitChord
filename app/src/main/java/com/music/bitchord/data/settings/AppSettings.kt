@@ -369,6 +369,9 @@ object AppSettings {
      */
     val spatialAudio = MutableStateFlow(false)
 
+    /** Whether a future recognition match should start playing automatically. */
+    val autoPlayRecognizedSong = MutableStateFlow(false)
+
     /**
      * The app's own equaliser, master switch.
      *
@@ -945,6 +948,7 @@ object AppSettings {
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, false)
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
+        autoPlayRecognizedSong.value = prefs.getBoolean(KEY_AUTO_PLAY_RECOGNIZED_SONG, false)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
             EqualizerMode.valueOf(prefs.getString(KEY_EQ_MODE, null) ?: EqualizerMode.DYNAMIC.name)
@@ -1252,6 +1256,11 @@ object AppSettings {
     fun setSpatialAudio(value: Boolean) {
         spatialAudio.value = value
         prefs.edit().putBoolean(KEY_SPATIAL_AUDIO, value).apply()
+    }
+
+    fun setAutoPlayRecognizedSong(value: Boolean) {
+        autoPlayRecognizedSong.value = value
+        prefs.edit().putBoolean(KEY_AUTO_PLAY_RECOGNIZED_SONG, value).apply()
     }
 
     fun setEqualizerEnabled(value: Boolean) {
@@ -2150,6 +2159,7 @@ object AppSettings {
     private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_DIRECT_SOURCE_STREAM = "direct_source_stream"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
+    private const val KEY_AUTO_PLAY_RECOGNIZED_SONG = "auto_play_recognized_song"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"
     private const val KEY_EQ_TONE_X = "equalizer_tone_x"

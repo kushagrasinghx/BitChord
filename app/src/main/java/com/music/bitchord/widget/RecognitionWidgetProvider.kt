@@ -11,16 +11,14 @@ import android.widget.RemoteViews
 import com.music.bitchord.R
 
 /**
- * Home-screen widgets that start song recognition on tap. The circle and pill
- * providers share the same interaction and animation stream, but keep their
- * own layout so the launcher never has to stretch one shape into the other:
+ * The 2×3 home-screen widget that starts song recognition on tap:
  *
  * - sleeping: the sheet's five-bar waveform at rest — the state between takes
  *   and the face the picker previews;
  * - listening: the bars breathe and rise with the room, frame bitmaps
  *   rendered by [RecognitionActivity] and handed here through [showWave].
  *   RemoteViews has no frame of its own to animate in — the animation is a
- *   stream of measured pictures, which makes both widget sizes react to the
+ *   stream of measured pictures, which makes the widget react to the
  *   sound instead of merely pulsing.
  */
 open class RecognitionWidgetProvider : AppWidgetProvider() {
@@ -54,7 +52,7 @@ open class RecognitionWidgetProvider : AppWidgetProvider() {
         }
 
         /**
-         * One listening frame, shared by every recognition widget on the
+         * One listening frame for the recognition widget on the
          * screen. The frames go out as *partial* updates — only the ImageView
          * is replaced, leaving each sleep face's RemoteViews tree standing —
          * because a full re-apply at the taking cadence makes the launcher
@@ -82,8 +80,8 @@ open class RecognitionWidgetProvider : AppWidgetProvider() {
         /**
          * The tap's payload: everything the widget wants from the system is
          * one launch of [RecognitionActivity]. Code 0 and an intent with no
-         * extras keeps every pill's PendingIntent one and the same, so both
-         * faces install it interchangeably.
+         * extras keeps the widget's PendingIntent stable across launcher
+         * re-applies.
          */
         private fun tapIntent(context: Context): Intent =
             Intent(context, RecognitionActivity::class.java).apply {
@@ -119,7 +117,6 @@ open class RecognitionWidgetProvider : AppWidgetProvider() {
         )
 
         private val WIDGETS = listOf(
-            WidgetSpec(RecognitionWidgetCircle::class.java, R.layout.widget_recognition_circle),
             WidgetSpec(RecognitionWidgetWide::class.java, R.layout.widget_recognition_wide),
         )
 

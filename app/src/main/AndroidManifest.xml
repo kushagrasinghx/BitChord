@@ -750,18 +750,6 @@
         </receiver>
 
         <receiver
-            android:name=".widget.RecognitionWidgetCircle"
-            android:exported="false"
-            android:label="@string/widget_recognition_label">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_recognition_circle" />
-        </receiver>
-
-        <receiver
             android:name=".widget.RecognitionWidgetWide"
             android:exported="false"
             android:label="@string/widget_recognition_label">

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The recognition widget's body: a dark, softly graduated capsule with a
-  restrained outline so it reads as a deliberate card in the launcher picker
-  and on the home screen.
+  The recognition widget's body: a dark, softly graduated rounded card with a
+  restrained outline so the tall 2×3 surface reads as deliberate in the
+  launcher picker and on the home screen.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <corners android:radius="32dp" />
+    <corners android:radius="28dp" />
     <gradient
         android:angle="135"
         android:centerColor="#FF151B22"

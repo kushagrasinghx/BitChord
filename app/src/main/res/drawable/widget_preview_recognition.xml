@@ -1,34 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Picker artwork for the 3×3 recognition widget on hosts older than API 31.
-  The capsule is centered with generous breathing room and a subtle outline;
-  its five bars use the same visual rhythm as the animated runtime waveform.
+  Picker artwork for the 2×3 recognition widget on hosts older than API 31.
+  The rounded card is centered with generous breathing room and a subtle
+  outline; its five bars use the same visual rhythm as the animated runtime
+  waveform.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="180dp"
+    android:width="110dp"
     android:height="180dp"
-    android:viewportWidth="180"
+    android:viewportWidth="110"
     android:viewportHeight="180">
 
     <path
         android:fillColor="#FF151B22"
-        android:pathData="M47,58 L133,58 A32,32 0,0,1 165,90 A32,32 0,0,1 133,122 L47,122 A32,32 0,0,1 15,90 A32,32 0,0,1 47,58 Z"
+        android:pathData="M33,15 L77,15 A28,28 0,0,1 105,43 L105,137 A28,28 0,0,1 77,165 L33,165 A28,28 0,0,1 5,137 L5,43 A28,28 0,0,1 33,15 Z"
         android:strokeColor="#66FFFFFF"
         android:strokeWidth="1" />
 
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M36,71 A7,7 0,0,1 50,71 L50,113 A7,7 0,0,1 36,113 Z" />
+        android:pathData="M11,71.15 A5.3,5.3 0,0,1 21.6,71.15 L21.6,108.85 A5.3,5.3 0,0,1 11,108.85 Z" />
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M60,66 A7,7 0,0,1 74,66 L74,118 A7,7 0,0,1 60,118 Z" />
+        android:pathData="M30.4,70.45 A5.3,5.3 0,0,1 41,70.45 L41,109.55 A5.3,5.3 0,0,1 30.4,109.55 Z" />
     <path
         android:fillColor="#D9FFFFFF"
-        android:pathData="M84,78 A7,7 0,0,1 98,78 L98,108 A7,7 0,0,1 84,108 Z" />
+        android:pathData="M49.7,72.85 A5.3,5.3 0,0,1 60.3,72.85 L60.3,107.15 A5.3,5.3 0,0,1 49.7,107.15 Z" />
     <path
         android:fillColor="#EFFFFFFF"
-        android:pathData="M108,73 A7,7 0,0,1 122,73 L122,113 A7,7 0,0,1 108,113 Z" />
+        android:pathData="M69.1,70.85 A5.3,5.3 0,0,1 79.7,70.85 L79.7,109.15 A5.3,5.3 0,0,1 69.1,109.15 Z" />
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M132,65 A7,7 0,0,1 146,65 L146,119 A7,7 0,0,1 132,119 Z" />
+        android:pathData="M88.4,64.85 A5.3,5.3 0,0,1 99,64.85 L99,115.15 A5.3,5.3 0,0,1 88.4,115.15 Z" />
 </vector>

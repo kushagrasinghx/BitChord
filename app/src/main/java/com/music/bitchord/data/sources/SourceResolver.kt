@@ -339,7 +339,7 @@ object SourceResolver {
      * cost the quicker one's time, not the slower one's.
      */
     suspend fun directStream(target: TrackMatcher.Target, videoId: String? = null): SourceStream? {
-        if (target.title.isBlank() || target.isVideo) return null
+        if (target.title.isBlank()) return null
         val dur = target.durationSec
         val enrichedTarget = if (dur == null || dur <= 0) {
             val known = videoId?.let { KnownTrackDurations.get(it) }
@@ -1101,7 +1101,7 @@ object SourceResolver {
                     // them at the tier this is about to ask for.
                     request = request,
                 )
-            } ?: return null
+            } ?: continue
             var matches = TrackMatcher.ranked(candidates, target)
             if (requireSharedArtist) {
                 matches = matches.filter { TrackMatcher.sharesArtist(target.artist, it.artist) }

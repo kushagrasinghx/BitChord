@@ -166,12 +166,14 @@ object SourceRegistry {
             "gglos.ggottes.s1",
             "app.bitchord.lossless-bridge",
             "botkeep.bppcaf.addon",
+            "dev.akira.bitchord-hires",
         )
         val deadHostPatterns = listOf(
             "gglos",
             "losslessbridge",
             "bppcaf",
             "lastbabe",
+            "bitchord-hires",
         )
 
         // Purge dead, offline, or retired addons from existing storage
@@ -612,15 +614,6 @@ object SourceRegistry {
             .toString()
 
     val PREBAKED_SOURCES = listOf(
-        SourceConfig(
-            id = "dev.akira.bitchord-hires",
-            kind = SourceKind.ADDON,
-            label = "BitChord Hi-Res (Hi-Res & Lossless)",
-            baseUrl = "https://bitchord-hires-addon.vercel.app/manifest.json",
-            enabled = true,
-            allowDownloads = true,
-            checkValidLossless = false,
-        ),
         SourceConfig(
             id = "dev.bitperfect.qobuz.heisenbergg",
             kind = SourceKind.ADDON,

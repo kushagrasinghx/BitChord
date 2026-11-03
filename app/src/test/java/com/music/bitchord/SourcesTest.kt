@@ -641,9 +641,9 @@ class SourcesTest {
             enabled = true,
         )
         val validAddon = SourceConfig(
-            id = "dev.akira.bitchord-hires",
+            id = "dev.bitperfect.qobuz.heisenbergg",
             kind = SourceKind.ADDON,
-            baseUrl = "https://bitchord-hires-addon.vercel.app/manifest.json",
+            baseUrl = "https://soundfean-musics.onrender.com/a/manifest.json",
             enabled = true,
         )
 
@@ -654,8 +654,9 @@ class SourcesTest {
 
         assertFalse(initialized.any { it.id == "gg.gglos.addon" })
         assertFalse(initialized.any { it.baseUrl.contains("lastbabe") })
-        assertTrue(initialized.any { it.id == "dev.akira.bitchord-hires" })
-        assertEquals(5, SourceRegistry.PREBAKED_SOURCES.size)
+        assertFalse(initialized.any { it.baseUrl.contains("bitchord-hires") })
+        assertTrue(initialized.any { it.id == "dev.bitperfect.qobuz.heisenbergg" })
+        assertEquals(4, SourceRegistry.PREBAKED_SOURCES.size)
     }
 
     @Test

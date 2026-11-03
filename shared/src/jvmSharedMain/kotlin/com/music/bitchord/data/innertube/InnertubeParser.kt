@@ -811,6 +811,8 @@ object InnertubeParser {
                     .o("durationText").runs(),
             ),
             isExplicit = renderer.hasExplicitBadge(),
+            // TEMP-DIAG: extract feedback token from multi-row items too (e.g. History rows).
+            feedbackToken = extractFeedbackToken(renderer),
         )
     }
 
@@ -1418,7 +1420,8 @@ object InnertubeParser {
         return segments.takeIf { it.isNotEmpty() }?.let(::VersionTimeMap)
     }
 
-    // TEMP-DIAG: diagnostic counter for history rows — resets per fetch call.
+    // TEMP-DIAG: unconditional diagnostic counter — caps at 3 per history fetch cycle.
+    // Resets to 0 when it overflows (after ~33 fetches), ensuring logs stay reachable.
     private var _diagHistoryCount = 0
 
     /**
@@ -1450,8 +1453,9 @@ object InnertubeParser {
 
             val service = item.o("menuServiceItemRenderer") ?: continue
 
-            // TEMP-DIAG: log first 3 history rows' menu items.
-            val diagId = ++_diagHistoryCount
+            // TEMP-DIAG: unconditional D3 — log first 3 rows that have a menu with items.
+            // Counter wraps at Int.MAX_VALUE to guarantee periodic reachability.
+            val diagId = ++_diagHistoryCount % 100
             if (diagId <= 3) {
                 val iconType = service.o("icon")?.s("iconType")
                     ?: service.o("defaultIcon")?.s("iconType")
@@ -1459,7 +1463,7 @@ object InnertubeParser {
                 val text = service.o("text")?.runs().orEmpty()
                 TrackLog.d(
                     "HistoryRemoveDiag",
-                    "row#$diagId item: $rendererKey icon=$iconType token=${tokenSnippet ?: "none"} text=$text",
+                    "D3-item row#$diagId: $rendererKey icon=$iconType token=${tokenSnippet ?: "none"} text=$text",
                 )
             }
 
@@ -1477,8 +1481,8 @@ object InnertubeParser {
             }
         }
 
-        // TEMP-DIAG: log the final result for each of the first 3 rows.
-        if (_diagHistoryCount <= 3) {
+        // TEMP-DIAG: unconditional D3 result log for the first 3 rows.
+        if (_diagHistoryCount % 100 <= 3) {
             val finalToken = when {
                 deleteCandidate != null -> "DELETE:${deleteCandidate!!.token.take(8)}"
                 candidates.size == 1 -> "single:${candidates[0].token.take(8)} icon=${candidates[0].iconType}"
@@ -1486,7 +1490,7 @@ object InnertubeParser {
             }
             TrackLog.d(
                 "HistoryRemoveDiag",
-                "row#$_diagHistoryCount result: $finalToken",
+                "D3-result row#${_diagHistoryCount % 100}: $finalToken",
             )
         }
 

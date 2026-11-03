@@ -1,6 +1,7 @@
 package com.music.bitchord.data
 
 import com.music.bitchord.data.DebugLog as Log
+import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.innertube.Innertube
 import com.music.bitchord.data.innertube.InnertubeParser
 import com.music.bitchord.data.model.Account
@@ -34,6 +35,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -155,13 +157,62 @@ object YtMusicRepository {
      */
     private suspend fun fetchHistory(): List<Song> = historyLock.withLock {
         val cookie = Innertube.cookie
-        // Recents and Top Picks both want the history the moment Home opens;
-        // whichever asks second waits for the first and shares its answer
-        // instead of sending the same request again.
-        historyMemo?.takeIf { it.cookie == cookie && System.currentTimeMillis() - it.at < HISTORY_SHARE_MS }
-            ?.let { return@withLock it.songs }
-        InnertubeParser.collectSongsDeep(Innertube.browse(HISTORY)).distinctBy { it.videoId }
-            .also { historyMemo = HistoryMemo(cookie, System.currentTimeMillis(), it) }
+        // TEMP-DIAG: D1 — log start + whether cache was hit.
+        TrackLog.d("HistoryRemoveDiag", "D1-fetchHistory start, cookie=${cookie?.take(8)}")
+        val cached = historyMemo?.takeIf { it.cookie == cookie && System.currentTimeMillis() - it.at < HISTORY_SHARE_MS }
+        if (cached != null) {
+            // TEMP-DIAG: D4 — cache hit summary.
+            val hasToken = cached.songs.count { it.feedbackToken != null }
+            TrackLog.d("HistoryRemoveDiag", "D1-cacheHit=true songs=${cached.songs.size} withToken=$hasToken")
+            return@withLock cached.songs
+        }
+        // TEMP-DIAG: D2 — get raw response and count renderer types before parsing.
+        val raw = Innertube.browse(HISTORY)
+        val responsiveCount = countRenderers(raw, "musicResponsiveListItemRenderer")
+        val multiRowCount = countRenderers(raw, "musicMultiRowListItemRenderer")
+        TrackLog.d("HistoryRemoveDiag", "D2-raw response: musicResponsiveListItem=$responsiveCount musicMultiRowListItem=$multiRowCount other=${countOtherRenderers(raw)}")
+        InnertubeParser.collectSongsDeep(raw).distinctBy { it.videoId }
+            .also { songs ->
+                // TEMP-DIAG: D4 — parsed songs summary.
+                val hasToken = songs.count { it.feedbackToken != null }
+                TrackLog.d("HistoryRemoveDiag", "D4-parsed songs=${songs.size} withToken=$hasToken")
+                historyMemo = HistoryMemo(cookie, System.currentTimeMillis(), songs)
+            }
+    }
+
+    /** Count top-level occurrences of a renderer key in the JSON tree. */
+    private fun countRenderers(root: JsonElement, key: String): Int {
+        var count = 0
+        fun walk(node: JsonElement) {
+            when (node) {
+                is JsonObject -> {
+                    if (key in node) count++
+                    node.values.forEach(::walk)
+                }
+                is JsonArray -> node.forEach(::walk)
+                else -> Unit
+            }
+        }
+        walk(root)
+        return count
+    }
+
+    /** Count all renderer keys found in the JSON tree (for D2 logging). */
+    private fun countOtherRenderers(root: JsonElement): Int {
+        val known = setOf("musicResponsiveListItemRenderer", "musicMultiRowListItemRenderer")
+        var count = 0
+        fun walk(node: JsonElement) {
+            when (node) {
+                is JsonObject -> {
+                    for (k in node.keys) if (k !in known) count++
+                    node.values.forEach(::walk)
+                }
+                is JsonArray -> node.forEach(::walk)
+                else -> Unit
+            }
+        }
+        walk(root)
+        return count
     }
 
     private val historyLock = Mutex()

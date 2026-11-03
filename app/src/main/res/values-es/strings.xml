@@ -222,6 +222,8 @@
     <string name="reduce_animation_subtitle">Detiene el degradado del reproductor principal</string>
     <string name="reduce_dynamic_blur">Reducir desenfoque dinámico</string>
     <string name="reduce_dynamic_blur_subtitle">Cambia el cristal esmerilado por fondos sólidos</string>
+    <string name="disable_blend_effects">Desactivar efectos de fusión</string>
+    <string name="disable_blend_effects_subtitle">Muestra los iconos, el texto y los menús oscuros del reproductor en blanco, sin teñirlos con la portada</string>
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">Cristal refractante real en la barra de navegación flotante. Solo Android 12+; usa más GPU.</string>
     <string name="liquid_glass_unavailable">Requiere Android 12 o posterior</string>
@@ -255,6 +257,8 @@
     <string name="light">Claro</string>
     <string name="dark">Oscuro</string>
     <string name="full_screen_cover_art_subtitle">Lleva la portada a los bordes del reproductor en lugar de mostrarla cuadrada</string>
+    <string name="full_screen_detail_cover">Portada de álbum/lista a pantalla completa</string>
+    <string name="full_screen_detail_cover_subtitle">Lleva las portadas de álbumes y listas a los bordes de la página en lugar de enmarcarlas</string>
     <string name="animated_cover_art_subtitle">Reproduce el video en bucle que incluyen algunos lanzamientos</string>
     <string name="dont_repeat_songs_subtitle">La reproducción automática no sugerirá una canción ya reproducida o sugerida en esta sesión</string>
     <string name="download_quality_subtitle">%1$s por pista, sin importar la conexión</string>
@@ -815,7 +819,6 @@
 
     <string name="addon_url_description">Pega la URL del complemento, ya sea la raíz o manifest.json. BitChord leerá qué puede buscar y reproducir.</string>
 
-    <string name="advanced_options">Opciones avanzadas</string>
 
     <string name="blur_unfocused_lyrics">Desenfocar letras no activas</string>
 

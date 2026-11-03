@@ -238,6 +238,8 @@
     <string name="reduce_animation_subtitle">Cố định dải màu của trình phát thay vì chuyển động</string>
     <string name="reduce_dynamic_blur">Giảm độ mờ động</string>
     <string name="reduce_dynamic_blur_subtitle">Dùng màu nền đặc thay cho hiệu ứng kính mờ trong toàn bộ ứng dụng</string>
+    <string name="disable_blend_effects">Tắt hiệu ứng hòa màu</string>
+    <string name="disable_blend_effects_subtitle">Hiển thị biểu tượng, chữ và menu tối của trình phát bằng màu trắng thay vì nhuộm theo ảnh bìa</string>
     <string name="liquid_glass">Kính lỏng (Liquid Glass)</string>
     <string name="liquid_glass_subtitle">Hiệu ứng kính khúc xạ trên thanh điều hướng nổi. Chỉ dành cho Android 12+; sử dụng nhiều GPU hơn.</string>
     <string name="liquid_glass_unavailable">Yêu cầu Android 12 trở lên</string>
@@ -278,6 +280,8 @@
     <string name="light">Sáng</string>
     <string name="dark">Tối</string>
     <string name="full_screen_cover_art_subtitle">Mở rộng ảnh bìa ra các cạnh của trình phát thay vì khung vuông</string>
+    <string name="full_screen_detail_cover">Ảnh bìa album/danh sách phát toàn màn hình</string>
+    <string name="full_screen_detail_cover_subtitle">Mở rộng ảnh bìa album và danh sách phát ra các cạnh trang thay vì khung</string>
     <string name="animated_cover_art_subtitle">Phát video vòng lặp mà một số bản phát hành cung cấp thay vì ảnh tĩnh</string>
     <string name="miscellaneous_footer">Khi bật, việc đóng ứng dụng khỏi màn hình ứng dụng gần đây cũng sẽ dừng phát nhạc.</string>
     <string name="dont_repeat_songs_subtitle">Tự động phát sẽ không gợi ý bài hát đã phát hoặc đã được gợi ý trong phiên này</string>
@@ -731,7 +735,6 @@
     <string name="loudness_lufs">%1$s LUFS</string>
     <string name="blur_unfocused_lyrics">Làm mờ lời không tập trung</string>
     <string name="blur_unfocused_lyrics_subtitle">Tập trung vào câu hát hiện tại</string>
-    <string name="advanced_options">Tùy chọn nâng cao</string>
     <string name="lyrics_debug_logs">Nhật ký gỡ lỗi lời bài hát</string>
     <string name="lyrics_debug_logs_subtitle">Hiển thị truy vấn API và hoạt động lấy dữ liệu trên bảng lời bài hát</string>
     <string name="shelf_trending_community_playlists">Danh sách phát cộng đồng thịnh hành</string>

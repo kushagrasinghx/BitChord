@@ -210,6 +210,8 @@
     <string name="reduce_animation_subtitle">Zatrzymuje gradient głównego odtwarzacza zamiast dryfowania</string>
     <string name="reduce_dynamic_blur">Zmniejsz rozmycie dynamiczne</string>
     <string name="reduce_dynamic_blur_subtitle">Zastępuje matowe szkło jednolitymi wypełnieniami w całej aplikacji</string>
+    <string name="disable_blend_effects">Wyłącz efekty mieszania</string>
+    <string name="disable_blend_effects_subtitle">Pokazuje ikony, tekst i ciemne menu odtwarzacza w czystej bieli zamiast barwić je kolorem okładki</string>
     <string name="full_screen_cover_art">Pełnoekranowa okładka</string>
     <string name="animated_cover_art">Animowana okładka</string>
     <string name="synced_lyrics">Zsynchronizowany tekst</string>
@@ -240,6 +242,8 @@
     <string name="light">Jasny</string>
     <string name="dark">Ciemny</string>
     <string name="full_screen_cover_art_subtitle">Wyświetla okładkę na całym ekranie odtwarzacza zamiast kwadratowej okładki</string>
+    <string name="full_screen_detail_cover">Pełnoekranowa okładka albumu/playlisty</string>
+    <string name="full_screen_detail_cover_subtitle">Wyświetla okładki albumów i playlist do krawędzi strony zamiast w ramce</string>
     <string name="animated_cover_art_subtitle">Odtwarza animowaną okładkę dostępną w niektórych wydaniach zamiast statycznej</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay nie zaproponuje utworu, który został już odtworzony lub zaproponowany w tej sesji</string>
     <string name="download_quality_subtitle">%1$s na utwór, niezależnie od połączenia</string>
@@ -829,7 +833,6 @@
 
     <string name="addon_url_description">Wklej adres URL wtyczki — katalog główny lub manifest.json.</string>
 
-    <string name="advanced_options">Opcje zaawansowane i eksperymentalne</string>
 
     <string name="automix_mode_balanced">Zrównoważony</string>
 

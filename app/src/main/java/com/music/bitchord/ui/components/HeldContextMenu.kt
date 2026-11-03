@@ -133,6 +133,7 @@ fun <T : Any> HeldContextMenu(
     BackHandler(enabled = open, onBack = onDismiss)
 
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
     // Plain white or black at half strength, so the blur shows through as
     // frost rather than the surface greys reading as a flat slab over it. With
     // no blur behind there is nothing for that to frost, so the plate firms up
@@ -229,7 +230,7 @@ fun <T : Any> HeldContextMenu(
                     .padding(vertical = 8.dp),
             ) {
                 // Added onto the plate, on a dark one only: see [IosMenuPopover].
-                Column(Modifier.additiveChrome(dark)) {
+                Column(Modifier.additiveChrome(dark && !plain)) {
                     actions(menuItem)
                 }
             }

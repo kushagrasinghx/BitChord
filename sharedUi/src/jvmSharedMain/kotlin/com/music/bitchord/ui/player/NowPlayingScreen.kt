@@ -143,6 +143,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -920,6 +921,12 @@ fun NowPlayingScreen(
         onSeek(adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs))
     }
     val hideVolumeBar by PlayerSettings.hideVolumeBar.collectAsStateWithLifecycle()
+    val disableBlendEffects by PlayerSettings.disableBlendEffects.collectAsStateWithLifecycle()
+    // The lyric slot above the scrubber: the tallest line it holds — titleMedium's
+    // own line box — and the 4dp each of them is padded by above and below.
+    val lyricSlotHeight = with(density) {
+        MaterialTheme.typography.titleMedium.lineHeight.takeIf { it.isSpecified }?.toDp() ?: 24.dp
+    } + 8.dp
     val hideSongStatus by PlayerSettings.hideSongStatus.collectAsStateWithLifecycle()
 
     // Animated cover art: the looping video some labels publish alongside a
@@ -1953,8 +1960,11 @@ fun NowPlayingScreen(
     val frost = if (frostOff) null else PlayerPlatform.host.rememberPlayerFrost()
     FrostedPlayerFrame(
         modifier = modifier,
-        // Off where a video is the backdrop: it can go bright under the controls.
-        chrome = !spotifyCanvasPresentation && !(landscape && videoMode),
+        // Off where a music video is the backdrop: it can go bright under the
+        // controls. On over a Canvas: the controls only show with its dim and
+        // glass deck up, so the glyphs blend into the blurred, darkened clip.
+        // And off everywhere with "Disable blend effects".
+        chrome = !disableBlendEffects && !(landscape && videoMode),
         frost = frost,
         live = spotifyCanvasPresentation,
         // Not the host's ⋯ menu: that takes its own still, of everything.
@@ -4038,6 +4048,17 @@ fun NowPlayingScreen(
                     // accompanied by a dedicated lyrics button in the bottom row. Its
                     // one-line slot remains, invisibly, so opening lyrics cannot grow
                     // the half-player merely to make room for the source label.
+                    // One fixed slot for whichever line fills it. They were each
+                    // left to their own height — the sung line a 20sp box, the
+                    // loading, "not available", status and blank lines titleMedium's
+                    // 24sp, taller again in Devanagari or Thai — so every track change
+                    // (sung line → loading line) grew the deck and shrank the sleeve.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(lyricSlotHeight),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
                     if (!lyricsOpen && syncedLyricsEnabled) {
                         CurrentLyricStrip(
                             lines = lyricsTranslation.displayedLyrics,
@@ -4075,6 +4096,7 @@ fun NowPlayingScreen(
                                 .padding(vertical = 4.dp),
                         )
                     }
+                    }
                     val transitionWindow by PlayerSettings.smartTransitionWindow.collectAsStateWithLifecycle()
                     PlayerScrubber(
                         shown = shown,
@@ -4100,43 +4122,50 @@ fun NowPlayingScreen(
                         )
                     }
 
-                    // The transport rides midway between the two blocks it separates:
-                    // the scrubber above it, and the volume bar and toggle row below,
-                    // which sit close enough together to read as one. Both of its own
-                    // gaps take half the spread, so on a tall screen it holds the
-                    // centre rather than drifting up under the seek bar.
-                    Spacer(Modifier.height(8.dp + controlSpread / 2))
-
-                    TransportRow(
-                        isPlaying = isPlaying,
-                        isLoading = isLoading || audioVersionSwitching,
-                        previousEnabled = !controlsLocked &&
-                            (hasPrevious || pastRestartPoint),
-                        nextEnabled = !controlsLocked && hasNext,
-                        onPrevious = onPrevious,
-                        onPlayPause = onPlayPause,
-                        onNext = onNext,
-                    )
-
-                    // Keep the volume slot's full footprint when its contents are
-                    // hidden. Removing the slot itself shortened the controls by 50dp
-                    // and moved every control below it. A display preference should not
-                    // change the half-player's geometry.
-                    Spacer(Modifier.height(12.dp + controlSpread / 2))
-
+                    val transport: @Composable () -> Unit = {
+                        TransportRow(
+                            isPlaying = isPlaying,
+                            isLoading = isLoading || audioVersionSwitching,
+                            previousEnabled = !controlsLocked &&
+                                (hasPrevious || pastRestartPoint),
+                            nextEnabled = !controlsLocked && hasNext,
+                            onPrevious = onPrevious,
+                            onPlayPause = onPlayPause,
+                            onNext = onNext,
+                        )
+                    }
                     if (!hideVolumeBar) {
+                        // The transport rides midway between the two blocks it
+                        // separates: the scrubber above it, and the volume bar and
+                        // toggle row below, which sit close enough together to read
+                        // as one. Both of its own gaps take half the spread, so on a
+                        // tall screen it holds the centre rather than drifting up
+                        // under the seek bar.
+                        Spacer(Modifier.height(8.dp + controlSpread / 2))
+                        transport()
+                        Spacer(Modifier.height(12.dp + controlSpread / 2))
                         VolumeRow(
                             value = { volume.level.value },
                             onValueChange = onVolumeChange,
                             onValueChangeFinished = onVolumeChangeFinished,
                         )
+                        // The volume slider already has 13dp below its drawn track.
+                        // Balance that invisible inset with the caption gap below the icons.
+                        Spacer(Modifier.height(6.dp))
                     } else {
-                        Spacer(Modifier.height(VOLUME_ROW_HEIGHT))
+                        // No volume bar: the transport centres itself in the whole run
+                        // between the scrubber and the bottom row instead. The run is
+                        // exactly as tall as with the bar, so the half-player's height
+                        // never depends on the setting — only where the transport sits.
+                        // The scrubber draws its times 9dp above their slot, which
+                        // leaves that much more visible room above; half of it moves
+                        // from the top gap to the bottom one.
+                        val run = 8.dp + 12.dp + 6.dp + controlSpread + VOLUME_ROW_HEIGHT
+                        val lift = SCRUBBER_LABEL_LIFT / 2
+                        Spacer(Modifier.height(run / 2 - lift))
+                        transport()
+                        Spacer(Modifier.height(run / 2 + lift))
                     }
-
-                    // The volume slider already has 13dp below its drawn track.
-                    // Balance that invisible inset with the caption gap below the icons.
-                    Spacer(Modifier.height(6.dp))
 
                     playerActions()
                     Spacer(Modifier.height(18.dp))

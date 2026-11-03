@@ -213,6 +213,8 @@
     <string name="reduce_animation_subtitle">Fige le dégradé du lecteur principal au lieu de le faire dériver</string>
     <string name="reduce_dynamic_blur">Réduire le flou dynamique</string>
     <string name="reduce_dynamic_blur_subtitle">Remplace le verre dépoli par des couleurs unies dans toute l\'application</string>
+    <string name="disable_blend_effects">Désactiver les effets de fusion</string>
+    <string name="disable_blend_effects_subtitle">Affiche les icônes, le texte et les menus sombres du lecteur en blanc pur, sans les teinter avec la pochette</string>
     <string name="full_screen_cover_art">Pochette plein écran</string>
     <string name="animated_cover_art">Pochette animée</string>
     <string name="synced_lyrics">Paroles synchronisées</string>
@@ -243,6 +245,8 @@
     <string name="light">Clair</string>
     <string name="dark">Sombre</string>
     <string name="full_screen_cover_art_subtitle">Étend la pochette jusqu\'aux bords du lecteur au lieu d\'un carré</string>
+    <string name="full_screen_detail_cover">Pochette d\'album/playlist plein écran</string>
+    <string name="full_screen_detail_cover_subtitle">Étend les pochettes d\'albums et de playlists jusqu\'aux bords de la page au lieu d\'un cadre</string>
     <string name="animated_cover_art_subtitle">Lit la vidéo en boucle que proposent certaines sorties au lieu d\'une pochette fixe</string>
     <string name="dont_repeat_songs_subtitle">La lecture automatique ne proposera pas une chanson déjà jouée ou suggérée pendant cette session</string>
     <string name="download_quality_subtitle">%1$s par piste, quelle que soit la connexion</string>
@@ -792,7 +796,6 @@
 
     <string name="addon_url_description">Collez l\'URL de l\'extension — racine ou manifest.json. BitChord lira ce qu\'il peut rechercher et diffuser.</string>
 
-    <string name="advanced_options">Options avancées</string>
 
     <string name="automix_mode_balanced">Équilibré</string>
 

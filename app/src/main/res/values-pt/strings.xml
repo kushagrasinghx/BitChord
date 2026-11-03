@@ -214,6 +214,8 @@
     <string name="reduce_animation_subtitle">Congela o gradiente do player principal em vez de mover</string>
     <string name="reduce_dynamic_blur">Reduzir desfoque dinâmico</string>
     <string name="reduce_dynamic_blur_subtitle">Troca o vidro fosco por preenchimentos sólidos em todo o app</string>
+    <string name="disable_blend_effects">Desativar efeitos de mesclagem</string>
+    <string name="disable_blend_effects_subtitle">Mostra ícones, texto e menus escuros do player em branco, sem tingi-los com a capa</string>
     <string name="full_screen_cover_art">Capa em tela cheia</string>
     <string name="animated_cover_art">Capa animada</string>
     <string name="synced_lyrics">Letras sincronizadas</string>
@@ -244,6 +246,8 @@
     <string name="light">Claro</string>
     <string name="dark">Escuro</string>
     <string name="full_screen_cover_art_subtitle">Estende a capa até as bordas do player em vez de um quadrado</string>
+    <string name="full_screen_detail_cover">Capa de álbum/playlist em tela cheia</string>
+    <string name="full_screen_detail_cover_subtitle">Estende as capas de álbuns e playlists até as bordas da página em vez de emoldurá-las</string>
     <string name="animated_cover_art_subtitle">Reproduz o vídeo em loop que alguns lançamentos trazem em vez de uma capa estática</string>
     <string name="dont_repeat_songs_subtitle">A reprodução automática não sugerirá uma música já tocada ou sugerida nesta sessão</string>
     <string name="download_quality_subtitle">%1$s por faixa, independentemente da conexão</string>
@@ -796,7 +800,6 @@
 
     <string name="addon_url_description">Cole a URL da extensão — raiz ou manifest.json. O BitChord lerá os conteúdos disponíveis.</string>
 
-    <string name="advanced_options">Opções avançadas</string>
 
     <string name="automix_mode_balanced">Equilibrado</string>
 

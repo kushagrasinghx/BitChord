@@ -207,6 +207,8 @@
     <string name="reduce_animation_subtitle">让主播放器的渐变保持静止，而不是流动</string>
     <string name="reduce_dynamic_blur">减少动态模糊</string>
     <string name="reduce_dynamic_blur_subtitle">在整个应用中用纯色填充替代磨砂玻璃效果</string>
+    <string name="disable_blend_effects">关闭混合效果</string>
+    <string name="disable_blend_effects_subtitle">播放器图标、文字和深色菜单以纯白显示，不再混入封面颜色</string>
     <string name="full_screen_cover_art">全屏封面</string>
     <string name="animated_cover_art">动态封面</string>
     <string name="synced_lyrics">同步歌词</string>
@@ -237,6 +239,8 @@
     <string name="light">浅色</string>
     <string name="dark">深色</string>
     <string name="full_screen_cover_art_subtitle">让封面延伸至播放器边缘，而不是显示为方形</string>
+    <string name="full_screen_detail_cover">全屏专辑/歌单封面</string>
+    <string name="full_screen_detail_cover_subtitle">让专辑和歌单封面延伸至页面边缘，而不是显示为方形</string>
     <string name="animated_cover_art_subtitle">播放部分发行版自带的循环视频，而不是静态封面</string>
     <string name="dont_repeat_songs_subtitle">自动播放不会在本次会话中重复推荐已播放或已推荐过的歌曲</string>
     <string name="download_quality_subtitle">无论何种网络连接，每首曲目均为%1$s</string>
@@ -770,7 +774,6 @@
 
     <string name="addon_url_description">粘贴插件网址 — 根目录或 manifest.json 均可。BitChord 会读取其搜索和流式播放内容，并通过标准 HTTP 请求曲目。</string>
 
-    <string name="advanced_options">高级选项</string>
 
     <string name="automix_mode_balanced">均衡</string>
 

@@ -112,6 +112,12 @@ private val DarkMenu = IosMenuColors(
     pressed = Color.White.copy(alpha = 0.10f),
 )
 
+/** [DarkMenu] with "Disable blend effects" on: the rows laid over the frost at full strength again. */
+private val PlainDarkMenu = DarkMenu.copy(
+    label = Color.White,
+    secondaryLabel = Color.White.copy(alpha = 0.70f),
+)
+
 private val LightMenu = IosMenuColors(
     dark = false,
     fill = Color(0xFFF6F6F7),
@@ -124,8 +130,14 @@ private val LightMenu = IosMenuColors(
 
 /** The panel colours for the theme in force. */
 @Composable
-fun iosMenuColors(): IosMenuColors =
-    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) DarkMenu else LightMenu
+fun iosMenuColors(): IosMenuColors {
+    val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
+    return when {
+        MaterialTheme.colorScheme.background.luminance() >= 0.5f -> LightMenu
+        plain -> PlainDarkMenu
+        else -> DarkMenu
+    }
+}
 
 /** The panel's silhouette: a large, continuously curved corner. */
 val IosMenuShape: Shape = RoundedCornerShape(30.dp).continuous()
@@ -162,11 +174,14 @@ fun Modifier.iosMenuPanel(
     castsShadow: Boolean = true,
 ): Modifier {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
     val blurs = translucent && !reduceDynamicBlur
     val backdropFrost = blurs && backdrop != null && isGlassSupported()
     val hazeFrost = blurs && !backdropFrost && hazeState != null
     val fill = fillOverride ?: if (backdropFrost || hazeFrost) {
-        colors.fill.copy(alpha = if (colors.dark) 0.60f else 0.72f)
+        // Thinner on a dark panel while its rows are blended, which takes them
+        // further into the colour behind; plain rows want the denser slab back.
+        colors.fill.copy(alpha = if (!colors.dark) 0.72f else if (plain) 0.80f else 0.60f)
     } else {
         colors.fill
     }
@@ -478,6 +493,7 @@ fun <T : Any> IosMenuPopover(
     PlayerBackHandler(enabled = open, onBack = onDismiss)
 
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
     val scrim = Color.Black.copy(alpha = if (dark) 0.30f else 0.14f)
     val insets = WindowInsets.safeDrawing
     var overlayOffset by remember { mutableStateOf(Offset.Zero) }
@@ -536,7 +552,7 @@ fun <T : Any> IosMenuPopover(
                 Column(
                     Modifier
                         .then(
-                            if (dark) {
+                            if (dark && !plain) {
                                 Modifier.additiveChrome(true)
                             } else {
                                 Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }

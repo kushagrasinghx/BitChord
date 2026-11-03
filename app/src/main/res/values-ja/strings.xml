@@ -207,6 +207,8 @@
     <string name="reduce_animation_subtitle">メインプレイヤーのグラデーションを動かさず固定します</string>
     <string name="reduce_dynamic_blur">動的なぼかしを減らす</string>
     <string name="reduce_dynamic_blur_subtitle">アプリ全体ですりガラス効果を単色の塗りつぶしに置き換えます</string>
+    <string name="disable_blend_effects">ブレンド効果をオフ</string>
+    <string name="disable_blend_effects_subtitle">プレーヤーのアイコン、テキスト、ダークメニューをアートワークの色に染めず、白で表示します</string>
     <string name="full_screen_cover_art">全画面カバーアート</string>
     <string name="animated_cover_art">アニメーションカバーアート</string>
     <string name="synced_lyrics">同期歌詞</string>
@@ -237,6 +239,8 @@
     <string name="light">ライト</string>
     <string name="dark">ダーク</string>
     <string name="full_screen_cover_art_subtitle">正方形のジャケットの代わりにカバーをプレイヤーの端まで広げます</string>
+    <string name="full_screen_detail_cover">アルバム/プレイリストの全画面カバー</string>
+    <string name="full_screen_detail_cover_subtitle">アルバムとプレイリストのカバーを枠に収めず、ページの端まで広げます</string>
     <string name="animated_cover_art_subtitle">静止画のジャケットの代わりに一部のリリースが持つループ動画を再生します</string>
     <string name="dont_repeat_songs_subtitle">オートプレイは、このセッションで既に再生または提案された曲を再度提案しません</string>
     <string name="download_quality_subtitle">接続にかかわらず、1トラックあたり%1$s</string>
@@ -817,7 +821,6 @@
 
     <string name="blur_unfocused_lyrics_subtitle">現在の行をハイライトします</string>
 
-    <string name="advanced_options">詳細設定</string>
 
     <string name="lyrics_debug_logs">歌詞デバッグログ</string>
 

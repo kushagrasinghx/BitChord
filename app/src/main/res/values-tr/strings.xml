@@ -234,6 +234,8 @@
     <string name="reduce_animation_subtitle">Ana oynatıcının gradyanını kaymak yerine dondurur</string>
     <string name="reduce_dynamic_blur">Dinamik bulanıklığı azalt</string>
     <string name="reduce_dynamic_blur_subtitle">Uygulama genelinde buzlu camı düz dolgularla değiştirir</string>
+    <string name="disable_blend_effects">Karışım efektlerini kapat</string>
+    <string name="disable_blend_effects_subtitle">Oynatıcı simgelerini, metni ve koyu menüleri kapak rengiyle boyamak yerine düz beyaz gösterir</string>
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">Yüzen gezinme çubuğunda gerçek kırılan cam. Yalnızca Android 12+; daha fazla GPU kullanır.</string>
     <string name="liquid_glass_unavailable">Android 12 veya daha yenisini gerektirir</string>
@@ -267,6 +269,8 @@
     <string name="light">Açık</string>
     <string name="dark">Koyu</string>
     <string name="full_screen_cover_art_subtitle">Kapağı kare bir kılıf yerine oynatıcının kenarlarına kadar uzatır</string>
+    <string name="full_screen_detail_cover">Tam ekran albüm/çalma listesi kapağı</string>
+    <string name="full_screen_detail_cover_subtitle">Albüm ve çalma listesi kapaklarını çerçeve yerine sayfanın kenarlarına kadar uzatır</string>
     <string name="animated_cover_art_subtitle">Bazı sürümlerin geldiği döngülü videoyu sabit bir kılıf yerine oynatır</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay bu oturumda zaten çalınmış veya önerilmiş bir şarkıyı önermez</string>
     <string name="download_quality_subtitle">Bağlantı ne olursa olsun parça başına %1$s</string>
@@ -827,7 +831,6 @@
 
     <string name="addon_url_description">Eklentinin URL\'sini yapıştırın — kök dizin veya manifest.json. BitChord arama ve oynatma yeteneklerini okur.</string>
 
-    <string name="advanced_options">Gelişmiş seçenekler</string>
 
     <string name="blur_unfocused_lyrics">Odaklanmamış şarkı sözlerini bulanıklaştır</string>
 

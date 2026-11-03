@@ -222,6 +222,8 @@
     <string name="reduce_animation_subtitle">Останавливает градиент главного плеера вместо плавного движения</string>
     <string name="reduce_dynamic_blur">Уменьшить динамическое размытие</string>
     <string name="reduce_dynamic_blur_subtitle">Заменяет матовое стекло сплошной заливкой во всём приложении</string>
+    <string name="disable_blend_effects">Отключить эффекты смешивания</string>
+    <string name="disable_blend_effects_subtitle">Показывает значки, текст и тёмные меню плеера чисто белыми, не окрашивая их в цвета обложки</string>
     <string name="full_screen_cover_art">Обложка на весь экран</string>
     <string name="animated_cover_art">Анимированная обложка</string>
     <string name="synced_lyrics">Синхронизированный текст</string>
@@ -252,6 +254,8 @@
     <string name="light">Светлая</string>
     <string name="dark">Тёмная</string>
     <string name="full_screen_cover_art_subtitle">Растягивает обложку до краёв плеера вместо квадратного варианта</string>
+    <string name="full_screen_detail_cover">Обложка альбома/плейлиста на весь экран</string>
+    <string name="full_screen_detail_cover_subtitle">Растягивает обложки альбомов и плейлистов до краёв страницы вместо рамки</string>
     <string name="animated_cover_art_subtitle">Воспроизводит зацикленное видео, которое есть у некоторых релизов вместо неподвижной обложки</string>
     <string name="dont_repeat_songs_subtitle">Автовоспроизведение не будет предлагать уже сыгранную или предложенную в этой сессии песню</string>
     <string name="download_quality_subtitle">%1$s за трек, независимо от соединения</string>
@@ -819,7 +823,6 @@
 
     <string name="addon_url_description">Вставьте URL плагина — корень или manifest.json. BitChord считает доступные треки.</string>
 
-    <string name="advanced_options">Расширенные настройки</string>
 
     <string name="automix_mode_balanced">Сбалансированный</string>
 

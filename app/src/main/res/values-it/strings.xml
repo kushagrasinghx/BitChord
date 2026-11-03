@@ -252,6 +252,8 @@
     <string name="reduce_animation_subtitle">Blocca la sfumatura del player principale invece di farla muovere</string>
     <string name="reduce_dynamic_blur">Riduci sfocatura dinamica</string>
     <string name="reduce_dynamic_blur_subtitle">Sostituisce il vetro smerigliato con riempimenti pieni in tutta l\'app</string>
+    <string name="disable_blend_effects">Disattiva effetti di fusione</string>
+    <string name="disable_blend_effects_subtitle">Mostra icone, testo e menu scuri del player in bianco pieno invece di colorarli con la copertina</string>
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">Vetro rifrangente reale sulla barra di navigazione flottante. Solo Android 12+; usa più GPU.</string>
     <string name="liquid_glass_unavailable">Richiede Android 12 o versioni successive</string>
@@ -285,6 +287,8 @@
     <string name="light">Chiaro</string>
     <string name="dark">Scuro</string>
     <string name="full_screen_cover_art_subtitle">Estende la copertina fino ai bordi del player invece di un quadrato</string>
+    <string name="full_screen_detail_cover">Copertina album/playlist a tutto schermo</string>
+    <string name="full_screen_detail_cover_subtitle">Estende le copertine di album e playlist fino ai bordi della pagina invece di incorniciarle</string>
     <string name="animated_cover_art_subtitle">Riproduce il video in loop fornito da alcune release invece di una copertina statica</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay non suggerirà un brano già riprodotto o suggerito in questa sessione</string>
     <string name="download_quality_subtitle">%1$s per brano, indipendentemente dalla connessione</string>
@@ -845,7 +849,6 @@
 
     <string name="addon_url_description">Incolla l\'URL del componente aggiuntivo — radice o manifest.json. BitChord leggerà i contenuti disponibili.</string>
 
-    <string name="advanced_options">Opzioni avanzate</string>
 
     <string name="blur_unfocused_lyrics">Sfoca testi non a fuoco</string>
 

@@ -212,6 +212,8 @@
     <string name="reduce_animation_subtitle">Friert den Farbverlauf des Hauptplayers ein, statt ihn treiben zu lassen</string>
     <string name="reduce_dynamic_blur">Dynamische Unschärfe reduzieren</string>
     <string name="reduce_dynamic_blur_subtitle">Ersetzt Milchglas-Effekte durch einfarbige Flächen in der ganzen App</string>
+    <string name="disable_blend_effects">Mischeffekte deaktivieren</string>
+    <string name="disable_blend_effects_subtitle">Zeigt Player-Symbole, Text und dunkle Menüs in reinem Weiß, statt sie mit dem Cover einzufärben</string>
     <string name="full_screen_cover_art">Vollbild-Cover</string>
     <string name="animated_cover_art">Animiertes Cover</string>
     <string name="synced_lyrics">Synchronisierte Songtexte</string>
@@ -242,6 +244,8 @@
     <string name="light">Hell</string>
     <string name="dark">Dunkel</string>
     <string name="full_screen_cover_art_subtitle">Zieht das Cover bis an die Ränder des Players statt es quadratisch darzustellen</string>
+    <string name="full_screen_detail_cover">Vollbild-Album-/Playlist-Cover</string>
+    <string name="full_screen_detail_cover_subtitle">Zieht Album- und Playlist-Cover bis an die Ränder der Seite statt sie gerahmt darzustellen</string>
     <string name="animated_cover_art_subtitle">Spielt das Endlosvideo ab, das manche Veröffentlichungen anstelle eines Standbilds mitbringen</string>
     <string name="dont_repeat_songs_subtitle">Die automatische Wiedergabe schlägt in dieser Sitzung keinen bereits gespielten oder vorgeschlagenen Song erneut vor</string>
     <string name="download_quality_subtitle">%1$s pro Track, unabhängig von der Verbindung</string>
@@ -791,7 +795,6 @@
 
     <string name="addon_url_description">Füge die URL des Add-ons ein — Stammverzeichnis oder manifest.json.</string>
 
-    <string name="advanced_options">Erweiterte Optionen</string>
 
     <string name="automix_mode_balanced">Ausgewogen</string>
 

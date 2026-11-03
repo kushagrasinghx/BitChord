@@ -213,6 +213,8 @@
     <string name="reduce_animation_subtitle">מקפיא את הגרדיאנט של הנגן הראשי במקום לתת לו לנוע</string>
     <string name="reduce_dynamic_blur">הפחתת טשטוש דינמי</string>
     <string name="reduce_dynamic_blur_subtitle">מחליף אפקט זכוכית מטושטשת במילוי אחיד בכל האפליקציה</string>
+    <string name="disable_blend_effects">השבתת אפקטי מיזוג</string>
+    <string name="disable_blend_effects_subtitle">מציג את סמלי הנגן, הטקסט והתפריטים הכהים בלבן רגיל במקום לצבוע אותם בצבעי העטיפה</string>
     <string name="full_screen_cover_art">עטיפת אלבום במסך מלא</string>
     <string name="animated_cover_art">עטיפת אלבום מונפשת</string>
     <string name="synced_lyrics">מילות שיר מסונכרנות</string>
@@ -243,6 +245,8 @@
     <string name="light">בהיר</string>
     <string name="dark">כהה</string>
     <string name="full_screen_cover_art_subtitle">מותח את העטיפה עד לקצוות הנגן במקום עטיפה מרובעת</string>
+    <string name="full_screen_detail_cover">עטיפת אלבום/פלייליסט במסך מלא</string>
+    <string name="full_screen_detail_cover_subtitle">מותח את עטיפות האלבומים והפלייליסטים עד לקצוות העמוד במקום עטיפה ממוסגרת</string>
     <string name="animated_cover_art_subtitle">מנגן את סרטון הלופ שמגיע עם חלק מההוצאות במקום עטיפה סטטית</string>
     <string name="dont_repeat_songs_subtitle">ההשמעה האוטומטית לא תציע שיר שכבר הושמע או הוצע בהפעלה הנוכחית</string>
     <string name="download_quality_subtitle">%1$s לרצועה, ללא קשר לחיבור</string>
@@ -796,7 +800,6 @@
 
     <string name="addon_url_description">הדבק את כתובת ה-URL של התוסף — תיקיית שורש או manifest.json.</string>
 
-    <string name="advanced_options">אפשרויות מתקדמות</string>
 
     <string name="automix_mode_balanced">מאוזן</string>
 

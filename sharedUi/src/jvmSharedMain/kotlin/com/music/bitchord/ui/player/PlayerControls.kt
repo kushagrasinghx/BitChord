@@ -191,6 +191,9 @@ internal fun PlaybackOriginCaption(
     )
 }
 
+/** How far [PlayerScrubber] draws its times above the slot they are laid out in. */
+internal val SCRUBBER_LABEL_LIFT = 9.dp
+
 /**
  * The seek bar, with elapsed and remaining either side under it and
  * [centerLabel] — the quality badge — between them.
@@ -236,8 +239,10 @@ internal fun PlayerScrubber(
                 .fillMaxWidth()
                 // The slider's touch target extends well past the drawn bar,
                 // so pull the labels back up under it.
-                .offset(y = (-9).dp),
+                .offset(y = -SCRUBBER_LABEL_LIFT),
         ) {
+            // Drawn like the artist line: the same white, added the same way.
+            val timeColor = chromeWhite(0.55f)
             Row(
                 modifier = Modifier.fillMaxWidth().additiveChrome(LocalPlayerChrome.current),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -245,12 +250,12 @@ internal fun PlayerScrubber(
                 Text(
                     text = formatTime((shown * durationMs).toLong()),
                     style = MaterialTheme.typography.labelMedium,
-                    color = chromeWhite(0.55f),
+                    color = timeColor,
                 )
                 Text(
                     text = "-" + formatTime(durationMs - (shown * durationMs).toLong()),
                     style = MaterialTheme.typography.labelMedium,
-                    color = chromeWhite(0.55f),
+                    color = timeColor,
                 )
             }
             // Pinned to the box's own centre rather than squeezed into the gap
@@ -543,8 +548,8 @@ internal fun VolumeRow(
         Icon(
             Icons.AutoMirrored.Rounded.VolumeDown,
             contentDescription = null,
-            tint = chromeWhite(0.5f),
-            modifier = Modifier.size(20.dp).additiveChrome(chrome),
+            tint = if (chrome) VibrantChromeInk else chromeWhite(0.5f),
+            modifier = Modifier.size(20.dp).vibrantChrome(chrome),
         )
         Spacer(Modifier.width(10.dp))
         ThinSlider(
@@ -559,8 +564,8 @@ internal fun VolumeRow(
         Icon(
             Icons.AutoMirrored.Rounded.VolumeUp,
             contentDescription = null,
-            tint = chromeWhite(0.5f),
-            modifier = Modifier.size(20.dp).additiveChrome(chrome),
+            tint = if (chrome) VibrantChromeInk else chromeWhite(0.5f),
+            modifier = Modifier.size(20.dp).vibrantChrome(chrome),
         )
     }
 }
@@ -627,6 +632,7 @@ internal fun PlayerActionRow(
                     // opening either closes the other; lit to say which is up.
                     onClick = onToggleLyrics,
                     highlighted = lyricsOpen,
+                    vibrant = true,
                 )
             }
             AnimatedContent(
@@ -706,11 +712,15 @@ internal fun PlayerActionRow(
                     onClick = onToggleQueue,
                     highlighted = queueOpen,
                     haptic = if (queueOpen) Haptic.Tap else Haptic.Expand,
+                    vibrant = true,
                 )
             }
         }
     }
 }
+
+/** How much more of the ink [CircleGlyph]'s disc takes than its plain white — 0.45 at rest, 0.85 lit. */
+private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
 
 /**
  * Translucent circular button used for the track menu and the like control.
@@ -739,11 +749,6 @@ internal fun CircleGlyph(
         modifier = modifier
             .size(34.dp)
             .clip(CircleShape)
-            // Round the disc and the swap's fade, not inside them: inside, the
-            // fade's own layer would cut the glyph off from the backdrop until
-            // it was over.
-            .additiveChrome(chrome)
-            .background(Color.White.copy(alpha = discAlpha))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -753,6 +758,21 @@ internal fun CircleGlyph(
             },
         contentAlignment = Alignment.Center,
     ) {
+        // The disc carries the blend, dodged as the bottom row's glyphs are, and
+        // the glyph sits on it in plain white. The ink is mixed in at a few times
+        // the plain disc's strength: a dodge laid on this thinly is next to nothing.
+        Box(
+            Modifier
+                .matchParentSize()
+                .vibrantChrome(chrome)
+                .background(
+                    if (chrome) {
+                        VibrantChromeInk.copy(alpha = (discAlpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
+                    } else {
+                        Color.White.copy(alpha = discAlpha)
+                    },
+                ),
+        )
         Crossfade(
             targetState = icon,
             animationSpec = tween(durationMillis = 180),
@@ -761,7 +781,7 @@ internal fun CircleGlyph(
             Icon(
                 imageVector = glyph,
                 contentDescription = contentDescription,
-                tint = Color.White.copy(alpha = if (chrome) CHROME_FULL_ALPHA else 1f),
+                tint = Color.White,
                 modifier = Modifier.size(19.dp),
             )
         }
@@ -1264,7 +1284,7 @@ private fun BottomGlyph(
      * ask for a window.
      */
     tapWindowMs: Long = 0L,
-    /** Dodged rather than added, for the one glyph that says where the sound is — see [vibrantChrome]. */
+    /** Dodged rather than added, for the bottom row's glyphs — see [vibrantChrome]. */
     vibrant: Boolean = false,
 ) {
     val haptics = rememberHaptics()

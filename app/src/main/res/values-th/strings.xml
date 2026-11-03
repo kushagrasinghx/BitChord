@@ -228,6 +228,8 @@
     <string name="reduce_animation_subtitle">หยุดเกรเดียนต์ของเครื่องเล่นหลักแทนการเคลื่อนไหว</string>
     <string name="reduce_dynamic_blur">ลดเบลอแบบไดนามิก</string>
     <string name="reduce_dynamic_blur_subtitle">เปลี่ยนกระจกฝ้าเป็นพื้นทึบทั่วทั้งแอป</string>
+    <string name="disable_blend_effects">ปิดเอฟเฟกต์ผสมสี</string>
+    <string name="disable_blend_effects_subtitle">แสดงไอคอน ข้อความ และเมนูสีเข้มของเครื่องเล่นเป็นสีขาวล้วน แทนการย้อมด้วยสีจากปกอัลบั้ม</string>
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">กระจกหักเหแสงจริงบนแถบนำทางแบบลอย ใช้ได้เฉพาะ Android 12 ขึ้นไป และใช้ GPU มากขึ้น</string>
     <string name="liquid_glass_unavailable">ต้องใช้ Android 12 ขึ้นไป</string>
@@ -261,6 +263,8 @@
     <string name="light">สว่าง</string>
     <string name="dark">มืด</string>
     <string name="full_screen_cover_art_subtitle">ขยายปกอัลบั้มเต็มขอบเครื่องเล่นแทนปกสี่เหลี่ยมจัตุรัส</string>
+    <string name="full_screen_detail_cover">ปกอัลบั้ม/เพลย์ลิสต์เต็มจอ</string>
+    <string name="full_screen_detail_cover_subtitle">ขยายปกอัลบั้มและเพลย์ลิสต์เต็มขอบหน้าแทนการแสดงในกรอบ</string>
     <string name="animated_cover_art_subtitle">เล่นวิดีโอวนซ้ำที่บางผลงานมีให้แทนปกนิ่ง</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay จะไม่แนะนำเพลงที่เล่นหรือแนะนำไปแล้วในเซสชันนี้</string>
     <string name="download_quality_subtitle">%1$s ต่อแทร็ก ไม่ว่าการเชื่อมต่อจะเป็นแบบใด</string>
@@ -1118,7 +1122,6 @@
     <string name="blur_unfocused_lyrics_subtitle">Keeps the spotlight on the current line</string>
 
 
-    <string name="advanced_options">Advanced options</string>
 
 
     <string name="lyrics_debug_logs">Lyrics debug logs</string>

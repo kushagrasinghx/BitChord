@@ -10,6 +10,8 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.view.View
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.music.bitchord.R
 import kotlin.math.min
 
@@ -24,6 +26,8 @@ class RecognitionOverlayView(context: Context) : View(context) {
     private val scaledDensity = resources.displayMetrics.scaledDensity
     private var waveBitmap: Bitmap? = null
     private var searching = false
+    private var topInset = 0f
+    private var rightInset = 0f
 
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val wavePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { isFilterBitmap = true }
@@ -77,6 +81,16 @@ class RecognitionOverlayView(context: Context) : View(context) {
         isFocusable = true
         contentDescription = context.getString(R.string.quick_tile_recognition_label)
         setLayerType(LAYER_TYPE_SOFTWARE, null)
+        ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
+            val safeInsets = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
+            )
+            topInset = safeInsets.top.toFloat()
+            rightInset = safeInsets.right.toFloat()
+            invalidate()
+            insets
+        }
+        ViewCompat.requestApplyInsets(this)
     }
 
     fun setWaveBitmap(bitmap: Bitmap) {
@@ -97,8 +111,8 @@ class RecognitionOverlayView(context: Context) : View(context) {
         if (width <= 0f || height <= 0f) return
 
         val centerX = width / 2f
-        val closeCenterX = width - dp(30f)
-        val closeCenterY = dp(34f)
+        val closeCenterX = width - rightInset - dp(30f)
+        val closeCenterY = topInset + dp(30f)
         canvas.drawCircle(closeCenterX, closeCenterY, dp(20f), closePaint)
         canvas.drawCircle(closeCenterX, closeCenterY, dp(20f), closeBorderPaint)
         canvas.drawLine(

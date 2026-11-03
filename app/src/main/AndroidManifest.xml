@@ -752,7 +752,7 @@
         <receiver
             android:name=".widget.RecognitionWidgetCircle"
             android:exported="false"
-            android:label="@string/widget_recognition_circle_label">
+            android:label="@string/widget_recognition_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -764,7 +764,7 @@
         <receiver
             android:name=".widget.RecognitionWidgetWide"
             android:exported="false"
-            android:label="@string/widget_recognition_pill_label">
+            android:label="@string/widget_recognition_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

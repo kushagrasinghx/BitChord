@@ -111,6 +111,8 @@ fun SourcesScreen(
      * and the mini player.
      */
     onEditSource: (SourceConfig) -> Unit,
+    /** Asks the activity to open an addon's quality list — raised for the same reason as [onEditSource]. */
+    onChooseSourceQuality: (SourceConfig) -> Unit,
     /**
      * Asks the activity to open the WebDAV editor — raised for the same
      * reason as [onEditSource]: the frosted alert cannot be drawn from inside
@@ -168,7 +170,10 @@ fun SourcesScreen(
             if (source is AddonSource) {
                 val named = withContext(Dispatchers.IO) { runCatching { source.manifestName() }.getOrNull() }
                 if (named != null && named != config.label) {
-                    SourceRegistry.update(config.copy(label = named))
+                    // Off the stored config, not the one this pass started with:
+                    // the probe above may have just refreshed it, and the user
+                    // may have picked a quality in the meantime.
+                    SourceRegistry.config(config.id)?.let { SourceRegistry.update(it.copy(label = named)) }
                 }
             }
         }
@@ -244,6 +249,7 @@ fun SourcesScreen(
                         // delete. JioSaavn and YouTube have no address to
                         // change, so a tap on them would open an empty editor.
                         onClick = if (config.kind.needsServer) ({ onEditSource(config) }) else null,
+                        onChooseQuality = { onChooseSourceQuality(config) },
                         // YouTube gets no switch at all — see
                         // [SourceRegistry.setEnabled] for why one would be a lie.
                         onToggle = if (config.kind == SourceKind.YOUTUBE) {
@@ -746,6 +752,7 @@ private fun SourceRow(
     config: SourceConfig,
     health: SourceHealth?,
     onClick: (() -> Unit)?,
+    onChooseQuality: () -> Unit,
     /** Null for a source that cannot be switched off, which gets a label instead. */
     onToggle: ((Boolean) -> Unit)?,
     /** On, but skipped by the ceiling the current connection is set to. */
@@ -811,6 +818,45 @@ private fun SourceRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            // Read off the stored manifest, so it can still be set while the
+            // addon is down or waiting on a lossless output. One line whatever
+            // the label's length, so it adds the same height to every addon;
+            // the full label is in the list it opens.
+            val quality = config.activeQuality
+            if (config.kind == SourceKind.ADDON && config.isComplete && quality != null) {
+                Row(
+                    modifier = Modifier
+                        .clickable(
+                            onClickLabel = stringResource(R.string.audio_quality),
+                            onClick = onChooseQuality,
+                        )
+                        .padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = SfIcons.Tune,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = quality.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Icon(
+                        imageVector = SfIcons.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(10.dp),
+                    )
+                }
+            }
             Text(
                 // The ceiling outranks the health line: a source that isn't
                 // going to be asked at all is not usefully described by

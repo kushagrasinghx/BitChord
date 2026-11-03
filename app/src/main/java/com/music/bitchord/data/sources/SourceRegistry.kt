@@ -10,6 +10,7 @@ import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.permits
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
+import com.music.bitchord.data.sources.addon.AddonQualityOption
 import com.music.bitchord.data.sources.addon.DetectedFormat
 import com.music.bitchord.data.sources.addon.SourceFormats
 import com.music.bitchord.data.settings.AudioQuality
@@ -51,14 +52,30 @@ data class SourceConfig(
      * already break that. Refreshed whenever the manifest is next read.
      */
     val checkValidLossless: Boolean = false,
+    /**
+     * The addon's `quality` choices, as its manifest last said. Stored for the
+     * same reason as [checkValidLossless]: the editor has to be able to list
+     * them for a gated addon without contacting it.
+     */
+    val qualityOptions: List<AddonQualityOption> = emptyList(),
+    /** Which of [qualityOptions] the user chose, or null for the first one listed. */
+    val pickedQuality: String? = null,
 ) {
+    /** The entry of [qualityOptions] in force: the pick while the addon still lists it, else its first. */
+    val activeQuality: AddonQualityOption?
+        get() = qualityOptions.firstOrNull { it.value == pickedQuality } ?: qualityOptions.firstOrNull()
+
     /** Whether this source is shut out right now because it needs an output that isn't connected. */
     val awaitsLosslessOutput: Boolean
         get() = checkValidLossless && !LosslessOutput.capable
 
-    /** The two manifest switches, without the parts of the config the user set. */
+    /** What the manifest last said, without the parts of the config the user set. */
     internal fun withPolicyOf(other: SourceConfig) =
-        copy(allowDownloads = other.allowDownloads, checkValidLossless = other.checkValidLossless)
+        copy(
+            allowDownloads = other.allowDownloads,
+            checkValidLossless = other.checkValidLossless,
+            qualityOptions = other.qualityOptions,
+        )
 
     /** What the sources screen and the player show. Never blank. */
     val displayName: String
@@ -229,24 +246,42 @@ object SourceRegistry {
             }
 
     /**
-     * Records what an addon's manifest said about downloads and lossless
-     * output, if it changed.
+     * Records what an addon's manifest said about downloads, lossless output
+     * and its quality choices, if it changed.
      *
      * Does not rebuild the source the way an edit does — see [configuredBy] —
      * because nothing about where it points has changed, and this is called
      * from inside that source's own requests.
      */
-    fun updatePolicy(configId: String, allowDownloads: Boolean, checkValidLossless: Boolean) {
+    fun updatePolicy(
+        configId: String,
+        allowDownloads: Boolean,
+        checkValidLossless: Boolean,
+        qualityOptions: List<AddonQualityOption>,
+    ) {
         val current = config(configId) ?: return
-        if (current.allowDownloads == allowDownloads && current.checkValidLossless == checkValidLossless) return
+        if (current.allowDownloads == allowDownloads &&
+            current.checkValidLossless == checkValidLossless &&
+            current.qualityOptions == qualityOptions
+        ) {
+            return
+        }
         TrackLog.d(
             TAG,
             "${current.displayName}: manifest now says allowDownloads=$allowDownloads " +
-                "checkValidLossless=$checkValidLossless",
+                "checkValidLossless=$checkValidLossless qualityOptions=${qualityOptions.map { it.value }}",
         )
         publish(
             configs.value.map {
-                if (it.id == configId) it.copy(allowDownloads = allowDownloads, checkValidLossless = checkValidLossless) else it
+                if (it.id == configId) {
+                    it.copy(
+                        allowDownloads = allowDownloads,
+                        checkValidLossless = checkValidLossless,
+                        qualityOptions = qualityOptions,
+                    )
+                } else {
+                    it
+                }
             },
         )
     }
@@ -432,6 +467,12 @@ object SourceRegistry {
                     label = detected.manifest.displayName,
                     allowDownloads = detected.manifest.downloadsAllowed,
                     checkValidLossless = detected.manifest.requiresLosslessOutput,
+                    qualityOptions = detected.manifest.qualityOptions,
+                    // The address may now name a different addon, whose list
+                    // this pick was never on.
+                    pickedQuality = existing?.pickedQuality?.takeIf { picked ->
+                        detected.manifest.qualityOptions.any { it.value == picked }
+                    },
                 ),
             )
             is DetectedFormat.ModuleIndex -> Result.success(
@@ -441,6 +482,8 @@ object SourceRegistry {
                     // document, where an addon's manifest only points at one.
                     baseUrl = detected.url,
                     label = existing?.label.orEmpty(),
+                    qualityOptions = emptyList(),
+                    pickedQuality = null,
                 ),
             )
             is DetectedFormat.Unsupported -> Result.failure(AddonException(detected.reason))

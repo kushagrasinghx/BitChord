@@ -38,7 +38,8 @@ class AddonSource(
     override val kind: SourceKind get() = config.kind
     override val displayName: String get() = config.displayName
 
-    private val client = AddonClient(config.baseUrl)
+    /** Holds the pick for this instance's life: changing it is an edit, and [SourceRegistry] rebuilds on one. */
+    private val client = AddonClient(config.baseUrl, config.pickedQuality)
 
     /**
      * Rows this addon has recently handed over, by their own track id.
@@ -91,7 +92,12 @@ class AddonSource(
     }
 
     private fun recordPolicy(manifest: AddonManifest) =
-        SourceRegistry.updatePolicy(config.id, manifest.downloadsAllowed, manifest.requiresLosslessOutput)
+        SourceRegistry.updatePolicy(
+            config.id,
+            manifest.downloadsAllowed,
+            manifest.requiresLosslessOutput,
+            manifest.qualityOptions,
+        )
 
     // ── Health ────────────────────────────────────────────────────────────
 

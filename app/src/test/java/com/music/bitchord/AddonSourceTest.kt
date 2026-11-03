@@ -6,8 +6,10 @@ import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.data.sources.addon.AddonClient
+import com.music.bitchord.data.sources.addon.AddonQualityOption
 import com.music.bitchord.playback.StreamContainer
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
@@ -336,6 +338,104 @@ class AddonSourceTest {
         AddonSource(config()).stream("t1", StreamRequest.Lossless)
 
         assertEquals("LOSSLESS", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    /** "lossless" on this list is CD quality, so asking for that word would never reach "max". */
+    private fun qualityManifest() = json(
+        """
+        {"id":"a","name":"A","resources":["search","stream"],
+         "settings":[{"key":"quality","type":"select","default":"max","perNetwork":true,
+           "options":[{"value":"max","label":"MAX"},{"value":"hires","label":"HiRes"},
+                      {"value":"lossless","label":"CD"},{"value":"low","label":"Low"}]}]}
+        """.trimIndent(),
+    )
+
+    @Test
+    fun `a picked quality replaces the negotiated one on search and stream`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        route("/search", json("""{"tracks":[]}"""))
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        val source = AddonSource(config().copy(pickedQuality = "hires"))
+        source.search("hello", limit = 5)
+        source.stream("t1", StreamRequest.Lossless)
+
+        assertEquals("hires", requestFor("/search").queryParameter("quality"))
+        assertEquals("hires", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    @Test
+    fun `with nothing picked the first listed option is sent`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        AddonSource(config()).stream("t1", StreamRequest.Lossless)
+
+        assertEquals("max", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    /** A download kept at a lower rung has said what the file may cost; the pick does not overrule it. */
+    @Test
+    fun `a picked quality does not raise a request below the top tier`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        route("/stream/t1", json("""{"url":"https://cdn/a.mp3"}"""))
+
+        AddonSource(config().copy(pickedQuality = "hires")).stream("t1", StreamRequest.Capped(128))
+
+        assertEquals("low", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    @Test
+    fun `a pick the addon no longer lists falls back to the first listed option`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        AddonSource(config().copy(pickedQuality = "gone")).stream("t1", StreamRequest.Lossless)
+
+        assertEquals("max", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    @Test
+    fun `the active quality is the pick while it is listed and the first option otherwise`() {
+        val options = listOf(AddonQualityOption("max", "MAX"), AddonQualityOption("hires", "HiRes"))
+        val listed = config().copy(qualityOptions = options)
+
+        assertEquals("max", listed.activeQuality?.value)
+        assertEquals("hires", listed.copy(pickedQuality = "hires").activeQuality?.value)
+        assertEquals("max", listed.copy(pickedQuality = "gone").activeQuality?.value)
+        assertNull(config().activeQuality)
+    }
+
+    @Test
+    fun `a pick is dropped once the addon declares no quality options at all`() = runBlocking {
+        route("/manifest.json", manifest())
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        AddonSource(config().copy(pickedQuality = "hires")).stream("t1", StreamRequest.Lossless)
+
+        assertEquals("LOSSLESS", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    /** The editor saves what this returns, so an edit there must not lose the pick made on the row. */
+    @Test
+    fun `re-identifying an addon keeps a pick it still lists and drops one it does not`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        val base = config()
+
+        val kept = SourceRegistry.identify(base.baseUrl, base.copy(pickedQuality = "hires")).getOrThrow()
+        val dropped = SourceRegistry.identify(base.baseUrl, base.copy(pickedQuality = "gone")).getOrThrow()
+
+        assertEquals("hires", kept.pickedQuality)
+        assertNull(dropped.pickedQuality)
+    }
+
+    @Test
+    fun `a pick still goes out while the manifest is unreachable`() = runBlocking {
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        AddonSource(config().copy(pickedQuality = "hires")).stream("t1", StreamRequest.Lossless)
+
+        assertEquals("hires", requestFor("/stream/t1").queryParameter("quality"))
     }
 
     @Test

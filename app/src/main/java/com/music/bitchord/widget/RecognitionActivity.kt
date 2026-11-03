@@ -208,7 +208,7 @@ class RecognitionActivity : Activity() {
                 lastFrame = now
                 val frame = nextFrame(density, phase, level)
                 RecognitionWidgetProvider.showWave(applicationContext, frame)
-                overlayView?.setWaveBitmap(frame, level)
+                overlayView?.setAudioLevel(level)
                 state = session.state.value
                 overlayView?.setSearching(state == RecognitionSessionState.Searching)
             }

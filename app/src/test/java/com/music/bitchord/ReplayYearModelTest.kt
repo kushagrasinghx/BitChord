@@ -82,6 +82,7 @@ class ReplayYearModelTest {
         distinctArtists = artists.size,
         distinctAlbums = albums,
         since = "2026-01",
+        asOf = LocalDate.of(2026, 12, 31),
     )
 
     private val chart = listOf(

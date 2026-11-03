@@ -14,7 +14,7 @@ import { usePlayer } from '@/state/player';
 import { filterPlaylists } from './playlistFilter';
 
 const menuField =
-  'h-8 w-full rounded-[7px] border-0 bg-quinary ps-8 pe-2 type-body text-primary outline-none placeholder:text-tertiary focus:bg-quaternary';
+  'h-8 w-full rounded-[7px] border-0 bg-quinary pe-2 type-body text-primary outline-none placeholder:text-tertiary focus:bg-quaternary';
 
 /**
  * Add to Playlist: a field to find one of the user's playlists by name, and
@@ -84,7 +84,7 @@ function PlaylistChoices({ videoId, onDone, onBack }: { videoId: string; onDone:
         <Search size={15} className="pointer-events-none absolute start-3.5 top-2 text-secondary" aria-hidden="true" />
         <input
           ref={field}
-          className={menuField}
+          className={`${menuField} ps-8`}
           type="search"
           value={query}
           placeholder="Find a playlist"

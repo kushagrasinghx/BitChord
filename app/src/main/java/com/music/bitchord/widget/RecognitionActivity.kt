@@ -41,12 +41,11 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * The recognition widget's microphone, in window form.
+ * The recognition widget and Quick Settings tile's microphone, in window form.
  *
- * The widget opens this instead of MainActivity, and the window paints
- * nothing — the launcher, or whatever the user was looking at, stays exactly
- * where it was for the seconds it takes to listen and name the song. The
- * sequence the widget promises is the whole of what happens here:
+ * The widget opens this instead of MainActivity and keeps the window invisible;
+ * the tile opens the same activity with a visible recognition surface. Both
+ * entry points share the same microphone and result flow:
  *
  * 1. The mic permission is asked only when it is missing; a granted one goes
  *    straight past to listening, and a refusal ends the request where it
@@ -76,6 +75,8 @@ import kotlin.math.sin
  */
 class RecognitionActivity : Activity() {
 
+    private var showInterface = false
+    private var overlayView: RecognitionOverlayView? = null
     private var session: RecognitionSession? = null
 
     /**
@@ -121,11 +122,8 @@ class RecognitionActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // A paint-less content view, so the touches have a full pipeline to
-        // run down and [dispatchTouchEvent] receives them nowhere but here.
-        // The window keeps painting nothing: the view is transparent ink,
-        // the theme beneath it unchanged.
-        setContentView(View(this))
+        showInterface = intent?.getBooleanExtra(EXTRA_SHOW_INTERFACE, false) == true
+        installContentView()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
         ) {
@@ -159,6 +157,11 @@ class RecognitionActivity : Activity() {
     // would have done on a clean launcher.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_SHOW_INTERFACE, false) && !showInterface) {
+            showInterface = true
+            installContentView()
+        }
         if (listening) {
             abandon()
             finish()
@@ -190,6 +193,7 @@ class RecognitionActivity : Activity() {
             // playback for the take so the recognition hears the world first.
             pauseOursIfPlaying()
             session.start()
+            overlayView?.setSearching(session.state.value == RecognitionSessionState.Searching)
             var phase = 0f
             var lastFrame = SystemClock.elapsedRealtime()
             var state = session.state.value
@@ -202,8 +206,11 @@ class RecognitionActivity : Activity() {
                 val now = SystemClock.elapsedRealtime()
                 phase = (phase + (now - lastFrame) * PHASE_PER_MS) % (2 * PI).toFloat()
                 lastFrame = now
-                RecognitionWidgetProvider.showWave(applicationContext, nextFrame(density, phase, level))
+                val frame = nextFrame(density, phase, level)
+                RecognitionWidgetProvider.showWave(applicationContext, frame)
+                overlayView?.setWaveBitmap(frame)
                 state = session.state.value
+                overlayView?.setSearching(state == RecognitionSessionState.Searching)
             }
             listening = false
             when (val settled = state) {
@@ -254,6 +261,7 @@ class RecognitionActivity : Activity() {
         // A match path may have left its borrowed controller behind: the
         // player card's own connection takes it from here, ours lets go.
         releaseControllerQuietly()
+        overlayView = null
     }
 
     /**
@@ -279,6 +287,14 @@ class RecognitionActivity : Activity() {
         resumePlayback()
         session = null
         scope = null
+    }
+
+    private fun installContentView() {
+        overlayView = if (showInterface) RecognitionOverlayView(this) else null
+        // The invisible widget path deliberately keeps a paint-less view so
+        // the launcher remains untouched. The tile path swaps in the visible
+        // recognition surface while sharing this same activity and session.
+        setContentView(overlayView ?: View(this))
     }
 
     /**
@@ -375,7 +391,9 @@ class RecognitionActivity : Activity() {
         return bitmap
     }
 
-    private companion object {
+    companion object {
+        const val EXTRA_SHOW_INTERFACE = "com.music.bitchord.widget.SHOW_INTERFACE"
+
         const val REQUEST_MICROPHONE = 41
 
         /**

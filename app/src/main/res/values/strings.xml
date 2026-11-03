@@ -112,6 +112,7 @@
     <string name="recognition_searching">Searching…</string>
     <string name="recognition_no_match_hint">Move closer to the music and try again.</string>
     <string name="recognition_failed_hint">Check your connection and try again.</string>
+    <string name="recognition_cancel">Tap anywhere to stop</string>
     <string name="settings_search_hint">Search settings</string>
     <string name="settings_search_empty">No settings match “%1$s”</string>
     <string name="recent_search_edit">Edit “%1$s”</string>

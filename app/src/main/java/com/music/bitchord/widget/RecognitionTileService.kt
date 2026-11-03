@@ -24,6 +24,7 @@ class RecognitionTileService : TileService() {
         startActivityAndCollapse(
             Intent(this, RecognitionActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra(RecognitionActivity.EXTRA_SHOW_INTERFACE, true)
             },
         )
     }

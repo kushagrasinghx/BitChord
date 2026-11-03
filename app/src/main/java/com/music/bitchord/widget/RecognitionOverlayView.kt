@@ -38,7 +38,7 @@ class RecognitionOverlayView(context: Context) : View(context) {
         textSize = sp(21f)
     }
     private val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(190, 255, 255, 255)
+        color = Color.WHITE
         textAlign = Paint.Align.CENTER
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         textSize = sp(13f)
@@ -70,7 +70,7 @@ class RecognitionOverlayView(context: Context) : View(context) {
     private val closeLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         style = Paint.Style.STROKE
-        strokeWidth = dp(2f)
+        strokeWidth = dp(2.5f)
         strokeCap = Paint.Cap.ROUND
     }
     private val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -113,20 +113,20 @@ class RecognitionOverlayView(context: Context) : View(context) {
         val centerX = width / 2f
         val closeCenterX = width - rightInset - dp(30f)
         val closeCenterY = topInset + dp(30f)
-        canvas.drawCircle(closeCenterX, closeCenterY, dp(20f), closePaint)
-        canvas.drawCircle(closeCenterX, closeCenterY, dp(20f), closeBorderPaint)
+        canvas.drawCircle(closeCenterX, closeCenterY, dp(22f), closePaint)
+        canvas.drawCircle(closeCenterX, closeCenterY, dp(22f), closeBorderPaint)
         canvas.drawLine(
-            closeCenterX - dp(6f),
-            closeCenterY - dp(6f),
-            closeCenterX + dp(6f),
-            closeCenterY + dp(6f),
+            closeCenterX - dp(7.5f),
+            closeCenterY - dp(7.5f),
+            closeCenterX + dp(7.5f),
+            closeCenterY + dp(7.5f),
             closeLinePaint,
         )
         canvas.drawLine(
-            closeCenterX + dp(6f),
-            closeCenterY - dp(6f),
-            closeCenterX - dp(6f),
-            closeCenterY + dp(6f),
+            closeCenterX + dp(7.5f),
+            closeCenterY - dp(7.5f),
+            closeCenterX - dp(7.5f),
+            closeCenterY + dp(7.5f),
             closeLinePaint,
         )
 

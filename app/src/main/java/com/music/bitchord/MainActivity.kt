@@ -889,6 +889,7 @@ private fun BitChordApp(
     }
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
+    val resultsQuery by viewModel.resultsQuery.collectAsStateWithLifecycle()
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
     val selectedMoodGenre by viewModel.selectedMoodGenre.collectAsStateWithLifecycle()
     val moodGenreShelves by viewModel.moodGenreShelves.collectAsStateWithLifecycle()
@@ -1130,6 +1131,13 @@ private fun BitChordApp(
     val searchRecognizedSongFromApp: (String) -> Unit = { query ->
         inAppRecognitionAutoPlay = autoPlayRecognizedSong
         searchRecognizedSong(query)
+    }
+    // Notification playback resolves the title silently. It deliberately does
+    // not navigate to Search: the result is only an intermediate lookup before
+    // the player card opens.
+    val resolveNotificationSongForPlayback: (String) -> Unit = { query ->
+        viewModel.onFilterChange(SearchFilter.ALL)
+        viewModel.searchFor(query, SearchSource.YOUTUBE)
     }
     // A music video's picture follows this controller's clock — see [MusicVideoEngine].
     DisposableEffect(controller) {
@@ -5549,12 +5557,21 @@ private fun BitChordApp(
             val action = notificationAction ?: return@LaunchedEffect
             RecognitionNotificationActions.handled()
             notificationRecognitionMode = action
-            // Resolve the recognized title through the normal Search pipeline,
-            // then let the selected notification action consume its Song.
-            searchRecognizedSong(action.query)
+            // Play-now resolves silently so the notification tap goes straight
+            // to the player card. Playlist still uses the visible app search
+            // handoff because its picker needs the normal app context.
+            when (action) {
+                is RecognitionNotificationActions.Action.PlayNow ->
+                    resolveNotificationSongForPlayback(action.query)
+                is RecognitionNotificationActions.Action.AddToPlaylist ->
+                    searchRecognizedSong(action.query)
+            }
         }
-        LaunchedEffect(notificationRecognitionMode, results, controller) {
+        LaunchedEffect(notificationRecognitionMode, results, resultsQuery, controller, query) {
             val action = notificationRecognitionMode ?: return@LaunchedEffect
+            // A previous search may still be visible for one frame while the
+            // new request is being scheduled. Never consume that old result.
+            if (query != action.query || resultsQuery != action.query) return@LaunchedEffect
             when (val state = results) {
                 is UiState.Error -> notificationRecognitionMode = null
                 is UiState.Success -> {

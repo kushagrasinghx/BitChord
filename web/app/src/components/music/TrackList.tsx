@@ -13,6 +13,8 @@ import { TrackMenu } from './TrackMenu';
 type Variant = 'album' | 'playlist';
 
 const ROW_HEIGHT: Record<Variant, number> = { album: 46, playlist: 54 };
+/** A playlist's compact view: no artwork, the position instead, 36px rows. */
+const COMPACT_ROW_HEIGHT = 36;
 /** Below this, plain rows: an album or a short playlist gains nothing from virtualizing. */
 const VIRTUALIZE_FROM = 80;
 
@@ -27,6 +29,8 @@ interface TrackListProps {
   onNearEnd?: () => void;
   /** Where the list comes from: playing a row queues the list from there. Without it, a row plays alone. */
   source?: ListContext['source'];
+  /** Playlists only: compact rows, numbered, with no artwork. */
+  compact?: boolean;
 }
 
 /* Track lists (report §3 album rows, §14 playlist rows). */
@@ -54,7 +58,7 @@ const row = [
 
 const rowVariant: Record<Variant, string> = {
   album: 'h-[46px] grid-cols-[minmax(0,1fr)_auto] rounded-row',
-  playlist: `h-[54px] ${playlistColumns} rounded-[12px] max-md:grid-cols-[minmax(0,1fr)_auto]`,
+  playlist: `h-[54px] ${playlistColumns} rounded-[12px] data-compact:h-9 data-compact:rounded-row max-md:grid-cols-[minmax(0,1fr)_auto]`,
 };
 
 function Artists({ artists }: { artists: ArtistRef[] }) {
@@ -90,9 +94,11 @@ interface RowProps {
   position: number;
   fallbackArtwork: string | null | undefined;
   onPlayRow: () => void;
+  compact?: boolean | undefined;
 }
 
-function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps) {
+function Row({ track, variant, position, fallbackArtwork, onPlayRow, compact }: RowProps) {
+  const artwork = variant === 'playlist' && !compact;
   const current = usePlayer((s) => s.nowPlaying?.videoId === track.videoId);
   const playing = usePlayer((s) => s.nowPlaying?.videoId === track.videoId && (s.status === 'playing' || s.status === 'buffering'));
   const togglePlay = usePlayer((s) => s.togglePlay);
@@ -103,6 +109,7 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
     <div
       className={`${row} ${rowVariant[variant]}`}
       data-variant={variant}
+      data-compact={compact || undefined}
       data-current={current || undefined}
       data-unavailable={unavailable}
       title={unavailable === 'matching' ? 'Looking for this on YouTube Music…' : unavailable === 'missing' ? 'Not found on YouTube Music' : undefined}
@@ -110,7 +117,7 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
     >
       <div className={`${cell} gap-3`}>
         <div className={`relative grid w-10 shrink-0 place-items-center${variant === 'playlist' ? ' ms-[7px]' : ''}`}>
-          {variant === 'playlist' ? (
+          {artwork ? (
             <>
               <Artwork src={track.thumbnail ?? fallbackArtwork ?? null} displayWidth={40} radius="var(--radius-artwork-small)" />
               {current && (
@@ -136,13 +143,13 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
           )}
           <button
             className={`absolute inset-0 grid place-items-center rounded-artwork-sm opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 group-data-unavailable/row:hidden ${
-              variant === 'playlist' ? 'bg-lockup-hover text-white' : 'text-primary'
+              artwork ? 'bg-lockup-hover text-white' : 'text-primary'
             }`}
             aria-label={playing ? `Pause ${track.title}` : `Play ${track.title}`}
             onClick={onPlay}
             disabled={!!unavailable}
           >
-            {playing ? <PauseIcon size={variant === 'playlist' ? 18 : 16} /> : <PlayIcon size={variant === 'playlist' ? 18 : 16} />}
+            {playing ? <PauseIcon size={artwork ? 18 : 16} /> : <PlayIcon size={artwork ? 18 : 16} />}
           </button>
         </div>
         <div
@@ -212,7 +219,7 @@ function Header() {
  * hover fill, the number (or artwork) turning into a play button. Long lists
  * are virtualized against the page's scroll container (prompt §3).
  */
-export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, onNearEnd, source }: TrackListProps) {
+export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, onNearEnd, source, compact }: TrackListProps) {
   const playRow = (i: number) => {
     // Rows from another catalogue that found no YouTube Music song stay out of the queue.
     if (source) {
@@ -230,10 +237,13 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
   const virtualizer = useVirtualizer({
     count: virtual ? tracks.length : 0,
     getScrollElement: () => scrollElement,
-    estimateSize: () => ROW_HEIGHT[variant],
+    estimateSize: () => (compact ? COMPACT_ROW_HEIGHT : ROW_HEIGHT[variant]),
     overscan: 10,
     scrollMargin: container.current?.offsetTop ?? 0,
   });
+
+  // The rows' height changes with the view; the measured ones are stale.
+  useEffect(() => virtualizer.measure(), [compact, virtualizer]);
 
   const items = virtual ? virtualizer.getVirtualItems() : [];
   const last = items[items.length - 1];
@@ -265,6 +275,7 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
                   position={item.index + 1}
                   fallbackArtwork={fallbackArtwork}
                   onPlayRow={() => playRow(item.index)}
+                  compact={compact}
                 />
               </div>
             ))}
@@ -278,6 +289,7 @@ export function TrackList({ tracks, variant, fallbackArtwork, fallbackArtists, o
               position={i + 1}
               fallbackArtwork={fallbackArtwork}
               onPlayRow={() => playRow(i)}
+              compact={compact}
             />
           ))
         )}

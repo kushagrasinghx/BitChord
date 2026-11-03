@@ -3464,6 +3464,11 @@ class PlaybackService : MediaLibraryService() {
         .setLoadControl(farBufferingLoadControl())
         .setAudioAttributes(AUDIO_ATTRIBUTES, /* handleAudioFocus = */ ownsSession)
         .setHandleAudioBecomingNoisy(ownsSession)
+        // Keeps the CPU awake while this player is playing. Normal output gets
+        // that from Android's audio server, but direct USB and AAudio exclusive
+        // feed the DAC from this process, and without it a screen-off phone
+        // suspends mid-track and the stream underruns.
+        .setWakeMode(C.WAKE_MODE_LOCAL)
         // Back restarts the track once you're this far into it; only a
         // press before that steps to the previous one.
         .setMaxSeekToPreviousPositionMs(BACK_RESTARTS_AFTER_MS)

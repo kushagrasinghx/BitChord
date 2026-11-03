@@ -834,6 +834,17 @@ object AppSettings {
     val smartMixProgress = MutableStateFlow(0f)
 
     /**
+     * The *next* Automix transition laid out for the mix popup, as the plan
+     * stands right now — for a popup opened by hand from the player's menu
+     * between blends. Only published while [mixViewOpen], and null whenever
+     * [smartMixView] has a blend to show instead.
+     */
+    val smartMixPreview = MutableStateFlow<MixTransitionView?>(null)
+
+    /** The mix popup is up. Written by the player; tells the crossfade controller someone is looking. */
+    val mixViewOpen = MutableStateFlow(false)
+
+    /**
      * True while a version switch is fetching and analysing the other cut
      * before playback actually moves. Drains into the loading bar drawn along
      * the scrubber itself — `ThinSlider.loading` — so the wait reads as work

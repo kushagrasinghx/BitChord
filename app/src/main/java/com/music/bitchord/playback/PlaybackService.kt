@@ -2842,14 +2842,18 @@ class PlaybackService : MediaLibraryService() {
             emptyList()
         }
         val userQueue = upcoming.filter { it.queueTier == QueueTier.USER_QUEUE }.map(MediaItem::toSong)
-        val autoplay = upcoming.filter { it.queueTier == QueueTier.AUTOPLAY }.map(MediaItem::toSong)
+        // The old queue's AutoPlay tail is not carried over, as the flat path
+        // in [QueueTimeline.buildContextQueue] does not: it was suggested for
+        // the music being replaced, and with ten of them already waiting at the
+        // end [loadAutoplayForCurrentTrack] never asks for this context's own.
+        repeatAllStash = emptyList()
+        repeatAllStashSeed = null
         val repeatAll = exoPlayer.repeatMode == Player.REPEAT_MODE_ALL
         val plan = BoundedQueuePlanner.buildInitialPlan(
             contextSnapshot = registered,
             selectedIndex = selectedIndex,
             queueWindow = window,
             preservedUserQueue = userQueue,
-            existingAutoplay = if (repeatAll) emptyList() else autoplay,
             repeatAll = repeatAll,
         )
 

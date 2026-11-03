@@ -51,6 +51,7 @@
     <string name="shuffle">Shuffle</string>
     <string name="more">More</string>
     <string name="lyrics_offset">Lyrics offset</string>
+    <string name="automix_overview">Automix overview</string>
     <string name="auto_quick_picks">Quick picks</string>
     <string name="auto_recents">Recent</string>
     <string name="auto_liked">Liked songs</string>

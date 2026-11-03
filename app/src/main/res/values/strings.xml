@@ -102,7 +102,7 @@
     <string name="clear">Clear</string>
     <string name="search_hint">Artists, Songs, Lyrics and More</string>
     <string name="recognition_title">Search for a song</string>
-    <string name="recognition_listening">Listening for music…</string>
+    <string name="recognition_listening">Listening…</string>
     <string name="recognition_hint">Play, sing, or hum</string>
     <string name="recognition_microphone">Microphone</string>
     <string name="recognition_permission_title">Enable Mic to recognize music</string>
@@ -112,6 +112,9 @@
     <string name="recognition_searching">Searching…</string>
     <string name="recognition_no_match_hint">Move closer to the music and try again.</string>
     <string name="recognition_failed_hint">Check your connection and try again.</string>
+    <string name="recognition_cancel">Cancel</string>
+    <string name="recognition_tile_hint">Hum or sing</string>
+    <string name="quick_tile_listening">Listening for music</string>
     <string name="settings_search_hint">Search settings</string>
     <string name="settings_search_empty">No settings match “%1$s”</string>
     <string name="recent_search_edit">Edit “%1$s”</string>
@@ -209,6 +212,13 @@
     <string name="widget_recognition_label">Recognize</string>
     <string name="widget_recognition_listening">Listening…</string>
     <string name="widget_recognition_no_match">Couldn\'t recognize anything. Try again while the music plays.</string>
+    <string name="quick_tile_recognition_label">BitChord Recognize</string>
+    <string name="recognition_notification_channel">Song recognition</string>
+    <string name="recognition_notification_channel_description">Notifications for songs recognized from the widget and Quick Settings.</string>
+    <string name="recognition_notification_art_description">Recognized song cover</string>
+    <string name="recognition_notification_label">SONG RECOGNIZED</string>
+    <string name="recognition_notification_play_now">Play now</string>
+    <string name="recognition_notification_add_to_playlist">Add to playlist</string>
     <string name="download_quality">Download quality</string>
     <string name="download_wifi_only">Download over Wi-Fi only</string>
     <string name="convert_to_audio">Convert to audio</string>
@@ -222,6 +232,8 @@
     <string name="spatial_audio">Spatial audio</string>
     <string name="spatial_audio_subtitle">Widens stereo tracks for a more immersive feel</string>
     <string name="spatial_audio_atmos_subtitle">Paused for this track — Dolby Atmos is already spatial</string>
+    <string name="auto_play_recognized_song">Auto Play Recognized Song</string>
+    <string name="auto_play_recognized_song_subtitle">Automatically play a song after recognition finds it</string>
     <string name="animated_cover_cellular">Play animated cover over cellular</string>
     <string name="replay">Replay</string>
     <string name="replay_subtitle">Your top songs, artists, albums and genres</string>

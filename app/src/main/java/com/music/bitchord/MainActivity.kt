@@ -363,6 +363,8 @@ import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.data.canvas.AppleArtistArtRepository
 import com.music.bitchord.data.canvas.keyColors
 import com.music.bitchord.ui.theme.SystemBarIcons
+import com.music.bitchord.widget.RecognitionNotificationActions
+import com.music.bitchord.widget.RecognitionNotifications
 import com.music.bitchord.ui.utils.guardSheetFromContentTouches
 import com.music.bitchord.ui.utils.rememberIosOverscrollFactory
 import com.music.bitchord.ui.performance.resolvePerformanceRefreshRate
@@ -400,6 +402,9 @@ class MainActivity : AppCompatActivity() {
         JamInviteLink.consume(intent)
         // Likewise for a link tapped or shared from another app — see [MusicLink].
         MusicLink.consume(intent)
+        if (RecognitionNotificationActions.consume(intent)) {
+            RecognitionNotifications.cancel(this)
+        }
         setContent {
             val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
             val appFont by AppSettings.appFont.collectAsStateWithLifecycle()
@@ -507,6 +512,9 @@ class MainActivity : AppCompatActivity() {
         PlayerDeepLink.consume(intent)
         JamInviteLink.consume(intent)
         MusicLink.consume(intent)
+        if (RecognitionNotificationActions.consume(intent)) {
+            RecognitionNotifications.cancel(this)
+        }
     }
 }
 
@@ -774,6 +782,7 @@ private fun BitChordApp(
     // suggestions, and pressing the button appeared to do nothing, because it
     // turned the party's setting on while the label already said so.
     val autoplayEnabled = autoplayEnabledFor(partyState, autoplay)
+    val autoPlayRecognizedSong by AppSettings.autoPlayRecognizedSong.collectAsStateWithLifecycle()
     val partyServerStatus by ListenTogether.serverConnectionState.collectAsStateWithLifecycle()
     val listenBrainzToken by AppSettings.listenBrainzToken.collectAsStateWithLifecycle()
     // Set each time the search tab is tapped, which SearchScreen uses as a
@@ -799,6 +808,14 @@ private fun BitChordApp(
     // The query a recognition run produced; keeps its promoted Top result card
     // on screen after the sheet closes, until the user searches something else.
     var recognitionQuery by remember { mutableStateOf<String?>(null) }
+    // A button in a recognition notification asks the same app flow to either
+    // play the matched result or open the existing playlist picker.
+    var notificationRecognitionMode by remember {
+        mutableStateOf<RecognitionNotificationActions.Action?>(null)
+    }
+    // Captures the preference when an in-app recognition match is handed to
+    // Search, so the result observer can follow the widget's play path.
+    var inAppRecognitionAutoPlay by remember { mutableStateOf(false) }
     // Invalidates an in-flight radio lookup when a later play request wins.
     var playRequestGeneration by remember { mutableIntStateOf(0) }
     // Starting radio from the item already playing must not replace that media
@@ -877,6 +894,7 @@ private fun BitChordApp(
     }
     val query by viewModel.query.collectAsStateWithLifecycle()
     val results by viewModel.results.collectAsStateWithLifecycle()
+    val resultsQuery by viewModel.resultsQuery.collectAsStateWithLifecycle()
     val exploreState by viewModel.explore.collectAsStateWithLifecycle()
     val selectedMoodGenre by viewModel.selectedMoodGenre.collectAsStateWithLifecycle()
     val moodGenreShelves by viewModel.moodGenreShelves.collectAsStateWithLifecycle()
@@ -1112,6 +1130,17 @@ private fun BitChordApp(
         // The handoff lands on the promoted result, so the page has to be on
         // All even if the last search was filtered to albums or songs.
         recognitionQuery = query
+        viewModel.onFilterChange(SearchFilter.ALL)
+        viewModel.searchFor(query, SearchSource.YOUTUBE)
+    }
+    val searchRecognizedSongFromApp: (String) -> Unit = { query ->
+        inAppRecognitionAutoPlay = autoPlayRecognizedSong
+        searchRecognizedSong(query)
+    }
+    // Notification actions resolve the title silently. They deliberately do
+    // not navigate to Search: the result is only an intermediate lookup before
+    // the player card or playlist picker opens.
+    val resolveNotificationSong: (String) -> Unit = { query ->
         viewModel.onFilterChange(SearchFilter.ALL)
         viewModel.searchFor(query, SearchSource.YOUTUBE)
     }
@@ -5456,23 +5485,29 @@ private fun BitChordApp(
         }
 
         var widgetRecognitionMode by remember { mutableStateOf(false) }
+        var widgetRecognitionQuery by remember { mutableStateOf<String?>(null) }
         val widgetMatch by com.music.bitchord.widget.RecognitionDeepLink.pendingMatch.collectAsStateWithLifecycle()
+        val notificationAction by RecognitionNotificationActions.pending.collectAsStateWithLifecycle()
         LaunchedEffect(widgetMatch) {
             val query = widgetMatch ?: return@LaunchedEffect
             com.music.bitchord.widget.RecognitionDeepLink.matchHandled()
             widgetRecognitionMode = true
-            // The widget's recognizer found the song in its own window and
-            // handed the query over; this picks up exactly where the sheet's
-            // own hand-off resumes: Search on All, the query branded as a
-            // recognition hand-off, and the results running up behind the
-            // player that opens over them.
-            searchRecognizedSong(query)
+            widgetRecognitionQuery = query
+            // Resolve silently. The widget and Quick Settings auto-play path
+            // goes straight from the handoff to the player card, without
+            // navigating through the Search screen.
+            resolveNotificationSong(query)
         }
         // Widget recognition auto-plays the matched song and opens the player.
-        LaunchedEffect(widgetRecognitionMode, results, controller) {
+        LaunchedEffect(widgetRecognitionMode, results, resultsQuery, controller, query) {
             if (!widgetRecognitionMode) return@LaunchedEffect
+            val expectedQuery = widgetRecognitionQuery ?: return@LaunchedEffect
+            if (query != expectedQuery || resultsQuery != expectedQuery) return@LaunchedEffect
             when (val state = results) {
-                is UiState.Error -> widgetRecognitionMode = false
+                is UiState.Error -> {
+                    widgetRecognitionMode = false
+                    widgetRecognitionQuery = null
+                }
                 is UiState.Success -> {
                     val data = state.data
                     val song = data?.filterIsInstance<SearchResult.TopTrack>()?.firstOrNull()?.song
@@ -5486,6 +5521,7 @@ private fun BitChordApp(
                         // the connection is live.
                         val c = controller ?: return@LaunchedEffect
                         widgetRecognitionMode = false
+                        widgetRecognitionQuery = null
                         playRadio(song, QueueSource("Recognition", PlaybackSourceType.SEARCH))
                         showNowPlaying = true
                     } else {
@@ -5495,7 +5531,88 @@ private fun BitChordApp(
                         // rather than end the ride on silence; play() is a
                         // well-mannered no-op if nothing had been paused.
                         widgetRecognitionMode = false
+                        widgetRecognitionQuery = null
                         controller?.play()
+                    }
+                }
+                else -> {}
+            }
+        }
+        // When enabled, in-app recognition follows the widget's same first
+        // playable result into radio playback and opens the now-playing view.
+        // With the setting off, the dialog keeps its existing search-only flow.
+        LaunchedEffect(inAppRecognitionAutoPlay, results, controller) {
+            if (!inAppRecognitionAutoPlay) return@LaunchedEffect
+            when (val state = results) {
+                is UiState.Error -> inAppRecognitionAutoPlay = false
+                is UiState.Success -> {
+                    val data = state.data
+                    val song = data?.filterIsInstance<SearchResult.TopTrack>()?.firstOrNull()?.song
+                        ?: data?.filterIsInstance<SearchResult.Track>()?.firstOrNull()?.song
+                    if (song != null) {
+                        // A cold recognition search can finish before the
+                        // player session is connected; keep the mode pending
+                        // so this retries when the controller arrives.
+                        controller ?: return@LaunchedEffect
+                        inAppRecognitionAutoPlay = false
+                        playRadio(song, QueueSource("Recognition", PlaybackSourceType.SEARCH))
+                        showNowPlaying = true
+                    } else {
+                        inAppRecognitionAutoPlay = false
+                        controller?.play()
+                    }
+                }
+                else -> {}
+            }
+        }
+        LaunchedEffect(notificationAction) {
+            val action = notificationAction ?: return@LaunchedEffect
+            RecognitionNotificationActions.handled()
+            when (action) {
+                is RecognitionNotificationActions.Action.OpenSearch -> {
+                    notificationRecognitionMode = null
+                    searchRecognizedSong(action.query)
+                }
+                is RecognitionNotificationActions.Action.PlayNow,
+                is RecognitionNotificationActions.Action.AddToPlaylist -> {
+                    notificationRecognitionMode = action
+                    // Both action buttons resolve silently so neither one opens
+                    // the Search screen before handing the result to its destination.
+                    resolveNotificationSong(action.query)
+                }
+            }
+        }
+        LaunchedEffect(notificationRecognitionMode, results, resultsQuery, controller, query) {
+            val action = notificationRecognitionMode ?: return@LaunchedEffect
+            // A previous search may still be visible for one frame while the
+            // new request is being scheduled. Never consume that old result.
+            if (query != action.query || resultsQuery != action.query) return@LaunchedEffect
+            when (val state = results) {
+                is UiState.Error -> notificationRecognitionMode = null
+                is UiState.Success -> {
+                    val data = state.data
+                    val song = data?.filterIsInstance<SearchResult.TopTrack>()?.firstOrNull()?.song
+                        ?: data?.filterIsInstance<SearchResult.Track>()?.firstOrNull()?.song
+                    if (song == null) {
+                        notificationRecognitionMode = null
+                        return@LaunchedEffect
+                    }
+                    when (action) {
+                        is RecognitionNotificationActions.Action.OpenSearch ->
+                            return@LaunchedEffect
+                        is RecognitionNotificationActions.Action.PlayNow -> {
+                            // A cold notification tap can beat the player
+                            // connection; keep the mode pending until it exists.
+                            controller ?: return@LaunchedEffect
+                            notificationRecognitionMode = null
+                            playRadio(song, QueueSource("Recognition", PlaybackSourceType.SEARCH))
+                            showNowPlaying = true
+                        }
+                        is RecognitionNotificationActions.Action.AddToPlaylist -> {
+                            notificationRecognitionMode = null
+                            viewModel.loadPlaylists()
+                            playlistTarget = song
+                        }
                     }
                 }
                 else -> {}
@@ -5506,7 +5623,7 @@ private fun BitChordApp(
         if (showSongRecognition) {
             SongRecognitionDialog(
                 onDismiss = dismissSongRecognition,
-                onSearch = searchRecognizedSong,
+                onSearch = searchRecognizedSongFromApp,
                 searchFieldBounds = recognitionFieldBounds,
                 topResultBounds = recognitionTopBounds,
                  onLanded = { onCard -> if (onCard) recognitionLandedTrigger++ else recognitionFieldLandedTrigger++ },

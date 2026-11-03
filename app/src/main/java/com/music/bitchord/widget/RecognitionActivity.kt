@@ -12,6 +12,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.MotionEvent
@@ -25,6 +26,7 @@ import com.music.bitchord.MainActivity
 import com.music.bitchord.R
 import com.music.bitchord.data.shazam.RecognitionSession
 import com.music.bitchord.data.shazam.RecognitionSessionState
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlaybackService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -41,12 +43,11 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * The recognition widget's microphone, in window form.
+ * The recognition widget and Quick Settings tile's microphone, in window form.
  *
- * The widget opens this instead of MainActivity, and the window paints
- * nothing — the launcher, or whatever the user was looking at, stays exactly
- * where it was for the seconds it takes to listen and name the song. The
- * sequence the widget promises is the whole of what happens here:
+ * The widget opens this instead of MainActivity and keeps the window invisible;
+ * the tile opens the same activity with a visible recognition surface. Both
+ * entry points share the same microphone and result flow:
  *
  * 1. The mic permission is asked only when it is missing; a granted one goes
  *    straight past to listening, and a refusal ends the request where it
@@ -76,6 +77,8 @@ import kotlin.math.sin
  */
 class RecognitionActivity : Activity() {
 
+    private var showInterface = false
+    private var overlayView: RecognitionOverlayView? = null
     private var session: RecognitionSession? = null
 
     /**
@@ -121,15 +124,12 @@ class RecognitionActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // A paint-less content view, so the touches have a full pipeline to
-        // run down and [dispatchTouchEvent] receives them nowhere but here.
-        // The window keeps painting nothing: the view is transparent ink,
-        // the theme beneath it unchanged.
-        setContentView(View(this))
+        showInterface = intent?.getBooleanExtra(EXTRA_SHOW_INTERFACE, false) == true
+        installContentView()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
         ) {
-            startListening()
+            startListeningWhenReady()
         } else {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MICROPHONE)
         }
@@ -141,14 +141,32 @@ class RecognitionActivity : Activity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != REQUEST_MICROPHONE) return
-        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startListening()
+        when (requestCode) {
+            REQUEST_MICROPHONE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startListeningWhenReady()
+                } else {
+                    // A refusal stops here rather than route somewhere that will ask
+                    // again — the answer was taken, not lost.
+                    RecognitionWidgetProvider.showSleep(this)
+                    finish()
+                }
+            }
+            REQUEST_NOTIFICATIONS -> startListening()
+        }
+    }
+
+    /** Notification mode needs the Android 13+ grant before its result can surface. */
+    private fun startListeningWhenReady() {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !AppSettings.autoPlayRecognizedSong.value &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
         } else {
-            // A refusal stops here rather than route somewhere that will ask
-            // again — the answer was taken, not lost.
-            RecognitionWidgetProvider.showSleep(this)
-            finish()
+            startListening()
         }
     }
 
@@ -159,11 +177,16 @@ class RecognitionActivity : Activity() {
     // would have done on a clean launcher.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_SHOW_INTERFACE, false) && !showInterface) {
+            showInterface = true
+            installContentView()
+        }
         if (listening) {
             abandon()
             finish()
         } else {
-            startListening()
+            startListeningWhenReady()
         }
     }
 
@@ -190,6 +213,7 @@ class RecognitionActivity : Activity() {
             // playback for the take so the recognition hears the world first.
             pauseOursIfPlaying()
             session.start()
+            overlayView?.setSearching(session.state.value == RecognitionSessionState.Searching)
             var phase = 0f
             var lastFrame = SystemClock.elapsedRealtime()
             var state = session.state.value
@@ -202,31 +226,43 @@ class RecognitionActivity : Activity() {
                 val now = SystemClock.elapsedRealtime()
                 phase = (phase + (now - lastFrame) * PHASE_PER_MS) % (2 * PI).toFloat()
                 lastFrame = now
-                RecognitionWidgetProvider.showWave(applicationContext, nextFrame(density, phase, level))
+                val frame = nextFrame(density, phase, level)
+                RecognitionWidgetProvider.showWave(applicationContext, frame)
+                overlayView?.setAudioLevel(level)
                 state = session.state.value
+                overlayView?.setSearching(state == RecognitionSessionState.Searching)
             }
             listening = false
             when (val settled = state) {
                 is RecognitionSessionState.Found -> {
-                    // The match is posted before the launch, not during it:
-                    // the composition reads the flow the moment it builds,
-                    // and the stream is what carries the query whether
-                    // MainActivity comes up cold or arrives warm.
-                    RecognitionDeepLink.postMatch(settled.track.searchQuery)
-                    RecognitionWidgetProvider.showSleep(applicationContext)
-                    startActivity(
-                        Intent(applicationContext, MainActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                    )
-                    // The app arrives on a fade rather than the launcher's
-                    // window-slam: the pill just finished breathing on the
-                    // home screen, so the transition into playing the song
-                    // is the two joining, not one replacing the other.
-                    overridePendingTransition(
-                        android.R.anim.fade_in,
-                        android.R.anim.fade_out,
-                    )
-                    finish()
+                    if (AppSettings.autoPlayRecognizedSong.value) {
+                        // The match is posted before the launch, not during it:
+                        // the composition reads the flow the moment it builds,
+                        // and the stream is what carries the query whether
+                        // MainActivity comes up cold or arrives warm.
+                        RecognitionDeepLink.postMatch(settled.track.searchQuery)
+                        RecognitionWidgetProvider.showSleep(applicationContext)
+                        startActivity(
+                            Intent(applicationContext, MainActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                        )
+                        // The app arrives on a fade rather than the launcher's
+                        // window-slam: the pill just finished breathing on the
+                        // home screen, so the transition into playing the song
+                        // is the two joining, not one replacing the other.
+                        overridePendingTransition(
+                            android.R.anim.fade_in,
+                            android.R.anim.fade_out,
+                        )
+                        finish()
+                    } else {
+                        // Notification mode leaves the room's existing song in
+                        // the same state it had before recognition started.
+                        RecognitionNotifications.post(applicationContext, settled.track)
+                        resumePlayback()
+                        RecognitionWidgetProvider.showSleep(applicationContext)
+                        finish()
+                    }
                 }
 
                 else -> {
@@ -254,6 +290,7 @@ class RecognitionActivity : Activity() {
         // A match path may have left its borrowed controller behind: the
         // player card's own connection takes it from here, ours lets go.
         releaseControllerQuietly()
+        overlayView = null
     }
 
     /**
@@ -279,6 +316,14 @@ class RecognitionActivity : Activity() {
         resumePlayback()
         session = null
         scope = null
+    }
+
+    private fun installContentView() {
+        overlayView = if (showInterface) RecognitionOverlayView(this) else null
+        // The invisible widget path deliberately keeps a paint-less view so
+        // the launcher remains untouched. The tile path swaps in the visible
+        // recognition surface while sharing this same activity and session.
+        setContentView(overlayView ?: View(this))
     }
 
     /**
@@ -375,8 +420,11 @@ class RecognitionActivity : Activity() {
         return bitmap
     }
 
-    private companion object {
+    companion object {
+        const val EXTRA_SHOW_INTERFACE = "com.music.bitchord.widget.SHOW_INTERFACE"
+
         const val REQUEST_MICROPHONE = 41
+        const val REQUEST_NOTIFICATIONS = 42
 
         /**
          * The frames' cadence in a room with music against a room resting.

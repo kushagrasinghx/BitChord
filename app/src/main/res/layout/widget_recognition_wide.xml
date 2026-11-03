@@ -26,5 +26,5 @@
         android:layout_gravity="center"
         android:contentDescription="@string/widget_recognition_label"
         android:src="@drawable/ic_widget_wave_sleep"
-        android:scaleType="fitCenter" />
+        android:scaleType="fitXY" />
 </FrameLayout>

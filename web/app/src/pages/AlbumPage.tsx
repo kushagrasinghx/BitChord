@@ -6,6 +6,7 @@ import { LoadError, NeedsExtension } from '@/components/music/States';
 import { TrackList } from '@/components/music/TrackList';
 import { useAlbumMotion } from '@/data/apple/motionArt';
 import { useAlbum, useYouTubeReady } from '@/data/music/queries';
+import { useRememberRecent } from '@/state/recents';
 import { useArtworkColor } from '@/lib/artworkColor';
 import { usePageTint } from '@/lib/usePageTint';
 import { AlbumSkeleton } from '@/skeletons/PageSkeletons';
@@ -17,6 +18,15 @@ export default function AlbumPage() {
   const { missing } = useYouTubeReady();
   const album = useAlbum(id);
   usePageTint(useArtworkColor(album.data?.thumbnail));
+  useRememberRecent(
+    album.data && {
+      kind: 'album',
+      id: album.data.id,
+      title: album.data.title,
+      subtitle: ['Album', album.data.artists.map((a) => a.name).join(', ')].filter(Boolean).join(' • '),
+      thumbnail: album.data.thumbnail,
+    },
+  );
   const motion = useAlbumMotion(album.data?.title, album.data?.artists.map((a) => a.name).join(', '));
 
   if (missing) return <NeedsExtension />;

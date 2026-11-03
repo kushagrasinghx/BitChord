@@ -13,6 +13,9 @@ interface UiState {
   /** The sidebar as a drawer, below 484px where it's otherwise hidden. */
   drawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
+  /** The ⌘K quick search over the library, history and YouTube Music. */
+  paletteOpen: boolean;
+  setPaletteOpen: (open: boolean) => void;
   /** The extension install banner, dismissed for this tab only. */
   installBannerDismissed: boolean;
   dismissInstallBanner: () => void;
@@ -28,6 +31,8 @@ export const useUi = create<UiState>()((set) => ({
   setFullScreen: (fullScreen) => set({ fullScreen }),
   drawerOpen: false,
   setDrawerOpen: (drawerOpen) => set({ drawerOpen }),
+  paletteOpen: false,
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   installBannerDismissed: sessionStorage.getItem(BANNER_KEY) === '1',
   dismissInstallBanner: () => {
     sessionStorage.setItem(BANNER_KEY, '1');

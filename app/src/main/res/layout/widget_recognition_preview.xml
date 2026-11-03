@@ -4,7 +4,7 @@
   widget_recognition_wide as it performs — the reactive face at full voice,
   the state the tap promises. No ids and no press states, exactly like the
   home widget, so the picker's picture and the placed pill agree in every
-  measurement: a rounded 2×3 card centered in the host, with the waveform
+   measurement: a rounded 3×2 card centered in the host, with the waveform
   centered and scaled to feel intentional at picker size.
 
   See that file for the layout the runtime then lands on.
@@ -14,8 +14,8 @@
     android:layout_height="match_parent">
 
     <FrameLayout
-        android:layout_width="108dp"
-        android:layout_height="150dp"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
         android:layout_gravity="center"
         android:background="@drawable/widget_recognition_background">
 

@@ -11,7 +11,7 @@ import android.widget.RemoteViews
 import com.music.bitchord.R
 
 /**
- * The 2×3 home-screen widget that starts song recognition on tap:
+ * The 3×2 home-screen widget that starts song recognition on tap:
  *
  * - sleeping: the sheet's five-bar waveform at rest — the state between takes
  *   and the face the picker previews;

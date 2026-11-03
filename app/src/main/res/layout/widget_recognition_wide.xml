@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The 2×3 recognition card: a rounded square-like surface with the sheet's
+  The 3×2 recognition card: a rounded landscape surface with the sheet's
   five pill-shaped waveform bars centered inside it.
 
   - sleeping: [ic_widget_wave_sleep], wired at add time and after every take
@@ -18,12 +18,12 @@
     android:layout_height="match_parent">
 
     <!--
-      Keep the waveform centered inside a tall 2×3 card so the widget feels
+      Keep the waveform centered inside a wide 3×2 card so the widget feels
       intentional without stretching the animated bars.
     -->
     <FrameLayout
-        android:layout_width="108dp"
-        android:layout_height="150dp"
+        android:layout_width="150dp"
+        android:layout_height="100dp"
         android:layout_gravity="center"
         android:background="@drawable/widget_recognition_background">
 

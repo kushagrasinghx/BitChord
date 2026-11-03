@@ -8,6 +8,7 @@ import {
   usePlaylistOptions,
   useSetLiked,
   useSignedIn,
+  useTrackAlbum,
 } from '@/data/music/queries';
 import type { Track } from '@/data/music/types';
 import { usePlayer } from '@/state/player';
@@ -112,6 +113,23 @@ function ArtistChoices({ track, onGo, onBack }: { track: Track; onGo: (href: str
   );
 }
 
+/**
+ * Go to Album. A song from a search result doesn't say its album, so it's
+ * looked up while the menu is open: the item waits, dimmed, and goes away if
+ * the song has none.
+ */
+function GoToAlbum({ track, onGo }: { track: Track; onGo: (href: string) => void }) {
+  const known = albumHref(track.album?.id ?? null);
+  const lookup = useTrackAlbum(track.videoId, !known);
+  const href = known ?? albumHref(lookup.data?.id ?? null);
+  if (!href && !lookup.isPending) return null;
+  return (
+    <MenuItem icon={<Disc3 size={15} />} disabled={!href} onSelect={() => href && onGo(href)}>
+      Go to Album
+    </MenuItem>
+  );
+}
+
 function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void }) {
   const [view, setView] = useState<'main' | 'playlists' | 'artists'>('main');
   const signedIn = useSignedIn();
@@ -128,7 +146,6 @@ function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void 
   if (view === 'artists') return <ArtistChoices track={track} onGo={go} onBack={() => setView('main')} />;
   const { playNext, addToQueue } = usePlayer.getState();
   const artists = linkedArtists(track);
-  const album = albumHref(track.album?.id ?? null);
   return (
     <>
       <MenuItem icon={<ListStart size={15} />} onSelect={() => (onClose(), playNext([track]), toast('Playing next'))}>
@@ -158,11 +175,7 @@ function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void 
           Go to Artist
         </MenuItem>
       )}
-      {album && (
-        <MenuItem icon={<Disc3 size={15} />} onSelect={() => go(album)}>
-          Go to Album
-        </MenuItem>
-      )}
+      <GoToAlbum track={track} onGo={go} />
       <MenuSeparator />
       <MenuItem
         icon={<Link2 size={15} />}

@@ -548,6 +548,7 @@ class PlaybackService : MediaLibraryService() {
             // picker for "go back to following the system", so a stuck choice
             // would be a picker that had quietly broken the obvious behaviour.
             AudioRouting.forget()
+            resumeAfterBluetoothAudioConnects(addedDevices)
             requestOutputReconfiguration()
         }
         override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) {
@@ -575,6 +576,21 @@ class PlaybackService : MediaLibraryService() {
      * the becoming-noisy pause on a disconnect) do not set this.
      */
     private var manuallyPaused: Boolean = false
+
+    private fun isBluetoothAudioOutput(info: AudioDeviceInfo): Boolean =
+        info.isSink && AudioRouting.kindOf(info.type) == AudioRouting.Kind.BLUETOOTH
+
+    private fun resumeAfterBluetoothAudioConnects(added: Array<out AudioDeviceInfo>) {
+        if (added.orEmpty().none(::isBluetoothAudioOutput)) return
+        if (!AppSettings.autoPlayOnBluetoothConnection.value || manuallyPaused) return
+        val p = mediaSession?.player ?: return
+        val currentItem = p.currentMediaItem ?: return
+        val canPlay = !p.isPlaying && p.playbackState != Player.STATE_ENDED
+        if (canPlay) {
+            p.play()
+            manuallyPaused = false
+        }
+    }
 
     /**
      * The idle player. Between transitions it holds nothing; to arm one,
@@ -1379,26 +1395,6 @@ class PlaybackService : MediaLibraryService() {
                 .map { it.copy(lastUpdatedMs = 0L) }
                 .distinctUntilChanged()
                 .collect { requestOutputReconfiguration() }
-        }
-        scope.launch {
-            // Resume playback when an eligible Bluetooth audio output connects,
-            // gated on the dedicated setting and on the listener not having
-            // intentionally paused. A2DP is audio-output only, so keyboards,
-            // watches, controllers and other Bluetooth devices never reach here.
-            var previousConnected = bluetoothTracker.telemetry.value.isConnected
-            bluetoothTracker.telemetry.collect { telemetry ->
-                val connected = telemetry.isConnected
-                if (connected && !previousConnected) {
-                    if (AppSettings.autoPlayOnBluetoothConnection.value && !manuallyPaused) {
-                        val p = mediaSession?.player
-                        if (p != null && p.currentMediaItem != null && !p.isPlaying && p.playbackState != Player.STATE_ENDED) {
-                            p.play()
-                            manuallyPaused = false
-                        }
-                    }
-                }
-                previousConnected = connected
-            }
         }
         scope.launch {
             // Every resolve reads the ceiling afresh, but not everything that

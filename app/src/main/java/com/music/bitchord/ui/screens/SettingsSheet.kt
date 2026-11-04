@@ -665,14 +665,6 @@ fun SettingsScreen(
                     badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
                 )
             }
-            val autoPlayOnBluetoothConnectionTitle = stringResource(R.string.auto_play_on_bluetooth_connection)
-            row(autoPlayOnBluetoothConnectionTitle, "bluetooth", "auto", "play") {
-                SettingsSubRow(
-                    title = autoPlayOnBluetoothConnectionTitle,
-                    checked = autoPlayOnBluetoothConnection,
-                    onCheckedChange = AppSettings::setAutoPlayOnBluetoothConnection,
-                )
-            }
             val bitPerfectTitle = stringResource(R.string.bit_perfect_output)
             row(bitPerfectTitle, "usb", "dac", "exclusive", "hi-res", "bitperfect") {
                 // The mode and the device it names can both be long, so they
@@ -849,6 +841,14 @@ fun SettingsScreen(
                         onClick = { AppSettings.setSkipSilence(!skipSilence) },
                     )
                 }
+            }
+            val autoPlayOnBluetoothConnectionTitle = stringResource(R.string.auto_play_on_bluetooth_connection)
+            row(autoPlayOnBluetoothConnectionTitle, "bluetooth", "auto", "play") {
+                SettingsSubRow(
+                    title = autoPlayOnBluetoothConnectionTitle,
+                    checked = autoPlayOnBluetoothConnection,
+                    onCheckedChange = AppSettings::setAutoPlayOnBluetoothConnection,
+                )
             }
             val spatialAudioTitle = stringResource(R.string.spatial_audio)
             row(spatialAudioTitle, "surround", "3d") {

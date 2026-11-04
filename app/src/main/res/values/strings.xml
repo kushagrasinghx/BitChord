@@ -381,6 +381,8 @@
     <string name="clear_image_cache_subtitle">Frees space used by album artwork</string>
     <string name="play_next_on_swipe">Play next on swipe</string>
     <string name="dont_repeat_songs">Don’t repeat songs in current session</string>
+    <string name="bluetooth_autoplay">Resume on Bluetooth connection</string>
+    <string name="bluetooth_autoplay_subtitle">Automatically resume playback when Bluetooth headphones or speakers connect</string>
     <string name="stop_music_on_close">Stop music on close from recents</string>
     <string name="stop_music_on_close_subtitle">Stops playback when swiped away from recent apps</string>
     <string name="hide_volume_bar">Hide volume bar</string>

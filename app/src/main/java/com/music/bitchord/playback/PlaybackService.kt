@@ -540,6 +540,18 @@ class PlaybackService : MediaLibraryService() {
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
     private val bluetoothTracker by lazy { BluetoothAudioTracker(this) }
     private var currentAudioInputFormat: Format? = null
+
+    /**
+     * Whether playback was intentionally paused by the listener, as opposed to
+     * being paused automatically by an audio route disconnect (e.g. unplugging
+     * headphones or powering down Bluetooth).
+     *
+     * Respected by Bluetooth auto-play: reconnecting headphones will resume playback
+     * if the session was paused by their disconnect, but never if the listener
+     * explicitly tapped pause.
+     */
+    private var manuallyPaused = false
+
     private val outputDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) {
             // Plugging something in moves the music to it. Always — a choice
@@ -549,6 +561,23 @@ class PlaybackService : MediaLibraryService() {
             // would be a picker that had quietly broken the obvious behaviour.
             AudioRouting.forget()
             requestOutputReconfiguration()
+
+            val hasBtAudioSink = addedDevices.any {
+                it.isSink && AudioRouting.kindOf(it.type) == AudioRouting.Kind.BLUETOOTH
+            }
+            if (hasBtAudioSink && com.music.bitchord.data.settings.AppSettings.bluetoothAutoplay.value) {
+                val p = player
+                if (p != null && p.mediaItemCount > 0 && !p.playWhenReady && !manuallyPaused) {
+                    scope.launch {
+                        kotlinx.coroutines.delay(350L)
+                        val active = player ?: return@launch
+                        if (!active.playWhenReady && !manuallyPaused && active.mediaItemCount > 0) {
+                            if (active.playbackState == Player.STATE_IDLE) active.prepare()
+                            active.play()
+                        }
+                    }
+                }
+            }
         }
         override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) {
             // A chosen output that has been unplugged is no longer a choice.
@@ -948,6 +977,11 @@ class PlaybackService : MediaLibraryService() {
          * on the audio, which is what the media notification shows too.
          */
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (playWhenReady) {
+                manuallyPaused = false
+            } else if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST) {
+                manuallyPaused = true
+            }
             // Something started the phone's own player while a receiver is the
             // speaker — an internal path, since the session player's door
             // already sends a listener's play to the receiver. The phone goes

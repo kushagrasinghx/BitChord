@@ -442,6 +442,9 @@ object AppSettings {
     /** Preferred UI refresh rate while [highPerformanceMode] is enabled. */
     val performanceRefreshRate = MutableStateFlow(DEFAULT_PERFORMANCE_REFRESH_RATE)
 
+    /** Automatically resume playback when a Bluetooth audio device connects. */
+    val bluetoothAutoplay = MutableStateFlow(false)
+
     /** Stop playback when the app is swiped away from the recent apps screen. */
     val stopOnTaskRemoved = MutableStateFlow(true)
 
@@ -973,6 +976,7 @@ object AppSettings {
         performanceRefreshRate.value = normalizePerformanceRefreshRate(
             prefs.getInt(KEY_PERFORMANCE_REFRESH_RATE, DEFAULT_PERFORMANCE_REFRESH_RATE),
         )
+        bluetoothAutoplay.value = prefs.getBoolean(KEY_BLUETOOTH_AUTOPLAY, false)
         stopOnTaskRemoved.value = prefs.getBoolean(KEY_STOP_ON_TASK_REMOVED, true)
         hideVolumeBar.value = prefs.getBoolean(KEY_HIDE_VOLUME_BAR, false)
         hideStatusBarInPlayer.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR_IN_PLAYER, false)
@@ -1354,6 +1358,11 @@ object AppSettings {
     fun setOnboardingComplete() {
         onboardingComplete.value = true
         prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, true).apply()
+    }
+
+    fun setBluetoothAutoplay(value: Boolean) {
+        bluetoothAutoplay.value = value
+        prefs.edit().putBoolean(KEY_BLUETOOTH_AUTOPLAY, value).apply()
     }
 
     fun setStopOnTaskRemoved(value: Boolean) {
@@ -2170,6 +2179,7 @@ object AppSettings {
     private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
     private const val KEY_HIGH_PERFORMANCE_MODE = "high_performance_mode"
     private const val KEY_PERFORMANCE_REFRESH_RATE = "performance_refresh_rate"
+    private const val KEY_BLUETOOTH_AUTOPLAY = "bluetooth_autoplay"
     private const val KEY_STOP_ON_TASK_REMOVED = "stop_on_task_removed"
     private const val KEY_HIDE_VOLUME_BAR = "hide_volume_bar"
     private const val KEY_HIDE_STATUS_BAR_IN_PLAYER = "hide_status_bar_in_player"

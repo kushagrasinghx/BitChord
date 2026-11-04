@@ -278,6 +278,7 @@ fun SettingsScreen(
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val syncDownloadedPlaylists by AppSettings.syncDownloadedPlaylists.collectAsStateWithLifecycle()
+    val bluetoothAutoplay by AppSettings.bluetoothAutoplay.collectAsStateWithLifecycle()
     val stopOnTaskRemoved by AppSettings.stopOnTaskRemoved.collectAsStateWithLifecycle()
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
@@ -1429,6 +1430,21 @@ fun SettingsScreen(
                         )
                     },
                     onClick = { AppSettings.setDontRepeatSuggestions(!dontRepeatSuggestions) },
+                )
+            }
+            val bluetoothAutoplayTitle = stringResource(R.string.bluetooth_autoplay)
+            row(bluetoothAutoplayTitle, "bluetooth", "autoplay", "headphones", "playback") {
+                SettingsRow(
+                    icon = SfIcons.Bluetooth,
+                    title = bluetoothAutoplayTitle,
+                    subtitle = stringResource(R.string.bluetooth_autoplay_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = bluetoothAutoplay,
+                            onCheckedChange = AppSettings::setBluetoothAutoplay,
+                        )
+                    },
+                    onClick = { AppSettings.setBluetoothAutoplay(!bluetoothAutoplay) },
                 )
             }
             val stopMusicOnCloseTitle = stringResource(R.string.stop_music_on_close)

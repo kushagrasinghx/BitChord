@@ -7,23 +7,39 @@
 const SQUARE_SIZES = [60, 120, 226, 544, 1200];
 
 const RESIZABLE = /googleusercontent\.com|ggpht\.com/;
+const YTIMG = /i\.ytimg\.com\/vi\/([^/]+)\//;
+const YTIMG_FILE = /\/(?:hqdefault|mqdefault|sddefault|default|hq720|maxresdefault)\.jpg(?:\?.*)?$/;
 
 /**
  * Asks YouTube's image CDN for a size close to what's displayed (prompt §3):
  * the smallest standard size at least as large as the rendered pixels.
- * Non-square artwork (artist heroes) and i.ytimg.com thumbnails are fixed
- * sizes and pass through unchanged.
+ * Upgrades i.ytimg.com video thumbnails to HD (maxresdefault / hq720) when
+ * displayed at high resolution (fixes #1459).
  */
 export function sizedArtwork(url: string, cssPx: number, aspect = 1): string {
-  if (!RESIZABLE.test(url) || Math.abs(aspect - 1) > 0.01) return url;
   const dpr = Math.min(typeof window === 'undefined' ? 2 : window.devicePixelRatio || 1, 3);
   const needed = cssPx * dpr;
-  const size = SQUARE_SIZES.find((s) => s >= needed) ?? SQUARE_SIZES[SQUARE_SIZES.length - 1]!;
-  return artworkAtPixels(url, size);
+
+  if (RESIZABLE.test(url) && Math.abs(aspect - 1) <= 0.01) {
+    const size = SQUARE_SIZES.find((s) => s >= needed) ?? SQUARE_SIZES[SQUARE_SIZES.length - 1]!;
+    return artworkAtPixels(url, size);
+  }
+
+  if (YTIMG.test(url) && needed >= 480) {
+    return artworkAtPixels(url, needed >= 720 ? 1200 : 720);
+  }
+
+  return url;
 }
 
-/** A square artwork at an exact pixel size (Media Session, canvases). */
+/** A square artwork or high-res video thumbnail at an exact pixel size (Media Session, canvases). */
 export function artworkAtPixels(url: string, px: number): string {
-  if (!RESIZABLE.test(url)) return url;
-  return `${url.replace(/=[^/=]*$/, '')}=w${px}-h${px}-l90-rj`;
+  if (RESIZABLE.test(url)) {
+    return `${url.replace(/=[^/=]*$/, '')}=w${px}-h${px}-l90-rj`;
+  }
+  if (YTIMG.test(url) && px >= 480) {
+    const target = px >= 720 ? 'maxresdefault.jpg' : 'hq720.jpg';
+    return url.replace(YTIMG_FILE, `/${target}`);
+  }
+  return url;
 }

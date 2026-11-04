@@ -303,10 +303,13 @@ fun String?.durationMillis(): Long {
 fun String?.artworkAt(px: Int): String? {
     if (this == null) return null
     val sized = this.replace(SIZE_HINT, "w$px-h$px")
-    return if (isGoogleImageHost(this)) {
-        sized.replace(PARAM_SIZE_HINT, "=s$px")
-    } else {
-        sized
+    return when {
+        isGoogleImageHost(this) -> sized.replace(PARAM_SIZE_HINT, "=s$px")
+        isYtimgHost(this) && px >= 480 -> {
+            val target = if (px >= 720) "maxresdefault.jpg" else "hq720.jpg"
+            this.replace(YTIMG_FILE_REGEX, "/$target")
+        }
+        else -> sized
     }
 }
 
@@ -321,8 +324,19 @@ private fun isGoogleImageHost(url: String): Boolean {
         host == "googleusercontent.com" || host.endsWith(".googleusercontent.com")
 }
 
+private fun isYtimgHost(url: String): Boolean {
+    val host = url.substringAfter("://", "")
+        .ifEmpty { url.substringAfter("//", "") }
+        .substringBefore('/')
+        .substringBefore(':')
+        .substringBefore('?')
+        .lowercase()
+    return host == "i.ytimg.com" || host.endsWith(".ytimg.com")
+}
+
 private val SIZE_HINT = Regex("""w\d+-h\d+""")
 private val PARAM_SIZE_HINT = Regex("""=s\d+""")
+private val YTIMG_FILE_REGEX = Regex("""/(?:hqdefault|mqdefault|sddefault|default|hq720|maxresdefault)\.jpg(?:\?.*)?$""")
 
 /**
  * Artwork for a list row — 52dp at most, so about 140px on a 3x screen.

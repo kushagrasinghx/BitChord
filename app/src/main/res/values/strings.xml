@@ -422,6 +422,8 @@
     <string name="full_screen_cover_art_subtitle">Runs the cover to the edges of the player instead of a square sleeve</string>
     <string name="full_screen_detail_cover">Full-screen album/playlist cover</string>
     <string name="full_screen_detail_cover_subtitle">Runs album and playlist covers to the edges of the page instead of a framed sleeve</string>
+    <string name="show_total_duration">Show total duration</string>
+    <string name="show_total_duration_subtitle">Shows the song\'s full length instead of the time remaining</string>
     <string name="animated_cover_art_subtitle">Plays the looping video some releases ship instead of a still sleeve</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay won’t suggest a song already played or suggested this session</string>
     <string name="download_quality_subtitle">%1$s per track, whatever the connection</string>

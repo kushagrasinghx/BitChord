@@ -244,7 +244,8 @@ private val LIBRARY_GRID_MIN_CARD_WIDTH = 140.dp
 /** Gap between cards in a library grid, in both directions. */
 val LIBRARY_GRID_SPACING = 12.dp
 
-private const val LIBRARY_GRID_MIN_COLUMNS = 2
+/** Never fewer than three across, as Spotify's library grid: a phone fits three. */
+private const val LIBRARY_GRID_MIN_COLUMNS = 3
 
 /** Library shelves never grow past this many across, however wide the screen. */
 private const val LIBRARY_GRID_MAX_COLUMNS = 5
@@ -254,8 +255,9 @@ private const val LIBRARY_GRID_MAX_COLUMNS = 5
  * [available] dp of row — see `LibraryGridPage`.
  *
  * Columns follow from [LIBRARY_GRID_MIN_CARD_WIDTH] — as many as fit — rather
- * than from a fixed count, so a phone settles on 2 and a tablet fills out
- * towards the 5-column ceiling. This is the same arithmetic `GridCells.Adaptive`
+ * than from a fixed count, so a tablet fills out towards the 5-column ceiling;
+ * a phone, where 140.dp cards would leave two, gets [LIBRARY_GRID_MIN_COLUMNS]
+ * (three, as Spotify's library grid has), a little under 140.dp each. This is the same arithmetic `GridCells.Adaptive`
  * runs, at the same minimum, gutter and spacing the Local Music and Downloads
  * grids use, which is what keeps a card here the size of a card there. Every
  * width is already in dp, which is what

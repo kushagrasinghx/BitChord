@@ -90,21 +90,51 @@ function Transport() {
 
   return (
     <div className="mx-auto mt-[clamp(8px,1.6vh,16px)] mb-0 flex h-13 w-[min(100%,315px)] items-center justify-between">
-      <button className={toggle} aria-label="Shuffle" aria-pressed={shuffle} onClick={toggleShuffle}>
+      <button
+        className={toggle}
+        aria-label="Shuffle"
+        title="Shuffle (S)"
+        aria-keyshortcuts="s"
+        aria-pressed={shuffle}
+        onClick={toggleShuffle}
+      >
         <ShuffleIcon size={30} />
       </button>
-      <button className={skip} disabled={!hasTrack} aria-label="Previous" onClick={previous}>
+      <button
+        className={skip}
+        disabled={!hasTrack}
+        aria-label="Previous"
+        title="Previous (⌘/Ctrl+← or Shift+P)"
+        aria-keyshortcuts="Control+ArrowLeft Shift+P"
+        onClick={previous}
+      >
         <BackwardIcon size={40} />
       </button>
-      <button className={`${transportButton} size-14 text-primary`} disabled={!hasTrack} aria-label={playing ? 'Pause' : 'Play'} onClick={togglePlay}>
+      <button
+        className={`${transportButton} size-14 text-primary`}
+        disabled={!hasTrack}
+        aria-label={playing ? 'Pause' : 'Play'}
+        title={`${playing ? 'Pause' : 'Play'} (Space or K)`}
+        aria-keyshortcuts="Space k"
+        onClick={togglePlay}
+      >
         {playing ? <PauseIcon size={48} /> : <PlayIcon size={48} />}
       </button>
-      <button className={skip} disabled={!hasTrack || !hasNext} aria-label="Next" onClick={next}>
+      <button
+        className={skip}
+        disabled={!hasTrack || !hasNext}
+        aria-label="Next"
+        title="Next (⌘/Ctrl+→ or Shift+N)"
+        aria-keyshortcuts="Control+ArrowRight Shift+N"
+        onClick={next}
+      >
         <ForwardIcon size={40} />
       </button>
       <button
         className={toggle}
         aria-label={repeat === 'one' ? 'Repeat one' : repeat === 'all' ? 'Repeat all' : 'Repeat'}
+        title={`${repeat === 'one' ? 'Repeat one' : repeat === 'all' ? 'Repeat all' : 'Repeat'} (R)`}
+        aria-keyshortcuts="r"
         aria-pressed={repeat !== 'off'}
         onClick={cycleRepeat}
       >

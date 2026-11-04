@@ -56,23 +56,53 @@ export function PlayerBar() {
         aria-label="Player"
       >
         <div className="flex items-center justify-between pr-2">
-          <button className={toggle} aria-label="Shuffle" aria-pressed={shuffle} onClick={toggleShuffle}>
+          <button
+            className={toggle}
+            aria-label="Shuffle"
+            title="Shuffle (S)"
+            aria-keyshortcuts="s"
+            aria-pressed={shuffle}
+            onClick={toggleShuffle}
+          >
             <ShuffleIcon size={28} />
           </button>
           <div className="flex items-center gap-1.5">
-            <button className={transport} disabled={!hasTrack} aria-label="Previous" onClick={previous}>
+            <button
+              className={transport}
+              disabled={!hasTrack}
+              aria-label="Previous"
+              title="Previous (⌘/Ctrl+← or Shift+P)"
+              aria-keyshortcuts="Control+ArrowLeft Shift+P"
+              onClick={previous}
+            >
               <BackwardIcon size={26} />
             </button>
-            <button className={transport} disabled={!hasTrack} aria-label={playing ? 'Pause' : 'Play'} onClick={togglePlay}>
+            <button
+              className={transport}
+              disabled={!hasTrack}
+              aria-label={playing ? 'Pause' : 'Play'}
+              title={`${playing ? 'Pause' : 'Play'} (Space or K)`}
+              aria-keyshortcuts="Space k"
+              onClick={togglePlay}
+            >
               {playing ? <PauseIcon size={28} /> : <PlayIcon size={28} />}
             </button>
-            <button className={transport} disabled={!hasTrack || !hasNext} aria-label="Next" onClick={next}>
+            <button
+              className={transport}
+              disabled={!hasTrack || !hasNext}
+              aria-label="Next"
+              title="Next (⌘/Ctrl+→ or Shift+N)"
+              aria-keyshortcuts="Control+ArrowRight Shift+N"
+              onClick={next}
+            >
               <ForwardIcon size={26} />
             </button>
           </div>
           <button
             className={toggle}
             aria-label={repeat === 'one' ? 'Repeat one' : repeat === 'all' ? 'Repeat all' : 'Repeat'}
+            title={`${repeat === 'one' ? 'Repeat one' : repeat === 'all' ? 'Repeat all' : 'Repeat'} (R)`}
+            aria-keyshortcuts="r"
             aria-pressed={repeat !== 'off'}
             onClick={cycleRepeat}
           >

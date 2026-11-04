@@ -281,8 +281,16 @@ object TrackMatcher {
         // vouch for a catalogue row credited to completely different
         // people. This exact exception is what admitted the 3:30 Lovely
         // track for Yo Yo Honey Singh's 3:31 "Brown Rang" video.
+        //
+        // A runtime is still one witness, and a common title finds it by
+        // chance: Mat Kearney's 3:35 "As Long As I Live" was played as the
+        // FLAC of Catherine Russell's 3:34 one. So the release has to agree as
+        // well — see [onSameRelease]. A film's composer and its singer are
+        // credited on the same soundtrack; two strangers sharing a title are
+        // not, and a listing that names no release has nothing to offer here.
             ?: CREDITS_DISAGREE.takeIf {
-                !target.isVideo && withinSeconds(candidate, target, CREDIT_OVERRIDE_SEC)
+                !target.isVideo && withinSeconds(candidate, target, CREDIT_OVERRIDE_SEC) &&
+                    onSameRelease(target, wanted, candidate, got)
             }
             ?: return null
         val explicit = explicitScore(target.isExplicit, candidate.isExplicit) ?: return null
@@ -748,10 +756,41 @@ object TrackMatcher {
      * A disagreement is not a veto: compilations and reissues can contain the
      * same master, and title/artist/runtime still have to do their usual work.
      */
-    private fun albumScore(wanted: String?, got: String?): Int {
-        val want = albumKey(wanted) ?: return 0
-        val have = albumKey(got) ?: return 0
-        return if (want == have) ALBUM_EXACT else 0
+    private fun albumScore(wanted: String?, got: String?): Int =
+        if (sameRelease(wanted, got)) ALBUM_EXACT else 0
+
+    /** Whether both sides name a release and it is the same one; false when either is unnamed. */
+    private fun sameRelease(wanted: String?, got: String?): Boolean {
+        val want = albumKey(wanted) ?: return false
+        return want == albumKey(got)
+    }
+
+    /**
+     * Whether the two listings place the recording on the same release: both
+     * albums named and equal, or one side's title naming the other's album in
+     * full — `Jhak Maar Ke (From "Desi Boyz")` against a row filed on "Desi
+     * Boyz". A film song's YouTube row names its soundtrack in the title far
+     * more reliably than in the album field.
+     */
+    private fun onSameRelease(target: Target, wanted: TitleParts, candidate: Song, got: TitleParts): Boolean =
+        sameRelease(target.album, candidate.albumName) ||
+            namesRelease(wanted, candidate.albumName) ||
+            namesRelease(got, target.album)
+
+    /** Whether [title]'s packaging carries every word of [album]'s name. */
+    private fun namesRelease(title: TitleParts, album: String?): Boolean {
+        val words = releaseWords(album)
+        return words.isNotEmpty() && title.context.containsAll(words)
+    }
+
+    /** [album]'s name as the words [classify] would keep from a title's aside. */
+    private fun releaseWords(album: String?): Set<String> {
+        var text = normalize(album.orEmpty())
+        repeat(BRACKET_PASSES) { text = BRACKETED.replace(text, " ") }
+        return text.split(WORD_SPLIT)
+            .map { it.replace(NON_ALNUM, "") }
+            .filter { (it.length > 2 || containsCJKChar(it)) && it !in NOISE_WORDS && it !in ALBUM_NOISE_WORDS }
+            .toSet()
     }
 
     /**

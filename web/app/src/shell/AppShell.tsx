@@ -13,6 +13,7 @@ import { useUi } from '@/state/ui';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
 import { MobileTopBar } from './MobileTopBar';
+import { PictureInPicturePortal } from './PictureInPicture';
 import { PlayerBar } from './PlayerBar';
 import { SidePanel } from './SidePanel';
 import { Sidebar } from './Sidebar';
@@ -90,6 +91,7 @@ export function AppShell() {
         <PlayerBar />
         <SidePanel />
       </div>
+      <PictureInPicturePortal />
       {banner}
       {fullScreen && (
         <Suspense fallback={null}>

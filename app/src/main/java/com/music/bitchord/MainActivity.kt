@@ -5180,7 +5180,7 @@ private fun BitChordApp(
                     }
                 },
                 onChangeCover = playlist?.takeIf {
-                    remote && target.type == BrowseType.PLAYLIST && !target.fromCard && !coverArtUploading
+                    remote && target.type == BrowseType.PLAYLIST && !coverArtUploading
                 }?.let { p ->
                     {
                         browseActions = null

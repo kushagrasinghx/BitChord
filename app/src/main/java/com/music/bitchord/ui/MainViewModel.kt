@@ -1020,6 +1020,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             include(playlist.thumbnailUrl)
             include(thumbnail)
+            (_home.value as? UiState.Success)?.data
+                ?.flatMap { it.items }?.filter { it.browseId == playlist.browseId }
+                ?.forEach { include(it.thumbnailUrl) }
             _playlists.value.filter { it.playlistId == playlist.playlistId }.forEach { include(it.thumbnailUrl) }
             _detailStack.value.filter { it.browseId == playlist.browseId }.forEach { include(it.thumbnailUrl) }
             (_library.value as? UiState.Success)?.data?.shelves
@@ -1050,6 +1053,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         _playlists.value = _playlists.value.map {
             if (it.playlistId == playlist.playlistId) it.copy(thumbnailUrl = revised(it.thumbnailUrl)) else it
+        }
+        (_home.value as? UiState.Success)?.let { home ->
+            _home.value = UiState.Success(home.data.map { shelf ->
+                shelf.copy(items = shelf.items.map {
+                    if (it.browseId == playlist.browseId) it.copy(thumbnailUrl = revised(it.thumbnailUrl)) else it
+                })
+            })
         }
         editPlaylistShelf { items ->
             items.map {

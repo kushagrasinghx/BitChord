@@ -448,6 +448,24 @@
     <string name="animated_cover_art_subtitle">Plays the looping video some releases ship instead of a still sleeve</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay won’t suggest a song already played or suggested this session</string>
     <string name="download_quality_subtitle">%1$s per track, whatever the connection</string>
+    <string name="download_mode" translatable="false">Download mode</string>
+    <string name="download_mode_in_app" translatable="false">Download in-app</string>
+    <string name="download_mode_in_app_desc" translatable="false">Save tracks directly to BitChord\'s offline library</string>
+    <string name="download_mode_external" translatable="false">External downloader</string>
+    <string name="download_mode_external_desc" translatable="false">Send tracks and playlists to an external download manager</string>
+    <string name="download_mode_footer" translatable="false">Choose whether BitChord manages downloads internally or delegates them to an external app.</string>
+    <string name="external_downloader_app" translatable="false">Downloader app</string>
+    <string name="external_downloader_app_footer" translatable="false">Select the external application to handle download requests.</string>
+    <string name="external_downloader_package" translatable="false">Package name</string>
+    <string name="external_downloader_custom_package_subtitle" translatable="false">Custom Android package name</string>
+    <string name="external_downloader_custom_package_dialog_title" translatable="false">Custom package name</string>
+    <string name="external_downloader_not_installed" translatable="false">%1$s is not installed on this device</string>
+    <string name="external_downloader_no_package_specified" translatable="false">Please specify a package name for the external downloader</string>
+    <string name="external_downloader_cannot_launch" translatable="false">Unable to launch %1$s</string>
+    <string name="downloader_ytdlnis" translatable="false">YTDLnis</string>
+    <string name="downloader_seal" translatable="false">Seal</string>
+    <string name="downloader_seal_plus" translatable="false">Seal Plus</string>
+    <string name="downloader_other" translatable="false">Other</string>
     <string name="filter_non_music_audio">Filter non-music audio</string>
     <string name="filter_non_music_audio_subtitle">Hides clips under 30 seconds, WAV files, voice notes, recordings and system sounds</string>
     <string name="performance">Performance</string>

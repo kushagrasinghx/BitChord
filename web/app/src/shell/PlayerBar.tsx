@@ -26,8 +26,6 @@ const transport = `${control} size-7 text-primary`;
 const action = 'grid h-7 w-6 place-items-center rounded-[4px] text-primary aria-pressed:text-key';
 // The actions the volume level slides in over: they fade out while it's open.
 const fading = `${action} ${fadeForVolume}`;
-// The sleep timer's button: as wide as its countdown, which follows the moon.
-const widening = `flex h-7 shrink-0 items-center justify-center gap-1 rounded-[4px] px-0.5 text-primary aria-pressed:text-key ${fadeForVolume}`;
 
 /** The floating glass player pill (report §1). */
 export function PlayerBar() {
@@ -54,7 +52,7 @@ export function PlayerBar() {
       data-panel-open={sidePanel !== null}
     >
       <div
-        className="glass-pill group/pill pointer-events-auto relative grid h-(--player-pill-height) w-[min(668px,100%)] grid-cols-[184px_minmax(180px,427px)_minmax(57px,auto)] items-center rounded-pill px-4"
+        className="glass-pill group/pill pointer-events-auto relative grid h-(--player-pill-height) w-[min(668px,100%)] grid-cols-[184px_minmax(0,427px)_auto] items-center rounded-pill px-4"
         role="region"
         aria-label="Player"
       >
@@ -97,7 +95,7 @@ export function PlayerBar() {
         >
           <FavoriteButton videoId={videoId} className={fading} />
           {track && <TrackMenu track={track} className={fading} placement="above-end" />}
-          <SleepTimerButton className={widening} />
+          <SleepTimerButton className={fading} />
           {/* Always here: the panel itself says whether this track has lyrics, and from where. */}
           <button className={fading} aria-label="Lyrics" aria-pressed={sidePanel === 'lyrics'} onClick={() => toggleSidePanel('lyrics')}>
             {sidePanel === 'lyrics' ? <LyricsActiveIcon size={18} /> : <LyricsIcon size={18} />}

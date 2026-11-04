@@ -4,7 +4,11 @@ import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { useSleepTimer } from '@/playback/sleepTimer';
 import { formatRemaining, SLEEP_CHOICES } from '@/playback/sleepTimerPlan';
 
-/** The player bar's sleep timer: a moon, the time left while it runs, and its choices. */
+/**
+ * The player bar's sleep timer: a moon, in the key colour while it runs. The
+ * time left is in its tooltip and atop its menu, not in the bar, which has no
+ * room to spare.
+ */
 export function SleepTimerButton({ className }: { className: string }) {
   const timer = useSleepTimer((s) => s.timer);
   const remaining = useSleepTimer((s) => s.remaining);
@@ -23,14 +27,11 @@ export function SleepTimerButton({ className }: { className: string }) {
         aria-expanded={anchor !== null}
         onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}
       >
-        <span className="flex items-center gap-1">
-          <Moon size={16} strokeWidth={2} />
-          {timer?.kind === 'minutes' && <span className="type-footnote tabular-nums">{left}</span>}
-        </span>
+        <Moon size={16} strokeWidth={2} />
       </button>
       {anchor && (
         <Menu anchor={anchor} placement="above-end" onClose={close} label="Sleep timer">
-          <MenuHeader>Stop playing in</MenuHeader>
+          <MenuHeader>{timer?.kind === 'minutes' ? `Stops in ${left}` : timer ? 'Stops at the end of this song' : 'Stop playing in'}</MenuHeader>
           {SLEEP_CHOICES.map((minutes) => (
             <MenuItem key={minutes} checked={timer?.kind === 'minutes' && timer.minutes === minutes} onSelect={() => (close(), start(minutes))}>
               {minutes} minutes

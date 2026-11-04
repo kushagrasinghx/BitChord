@@ -32,6 +32,7 @@ import { UpNext } from './UpNext';
 import { MixWindowHighlight, NerdStats } from './NerdStats';
 import { useScrubber } from './useScrubber';
 import { VideoQuality } from './VideoQuality';
+import { PictureInPictureButton } from './PictureInPicture';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
 
 function useBrowserFullScreen(): boolean {
@@ -416,6 +417,7 @@ export function FullScreenPlayer() {
         >
           <UpNextIcon size={18} />
         </button>
+        <PictureInPictureButton className={`${chromeButton} ${fadeForVolume} aria-pressed:text-primary`} iconSize={18} />
         <VolumeControl open={volumeOpen} onOpen={() => setVolumeOpen(true)} className={chromeButton} iconSize={18} />
       </div>
     </div>

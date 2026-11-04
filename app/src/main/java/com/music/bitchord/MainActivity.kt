@@ -327,6 +327,7 @@ import com.music.bitchord.ui.player.LocalPlayerDock
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.screens.DetailScreen
 import com.music.bitchord.ui.screens.sortedForDetail
+import com.music.bitchord.data.sortedForLibrary
 import com.music.bitchord.ui.screens.ExploreScreen
 import com.music.bitchord.ui.screens.LocalFolder
 import com.music.bitchord.ui.screens.LocalFolderState
@@ -2103,9 +2104,11 @@ private fun BitChordApp(
      * download folder with nothing to file it under.
      */
     val withBrowseSongs: (BrowseTarget, (List<Song>) -> Unit) -> Unit = { target, action ->
+        val sort = target.browseId?.let { detailSongSorts[it] } ?: SongSort.DEFAULT
         val stamp: (List<Song>) -> Unit = { songs ->
+            val sortedSongs = if (sort != SongSort.DEFAULT) songs.sortedForDetail(sort) else songs
             action(
-                songs.map { song ->
+                sortedSongs.map { song ->
                     song.copy(
                         albumName = if (target.type == BrowseType.ALBUM) {
                             song.albumName ?: target.title
@@ -3189,32 +3192,46 @@ private fun BitChordApp(
                                     page.browseId,
                                 )
                                 val selected = songs.getOrNull(index)
-                                val pageSongKeys =
-                                    (page.songs as? UiState.Success)?.data.orEmpty().mapTo(HashSet()) { it.contextEntryKey() }
-                                val useBounded =
+                                val rawPageSongs = (page.songs as? UiState.Success)?.data.orEmpty()
+                                val isFiltered = songs.size < rawPageSongs.size
+                                val pageSongKeys = rawPageSongs.mapTo(HashSet()) { it.contextEntryKey() }
+                                val useBounded = !isFiltered &&
                                     (page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST) &&
-                                        selected?.contextEntryKey()?.let(pageSongKeys::contains) == true &&
-                                        !CastController.state.value.casting
+                                    selected?.contextEntryKey()?.let(pageSongKeys::contains) == true &&
+                                    !CastController.state.value.casting
                                 val latestPage = if (useBounded) {
                                     viewModel.takePlaybackContext(page.browseId)
                                 } else {
                                     null
                                 }
+                                val folderSort = folder?.sort
                                 val latestSongs = latestPage
                                     ?.let { (it.songs as? UiState.Success)?.data.orEmpty() }
-                                    ?.map(withAlbum)
                                     ?.takeIf { it.isNotEmpty() }
-                                val queue = latestSongs ?: songs.map(withAlbum)
+                                    ?.let { raw ->
+                                        val sorted = when {
+                                            folderSort != null -> raw.sortedForLibrary(folderSort)
+                                            songSort != SongSort.DEFAULT -> raw.sortedForDetail(songSort)
+                                            else -> raw
+                                        }
+                                        sorted.map(withAlbum)
+                                    }
+                                val queue = if (isFiltered) songs.map(withAlbum) else (latestSongs ?: songs.map(withAlbum))
                                 if (queue.isEmpty()) return
                                 val queueIndex = selected?.let { tapped ->
                                     queue.indexOfFirst { it.contextEntryKey() == tapped.contextEntryKey() }
                                 }?.takeIf { it >= 0 } ?: index
+                                val continuationToken = if (songSort == SongSort.DEFAULT && folderSort == null) {
+                                    latestPage?.continuation ?: page.continuation
+                                } else {
+                                    null
+                                }
                                 playFrom(
                                     queue,
                                     queueIndex.coerceIn(queue.indices),
                                     source,
                                     boundedContext = useBounded,
-                                    continuationToken = latestPage?.continuation ?: page.continuation,
+                                    continuationToken = continuationToken,
                                 )
                             }
                             // This page's songs being rearranged, drawn in place of its list.

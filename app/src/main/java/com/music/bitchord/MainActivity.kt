@@ -1147,6 +1147,7 @@ private fun BitChordApp(
     var convertedVideoId by remember { mutableStateOf<String?>(null) }
     // Optimistically updated track for instant UI updates when switching versions
     var optimisticVersionSong by remember { mutableStateOf<Song?>(null) }
+    val preferAudioVersion by AppSettings.preferAudioVersion.collectAsStateWithLifecycle()
 
     // Lyrics follow whatever is playing; duration lands a beat after the track.
     // Keyed on the lyric settings too, so turning a source on or off, reordering
@@ -1373,7 +1374,7 @@ private fun BitChordApp(
                 TrackLog.w("Player", "audio switch found no distinct official song", song.videoId)
                 // The switch is always offered now, so say when there was nothing to switch to.
                 if (song.videoId !in missingVersions) missingVersions += song.videoId
-                if (stillCurrent) showQueueNotice(versionContext.getString(R.string.no_audio_version))
+                if (stillCurrent && !pauseWhileResolving) showQueueNotice(versionContext.getString(R.string.no_audio_version))
                 if (stillCurrent && resumeAfterResolution) c.play()
                 return
             }
@@ -1455,6 +1456,7 @@ private fun BitChordApp(
 
             convertedFromAudio = song
             convertedVideoId = video.videoId
+            keepVideoId = video.videoId
             TrackLog.d("Player", "video switch applying '${video.title}' (${video.videoId})", song.videoId)
             val target = video.copy(
                 queueTier = song.queueTier,
@@ -1577,6 +1579,17 @@ private fun BitChordApp(
             convertedFromAudio = null
             convertedVideoId = null
             switchingAudioVersion = false
+        }
+    }
+
+    // Start with the video MediaItem so the main player is populated at once,
+    // then resolve its catalogue counterpart behind the loading indicators.
+    // A failed/identical match simply resumes this untouched video.
+    LaunchedEffect(player.song?.videoId, preferAudioVersion, partyState.inParty) {
+        val song = player.song ?: return@LaunchedEffect
+        if (partyState.inParty) return@LaunchedEffect
+        if (preferAudioVersion && song.isVideo && song.videoId != keepVideoId) {
+            switchToMusicOnly(song, pauseWhileResolving = true)
         }
     }
 

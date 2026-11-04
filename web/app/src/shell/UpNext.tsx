@@ -1,10 +1,11 @@
 import { party, useParty } from '@/party/listenTogether';
 import { Infinity as InfinityIcon, MoreHorizontal, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { Artwork } from '@/components/music/Artwork';
 import { formatDuration } from '@/components/music/links';
 import { autoplaySectionStart, upcomingUserQueueIndices, type QueueEntry } from '@/playback/queue/timeline';
+import { formatSleepRemaining, SLEEP_TIMER_PRESETS, useSleepTimer } from '@/playback/sleepTimer';
 import { CROSSFADE_CHOICES, usePlayer } from '@/state/player';
 
 // The panel's square buttons: AutoPlay (the key colour when on) and the options menu.
@@ -115,6 +116,25 @@ export function UpNext() {
   const crossfadeSec = usePlayer((s) => s.crossfadeSec);
   const automix = usePlayer((s) => s.automix);
   const { clearUpNext, setAutoplay, setCrossfade, setAutomix, move } = usePlayer.getState();
+  const sleepDeadline = useSleepTimer((s) => s.deadline);
+  const sleepMinutes = useSleepTimer((s) => s.minutes);
+  const sleepAfterTrack = useSleepTimer((s) => s.afterTrack);
+  const sleepRunning = useSleepTimer((s) => s.isRunning);
+  const { start: startSleep, startAfterTrack: startSleepAfterTrack, cancel: cancelSleep } = useSleepTimer.getState();
+
+  const [remainingText, setRemainingText] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sleepDeadline) {
+      setRemainingText(null);
+      return;
+    }
+    const update = () => setRemainingText(formatSleepRemaining(sleepDeadline - Date.now()));
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [sleepDeadline]);
+
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const close = useCallback(() => setAnchor(null), []);
@@ -160,7 +180,20 @@ export function UpNext() {
         >
           <InfinityIcon size={16} strokeWidth={2.4} />
         </button>
-        <button className={square} aria-label="Playback options" aria-haspopup="menu" onClick={(e) => setAnchor(e.currentTarget)}>
+        <button
+          className={square}
+          aria-label="Playback options"
+          aria-haspopup="menu"
+          title={
+            sleepRunning
+              ? sleepAfterTrack
+                ? 'Playback options (Sleep after this song)'
+                : `Playback options (Sleep in ${remainingText ?? `${sleepMinutes}m`})`
+              : 'Playback options'
+          }
+          aria-pressed={sleepRunning}
+          onClick={(e) => setAnchor(e.currentTarget)}
+        >
           <MoreHorizontal size={16} />
         </button>
         {anchor && (
@@ -174,6 +207,23 @@ export function UpNext() {
             <MenuItem checked={automix} onSelect={() => (close(), setAutomix(true))}>
               Automix
             </MenuItem>
+            <MenuSeparator />
+            <MenuHeader>Sleep Timer</MenuHeader>
+            <MenuItem checked={!sleepRunning} onSelect={() => (close(), cancelSleep())}>
+              Off
+            </MenuItem>
+            <MenuItem checked={sleepAfterTrack} onSelect={() => (close(), startSleepAfterTrack())}>
+              End of song
+            </MenuItem>
+            {SLEEP_TIMER_PRESETS.map((m) => (
+              <MenuItem
+                key={m}
+                checked={sleepMinutes === m}
+                onSelect={() => (close(), startSleep(m))}
+              >
+                {m} minutes{sleepMinutes === m && remainingText ? ` (${remainingText} left)` : ''}
+              </MenuItem>
+            ))}
           </Menu>
         )}
       </div>

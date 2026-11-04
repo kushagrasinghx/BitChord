@@ -32,6 +32,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -229,6 +230,7 @@ internal fun InlineQueue(
     onRemove: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onClear: () -> Unit,
+    onSaveQueue: (() -> Unit)? = null,
     onScrollingChange: (Boolean) -> Unit = {},
     onDragActiveChange: (Boolean) -> Unit = {},
     /** Phone only: let queue scrolling dismiss/restore the lower half player. */
@@ -284,6 +286,11 @@ internal fun InlineQueue(
                 color = Color.White,
                 modifier = Modifier.weight(1f),
             )
+            onSaveQueue?.let { saveQueue ->
+                if (queue.isNotEmpty()) {
+                    QueueSaveButton(MaterialTheme.typography.titleMedium, onSave = saveQueue)
+                }
+            }
             if (tracks.user.isNotEmpty()) {
                 QueueClearButton(MaterialTheme.typography.titleMedium, controlsLocked, onClear)
             }
@@ -442,6 +449,30 @@ private fun QueueHeading(
             modifier = Modifier.weight(1f),
         )
         trailing()
+    }
+}
+
+@Composable
+private fun QueueSaveButton(style: TextStyle, onSave: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(percent = 50))
+            .clickable(onClick = onSave)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+            contentDescription = stringResource(Res.string.save_as_playlist),
+            tint = Color.White.copy(alpha = 0.75f),
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = stringResource(Res.string.save_as_playlist),
+            style = style,
+            color = Color.White.copy(alpha = 0.75f),
+        )
     }
 }
 

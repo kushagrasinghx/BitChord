@@ -1402,8 +1402,7 @@
     <string name="wear_os_code_hint">Код подключения</string>
     <string name="wear_os_done">Готово</string>
     <string name="signed_by">Подпись: %1$s</string>
-    <string name="song_info">Информация о песне</string>
-    <string name="song_info_album">Альбом</string>
+    <string name="song_info">Информация о песне</string>    <string name="song_info_album">Альбом</string>
     <string name="song_info_release_date">Дата выпуска</string>
     <string name="song_info_views">Прослушивания / просмотры</string>
     <string name="song_info_likes">Отметки «Нравится»</string>
@@ -1468,4 +1467,8 @@
     <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
     <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
     <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
+    <string name="save_as_playlist">Сохранить как плейлист</string>
+    <string name="save_queue_as_playlist">Сохранить очередь как плейлист</string>
+    <string name="save_radio_as_playlist">Сохранить радио как плейлист</string>
+    <string name="playlist_created">Плейлист создан: %1$s</string>
 </resources>

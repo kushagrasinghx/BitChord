@@ -1410,8 +1410,7 @@
     <string name="wear_os_code_hint">Kod parowania</string>
     <string name="wear_os_done">Gotowe</string>
     <string name="signed_by">Podpisano przez %1$s</string>
-    <string name="song_info">Informacje o utworze</string>
-    <string name="song_info_album">Album</string>
+    <string name="song_info">Informacje o utworze</string>    <string name="song_info_album">Album</string>
     <string name="song_info_release_date">Data wydania</string>
     <string name="song_info_views">Odtworzenia / wyświetlenia</string>
     <string name="song_info_likes">Polubienia</string>
@@ -1476,4 +1475,8 @@
     <string name="bit_perfect_status_inexact">%1$s · niedokładne: to źródło nie jest bezstratnym PCM</string>
     <string name="bit_perfect_status_waiting">Oczekiwanie na bezstratny utwór na obsługiwanym wyjściu</string>
     <string name="bit_perfect_status_unavailable">Niedostępne dla tego utworu (%1$s)</string>
+    <string name="save_as_playlist">Zapisz jako playlistę</string>
+    <string name="save_queue_as_playlist">Zapisz kolejkę jako playlistę</string>
+    <string name="save_radio_as_playlist">Zapisz radio jako playlistę</string>
+    <string name="playlist_created">Utworzono playlistę: %1$s</string>
 </resources>

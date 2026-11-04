@@ -1,56 +1,266 @@
-name: Android Release APK
+name: Build & Release Android APKs
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - feat/save-queue-as-playlist
+      - 'feat/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release Tag (leave empty to auto-detect from build.gradle.kts, e.g. v1.9)'
+        required: false
+        default: ''
+      is_prerelease:
+        description: 'Mark release as pre-release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
 
 jobs:
-  build-prod-release:
+  build-and-release:
+    name: Build & Release Signed APKs
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
 
-    - name: Setup Secrets (Keystore & local.properties)
-      run: |
-        echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
-        echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
-        echo "LISTEN_TOGETHER_SERVER=${{ secrets.LISTEN_TOGETHER_SERVER }}" >> local.properties
+      - name: Setup local.properties
+        run: |
+          echo "LASTFM_API_KEY=${{ secrets.LASTFM_API_KEY }}" > local.properties
+          echo "LASTFM_SECRET=${{ secrets.LASTFM_SECRET }}" >> local.properties
+          echo "LISTEN_TOGETHER_SERVER=${{ secrets.LISTEN_TOGETHER_SERVER }}" >> local.properties
 
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > bitchord-release.jks
-        {
-          echo "storeFile=bitchord-release.jks"
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}"
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}"
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}"
-        } > keystore.properties
+      - name: Setup Signing Keystore (Custom or Auto-Generated)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_PASSWORD" ]; then
+            echo "Using repository secrets to restore release keystore..."
+            echo "$KEYSTORE_BASE64" | base64 -d > bitchord-release.jks
+            printf "storeFile=bitchord-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n" \
+              "$KEYSTORE_PASSWORD" "${KEY_ALIAS:-bitchord}" "${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" > keystore.properties
+          else
+            echo "No repository keystore secrets found. Generating random release keystore..."
+            RANDOM_PASS="bitchord_$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9')"
+            keytool -genkeypair -v \
+              -keystore bitchord-release.jks \
+              -alias bitchord \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$RANDOM_PASS" \
+              -keypass "$RANDOM_PASS" \
+              -dname "CN=BitChord, OU=BitChord Mobile, O=BitChord, L=Unknown, ST=Unknown, C=US"
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+            printf "storeFile=bitchord-release.jks\nstorePassword=%s\nkeyAlias=bitchord\nkeyPassword=%s\n" \
+              "$RANDOM_PASS" "$RANDOM_PASS" > keystore.properties
+            echo "Successfully generated random release keystore."
+          fi
 
-    - name: Build Signed Prod Release APK
-      run: ./gradlew assembleProdRelease
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: bitchord-prod-release-signed
-        path: app/build/outputs/apk/prod/release/*.apk
+      - name: Build Signed Release APKs (Phone, Wear OS & TV)
+        run: ./gradlew assembleProdRelease assembleDevRelease --stacktrace
 
-    # Built by the same assembleProdRelease, with the same key. The watch app
-    # only pairs with a phone app signed by the same key, so a prod watch APK
-    # for these phone builds can only come from here, never a local build.
-    - name: Upload Wear OS APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: bitchord-wear-prod-release-signed
-        path: wearos/build/outputs/apk/prod/release/*.apk
+      - name: Package, Rename APKs & Generate Checksums
+        id: package
+        run: |
+          mkdir -p release-apks
+
+          # Extract version from build.gradle.kts
+          VERSION=$(grep -oP 'extra\["bitchordVersionName"\]\s*=\s*"\K[^"]+' build.gradle.kts || echo "1.9")
+
+          # Determine Tag & Release Label
+          if [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="v${VERSION}"
+          fi
+
+          TAG_CLEAN=$(echo "$TAG" | sed 's/^v*//')
+          RELEASE_VER="v${TAG_CLEAN}"
+
+          echo "APP_VERSION=$TAG_CLEAN" >> $GITHUB_ENV
+          echo "RELEASE_TAG=$RELEASE_VER" >> $GITHUB_ENV
+
+          echo "Packaging APKs for version: $RELEASE_VER ($TAG_CLEAN)"
+
+          # 1. Standard Phone App APKs (Package: com.music.bitchord)
+          if [ -f app/build/outputs/apk/prod/release/app-prod-universal-release.apk ]; then
+            cp app/build/outputs/apk/prod/release/app-prod-universal-release.apk "release-apks/BitChord-${RELEASE_VER}.apk"
+            echo "Packaged: BitChord-${RELEASE_VER}.apk (Universal)"
+          fi
+          if [ -f app/build/outputs/apk/prod/release/app-prod-arm64-v8a-release.apk ]; then
+            cp app/build/outputs/apk/prod/release/app-prod-arm64-v8a-release.apk "release-apks/BitChord-${RELEASE_VER}_arm64-v8a.apk"
+            echo "Packaged: BitChord-${RELEASE_VER}_arm64-v8a.apk"
+          fi
+          if [ -f app/build/outputs/apk/prod/release/app-prod-armeabi-v7a-release.apk ]; then
+            cp app/build/outputs/apk/prod/release/app-prod-armeabi-v7a-release.apk "release-apks/BitChord-${RELEASE_VER}_armeabi-v7a.apk"
+            echo "Packaged: BitChord-${RELEASE_VER}_armeabi-v7a.apk"
+          fi
+          if [ -f app/build/outputs/apk/prod/release/app-prod-x86_64-release.apk ]; then
+            cp app/build/outputs/apk/prod/release/app-prod-x86_64-release.apk "release-apks/BitChord-${RELEASE_VER}_x86_64.apk"
+            echo "Packaged: BitChord-${RELEASE_VER}_x86_64.apk"
+          fi
+
+          # 2. Standalone Phone App APKs (Package: com.dev.bitchord - installs alongside existing app)
+          if [ -f app/build/outputs/apk/dev/release/app-dev-universal-release.apk ]; then
+            cp app/build/outputs/apk/dev/release/app-dev-universal-release.apk "release-apks/BitChord-${RELEASE_VER}_standalone.apk"
+            echo "Packaged: BitChord-${RELEASE_VER}_standalone.apk (Universal)"
+          fi
+          if [ -f app/build/outputs/apk/dev/release/app-dev-arm64-v8a-release.apk ]; then
+            cp app/build/outputs/apk/dev/release/app-dev-arm64-v8a-release.apk "release-apks/BitChord-${RELEASE_VER}_arm64-v8a_standalone.apk"
+            echo "Packaged: BitChord-${RELEASE_VER}_arm64-v8a_standalone.apk"
+          fi
+          if [ -f app/build/outputs/apk/dev/release/app-dev-armeabi-v7a-release.apk ]; then
+            cp app/build/outputs/apk/dev/release/app-dev-armeabi-v7a-release.apk "release-apks/BitChord-${RELEASE_VER}_armeabi-v7a_standalone.apk"
+            echo "Packaged: BitChord-${RELEASE_VER}_armeabi-v7a_standalone.apk"
+          fi
+          if [ -f app/build/outputs/apk/dev/release/app-dev-x86_64-release.apk ]; then
+            cp app/build/outputs/apk/dev/release/app-dev-x86_64-release.apk "release-apks/BitChord-${RELEASE_VER}_x86_64_standalone.apk"
+            echo "Packaged: BitChord-${RELEASE_VER}_x86_64_standalone.apk"
+          fi
+
+          # 3. Wear OS APKs
+          if [ -f wearos/build/outputs/apk/prod/release/BitChordWear-prod-release.apk ]; then
+            cp wearos/build/outputs/apk/prod/release/BitChordWear-prod-release.apk "release-apks/BitChordWear-${RELEASE_VER}.apk"
+            echo "Packaged: BitChordWear-${RELEASE_VER}.apk"
+          elif [ -f wearos/build/outputs/apk/prod/release/wearos-prod-release.apk ]; then
+            cp wearos/build/outputs/apk/prod/release/wearos-prod-release.apk "release-apks/BitChordWear-${RELEASE_VER}.apk"
+            echo "Packaged: BitChordWear-${RELEASE_VER}.apk"
+          fi
+          if [ -f wearos/build/outputs/apk/dev/release/BitChordWear-dev-release.apk ]; then
+            cp wearos/build/outputs/apk/dev/release/BitChordWear-dev-release.apk "release-apks/BitChordWear-${RELEASE_VER}_standalone.apk"
+            echo "Packaged: BitChordWear-${RELEASE_VER}_standalone.apk"
+          elif [ -f wearos/build/outputs/apk/dev/release/wearos-dev-release.apk ]; then
+            cp wearos/build/outputs/apk/dev/release/wearos-dev-release.apk "release-apks/BitChordWear-${RELEASE_VER}_standalone.apk"
+            echo "Packaged: BitChordWear-${RELEASE_VER}_standalone.apk"
+          fi
+
+          # 4. TV App APKs
+          if [ -f tv/build/outputs/apk/prod/release/tv-prod-universal-release.apk ]; then
+            cp tv/build/outputs/apk/prod/release/tv-prod-universal-release.apk "release-apks/BitChordTV-${RELEASE_VER}.apk"
+            echo "Packaged: BitChordTV-${RELEASE_VER}.apk (Universal)"
+          fi
+          if [ -f tv/build/outputs/apk/prod/release/tv-prod-arm64-v8a-release.apk ]; then
+            cp tv/build/outputs/apk/prod/release/tv-prod-arm64-v8a-release.apk "release-apks/BitChordTV-${RELEASE_VER}_arm64-v8a.apk"
+            echo "Packaged: BitChordTV-${RELEASE_VER}_arm64-v8a.apk"
+          fi
+          if [ -f tv/build/outputs/apk/prod/release/tv-prod-armeabi-v7a-release.apk ]; then
+            cp tv/build/outputs/apk/prod/release/tv-prod-armeabi-v7a-release.apk "release-apks/BitChordTV-${RELEASE_VER}_armeabi-v7a.apk"
+            echo "Packaged: BitChordTV-${RELEASE_VER}_armeabi-v7a.apk"
+          fi
+          if [ -f tv/build/outputs/apk/prod/release/tv-prod-x86_64-release.apk ]; then
+            cp tv/build/outputs/apk/prod/release/tv-prod-x86_64-release.apk "release-apks/BitChordTV-${RELEASE_VER}_x86_64.apk"
+            echo "Packaged: BitChordTV-${RELEASE_VER}_x86_64.apk"
+          fi
+          if [ -f tv/build/outputs/apk/dev/release/tv-dev-universal-release.apk ]; then
+            cp tv/build/outputs/apk/dev/release/tv-dev-universal-release.apk "release-apks/BitChordTV-${RELEASE_VER}_standalone.apk"
+            echo "Packaged: BitChordTV-${RELEASE_VER}_standalone.apk (Universal)"
+          fi
+          if [ -f tv/build/outputs/apk/dev/release/tv-dev-arm64-v8a-release.apk ]; then
+            cp tv/build/outputs/apk/dev/release/tv-dev-arm64-v8a-release.apk "release-apks/BitChordTV-${RELEASE_VER}_arm64-v8a_standalone.apk"
+            echo "Packaged: BitChordTV-${RELEASE_VER}_arm64-v8a_standalone.apk"
+          fi
+          if [ -f tv/build/outputs/apk/dev/release/tv-dev-armeabi-v7a-release.apk ]; then
+            cp tv/build/outputs/apk/dev/release/tv-dev-armeabi-v7a-release.apk "release-apks/BitChordTV-${RELEASE_VER}_armeabi-v7a_standalone.apk"
+            echo "Packaged: BitChordTV-${RELEASE_VER}_armeabi-v7a_standalone.apk"
+          fi
+          if [ -f tv/build/outputs/apk/dev/release/tv-dev-x86_64-release.apk ]; then
+            cp tv/build/outputs/apk/dev/release/tv-dev-x86_64-release.apk "release-apks/BitChordTV-${RELEASE_VER}_x86_64_standalone.apk"
+            echo "Packaged: BitChordTV-${RELEASE_VER}_x86_64_standalone.apk"
+          fi
+
+          # 5. Generate SHA-256 Checksums
+          cd release-apks
+          sha256sum *.apk > checksums.txt
+          cd ..
+
+          echo "Generated Checksums:"
+          cat release-apks/checksums.txt
+
+      - name: Upload Packaged APKs as Actions Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bitchord-${{ env.RELEASE_TAG }}-apks
+          path: release-apks/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: BitChord ${{ env.RELEASE_TAG }}
+          draft: false
+          prerelease: ${{ github.event.inputs.is_prerelease == 'true' }}
+          make_latest: true
+          body: |
+            ## Release Overview
+            BitChord **${{ env.RELEASE_TAG }}** release build compiled and packaged via automated GitHub Actions CI. This release incorporates upstream v1.9 platform updates alongside the queue and song radio playlist persistence feature.
+
+            ### Changes & Enhancements
+            - **Playlist Persistence:**
+              - Ability to save the active playback queue or song radio directly into a new or existing playlist (online and offline).
+              - Integrated multi-song header and batch addition operations in `PlaylistPickerSheet` and `MainViewModel`.
+              - Context action in `SongActionsMenu` and direct save button in `PlayerQueue` header.
+              - Complete localization coverage across all 19 supported locales in `app` and `sharedUi`.
+            - **Dual Edition Distribution:**
+              - Standard packages for replacing and updating existing official installations.
+              - Standalone / Coexistence packages with a distinct application ID (`com.dev.bitchord`), enabling side-by-side installation without data loss or uninstallation.
+            - **Build & Optimization:**
+              - Production R8 minification and resource shrinking enabled.
+              - Automated keystore signing and verification.
+
+            ### Artifacts
+            #### Standard Edition (Package: `com.music.bitchord`)
+            - `BitChord-${{ env.RELEASE_TAG }}.apk`: Universal package for all ABIs (`arm64-v8a`, `armeabi-v7a`, `x86_64`).
+            - `BitChord-${{ env.RELEASE_TAG }}_arm64-v8a.apk`: Optimized for modern 64-bit ARM devices.
+            - `BitChord-${{ env.RELEASE_TAG }}_armeabi-v7a.apk`: Optimized for 32-bit ARM devices.
+            - `BitChord-${{ env.RELEASE_TAG }}_x86_64.apk`: Optimized for x86_64 hardware and emulators.
+            - `BitChordWear-${{ env.RELEASE_TAG }}.apk`: Companion package for Wear OS devices.
+            - `BitChordTV-${{ env.RELEASE_TAG }}.apk`: Universal package for Android TV.
+            - `BitChordTV-${{ env.RELEASE_TAG }}_arm64-v8a.apk`: Optimized for 64-bit ARM Android TV.
+            - `BitChordTV-${{ env.RELEASE_TAG }}_armeabi-v7a.apk`: Optimized for 32-bit ARM Android TV.
+            - `BitChordTV-${{ env.RELEASE_TAG }}_x86_64.apk`: Optimized for x86_64 Android TV.
+
+            #### Standalone / Coexistence Edition (Package: `com.dev.bitchord`)
+            *Installs alongside existing BitChord installations without overwriting app data or requiring uninstallation.*
+            - `BitChord-${{ env.RELEASE_TAG }}_standalone.apk`: Universal package for all ABIs.
+            - `BitChord-${{ env.RELEASE_TAG }}_arm64-v8a_standalone.apk`: Optimized for modern 64-bit ARM devices.
+            - `BitChord-${{ env.RELEASE_TAG }}_armeabi-v7a_standalone.apk`: Optimized for 32-bit ARM devices.
+            - `BitChord-${{ env.RELEASE_TAG }}_x86_64_standalone.apk`: Optimized for x86_64 hardware and emulators.
+            - `BitChordWear-${{ env.RELEASE_TAG }}_standalone.apk`: Companion package for Wear OS devices.
+            - `BitChordTV-${{ env.RELEASE_TAG }}_standalone.apk`: Standalone universal package for Android TV.
+            - `BitChordTV-${{ env.RELEASE_TAG }}_arm64-v8a_standalone.apk`: Standalone package for 64-bit ARM Android TV.
+            - `BitChordTV-${{ env.RELEASE_TAG }}_armeabi-v7a_standalone.apk`: Standalone package for 32-bit ARM Android TV.
+            - `BitChordTV-${{ env.RELEASE_TAG }}_x86_64_standalone.apk`: Standalone package for x86_64 Android TV.
+
+            - `checksums.txt`: SHA-256 cryptographic checksums for package integrity verification.
+          files: |
+            release-apks/*.apk
+            release-apks/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

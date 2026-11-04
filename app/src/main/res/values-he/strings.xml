@@ -1375,8 +1375,7 @@
     <string name="wear_os_code_hint">קוד צימוד</string>
     <string name="wear_os_done">סיום</string>
     <string name="signed_by">נחתם על ידי %1$s</string>
-    <string name="song_info">מידע על השיר</string>
-    <string name="song_info_album">אלבום</string>
+    <string name="song_info">מידע על השיר</string>    <string name="song_info_album">אלבום</string>
     <string name="song_info_release_date">תאריך יציאה</string>
     <string name="song_info_views">השמעות / צפיות</string>
     <string name="song_info_likes">לייקים</string>
@@ -1441,4 +1440,8 @@
     <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
     <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
     <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
+    <string name="save_as_playlist">שמור כרשימת השמעה</string>
+    <string name="save_queue_as_playlist">שמור תור כרשימת השמעה</string>
+    <string name="save_radio_as_playlist">שמור רדיו כרשימת השמעה</string>
+    <string name="playlist_created">רשימת השמעה נוצרה: %1$s</string>
 </resources>

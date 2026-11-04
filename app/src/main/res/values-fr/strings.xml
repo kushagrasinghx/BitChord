@@ -1371,8 +1371,7 @@
     <string name="wear_os_code_hint">Code d\'association</string>
     <string name="wear_os_done">Terminé</string>
     <string name="signed_by">Signé par %1$s</string>
-    <string name="song_info">Informations sur le titre</string>
-    <string name="song_info_album">Album</string>
+    <string name="song_info">Informations sur le titre</string>    <string name="song_info_album">Album</string>
     <string name="song_info_release_date">Date de sortie</string>
     <string name="song_info_views">Écoutes / vues</string>
     <string name="song_info_likes">Mentions J’aime</string>
@@ -1437,4 +1436,8 @@
     <string name="bit_perfect_status_inexact">%1$s · inexact : cette source n\'est pas du PCM sans perte</string>
     <string name="bit_perfect_status_waiting">En attente d\'un morceau sans perte sur une sortie compatible</string>
     <string name="bit_perfect_status_unavailable">Indisponible pour ce morceau (%1$s)</string>
+    <string name="save_as_playlist">Enregistrer comme playlist</string>
+    <string name="save_queue_as_playlist">Enregistrer la file d\'attente comme playlist</string>
+    <string name="save_radio_as_playlist">Enregistrer la radio comme playlist</string>
+    <string name="playlist_created">Playlist créée : %1$s</string>
 </resources>

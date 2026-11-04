@@ -1347,8 +1347,7 @@
     <string name="wear_os_code_hint">Kode pemasangan</string>
     <string name="wear_os_done">Selesai</string>
     <string name="signed_by">Ditandatangani oleh %1$s</string>
-    <string name="song_info">Info lagu</string>
-    <string name="song_info_album">Album</string>
+    <string name="song_info">Info lagu</string>    <string name="song_info_album">Album</string>
     <string name="song_info_release_date">Tanggal rilis</string>
     <string name="song_info_views">Pemutaran / penayangan</string>
     <string name="song_info_likes">Suka</string>
@@ -1413,4 +1412,8 @@
     <string name="bit_perfect_status_inexact">%1$s · tidak persis: sumber ini bukan PCM lossless</string>
     <string name="bit_perfect_status_waiting">Menunggu trek lossless pada output yang didukung</string>
     <string name="bit_perfect_status_unavailable">Tidak tersedia untuk trek ini (%1$s)</string>
+    <string name="save_as_playlist">Simpan sebagai playlist</string>
+    <string name="save_queue_as_playlist">Simpan antrean sebagai playlist</string>
+    <string name="save_radio_as_playlist">Simpan radio sebagai playlist</string>
+    <string name="playlist_created">Playlist dibuat: %1$s</string>
 </resources>

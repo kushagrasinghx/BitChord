@@ -1309,8 +1309,7 @@
     <string name="wear_os_code_hint">Codice di associazione</string>
     <string name="wear_os_done">Fine</string>
     <string name="signed_by">Firmato da %1$s</string>
-    <string name="song_info">Informazioni sul brano</string>
-    <string name="song_info_album">Album</string>
+    <string name="song_info">Informazioni sul brano</string>    <string name="song_info_album">Album</string>
     <string name="song_info_release_date">Data di uscita</string>
     <string name="song_info_views">Riproduzioni / visualizzazioni</string>
     <string name="song_info_likes">Mi piace</string>
@@ -1375,4 +1374,8 @@
     <string name="bit_perfect_status_inexact">%1$s · non esatto: questa sorgente non è PCM lossless</string>
     <string name="bit_perfect_status_waiting">In attesa di un brano lossless su un\'uscita supportata</string>
     <string name="bit_perfect_status_unavailable">Non disponibile per questo brano (%1$s)</string>
+    <string name="save_as_playlist">Salva come playlist</string>
+    <string name="save_queue_as_playlist">Salva coda come playlist</string>
+    <string name="save_radio_as_playlist">Salva radio come playlist</string>
+    <string name="playlist_created">Playlist creata: %1$s</string>
 </resources>

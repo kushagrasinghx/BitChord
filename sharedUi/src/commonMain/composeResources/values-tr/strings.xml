@@ -198,4 +198,7 @@
     <string name="search_library_empty">Yerel Müzik klasörünüzdeki şarkıları arar.</string>
     <string name="search_library_hint">Şarkılar, Sanatçılar ve Albümler</string>
     <string name="search_library_no_results">Yerel Müzik’te “%1$s” ile eşleşen bir şey yok.</string>
+    <string name="save_as_playlist">Çalma listesi olarak kaydet</string>
+    <string name="save_queue_as_playlist">Sırayı çalma listesi olarak kaydet</string>
+    <string name="save_radio_as_playlist">Radyoyu çalma listesi olarak kaydet</string>
 </resources>

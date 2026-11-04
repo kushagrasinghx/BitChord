@@ -1370,8 +1370,7 @@
     <string name="wear_os_code_hint">पेयरिंग कोड</string>
     <string name="wear_os_done">हो गया</string>
     <string name="signed_by">%1$s द्वारा हस्ताक्षरित</string>
-    <string name="song_info">गाने की जानकारी</string>
-    <string name="song_info_album">एल्बम</string>
+    <string name="song_info">गाने की जानकारी</string>    <string name="song_info_album">एल्बम</string>
     <string name="song_info_release_date">रिलीज़ की तारीख</string>
     <string name="song_info_views">प्ले / व्यू</string>
     <string name="song_info_likes">पसंद</string>
@@ -1436,4 +1435,8 @@
     <string name="bit_perfect_status_inexact">%1$s · सटीक नहीं: यह सोर्स लॉसलेस PCM नहीं है</string>
     <string name="bit_perfect_status_waiting">समर्थित आउटपुट पर लॉसलेस ट्रैक का इंतज़ार है</string>
     <string name="bit_perfect_status_unavailable">इस ट्रैक के लिए उपलब्ध नहीं (%1$s)</string>
+    <string name="save_as_playlist">प्लेलिस्ट के रूप में सहेजें</string>
+    <string name="save_queue_as_playlist">कतार को प्लेलिस्ट के रूप में सहेजें</string>
+    <string name="save_radio_as_playlist">रेडियो को प्लेलिस्ट के रूप में सहेजें</string>
+    <string name="playlist_created">प्लेलिस्ट बनाई गई: %1$s</string>
 </resources>

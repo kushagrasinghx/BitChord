@@ -205,8 +205,7 @@
     <string name="import_spotify">Import Spotify</string>
     <string name="import_spotify_subtitle">From a playlist link</string>
     <string name="sign_in_with_google">Sign in with Google</string>
-    <string name="top_picks_for_you">Top Picks for You</string>
-    <string name="top_pick_made_for_you">Made for You</string>
+    <string name="top_picks_for_you">Top Picks for You</string>    <string name="top_pick_made_for_you">Made for You</string>
     <string name="top_pick_mood_for_you">Mood for You</string>
     <string name="top_pick_featuring">Featuring %1$s</string>
     <string name="top_pick_and_similar">%1$s &amp; Similar Artists</string>
@@ -277,4 +276,7 @@
     <string name="mix_view_one_bar">1 Bar</string>
     <string name="mix_view_seconds">%1$d sec</string>
     <string name="mix_view_bpm">%1$d bpm</string>
+    <string name="save_as_playlist">Save as playlist</string>
+    <string name="save_queue_as_playlist">Save queue as playlist</string>
+    <string name="save_radio_as_playlist">Save radio as playlist</string>
 </resources>

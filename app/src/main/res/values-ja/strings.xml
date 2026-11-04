@@ -1348,8 +1348,7 @@
     <string name="wear_os_code_hint">ペア設定コード</string>
     <string name="wear_os_done">完了</string>
     <string name="signed_by">%1$s のサイン</string>
-    <string name="song_info">曲の情報</string>
-    <string name="song_info_album">アルバム</string>
+    <string name="song_info">曲の情報</string>    <string name="song_info_album">アルバム</string>
     <string name="song_info_release_date">リリース日</string>
     <string name="song_info_views">再生回数 / 視聴回数</string>
     <string name="song_info_likes">高評価</string>
@@ -1414,4 +1413,8 @@
     <string name="bit_perfect_status_inexact">%1$s · 正確ではありません： このソースはロスレス PCM ではありません</string>
     <string name="bit_perfect_status_waiting">対応する出力でロスレスのトラックを待っています</string>
     <string name="bit_perfect_status_unavailable">このトラックでは利用できません（%1$s）</string>
+    <string name="save_as_playlist">プレイリストとして保存</string>
+    <string name="save_queue_as_playlist">キューをプレイリストとして保存</string>
+    <string name="save_radio_as_playlist">ラジオをプレイリストとして保存</string>
+    <string name="playlist_created">プレイリストを作成しました: %1$s</string>
 </resources>

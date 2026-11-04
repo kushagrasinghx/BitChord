@@ -198,4 +198,7 @@
     <string name="search_library_empty">Busca las canciones de tu carpeta de Música local.</string>
     <string name="search_library_hint">Canciones, artistas y álbumes</string>
     <string name="search_library_no_results">Nada en Música local coincide con “%1$s”.</string>
+    <string name="save_as_playlist">Guardar como playlist</string>
+    <string name="save_queue_as_playlist">Guardar cola como playlist</string>
+    <string name="save_radio_as_playlist">Guardar radio como playlist</string>
 </resources>

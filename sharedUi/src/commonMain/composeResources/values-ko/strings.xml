@@ -278,4 +278,7 @@
     <string name="mix_view_one_bar">1마디</string>
     <string name="mix_view_seconds">%1$d초</string>
     <string name="mix_view_bpm">%1$d bpm</string>
+    <string name="save_as_playlist">재생목록으로 저장</string>
+    <string name="save_queue_as_playlist">대기열을 재생목록으로 저장</string>
+    <string name="save_radio_as_playlist">라디오를 재생목록으로 저장</string>
 </resources>

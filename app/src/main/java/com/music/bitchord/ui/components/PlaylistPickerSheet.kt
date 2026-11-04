@@ -110,6 +110,8 @@ fun PlaylistPickerSheet(
     onCreate: (String, PlaylistPrivacy) -> Unit,
     onDismiss: () -> Unit,
     song: Song? = null,
+    songs: List<Song>? = null,
+    defaultTitle: String? = null,
     startCreating: Boolean = false,
     offline: Boolean = false,
 ) {
@@ -161,6 +163,7 @@ fun PlaylistPickerSheet(
                     onClose = { closeAfter {} },
                     onCreate = { name, privacy -> closeAfter { onCreate(name, privacy) } },
                     offline = offline,
+                    initialTitle = defaultTitle ?: "",
                 )
             } else {
                 SheetTopBar(
@@ -178,9 +181,12 @@ fun PlaylistPickerSheet(
                 if (song != null) {
                     SheetTrackHeader(song)
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+                } else if (!songs.isNullOrEmpty()) {
+                    SheetSongsHeader(songs = songs, defaultTitle = defaultTitle)
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
                 SheetHeading(
-                    stringResource(if (song != null) R.string.add_to_playlist else R.string.your_playlists)
+                    stringResource(if (song != null || !songs.isNullOrEmpty()) R.string.add_to_playlist else R.string.your_playlists)
                         .uppercase(Locale.getDefault()),
                 )
 
@@ -341,8 +347,10 @@ private fun NewPlaylistForm(
     onClose: () -> Unit,
     onCreate: (String, PlaylistPrivacy) -> Unit,
     offline: Boolean,
+    modifier: Modifier = Modifier,
+    initialTitle: String = "",
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(initialTitle) }
     var privacy by remember { mutableStateOf(PlaylistPrivacy.PRIVATE) }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -604,3 +612,45 @@ private fun PrivacyPill(
         )
     }
 }
+
+@Composable
+private fun SheetSongsHeader(
+    songs: List<Song>,
+    defaultTitle: String?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AsyncImage(
+            model = songs.firstOrNull()?.artworkAt(ROW_ART_PX),
+            contentDescription = null,
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .thumbnailBorder(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+        )
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = defaultTitle ?: stringResource(R.string.save_queue_as_playlist),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = pluralStringResource(R.plurals.song_count_plural, songs.size, songs.size),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+

@@ -2990,7 +2990,7 @@ private fun CurrentLyricLine(
                     clock = clock,
                     style = voiceStyle(stripStyle, text, alignEnd = false, laneLocked = false),
                     dimAlpha = UNSUNG_ALPHA_STRIP,
-                    maxLines = 1,
+                    maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                     glowAlpha = if (itemIndex == index) glow else 0f,
                     glowLayerOutset = GLOW_ROOM,
@@ -3010,7 +3010,7 @@ private fun CurrentLyricLine(
                         alignEnd = false,
                         laneLocked = false,
                     ),
-                    maxLines = 1,
+                    maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

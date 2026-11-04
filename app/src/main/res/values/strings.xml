@@ -127,6 +127,10 @@
     <string name="connected">Connected</string>
     <string name="account_integrations">Account &amp; integrations</string>
     <string name="spotify">Spotify</string>
+    <!-- Home row holding Spotify's daylist (the playlist it renames through the day). -->
+    <string name="home_daylist">Your daylist</string>
+    <!-- Home row of the library's own playlists. -->
+    <string name="home_your_playlists">Your playlists</string>
     <string name="spotify_connect_subtitle">Sign in to load your playlists. Playback uses YouTube Music.</string>
     <string name="spotify_sign_in">Sign in with Spotify</string>
     <string name="spotify_use_spdc_token">Use sp_dc token</string>

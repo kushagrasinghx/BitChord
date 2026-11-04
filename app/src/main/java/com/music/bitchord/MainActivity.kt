@@ -3329,6 +3329,26 @@ private fun BitChordApp(
                             TAB_HOME -> HomeScreen(
                                 state = homeState,
                                 listState = homeListState,
+                                // Your playlists' Show all: every one, on the Library's own
+                                // playlists page (the same grid, New playlist included).
+                                onShelfShowAll = {
+                                    navigator.push(
+                                        AppRoute.LibraryShowAll(
+                                            HomeShelf(
+                                                title = YtMusicRepository.PLAYLISTS_SHELF,
+                                                items = viewModel.playlists.value.map { playlist ->
+                                                    ShelfItem(
+                                                        title = playlist.title,
+                                                        subtitle = playlist.subtitle,
+                                                        thumbnailUrl = playlist.thumbnailUrl,
+                                                        videoId = null,
+                                                        browseId = playlist.browseId,
+                                                    )
+                                                },
+                                            ),
+                                        ),
+                                    )
+                                },
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
                                 title = stringResource(R.string.listen_now),

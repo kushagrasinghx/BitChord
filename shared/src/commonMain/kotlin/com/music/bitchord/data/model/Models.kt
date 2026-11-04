@@ -469,6 +469,13 @@ data class HomeShelf(
     val moreBrowseId: String? = null,
     val moreParams: String? = null,
     val layout: ShelfLayout = ShelfLayout.CARDS,
+    /**
+     * A row this app leads Home with itself, after Recently played (your
+     * daylist, your playlists): Find Your Mood comes after these, not between.
+     */
+    val leading: Boolean = false,
+    /** Set on a row with a page of its own to show in full (your playlists): Home gives it Show all. */
+    val showAll: Boolean = false,
 )
 
 /**

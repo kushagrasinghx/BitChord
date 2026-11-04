@@ -1043,6 +1043,7 @@
     <string name="output_precision">Output precision</string>
 
     <string name="prefer_usb_dac">Prefer USB DAC</string>
+    <string name="auto_play_on_bluetooth_connection">Auto-play on Bluetooth connection</string>
 
     <string name="bit_perfect_output">Bit-perfect output</string>
     <string name="bit_perfect_bypassed_footer">Bit-perfect output is ready, so the faded settings are bypassed and Dolby Atmos versions aren\'t requested. They work again when the DAC is disconnected or the mode is off.</string>

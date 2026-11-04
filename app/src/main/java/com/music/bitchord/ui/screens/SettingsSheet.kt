@@ -282,6 +282,7 @@ fun SettingsScreen(
     val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val hideStatusBarInPlayer by AppSettings.hideStatusBarInPlayer.collectAsStateWithLifecycle()
     val hideSongStatus by AppSettings.hideSongStatus.collectAsStateWithLifecycle()
+    val autoPlayOnBluetoothConnection by AppSettings.autoPlayOnBluetoothConnection.collectAsStateWithLifecycle()
     val showQueueHistory by AppSettings.showQueueHistory.collectAsStateWithLifecycle()
     val swipeToPlayNext by AppSettings.swipeToPlayNext.collectAsStateWithLifecycle()
     val dontRepeatSuggestions by AppSettings.dontRepeatSuggestions.collectAsStateWithLifecycle()
@@ -662,6 +663,14 @@ fun SettingsScreen(
                     checked = preferUsbDac,
                     onCheckedChange = AppSettings::setPreferUsbDac,
                     badge = stringResource(R.string.connected).takeIf { outputStatus.isUsb },
+                )
+            }
+            val autoPlayOnBluetoothConnectionTitle = stringResource(R.string.auto_play_on_bluetooth_connection)
+            row(autoPlayOnBluetoothConnectionTitle, "bluetooth", "auto", "play") {
+                SettingsSubRow(
+                    title = autoPlayOnBluetoothConnectionTitle,
+                    checked = autoPlayOnBluetoothConnection,
+                    onCheckedChange = AppSettings::setAutoPlayOnBluetoothConnection,
                 )
             }
             val bitPerfectTitle = stringResource(R.string.bit_perfect_output)

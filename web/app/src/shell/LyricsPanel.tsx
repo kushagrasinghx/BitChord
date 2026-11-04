@@ -8,7 +8,7 @@ import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
 import { LyricClock } from '@/lyrics/clock';
 import { onUngrantedChange, ungrantedOrigins } from '@/lyrics/http';
 import type { SourceState } from '@/lyrics/repository';
-import { enabledSources } from '@/lyrics/settings';
+import { enabledSources, useLyricsSettings } from '@/lyrics/settings';
 import { sourceById, type LyricsSourceId } from '@/lyrics/sources';
 import { useLyrics, useLyricsUi } from '@/lyrics/useLyrics';
 import { getAudio, getPlayhead, usePlayer } from '@/state/player';
@@ -22,7 +22,23 @@ type AmLyricsElement = HTMLElement & {
   highlightColor: string;
   fontFamily?: string;
   updateComplete?: Promise<unknown>;
+  showTranslation?: boolean;
+  showRomanization?: boolean;
+  applyTranslation?: () => Promise<void>;
+  applyRomanization?: () => Promise<void>;
 };
+
+function applyAlternates(el: AmLyricsElement) {
+  const { showTranslation, showRomanization } = useLyricsSettings.getState();
+  if (showTranslation && !el.showTranslation) {
+    el.showTranslation = true;
+    void el.applyTranslation?.();
+  }
+  if (showRomanization && !el.showRomanization) {
+    el.showRomanization = true;
+    void el.applyRomanization?.();
+  }
+}
 
 /**
  * am-lyrics' own footer offers to fetch from its own providers; ours decide
@@ -127,6 +143,22 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
       const sheet = new CSSStyleSheet();
       sheet.replaceSync(HIDE_FOOTER + FAR_LINES + FULL_SIZE);
       root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+      const onRootClick = (event: Event) => {
+        const target = (event.composedPath ? event.composedPath()[0] : event.target) as HTMLElement | null;
+        const btn = target?.closest?.('button');
+        const label = btn?.getAttribute('aria-label')?.toLowerCase() ?? '';
+        if (label.includes('translation')) {
+          setTimeout(() => {
+            useLyricsSettings.getState().setShowTranslation(Boolean(el.showTranslation));
+          }, 0);
+        } else if (label.includes('romanization')) {
+          setTimeout(() => {
+            useLyricsSettings.getState().setShowRomanization(Boolean(el.showRomanization));
+          }, 0);
+        }
+      };
+      root.addEventListener('click', onRootClick, { signal: unmounted.signal });
+      applyAlternates(el);
       // The full-screen column fades its top edge, but am-lyrics' toolbar
       // (romanize, translate, download) sits at the top of the same scroller
       // until the lines push it away. The fade grows with the scroll instead,
@@ -149,7 +181,12 @@ function LyricsView({ ttml, full }: { ttml: string; full: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (element.current && element.current.ttml !== ttml) element.current.ttml = ttml;
+    if (element.current && element.current.ttml !== ttml) {
+      element.current.ttml = ttml;
+      void Promise.resolve(element.current.updateComplete).then(() => {
+        if (element.current) applyAlternates(element.current);
+      });
+    }
   }, [ttml]);
 
   useEffect(() => {

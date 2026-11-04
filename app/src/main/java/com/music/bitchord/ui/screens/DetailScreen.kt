@@ -1,6 +1,9 @@
 package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.components.trackArtSize
+import com.music.bitchord.ui.SongSelection
+import com.music.bitchord.ui.components.SongSelectionActions
+import com.music.bitchord.ui.components.SongSelectionBar
 import android.os.Build
 import com.music.bitchord.R
 
@@ -351,6 +354,13 @@ fun DetailScreen(
      * [ArtworkPalette] so it reads as this page rather than a sheet over it.
      */
     reorder: (@Composable (ArtworkPalette) -> Unit)? = null,
+    /**
+     * Songs picked on this page to act on together, or null while not picking.
+     * While picking, a tap picks or unpicks a row instead of playing it, and
+     * [selectionActions]' bar floats under the top bar.
+     */
+    selection: SongSelection? = null,
+    selectionActions: SongSelectionActions? = null,
 ) {
     val rawSongs = (page.songs as? UiState.Success)?.data.orEmpty()
     // A folder keeps its own sort — the one its top bar menu sets — rather
@@ -764,11 +774,20 @@ fun DetailScreen(
                                 song.copy(thumbnailUrl = song.thumbnailUrl ?: page.thumbnailUrl)
                             },
                             onClick = {
-                                onSongClick(queue, position)
+                                if (selection != null && selectionActions != null) {
+                                    selectionActions.onToggle(song)
+                                } else {
+                                    onSongClick(queue, position)
+                                }
                             },
                             onLongPress = { onSongLongPress(song) },
                             onSwipeToQueue = { onSongSwipe(song) },
-                            rowBackground = Color.Transparent,
+                            // A picked row is tinted with the page's own accent.
+                            rowBackground = if (selection?.contains(song) == true) {
+                                palette.accent.copy(alpha = 0.22f)
+                            } else {
+                                Color.Transparent
+                            },
                             // The track's place on the release, not its place in
                             // what the filter — or a sort — left standing.
                             trackNumber = originalTrackNumbers[song.videoId].takeIf { numbered },
@@ -858,6 +877,16 @@ fun DetailScreen(
             if (isArtist) aboutItem()
         }
 
+                if (selection != null && selectionActions != null && folder == null) {
+                    SongSelectionBar(
+                        selection = selection,
+                        songs = songs,
+                        actions = selectionActions,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = topBarContentPadding(), start = PAGE_GUTTER, end = PAGE_GUTTER),
+                    )
+                }
                 if (folder != null && folderState != null && folderState.selecting) {
                     LocalFolderSelectionBar(
                         folder = folder,

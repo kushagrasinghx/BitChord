@@ -140,6 +140,13 @@
     <string name="now_playing">Now playing</string>
     <string name="selected">Selected</string>
     <string name="select_all">Select all</string>
+    <!-- Song menu and page menu: start picking several songs to act on together. -->
+    <string name="select_songs">Select</string>
+    <!-- Add to playlist, for several picked songs at once. -->
+    <plurals name="picked_songs_count">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
     <string name="password">Password</string>
     <string name="username">Username</string>
     <string name="login_failed">Login failed</string>
@@ -594,6 +601,7 @@
     </plurals>
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">Added to playlist</string>
+    <string name="removed_from_playlist_notice">Removed from playlist</string>
     <string name="song_already_in_playlist">Already in playlist</string>
     <plurals name="add_to_playlists_count">
         <item quantity="one">Add to %1$d playlist</item>

@@ -123,6 +123,12 @@ fun SongActionsMenu(
     modifier: Modifier = Modifier,
     onRemoveFromPlaylist: (() -> Unit)? = null,
     /**
+     * Starts picking several songs on the page this one was opened from, with
+     * this one picked. Null hides the row: off a playlist or album page there
+     * is no list to pick from.
+     */
+    onSelect: (() -> Unit)? = null,
+    /**
      * Takes this track out of the song cache. Null hides the row — the caller
      * passes one only while the cache actually holds some of it.
      */
@@ -305,6 +311,14 @@ fun SongActionsMenu(
         // ride in this group rather than one of their own because for a
         // device file they can all be absent, and a group may not be empty.
         if (startsGroup()) IosMenuSeparator()
+        onSelect?.let {
+            ActionRow(
+                icon = SfIcons.Check,
+                label = stringResource(R.string.select_songs),
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
         ActionRow(
             icon = SfIcons.Radio,
             label = stringResource(R.string.start_radio),

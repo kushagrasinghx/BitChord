@@ -612,6 +612,55 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _detailStack = MutableStateFlow<List<DetailPage>>(emptyList())
     val detailStack: StateFlow<List<DetailPage>> = _detailStack.asStateFlow()
 
+    private val _selection = MutableStateFlow<SongSelection?>(null)
+    /** Songs picked on the open playlist or album page; null while not picking. */
+    val selection: StateFlow<SongSelection?> = _selection.asStateFlow()
+
+    /** Starts picking on [browseId]'s page, with [song] picked when it came from that song's menu. */
+    fun startSelection(browseId: String, song: Song? = null) {
+        _selection.value = SongSelection(browseId, setOfNotNull(song?.videoId))
+    }
+
+    fun toggleSelected(song: Song) {
+        _selection.value = _selection.value?.toggled(song)
+    }
+
+    fun selectAll(browseId: String, songs: List<Song>) {
+        _selection.value = (_selection.value ?: SongSelection(browseId)).withAll(songs)
+    }
+
+    fun clearSelection() {
+        _selection.value = null
+    }
+
+    /**
+     * Remove from Playlist for every picked song at once: one request for all
+     * of them (several edits at once, YouTube refuses some), then off the open
+     * page straight away, as [removeFromPlaylist] does for one.
+     */
+    fun removeFromPlaylist(browseId: String, songs: List<Song>, onResult: (Boolean) -> Unit = {}) {
+        val entries = songs.mapNotNull { song -> song.setVideoId?.let { it to song.videoId } }
+        if (entries.isEmpty() || !requireSignIn()) return onResult(false)
+        val removed = entries.mapTo(HashSet()) { it.first }
+        viewModelScope.launch {
+            YtMusicRepository.removeFromPlaylist(browseId.removePrefix("VL"), entries).fold(
+                onSuccess = {
+                    libraryStale = true
+                    _detailStack.value = _detailStack.value.map { page ->
+                        val current = (page.songs as? UiState.Success)?.data
+                        if (page.browseId != browseId || current == null) {
+                            page
+                        } else {
+                            page.copy(songs = UiState.Success(current.filterNot { it.setVideoId in removed }))
+                        }
+                    }
+                    onResult(true)
+                },
+                onFailure = { onResult(false) },
+            )
+        }
+    }
+
     /**
      * The app's back stack: the routes pushed over the tabs, interleaved with
      * [detailStack]. Held here so it survives a configuration change along
@@ -1006,6 +1055,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * with a rate limit. The duplicate check is per playlist, so a track
      * already in one of them is skipped there and still added to the rest.
      */
+    /**
+     * Add to Playlist for several picked songs: per playlist, one request with
+     * every song it doesn't hold yet. Playlists in turn, not at once, for the
+     * rate limit [addToPlaylists] explains. [onResult] counts playlists.
+     */
+    fun addSongsToPlaylists(
+        playlists: List<UserPlaylist>,
+        songs: List<Song>,
+        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
+    ) {
+        if (!requireSignIn() || playlists.isEmpty() || songs.isEmpty()) return
+        viewModelScope.launch {
+            val outcomes = playlists.map { playlist ->
+                val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
+                    ?.songs as? UiState.Success)?.data
+                val known = (openSongs ?: YtMusicRepository.allSongs(playlist.browseId).getOrNull())
+                    .orEmpty().mapTo(HashSet()) { it.videoId }
+                val fresh = songs.filter { it.videoId !in known }.distinctBy { it.videoId }
+                if (fresh.isEmpty()) return@map AddOutcome.ALREADY_THERE
+                YtMusicRepository.addToPlaylist(playlist.playlistId, fresh.map { it.videoId }).fold(
+                    onSuccess = { added ->
+                        libraryStale = true
+                        fresh.forEach { appendToOpenPlaylist(playlist.browseId, it, added[it.videoId]) }
+                        AddOutcome.ADDED
+                    },
+                    onFailure = { AddOutcome.FAILED },
+                )
+            }
+            onResult(
+                outcomes.count { it == AddOutcome.ADDED },
+                outcomes.count { it == AddOutcome.ALREADY_THERE },
+                outcomes.count { it == AddOutcome.FAILED },
+            )
+        }
+    }
+
     fun addToPlaylists(
         playlists: List<UserPlaylist>,
         song: Song,
@@ -1048,14 +1133,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * track's menu — one request, so it can't half-succeed into an empty
      * playlist the user has to add to again.
      */
-    fun createPlaylist(title: String, privacy: PlaylistPrivacy, song: Song? = null) {
+    fun createPlaylist(
+        title: String,
+        privacy: PlaylistPrivacy,
+        song: Song? = null,
+        /** Several picked songs to seed it with instead of one. */
+        songs: List<Song> = listOfNotNull(song),
+    ) {
         if (!requireSignIn()) return
         val name = title.trim().ifBlank { text(R.string.new_playlist) }
+        val first = songs.firstOrNull()
         viewModelScope.launch {
             YtMusicRepository.createPlaylist(
                 title = name,
                 privacy = privacy,
-                videoIds = listOfNotNull(song?.videoId),
+                videoIds = songs.map { it.videoId }.distinct(),
             ).fold(
                 onSuccess = { playlistId ->
                     // Nothing to look up for a playlist this account has just
@@ -1071,8 +1163,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         // surfaces that draw it leave a blank one out, so an
                         // unseeded playlist gets a card of just its name rather
                         // than a guess at what the feed will call it.
-                        subtitle = if (song != null) "1 song" else "",
-                        thumbnailUrl = song?.thumbnailUrl,
+                        subtitle = when (songs.size) {
+                            0 -> ""
+                            1 -> "1 song"
+                            else -> "${songs.size} songs"
+                        },
+                        thumbnailUrl = first?.thumbnailUrl,
                     )
                     // Drawn from what was just sent rather than waited for: the
                     // library feed does not have this playlist yet, and the

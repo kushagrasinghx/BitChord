@@ -429,6 +429,33 @@ class FloatDspChainTest {
         assertTrue("The limiter should turn the over down, not mute it (got $peak)", peak > 0.9f)
     }
 
+    @Test
+    fun `loudness limiter catches overs produced by spatial audio when equaliser is disabled`() {
+        val chain = DspChain()
+        chain.configure(sampleRate, 2)
+        chain.spatial.enabled = true
+        chain.equalizer.setTuning(enabled = false, EqCurve.FLAT, balance = 0f)
+        chain.transition.open()
+        chain.flush()
+
+        val frames = 512
+        val block = AudioBlock(channelCount = 2, capacityFrames = frames)
+        // Stereo signal with out-of-phase energy that triggers wide side expansion
+        for (f in 0 until frames) {
+            val s = 0.95f * sin(2.0 * PI * 100.0 * f / sampleRate).toFloat()
+            block.samples[f * 2] = s
+            block.samples[f * 2 + 1] = -s
+        }
+        block.reset(frames)
+
+        chain.process(block)
+
+        var peak = 0f
+        for (i in 0 until frames * 2) peak = maxOf(peak, abs(block.samples[i]))
+        assertTrue("Chain output with spatial enabled must stay under limiter ceiling (got $peak)", peak <= PeakLimiter.CEILING + 1e-5f)
+        assertTrue("The limiter should preserve the widened signal without muting (got $peak)", peak > 0.8f)
+    }
+
     /**
      * Holding the limiter on for the equaliser must not outlive it: once the
      * curve has glided flat, the chain has to be bit-exact again, loud source

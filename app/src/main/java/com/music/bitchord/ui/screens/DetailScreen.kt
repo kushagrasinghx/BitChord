@@ -515,6 +515,7 @@ fun DetailScreen(
     LaunchedEffect(artistVideo, canvasEnabled) {
         if (isArtist) canvas = artistVideo?.takeIf { canvasEnabled }?.let { CanvasArtwork(url = it) }
     }
+    val visibleCanvas = canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }
 
     // Opening the search carries the page up to it, so the field lands just
     // clear of the frosted bar with the tracks under it rather than at the foot
@@ -569,7 +570,7 @@ fun DetailScreen(
                     PageBackground(
                         page = page,
                         palette = palette,
-                        canvas = canvas,
+                        canvas = visibleCanvas,
                         artHeight = artHeight,
                         listState = listState,
                         heroUrl = appleArt?.heroUrl,
@@ -595,7 +596,7 @@ fun DetailScreen(
                         palette = palette,
                         sleeveSize = sleeveSize,
                         fullBleed = fullBleedSleeve,
-                        canvas = canvas,
+                        canvas = visibleCanvas,
                         songs = songs,
                         onPlay = { onSongClick(songs, 0) },
                         onShuffle = { onShuffle(songs) },

@@ -82,6 +82,7 @@ import androidx.media3.common.Player
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.canvas.CanvasArtwork
 import com.music.bitchord.data.canvas.CanvasRepository
+import com.music.bitchord.data.canvas.CanvasSource
 import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
@@ -204,7 +205,9 @@ internal fun TvNowPlayingStage(
                 },
         ) {
             TvArtwork(url = song.thumbnailUrl, px = 720, shape = RectangleShape, modifier = Modifier.fillMaxSize())
-            canvas?.let { CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize()) }
+            canvas?.takeIf { !disableSpotifyCanvas || it.source != CanvasSource.SPOTIFY }?.let {
+                CanvasArtworkPlayer(canvas = it, isPlaying = isPlaying, modifier = Modifier.fillMaxSize())
+            }
         }
 
         // With the transport away, the song is named under the cover: the title and

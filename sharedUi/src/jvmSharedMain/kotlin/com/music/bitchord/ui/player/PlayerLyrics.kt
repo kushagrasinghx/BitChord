@@ -2951,7 +2951,7 @@ private fun CurrentLyricLine(
                     clock = clock,
                     style = voiceStyle(stripStyle, text, alignEnd = false, laneLocked = false),
                     dimAlpha = UNSUNG_ALPHA_STRIP,
-                    maxLines = 1,
+                    maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                     rise = false,
                     modifier = fading,
@@ -2968,7 +2968,7 @@ private fun CurrentLyricLine(
                         alignEnd = false,
                         laneLocked = false,
                     ),
-                    maxLines = 1,
+                    maxLines = 4,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

@@ -46,11 +46,13 @@ object QueueCoordinator {
 
     /** @see QueueTimeline.buildPartyPlaybackQueue */
     fun buildPartyPlaybackQueue(
-        tappedSong: Song,
+        songs: List<Song>,
+        selectedIndex: Int,
         source: QueueSource,
         upcomingPartyTracks: List<PartyTrack>,
     ): List<Song> = QueueTimeline.buildPartyPlaybackQueue(
-        tappedSong,
+        songs,
+        selectedIndex,
         source,
         upcomingPartyTracks.map { it.toSong() },
     )

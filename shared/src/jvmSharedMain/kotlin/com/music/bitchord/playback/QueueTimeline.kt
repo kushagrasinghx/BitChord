@@ -47,6 +47,8 @@ data class JumpOrderPlan(
  */
 object QueueTimeline {
 
+    const val MAX_PARTY_UPCOMING_QUEUE = 25
+
     /**
      * Converts a [Song] into a queue entry belonging to [tier].
      *
@@ -117,22 +119,28 @@ object QueueTimeline {
             upcomingUserQueue(currentTimeline, currentIndex)
 
     /**
-     * Constructs a single-song playback timeline for Listen Together mode:
+     * Constructs a playback timeline for Listen Together mode:
      *
-     * Invariant: [Tapped Track (CONTEXT)] + [Upcoming manual party tracks (USER_QUEUE)].
-     * Preceding and following context tracks from the album/playlist are excluded from the shared
-     * queue, and the previous track's AutoPlay suggestions are dropped. [upcomingPartySongs] is the
-     * party's own queue after its current track, in order.
+     * Invariant: [Selected Track (CONTEXT)] + [Upcoming manual party tracks] + [Following songs].
+     * Upcoming songs become USER_QUEUE so PartySync shares them rather than discarding local context.
+     * History and stale AutoPlay suggestions are excluded; the shared upcoming limit still applies.
      */
     fun buildPartyPlaybackQueue(
-        tappedSong: Song,
+        songs: List<Song>,
+        selectedIndex: Int,
         source: QueueSource,
         upcomingPartySongs: List<Song>,
-    ): List<Song> =
-        listOf(tappedSong.from(source).asQueueEntry(QueueTier.CONTEXT)) +
-            upcomingPartySongs
-                .filterNot { it.fromAutoplay }
-                .map { it.asQueueEntry(QueueTier.USER_QUEUE) }
+    ): List<Song> {
+        if (songs.isEmpty()) return emptyList()
+        val index = selectedIndex.coerceIn(songs.indices)
+        val manual = upcomingPartySongs.asSequence().filterNot { it.fromAutoplay }
+        val following = songs.asSequence().drop(index + 1).map { it.from(source) }
+        val upcoming = (manual + following)
+            .take(MAX_PARTY_UPCOMING_QUEUE)
+            .map { it.asQueueEntry(QueueTier.USER_QUEUE) }
+            .toList()
+        return listOf(songs[index].from(source).asQueueEntry(QueueTier.CONTEXT)) + upcoming
+    }
 
     /**
      * Finds the insertion index for user-queued tracks.

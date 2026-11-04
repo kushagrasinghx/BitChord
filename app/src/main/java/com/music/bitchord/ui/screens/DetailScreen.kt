@@ -81,15 +81,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
@@ -115,6 +113,10 @@ import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.compose.AsyncImagePainter
@@ -1473,6 +1475,7 @@ private fun PageBackground(
     heroUrl: String? = null,
     modifier: Modifier = Modifier,
 ) {
+    val hazeState = remember { HazeState() }
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     // Not under a canvas: a still blurred over the foot of a moving clip would
     // freeze the bottom of the video into the wrong picture.
@@ -1493,7 +1496,8 @@ private fun PageBackground(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .matchParentSize()
-                    .background(palette.elevated),
+                    .background(palette.elevated)
+                    .hazeSource(state = hazeState),
             )
 
             // Above the still art but below the scrim, so the scrim that
@@ -1508,27 +1512,24 @@ private fun PageBackground(
                 )
             }
 
-            // The same sleeve, blurred and faded in over the lower half, so the
-            // picture loses its detail before it loses its colour — a merge
-            // rather than a fade to a flat tint. The same request as the sharp
-            // copy, so it is a memory-cache hit and lands on the same frame.
+            // Progressively blur the still artwork over the lower foot region.
             if (softenFoot) {
-                AsyncImage(
-                    model = art,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .matchParentSize()
-                        // Offscreen so the mask cuts the blurred result rather
-                        // than each draw beneath it.
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(SOFT_FOOT_MASK, blendMode = BlendMode.DstIn)
-                        }
-                        // Rectangle keeps the edges clamped to the picture's own
-                        // colour rather than fading to transparent at the foot.
-                        .blur(SOFT_FOOT_BLUR, BlurredEdgeTreatment.Rectangle),
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.45f)
+                        .align(Alignment.BottomCenter)
+                        .hazeEffect(state = hazeState) {
+                            backgroundColor = palette.elevated
+                            tints = emptyList()
+                            blurRadius = SOFT_FOOT_BLUR
+                            progressive = HazeProgressive.verticalGradient(
+                                startY = 0f,
+                                startIntensity = 0f,
+                                endY = Float.POSITIVE_INFINITY,
+                                endIntensity = 1f,
+                            )
+                        },
                 )
             }
 
@@ -1565,17 +1566,6 @@ private fun PageBackground(
 private fun LazyListState.headerTop(artHeightPx: Float): Float =
     if (firstVisibleItemIndex == 0) -firstVisibleItemScrollOffset.toFloat() else -artHeightPx * 2f
 
-/** Where the blurred copy starts to show and where it has fully taken over. */
-private val SOFT_FOOT_MASK = Brush.verticalGradient(
-    0.55f to Color.Transparent,
-    0.85f to Color.Black,
-)
-
-/**
- * Wide enough that no shapes survive where the blurred copy is at full
- * strength — a blur that leaves them reads as a blurred photograph, and a
- * blurred photograph next to a flat colour is still two surfaces.
- */
 private val SOFT_FOOT_BLUR = 48.dp
 
 /**

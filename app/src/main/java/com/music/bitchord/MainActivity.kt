@@ -6152,7 +6152,10 @@ private fun playingYouTubesOwn(videoId: String, controller: MediaController?): B
     val uri = item.localConfiguration?.uri
     return QualityUpgrade.isKnownToBePlayingYouTubesOwn(
         videoId,
-        uri?.let(QualityUpgrade::cacheTag),
+        // A fresh play of an upgraded track carries no marker and reads the
+        // upgrade kept from an earlier play all the same — see
+        // [AudioCache.keptRenditionOf].
+        uri?.let { QualityUpgrade.cacheTag(it) ?: AudioCache.keptRenditionOf(it) },
         uri?.let(AudioCache::originOf),
     )
 }

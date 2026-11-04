@@ -1504,6 +1504,19 @@ class PlaybackService : MediaLibraryService() {
                     .setHttpRequestHeaders(headers)
                     .build()
             }
+            // A fresh play reading the upgrade an earlier play kept whole — see
+            // [AudioCache.keptUpgradeFor]. That copy is only ever chosen when
+            // every byte of it is on disk, so an open that reaches here means
+            // some of those bytes went missing underneath it, and nothing here
+            // knows the URL that wrote them: any stream resolved now would be a
+            // different file finished into the middle of that one. Failing
+            // hands the track to recovery, which drops the entry and plays it
+            // afresh.
+            if (QualityUpgrade.cacheTag(dataSpec.uri) == null &&
+                dataSpec.key?.let(::isReusableUpgradeKey) == true
+            ) {
+                throw java.io.IOException("kept rendition ${dataSpec.key} is no longer whole on disk")
+            }
             // An upgraded item carries a marker and its stream has already
             // been found — see [QualityUpgrade]. Answered before anything
             // else, and without re-resolving: this exact URL is what the
@@ -4819,6 +4832,21 @@ class PlaybackService : MediaLibraryService() {
         }
 
         val upgradedUri = QualityUpgrade.upgradedUri(at.uri)
+        // A fresh play can already be reading the very rendition this would
+        // write — the upgrade an earlier play kept whole, see
+        // [AudioCache.keptUpgradeFor]. Swapping to it would cut the audio to
+        // land on the same bytes, and the audition's clean-slate discard below
+        // would pull them out from under the player first. Reached by a shelved
+        // upgrade re-offered on a return visit; nothing else gets this far for
+        // a track already playing its final copy.
+        val sameRendition = withContext(Dispatchers.IO) {
+            AudioCache.cacheKeyOf(Uri.parse(at.uri)) == AudioCache.cacheKeyOf(Uri.parse(upgradedUri))
+        }
+        if (sameRendition) {
+            QualityUpgrade.unshelve(mediaId)
+            TrackLog.d("BitChord", "no swap for $mediaId: it is already playing that rendition from disk", about = mediaId)
+            return
+        }
         // Whether the rendition entry already holds *this* stream's bytes,
         // asked before [force] overwrites the record of what filled it. True
         // only for a shelved upgrade being re-offered, where throwing the entry
@@ -5029,6 +5057,26 @@ class PlaybackService : MediaLibraryService() {
             if (!ListenTogether.state.value.inParty) {
                 launch(Dispatchers.IO) {
                     AudioCache.warmRange(Uri.parse(upgradedUri), 0, ANALYSIS_HEAD_BYTES)
+                }
+                // And the stretches nothing else downloads — between that head
+                // and the swap point, and whatever a seek jumps over — so the
+                // next play of the track can start on this copy instead of
+                // swapping up to it again. Only a copy that is final gets this;
+                // see [AudioCache.completeUpgrade] for when it stops. Under the
+                // service's scope rather than this job's, which a queue move
+                // cancels and the lossless pass waits on.
+                scope.launch(Dispatchers.IO + TrackLog.about(mediaId)) {
+                    AudioCache.completeUpgrade(
+                        uri = Uri.parse(upgradedUri),
+                        stream = stream,
+                        isPlaying = {
+                            withContext(Dispatchers.Main) {
+                                this@PlaybackService.player?.currentMediaItem
+                                    ?.localConfiguration?.uri?.toString() == upgradedUri
+                            }
+                        },
+                        permitted = { SourceRegistry.permitsForPlayback(stream.sourceConfigId) },
+                    )
                 }
             }
         }

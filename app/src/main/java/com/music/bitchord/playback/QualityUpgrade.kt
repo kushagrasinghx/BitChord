@@ -58,6 +58,19 @@ object QualityUpgrade {
     private const val ORIGINAL = "original"
 
     /**
+     * Every rendition tag an upgrade can leave on disk, the later generation
+     * first — see [upgradedUri]. Two and no more, because
+     * [PlaybackService.swapPointFor][com.music.bitchord.playback.PlaybackService]
+     * refuses to swap an item that is already a second generation. Read by
+     * [AudioCache] to find the better copy a previous play swapped in.
+     */
+    val UPGRADE_TAGS: List<String> = listOf("$UPGRADED-2", UPGRADED)
+
+    /** Whether [tag] is an upgrade's rendition marker, as opposed to a revert's or none. */
+    fun isUpgradeTag(tag: String?): Boolean =
+        tag != null && (tag == UPGRADED || tag.startsWith("$UPGRADED-"))
+
+    /**
      * A track playing on less than was asked for.
      *
      * [inFlight] is the live lookup that lost the race rather than ran out of

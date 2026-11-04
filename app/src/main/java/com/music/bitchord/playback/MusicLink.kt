@@ -35,6 +35,9 @@ sealed interface LinkRequest {
      * handed over. See [com.music.bitchord.data.LocalMediaRepository.songFromUri].
      */
     data class LocalFile(val uri: Uri) : LinkRequest
+
+    /** A track from the Quick Play widget with pre-cached metadata for instant start. */
+    data class QuickPlay(val song: com.music.bitchord.data.model.Song) : LinkRequest
 }
 
 /**
@@ -68,9 +71,31 @@ object MusicLink {
     /** The outstanding request, or null. Cleared by [handled]. */
     val pending: StateFlow<LinkRequest?> = _pending.asStateFlow()
 
+    const val EXTRA_QUICK_PLAY_ID = "bitchord.quickPlay.id"
+    const val EXTRA_QUICK_PLAY_TITLE = "bitchord.quickPlay.title"
+    const val EXTRA_QUICK_PLAY_ARTIST = "bitchord.quickPlay.artist"
+    const val EXTRA_QUICK_PLAY_THUMBNAIL = "bitchord.quickPlay.thumb"
+
     /** Reads an incoming intent, and reports whether it carried a request. */
     fun consume(intent: Intent?): Boolean {
         if (intent == null || intent.getBooleanExtra(EXTRA_CONSUMED, false)) return false
+        if (intent.hasExtra(EXTRA_QUICK_PLAY_ID)) {
+            val videoId = intent.getStringExtra(EXTRA_QUICK_PLAY_ID)
+            if (!videoId.isNullOrBlank()) {
+                val title = intent.getStringExtra(EXTRA_QUICK_PLAY_TITLE).orEmpty()
+                val artist = intent.getStringExtra(EXTRA_QUICK_PLAY_ARTIST).orEmpty()
+                val thumbnail = intent.getStringExtra(EXTRA_QUICK_PLAY_THUMBNAIL)
+                intent.putExtra(EXTRA_CONSUMED, true)
+                val song = com.music.bitchord.data.model.Song(
+                    videoId = videoId,
+                    title = title,
+                    artist = artist,
+                    thumbnailUrl = thumbnail,
+                )
+                _pending.value = LinkRequest.QuickPlay(song)
+                return true
+            }
+        }
         val request = when (intent.action) {
             // Only the audio filter in the manifest takes these two schemes, so
             // either one is a file to play rather than a link to look up.

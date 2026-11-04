@@ -26,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -112,12 +113,14 @@ fun PlaylistCoverArtDialog(
         ) {
             Text(
                 stringResource(R.string.playlist_cover_change),
+                color = Color.White,
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
             Text(
                 playlistTitle,
                 modifier = Modifier.padding(top = 4.dp),
+                color = Color.White,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
             )
@@ -136,6 +139,7 @@ fun PlaylistCoverArtDialog(
                     else -> R.string.playlist_cover_help
                 }),
                 modifier = Modifier.padding(top = 12.dp),
+                color = Color.White,
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
             )

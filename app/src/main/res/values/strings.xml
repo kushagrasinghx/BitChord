@@ -27,7 +27,7 @@
     <string name="playlist_cover_too_large">This image exceeds BitChord’s 10 MiB safety limit. Choose a smaller image.</string>
     <string name="playlist_cover_format">Only JPEG and PNG images are supported. Choose another image.</string>
     <string name="playlist_cover_invalid">This image could not be decoded. Choose another JPEG or PNG.</string>
-    <string name="playlist_cover_upload_failed">The cover update could not be confirmed. Check the playlist before retrying. Check your connection, sign in again if needed, and complete any account verification requested by YouTube in its official app or website.</string>
+    <string name="playlist_cover_upload_failed">Couldn\'t update the cover art. You may need to verify your phone number in YouTube Music to unlock this feature.</string>
     <string name="playlist_cover_updated">Cover artwork updated.</string>
     <string name="playlist_cover_refresh_failed">Cover artwork saved, but the refreshed artwork could not be loaded. Refresh the playlist to see it. No need to upload again.</string>
     <string name="close">Close</string>

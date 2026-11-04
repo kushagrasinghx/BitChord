@@ -1037,6 +1037,12 @@ private fun BitChordApp(
             viewModel.reloadLocalDetail(openPage.browseId)
         }
     }
+    LaunchedEffect(topDetail?.browseId, localPlaylists) {
+        val openPage = topDetail ?: return@LaunchedEffect
+        if (openPage.songs !is UiState.Loading && com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(openPage.browseId) != null) {
+            viewModel.reloadLocalDetail(openPage.browseId)
+        }
+    }
     LaunchedEffect(localMusicFolderUri, filterNonMusicAudio) {
         val open = topDetail?.browseId
         if (open == "local:all" || LocalGroups.folderOf(open) == "local:all") {
@@ -4458,6 +4464,13 @@ private fun BitChordApp(
                             songActions = null
                             OfflinePlaylists.remove(id, song)
                         }
+                    } ?: detail?.browseId
+                    ?.takeIf { !fromPlayer && com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(it) != null }
+                    ?.let { id ->
+                        {
+                            songActions = null
+                            com.music.bitchord.data.spotify.LocalPlaylistStore.removeSong(id, song.videoId)
+                        }
                     },
                 onRemoveFromCache = if (inCache) {
                     {
@@ -5021,10 +5034,13 @@ private fun BitChordApp(
             // One of the offline player's own playlists, which are the user's
             // to rename and delete — all but Liked, which is the app's.
             val offlineEditable = OfflinePlaylists.get(target.browseId)?.takeUnless { it.isLiked }
+            val localPlaylist = target.browseId?.let { com.music.bitchord.data.spotify.LocalPlaylistStore.getPlaylist(it) }
             BrowseActionsMenu(
                 // The live answer, not the one the target was built with.
                 target = target.copy(
                     playlist = playlist ?: offlineEditable?.let {
+                        UserPlaylist(playlistId = it.id, title = it.title, subtitle = "", thumbnailUrl = null)
+                    } ?: localPlaylist?.let {
                         UserPlaylist(playlistId = it.id, title = it.title, subtitle = "", thumbnailUrl = null)
                     },
                 ),
@@ -5131,6 +5147,12 @@ private fun BitChordApp(
                         OfflinePlaylists.rename(p.browseId, name)
                         viewModel.retitleDetail(p.browseId, name.trim())
                     }
+                } ?: localPlaylist?.let { p ->
+                    { name: String ->
+                        browseActions = null
+                        com.music.bitchord.data.spotify.LocalPlaylistStore.renamePlaylist(p.id, name.trim())
+                        viewModel.retitleDetail(p.browseId, name.trim())
+                    }
                 },
                 onReorder = playlist?.let { p ->
                     {
@@ -5170,6 +5192,13 @@ private fun BitChordApp(
                         // Its page has nothing left to show; take it away too.
                         if (detail?.browseId == p.browseId) viewModel.closeDetail()
                         OfflinePlaylists.delete(p.browseId)
+                    }
+                } ?: localPlaylist?.let { p ->
+                    {
+                        browseActions = null
+                        // Its page has nothing left to show; take it away too.
+                        if (detail?.browseId == p.browseId) viewModel.closeDetail()
+                        com.music.bitchord.data.spotify.LocalPlaylistStore.deletePlaylist(p.id)
                     }
                 },
                 onDeleteDownload = target.downloadId?.let { id ->

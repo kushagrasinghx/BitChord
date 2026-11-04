@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Secondary action buttons (like/favorite, next) in Quick Play widget.
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#40FFFFFF">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#26FFFFFF" />
+        </shape>
+    </item>
+</ripple>

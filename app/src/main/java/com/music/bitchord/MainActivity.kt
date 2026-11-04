@@ -1961,6 +1961,13 @@ private fun BitChordApp(
         // its rows, and half-serving a request would spend it.
         val session = controller ?: return@LaunchedEffect
         when (request) {
+            is LinkRequest.QuickPlay -> {
+                playRadio(
+                    request.song,
+                    QueueSource(context.getString(R.string.shelf_quick_picks), PlaybackSourceType.SEARCH, request.song.videoId),
+                )
+                showNowPlaying = true
+            }
             is LinkRequest.Track -> {
                 val song = YtMusicRepository.trackLinks(request.videoId).getOrNull()
                 if (song == null) {

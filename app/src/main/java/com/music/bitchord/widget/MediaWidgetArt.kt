@@ -169,6 +169,39 @@ internal object MediaWidgetArt {
     private fun circleKey(key: String, sizePx: Int) = "circle|$key|$sizePx"
 
     /**
+     * The cover cut to a [sizePx] square with rounded corners of [cornerRadiusPx],
+     * for the Quick Play widget's items and top artwork.
+     */
+    suspend fun squircle(
+        context: Context,
+        artworkUrl: String?,
+        sizePx: Int,
+        cornerRadiusPx: Float,
+        key: String,
+    ): Bitmap? {
+        peekSquircle(key, sizePx, cornerRadiusPx)?.let { return it }
+        if (isCoolingOff(key)) return null
+        val cover = loadArtwork(context, artworkUrl, sizePx)
+        if (cover == null) {
+            if (!artworkUrl.isNullOrBlank()) failures[key] = SystemClock.elapsedRealtime()
+            return null
+        }
+        val square = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        Canvas(square).fillCentreCropped(cover)
+        val round = square.withRoundedCorners(cornerRadiusPx)
+        if (round !== square) square.recycle()
+        composites.put(squircleKey(key, sizePx, cornerRadiusPx), round)
+        return round
+    }
+
+    /** [squircle]'s result if it has already been drawn. @see peek */
+    fun peekSquircle(key: String, sizePx: Int, cornerRadiusPx: Float): Bitmap? =
+        composites[squircleKey(key, sizePx, cornerRadiusPx)]?.takeIf { !it.isRecycled }
+
+    private fun squircleKey(key: String, sizePx: Int, cornerRadiusPx: Float) =
+        "squircle|$key|$sizePx|$cornerRadiusPx"
+
+    /**
      * The 4×1 widget's body: the cover filling a [widthPx] × [heightPx] capsule,
      * blurred until only its colours are left and darkened just enough for white
      * text — the backdrop the player's lyrics and queue stand on

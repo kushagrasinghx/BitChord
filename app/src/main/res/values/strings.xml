@@ -194,6 +194,8 @@
     <string name="widget_pill_label">Now playing 4×1</string>
     <string name="widget_pill_description">The track with Like, Shuffle and playback controls, in a single row.</string>
     <string name="widget_preview_pill">Song title - Artist</string>
+    <string name="widget_quick_play_label">Quick picks</string>
+    <string name="widget_quick_play_description">Playback controls and quick picks to start listening directly from your home screen.</string>
     <string name="download_quality">Download quality</string>
     <string name="download_wifi_only">Download over Wi-Fi only</string>
     <string name="convert_to_audio">Convert to audio</string>

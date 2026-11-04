@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Primary play/pause toggle button in Quick Play widget with ripple and prominent background.
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#40FFFFFF">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#FF006874" />
+        </shape>
+    </item>
+</ripple>

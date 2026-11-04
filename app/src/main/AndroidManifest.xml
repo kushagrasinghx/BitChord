@@ -717,6 +717,19 @@
                 android:resource="@xml/widget_media_pill" />
         </receiver>
 
+        <!-- The Quick Play widget. A 4x3 card with playback controls and 2x4 quick picks grid. -->
+        <receiver
+            android:name=".widget.QuickPlayWidget"
+            android:exported="false"
+            android:label="@string/widget_quick_play_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_play" />
+        </receiver>
+
         <!-- The transport buttons. Reached only by this app's own PendingIntents. -->
         <receiver
             android:name=".widget.MediaWidgetActions"

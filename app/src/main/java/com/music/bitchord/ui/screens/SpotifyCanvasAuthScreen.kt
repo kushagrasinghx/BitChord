@@ -3,9 +3,12 @@ package com.music.bitchord.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.music.bitchord.ui.icons.SfIcons
@@ -28,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -75,17 +79,16 @@ fun SpotifyCanvasAuthScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            SettingsRow(
+            SpotifyCanvasSettingToggle(
                 icon = SfIcons.MotionPhotosOff,
                 title = stringResource(R.string.disable_spotify_canvas),
                 subtitle = stringResource(R.string.disable_spotify_canvas_subtitle),
-                onClick = { AppSettings.setDisableSpotifyCanvas(!disableSpotify) },
-                trailing = {
-                    IosSwitch(checked = disableSpotify, onCheckedChange = AppSettings::setDisableSpotifyCanvas)
-                },
+                checked = disableSpotify,
+                onCheckedChange = AppSettings::setDisableSpotifyCanvas,
             )
 
             SpotifyCanvasSettingToggle(
+                icon = SfIcons.Clock,
                 title = stringResource(R.string.spotify_canvas_auto_hide),
                 subtitle = stringResource(R.string.spotify_canvas_auto_hide_subtitle),
                 checked = autoHidePlayer,
@@ -94,6 +97,7 @@ fun SpotifyCanvasAuthScreen(
             )
 
             SpotifyCanvasSettingToggle(
+                icon = SfIcons.StarFill,
                 title = stringResource(R.string.prioritize_spotify_canvas),
                 subtitle = stringResource(R.string.prioritize_spotify_canvas_subtitle),
                 checked = prioritizeSpotify,
@@ -130,6 +134,7 @@ fun SpotifyCanvasAuthScreen(
 
 @Composable
 private fun SpotifyCanvasSettingToggle(
+    icon: ImageVector,
     title: String,
     subtitle: String,
     checked: Boolean,
@@ -144,6 +149,13 @@ private fun SpotifyCanvasSettingToggle(
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.size(ICON_SIZE),
+        )
+        Spacer(Modifier.width(ICON_GAP))
         Column(
             modifier = Modifier
                 .weight(1f)

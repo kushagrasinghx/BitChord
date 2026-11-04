@@ -570,6 +570,13 @@ class PlaybackService : MediaLibraryService() {
     private var player: ExoPlayer? = null
 
     /**
+     * Whether the listener intentionally paused playback, so a Bluetooth
+     * connection must not unexpectedly resume it. Programmatic pauses (such as
+     * the becoming-noisy pause on a disconnect) do not set this.
+     */
+    private var manuallyPaused: Boolean = false
+
+    /**
      * The idle player. Between transitions it holds nothing; to arm one,
      * [CrossfadeController] loads it with the queue positioned on the incoming
      * track.
@@ -1374,6 +1381,26 @@ class PlaybackService : MediaLibraryService() {
                 .collect { requestOutputReconfiguration() }
         }
         scope.launch {
+            // Resume playback when an eligible Bluetooth audio output connects,
+            // gated on the dedicated setting and on the listener not having
+            // intentionally paused. A2DP is audio-output only, so keyboards,
+            // watches, controllers and other Bluetooth devices never reach here.
+            var previousConnected = bluetoothTracker.telemetry.value.isConnected
+            bluetoothTracker.telemetry.collect { telemetry ->
+                val connected = telemetry.isConnected
+                if (connected && !previousConnected) {
+                    if (AppSettings.autoPlayOnBluetoothConnection.value && !manuallyPaused) {
+                        val p = mediaSession?.player
+                        if (p != null && p.currentMediaItem != null && !p.isPlaying && p.playbackState != Player.STATE_ENDED) {
+                            p.play()
+                            manuallyPaused = false
+                        }
+                    }
+                }
+                previousConnected = connected
+            }
+        }
+        scope.launch {
             // Every resolve reads the ceiling afresh, but not everything that
             // plays is resolved afresh — see [onCeilingLowered].
             var previous = AppSettings.effectiveAudioQuality
@@ -1875,6 +1902,7 @@ class PlaybackService : MediaLibraryService() {
         player,
         crossfade,
         onUserIntent = { partySync?.onLocalIntent() },
+        onManualPlaybackState = { playing -> manuallyPaused = !playing },
         deferPlayToParty = { partySync?.shouldDeferPlay() == true },
         lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
         cast = speakers,
@@ -7841,6 +7869,8 @@ class PlaybackService : MediaLibraryService() {
          * a listener's action from its own corrections. See [PartySync].
          */
         private val onUserIntent: () -> Unit,
+        /** Reports whether playback was just started (true) or paused (false) by the user. */
+        private val onManualPlaybackState: (Boolean) -> Unit = {},
         /** @see PartySync.shouldDeferPlay */
         private val deferPlayToParty: () -> Boolean,
         /** @see PartySync.onLockedTransport */
@@ -8159,6 +8189,7 @@ class PlaybackService : MediaLibraryService() {
             // [PartySync.onLockedTransport], which owns that catch-up.
             if (lockedTransport(true)) return
             onUserIntent()
+            onManualPlaybackState(true)
             // Held back only when a party will schedule the start for everyone
             // at once — see [PartySync.shouldDeferPlay], which starts the player
             // itself on the party's instant, and starts it anyway if the party
@@ -8174,6 +8205,7 @@ class PlaybackService : MediaLibraryService() {
         override fun pause() {
             if (lockedTransport(false)) return
             onUserIntent()
+            onManualPlaybackState(false)
             if (cast.active) {
                 cast.pause()
                 return
@@ -8187,12 +8219,14 @@ class PlaybackService : MediaLibraryService() {
         override fun stop() {
             if (locked()) { super.stop(); return }
             onUserIntent()
+            onManualPlaybackState(false)
             super.stop()
         }
 
         override fun setPlayWhenReady(playWhenReady: Boolean) {
             if (lockedTransport(playWhenReady)) return
             onUserIntent()
+            onManualPlaybackState(playWhenReady)
             if (playWhenReady && deferPlayToParty()) return
             if (cast.active) {
                 if (playWhenReady) cast.play() else cast.pause()

@@ -138,7 +138,7 @@ fun ReplayScreen(
             summary == null || summary.isEmpty -> 0
             else -> replayChartIndex(summary, landingPage)
         }
-        listState.scrollToItem(target)
+        runCatching { listState.scrollToItem(target) }
         if (summary != null) landed = true
     }
 
@@ -363,7 +363,7 @@ internal fun ReplayCardRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         flingBehavior = rememberSnapFlingBehavior(lazyListState = rowState),
     ) {
-        items(cards, key = { it.label }) { card ->
+        items(cards, key = { "${it.label}_${it.page.name}" }) { card ->
             ReplayCreditCard(
                 label = card.label,
                 value = card.value,
@@ -385,12 +385,13 @@ internal fun ReplayCardRow(
 private fun replayChartIndex(summary: ReplaySummary, page: ReplayStoryPage): Int {
     val songs = summary.songRows(CHART_LENGTH)
     val artists = summary.artistRows(CHART_LENGTH)
+    val albums = summary.albumRows(CHART_LENGTH)
     fun span(rows: List<ReplayRow>): Int = if (rows.isEmpty()) 0 else rows.size + 2
 
     return when (page) {
-        ReplayStoryPage.SONGS -> 3
-        ReplayStoryPage.ARTISTS -> 3 + span(songs)
-        ReplayStoryPage.ALBUMS -> 3 + span(songs) + span(artists)
+        ReplayStoryPage.SONGS -> if (songs.isNotEmpty()) 3 else 0
+        ReplayStoryPage.ARTISTS -> if (artists.isNotEmpty()) 3 + span(songs) else if (songs.isNotEmpty()) 3 else 0
+        ReplayStoryPage.ALBUMS -> if (albums.isNotEmpty()) 3 + span(songs) + span(artists) else if (artists.isNotEmpty()) 3 + span(songs) else if (songs.isNotEmpty()) 3 else 0
         else -> 0
     }
 }
@@ -450,7 +451,7 @@ private fun LazyListScope.chart(
 ) {
     if (rows.isEmpty()) return
     item("$key-title") { SectionTitle(title, dark) }
-    items(rows, key = { "$key-${it.key}" }) { row ->
+    items(rows, key = { "$key-${it.rank}-${it.key}" }) { row ->
         ReplayChartRow(row, circular, dark) { onClick(row.rank - 1) }
     }
     item("$key-gap") { Spacer(Modifier.height(20.dp)) }
@@ -542,7 +543,7 @@ private fun Habits(summary: ReplaySummary, dark: Boolean) {
             Spacer(Modifier.height(10.dp))
             Note(stringResource(R.string.listen_most_around, formatHour(context, it)), dark)
         }
-        summary.busiestDay?.let {
+        summary.busiestDay?.takeIf { summary.busiestDayMs > 0 }?.let {
             Spacer(Modifier.height(6.dp))
             Note(
                 stringResource(

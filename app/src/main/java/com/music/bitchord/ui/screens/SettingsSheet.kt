@@ -158,6 +158,8 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.DownloadMode
+import com.music.bitchord.data.settings.ExternalDownloaderApp
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.playback.AudioOutputStatus
@@ -279,6 +281,10 @@ fun SettingsScreen(
     val cacheLimitBytes by AppSettings.audioCacheLimitBytes.collectAsStateWithLifecycle()
     val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
     val downloadQuality by AppSettings.downloadQuality.collectAsStateWithLifecycle()
+    val downloadMode by AppSettings.downloadMode.collectAsStateWithLifecycle()
+    val externalDownloaderApp by AppSettings.externalDownloaderApp.collectAsStateWithLifecycle()
+    val externalDownloaderPackage by AppSettings.externalDownloaderPackage.collectAsStateWithLifecycle()
+    var showCustomDownloaderPackageDialog by remember { mutableStateOf(false) }
     val wifiOnlyDownloads by AppSettings.wifiOnlyDownloads.collectAsStateWithLifecycle()
     val exportDownloads by AppSettings.exportDownloads.collectAsStateWithLifecycle()
     val syncDownloadedPlaylists by AppSettings.syncDownloadedPlaylists.collectAsStateWithLifecycle()
@@ -607,6 +613,42 @@ fun SettingsScreen(
         // it be fetched" — and those two questions only make sense read
         // together, which is what puts them side by side here.
         if (shows(SettingsCategory.DOWNLOADS)) SearchableSettingsGroup(search, header = stringResource(R.string.downloads)) {
+            val downloadModeTitle = stringResource(R.string.download_mode)
+            row(downloadModeTitle, "download", "external", "seal", "ytdlnis") {
+                SettingsRow(
+                    icon = SfIcons.Download,
+                    title = downloadModeTitle,
+                    subtitle = stringResource(
+                        if (downloadMode == DownloadMode.IN_APP) R.string.download_mode_in_app_desc
+                        else R.string.download_mode_external_desc
+                    ),
+                    value = stringResource(
+                        if (downloadMode == DownloadMode.IN_APP) R.string.download_mode_in_app
+                        else R.string.download_mode_external
+                    ),
+                    onClick = { onOpenChoice(SettingsChoiceKind.DOWNLOAD_MODE) },
+                )
+            }
+            if (downloadMode == DownloadMode.EXTERNAL) {
+                val externalDownloaderTitle = stringResource(R.string.external_downloader_app)
+                row(externalDownloaderTitle, "seal", "ytdlnis", "downloader", divided = false) {
+                    SettingsSubRow(
+                        title = externalDownloaderTitle,
+                        value = externalDownloaderApp.displayName(context),
+                        onClick = { onOpenChoice(SettingsChoiceKind.EXTERNAL_DOWNLOADER_APP) },
+                    )
+                }
+                if (externalDownloaderApp == ExternalDownloaderApp.OTHER) {
+                    val packageTitle = stringResource(R.string.external_downloader_package)
+                    row(packageTitle, "package", "custom", divided = false) {
+                        SettingsSubRow(
+                            title = packageTitle,
+                            subtitle = externalDownloaderPackage.ifBlank { stringResource(R.string.external_downloader_custom_package_subtitle) },
+                            onClick = { showCustomDownloaderPackageDialog = true },
+                        )
+                    }
+                }
+            }
             val downloadQualityTitle = stringResource(R.string.download_quality)
             row(downloadQualityTitle, "offline", "lossless") {
                 SettingsRow(
@@ -1851,6 +1893,37 @@ fun SettingsScreen(
     // Asked before the picker opens rather than after a file is chosen: the
     // thing being confirmed is that this device's own history is about to be
     // thrown away, and that is true whichever file gets picked.
+    if (showCustomDownloaderPackageDialog) {
+        var packageInput by remember { mutableStateOf(externalDownloaderPackage) }
+        AlertDialog(
+            onDismissRequest = { showCustomDownloaderPackageDialog = false },
+            title = { Text(stringResource(R.string.external_downloader_custom_package_dialog_title)) },
+            text = {
+                OutlinedTextField(
+                    value = packageInput,
+                    onValueChange = { packageInput = it },
+                    label = { Text(stringResource(R.string.external_downloader_package)) },
+                    placeholder = { Text("e.g. org.schabi.newpipe") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    AppSettings.setExternalDownloaderPackage(packageInput)
+                    showCustomDownloaderPackageDialog = false
+                }) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomDownloaderPackageDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
     if (confirmImport) {
         AlertDialog(
             onDismissRequest = { confirmImport = false },
@@ -2850,6 +2923,8 @@ enum class SettingsChoiceKind(@param:StringRes val title: Int) {
     AUDIO_QUALITY_WIFI(R.string.on_wifi),
     AUDIO_QUALITY_CELLULAR(R.string.on_mobile_data),
     DOWNLOAD_QUALITY(R.string.download_quality),
+    DOWNLOAD_MODE(R.string.download_mode),
+    EXTERNAL_DOWNLOADER_APP(R.string.external_downloader_app),
     AUTOMIX_PERFORMANCE(R.string.automix_performance),
     BIT_PERFECT(R.string.bit_perfect_output),
     FONT(R.string.font),
@@ -2912,6 +2987,52 @@ fun SettingsChoicePage(
                     // which sources a rung consults is read per stream off the
                     // connection in force; see [AudioQuality.permits].
                     if (wifi) AppSettings.setAudioQualityWifi(quality) else AppSettings.setAudioQualityCellular(quality)
+                    onChosen()
+                }
+            }
+
+            SettingsChoiceKind.DOWNLOAD_MODE -> {
+                val selected by AppSettings.downloadMode.collectAsStateWithLifecycle()
+                ChoiceGroup(
+                    options = DownloadMode.entries,
+                    selected = selected,
+                    label = {
+                        stringResource(
+                            if (it == DownloadMode.IN_APP) R.string.download_mode_in_app
+                            else R.string.download_mode_external
+                        )
+                    },
+                    detail = {
+                        stringResource(
+                            if (it == DownloadMode.IN_APP) R.string.download_mode_in_app_desc
+                            else R.string.download_mode_external_desc
+                        )
+                    },
+                    footer = stringResource(R.string.download_mode_footer),
+                ) { mode ->
+                    AppSettings.setDownloadMode(mode)
+                    onChosen()
+                }
+            }
+
+            SettingsChoiceKind.EXTERNAL_DOWNLOADER_APP -> {
+                val context = LocalContext.current
+                val selected by AppSettings.externalDownloaderApp.collectAsStateWithLifecycle()
+                ChoiceGroup(
+                    options = ExternalDownloaderApp.entries,
+                    selected = selected,
+                    label = { it.displayName(context) },
+                    detail = {
+                        when (it) {
+                            ExternalDownloaderApp.YTDLNIS -> "com.deniscerri.ytdl"
+                            ExternalDownloaderApp.SEAL -> "com.junkfood.seal"
+                            ExternalDownloaderApp.SEAL_PLUS -> "com.junkfood.sealplus"
+                            ExternalDownloaderApp.OTHER -> stringResource(R.string.external_downloader_custom_package_subtitle)
+                        }
+                    },
+                    footer = stringResource(R.string.external_downloader_app_footer),
+                ) { app ->
+                    AppSettings.setExternalDownloaderApp(app)
                     onChosen()
                 }
             }

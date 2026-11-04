@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.icons.SfIcons
 import com.music.bitchord.wear.WatchInstaller
 import android.content.Context
@@ -844,10 +845,17 @@ fun SettingsScreen(
             }
             val autoPlayOnBluetoothConnectionTitle = stringResource(R.string.auto_play_on_bluetooth_connection)
             row(autoPlayOnBluetoothConnectionTitle, "bluetooth", "auto", "play") {
-                SettingsSubRow(
+                SettingsRow(
+                    icon = BitChordIcons.BluetoothBroadcast,
                     title = autoPlayOnBluetoothConnectionTitle,
-                    checked = autoPlayOnBluetoothConnection,
-                    onCheckedChange = AppSettings::setAutoPlayOnBluetoothConnection,
+                    subtitle = stringResource(R.string.auto_play_on_bluetooth_connection_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = autoPlayOnBluetoothConnection,
+                            onCheckedChange = AppSettings::setAutoPlayOnBluetoothConnection,
+                        )
+                    },
+                    onClick = { AppSettings.setAutoPlayOnBluetoothConnection(!autoPlayOnBluetoothConnection) },
                 )
             }
             val spatialAudioTitle = stringResource(R.string.spatial_audio)

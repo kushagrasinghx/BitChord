@@ -465,9 +465,17 @@ object Innertube {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val client = HttpClient(OkHttp) {
+    private val client = musicClient(retryConnections = true)
+    private val coverUploadClient by lazy { musicClient(retryConnections = false) }
+
+    private fun musicClient(retryConnections: Boolean) = HttpClient(OkHttp) {
         // Same OkHttp instance ExoPlayer streams through — see Http.
-        engine { preconfigured = com.music.bitchord.data.Http.client }
+        engine {
+            preconfigured = com.music.bitchord.data.Http.client
+            config { retryOnConnectionFailure(retryConnections) }
+        }
+        // A redirect must not replay a mutation or carry upload credentials elsewhere.
+        followRedirects = retryConnections
         install(ContentNegotiation) { json(json) }
         // Without this the only bound is OkHttp's own read timeout, and the
         // failure it raises reads as "Socket timeout has expired […]
@@ -1104,6 +1112,93 @@ object Innertube {
         }
     }
 
+    /**
+     * Resumable upload followed by a separate playlist mutation; neither is retried.
+     * Protocol: Metrolist d84670c, InnerTube.kt:648-700 / EditPlaylistBody.kt:49-65.
+     */
+    suspend fun setPlaylistCover(playlistId: String, image: ByteArray, isCurrent: () -> Boolean = { true }) {
+        check(isCurrent()) { "Account changed before cover upload" }
+        requireSession()
+        require(image.isNotEmpty() && image.size <= 10 * 1024 * 1024)
+        val id = playlistId.removePrefix("VL")
+        require(id.isNotBlank() && id.all { it.isLetterOrDigit() || it == '_' || it == '-' })
+        ensureSessionScope()
+        val login = checkNotNull(cookie)
+        val selected = channelOverride
+        val session = scope
+        val signingCookie = checkNotNull(sapisidFrom(login))
+        fun checkIdentity() {
+            check(isCurrent() && cookie == login && channelOverride === selected) {
+                "Account changed during cover upload"
+            }
+        }
+        // Check the target under this same session before sending any image bytes.
+        val playlist = browse("VL$id")
+        checkIdentity()
+        check(InnertubeParser.parsePlaylistCoverEditable(playlist)) { "Playlist is not editable" }
+        fun HttpRequestBuilder.uploadHeaders() {
+            checkIdentity()
+            contentType(ContentType.Application.Json)
+            header("X-Goog-Api-Format-Version", "1")
+            header("User-Agent", WEB_USER_AGENT)
+            header("Origin", MUSIC_ORIGIN)
+            header("X-Origin", MUSIC_ORIGIN)
+            header("Referer", "$MUSIC_ORIGIN/")
+            header("X-YouTube-Client-Name", WEB_REMIX_CLIENT_ID)
+            header("X-YouTube-Client-Version", webRemixVersion)
+            header("Cookie", login)
+            header("Authorization", sapisidHash(signingCookie))
+            header("X-Goog-AuthUser", authUserFor(session))
+            pageIdFor(session)?.let { header("X-Goog-PageId", it) }
+            visitorData?.let { header("X-Goog-Visitor-Id", it) }
+        }
+        val endpoint = "$MUSIC_ORIGIN/playlist_image_upload/playlist_custom_thumbnail"
+        val start = coverUploadClient.post(endpoint) {
+            uploadHeaders()
+            header("X-Goog-Upload-Command", "start")
+            header("X-Goog-Upload-Protocol", "resumable")
+            header("X-Goog-Upload-Header-Content-Length", image.size.toString())
+        }
+        val uploadId = start.headers["X-GUploader-UploadID"]?.takeIf { it.isNotBlank() }
+        start.bodyAsText()
+        checkNotNull(uploadId) { "YouTube Music did not start the image upload" }
+        val uploaded = coverUploadClient.post(endpoint) {
+            uploadHeaders()
+            parameter("upload_id", uploadId)
+            parameter("upload_protocol", "resumable")
+            header("X-Goog-Upload-Command", "upload, finalize")
+            header("X-Goog-Upload-Offset", "0")
+            setBody(image)
+        }.bodyAsText()
+        // The upload server need not label its JSON as application/json.
+        val uploadResponse = json.parseToJsonElement(uploaded) as? JsonObject
+        val blob = (uploadResponse?.get("encryptedBlobId") as? JsonPrimitive)?.contentOrNull
+            ?.takeIf { it.isNotBlank() }
+        checkNotNull(blob) { "YouTube Music did not finalize the image upload" }
+        val edited = postMusic("browse/edit_playlist", retry = false, checkIdentity = ::checkIdentity) {
+            put("playlistId", id)
+            putJsonArray("actions") {
+                addJsonObject {
+                    put("action", "ACTION_SET_CUSTOM_THUMBNAIL")
+                    putJsonObject("addedCustomThumbnail") {
+                        putJsonObject("imageKey") {
+                            put("name", "studio_square_thumbnail")
+                            put("type", "PLAYLIST_IMAGE_TYPE_CUSTOM_THUMBNAIL")
+                        }
+                        put("playlistScottyEncryptedBlobId", blob)
+                    }
+                }
+            }
+        }
+        val status = (edited["status"] as? JsonPrimitive)?.contentOrNull
+        // Metrolist's EditPlaylistResponse also supports a returned newHeader.
+        val updatedHeader = edited["newHeader"]?.let { InnertubeParser.parseBrowseHeader(it) }
+        check(status == "STATUS_SUCCEEDED" ||
+            (status == null && !updatedHeader?.thumbnailUrl.isNullOrBlank())) {
+            "YouTube Music did not confirm the playlist cover edit"
+        }
+    }
+
     /** A fresh client-playback-nonce, identifying one play of one track. */
     fun newCpn(): String = (1..16).map { CPN_ALPHABET.random() }.joinToString("")
 
@@ -1117,6 +1212,8 @@ object Innertube {
         query: Map<String, String> = emptyMap(),
         /** The context's `gl`; null sends none. */
         region: String? = currentRegion,
+        retry: Boolean = true,
+        checkIdentity: () -> Unit = {},
         bodyExtras: JsonObjectBuilder.() -> Unit,
     ): JsonObject {
         // This is the common authenticated request path: Home, Library,
@@ -1126,9 +1223,12 @@ object Innertube {
         if (cookie != null) ensureSessionScope()
         val session = scope
         val clientVersion = webRemixVersion
-        val response = withRetry {
-            client.post("$MUSIC_BASE/$endpoint") {
+        val request: suspend () -> JsonObject = {
+            checkIdentity()
+            val transport = if (retry) client else coverUploadClient
+            transport.post("$MUSIC_BASE/$endpoint") {
                 contentType(ContentType.Application.Json)
+                if (!retry) header("X-Goog-Api-Format-Version", "1")
                 parameter("prettyPrint", "false")
                 parameter("hl", currentLanguage)
                 header("Accept-Language", acceptLanguageHeader)
@@ -1178,6 +1278,7 @@ object Innertube {
             }.body<JsonObject>()
         }
 
+        val response = if (retry) withRetry(block = request) else request()
         if (visitorData == null) {
             visitorData = response["responseContext"]?.jsonObject
                 ?.get("visitorData")?.jsonPrimitive?.content

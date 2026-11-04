@@ -1608,6 +1608,14 @@ object InnertubeParser {
         return header.a("buttons").orEmpty().none { it.o("toggleButtonRenderer").isSaveToggle }
     }
 
+    /** Positive edit evidence only: absence of a Save button is not permission. */
+    fun parsePlaylistCoverEditable(root: JsonElement): Boolean {
+        if (collectRenderers(root, "musicEditablePlaylistDetailHeaderRenderer").isNotEmpty()) return true
+        val header = collectRenderers(root, "musicResponsiveHeaderRenderer").firstOrNull() ?: return false
+        return collectRenderers(header, "menuNavigationItemRenderer")
+            .any { it.o("icon").s("iconType") in OWNER_ICONS }
+    }
+
     /** Header menu icons only the playlist's owner is offered. */
     private val OWNER_ICONS = setOf("DELETE", "EDIT")
 

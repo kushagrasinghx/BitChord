@@ -230,6 +230,7 @@ import com.music.bitchord.download.MediaTagger
 import com.music.bitchord.download.DownloadTarget
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.ui.components.BrowseActionsMenu
+import com.music.bitchord.ui.components.PlaylistCoverArtDialog
 import com.music.bitchord.ui.components.BrowseTarget
 import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.InfoAlert
@@ -745,6 +746,13 @@ private fun BitChordApp(
     // three tabs, the search rows, the artist page's carousels, the release
     // page's own overflow — because only one of them can be held at a time.
     var browseActions by remember { mutableStateOf<BrowseTarget?>(null) }
+    var coverArtPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
+    var coverArtPlaylistTitle by rememberSaveable { mutableStateOf("") }
+    var coverArtAccountId by rememberSaveable { mutableStateOf<String?>(null) }
+    var coverArtProfileId by rememberSaveable { mutableStateOf<String?>(null) }
+    var coverArtUploadFailed by rememberSaveable { mutableStateOf(false) }
+    val coverArtUploading by viewModel.coverArtUploading.collectAsStateWithLifecycle()
+    val coverArtOutcome by viewModel.coverArtOutcome.collectAsStateWithLifecycle()
     /** The card held to open [browseActions] — see [songMenuOrigin]. */
     var browseMenuOrigin by remember { mutableStateOf<HeldItem?>(null) }
     /** The ⋯ [browseActions] was opened from — see [songMenuAnchor]. */
@@ -5171,6 +5179,19 @@ private fun BitChordApp(
                         viewModel.retitleDetail(p.browseId, name.trim())
                     }
                 },
+                onChangeCover = playlist?.takeIf {
+                    remote && target.type == BrowseType.PLAYLIST && !target.fromCard && !coverArtUploading
+                }?.let { p ->
+                    {
+                        browseActions = null
+                        viewModel.clearCoverArtOutcome()
+                        coverArtUploadFailed = false
+                        coverArtPlaylistTitle = p.title
+                        coverArtAccountId = activeAccountId
+                        coverArtProfileId = activeProfileId
+                        coverArtPlaylistId = p.playlistId
+                    }
+                },
                 onReorder = playlist?.let { p ->
                     {
                         browseActions = null
@@ -5221,6 +5242,55 @@ private fun BitChordApp(
         }
         // In a recompose scope of its own, as the track menu's is.
         Isolated {
+            // Observe ViewModel completion rather than an Activity callback: uploads survive rotation.
+            LaunchedEffect(activeAccountId, activeProfileId, coverArtPlaylistId) {
+                if (coverArtPlaylistId != null &&
+                    (coverArtAccountId != activeAccountId || coverArtProfileId != activeProfileId)) {
+                    coverArtPlaylistId = null
+                    coverArtUploadFailed = false
+                }
+            }
+            LaunchedEffect(coverArtOutcome) {
+                val outcome = coverArtOutcome ?: return@LaunchedEffect
+                outcome.fold(
+                    onSuccess = { refreshed ->
+                        coverArtPlaylistId = null
+                        Toast.makeText(
+                            context,
+                            context.getString(if (refreshed) R.string.playlist_cover_updated
+                                else R.string.playlist_cover_refresh_failed),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    },
+                    onFailure = { coverArtUploadFailed = true },
+                )
+                viewModel.clearCoverArtOutcome()
+            }
+            coverArtPlaylistId?.let { id ->
+                PlaylistCoverArtDialog(
+                    playlistId = id,
+                    playlistTitle = coverArtPlaylistTitle,
+                    hazeState = hazeState,
+                    uploading = coverArtUploading,
+                    uploadFailed = coverArtUploadFailed,
+                    onSubmit = { image ->
+                        if (!viewModel.coverArtUploading.value) {
+                            coverArtUploadFailed = false
+                            viewModel.clearCoverArtOutcome()
+                            val playlist = playlists.firstOrNull { it.playlistId == id }
+                                ?: UserPlaylist(id, coverArtPlaylistTitle, "", null)
+                            viewModel.changePlaylistCover(playlist, image) { }
+                        }
+                    },
+                    onDismiss = {
+                        if (!viewModel.coverArtUploading.value) {
+                            coverArtPlaylistId = null
+                            coverArtUploadFailed = false
+                            viewModel.clearCoverArtOutcome()
+                        }
+                    },
+                )
+            }
             // Rename is a text field and a keyboard, which have no place on a menu
             // floating over the page: the menu hands it on, and the form comes up
             // here on a sheet of its own.

@@ -16,6 +16,20 @@
     </plurals>
     <string name="cancel">Cancel</string>
     <string name="save">Save</string>
+    <string name="playlist_cover_change">Change cover art</string>
+    <string name="playlist_cover_choose">Choose image</string>
+    <string name="playlist_cover_preview">Selected playlist cover artwork</string>
+    <string name="playlist_cover_help">Choose a JPEG or PNG, then save to confirm. BitChord limits images to 10 MiB for safe processing. The preview shows the full image; YouTube Music may crop it.</string>
+    <string name="playlist_cover_reading">Preparing preview…</string>
+    <string name="playlist_cover_uploading">Uploading cover artwork…</string>
+    <string name="playlist_cover_picker_failed">The photo picker could not be opened. Please try again.</string>
+    <string name="playlist_cover_read_failed">This image could not be read. Please choose it again or select another image.</string>
+    <string name="playlist_cover_too_large">This image exceeds BitChord’s 10 MiB safety limit. Choose a smaller image.</string>
+    <string name="playlist_cover_format">Only JPEG and PNG images are supported. Choose another image.</string>
+    <string name="playlist_cover_invalid">This image could not be decoded. Choose another JPEG or PNG.</string>
+    <string name="playlist_cover_upload_failed">The cover update could not be confirmed. Check the playlist before retrying. Check your connection, sign in again if needed, and complete any account verification requested by YouTube in its official app or website.</string>
+    <string name="playlist_cover_updated">Cover artwork updated.</string>
+    <string name="playlist_cover_refresh_failed">Cover artwork saved, but the refreshed artwork could not be loaded. Refresh the playlist to see it. No need to upload again.</string>
     <string name="close">Close</string>
     <string name="back">Back</string>
     <string name="settings">Settings</string>

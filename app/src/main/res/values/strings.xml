@@ -140,6 +140,9 @@
     <string name="now_playing">Now playing</string>
     <string name="selected">Selected</string>
     <string name="select_all">Select all</string>
+    <!-- Add to playlist: the search box over the list of playlists, and what it says when nothing matches. -->
+    <string name="find_a_playlist">Find a playlist</string>
+    <string name="no_playlists_match">No playlists match “%1$s”</string>
     <string name="password">Password</string>
     <string name="username">Username</string>
     <string name="login_failed">Login failed</string>

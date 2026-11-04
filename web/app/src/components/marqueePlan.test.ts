@@ -3,16 +3,15 @@ import { MARQUEE, marqueePlan } from './marqueePlan';
 
 describe('a scrolling title', () => {
   it("doesn't move when it fits, or misses only a sliver", () => {
-    expect(marqueePlan(0)).toBeNull();
-    expect(marqueePlan(3)).toBeNull();
+    expect(marqueePlan(200, 250)).toBeNull();
+    expect(marqueePlan(253, 250)).toBeNull();
   });
 
-  it('holds the start, scrolls at a reading pace, holds the end', () => {
-    const plan = marqueePlan(90)!;
-    // 3 s hold + 90 px at 30 px/s + 2 s hold
-    expect(plan.durationMs).toBe(MARQUEE.holdStartMs + 3_000 + MARQUEE.holdEndMs);
-    expect(plan.keyframes.map((k) => k.transform)).toEqual(['translateX(0)', 'translateX(0)', 'translateX(-90px)', 'translateX(-90px)']);
-    expect(plan.keyframes[1]!.offset).toBeCloseTo(3 / 8);
-    expect(plan.keyframes[2]!.offset).toBeCloseTo(6 / 8);
+  it('holds, then scrolls until the copy behind it stands where the title began', () => {
+    const plan = marqueePlan(402, 250)!;
+    const distance = 402 + MARQUEE.gapPx; // 450 px: the title's width and the gap
+    expect(plan.durationMs).toBe(MARQUEE.holdMs + (distance / MARQUEE.pxPerSecond) * 1000);
+    expect(plan.keyframes.map((k) => k.transform)).toEqual(['translateX(0)', 'translateX(0)', `translateX(${-distance}px)`]);
+    expect(plan.keyframes[1]!.offset).toBeCloseTo(3 / 18);
   });
 });

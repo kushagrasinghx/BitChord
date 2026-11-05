@@ -4,7 +4,9 @@ The macOS target uses the existing WebExtension bridge and an MV3 nonpersistent
 background page. Discord presence is unavailable. Chromium and Firefox keep
 their existing transports. Safari YouTube bootstrap and API calls use the
 extension's anonymous request bridge because page requests failed CORS in live
-testing. Cookies and account signing remain inside the extension.
+testing. Media segments use the same bridge for direct DASH, SABR and audio
+analysis. Binary requests and responses are base64 encoded. Cookies and account
+signing remain inside the extension.
 
 ## Load locally
 
@@ -38,13 +40,24 @@ notarization and distribution. No App Store submission is part of this workflow.
 
 ## Validation status
 
-Live Safari 27.2 on macOS 27.2: temporary installation, page relay handshake,
-version detection, the permission request button's success state, and YouTube
-bootstrap/player-script loading were observed.
-Safari rejected `X-Origin` modification rules; the Safari target omits that
-header. Google then returned HTTP 403 with an automated-query rejection for
-anonymous API requests. Account refresh also returned 403 after Safari login.
-Search, audio playback, seeking, signed-in library access, Spotify, lyrics and
-background suspension/resumption still require successful live verification.
-Full Xcode is absent from the local test machine; the containing app needs a
-real Xcode build before distribution.
+Live Safari 27.2 on macOS 27.2:
+
+- Temporary installation, page relay/version detection, permission-request
+  success and reconnection after extension/page reload were observed.
+- YouTube account recognition, signed-in search and the Songs library page worked.
+- Both direct DASH and SABR reached playing state. The visible clock advanced;
+  seeking from about one minute to 3:04 resumed and advanced to 3:47.
+  Pause/resume and synchronized lyrics worked. Physical speaker output was not
+  independently measured.
+- Anonymous API requests initially returned Google's automated-query HTTP 403;
+  signed-in requests worked after refreshing the page following Safari login.
+- Signed-in Spotify testing is left to the maintainer. The signed-out state was
+  checked. Discord is deliberately unavailable in this target.
+- The unsigned containing app built successfully with Xcode 26.6 in macOS CI.
+  Signing, notarization, native-app installation and forced background
+  suspension/resumption have not been verified.
+
+Safari requires `declarativeNetRequestWithHostAccess` and rejects `X-Origin`
+modifications. Page-side header rewriting still failed live CORS checks, so the
+Safari player uses the extension transport. The bridge buffers each media
+response; long-session memory use and high-bitrate video need further testing.

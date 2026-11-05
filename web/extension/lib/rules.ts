@@ -1,7 +1,7 @@
 /**
  * declarativeNetRequest rules that let the site talk to YouTube from the page
  * itself (prompt §4.2). Audio bytes and InnerTube responses go straight to the
- * page; nothing passes through the extension's messaging.
+ * page on Chromium and Firefox. Safari uses the extension's request bridge.
  *
  * Every rule is scoped to requests the site initiates (`initiatorDomains`), so
  * YouTube's own tabs and every other site are untouched.

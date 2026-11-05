@@ -11,6 +11,7 @@ import {
   type Capability,
 } from '@bitchord/shared/bridge';
 import * as discord from '../lib/discord';
+import { affectsSession } from '../lib/cookieChanges';
 import { grantedOrigins, lyricsFetch, requestOrigins } from '../lib/lyricsFetch';
 import { installRules } from '../lib/rules';
 import { authState, invalidateAccounts, isSessionCookie, selectChannel, setConnected } from '../lib/ytAuth';
@@ -209,8 +210,8 @@ let lastPortTimer: ReturnType<typeof setTimeout> | undefined;
 /** A sign-in or sign-out elsewhere in the browser: re-read the accounts and tell the open pages. */
 let cookieTimer: ReturnType<typeof setTimeout> | undefined;
 let spotifyCookieTimer: ReturnType<typeof setTimeout> | undefined;
-function onCookieChanged({ cookie }: Browser.cookies.CookieChangeInfo): void {
-  if (spotify.isSessionCookie(cookie)) {
+function onCookieChanged(change?: Browser.cookies.CookieChangeInfo | null): void {
+  if (affectsSession(change, spotify.isSessionCookie)) {
     spotify.invalidateSession();
     clearTimeout(spotifyCookieTimer);
     spotifyCookieTimer = setTimeout(() => {
@@ -219,9 +220,8 @@ function onCookieChanged({ cookie }: Browser.cookies.CookieChangeInfo): void {
         .then((data) => broadcast({ event: 'spotify.authState', data }))
         .catch((error: unknown) => console.warn('BitChord: reading the Spotify session failed', error));
     }, 1000);
-    return;
   }
-  if (!isSessionCookie(cookie)) return;
+  if (!affectsSession(change, isSessionCookie)) return;
   invalidateAccounts();
   clearTimeout(cookieTimer);
   // Signing in sets several cookies in a burst; answer the last one.

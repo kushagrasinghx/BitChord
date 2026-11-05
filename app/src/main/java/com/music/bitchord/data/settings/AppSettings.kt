@@ -1382,9 +1382,13 @@ object AppSettings {
         }
     }
 
+    const val MIN_PLAYBACK_SPEED = 0.5f
+    const val MAX_PLAYBACK_SPEED = 2.0f
+
     fun setPlaybackSpeed(value: Float) {
-        playbackSpeed.value = value
-        prefs.edit().putFloat(KEY_SPEED, value).apply()
+        val clamped = value.coerceIn(MIN_PLAYBACK_SPEED, MAX_PLAYBACK_SPEED)
+        playbackSpeed.value = clamped
+        prefs.edit().putFloat(KEY_SPEED, clamped).apply()
     }
 
     fun setShowNerdStats(value: Boolean) {

@@ -67,6 +67,7 @@ import com.music.bitchord.data.webdav.WebDavUploads
 import com.music.bitchord.download.DownloadState
 import com.music.bitchord.download.Downloads
 import com.music.bitchord.playback.SleepTimer
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.theme.ArtworkPalette
 import kotlinx.coroutines.delay
@@ -187,6 +188,8 @@ fun SongActionsMenu(
 ) {
     var showingSongInfo by remember(song.videoId) { mutableStateOf(false) }
     var pickingSleepTimer by remember { mutableStateOf(false) }
+    var pickingPlaybackSpeed by remember { mutableStateOf(false) }
+    val playbackSpeed by AppSettings.playbackSpeed.collectAsStateWithLifecycle()
     // A menu has no pages to swap, so Song Info opens as a dialog.
     if (showingSongInfo) SongInfoDialog(song) { showingSongInfo = false }
     // Neutral rather than the sleeve's colours: the panel floats over the page
@@ -386,6 +389,12 @@ fun SongActionsMenu(
                     value = sleepTimerStatus(),
                     accent = palette.accent,
                 ) { pickingSleepTimer = true }
+                ActionRow(
+                    icon = SfIcons.Performance,
+                    label = stringResource(R.string.playback_speed),
+                    value = "${playbackSpeed}x",
+                    accent = palette.accent,
+                ) { pickingPlaybackSpeed = true }
             }
             // The same popup "Mixing" opens mid-blend, on the transition
             // still to come.
@@ -421,6 +430,8 @@ fun SongActionsMenu(
             // the picker in place.
             if (pickingSleepTimer) {
                 SleepTimerPicker(palette = palette, onBack = { pickingSleepTimer = false })
+            } else if (pickingPlaybackSpeed) {
+                PlaybackSpeedPicker(palette = palette, onBack = { pickingPlaybackSpeed = false })
             } else {
                 rows()
             }
@@ -991,4 +1002,34 @@ internal fun SheetHeading(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 16.dp, bottom = 4.dp),
     )
+}
+
+
+@Composable
+private fun PlaybackSpeedPicker(palette: ArtworkPalette, onBack: () -> Unit) {
+    val currentSpeed by AppSettings.playbackSpeed.collectAsStateWithLifecycle()
+    val presets = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f)
+    Column(Modifier.fillMaxWidth()) {
+        SleepTimerHeader(
+            title = stringResource(R.string.playback_speed),
+            subtitle = "${currentSpeed}x",
+            onBack = onBack,
+        )
+        HorizontalDivider(thickness = 0.5.dp, color = palette.divider)
+        presets.forEach { speed ->
+            val label = if (speed == 1.0f) {
+                "${speed}x (${stringResource(R.string.normal)})"
+            } else {
+                "${speed}x"
+            }
+            SleepOption(
+                label = label,
+                selected = kotlin.math.abs(currentSpeed - speed) < 0.01f,
+                accent = palette.accent,
+            ) {
+                AppSettings.setPlaybackSpeed(speed)
+                onBack()
+            }
+        }
+    }
 }

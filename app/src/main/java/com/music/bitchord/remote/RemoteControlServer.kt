@@ -240,6 +240,11 @@ private class RemoteHttpServer(
                     return // the browse coroutine writes the response and closes the socket
                 }
 
+                method == "GET" && path == "/api/lyrics" -> {
+                    lyricsAndRespond(output, client)
+                    return // the lyrics coroutine writes the response and closes the socket
+                }
+
                 else -> respondJson(output, 404, JSONObject().put("error", "not found"))
             }
         } catch (e: Exception) {
@@ -257,6 +262,9 @@ private class RemoteHttpServer(
 
     private fun browseAndRespond(output: OutputStream, client: Socket, id: String, kind: String) =
         asyncJson(output, client) { RemoteBridge.browse(id, kind) }
+
+    private fun lyricsAndRespond(output: OutputStream, client: Socket) =
+        asyncJson(output, client) { RemoteBridge.lyrics() }
 
     /**
      * Runs a suspend JSON producer on the IO scope and keeps this worker

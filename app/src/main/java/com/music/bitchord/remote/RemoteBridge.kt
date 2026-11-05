@@ -11,10 +11,12 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.lyrics.LyricsRepository
 import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.playback.PlaybackService
 import com.music.bitchord.playback.playSongs
 import com.music.bitchord.playback.toMediaItem
@@ -438,6 +440,61 @@ object RemoteBridge {
             put("songs", arr)
             put("sections", sections)
         }
+    }
+
+    // ── lyrics ───────────────────────────────────────────────────────
+
+    /** videoId → the lyrics answer for it, so several browsers opening
+     *  the panel pay the provider lookup once per track. */
+    private val lyricsCache = java.util.concurrent.ConcurrentHashMap<String, JSONObject>()
+
+    /**
+     * Lyrics for the track playing right now, from the same repository
+     * and the same source settings the app's own lyrics view uses.
+     * Lines carry their timestamps (`synced` when any line is timed);
+     * an empty-text line is an instrumental gap. While the track's
+     * duration is still unknown the answer is `pending` rather than
+     * "none" — providers match on duration, and it lands a beat after
+     * the track does.
+     */
+    suspend fun lyrics(): JSONObject {
+        val c = controller ?: return JSONObject().put("found", false)
+        val song = onMain { c.currentMediaItem?.toSong() } ?: return JSONObject().put("found", false)
+        lyricsCache[song.videoId]?.let { return it }
+        val durationMs = onMain { c.duration } ?: 0L
+        if (durationMs <= 0L) {
+            return JSONObject()
+                .put("found", false)
+                .put("pending", true)
+                .put("videoId", song.videoId)
+        }
+        val found = LyricsRepository.lyrics(
+            videoId = song.videoId,
+            title = song.title,
+            artist = song.artist,
+            durationMs = durationMs,
+            sources = AppSettings.lyricsSources.value,
+            order = AppSettings.lyricsSourceOrder.value,
+            prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+        )
+        val out = JSONObject().put("videoId", song.videoId)
+        if (found == null) {
+            out.put("found", false)
+        } else {
+            val lines = JSONArray()
+            var synced = false
+            for (line in found.lines) {
+                if (line.timeMs > 0) synced = true
+                lines.put(JSONObject().put("at", line.timeMs).put("text", line.text))
+            }
+            out.put("found", true)
+            out.put("synced", synced)
+            out.put("source", found.source.label)
+            out.put("lines", lines)
+        }
+        if (lyricsCache.size > 64) lyricsCache.clear()
+        lyricsCache[song.videoId] = out
+        return out
     }
 
     // ── helpers ──────────────────────────────────────────────────────

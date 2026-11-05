@@ -39,6 +39,12 @@ the artist's songs (with their albums and singles as further cards),
 the album's tracklist, the playlist's songs — and **Back** returns
 to the results.
 
+The ♪-lines button in the transport row opens a **lyrics viewer**
+for the current track: the same lyrics the app finds (same sources,
+same order), highlighted line by line as the song plays and
+auto-scrolling with it when they are time-synced. Tapping a synced
+line seeks there.
+
 The server starts automatically on app launch if the switch was left on,
 and stops when the switch is turned off. By default the PIN is
 regenerated every time the server starts. Two settings change that,
@@ -73,6 +79,7 @@ both under the switch and both applied at the next start:
 | `POST /api/command` | token | `{action}`: `play` `pause` `toggle` `next` `prev` `seek{ms}` `playIndex{index}` `playSong{song}` `addSong{song}` `addSongNext{song}` `addSongAt{index, song}` `move{from, to}` `remove{index}` `volume{level 0..1}` `shuffle` `repeat` |
 | `GET /api/search?q=` | token | YouTube Music search via `YtMusicRepository` → `{songs: [song], artists: [card], albums: [card], playlists: [card]}` |
 | `GET /api/browse?id=&kind=` | token | The page behind a card → `{kind, browseId, title?, subtitle?, songs: [song], sections: [{title, items: [card]}]}` (sections only on artist pages) |
+| `GET /api/lyrics` | token | Lyrics for the current track → `{found, videoId, synced?, source?, lines: [{at, text}]}`; `pending: true` while the track's duration is still unknown |
 
 A `song` is `{videoId, title, artist, thumbnailUrl, durationText}`.
 A `card` is `{kind, browseId, title, subtitle, thumbnailUrl}`.

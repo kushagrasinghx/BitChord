@@ -85,6 +85,11 @@
   }
   .browse-head .t { font-weight: 700; }
   .browse-head .a { color: var(--muted); font-size: 12.5px; }
+  .lyrics-body { max-height: 48vh; overflow-y: auto; padding: 2px; }
+  .lrow { color: var(--muted); margin: 7px 0; line-height: 1.45; }
+  .lrow.synced { cursor: pointer; }
+  .lrow.active { color: var(--text); font-weight: 700; }
+  .lrow.gap { opacity: 0.55; letter-spacing: 3px; }
   .toast .undo-btn {
     background: none; border: none; color: var(--mint); font-weight: 700; font-size: 13px;
     cursor: pointer; margin-left: 10px; padding: 2px 4px;
@@ -167,11 +172,20 @@
       <button class="tbtn small" id="repeatBtn" title="Repeat">
         <svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
       </button>
+      <button class="tbtn small" id="lyricsBtn" title="Lyrics">
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 5h13v2H3zM3 10h18v2H3zM3 15h13v2H3zM19.5 14.5c-.4-.6-1.1-1-1.9-1-1.4 0-2.6 1.1-2.6 2.5s1.2 2.5 2.6 2.5c1.5 0 2.4-1 2.4-2.5v-4.6l4-1v2.1l2-1v-3.4l-6 1.5v6.9z" transform="scale(0.92) translate(1,1)"/></svg>
+      </button>
     </div>
     <div class="row">
       <label for="vol">Volume</label>
       <input type="range" id="vol" min="0" max="100" value="50">
     </div>
+  </section>
+
+  <section class="card" id="lyricsCard" hidden>
+    <h2>Lyrics</h2>
+    <p class="muted small" id="lyricsSource"></p>
+    <div class="lyrics-body" id="lyricsBody"><p class="muted small">Loading lyrics…</p></div>
   </section>
 
   <section class="card">
@@ -326,6 +340,7 @@ function render() {
   $('pauseIcon').toggleAttribute('hidden', !state.playing);
   $('shuffleBtn').classList.toggle('on', !!state.shuffle);
   $('repeatBtn').classList.toggle('on', state.repeat !== 0);
+  syncLyrics();
   const volPct = state.volumeMax > 0 ? Math.round(state.volume / state.volumeMax * 100) : 50;
   if (document.activeElement !== $('vol')) $('vol').value = volPct;
 
@@ -510,6 +525,75 @@ async function openCard(i) {
   }
 }
 
+let lyricsOpen = false;
+let lyricsVideoId;
+let lyricsData = null;
+let lyricsActiveIdx = -2;
+let lyricsLoadSeq = 0;
+
+function syncLyrics() {
+  if (!lyricsOpen || !state) return;
+  const vid = state.current ? state.current.videoId : null;
+  if (vid !== lyricsVideoId) {
+    lyricsVideoId = vid;
+    loadLyrics();
+  } else {
+    updateLyricsHighlight(false);
+  }
+}
+
+async function loadLyrics() {
+  const seq = ++lyricsLoadSeq;
+  lyricsData = null;
+  lyricsActiveIdx = -2;
+  $('lyricsSource').textContent = '';
+  $('lyricsBody').innerHTML = '<p class="muted small">Loading lyrics…</p>';
+  try {
+    const res = await api('/api/lyrics');
+    const data = await res.json();
+    if (seq !== lyricsLoadSeq) return;
+    if (data.videoId) lyricsVideoId = data.videoId;
+    if (data.pending) {
+      // The track's duration has not landed yet; the server can only
+      // match lyrics once it has, so ask again shortly.
+      setTimeout(() => { if (seq === lyricsLoadSeq && lyricsOpen) loadLyrics(); }, 1500);
+      return;
+    }
+    if (!data.found) {
+      $('lyricsBody').innerHTML = '<p class="muted small">No lyrics found for this track.</p>';
+      return;
+    }
+    lyricsData = data;
+    $('lyricsSource').textContent = data.source ? 'Source: ' + data.source : '';
+    $('lyricsBody').innerHTML = data.lines.map((l, i) =>
+      l.text
+        ? '<p class="lrow' + (data.synced ? ' synced' : '') + '" data-line="' + i + '">' + esc(l.text) + '</p>'
+        : '<p class="lrow gap" data-line="' + i + '">♪ ♪ ♪</p>',
+    ).join('');
+    for (const el of $('lyricsBody').querySelectorAll('[data-line]')) {
+      el.addEventListener('click', () => {
+        const l = lyricsData && lyricsData.lines[Number(el.dataset.line)];
+        if (lyricsData && lyricsData.synced && l) command({ action: 'seek', ms: l.at });
+      });
+    }
+    updateLyricsHighlight(true);
+  } catch (e) {
+    if (e.message !== 'locked') $('lyricsBody').innerHTML = '<p class="muted small">Lyrics failed to load.</p>';
+  }
+}
+
+function updateLyricsHighlight(force) {
+  if (!lyricsOpen || !lyricsData || !lyricsData.synced || !state) return;
+  const pos = state.positionMs || 0;
+  let idx = -1;
+  lyricsData.lines.forEach((l, i) => { if (l.at <= pos) idx = i; });
+  if (idx === lyricsActiveIdx && !force) return;
+  lyricsActiveIdx = idx;
+  const rows = $('lyricsBody').querySelectorAll('.lrow');
+  rows.forEach((el, i) => el.classList.toggle('active', i === idx));
+  if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 function startPolling() {
   stopPolling();
   refresh();
@@ -531,6 +615,12 @@ document.addEventListener('DOMContentLoaded', () => {
   $('nextBtn').addEventListener('click', () => command({ action: 'next' }));
   $('shuffleBtn').addEventListener('click', () => command({ action: 'shuffle' }));
   $('repeatBtn').addEventListener('click', () => command({ action: 'repeat' }));
+  $('lyricsBtn').addEventListener('click', () => {
+    lyricsOpen = !lyricsOpen;
+    $('lyricsBtn').classList.toggle('on', lyricsOpen);
+    $('lyricsCard').hidden = !lyricsOpen;
+    if (lyricsOpen) syncLyrics();
+  });
   $('progressBar').addEventListener('click', (e) => {
     if (!state || !state.durationMs) return;
     const rect = e.currentTarget.getBoundingClientRect();

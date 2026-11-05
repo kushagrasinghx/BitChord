@@ -72,16 +72,23 @@ A full-tunnel VPN on the phone makes the phone unreachable from the
 LAN, and no address trick fixes that — the traffic itself never
 arrives. Relay mode routes around it: the phone dials **out** to a
 small relay service on a VPS (outbound through the VPN works fine)
-and holds a pool of connections there; browsers open the relay's
-public address instead of the phone's, and the relay splices each
-request through a pooled connection to the phone's own server.
+and holds a pool of WebSocket channels there; browsers open the
+relay's hostname instead of the phone's, and the relay splices each
+request through a pooled channel to the phone's own server.
+
+Both legs ride the VPS's Cloudflare Tunnel under one hostname
+(`remote.gaspol.men`): browsers over HTTPS, phone channels over WSS
+to `/channel` with the relay token in a header — to every network on
+the way, the VPN included, the phone's channels are ordinary HTTPS,
+and the VPS needs no open port of its own. Parked channels ping
+every 30 seconds so the tunnel never reaps them as idle.
 
 1. Run the relay service (`bitchord-relay`, a single-file Python
-   service listening on port 8890; it generates its token on first
-   start).
+   service on localhost port 8890 behind the tunnel; it generates
+   its token on first start).
 2. In BitChord: **Settings → Relay token** → paste the token, then
    **Relay via VPS** on, with Remote control on.
-3. In any browser: `http://<vps-address>:8890/r/<token>/` — the first
+3. In any browser: `https://remote.gaspol.men/r/<token>/` — the first
    visit plants a cookie, after which the page's own addresses work
    as usual. The remote's PIN gate applies exactly as on the LAN:
    the relay is a dumb pipe and the phone's server still enforces
@@ -104,8 +111,10 @@ settings. The relay client's target address is a constant in
   it, the notification follows, and queue/shuffle semantics stay the
   service's own (`playSongs`, `toggleShuffle`, `Song.toMediaItem()`).
 - `remote/RemoteRelay.kt` — the relay client: pooled outbound
-  channels to the relay service, each bridging one request to the
-  local server. Runs only while the server runs.
+  WebSocket channels to the relay through the tunnel hostname
+  (hand-rolled WSS client, 30 s ping keepalives, peer-name check),
+  each bridging one request to the local server. Runs only while the
+  server runs.
 - `assets/remote_player.html` — the whole player page in one file. It
   polls `/api/state` once a second. One column on phones; two columns
   (player + lyrics | search + queue) on screens 1080px and wider.
@@ -142,11 +151,13 @@ A `card` is `{kind, browseId, title, subtitle, thumbnailUrl}`.
   still block it — that app needs its "allow LAN" option on.)
 - The server lives in the app process. If Android kills BitChord (app
   swiped away and playback stopped), the remote stops with it.
-- Relay mode moves the entry point, not the trust model: the relay's
-  token gates the pipe (first visit in the URL, then a cookie), the
-  remote's PIN still gates the player, and traffic is plain
-  HTTP/TCP end to end — anyone who can read the path can read the
-  session. Treat the relay address like the LAN address: convenient,
-  not confidential.
+- Relay mode keeps the LAN trust model but encrypts the path: the
+  relay's token gates the pipe (first visit in the URL, then a
+  cookie), the remote's PIN still gates the player, and both relay
+  legs are TLS (browser ↔ Cloudflare ↔ tunnel ↔ relay, and the
+  phone's WSS channels the same way). Cloudflare and the VPS relay
+  can still see the traffic pass — the relay is a pipe, not
+  end-to-end encryption — and the LAN mode described above remains
+  plain HTTP.
 - State updates are polled (1 s), not pushed; good enough for a remote,
   and it keeps the server trivially simple.

@@ -89,6 +89,7 @@ fun TvSettingsScreen(
     val musicVideoEnabled by AppSettings.musicVideoEnabled.collectAsState()
     val canvas by AppSettings.animatedCanvas.collectAsState()
     val prioritizeSpotifyCanvas by AppSettings.prioritizeSpotifyCanvas.collectAsState()
+    val directSourceStream by AppSettings.directSourceStream.collectAsState()
     val strictLosslessOnly by AppSettings.strictLosslessOnly.collectAsState()
     val lyricsCanvas by TvSettings.tvLyricsCanvasEnabled.collectAsState()
     val nerdStats by AppSettings.showNerdStats.collectAsState()
@@ -256,6 +257,14 @@ fun TvSettingsScreen(
                     value = "$activeAddons Active",
                     onFocused = { blurb = "Select to turn addons on or off, reorder priority with D-pad, or add custom lossless sources." },
                     onClick = { sheet = SettingsSheet.LosslessAddons },
+                )
+            }
+            item {
+                TvListRow(
+                    title = "Direct Source Stream",
+                    value = onOff(directSourceStream),
+                    onFocused = { blurb = "Streams lossless directly from the first note without mid-song swaps. Turn off to start immediately on YouTube Opus and upgrade in background." },
+                    onClick = { AppSettings.setDirectSourceStream(!directSourceStream) },
                 )
             }
             item {

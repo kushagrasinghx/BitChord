@@ -251,6 +251,7 @@ fun SettingsScreen(
     val liquidGlassSupported = isGlassSupported()
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
+    val disableArtistVideo by AppSettings.disableArtistVideo.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
     val signatureApiEnabled by AppSettings.signatureApiEnabled.collectAsStateWithLifecycle()
     val signatureApiUrl by AppSettings.signatureApiUrl.collectAsStateWithLifecycle()
@@ -1194,6 +1195,23 @@ fun SettingsScreen(
                         onCheckedChange = AppSettings::setCanvasOverCellular,
                     )
                 }
+            }
+            val disableArtistVideoTitle = stringResource(R.string.disable_artist_video)
+            row(disableArtistVideoTitle, "artist", "video", "motion") {
+                SettingsRow(
+                    icon = SfIcons.Video,
+                    title = disableArtistVideoTitle,
+                    subtitle = stringResource(R.string.disable_artist_video_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = disableArtistVideo,
+                            onCheckedChange = AppSettings::setDisableArtistVideo,
+                        )
+                    },
+                    onClick = { AppSettings.setDisableArtistVideo(!disableArtistVideo) },
+                )
+            }
+            if (animatedCanvas) {
                 val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)
                 row(spotifyCanvasTitle, "spotify", "canvas", divided = false) {
                     Row(

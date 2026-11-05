@@ -385,6 +385,7 @@ fun DetailScreen(
         rawSongs.withIndex().associate { (i, s) -> s.videoId to ((if (byTag) s.trackNumber else null) ?: (i + 1)) }
     }
     val isArtist = page.type == BrowseType.ARTIST
+    val disableArtistVideo by AppSettings.disableArtistVideo.collectAsStateWithLifecycle()
     // Whether the top release card's album is already saved isn't on the shelf
     // item; it is read off the album once, as soon as the card is known.
     val topReleaseId = if (isArtist) page.sections.topRelease()?.browseId else null
@@ -435,7 +436,7 @@ fun DetailScreen(
     }
     val palette = rememberArtworkPalette(
         imageUrl = appleArt?.heroUrl ?: page.thumbnailUrl,
-        keyColors = appleArt?.keyColors(),
+        keyColors = if (disableArtistVideo) appleArt?.stillKeyColors else appleArt?.keyColors(),
     )
 
     // Narrowing the running order in place — the release equivalent of the
@@ -508,9 +509,9 @@ fun DetailScreen(
         canvas = CanvasRepository.canvasForAlbum(page.title, credit) ?: canvas
     }
     // An artist's clip comes with the same Apple lookup as its photograph.
-    val artistVideo = appleArt?.videoUrl
-    LaunchedEffect(artistVideo, canvasEnabled) {
-        if (isArtist) canvas = artistVideo?.takeIf { canvasEnabled }?.let { CanvasArtwork(url = it) }
+    val artistVideo = if (disableArtistVideo) null else appleArt?.videoUrl
+    LaunchedEffect(artistVideo, canvasEnabled, disableArtistVideo) {
+        if (isArtist) canvas = artistVideo?.takeIf { canvasEnabled && !disableArtistVideo }?.let { CanvasArtwork(url = it) }
     }
 
     // Opening the search carries the page up to it, so the field lands just
@@ -566,7 +567,7 @@ fun DetailScreen(
                     PageBackground(
                         page = page,
                         palette = palette,
-                        canvas = canvas,
+                        canvas = canvas.takeUnless { disableArtistVideo },
                         artHeight = artHeight,
                         listState = listState,
                         heroUrl = appleArt?.heroUrl,

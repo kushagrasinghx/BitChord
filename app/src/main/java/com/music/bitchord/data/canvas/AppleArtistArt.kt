@@ -36,6 +36,7 @@ data class AppleArtistArt(
     val videoUrl: String?,
     val background: Int,
     val accent: Int,
+    val stillKeyColors: ArtworkKeyColors?,
     /** The colour Apple fills the artist's Play button with; absent for some artists. */
     val keyColor: Int?,
 )
@@ -189,6 +190,10 @@ object AppleArtistArtRepository {
         val background = colours.optString("bgColor").toArgb()
             ?: hero.optString("bgColor").toArgb() ?: return null
         val accent = colours.optString("textColor1").toArgb() ?: background
+        val stillBackground = hero.optString("bgColor").toArgb()
+        val stillKeyColors = stillBackground?.let {
+            ArtworkKeyColors(Color(it), Color(hero.optString("textColor1").toArgb() ?: it))
+        }
         return AppleArtistArt(
             heroUrl = heroUrl,
             logoUrl = logoUrl,
@@ -196,6 +201,7 @@ object AppleArtistArtRepository {
             videoUrl = video,
             background = background,
             accent = accent,
+            stillKeyColors = stillKeyColors,
             keyColor = header.optString("keyColor").toArgb(),
         )
     }

@@ -61,6 +61,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
 
     override val settings: PlayerSettingsSource = object : PlayerSettingsSource {
         override val animatedCanvas get() = AppSettings.animatedCanvas
+        override val disableArtistVideo get() = AppSettings.disableArtistVideo
         override val audioQualityCellular get() = AppSettings.audioQualityCellular
         override val audioQualityWifi get() = AppSettings.audioQualityWifi
         override val canvasOverCellular get() = AppSettings.canvasOverCellular

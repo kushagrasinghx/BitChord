@@ -153,10 +153,11 @@ object RemoteRelay {
     private class WsConnection(private val token: String) {
 
         val socket: SSLSocket = run {
-            val plain = Socket()
-            plain.connect(InetSocketAddress(RELAY_HOST, RELAY_PORT), CONNECT_TIMEOUT_MS)
-            val tls = SSLSocketFactory.getDefault()
-                .createSocket(plain, RELAY_HOST, RELAY_PORT, true) as SSLSocket
+            // An unconnected SSLSocket, then connect(): the layered
+            // createSocket(Socket, ...) overload is not visible
+            // through getDefault()'s declared SocketFactory type.
+            val tls = SSLSocketFactory.getDefault().createSocket() as SSLSocket
+            tls.connect(InetSocketAddress(RELAY_HOST, RELAY_PORT), CONNECT_TIMEOUT_MS)
             tls.soTimeout = PING_INTERVAL_MS
             tls.startHandshake()
             verifyPeer(tls)

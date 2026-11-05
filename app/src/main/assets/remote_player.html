@@ -32,6 +32,7 @@
   }
   .now-title { font-size: 22px; font-weight: 700; margin-top: 14px; line-height: 1.2; }
   .now-artist { color: var(--muted); margin-top: 2px; font-size: 16px; }
+  .now-by { color: var(--sky); margin-top: 2px; font-size: 13px; }
   .progress { height: 6px; border-radius: 3px; background: var(--panel-2); margin: 18px 0 6px; overflow: hidden; cursor: pointer; }
   .progress-fill { height: 100%; width: 0%; background: var(--mint); }
   .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -60,6 +61,7 @@
   .item .main { flex: 1; min-width: 0; }
   .item .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .item .a { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .a .by { color: var(--sky); }
   .item .dur { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
   .item .add {
     flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
@@ -81,6 +83,10 @@
     text-align: center; letter-spacing: 8px; font-size: 22px; font-weight: 700;
     max-width: 200px; margin: 14px auto; display: block;
   }
+  .pin-box input.name-input {
+    letter-spacing: normal; font-size: 16px; font-weight: 400; max-width: 260px; margin-top: 0;
+  }
+  .who { color: var(--sky); font-weight: 600; }
   .eq { display: flex; gap: 3px; align-items: flex-end; height: 14px; }
   .eq span { width: 3px; background: var(--mint); animation: eq 0.9s ease-in-out infinite; }
   .eq span:nth-child(2) { animation-delay: 0.25s; } .eq span:nth-child(3) { animation-delay: 0.5s; }
@@ -99,13 +105,15 @@
   <div>
     <h1>BitChord Remote</h1>
     <div class="sub" id="connLabel">Connecting…</div>
+    <div class="sub" id="whoLabel"></div>
   </div>
 </header>
 
 <!-- PIN gate -->
 <section class="card pin-box" id="pinCard" hidden>
-  <h2>This remote is locked</h2>
-  <p class="muted">Enter the PIN shown in BitChord under Settings → Remote control.</p>
+  <h2>Join this remote</h2>
+  <p class="muted">Enter the PIN shown in BitChord under Settings → Remote control, and the name to queue songs under. Everyone with the PIN can join.</p>
+  <input class="text-input name-input" id="nameInput" maxlength="24" placeholder="Your name" autocomplete="off">
   <input class="text-input" id="pinInput" inputmode="numeric" maxlength="4" placeholder="••••" autocomplete="off">
   <button class="btn" id="unlockBtn">Unlock</button>
   <p class="muted small" id="pinError"></p>
@@ -117,6 +125,7 @@
     <img class="art" id="art" alt="" hidden>
     <div class="now-title" id="nowTitle">Nothing playing</div>
     <div class="now-artist" id="nowArtist">Search below, or pick from the queue</div>
+    <div class="now-by" id="nowBy" hidden></div>
     <div class="progress" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
     <div class="times"><span id="posLabel">0:00</span><span id="durLabel">0:00</span></div>
     <div class="transport">
@@ -165,6 +174,7 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 let token = localStorage.getItem('bitchordRemoteToken') || '';
+let myName = localStorage.getItem('bitchordRemoteName') || '';
 let state = null;
 let lastQueueKey = '';
 let pollTimer = null;
@@ -203,17 +213,21 @@ async function api(path, options) {
 
 async function unlock() {
   const pin = $('pinInput').value.trim();
-  if (!pin) return;
+  const name = $('nameInput').value.trim();
+  if (!name) { $('pinError').textContent = 'Enter your name — it labels the songs you queue.'; $('nameInput').focus(); return; }
+  if (!pin) { $('pinError').textContent = 'Enter the PIN from the app.'; return; }
   try {
     const res = await fetch('/api/unlock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin }),
+      body: JSON.stringify({ pin, name }),
     });
     if (!res.ok) { $('pinError').textContent = 'Wrong PIN — check the app and try again.'; return; }
     const data = await res.json();
     token = data.token;
+    myName = data.name || name;
     localStorage.setItem('bitchordRemoteToken', token);
+    localStorage.setItem('bitchordRemoteName', myName);
     $('pinCard').hidden = true;
     $('playerUi').hidden = false;
     startPolling();
@@ -244,14 +258,19 @@ function render() {
   if (!state) return;
   const cur = state.current;
   $('connLabel').textContent = 'Connected · controlling this phone\u2019s BitChord';
+  const who = myName || state.you || '';
+  $('whoLabel').innerHTML = who ? 'You are <span class="who">' + esc(who) + '</span>' : '';
   if (cur) {
     $('nowTitle').textContent = cur.title;
     $('nowArtist').textContent = cur.artist || '';
+    if (cur.queuedBy) { $('nowBy').textContent = 'Queued by ' + cur.queuedBy; $('nowBy').hidden = false; }
+    else $('nowBy').hidden = true;
     if (cur.thumbnailUrl) { $('art').src = cur.thumbnailUrl; $('art').hidden = false; }
     else $('art').hidden = true;
   } else {
     $('nowTitle').textContent = 'Nothing playing';
     $('nowArtist').textContent = 'Search below, or pick from the queue';
+    $('nowBy').hidden = true;
     $('art').hidden = true;
   }
   $('progressFill').style.width = state.durationMs > 0
@@ -265,14 +284,17 @@ function render() {
   const volPct = state.volumeMax > 0 ? Math.round(state.volume / state.volumeMax * 100) : 50;
   if (document.activeElement !== $('vol')) $('vol').value = volPct;
 
-  const key = state.queue.map((q) => q.videoId).join(',') + '|' + state.index;
+  const key = state.queue.map((q) => q.videoId + '~' + (q.queuedBy || '')).join(',') + '|' + state.index;
   if (key !== lastQueueKey) {
     lastQueueKey = key;
-    $('queueMeta').textContent = state.queueSize + ' tracks';
+    const others = (state.users || []).filter((u) => u !== who);
+    $('queueMeta').textContent = state.queueSize + ' tracks'
+      + (others.length ? ' · also here: ' + others.join(', ') : '');
     $('queueList').innerHTML = state.queue.map((q, i) =>
       '<button class="item' + (i === state.index ? ' current' : '') + '" data-play-index="' + i + '">'
       + (q.thumbnailUrl ? '<img src="' + esc(q.thumbnailUrl) + '" alt="">' : '<img alt="">')
-      + '<span class="main"><span class="t">' + esc(q.title) + '</span><br><span class="a">' + esc(q.artist || '') + '</span></span>'
+      + '<span class="main"><span class="t">' + esc(q.title) + '</span><br><span class="a">' + esc(q.artist || '')
+      + (q.queuedBy ? ' · <span class="by">queued by ' + esc(q.queuedBy) + '</span>' : '') + '</span></span>'
       + (i === state.index && state.playing ? '<span class="eq"><span></span><span></span><span></span></span>' : '')
       + '<span class="dur">' + esc(q.durationText || '') + '</span></button>',
     ).join('') || '<p class="muted small">The queue is empty.</p>';
@@ -342,6 +364,9 @@ function stopPolling() {
 document.addEventListener('DOMContentLoaded', () => {
   $('unlockBtn').addEventListener('click', unlock);
   $('pinInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') unlock(); });
+  $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('pinInput').focus(); });
+  if (myName) $('nameInput').value = myName;
+  if (myName) $('whoLabel').innerHTML = 'You are <span class="who">' + esc(myName) + '</span>';
   $('playBtn').addEventListener('click', () => command({ action: 'toggle' }));
   $('prevBtn').addEventListener('click', () => command({ action: 'prev' }));
   $('nextBtn').addEventListener('click', () => command({ action: 'next' }));

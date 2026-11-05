@@ -36,8 +36,11 @@ internal const val REMOTE_LOG_TAG = "RemoteControl"
  * works for the person next to you who does not have the app.
  *
  * Access is a PIN shown next to the switch in Settings: the page trades
- * it once for a session token. A LAN is a small place, but "anyone on the
- * coffee-shop Wi-Fi can pause your music" is not a feature.
+ * it once — together with a display name — for a session token. Anyone
+ * with the PIN can join under their own name; each connection holds its
+ * own token, and songs a connection queues are labelled with its name.
+ * A LAN is a small place, but "anyone on the coffee-shop Wi-Fi can pause
+ * your music" is not a feature.
  */
 object RemoteControl {
 
@@ -104,7 +107,9 @@ private class RemoteHttpServer(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var running = false
     private var socket: ServerSocket? = null
-    private var token: String? = null
+
+    /** Session token -> display name, one entry per joined browser. */
+    private val sessions = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     private val pageBytes: ByteArray by lazy {
         app.assets.open("remote_player.html").use { it.readBytes() }
@@ -132,7 +137,7 @@ private class RemoteHttpServer(
         } catch (ignored: Exception) {
         }
         socket = null
-        token = null
+        sessions.clear()
     }
 
     private fun handle(client: Socket) {
@@ -158,22 +163,24 @@ private class RemoteHttpServer(
                     respond(output, 200, "text/html; charset=utf-8", pageBytes)
 
                 method == "POST" && path == "/api/unlock" -> {
-                    val given = runCatching { JSONObject(body).optString("pin") }.getOrNull()
+                    val json = runCatching { JSONObject(body) }.getOrNull()
+                    val given = json?.optString("pin")
                     if (given == pin) {
+                        val name = sanitizeName(json?.optString("name"))
                         val fresh = ByteArray(16).also { SecureRandom().nextBytes(it) }
                             .joinToString("") { "%02x".format(it) }
-                        token = fresh
-                        respondJson(output, 200, JSONObject().put("token", fresh))
+                        sessions[fresh] = name
+                        respondJson(output, 200, JSONObject().put("token", fresh).put("name", name))
                     } else {
                         respondJson(output, 401, JSONObject().put("error", "wrong PIN"))
                     }
                 }
 
-                path.startsWith("/api/") && !authorized(headers, rawPath) ->
+                path.startsWith("/api/") && sessionUser(headers, rawPath) == null ->
                     respondJson(output, 401, JSONObject().put("error", "locked"))
 
                 method == "GET" && path == "/api/state" -> {
-                    val snapshot = RemoteBridge.snapshot(app)
+                    val snapshot = RemoteBridge.snapshot(app, sessionUser(headers, rawPath))
                     if (snapshot == null) {
                         respondJson(output, 503, JSONObject().put("error", "player not connected yet"))
                     } else {
@@ -182,7 +189,9 @@ private class RemoteHttpServer(
                 }
 
                 method == "POST" && path == "/api/command" -> {
-                    val ok = runCatching { RemoteBridge.command(app, JSONObject(body)) }.getOrDefault(false)
+                    val ok = runCatching {
+                        RemoteBridge.command(app, JSONObject(body), sessionUser(headers, rawPath))
+                    }.getOrDefault(false)
                     respondJson(output, if (ok) 200 else 400, JSONObject().put("ok", ok))
                 }
 
@@ -228,10 +237,20 @@ private class RemoteHttpServer(
         latch.await(20, java.util.concurrent.TimeUnit.SECONDS)
     }
 
-    private fun authorized(headers: Map<String, String>, rawPath: String): Boolean {
-        val current = token ?: return false
-        if (headers["x-remote-token"] == current) return true
-        return queryParam(rawPath, "t") == current
+    /** The display name behind the request's session token, if it has one. */
+    private fun sessionUser(headers: Map<String, String>, rawPath: String): String? {
+        val presented = headers["x-remote-token"] ?: queryParam(rawPath, "t") ?: return null
+        return sessions[presented]
+    }
+
+    /**
+     * Display names are cosmetic, not identities: trim, cap the length,
+     * and drop control characters so a name can never break the page's
+     * layout or its logs. Empty names join as "Guest".
+     */
+    private fun sanitizeName(raw: String?): String {
+        val cleaned = raw.orEmpty().trim().filter { !it.isISOControl() }.take(24).trim()
+        return cleaned.ifEmpty { "Guest" }
     }
 
     private fun respondJson(output: OutputStream, status: Int, json: JSONObject) {

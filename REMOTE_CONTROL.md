@@ -16,9 +16,17 @@ needs no account, no relay and no internet — only the same LAN.
 1. In BitChord: **Settings → Remote control** → switch it on.
 2. The row now shows the address and PIN, e.g.
    `Open http://192.168.1.20:8899 · PIN 4821`.
-3. Open the address in any browser on the same Wi-Fi, enter the PIN once
-   (it is traded for a session token; the PIN itself is never kept by the
-   page), and control playback.
+3. Open the address in any browser on the same Wi-Fi, enter the PIN and
+   your name once (they are traded for a session token; the PIN itself
+   is never kept by the page), and control playback.
+
+The PIN is shared, not personal: everyone on the Wi-Fi can join with
+the same PIN, each under their own name. Every connection gets its own
+session, and songs queued from the web player are labelled with the
+name that queued them — in the queue list and under the now-playing
+track. (Songs queued in the app itself carry no label; the media
+session has no per-item owner, so the labels live in the server and
+last while the server runs.)
 
 The server starts automatically on app launch if the switch was left on,
 and stops when the switch is turned off. The PIN is regenerated every
@@ -43,8 +51,8 @@ time the server starts.
 | Route | Auth | What |
 | --- | --- | --- |
 | `GET /` | – | the player page |
-| `POST /api/unlock` `{pin}` | – | → `{token}`; send it as `X-Remote-Token` afterwards |
-| `GET /api/state` | token | playing, position/duration, current track, queue (≤200), shuffle/repeat, volume |
+| `POST /api/unlock` `{pin, name}` | – | → `{token, name}`; send the token as `X-Remote-Token` afterwards. Each unlock mints its own session |
+| `GET /api/state` | token | playing, position/duration, current track, queue (≤200, each item labelled `queuedBy` when a web user queued it), shuffle/repeat, volume, `users` (names with songs in the queue), `you` (the caller's name) |
 | `POST /api/command` | token | `{action}`: `play` `pause` `toggle` `next` `prev` `seek{ms}` `playIndex{index}` `playSong{song}` `addSong{song}` `addSongNext{song}` `volume{level 0..1}` `shuffle` `repeat` |
 | `GET /api/search?q=` | token | YouTube Music song search via `YtMusicRepository` → `{results: [song]}` |
 

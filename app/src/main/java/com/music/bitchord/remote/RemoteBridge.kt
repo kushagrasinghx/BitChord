@@ -78,18 +78,76 @@ object RemoteBridge {
 
     fun isConnected(): Boolean = controller != null
 
+    // ── queued-by attribution ─────────────────────────────────────
+
+    /**
+     * Who queued each song from the web remote, as (videoId, username)
+     * pairs in the order the songs were added. The media session has no
+     * per-item owner field, so the bridge keeps this side list and labels
+     * a snapshot by walking the live queue and consuming matches in
+     * order — duplicate songs stay in the order their owners added them.
+     * Entries the walk does not consume (song skipped or removed) drop
+     * out, so the list can never mislabel a later re-add.
+     *
+     * [queuedByLock] guards the list because it is mutated from HTTP
+     * worker threads while a snapshot (built on the main thread) reads
+     * it. The lock is held only for the duration of a call — it never
+     * spans the main-thread latch in [onMain].
+     */
+    private val queuedByLock = Any()
+    private val queuedBy = mutableListOf<Pair<String, String>>()
+
+    private fun noteQueued(song: Song, user: String?) {
+        val name = user?.takeIf { it.isNotBlank() } ?: return
+        synchronized(queuedByLock) { queuedBy.add(song.videoId to name) }
+    }
+
+    /** Removes entries belonging to a queue about to be replaced. */
+    private fun clearQueuedBy() {
+        synchronized(queuedByLock) { queuedBy.clear() }
+    }
+
+    /**
+     * Labels up to [count] queue songs from [attributions], consuming
+     * matches in order and keeping only the consumed entries, so the
+     * stored list shrinks along with the queue.
+     */
+    private fun attributeQueueIds(ids: List<String>): List<String?> {
+        synchronized(queuedByLock) {
+            val pending = queuedBy.toMutableList()
+            val kept = mutableListOf<Pair<String, String>>()
+            val labels = ids.map { id ->
+                val idx = pending.indexOfFirst { it.first == id }
+                if (idx < 0) {
+                    null
+                } else {
+                    val entry = pending.removeAt(idx)
+                    kept.add(entry)
+                    entry.second
+                }
+            }
+            queuedBy.clear()
+            queuedBy.addAll(kept)
+            return labels
+        }
+    }
+
     // ── state ────────────────────────────────────────────────────────
 
     /** Full player snapshot for the web page, or null while unconnected. */
-    fun snapshot(app: Context): JSONObject? = onMain {
+    fun snapshot(app: Context, requester: String? = null): JSONObject? = onMain {
         val c = controller ?: return@onMain null
         val audio = app.getSystemService(AudioManager::class.java)
         val current = c.currentMediaItem?.toSong()
-        val queue = JSONArray()
-        val count = minOf(c.mediaItemCount, MAX_QUEUE_ITEMS)
-        for (i in 0 until count) {
-            queue.put(songJson(c.getMediaItemAt(i).toSong()))
+        val songs = ArrayList<Song>(minOf(c.mediaItemCount, MAX_QUEUE_ITEMS))
+        for (i in 0 until songs.capacity()) {
+            c.getMediaItemAt(i).toSong()?.let { songs.add(it) }
         }
+        val labels = attributeQueueIds(songs.map { it.videoId })
+        val queue = JSONArray()
+        songs.forEachIndexed { i, song -> queue.put(songJson(song, labels.getOrNull(i))) }
+        val userList = JSONArray()
+        synchronized(queuedByLock) { queuedBy.map { it.second }.distinct().forEach { userList.put(it) } }
         JSONObject().apply {
             put("connected", true)
             put("playing", c.isPlaying)
@@ -106,15 +164,21 @@ object RemoteBridge {
                 put("volume", audio.getStreamVolume(AudioManager.STREAM_MUSIC))
                 put("volumeMax", audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
             }
-            if (current != null) put("current", songJson(current)) else put("current", JSONObject.NULL)
+            if (current != null) {
+                put("current", songJson(current, labels.getOrNull(c.currentMediaItemIndex)))
+            } else {
+                put("current", JSONObject.NULL)
+            }
             put("queue", queue)
+            put("users", userList)
+            if (requester != null) put("you", requester)
         }
     }
 
     // ── commands ─────────────────────────────────────────────────────
 
     /** Returns false when the command was unknown or nothing is connected. */
-    fun command(app: Context, body: JSONObject): Boolean {
+    fun command(app: Context, body: JSONObject, user: String? = null): Boolean {
         val action = body.optString("action")
         if (action == "search") return false // search is its own route
         return onMain {
@@ -161,18 +225,22 @@ object RemoteBridge {
                 }
                 "playSong" -> {
                     val song = songFromJson(body.optJSONObject("song")) ?: return@onMain false
+                    clearQueuedBy()
+                    noteQueued(song, user)
                     scope.launch { c.playSongs(listOf(song), 0) }
                     true
                 }
                 "addSong" -> {
                     val song = songFromJson(body.optJSONObject("song")) ?: return@onMain false
                     c.addMediaItem(song.toMediaItem())
+                    noteQueued(song, user)
                     true
                 }
                 "addSongNext" -> {
                     val song = songFromJson(body.optJSONObject("song")) ?: return@onMain false
                     val at = if (c.mediaItemCount == 0) 0 else c.currentMediaItemIndex + 1
                     c.addMediaItem(at, song.toMediaItem())
+                    noteQueued(song, user)
                     true
                 }
                 "volume" -> {
@@ -235,12 +303,13 @@ object RemoteBridge {
 
     // ── helpers ──────────────────────────────────────────────────────
 
-    private fun songJson(song: Song): JSONObject = JSONObject().apply {
+    private fun songJson(song: Song, queuedBy: String? = null): JSONObject = JSONObject().apply {
         put("videoId", song.videoId)
         put("title", song.title)
         put("artist", song.artist)
         put("thumbnailUrl", song.thumbnailUrl ?: JSONObject.NULL)
         put("durationText", song.durationText ?: JSONObject.NULL)
+        if (queuedBy != null) put("queuedBy", queuedBy)
     }
 
     private fun songFromJson(o: JSONObject?): Song? {

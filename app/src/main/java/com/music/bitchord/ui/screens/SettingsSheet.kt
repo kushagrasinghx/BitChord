@@ -245,6 +245,8 @@ fun SettingsScreen(
     val remoteControlState by com.music.bitchord.remote.RemoteControl.state.collectAsStateWithLifecycle()
     val remoteControlPin by AppSettings.remoteControlPin.collectAsStateWithLifecycle()
     val remoteControlPinPersistent by AppSettings.remoteControlPinPersistent.collectAsStateWithLifecycle()
+    val remoteRelayEnabled by AppSettings.remoteRelayEnabled.collectAsStateWithLifecycle()
+    val remoteRelayToken by AppSettings.remoteRelayToken.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
@@ -339,6 +341,8 @@ fun SettingsScreen(
     var confirmImport by remember { mutableStateOf(false) }
     var showRemotePinDialog by remember { mutableStateOf(false) }
     var remotePinInput by remember { mutableStateOf("") }
+    var showRelayTokenDialog by remember { mutableStateOf(false) }
+    var relayTokenInput by remember { mutableStateOf("") }
     var confirmClearSongCache by remember { mutableStateOf(false) }
     var showPerformanceWarning by remember { mutableStateOf(false) }
     var showPerformanceConfirmation by remember { mutableStateOf(false) }
@@ -564,6 +568,45 @@ fun SettingsScreen(
                         },
                         onClick = {
                             AppSettings.setRemoteControlPinPersistent(!remoteControlPinPersistent)
+                        },
+                    )
+                }
+                // The relay, for when the LAN path to the phone cannot
+                // work — a full-tunnel VPN swallows it. The phone dials
+                // out to the relay service and browsers reach the remote
+                // at the relay's public address instead. The switch only
+                // takes effect with the remote itself (the channels
+                // bridge to its server) and with a token set below.
+                val remoteRelayTitle = stringResource(R.string.remote_relay)
+                row(remoteRelayTitle, "relay", "vps", "vpn", "tunnel") {
+                    SettingsRow(
+                        icon = SfIcons.Cloud,
+                        title = remoteRelayTitle,
+                        subtitle = stringResource(R.string.remote_relay_subtitle),
+                        trailing = {
+                            IosSwitch(
+                                checked = remoteRelayEnabled,
+                                onCheckedChange = { AppSettings.setRemoteRelayEnabled(it) },
+                            )
+                        },
+                        onClick = {
+                            AppSettings.setRemoteRelayEnabled(!remoteRelayEnabled)
+                        },
+                    )
+                }
+                val remoteRelayTokenTitle = stringResource(R.string.remote_relay_token)
+                row(remoteRelayTokenTitle, "relay", "token", "secret") {
+                    SettingsRow(
+                        icon = SfIcons.Key,
+                        title = remoteRelayTokenTitle,
+                        subtitle = if (remoteRelayToken.isNotBlank()) {
+                            stringResource(R.string.remote_relay_token_set)
+                        } else {
+                            stringResource(R.string.remote_relay_token_unset)
+                        },
+                        onClick = {
+                            relayTokenInput = remoteRelayToken
+                            showRelayTokenDialog = true
                         },
                     )
                 }
@@ -1824,6 +1867,44 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRemotePinDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showRelayTokenDialog) {
+        AlertDialog(
+            onDismissRequest = { showRelayTokenDialog = false },
+            title = { Text(stringResource(R.string.remote_relay_token_dialog_title)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = relayTokenInput,
+                        onValueChange = { relayTokenInput = it },
+                        label = { Text(stringResource(R.string.remote_relay_token_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        text = stringResource(R.string.remote_relay_token_dialog_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        AppSettings.setRemoteRelayToken(relayTokenInput.trim())
+                        showRelayTokenDialog = false
+                    },
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRelayTokenDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             },

@@ -533,6 +533,20 @@ object AppSettings {
     val remoteControlSavedPin = MutableStateFlow("")
 
     /**
+     * Whether the web remote also dials out to the relay service (see
+     * [com.music.bitchord.remote.RemoteRelay]): the phone holds pooled
+     * connections to the relay, so browsers can reach the remote
+     * through the relay's public address when the LAN path cannot work
+     * — a full-tunnel VPN on the phone being the case that called for
+     * it. Off by default; only connects while the remote itself is on,
+     * and only with [remoteRelayToken] set.
+     */
+    val remoteRelayEnabled = MutableStateFlow(false)
+
+    /** The shared secret the relay checks in the channel handshake. */
+    val remoteRelayToken = MutableStateFlow("")
+
+    /**
      * Whether [animatedCanvas] is allowed to actually stream on a metered
      * connection, as distinct from the switch that turns the feature off
      * altogether.
@@ -1022,6 +1036,8 @@ object AppSettings {
         remoteControlPin.value = prefs.getString(KEY_REMOTE_CONTROL_PIN, "").orEmpty()
         remoteControlPinPersistent.value = prefs.getBoolean(KEY_REMOTE_CONTROL_PIN_PERSISTENT, false)
         remoteControlSavedPin.value = prefs.getString(KEY_REMOTE_CONTROL_SAVED_PIN, "").orEmpty()
+        remoteRelayEnabled.value = prefs.getBoolean(KEY_REMOTE_RELAY_ENABLED, false)
+        remoteRelayToken.value = prefs.getString(KEY_REMOTE_RELAY_TOKEN, "").orEmpty()
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
@@ -1607,6 +1623,16 @@ object AppSettings {
     fun setRemoteControlSavedPin(value: String) {
         remoteControlSavedPin.value = value
         prefs.edit().putString(KEY_REMOTE_CONTROL_SAVED_PIN, value).apply()
+    }
+
+    fun setRemoteRelayEnabled(value: Boolean) {
+        remoteRelayEnabled.value = value
+        prefs.edit().putBoolean(KEY_REMOTE_RELAY_ENABLED, value).apply()
+    }
+
+    fun setRemoteRelayToken(value: String) {
+        remoteRelayToken.value = value
+        prefs.edit().putString(KEY_REMOTE_RELAY_TOKEN, value).apply()
     }
 
     fun setCanvasOverCellular(value: Boolean) {
@@ -2238,6 +2264,8 @@ object AppSettings {
     private const val KEY_REMOTE_CONTROL_PIN = "remote_control_pin"
     private const val KEY_REMOTE_CONTROL_PIN_PERSISTENT = "remote_control_pin_persistent"
     private const val KEY_REMOTE_CONTROL_SAVED_PIN = "remote_control_saved_pin"
+    private const val KEY_REMOTE_RELAY_ENABLED = "remote_relay_enabled"
+    private const val KEY_REMOTE_RELAY_TOKEN = "remote_relay_token"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"

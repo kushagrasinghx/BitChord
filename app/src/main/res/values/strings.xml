@@ -942,6 +942,14 @@
     <string name="remote_control_pin_dialog_title">Custom PIN</string>
     <string name="remote_control_pin_dialog_hint">4 to 8 digits. Leave empty for an automatic PIN. Applies the next time the remote starts.</string>
     <string name="remote_control_pin_label">PIN</string>
+    <string name="remote_relay">Relay via VPS</string>
+    <string name="remote_relay_subtitle">Reach the remote through the relay when a VPN blocks the LAN path</string>
+    <string name="remote_relay_token">Relay token</string>
+    <string name="remote_relay_token_set">Token set</string>
+    <string name="remote_relay_token_unset">No token \u2014 the relay will not connect</string>
+    <string name="remote_relay_token_dialog_title">Relay token</string>
+    <string name="remote_relay_token_dialog_hint">The token your relay service issued. Applies the next time the remote starts.</string>
+    <string name="remote_relay_token_label">Token</string>
     <string name="listen_together_in_party">In a party · %1$s</string>
     <string name="listen_together_sign_in_footer">Listening together needs an account, so everyone in the party can see who else is in it.</string>
     <string name="listen_together_server">Party server</string>

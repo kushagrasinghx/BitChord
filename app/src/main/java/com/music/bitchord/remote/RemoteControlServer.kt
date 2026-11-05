@@ -133,6 +133,13 @@ object RemoteControl {
         RemoteBridge.connect(app.applicationContext)
         _state.value = State(running = true, url = lanUrl(), pin = pin)
         Log.i(REMOTE_LOG_TAG, "remote control listening at ${_state.value.url}")
+        // The relay client rides along with the server: its channels
+        // bridge to this very server, so it only runs while the server
+        // does. Settings changes apply here, at the next start.
+        if (AppSettings.remoteRelayEnabled.value) {
+            val relayToken = AppSettings.remoteRelayToken.value
+            if (relayToken.isNotBlank()) RemoteRelay.start(relayToken)
+        }
     }
 
     /**
@@ -163,6 +170,7 @@ object RemoteControl {
         server?.stop()
         server = null
         RemoteBridge.disconnect()
+        RemoteRelay.stop()
         _state.value = State()
     }
 

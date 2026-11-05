@@ -66,6 +66,32 @@ both under the switch and both applied at the next start:
 - **Persistent PIN** — with no custom PIN set, keep the generated PIN
   across restarts instead of minting a fresh one each time.
 
+### Relay mode (when the LAN path cannot work)
+
+A full-tunnel VPN on the phone makes the phone unreachable from the
+LAN, and no address trick fixes that — the traffic itself never
+arrives. Relay mode routes around it: the phone dials **out** to a
+small relay service on a VPS (outbound through the VPN works fine)
+and holds a pool of connections there; browsers open the relay's
+public address instead of the phone's, and the relay splices each
+request through a pooled connection to the phone's own server.
+
+1. Run the relay service (`bitchord-relay`, a single-file Python
+   service listening on port 8890; it generates its token on first
+   start).
+2. In BitChord: **Settings → Relay token** → paste the token, then
+   **Relay via VPS** on, with Remote control on.
+3. In any browser: `http://<vps-address>:8890/r/<token>/` — the first
+   visit plants a cookie, after which the page's own addresses work
+   as usual. The remote's PIN gate applies exactly as on the LAN:
+   the relay is a dumb pipe and the phone's server still enforces
+   the PIN, its lockout and its body cap on everything that arrives
+   through it.
+
+Relay settings apply at the next remote start, like the PIN
+settings. The relay client's target address is a constant in
+`RemoteRelay.kt` — the relay is a personal service, deployed once.
+
 ## How it works
 
 - `remote/RemoteControlServer.kt` — a plain socket HTTP server (no new
@@ -77,6 +103,9 @@ both under the switch and both applied at the next start:
   is indistinguishable from an in-app tap: Listen Together parties hear
   it, the notification follows, and queue/shuffle semantics stay the
   service's own (`playSongs`, `toggleShuffle`, `Song.toMediaItem()`).
+- `remote/RemoteRelay.kt` — the relay client: pooled outbound
+  channels to the relay service, each bridging one request to the
+  local server. Runs only while the server runs.
 - `assets/remote_player.html` — the whole player page in one file. It
   polls `/api/state` once a second. One column on phones; two columns
   (player + lyrics | search + queue) on screens 1080px and wider.
@@ -113,5 +142,11 @@ A `card` is `{kind, browseId, title, subtitle, thumbnailUrl}`.
   still block it — that app needs its "allow LAN" option on.)
 - The server lives in the app process. If Android kills BitChord (app
   swiped away and playback stopped), the remote stops with it.
+- Relay mode moves the entry point, not the trust model: the relay's
+  token gates the pipe (first visit in the URL, then a cookie), the
+  remote's PIN still gates the player, and traffic is plain
+  HTTP/TCP end to end — anyone who can read the path can read the
+  session. Treat the relay address like the LAN address: convenient,
+  not confidential.
 - State updates are polled (1 s), not pushed; good enough for a remote,
   and it keeps the server trivially simple.

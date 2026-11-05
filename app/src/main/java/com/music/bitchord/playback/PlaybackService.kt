@@ -7816,7 +7816,7 @@ class PlaybackService : MediaLibraryService() {
         // The Lyrics tab stays still while the line being sung is one of the rows on screen.
         // When the line being sung moves past those rows, the tab starts again at that line.
         // Android Auto reloads a list only after notifyChildrenChanged.
-        if (lines !== lyricsTabLines || cur < lyricsTabStart || cur >= lyricsTabStart + AppSettings.autoLyricsRows.value) {
+        if (lines !== lyricsTabLines || cur < lyricsTabStart || cur >= lyricsTabStart + LYRICS_TAB_ROWS_ON_SCREEN) {
             lyricsTabLines = lines
             lyricsTabStart = cur.coerceAtLeast(0)
             mediaSession?.notifyChildrenChanged(MEDIA_LYRICS_ID, Int.MAX_VALUE, null)
@@ -9320,6 +9320,8 @@ class PlaybackService : MediaLibraryService() {
         const val MEDIA_LYRICS_ID = "lyrics"
         /** Lyric rows have ids like "lyric:12000", where the number is the line's start time in ms. */
         const val LYRIC_ITEM_PREFIX = "lyric:"
+        /** How many lyric rows fit on the car screen. The 800x480 Android Auto simulator shows 4, and a bigger screen shows more. */
+        const val LYRICS_TAB_ROWS_ON_SCREEN = 4
         /** Roughly how many characters fit in the 2-line title on the small split-screen card. Longer lines get cut off there. */
         const val LYRIC_TITLE_MAX_CHARS = 36
         /** See [scheduleForeignCachePurge]: comfortably past the longest crossfade. */

@@ -485,9 +485,6 @@ object AppSettings {
     /** Positive values delay synced lyrics; negative values bring them forward. */
     val lyricsOffsetMs = MutableStateFlow(0)
 
-    /** How many lyric rows the car screen shows in the Android Auto Lyrics tab. */
-    val autoLyricsRows = MutableStateFlow(DEFAULT_AUTO_LYRICS_ROWS)
-
     /**
      * Which language the lyrics translate button translates *into*.
      *
@@ -990,8 +987,6 @@ object AppSettings {
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
-        autoLyricsRows.value = prefs.getInt(KEY_AUTO_LYRICS_ROWS, DEFAULT_AUTO_LYRICS_ROWS)
-            .coerceIn(MIN_AUTO_LYRICS_ROWS, MAX_AUTO_LYRICS_ROWS)
         translationLanguage.value = prefs.getString(KEY_TRANSLATION_LANGUAGE, "").orEmpty()
         if (highPerformanceMode.value) {
             reduceAnimation.value = false
@@ -1449,13 +1444,6 @@ object AppSettings {
         if (lyricsOffsetMs.value == normalized) return
         lyricsOffsetMs.value = normalized
         prefs.edit().putInt(KEY_LYRICS_OFFSET_MS, normalized).apply()
-    }
-
-    fun setAutoLyricsRows(value: Int) {
-        val normalized = value.coerceIn(MIN_AUTO_LYRICS_ROWS, MAX_AUTO_LYRICS_ROWS)
-        if (autoLyricsRows.value == normalized) return
-        autoLyricsRows.value = normalized
-        prefs.edit().putInt(KEY_AUTO_LYRICS_ROWS, normalized).apply()
     }
 
     /** Blank restores "follow the app language"; see [translationLanguage]. */
@@ -2128,11 +2116,6 @@ object AppSettings {
     const val MIN_LYRICS_OFFSET_MS = -5_000
     const val MAX_LYRICS_OFFSET_MS = 5_000
 
-    const val MIN_AUTO_LYRICS_ROWS = 3
-    const val MAX_AUTO_LYRICS_ROWS = 8
-    /** The Android Auto desktop simulator, at 800x480, shows 4 rows. */
-    const val DEFAULT_AUTO_LYRICS_ROWS = 4
-
     const val DEFAULT_UPGRADE_LENGTH_SLACK_SECONDS = 5
     const val MIN_UPGRADE_LENGTH_SLACK_SECONDS = 0
     const val MAX_UPGRADE_LENGTH_SLACK_SECONDS = 10
@@ -2200,7 +2183,6 @@ object AppSettings {
     private const val KEY_PROGRESSIVE_BLUR = "progressive_blur"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
-    private const val KEY_AUTO_LYRICS_ROWS = "auto_lyrics_rows"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"

@@ -374,9 +374,6 @@
     <string name="synced_lyrics">Synced lyrics</string>
     <string name="synced_lyrics_subtitle">Lights up the words on the player as they’re sung</string>
     <string name="lyrics_sources">Lyrics sources</string>
-    <string name="auto_lyrics_rows">Lyrics rows in Android Auto</string>
-    <string name="auto_lyrics_rows_subtitle">Set this to how many lines your car screen shows in the Lyrics tab</string>
-    <string name="auto_lyrics_rows_value">%1$d rows</string>
     <string name="song_cache_limit">Song cache limit</string>
     <string name="clear_song_cache">Clear song cache</string>
     <string name="clear_song_cache_subtitle">Frees space used by downloaded audio</string>

@@ -1181,21 +1181,6 @@ fun SettingsScreen(
                     onClick = { AppSettings.setAnimatedCanvas(!animatedCanvas) },
                 )
             }
-            // Reads as part of the Animated cover art option above it, not
-            // as a separate setting. Nothing to narrow while the clip itself
-            // is off. Defaults to off: a clip loops for as long as its track
-            // plays, so on cellular this is not a one-time video cost but
-            // that cost repeated on every loop — see AppSettings.canvasOverCellular.
-            if (animatedCanvas) {
-                val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
-                row(coverCellularTitle, "canvas", "cellular", divided = false) {
-                    SettingsSubRow(
-                        title = coverCellularTitle,
-                        checked = canvasOverCellular,
-                        onCheckedChange = AppSettings::setCanvasOverCellular,
-                    )
-                }
-            }
             val disableArtistVideoTitle = stringResource(R.string.disable_artist_video)
             row(disableArtistVideoTitle, "artist", "video", "motion") {
                 SettingsRow(
@@ -1210,6 +1195,21 @@ fun SettingsScreen(
                     },
                     onClick = { AppSettings.setDisableArtistVideo(!disableArtistVideo) },
                 )
+            }
+            // Reads as part of the Animated cover art option above it, not
+            // as a separate setting. Nothing to narrow while the clip itself
+            // is off. Defaults to off: a clip loops for as long as its track
+            // plays, so on cellular this is not a one-time video cost but
+            // that cost repeated on every loop — see AppSettings.canvasOverCellular.
+            if (animatedCanvas) {
+                val coverCellularTitle = stringResource(R.string.animated_cover_cellular)
+                row(coverCellularTitle, "canvas", "cellular", divided = false) {
+                    SettingsSubRow(
+                        title = coverCellularTitle,
+                        checked = canvasOverCellular,
+                        onCheckedChange = AppSettings::setCanvasOverCellular,
+                    )
+                }
             }
             if (animatedCanvas) {
                 val spotifyCanvasTitle = stringResource(R.string.integrate_spotify_canvas)

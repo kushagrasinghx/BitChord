@@ -847,8 +847,9 @@ class PlaybackService : MediaLibraryService() {
     private var serviceLyrics: List<LyricLine>? = null
     /** The lyric line being sung and the next one, or null to show the song's title and artist. */
     private var lastPublishedLyric: Pair<String, String>? = null
-    private var lyricsTabKey = 0
-    /** Which sung line the Android Auto Lyrics tab starts at. Read on the IO thread. */
+    /** The lyrics that the Lyrics tab last showed. updateLyricSubtitle compares this list with serviceLyrics to know when the song changed. */
+    private var lyricsTabLines: List<LyricLine>? = null
+    /** Which sung line the Android Auto Lyrics tab starts at. lyricsTabItems reads it on the IO thread. */
     @Volatile private var lyricsTabStart = 0
     private var lyricsTickerJob: Job? = null
 
@@ -933,7 +934,7 @@ class PlaybackService : MediaLibraryService() {
             // on advancing through a song that has stopped — and finishes it.
             if (isPlaying) {
                 pushDiscordPresence(exoPlayer)
-                // A queue restored after the app restarts gets no track change, so no lyrics yet.
+                // A queue restored after the app restarts starts without a track change, so the lyrics of the current song were never loaded.
                 if (serviceLyricsJob == null) loadLyricsForCurrentTrack()
                 startLyricsTicker()
             } else {
@@ -7756,19 +7757,15 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    /** The sung lines of [serviceLyrics], and the index in that list of the line being sung (-1 before the first). */
-    private fun sungLines(lines: List<LyricLine>?, idx: Int): Pair<List<LyricLine>, Int> {
-        val sung = lines?.filter { !it.isGap && it.text.isNotBlank() }.orEmpty()
-        val current = lines?.getOrNull(idx)
-        return sung to sung.indexOfLast { current != null && it.timeMs <= current.timeMs }
-    }
+    /** Returns the lines that have words, without the empty gap lines. */
+    private fun sungLines(lines: List<LyricLine>?) = lines?.filter { !it.isGap && it.text.isNotBlank() }.orEmpty()
 
     /**
-     * Rows for the Android Auto Lyrics tab: 11 lines from [lyricsTabStart].
+     * Rows for the Android Auto Lyrics tab: 11 sung lines, starting at [lyricsTabStart].
      * Android Auto cannot scroll a list by itself, so [updateLyricSubtitle] moves the start.
      */
     private fun lyricsTabItems(): List<MediaItem> {
-        val lines = sungLines(serviceLyrics, -1).first
+        val lines = sungLines(serviceLyrics)
         if (lines.isEmpty()) return listOf(createInfoItem("msg:no_lyrics", "No lyrics for this song"))
         return lines.drop(lyricsTabStart).take(11).map { line ->
             MediaItem.Builder()
@@ -7777,7 +7774,7 @@ class PlaybackService : MediaLibraryService() {
                     MediaMetadata.Builder()
                         .setTitle(line.text)
                         .setIsBrowsable(false)
-                        // Playable, so that tapping a line reaches onSetMediaItems, which seeks to it.
+                        // The row is playable, so that a tap on it reaches onSetMediaItems, which seeks to the line.
                         .setIsPlayable(true)
                         .build(),
                 )
@@ -7785,7 +7782,7 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    /** Splits [text] at the space nearest its middle. With no space, splits at the middle. */
+    /** Splits [text] at the space nearest its middle. With no space in [text], the split is at the middle. */
     private fun splitInHalf(text: String): Pair<String, String> {
         val mid = text.length / 2
         val at = text.indices.filter { text[it] == ' ' }.minByOrNull { kotlin.math.abs(it - mid) } ?: mid
@@ -7812,20 +7809,20 @@ class PlaybackService : MediaLibraryService() {
         val exoPlayer = player ?: return
         val currentSong = exoPlayer.currentMediaItem?.toSong() ?: return
         val lines = serviceLyrics
-        // The phone's lyrics offset applies here too: a negative offset shows lines earlier.
+        // The lyrics offset setting in the phone app applies here too. A negative offset shows lines earlier.
         val pos = (crossfade?.loopPositionMs() ?: exoPlayer.currentPosition) - AppSettings.lyricsOffsetMs.value
-        val idx = lines?.indexOfLast { it.timeMs <= pos } ?: -1
-        val (sung, cur) = sungLines(lines, idx)
-        // The Lyrics tab stays still while the line being sung is on screen, and starts again
-        // at that line once it moves off. Android Auto only reloads a list when told it changed.
-        val tabKey = System.identityHashCode(lines)
-        if (tabKey != lyricsTabKey || cur < lyricsTabStart || cur >= lyricsTabStart + LYRICS_TAB_ROWS_ON_SCREEN) {
-            lyricsTabKey = tabKey
+        val sung = sungLines(lines)
+        val cur = sung.indexOfLast { it.timeMs <= pos }
+        // The Lyrics tab stays still while the line being sung is one of the rows on screen.
+        // When the line being sung moves past those rows, the tab starts again at that line.
+        // Android Auto reloads a list only after notifyChildrenChanged.
+        if (lines !== lyricsTabLines || cur < lyricsTabStart || cur >= lyricsTabStart + LYRICS_TAB_ROWS_ON_SCREEN) {
+            lyricsTabLines = lines
             lyricsTabStart = cur.coerceAtLeast(0)
             mediaSession?.notifyChildrenChanged(MEDIA_LYRICS_ID, Int.MAX_VALUE, null)
         }
-        // While playing, the title is the line being sung and the subtitle is the next line.
-        // Paused, stopped, or before the first line, the song's own title and artist show.
+        // While the song plays, the title is the line being sung and the subtitle is the next line.
+        // When the song is paused or stopped, or before the first line, the song's title and artist show.
         val now = sung.getOrNull(cur)?.takeIf { exoPlayer.isPlaying && AppSettings.syncedLyrics.value }
         val lyric = now?.let { line ->
             // A long line is cut off on the small split-screen card, so it is split over
@@ -7959,8 +7956,8 @@ class PlaybackService : MediaLibraryService() {
         }
 
         /**
-         * The lyric lines changed. Only this wrapper adds them, so ExoPlayer never reports
-         * the change, and Android Auto would keep showing the old lines.
+         * Call this when the lyric lines change. Only this wrapper adds the lyric lines, so ExoPlayer
+         * never reports the change, and Android Auto would keep showing the old lines.
          */
         fun onLyricChanged() {
             val metadata = mediaMetadata
@@ -8388,7 +8385,7 @@ class PlaybackService : MediaLibraryService() {
             val base = wrappedPlayer.mediaMetadata
             val lyric = getLyric()
             // Android Auto shows the display title and subtitle when a display title is set.
-            // Without one it shows the title and artist.
+            // Without a display title, Android Auto shows the title and artist.
             return if (lyric == null) base else base.buildUpon().setDisplayTitle(lyric.first).setSubtitle(lyric.second).build()
         }
 
@@ -8595,8 +8592,8 @@ class PlaybackService : MediaLibraryService() {
             val items: List<MediaItem> = when (parentId) {
                 MEDIA_ROOT_ID -> listOf(
                     createFolderItem(MEDIA_QUICK_PICKS_ID, getString(R.string.auto_quick_picks), folderType = MediaMetadata.FOLDER_TYPE_PLAYLISTS),
-                    // Android Auto shows at most 4 tabs. With more, it moves the rest into its own
-                    // "More" tab, so Recent and Liked songs live under ours.
+                    // Android Auto shows at most 4 tabs. With more than 4, Android Auto moves the rest
+                    // into its own "More" tab, so Recent and Liked songs are inside our More folder.
                     createFolderItem(MEDIA_LYRICS_ID, "Lyrics"),
                     createFolderItem(MEDIA_PLAYLISTS_ID, getString(R.string.playlists), folderType = MediaMetadata.FOLDER_TYPE_PLAYLISTS, isGrid = true),
                     createFolderItem(MEDIA_MORE_ID, getString(R.string.more), folderType = MediaMetadata.FOLDER_TYPE_MIXED),
@@ -8798,7 +8795,8 @@ class PlaybackService : MediaLibraryService() {
                 MEDIA_PLAYLISTS_ID -> createFolderItem(MEDIA_PLAYLISTS_ID, getString(R.string.playlists), folderType = MediaMetadata.FOLDER_TYPE_PLAYLISTS, isGrid = true)
                 MEDIA_MORE_ID -> createFolderItem(MEDIA_MORE_ID, getString(R.string.more), folderType = MediaMetadata.FOLDER_TYPE_MIXED)
                 MEDIA_LIKED_ID -> createFolderItem(MEDIA_LIKED_ID, getString(R.string.auto_liked), folderType = MediaMetadata.FOLDER_TYPE_PLAYLISTS)
-                // Android Auto subscribes to the folder only when this returns it as browsable.
+                // Android Auto subscribes to the Lyrics folder, and so hears about changes,
+                // only when onGetItem returns the folder as browsable.
                 MEDIA_LYRICS_ID -> createFolderItem(MEDIA_LYRICS_ID, "Lyrics")
                 MEDIA_DOWNLOADS_ID -> createFolderItem(MEDIA_DOWNLOADS_ID, getString(R.string.downloads))
                 MEDIA_LOCAL_MUSIC_ID -> createFolderItem(MEDIA_LOCAL_MUSIC_ID, getString(R.string.local_music))
@@ -8941,28 +8939,23 @@ class PlaybackService : MediaLibraryService() {
             startIndex: Int,
             startPositionMs: Long,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
-            // A tapped row in the Lyrics tab: seek inside the current song and keep the queue.
-            val lyricMs = mediaItems.singleOrNull()?.mediaId?.removePrefix(LYRIC_ITEM_PREFIX)
-                ?.takeIf { mediaItems.single().mediaId.startsWith(LYRIC_ITEM_PREFIX) }?.toLongOrNull()
+            // A tap on a Lyrics tab row seeks inside the current song. The failed future stops
+            // media3 from replacing the queue with that row.
+            val lyricMs = mediaItems.singleOrNull()?.mediaId
+                ?.takeIf { it.startsWith(LYRIC_ITEM_PREFIX) }?.removePrefix(LYRIC_ITEM_PREFIX)?.toLongOrNull()
             if (lyricMs != null) {
                 player?.seekTo((lyricMs + AppSettings.lyricsOffsetMs.value).coerceAtLeast(0L))
                 return Futures.immediateFailedFuture(UnsupportedOperationException("lyric row: seek only"))
             }
-            return setMediaItemsFromRequest(mediaItems, startIndex, startPositionMs)
-        }
-
-        private fun setMediaItemsFromRequest(
-            mediaItems: List<MediaItem>,
-            startIndex: Int,
-            startPositionMs: Long,
-        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = scope.future(Dispatchers.IO) {
-            val resolved = resolveMediaItems(mediaItems)
-            val validIndex = startIndex.coerceIn(0, (resolved.size - 1).coerceAtLeast(0))
-            MediaSession.MediaItemsWithStartPosition(
-                ImmutableList.copyOf(resolved),
-                validIndex,
-                startPositionMs.coerceAtLeast(0L),
-            )
+            return scope.future(Dispatchers.IO) {
+                val resolved = resolveMediaItems(mediaItems)
+                val validIndex = startIndex.coerceIn(0, (resolved.size - 1).coerceAtLeast(0))
+                MediaSession.MediaItemsWithStartPosition(
+                    ImmutableList.copyOf(resolved),
+                    validIndex,
+                    startPositionMs.coerceAtLeast(0L),
+                )
+            }
         }
 
         override fun onAddMediaItems(
@@ -9327,9 +9320,9 @@ class PlaybackService : MediaLibraryService() {
         const val MEDIA_LYRICS_ID = "lyrics"
         /** Lyric rows have ids like "lyric:12000", where the number is the line's start time in ms. */
         const val LYRIC_ITEM_PREFIX = "lyric:"
-        /** Lyric rows that fit on the car screen. The DHU's 800x480 screen shows 4; a bigger screen shows more. */
+        /** How many lyric rows fit on the car screen. The 800x480 Android Auto simulator shows 4, and a bigger screen shows more. */
         const val LYRICS_TAB_ROWS_ON_SCREEN = 4
-        /** About what the split-screen card's 2-line title holds before it is cut off. */
+        /** Roughly how many characters fit in the 2-line title on the small split-screen card. Longer lines get cut off there. */
         const val LYRIC_TITLE_MAX_CHARS = 36
         /** See [scheduleForeignCachePurge]: comfortably past the longest crossfade. */
         const val FOREIGN_CACHE_PURGE_DELAY_MS = 30_000L

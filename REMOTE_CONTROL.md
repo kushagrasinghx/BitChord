@@ -72,16 +72,28 @@ A full-tunnel VPN on the phone makes the phone unreachable from the
 LAN, and no address trick fixes that — the traffic itself never
 arrives. Relay mode routes around it: the phone dials **out** to a
 small relay service on a VPS (outbound through the VPN works fine)
-and holds a pool of WebSocket channels there; browsers open the
-relay's hostname instead of the phone's, and the relay splices each
-request through a pooled channel to the phone's own server.
+and holds two persistent WebSocket channels there; browsers open
+the relay's hostname instead of the phone's, and the relay carries
+each request over a channel to the phone's own server.
+
+The channels are **multiplexed**: every binary message wears a
+five-byte header (request id, type) and many requests share one
+channel. An earlier design burned a channel per request, which —
+with the page polling state every second — owed the tunnel a fresh
+TLS + WebSocket handshake per poll; any slow redial drained the
+pool and the page hung. Persistent channels made redials rare and
+the spottiness went with them. The relay still accepts the old
+one-request channels, so an un-upgraded build keeps working.
 
 Both legs ride the VPS's Cloudflare Tunnel under one hostname
 (`remote.gaspol.men`): browsers over HTTPS, phone channels over WSS
 to `/channel` with the relay token in a header — to every network on
 the way, the VPN included, the phone's channels are ordinary HTTPS,
-and the VPS needs no open port of its own. Parked channels ping
-every 30 seconds so the tunnel never reaps them as idle.
+and the VPS needs no open port of its own. Connected channels ping
+every 30 seconds so the tunnel never reaps them as idle. The
+remote is also started from the playback service, not only the
+application, so while music plays it inherits the foreground
+service's protection from being killed in the background.
 
 1. Run the relay service (`bitchord-relay`, a single-file Python
    service on localhost port 8890 behind the tunnel; it generates
@@ -120,11 +132,11 @@ having no Cloudflare or DNS in the path.
   is indistinguishable from an in-app tap: Listen Together parties hear
   it, the notification follows, and queue/shuffle semantics stay the
   service's own (`playSongs`, `toggleShuffle`, `Song.toMediaItem()`).
-- `remote/RemoteRelay.kt` — the relay client: pooled outbound
-  WebSocket channels to the relay through the tunnel hostname
-  (hand-rolled WSS client, 30 s ping keepalives, peer-name check),
-  each bridging one request to the local server. Runs only while the
-  server runs.
+- `remote/RemoteRelay.kt` — the relay client: two persistent,
+  multiplexed WebSocket channels to the relay through the tunnel
+  hostname (hand-rolled WSS client, 30 s ping keepalives, peer-name
+  check), each carrying many requests to the local server. Runs
+  only while the server runs.
 - `assets/remote_player.html` — the whole player page in one file. It
   polls `/api/state` once a second. One column on phones; two columns
   (player + lyrics | search + queue) on screens 1080px and wider.

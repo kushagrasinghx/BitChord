@@ -241,4 +241,48 @@ class RemoteLogicTest {
             RemoteRelay.parseAddress("ws://"),
         )
     }
+
+    // ── mux framing ─────────────────────────────────────────────────
+    // Every request and response chunk on a relay channel wears this
+    // five-byte header. A slip here does not crash anything — it
+    // delivers one browser's response to another — so the layout is
+    // pinned byte for byte.
+
+    @Test
+    fun muxRoundTripPreservesIdTypeAndPayload() {
+        val payload = "hello".toByteArray()
+        val decoded = RemoteRelay.muxDecode(
+            RemoteRelay.muxEncode(7, RemoteRelay.MUX_DATA, payload),
+        )!!
+        assertEquals(7, decoded.id)
+        assertEquals(RemoteRelay.MUX_DATA, decoded.type)
+        assertEquals("hello", String(decoded.payload))
+    }
+
+    @Test
+    fun muxHeaderIsBigEndianIdThenType() {
+        val frame = RemoteRelay.muxEncode(0x01020304, RemoteRelay.MUX_END, ByteArray(0))
+        assertEquals(5, frame.size)
+        assertEquals(0x01.toByte(), frame[0])
+        assertEquals(0x02.toByte(), frame[1])
+        assertEquals(0x03.toByte(), frame[2])
+        assertEquals(0x04.toByte(), frame[3])
+        assertEquals(RemoteRelay.MUX_END.toByte(), frame[4])
+    }
+
+    @Test
+    fun muxEmptyPayloadDecodesToTheBareHeader() {
+        val decoded = RemoteRelay.muxDecode(
+            RemoteRelay.muxEncode(42, RemoteRelay.MUX_REQUEST, ByteArray(0)),
+        )!!
+        assertEquals(42, decoded.id)
+        assertEquals(RemoteRelay.MUX_REQUEST, decoded.type)
+        assertEquals(0, decoded.payload.size)
+    }
+
+    @Test
+    fun muxDecodeRejectsShortMessages() {
+        assertNull(RemoteRelay.muxDecode(ByteArray(0)))
+        assertNull(RemoteRelay.muxDecode(ByteArray(4)))
+    }
 }

@@ -1286,6 +1286,16 @@ class PlaybackService : MediaLibraryService() {
             com.music.bitchord.data.innertube.Innertube.cookie = com.music.bitchord.auth.AuthStore(this).cookie
         }
 
+        // The web remote — and with it the relay client — normally
+        // starts from the application. Start it from here as well:
+        // this service is foreground while music plays, and a process
+        // hosting a foreground service is the last one Android kills,
+        // so the relay inherits that protection for exactly the hours
+        // it is used most. The call is a no-op when the remote is off
+        // or already running, so whichever of the application and
+        // this service gets there second changes nothing.
+        com.music.bitchord.remote.RemoteControl.init(this)
+
         // First, because everything below assumes it is standing up fresh and
         // one of the two ways this service starts does not give it that.
         //

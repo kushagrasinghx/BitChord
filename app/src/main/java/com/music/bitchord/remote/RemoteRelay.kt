@@ -16,8 +16,8 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 
 /**
- * The phone's half of the relay mode: a small pool of WebSocket
- * channels to the relay service, each bridging one browser request to
+ * The phone's half of the relay mode: two persistent WebSocket
+ * channels to the relay service, multiplexing browser requests to
  * the phone's own remote server.
  *
  * Why WebSocket, and why through the tunnel hostname: the relay's
@@ -30,20 +30,30 @@ import javax.net.ssl.SSLSocketFactory
  * no open port at all. (An address written with a `ws://` scheme
  * instead dials a relay directly in plaintext — the same protocol
  * minus TLS, for owners who would rather have no tunnel in the path.)
- * Cloudflare reaps idle WebSockets, so a parked
+ * Cloudflare reaps idle WebSockets, so a connected
  * channel pings every [PING_INTERVAL_MS]; the relay answers.
+ *
+ * Why multiplexed: the second version burned one channel per browser
+ * request, and the remote page polls state every second — so the
+ * phone owed Cloudflare a fresh TLS + WebSocket handshake every
+ * second, and any slow redial (a VPN route change, a network switch)
+ * drained the channel pool faster than it refilled. The page hung,
+ * then 502'd: "spotty." Now a channel is persistent and every binary
+ * message on it is one leg of some request — a five-byte header
+ * (request id, type) plus payload; see [muxEncode]. Requests share
+ * the channel, a redial is a rare event instead of a per-poll one,
+ * and two channels are kept so one dying still leaves the other.
  *
  * The address is a setting, not a constant: the relay is a personal
  * service and its tunnel hostname is whatever its owner configured
  * in their DNS — the client cannot know it at compile time.
  *
- * The relay is a dumb pipe: binary messages are the spliced byte
- * stream, and the local server still enforces the PIN, its lockout
- * and its body cap on every request that arrives through a channel.
- * A channel carries one request and is then redialled — the local
- * server closes after every response anyway. The pool is only held
- * while the remote server runs; [RemoteControl] starts and stops
- * this client alongside it.
+ * The relay is a dumb pipe: it forwards request bytes and response
+ * chunks without reading them, and the local server still enforces
+ * the PIN, its lockout and its body cap on every request that
+ * arrives through a channel. The pool is only held while the remote
+ * server runs; [RemoteControl] starts and stops this client
+ * alongside it.
  */
 object RemoteRelay {
 
@@ -52,12 +62,19 @@ object RemoteRelay {
     private const val DEFAULT_PORT = 443
     private const val DIRECT_DEFAULT_PORT = 80
     private const val CHANNEL_PATH = "/channel"
-    private const val CHANNELS = 4
+    private const val CHANNELS = 2
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val LOCAL_TIMEOUT_MS = 5_000
     private const val RETRY_DELAY_MS = 1_000L
     private const val PING_INTERVAL_MS = 30_000
-    private const val FRAME_CHUNK = 32 * 1024
+    private const val DATA_CHUNK = 16 * 1024
+
+    // Mux message types — byte 4 of every message on a channel. The
+    // relay speaks the same protocol from its side.
+    const val MUX_REQUEST = 1 // relay -> phone: payload is the whole HTTP request
+    const val MUX_DATA = 2    // phone -> relay: payload is a response chunk
+    const val MUX_END = 3     // phone -> relay: the response is complete
+    const val MUX_CANCEL = 4  // relay -> phone: the browser went away
 
     @Volatile private var running = false
     private var token: String = ""
@@ -103,6 +120,31 @@ object RemoteRelay {
         return Address(host, port ?: if (useTls) DEFAULT_PORT else DIRECT_DEFAULT_PORT, useTls)
     }
 
+    /** One decoded mux message: whose it is, what it is, its bytes. */
+    class MuxMessage(val id: Int, val type: Int, val payload: ByteArray)
+
+    /** Frame a mux message: 4-byte big-endian id, 1-byte type, payload. */
+    fun muxEncode(id: Int, type: Int, payload: ByteArray): ByteArray {
+        val out = ByteArray(5 + payload.size)
+        out[0] = (id ushr 24).toByte()
+        out[1] = (id ushr 16).toByte()
+        out[2] = (id ushr 8).toByte()
+        out[3] = id.toByte()
+        out[4] = type.toByte()
+        payload.copyInto(out, destinationOffset = 5)
+        return out
+    }
+
+    /** The inverse of [muxEncode]; null when too short to be one. */
+    fun muxDecode(message: ByteArray): MuxMessage? {
+        if (message.size < 5) return null
+        val id = ((message[0].toInt() and 0xFF) shl 24) or
+            ((message[1].toInt() and 0xFF) shl 16) or
+            ((message[2].toInt() and 0xFF) shl 8) or
+            (message[3].toInt() and 0xFF)
+        return MuxMessage(id, message[4].toInt() and 0xFF, message.copyOfRange(5, message.size))
+    }
+
     @Synchronized
     fun start(relayToken: String, address: String) {
         if (running) return
@@ -113,57 +155,32 @@ object RemoteRelay {
         relayTls = parsed.useTls
         running = true
         repeat(CHANNELS) { i ->
-            Thread({ channelLoop() }, "remote-relay-$i").apply { isDaemon = true }.start()
+            Thread({ connectionLoop() }, "remote-relay-$i").apply { isDaemon = true }.start()
         }
         val scheme = if (relayTls) "wss" else "ws"
-        Log.i(REMOTE_LOG_TAG, "relay client started ($CHANNELS channels to $scheme://$relayHost:$relayPort$CHANNEL_PATH)")
+        Log.i(REMOTE_LOG_TAG, "relay client started ($CHANNELS mux channels to $scheme://$relayHost:$relayPort$CHANNEL_PATH)")
     }
 
     @Synchronized
     fun stop() {
         if (!running) return
         running = false
-        // Closing the sockets is what unblocks the channel threads
-        // parked in reads; they notice `running` is false and exit.
+        // Closing the sockets is what unblocks the connection threads
+        // parked in reads and the exchanges parked in local reads;
+        // they notice `running` is false and exit.
         openSockets.forEach { runCatching { it.close() } }
         openSockets.clear()
         Log.i(REMOTE_LOG_TAG, "relay client stopped")
     }
 
-    private fun channelLoop() {
+    private fun connectionLoop() {
         while (running) {
-            var ws: WsConnection? = null
-            var local: Socket? = null
+            var conn: MuxConnection? = null
             try {
-                ws = WsConnection(token)
-                openSockets.add(ws.socket)
-                ws.handshake()
-
-                // Parked until the relay hands this channel a request.
-                // The local server is only touched once bytes arrive —
-                // a parked channel holds no local connection.
-                val first = ws.readData() ?: throw IOException("channel closed while parked")
-
-                local = Socket().apply {
-                    connect(InetSocketAddress("127.0.0.1", RemoteControl.PORT), LOCAL_TIMEOUT_MS)
-                    tcpNoDelay = true
-                }
-                openSockets.add(local)
-                val localOut = local.getOutputStream()
-                localOut.write(first)
-                localOut.flush()
-
-                val pumpThread = Thread({ pumpLocalToWs(local, ws) }, "remote-relay-pump")
-                    .apply { isDaemon = true }
-                pumpThread.start()
-                // Relay -> local, in this thread: data messages are
-                // stream bytes, written through until the channel ends.
-                while (true) {
-                    val data = ws.readData() ?: break
-                    localOut.write(data)
-                    localOut.flush()
-                }
-                pumpThread.join(2_000)
+                conn = MuxConnection(token)
+                openSockets.add(conn.ws.socket)
+                conn.ws.handshake()
+                conn.run()
             } catch (e: Exception) {
                 if (running) {
                     Log.w(REMOTE_LOG_TAG, "relay channel dropped: ${e.message}")
@@ -173,36 +190,164 @@ object RemoteRelay {
                     }
                 }
             } finally {
-                ws?.let { openSockets.remove(it.socket); it.close() }
-                local?.let { openSockets.remove(it); runCatching { it.close() } }
+                conn?.let {
+                    openSockets.remove(it.ws.socket)
+                    it.closeAll()
+                }
             }
         }
     }
 
-    /** Local server -> channel, until the local side closes. */
-    private fun pumpLocalToWs(local: Socket, ws: WsConnection) {
-        try {
-            val input = local.getInputStream()
-            val buf = ByteArray(FRAME_CHUNK)
-            while (true) {
-                val n = input.read(buf)
-                if (n < 0) break
-                ws.sendBinary(buf, n)
+    /**
+     * One persistent channel and the requests it is carrying. The
+     * reader loop runs on the connection's own thread; each REQUEST
+     * gets an [Exchange] on a thread of its own, so a slow local
+     * response never blocks the next request's arrival.
+     */
+    private class MuxConnection(private val token: String) {
+
+        val ws = WsConnection(token)
+        private val exchanges = ConcurrentHashMap<Int, Exchange>()
+
+        /** Read mux messages until the channel dies; then fail every
+         * exchange still riding it (their local sockets close, which
+         * is also what the relay does with the browser side). */
+        fun run() {
+            try {
+                while (true) {
+                    val raw = ws.readMessage() ?: break
+                    val msg = muxDecode(raw) ?: continue
+                    when (msg.type) {
+                        MUX_REQUEST -> {
+                            val exchange = Exchange(msg.id, this)
+                            exchanges[msg.id] = exchange
+                            Thread(
+                                { exchange.serve(msg.payload) },
+                                "remote-relay-req-${msg.id}",
+                            ).apply { isDaemon = true }.start()
+                        }
+                        MUX_CANCEL -> exchanges.remove(msg.id)?.close()
+                        else -> Unit // DATA/END travel the other way; ignore
+                    }
+                }
+            } finally {
+                exchanges.values.forEach { it.close() }
+                exchanges.clear()
             }
-        } catch (ignored: Exception) {
-        } finally {
-            runCatching { ws.sendClose() }
+        }
+
+        fun sendData(id: Int, chunk: ByteArray) {
+            ws.sendBinary(muxEncode(id, MUX_DATA, chunk))
+        }
+
+        fun sendEnd(id: Int) {
+            exchanges.remove(id)
+            runCatching { ws.sendBinary(muxEncode(id, MUX_END, ByteArray(0))) }
+        }
+
+        fun closeAll() {
+            exchanges.values.forEach { it.close() }
+            exchanges.clear()
+            ws.close()
+        }
+
+        /**
+         * One browser request being served: connect the local remote
+         * server, write the request, stream the response back as
+         * DATA chunks, then END. The server answers with a
+         * Content-Length and closes, so completion is whichever of
+         * "the stated body has arrived" and EOF happens first.
+         */
+        private class Exchange(
+            private val id: Int,
+            private val conn: MuxConnection,
+        ) {
+            @Volatile private var local: Socket? = null
+            @Volatile private var closed = false
+
+            fun serve(requestBytes: ByteArray) {
+                try {
+                    val socket = Socket().apply {
+                        connect(InetSocketAddress("127.0.0.1", RemoteControl.PORT), LOCAL_TIMEOUT_MS)
+                        tcpNoDelay = true
+                    }
+                    local = socket
+                    openSockets.add(socket)
+                    val out = socket.getOutputStream()
+                    out.write(requestBytes)
+                    out.flush()
+                    val input = socket.getInputStream()
+                    val buf = ByteArray(DATA_CHUNK)
+                    val head = ByteArrayOutputStream()
+                    var bodyExpected = -1L
+                    var bodySeen = 0L
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        val chunk = buf.copyOf(n)
+                        conn.sendData(id, chunk)
+                        if (bodyExpected < 0) {
+                            head.write(chunk)
+                            val bytes = head.toByteArray()
+                            val headEnd = indexOfHeadEnd(bytes)
+                            if (headEnd >= 0) {
+                                bodyExpected = contentLengthOf(bytes, headEnd) ?: -1L
+                                bodySeen = (bytes.size - headEnd).toLong()
+                            }
+                        } else {
+                            bodySeen += n
+                        }
+                        if (bodyExpected >= 0 && bodySeen >= bodyExpected) break
+                    }
+                } catch (e: Exception) {
+                    // A failed local exchange still ends: the relay
+                    // closes the browser side rather than hanging it.
+                    if (!closed) Log.w(REMOTE_LOG_TAG, "relay request $id failed: ${e.message}")
+                } finally {
+                    local?.let {
+                        openSockets.remove(it)
+                        runCatching { it.close() }
+                    }
+                    if (!closed) conn.sendEnd(id)
+                }
+            }
+
+            fun close() {
+                closed = true
+                runCatching { local?.close() }
+            }
+
+            private fun indexOfHeadEnd(bytes: ByteArray): Int {
+                for (i in 0..bytes.size - 4) {
+                    if (bytes[i] == 13.toByte() && bytes[i + 1] == 10.toByte() &&
+                        bytes[i + 2] == 13.toByte() && bytes[i + 3] == 10.toByte()
+                    ) {
+                        return i + 4
+                    }
+                }
+                return -1
+            }
+
+            private fun contentLengthOf(head: ByteArray, headEnd: Int): Long? {
+                val text = head.copyOf(headEnd).toString(Charsets.US_ASCII)
+                for (line in text.split("\r\n")) {
+                    if (line.startsWith("content-length:", ignoreCase = true)) {
+                        return line.substringAfter(':').trim().toLongOrNull()
+                    }
+                }
+                return null
+            }
         }
     }
 
     /**
      * A minimal WebSocket client over TLS, just enough for the relay:
-     * the upgrade handshake with the relay token in a header, masked
-     * binary frames out, plain frames in, ping/pong handled inside the
-     * read loop. The socket read timeout doubles as the keepalive
-     * timer — a read that times out sends a ping and resumes, so a
-     * parked channel speaks every [PING_INTERVAL_MS] and Cloudflare
-     * never sees it idle.
+     * the upgrade handshake with the relay token and the mux marker
+     * in headers, masked binary frames out, plain frames in, ping/pong
+     * handled inside the read loop. The socket read timeout doubles
+     * as the keepalive timer — a read that times out sends a ping and
+     * resumes, so a connected channel speaks every [PING_INTERVAL_MS]
+     * and Cloudflare never sees it idle.
      */
     private class WsConnection(private val token: String) {
 
@@ -244,6 +389,9 @@ object RemoteRelay {
                 append("Sec-WebSocket-Key: ${Base64.encodeToString(key, Base64.NO_WRAP)}\r\n")
                 append("Sec-WebSocket-Version: 13\r\n")
                 append("X-Relay-Token: $token\r\n")
+                // The mux marker: the relay files this channel as
+                // multiplexed rather than a one-request legacy channel.
+                append("X-Relay-Mux: 1\r\n")
                 append("\r\n")
             }
             output.write(request.toByteArray(Charsets.US_ASCII))
@@ -267,12 +415,11 @@ object RemoteRelay {
         }
 
         /**
-         * The next data payload (binary, with continuation frames
-         * assembled), or null when the channel has closed. Control
-         * frames are handled on the way: pings are answered, pongs
-         * ignored.
+         * The next complete message (continuation frames assembled),
+         * or null when the channel has closed. Control frames are
+         * handled on the way: pings are answered, pongs ignored.
          */
-        fun readData(): ByteArray? {
+        fun readMessage(): ByteArray? {
             var assembled: ByteArrayOutputStream? = null
             while (true) {
                 val frame = readFrame() ?: return null
@@ -291,10 +438,21 @@ object RemoteRelay {
             }
         }
 
-        fun sendBinary(data: ByteArray, length: Int) = sendFrame(0x2, data, length)
-
-        fun sendClose() {
-            sendFrame(0x8, ByteArray(0), 0)
+        fun sendBinary(data: ByteArray) {
+            if (data.size <= FRAME_LIMIT) {
+                sendFrame(0x2, data, data.size)
+                return
+            }
+            // Larger than one frame: fragment, FIN only on the last.
+            var off = 0
+            var first = true
+            while (off < data.size) {
+                val n = minOf(FRAME_LIMIT, data.size - off)
+                val fin = off + n == data.size
+                sendFrame(if (first) 0x2 else 0x0, data.copyOfRange(off, off + n), n, fin)
+                first = false
+                off += n
+            }
         }
 
         fun close() {
@@ -308,7 +466,7 @@ object RemoteRelay {
                 try {
                     return readFrameRaw()
                 } catch (e: SocketTimeoutException) {
-                    // The keepalive: a parked channel must not look
+                    // The keepalive: a connected channel must not look
                     // idle to the tunnel, so ping and keep waiting.
                     runCatching { sendFrame(0x9, ByteArray(0), 0) }
                 }
@@ -333,7 +491,7 @@ object RemoteRelay {
                     length = (length shl 8) or b.toLong()
                 }
             }
-            if (length < 0 || length > 1024 * 1024) throw IOException("frame too large")
+            if (length < 0 || length > 4 * 1024 * 1024) throw IOException("frame too large")
             val maskKey = if (masked) {
                 ByteArray(4) { readByte()?.toByte() ?: return null }
             } else {
@@ -342,13 +500,14 @@ object RemoteRelay {
             val payload = ByteArray(length.toInt())
             var off = 0
             while (off < payload.size) {
-                val b = readByte() ?: return null
-                payload[off] = if (maskKey != null) {
-                    (b xor (maskKey[off % 4].toInt() and 0xFF)).toByte()
-                } else {
-                    b.toByte()
+                val n = input.read(payload, off, payload.size - off)
+                if (n < 0) return null
+                off += n
+            }
+            if (maskKey != null) {
+                for (i in payload.indices) {
+                    payload[i] = (payload[i].toInt() xor (maskKey[i % 4].toInt() and 0xFF)).toByte()
                 }
-                off++
             }
             return Frame(fin, opcode, payload)
         }
@@ -359,10 +518,10 @@ object RemoteRelay {
         }
 
         /** Client frames are always masked (RFC 6455 §5.3). */
-        private fun sendFrame(opcode: Int, data: ByteArray, length: Int) {
+        private fun sendFrame(opcode: Int, data: ByteArray, length: Int, fin: Boolean = true) {
             val mask = ByteArray(4).also { random.nextBytes(it) }
             val head = ByteArrayOutputStream()
-            head.write(0x80 or opcode)
+            head.write((if (fin) 0x80 else 0x00) or opcode)
             when {
                 length < 126 -> head.write(0x80 or length)
                 length <= 0xFFFF -> {
@@ -413,6 +572,11 @@ object RemoteRelay {
             if (!host.endsWith(suffix, ignoreCase = true)) return false
             val label = host.dropLast(suffix.length)
             return label.isNotEmpty() && '.' !in label
+        }
+
+        private companion object {
+            /** One frame's payload cap; larger messages fragment. */
+            const val FRAME_LIMIT = 64 * 1024
         }
     }
 }

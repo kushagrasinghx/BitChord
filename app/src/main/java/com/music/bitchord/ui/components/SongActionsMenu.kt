@@ -186,9 +186,16 @@ fun SongActionsMenu(
     resolvingLinks: Boolean = false,
 ) {
     var showingSongInfo by remember(song.videoId) { mutableStateOf(false) }
+    var showingEditMetadata by remember(song.videoId) { mutableStateOf(false) }
     var pickingSleepTimer by remember { mutableStateOf(false) }
     // A menu has no pages to swap, so Song Info opens as a dialog.
     if (showingSongInfo) SongInfoDialog(song) { showingSongInfo = false }
+    if (showingEditMetadata) {
+        EditMetadataDialog(
+            song = song,
+            onDismiss = { showingEditMetadata = false },
+        )
+    }
     // Neutral rather than the sleeve's colours: the panel floats over the page
     // or the player, and an accent pitched against the artwork's tint is not
     // guaranteed to read against the panel.
@@ -373,6 +380,11 @@ fun SongActionsMenu(
         }
         ActionRow(SfIcons.Info, stringResource(R.string.song_info), accent = palette.accent) {
             showingSongInfo = true
+        }
+        if (isOffline) {
+            ActionRow(SfIcons.Pencil, stringResource(R.string.edit_metadata), accent = palette.accent) {
+                showingEditMetadata = true
+            }
         }
 
         // The player's own: about the track playing right now rather than

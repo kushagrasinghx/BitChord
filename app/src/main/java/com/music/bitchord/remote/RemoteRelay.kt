@@ -323,6 +323,10 @@ object RemoteRelay {
          * SSLSocket checks the certificate chain but not the name on
          * it; the relay token crosses this connection, so check the
          * peer really is the relay hostname before any traffic flows.
+         * Names match exactly or by single-label wildcard — the
+         * tunnel's certificate is issued for `*.gaspol.men`, not for
+         * this hostname literally (an exact-only check rejected every
+         * channel before its handshake ever left the phone).
          */
         private fun verifyPeer(tls: SSLSocket) {
             val cert = tls.session.peerCertificates.firstOrNull() as? X509Certificate
@@ -330,9 +334,20 @@ object RemoteRelay {
             val names = runCatching { cert.subjectAlternativeNames?.toList() }.getOrNull().orEmpty()
             val dnsNames = names.filter { it.size >= 2 && it[0] == 7 }.map { it[1].toString() }
             val cn = Regex("CN=([^,]+)").find(cert.subjectX500Principal.name)?.groupValues?.get(1)
-            if (RELAY_HOST !in dnsNames && cn != RELAY_HOST) {
+            val candidates = dnsNames + listOfNotNull(cn)
+            if (candidates.none { nameMatches(it, RELAY_HOST) }) {
                 throw IOException("relay certificate is not for $RELAY_HOST")
             }
+        }
+
+        /** Exact match, or `*.example.com` covering one label. */
+        private fun nameMatches(pattern: String, host: String): Boolean {
+            if (pattern.equals(host, ignoreCase = true)) return true
+            if (!pattern.startsWith("*.")) return false
+            val suffix = pattern.substring(1) // ".example.com"
+            if (!host.endsWith(suffix, ignoreCase = true)) return false
+            val label = host.dropLast(suffix.length)
+            return label.isNotEmpty() && '.' !in label
         }
     }
 }

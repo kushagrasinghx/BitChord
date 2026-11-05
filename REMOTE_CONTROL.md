@@ -28,6 +28,11 @@ track. (Songs queued in the app itself carry no label; the media
 session has no per-item owner, so the labels live in the server and
 last while the server runs.)
 
+The queue is editable from the page: every row has **move up**,
+**move down** and **remove** controls, and removing a song raises a
+toast with **Undo** that puts it back at its old position, label
+included.
+
 The server starts automatically on app launch if the switch was left on,
 and stops when the switch is turned off. The PIN is regenerated every
 time the server starts.
@@ -53,7 +58,7 @@ time the server starts.
 | `GET /` | – | the player page |
 | `POST /api/unlock` `{pin, name}` | – | → `{token, name}`; send the token as `X-Remote-Token` afterwards. Each unlock mints its own session |
 | `GET /api/state` | token | playing, position/duration, current track, queue (≤200, each item labelled `queuedBy` when a web user queued it), shuffle/repeat, volume, `users` (names with songs in the queue), `you` (the caller's name) |
-| `POST /api/command` | token | `{action}`: `play` `pause` `toggle` `next` `prev` `seek{ms}` `playIndex{index}` `playSong{song}` `addSong{song}` `addSongNext{song}` `volume{level 0..1}` `shuffle` `repeat` |
+| `POST /api/command` | token | `{action}`: `play` `pause` `toggle` `next` `prev` `seek{ms}` `playIndex{index}` `playSong{song}` `addSong{song}` `addSongNext{song}` `addSongAt{index, song}` `move{from, to}` `remove{index}` `volume{level 0..1}` `shuffle` `repeat` |
 | `GET /api/search?q=` | token | YouTube Music song search via `YtMusicRepository` → `{results: [song]}` |
 
 A `song` is `{videoId, title, artist, thumbnailUrl, durationText}`.

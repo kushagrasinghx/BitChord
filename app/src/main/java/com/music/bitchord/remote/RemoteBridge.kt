@@ -244,6 +244,43 @@ object RemoteBridge {
                     noteQueued(song, user)
                     true
                 }
+                "addSongAt" -> {
+                    // The queue editor's undo: put a just-removed song back
+                    // where it was, keeping the name it was queued under —
+                    // the page hands the label back in the song object, and
+                    // only a blank one falls back to the caller.
+                    val raw = body.optJSONObject("song")
+                    val song = songFromJson(raw) ?: return@onMain false
+                    val at = body.optInt("index", c.mediaItemCount).coerceIn(0, c.mediaItemCount)
+                    c.addMediaItem(at, song.toMediaItem())
+                    noteQueued(song, raw?.optString("queuedBy")?.takeIf { it.isNotBlank() } ?: user)
+                    true
+                }
+                "move" -> {
+                    // The same Player.moveMediaItem the app's own queue UI
+                    // sends for a drag (a plain reorder, no drag bracket —
+                    // that only batches party publishes during a drag).
+                    val count = c.mediaItemCount
+                    val from = body.optInt("from", -1)
+                    val to = body.optInt("to", -1)
+                    if (from !in 0 until count || to !in 0 until count) {
+                        false
+                    } else if (from == to) {
+                        true
+                    } else {
+                        c.moveMediaItem(from, to)
+                        true
+                    }
+                }
+                "remove" -> {
+                    val index = body.optInt("index", -1)
+                    if (index !in 0 until c.mediaItemCount) {
+                        false
+                    } else {
+                        c.removeMediaItem(index)
+                        true
+                    }
+                }
                 "volume" -> {
                     val audio = app.getSystemService(AudioManager::class.java)
                     if (audio == null) {

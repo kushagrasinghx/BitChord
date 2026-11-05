@@ -67,6 +67,16 @@
     flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
     background: var(--panel); color: var(--mint); font-size: 18px; cursor: pointer; line-height: 1;
   }
+  .item .ctl {
+    flex: none; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--muted); font-size: 14px; cursor: pointer; line-height: 1; padding: 0;
+  }
+  .item .ctl:disabled { opacity: 0.3; cursor: default; }
+  .item .ctl.del { color: var(--danger); }
+  .toast .undo-btn {
+    background: none; border: none; color: var(--mint); font-weight: 700; font-size: 13px;
+    cursor: pointer; margin-left: 10px; padding: 2px 4px;
+  }
   .search-row { display: flex; gap: 8px; }
   .text-input {
     flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
@@ -190,12 +200,35 @@ function fmtTime(ms) {
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
 let toastTimer = null;
-function toast(msg) {
+let toastGen = 0;
+function toast(msg, actionLabel, onAction, ms) {
   const el = $('toast');
+  const gen = ++toastGen;
   el.textContent = msg;
+  if (actionLabel && onAction) {
+    const btn = document.createElement('button');
+    btn.className = 'undo-btn';
+    btn.textContent = actionLabel;
+    btn.addEventListener('click', () => {
+      if (gen !== toastGen) return;
+      toastGen++;
+      el.hidden = true;
+      onAction();
+    });
+    el.appendChild(btn);
+  }
   el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, 2400);
+  toastTimer = setTimeout(() => { if (gen === toastGen) el.hidden = true; }, ms || 2400);
+}
+
+function removeFromQueue(index) {
+  const q = state && state.queue ? state.queue[index] : null;
+  if (!q) return;
+  command({ action: 'remove', index });
+  toast('Removed "' + q.title + '"', 'Undo', () => {
+    command({ action: 'addSongAt', index, song: q });
+  }, 6000);
 }
 
 async function api(path, options) {
@@ -291,15 +324,36 @@ function render() {
     $('queueMeta').textContent = state.queueSize + ' tracks'
       + (others.length ? ' · also here: ' + others.join(', ') : '');
     $('queueList').innerHTML = state.queue.map((q, i) =>
-      '<button class="item' + (i === state.index ? ' current' : '') + '" data-play-index="' + i + '">'
+      '<div class="item' + (i === state.index ? ' current' : '') + '" data-play-index="' + i + '">'
       + (q.thumbnailUrl ? '<img src="' + esc(q.thumbnailUrl) + '" alt="">' : '<img alt="">')
       + '<span class="main"><span class="t">' + esc(q.title) + '</span><br><span class="a">' + esc(q.artist || '')
       + (q.queuedBy ? ' · <span class="by">queued by ' + esc(q.queuedBy) + '</span>' : '') + '</span></span>'
       + (i === state.index && state.playing ? '<span class="eq"><span></span><span></span><span></span></span>' : '')
-      + '<span class="dur">' + esc(q.durationText || '') + '</span></button>',
+      + '<span class="dur">' + esc(q.durationText || '') + '</span>'
+      + '<button class="ctl" data-move-up="' + i + '" title="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
+      + '<button class="ctl" data-move-down="' + i + '" title="Move down"' + (i === state.queue.length - 1 ? ' disabled' : '') + '>↓</button>'
+      + '<button class="ctl del" data-remove="' + i + '" title="Remove from queue">✕</button></div>',
     ).join('') || '<p class="muted small">The queue is empty.</p>';
     for (const el of document.querySelectorAll('[data-play-index]')) {
-      el.addEventListener('click', () => command({ action: 'playIndex', index: Number(el.dataset.playIndex) }));
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-move-up],[data-move-down],[data-remove]')) return;
+        command({ action: 'playIndex', index: Number(el.dataset.playIndex) });
+      });
+    }
+    for (const el of document.querySelectorAll('[data-move-up]')) {
+      el.addEventListener('click', () => {
+        const from = Number(el.dataset.moveUp);
+        command({ action: 'move', from, to: from - 1 });
+      });
+    }
+    for (const el of document.querySelectorAll('[data-move-down]')) {
+      el.addEventListener('click', () => {
+        const from = Number(el.dataset.moveDown);
+        command({ action: 'move', from, to: from + 1 });
+      });
+    }
+    for (const el of document.querySelectorAll('[data-remove]')) {
+      el.addEventListener('click', () => removeFromQueue(Number(el.dataset.remove)));
     }
   }
 }

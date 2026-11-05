@@ -1547,7 +1547,14 @@ private fun BitChordApp(
                     source = source,
                     upcomingPartyTracks = upcomingPartyTracks,
                 )
-                c.playSongs(timeline, 0)
+                val selectedId = timeline.first().videoId
+                if (CastController.state.value.casting ||
+                    selectedId.startsWith("content://") || selectedId.startsWith("file://")
+                ) {
+                    c.playSongs(timeline, 0)
+                } else {
+                    c.playBoundedContext(timeline, 0, source, continuationToken, shuffle = false)
+                }
             } else {
                 // A Cast session still owns the full queue on the phone so the
                 // receiver can follow its existing queue semantics. The bounded

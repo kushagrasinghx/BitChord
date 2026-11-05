@@ -2788,6 +2788,12 @@ class PlaybackService : MediaLibraryService() {
         val exoPlayer = player ?: return
         val requestToken = args.getString(EXTRA_BOUNDED_CONTEXT_SONGS) ?: return
         val request = BoundedContextRequests.take(requestToken) ?: return
+        if (ListenTogether.state.value.inParty) {
+            clearBoundedContext()
+            BoundedContextRequests.discard(requestToken)
+            partySync?.playPlaylist(request)
+            return
+        }
         if (CastController.state.value.casting || castPlayback.active) {
             // MainActivity normally keeps Cast on the full-queue path. This
             // closes the race where a receiver connects after the tap but
@@ -2886,6 +2892,7 @@ class PlaybackService : MediaLibraryService() {
 
     /** Clears local bounded state before a non-context queue replaces the player. */
     private fun clearBoundedContext() {
+        partySync?.clearPlaylist()
         boundedEditState = BoundedQueueEdits.invalidateContext(boundedEditState)
         boundedContextRequest?.handoffToken?.let(BoundedContextRequests::discard)
         boundedCanonicalJob?.cancel()

@@ -167,8 +167,8 @@ class DetailScreenQueueTest {
             upcomingPartyTracks = upcomingPartyTracks,
         )
 
-        assertEquals(26, timeline.size)
-        assertEquals(listOf("track-20", "party-manual-1", "party-manual-2") + (21..43).map { "track-$it" }, timeline.map { it.videoId })
+        assertEquals(32, timeline.size)
+        assertEquals(listOf("track-20", "party-manual-1", "party-manual-2") + (21..49).map { "track-$it" }, timeline.map { it.videoId })
         assertEquals(QueueTier.CONTEXT, timeline[0].queueTier)
         assertEquals("My Playlist", timeline[0].playbackSource)
         assertEquals(PlaybackSourceType.BROWSE, timeline[0].playbackSourceType)

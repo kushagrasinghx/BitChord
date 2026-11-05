@@ -123,7 +123,8 @@ object QueueTimeline {
      *
      * Invariant: [Selected Track (CONTEXT)] + [Upcoming manual party tracks] + [Following songs].
      * Upcoming songs become USER_QUEUE so PartySync shares them rather than discarding local context.
-     * History and stale AutoPlay suggestions are excluded; the shared upcoming limit still applies.
+     * History and stale AutoPlay suggestions are excluded. The service retains this complete
+     * running order and shares it through a window of at most 25 upcoming tracks.
      */
     fun buildPartyPlaybackQueue(
         songs: List<Song>,
@@ -136,7 +137,6 @@ object QueueTimeline {
         val manual = upcomingPartySongs.asSequence().filterNot { it.fromAutoplay }
         val following = songs.asSequence().drop(index + 1).map { it.from(source) }
         val upcoming = (manual + following)
-            .take(MAX_PARTY_UPCOMING_QUEUE)
             .map { it.asQueueEntry(QueueTier.USER_QUEUE) }
             .toList()
         return listOf(songs[index].from(source).asQueueEntry(QueueTier.CONTEXT)) + upcoming

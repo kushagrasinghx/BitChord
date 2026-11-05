@@ -58,14 +58,14 @@ class PartyPlaybackQueueTest {
     }
 
     @Test
-    fun `upcoming tracks are capped at twenty five including preserved manual tracks`() {
+    fun `complete playlist is retained beyond the shared queue window`() {
         val songs = List(40) { song("playlist-$it") }
         val manual = List(5) { song("manual-$it") }
 
         val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 0, source, manual)
 
-        assertEquals(26, queue.size)
-        assertEquals(manual.map { it.videoId } + (1..20).map { "playlist-$it" }, queue.drop(1).map { it.videoId })
+        assertEquals(45, queue.size)
+        assertEquals(manual.map { it.videoId } + (1..39).map { "playlist-$it" }, queue.drop(1).map { it.videoId })
     }
 
     @Test

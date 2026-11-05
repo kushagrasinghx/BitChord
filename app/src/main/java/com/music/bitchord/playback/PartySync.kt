@@ -5,9 +5,12 @@ import androidx.media3.common.Player
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.listentogether.PartyTrack
+import com.music.bitchord.data.listentogether.PartyPlaylistContinuation
 import com.music.bitchord.data.listentogether.partyQueueIndexOf
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.isUnresolvedSpotify
+import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -93,6 +96,61 @@ class PartySync(
     private val jobs = mutableListOf<Job>()
     private var publishJob: Job? = null
     private var startJob: Job? = null
+    private var playlistLoadJob: Job? = null
+    private var playlist: PartyPlaylistContinuation? = null
+    private var playlistCode: String? = null
+    private var lastConnection = ListenTogether.Connection.OFFLINE
+
+    /** The service keeps the unshared tail after the detail page is closed. */
+    fun playPlaylist(request: BoundedContextRequests.Request) {
+        clearPlaylist()
+        val party = ListenTogether.state.value
+        val code = party.code ?: return
+        if (party.controlsLocked) return
+        val exo = player() ?: return
+        val songs = request.songs.filterNot { it.isDeviceFile() || it.isUnresolvedSpotify }
+        if (songs.isEmpty()) return
+        val buffer = PartyPlaylistContinuation()
+        val initial = buffer.start(songs.map { it.toPartyTrack(0L) }, 0, party.queue.seq)
+        playlist = buffer
+        playlistCode = code
+        exo.setMediaItems(songs.take(initial.items.size).map { it.toMediaItem() }, 0, 0L)
+        exo.prepare()
+        if (!shouldDeferPlay()) exo.play()
+        onLocalIntent()
+
+        playlistLoadJob = scope.launch {
+            var continuation = request.continuationToken
+            var failures = 0
+            while (continuation != null && playlist === buffer && buffer.active) {
+                val token = continuation ?: break
+                val page = withContext(Dispatchers.IO) {
+                    YtMusicRepository.moreSongs(token).getOrNull()
+                }
+                if (playlist !== buffer || !buffer.active) return@launch
+                if (page == null) {
+                    if (++failures > 3) {
+                        Log.w(TAG, "playlist continuation failed after retries")
+                        return@launch
+                    }
+                    delay(2_000L * failures)
+                    continue
+                }
+                failures = 0
+                buffer.append(page.songs.filterNot { it.isDeviceFile() || it.isUnresolvedSpotify }
+                    .map { it.toPartyTrack(0L) })
+                continuation = page.continuation
+            }
+        }
+    }
+
+    fun clearPlaylist() {
+        playlistLoadJob?.cancel()
+        playlistLoadJob = null
+        playlist?.clear()
+        playlist = null
+        playlistCode = null
+    }
 
     /**
      * Until when [reconcile] should keep its hands off.
@@ -196,7 +254,7 @@ class PartySync(
                 // A new state, or leaving/joining. Not every field: this exists
                 // to react promptly to a control, and the round-trip counter
                 // changing is not one.
-                .map { ReconcileKey(it.playback.seq, it.queue.seq, it.code, it.clockSynced) }
+                .map { ReconcileKey(it.playback.seq, it.queue.seq, it.code, it.clockSynced, it.connection) }
                 .distinctUntilChanged()
                 .collect { key ->
                     if (key.code != lastPartyCode) {
@@ -235,6 +293,7 @@ class PartySync(
     }
 
     fun stop() {
+        clearPlaylist()
         jobs.forEach(Job::cancel)
         jobs.clear()
         publishJob?.cancel()
@@ -471,7 +530,13 @@ class PartySync(
 
     private fun reconcile() {
         val party = ListenTogether.state.value
+        if (playlist != null && party.code != playlistCode) clearPlaylist()
+        if (party.connection == ListenTogether.Connection.LIVE && lastConnection != party.connection) {
+            playlist?.onReconnect(party.queue.seq)
+        }
+        lastConnection = party.connection
         if (!party.inParty) {
+            clearPlaylist()
             loadingVideoId = null
             focusLost = false
             rejoining = false
@@ -521,6 +586,17 @@ class PartySync(
         }
         loadingVideoId = null
         reconcileQueue(party, exo)
+        if (party.connection == ListenTogether.Connection.LIVE && !party.controlsLocked) {
+            val batch = playlist?.nextBatch(party.queue, party.playback).orEmpty()
+            if (batch.isNotEmpty()) {
+                exo.addMediaItems(batch.map { it.toSong().toMediaItem() })
+                awaitPlaybackSeq = party.playback.seq
+                awaitQueueSeq = party.queue.seq + 1
+                reconcileQuietUntilMs = SystemClock.elapsedRealtime() + INTENT_QUIET_MS
+                ListenTogether.queueAdd(batch)
+            }
+            if (playlist?.active == false) clearPlaylist()
+        }
 
         // Muted by its own listener while the party plays on. Everything above
         // this line still applies — the track the party moved to is loaded, the
@@ -1000,6 +1076,7 @@ class PartySync(
         val queueSeq: Long,
         val code: String?,
         val clockSynced: Boolean,
+        val connection: ListenTogether.Connection,
     )
 
     private companion object {

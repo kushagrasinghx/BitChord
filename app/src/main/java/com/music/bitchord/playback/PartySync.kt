@@ -194,6 +194,7 @@ class PartySync(
      * limit, so never corrected, and permanent.
      */
     private var alignedSeq = -1L
+    private var automaticTransitionTrackId: String? = null
 
     /**
      * A resume this device has accepted but not yet performed.
@@ -309,6 +310,7 @@ class PartySync(
      * would put three controls on the wire for one tap.
      */
     fun onLocalIntent() {
+        automaticTransitionTrackId = null
         val party = ListenTogether.state.value
         if (!party.inParty) return
         // Nothing this device does while the host holds control is the party's
@@ -344,6 +346,22 @@ class PartySync(
         publishJob = scope.launch {
             delay(PUBLISH_DEBOUNCE_MS)
             publish()
+        }
+    }
+
+    /** A natural advance is already audible when its server confirmation arrives. */
+    fun onAutomaticTransition() {
+        onLocalIntent()
+        val party = ListenTogether.state.value
+        val exo = player() ?: return
+        val song = exo.currentMediaItem?.toSong() ?: return
+        val partyTrack = party.playback.track
+        if (!focusLost && exo.playWhenReady && !song.isDeviceFile() &&
+            party.inParty && party.connection == ListenTogether.Connection.LIVE && party.clockSynced &&
+            !party.controlsLocked && party.playback.isPlaying && partyTrack != null &&
+            partyTrack.videoId != song.videoId
+        ) {
+            automaticTransitionTrackId = song.videoId
         }
     }
 
@@ -549,6 +567,7 @@ class PartySync(
             lastPositionMs = 0L
             lastTrackId = null
             lastIsPlaying = false
+            automaticTransitionTrackId = null
             return
         }
         // Before any of the early returns below, so a local pause cannot
@@ -685,6 +704,9 @@ class PartySync(
         // position, track, or playing state (e.g. queue operations or metadata updates),
         // we must not force an audible seek flush.
         if (target.seq != alignedSeq) {
+            val ownAutomaticAdvance = automaticTransitionTrackId == track.videoId &&
+                target.seq == awaitPlaybackSeq && party.you != null && target.updatedBy == party.you.memberId
+            automaticTransitionTrackId = null
             val isPlaybackAnchorChanged = lastAnchorMs != target.anchorMs ||
                 lastPositionMs != target.positionMs ||
                 lastTrackId != track.videoId ||
@@ -696,7 +718,8 @@ class PartySync(
             lastTrackId = track.videoId
             lastIsPlaying = target.isPlaying
 
-            if (isPlaybackAnchorChanged && abs(drift) > ALIGN_TOLERANCE_MS) {
+            val tolerance = if (ownAutomaticAdvance) DRIFT_LIMIT_MS else ALIGN_TOLERANCE_MS
+            if (isPlaybackAnchorChanged && abs(drift) > tolerance) {
                 Log.i(TAG, "aligning ${drift}ms onto party control ${target.seq}")
                 exo.seekTo(want)
                 return

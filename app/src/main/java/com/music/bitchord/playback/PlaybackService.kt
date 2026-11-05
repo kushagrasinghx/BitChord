@@ -1004,6 +1004,10 @@ class PlaybackService : MediaLibraryService() {
                 return
             }
 
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                partySync?.onAutomaticTransition()
+            }
+
             // A receiver, if it is the speaker, is put on whatever became
             // current — or it is the one that moved, and this is the phone
             // catching up, which [CastPlayback] tells apart by track.
@@ -1024,14 +1028,6 @@ class PlaybackService : MediaLibraryService() {
             // keeping the timeline clean and ensuring REPEAT_MODE_ALL loops only CONTEXT items.
             QueueCoordinator.consumePlayedUserQueue(exoPlayer)
 
-            // The queue moving on by itself. Nobody pressed anything, but it
-            // is still this device deciding what the party plays next, and no
-            // other path reports it: an automatic advance never passes through
-            // the session wrapper. A skip does pass through it, and is reported
-            // there; publishing is debounced, so being told twice costs nothing.
-            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                partySync?.onLocalIntent()
-            }
             autoplayLoadJob?.cancel()
             autoplayLoadJob = null
             autoplaySeed = null

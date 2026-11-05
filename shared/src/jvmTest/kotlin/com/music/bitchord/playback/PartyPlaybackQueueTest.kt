@@ -15,19 +15,19 @@ import kotlin.test.assertTrue
 class PartyPlaybackQueueTest {
     private val source = QueueSource("Playlist", PlaybackSourceType.BROWSE, "playlist-id")
 
-    private fun song(id: String, autoplay: Boolean = false) = Song(
+    private fun song(id: String) = Song(
         videoId = id,
         title = "Title $id",
         artist = "Artist $id",
         thumbnailUrl = null,
-        queueTier = if (autoplay) QueueTier.AUTOPLAY else QueueTier.CONTEXT,
+        queueTier = QueueTier.CONTEXT,
     )
 
     @Test
     fun `playlist playback shares selected track and following tracks without autoplay`() {
         val songs = listOf(song("a"), song("b"), song("c"))
 
-        val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 0, source, emptyList())
+        val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 0, source)
 
         assertEquals(listOf("a", "b", "c"), queue.map { it.videoId })
         assertEquals(QueueTier.CONTEXT, queue.first().queueTier)
@@ -41,50 +41,42 @@ class PartyPlaybackQueueTest {
     }
 
     @Test
-    fun `mid-playlist selection excludes history and preserves upcoming order after manual queue`() {
+    fun `mid-playlist selection excludes history and replaces prior queue`() {
         val songs = listOf(song("past"), song("selected"), song("next-1"), song("next-2"))
-        val manual = listOf(
-            song("manual-1").copy(queueEntryId = "existing-entry", playbackSource = "Old playlist"),
-            song("stale-auto", autoplay = true),
-            song("manual-2"),
-        )
 
-        val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 1, source, manual)
+        val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 1, source)
 
-        assertEquals(listOf("selected", "manual-1", "manual-2", "next-1", "next-2"), queue.map { it.videoId })
+        assertEquals(listOf("selected", "next-1", "next-2"), queue.map { it.videoId })
         assertEquals(QueueTier.CONTEXT, queue[0].queueTier)
         assertTrue(queue.drop(1).all { it.queueTier == QueueTier.USER_QUEUE })
-        assertEquals("existing-entry", queue[1].queueEntryId)
-        assertEquals("Old playlist", queue[1].playbackSource)
         assertTrue(queue.all { it.queueEntryId != null })
         assertEquals("Playlist", queue[0].playbackSource)
-        assertEquals("Playlist", queue[3].playbackSource)
+        assertEquals("Playlist", queue[1].playbackSource)
     }
 
     @Test
     fun `complete playlist is retained beyond the shared queue window`() {
         val songs = List(40) { song("playlist-$it") }
-        val manual = List(5) { song("manual-$it") }
 
-        val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 0, source, manual)
+        val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 0, source)
 
-        assertEquals(45, queue.size)
-        assertEquals(manual.map { it.videoId } + (1..39).map { "playlist-$it" }, queue.drop(1).map { it.videoId })
+        assertEquals(40, queue.size)
+        assertEquals(songs.map { it.videoId }, queue.map { it.videoId })
     }
 
     @Test
     fun `single selection has no following tracks and empty songs stay empty`() {
-        val queue = QueueTimeline.buildPartyPlaybackQueue(listOf(song("only")), 0, source, emptyList())
+        val queue = QueueTimeline.buildPartyPlaybackQueue(listOf(song("only")), 0, source)
 
         assertEquals(listOf("only"), queue.map { it.videoId })
-        assertTrue(QueueTimeline.buildPartyPlaybackQueue(emptyList(), 0, source, emptyList()).isEmpty())
+        assertTrue(QueueTimeline.buildPartyPlaybackQueue(emptyList(), 0, source).isEmpty())
     }
 
     @Test
     fun `selection index clamps and source metadata and queue identities are assigned`() {
         val songs = listOf(song("first"), song("last"))
 
-        val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 99, source, emptyList())
+        val queue = QueueTimeline.buildPartyPlaybackQueue(songs, 99, source)
 
         assertEquals(listOf("last"), queue.map { it.videoId })
         assertEquals("Playlist", queue[0].playbackSource)
@@ -96,7 +88,7 @@ class PartyPlaybackQueueTest {
     @Test
     fun `party queue jumps preserve the continuation tail and subsequent refill order`() {
         val songs = List(70) { index -> song("playlist-${index % 4}").copy(title = "Track $index") }
-        val timeline = QueueTimeline.buildPartyPlaybackQueue(songs, 0, source, emptyList())
+        val timeline = QueueTimeline.buildPartyPlaybackQueue(songs, 0, source)
         val tracks = timeline.map { PartyTrack(it.videoId, title = it.title) }
         val defaultJump = QueueTimeline.computeJumpOrder(
             tiers = timeline.map { it.queueTier },

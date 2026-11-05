@@ -121,24 +121,20 @@ object QueueTimeline {
     /**
      * Constructs a playback timeline for Listen Together mode:
      *
-     * Invariant: [Selected Track (CONTEXT)] + [Upcoming manual party tracks] + [Following songs].
-     * Upcoming songs become USER_QUEUE so PartySync shares them rather than discarding local context.
-     * History and stale AutoPlay suggestions are excluded. The service retains this complete
-     * running order and shares it through a window of at most 25 upcoming tracks.
+     * Invariant: [Selected Track (CONTEXT)] + [Following songs as USER_QUEUE].
+     * Starting a playlist replaces the party queue; history and the previous queue are excluded.
+     * The service retains this complete running order and shares it through a window of at most
+     * 25 upcoming tracks.
      */
     fun buildPartyPlaybackQueue(
         songs: List<Song>,
         selectedIndex: Int,
         source: QueueSource,
-        upcomingPartySongs: List<Song>,
     ): List<Song> {
         if (songs.isEmpty()) return emptyList()
         val index = selectedIndex.coerceIn(songs.indices)
-        val manual = upcomingPartySongs.asSequence().filterNot { it.fromAutoplay }
-        val following = songs.asSequence().drop(index + 1).map { it.from(source) }
-        val upcoming = (manual + following)
-            .map { it.asQueueEntry(QueueTier.USER_QUEUE) }
-            .toList()
+        val upcoming = songs.drop(index + 1)
+            .map { it.from(source).asQueueEntry(QueueTier.USER_QUEUE) }
         return listOf(songs[index].from(source).asQueueEntry(QueueTier.CONTEXT)) + upcoming
     }
 

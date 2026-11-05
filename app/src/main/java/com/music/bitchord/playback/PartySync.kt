@@ -867,25 +867,8 @@ class PartySync(
         // Play next, Add to queue, removing a row, dragging one. Before this,
         // none of them reached the party and its copy of the queue silently went
         // stale until the next track change happened to rebuild it.
-        val partyIndex = partyQueueIndexOf(party.queue, party.playback, party.playback.track?.videoId)
-        val upcomingPartyTracks = if (partyIndex >= 0) {
-            party.queue.items.drop(partyIndex + 1)
-        } else {
-            emptyList()
-        }
-
         val partyIds = party.queue.items.map(PartyTrack::videoId)
-        if (party.playback.track?.videoId != track.videoId && clampedIds.size == 1 && upcomingPartyTracks.isNotEmpty()) {
-            val toPreserve = upcomingPartyTracks
-                .filterNot { it.fromAutoplay }
-                .take(MAX_PARTY_UPCOMING_QUEUE)
-            if (exo.mediaItemCount == 1 && toPreserve.isNotEmpty()) {
-                exo.addMediaItems(toPreserve.map { it.toSong().toMediaItem() })
-            }
-            val queue = listOf(track) + toPreserve
-            ListenTogether.setQueue(queue, 0)
-            queueControls++
-        } else if (clampedIds != partyIds) {
+        if (clampedIds != partyIds) {
             val singleMove = if (partyIds.size == clampedIds.size && trackIndex >= 0 && trackIndex < partyIds.size && partyIds[trackIndex] == clampedIds[trackIndex]) {
                 detectSingleMove(partyIds, clampedIds)
             } else {

@@ -1,6 +1,5 @@
 package com.music.bitchord
 
-import com.music.bitchord.data.listentogether.PartyTrack
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
@@ -146,7 +145,7 @@ class DetailScreenQueueTest {
     }
 
     @Test
-    fun `tapping song in playlist while in party queues playlist suffix after upcoming manual party queue`() {
+    fun `playing a different playlist replaces the old queue and keeps only its suffix`() {
         val playlistSongs = List(50) { i ->
             testSong(id = "track-$i", title = "Song $i", artist = "Artist $i")
         }
@@ -154,21 +153,14 @@ class DetailScreenQueueTest {
         // Tapping track 20 in a 50-track playlist
         val source = QueueSource("My Playlist", PlaybackSourceType.BROWSE, "playlist-123")
 
-        // Canonical party queue has two manual items upcoming
-        val upcomingPartyTracks = listOf(
-            PartyTrack(videoId = "party-manual-1", title = "Manual 1", artist = "Artist 1", fromAutoplay = false),
-            PartyTrack(videoId = "party-manual-2", title = "Manual 2", artist = "Artist 2", fromAutoplay = false),
-        )
-
         val timeline = QueueCoordinator.buildPartyPlaybackQueue(
             songs = playlistSongs,
             selectedIndex = 20,
             source = source,
-            upcomingPartyTracks = upcomingPartyTracks,
         )
 
-        assertEquals(32, timeline.size)
-        assertEquals(listOf("track-20", "party-manual-1", "party-manual-2") + (21..49).map { "track-$it" }, timeline.map { it.videoId })
+        assertEquals(30, timeline.size)
+        assertEquals(listOf("track-20") + (21..49).map { "track-$it" }, timeline.map { it.videoId })
         assertEquals(QueueTier.CONTEXT, timeline[0].queueTier)
         assertEquals("My Playlist", timeline[0].playbackSource)
         assertEquals(PlaybackSourceType.BROWSE, timeline[0].playbackSourceType)
@@ -176,28 +168,20 @@ class DetailScreenQueueTest {
     }
 
     @Test
-    fun `tapping song in playlist while in party drops stale autoplay tracks from upcoming party tracks`() {
+    fun `playing a single-track playlist replaces the old party queue`() {
         val selectedSong = testSong(id = "new-track", title = "New Song", artist = "New Artist")
-        val source = QueueSource("Album", PlaybackSourceType.BROWSE, "album-1")
-
-        // Canonical party queue had 1 manual item and 2 autoplay items from the previous track
-        val upcomingPartyTracks = listOf(
-            PartyTrack(videoId = "manual-1", title = "Manual 1", fromAutoplay = false),
-            PartyTrack(videoId = "stale-auto-1", title = "Auto 1", fromAutoplay = true),
-            PartyTrack(videoId = "stale-auto-2", title = "Auto 2", fromAutoplay = true),
-        )
+        val source = QueueSource("One-song playlist", PlaybackSourceType.BROWSE, "playlist-b")
 
         val timeline = QueueCoordinator.buildPartyPlaybackQueue(
             songs = listOf(selectedSong),
             selectedIndex = 0,
             source = source,
-            upcomingPartyTracks = upcomingPartyTracks,
         )
 
-        // Resulting timeline must contain ONLY: [new-track] + [manual-1]. Stale autoplay items are pruned!
-        assertEquals(listOf("new-track", "manual-1"), timeline.map { it.videoId })
+        assertEquals(listOf("new-track"), timeline.map { it.videoId })
         assertEquals(QueueTier.CONTEXT, timeline[0].queueTier)
-        assertEquals(QueueTier.USER_QUEUE, timeline[1].queueTier)
+        assertEquals("One-song playlist", timeline[0].playbackSource)
+        assertEquals("playlist-b", timeline[0].playbackSourceId)
     }
 
     @Test
@@ -209,7 +193,6 @@ class DetailScreenQueueTest {
             songs = listOf(selectedSong),
             selectedIndex = 0,
             source = source,
-            upcomingPartyTracks = emptyList(), // Snapshot has not arrived yet or empty room
         )
 
         // Resulting timeline must be ONLY the tapped song

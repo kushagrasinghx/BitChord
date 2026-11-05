@@ -132,7 +132,6 @@ import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.data.listentogether.ListenTogether
-import com.music.bitchord.data.listentogether.partyQueueIndexOf
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.innertube.InnertubeParser
@@ -1527,14 +1526,6 @@ private fun BitChordApp(
             val currentIndex = c.currentMediaItemIndex
 
             if (ListenTogether.state.value.inParty) {
-                val party = ListenTogether.state.value
-                val partyQueue = party.queue.items
-                val partyIndex = partyQueueIndexOf(party.queue, party.playback, party.playback.track?.videoId)
-                val upcomingPartyTracks = if (partyIndex >= 0) {
-                    partyQueue.drop(partyIndex + 1)
-                } else {
-                    emptyList()
-                }
                 val shuffled = QueueShuffle.enabled.value
                 val partySongs = if (shuffled) {
                     listOf(songs[index]) + songs.filterIndexed { i, _ -> i != index }.shuffled()
@@ -1545,7 +1536,6 @@ private fun BitChordApp(
                     songs = partySongs,
                     selectedIndex = if (shuffled) 0 else index,
                     source = source,
-                    upcomingPartyTracks = upcomingPartyTracks,
                 )
                 val selectedId = timeline.first().videoId
                 if (CastController.state.value.casting ||

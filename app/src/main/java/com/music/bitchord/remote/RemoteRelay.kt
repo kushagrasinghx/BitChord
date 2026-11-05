@@ -27,7 +27,10 @@ import javax.net.ssl.SSLSocketFactory
  * only, so the channels moved to `wss://<relay address>/channel`:
  * to every network on the way — the phone's VPN above all — a channel
  * is ordinary HTTPS, and once the tunnel path is proven the VPS needs
- * no open port at all. Cloudflare reaps idle WebSockets, so a parked
+ * no open port at all. (An address written with a `ws://` scheme
+ * instead dials a relay directly in plaintext — the same protocol
+ * minus TLS, for owners who would rather have no tunnel in the path.)
+ * Cloudflare reaps idle WebSockets, so a parked
  * channel pings every [PING_INTERVAL_MS]; the relay answers.
  *
  * The address is a setting, not a constant: the relay is a personal
@@ -47,6 +50,7 @@ object RemoteRelay {
     /** Used only if the address setting somehow parses to nothing. */
     private const val FALLBACK_HOST = "remote.gaspol.men"
     private const val DEFAULT_PORT = 443
+    private const val DIRECT_DEFAULT_PORT = 80
     private const val CHANNEL_PATH = "/channel"
     private const val CHANNELS = 4
     private const val CONNECT_TIMEOUT_MS = 10_000
@@ -63,7 +67,7 @@ object RemoteRelay {
     private val openSockets = ConcurrentHashMap.newKeySet<Socket>()
 
     /** A parsed relay address: where to dial, and whether over TLS. */
-    class Address(val host: String, val port: Int, val useTls: Boolean)
+    data class Address(val host: String, val port: Int, val useTls: Boolean)
 
     /**
      * Parse the address setting, forgivingly. The scheme chooses the
@@ -72,7 +76,9 @@ object RemoteRelay {
      * plaintext WebSocket to a relay reached directly, whose port
      * speaks plain HTTP for the tunnel's local side. Anything past
      * the first `/` is dropped, a `:port` suffix is honoured, and an
-     * empty result falls back to the defaults — a pasted browser URL
+     * input whose host part parses empty falls back to the full
+     * defaults (a stray `ws://` alone must not pair the default host
+     * with a plaintext choice it never made) — a pasted browser URL
      * should just work either way.
      */
     fun parseAddress(raw: String): Address {
@@ -85,15 +91,16 @@ object RemoteRelay {
             text = text.substring(schemeEnd + 3)
         }
         text = text.substringBefore('/').trim()
+        var host = text
+        var port: Int? = null
         val colon = text.lastIndexOf(':')
         if (colon > 0) {
-            val port = text.substring(colon + 1).toIntOrNull()
-            if (port != null) {
-                return Address(text.substring(0, colon).lowercase(), port, useTls)
-            }
+            port = text.substring(colon + 1).toIntOrNull()
+            if (port != null) host = text.substring(0, colon)
         }
-        val host = text.lowercase().ifEmpty { FALLBACK_HOST }
-        return Address(host, if (useTls) DEFAULT_PORT else 80, useTls)
+        host = host.lowercase()
+        if (host.isEmpty()) return Address(FALLBACK_HOST, DEFAULT_PORT, true)
+        return Address(host, port ?: if (useTls) DEFAULT_PORT else DIRECT_DEFAULT_PORT, useTls)
     }
 
     @Synchronized
@@ -230,7 +237,8 @@ object RemoteRelay {
             val key = ByteArray(16).also { random.nextBytes(it) }
             val request = buildString {
                 append("GET $CHANNEL_PATH HTTP/1.1\r\n")
-                append("Host: ${if (relayPort == DEFAULT_PORT) relayHost else "$relayHost:$relayPort"}\r\n")
+                val defaultPort = if (relayTls) DEFAULT_PORT else DIRECT_DEFAULT_PORT
+                append("Host: ${if (relayPort == defaultPort) relayHost else "$relayHost:$relayPort"}\r\n")
                 append("Upgrade: websocket\r\n")
                 append("Connection: Upgrade\r\n")
                 append("Sec-WebSocket-Key: ${Base64.encodeToString(key, Base64.NO_WRAP)}\r\n")

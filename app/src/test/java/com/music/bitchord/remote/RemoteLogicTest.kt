@@ -6,7 +6,9 @@ import org.junit.Test
 
 /**
  * The web remote's pure decisions: who queued what, which PIN a start
- * uses, how join names are cleaned, and which page a browse card opens.
+ * uses, how join names are cleaned, which page a browse card opens,
+ * and how the relay address parses — the last of those also decides
+ * whether the relay token travels encrypted.
  *
  * Worth their own tests because every one of them fails silently.
  * Attribution consuming out of order still renders a queue — just with
@@ -143,5 +145,100 @@ class RemoteLogicTest {
         // VLOLAK is an album delivered in a playlist-shaped id; the
         // whole point of the ordering is that it is not a playlist.
         assertEquals("album", resolveBrowseKind("VLOLAK123", ""))
+    }
+
+    // ── relay address ───────────────────────────────────────────────
+    // The parser decides whether the relay token crosses the network
+    // encrypted. A flipped default here would not crash anything —
+    // it would silently send the token in plaintext — so the whole
+    // scheme matrix is pinned.
+
+    @Test
+    fun bareHostnameIsTlsOn443() {
+        assertEquals(
+            RemoteRelay.Address("remote.gaspol.men", 443, true),
+            RemoteRelay.parseAddress("remote.gaspol.men"),
+        )
+    }
+
+    @Test
+    fun pastedHttpsUrlIsTlsAndDropsThePath() {
+        assertEquals(
+            RemoteRelay.Address("remote.gaspol.men", 443, true),
+            RemoteRelay.parseAddress("https://remote.gaspol.men/r/abc123/"),
+        )
+    }
+
+    @Test
+    fun wsSchemeIsPlaintextOn80() {
+        assertEquals(
+            RemoteRelay.Address("relay.example.com", 80, false),
+            RemoteRelay.parseAddress("ws://relay.example.com"),
+        )
+    }
+
+    @Test
+    fun wsUppercaseSchemeKeepsTheExplicitPort() {
+        assertEquals(
+            RemoteRelay.Address("103.103.23.1", 8890, false),
+            RemoteRelay.parseAddress("WS://103.103.23.1:8890"),
+        )
+    }
+
+    @Test
+    fun httpSchemeIsPlaintextToo() {
+        assertEquals(
+            RemoteRelay.Address("192.168.1.5", 8890, false),
+            RemoteRelay.parseAddress("http://192.168.1.5:8890"),
+        )
+    }
+
+    @Test
+    fun wssKeepsItsExplicitPort() {
+        assertEquals(
+            RemoteRelay.Address("relay.example.com", 8443, true),
+            RemoteRelay.parseAddress("wss://relay.example.com:8443"),
+        )
+    }
+
+    @Test
+    fun explicitPortWithoutSchemeStaysTls() {
+        assertEquals(
+            RemoteRelay.Address("relay.example.com", 8443, true),
+            RemoteRelay.parseAddress("relay.example.com:8443"),
+        )
+    }
+
+    @Test
+    fun unknownSchemeStaysTls() {
+        assertEquals(
+            RemoteRelay.Address("relay.example.com", 443, true),
+            RemoteRelay.parseAddress("gopher://relay.example.com"),
+        )
+    }
+
+    @Test
+    fun hostIsLowercasedAndWhitespaceTrimmed() {
+        assertEquals(
+            RemoteRelay.Address("relay.example.com", 443, true),
+            RemoteRelay.parseAddress("  WSS://Relay.Example.COM  "),
+        )
+    }
+
+    @Test
+    fun blankFallsBackToTheFullDefaults() {
+        val defaults = RemoteRelay.Address("remote.gaspol.men", 443, true)
+        assertEquals(defaults, RemoteRelay.parseAddress(""))
+        assertEquals(defaults, RemoteRelay.parseAddress("   "))
+    }
+
+    @Test
+    fun schemeOnlyInputFallsBackToTheFullDefaults() {
+        // A stray "ws://" must not pair the default host with a
+        // plaintext choice the user never made.
+        assertEquals(
+            RemoteRelay.Address("remote.gaspol.men", 443, true),
+            RemoteRelay.parseAddress("ws://"),
+        )
     }
 }

@@ -1320,4 +1320,8 @@
     <string name="no_audio_version">No audio version found for this video</string>
     <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="track_title">Title</string>
+    <string name="edit_metadata">Edit metadata</string>
+    <string name="metadata_updated">Metadata updated</string>
+    <string name="metadata_update_failed">Failed to update metadata</string>
 </resources>

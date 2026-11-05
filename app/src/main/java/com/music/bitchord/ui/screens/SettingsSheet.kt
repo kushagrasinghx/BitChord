@@ -255,6 +255,7 @@ fun SettingsScreen(
     val legacyMeshGradient by AppSettings.legacyMeshGradient.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
+    val autoLyricsRows by AppSettings.autoLyricsRows.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
     val theme by AppSettings.themeMode.collectAsStateWithLifecycle()
     val appFont by AppSettings.appFont.collectAsStateWithLifecycle()
@@ -1150,6 +1151,20 @@ fun SettingsScreen(
                             .ifEmpty { stringResource(R.string.no_lyrics_sources_enabled) },
                         trailing = { Chevron() },
                         onClick = onLyricsSources,
+                    )
+                }
+                val autoLyricsRowsTitle = stringResource(R.string.auto_lyrics_rows)
+                row(autoLyricsRowsTitle, "lyrics", "android auto", "car") {
+                    SliderRow(
+                        icon = SfIcons.PlaylistPlay,
+                        title = autoLyricsRowsTitle,
+                        subtitle = stringResource(R.string.auto_lyrics_rows_subtitle),
+                        value = stringResource(R.string.auto_lyrics_rows_value, autoLyricsRows),
+                        sliderValue = autoLyricsRows.toFloat(),
+                        onSliderValue = { AppSettings.setAutoLyricsRows(it.roundToInt()) },
+                        valueRange = AppSettings.MIN_AUTO_LYRICS_ROWS.toFloat()..AppSettings.MAX_AUTO_LYRICS_ROWS.toFloat(),
+                        // One stop for each whole number between the two ends.
+                        steps = AppSettings.MAX_AUTO_LYRICS_ROWS - AppSettings.MIN_AUTO_LYRICS_ROWS - 1,
                     )
                 }
                 val translationLanguageTitle = stringResource(R.string.translation_language)

@@ -1278,6 +1278,7 @@
 
 
     <string name="source_needs_lossless_output">דורש פלט ללא אובדן · השתמשו במכשיר שתומך באודיו ללא אובדן</string>
+    <string name="source_needs_update">התוסף הזה אינו מעודכן, ולכן BitChord לא יכול להשתמש בו. בקשו מהמפתח לעדכן אותו לפי מסמכי התוספים העדכניים של BitChord.</string>
     <string name="source_needs_lossless_bt_codec">דורש פלט ללא אובדן · ה‑Bluetooth משתמש ב‑%1$s; השתמשו במכשיר שתומך באודיו ללא אובדן</string>
     <string name="source_needs_lossless_bt_unknown">דורש פלט ללא אובדן · לא ניתן לדעת באיזה קודק Bluetooth נעשה שימוש</string>
     <string name="source_downloads_on">הורדות מותרות</string>
@@ -1425,6 +1426,7 @@
     <string name="download_addon_left_out_title">מוריד בלי %1$s</string>
     <string name="download_addon_not_allowed">%1$s לא מאפשר הורדות, ולכן השירים שלך נשמרים מהמקורות האחרים שלך.</string>
     <string name="download_addon_needs_lossless_output">%1$s מספק מוזיקה רק כשמחוברות אוזניות חוטיות, USB או ברמת LDAC. ההורדות מדלגות עליו עד שיתחברו אוזניות כאלה, ולכן השירים שלך נשמרים מהמקורות האחרים שלך.</string>
+    <string name="download_addon_needs_update">%1$s אינו מעודכן, ולכן BitChord לא יכול להשתמש בו. השירים שלך נשמרים מהמקורות האחרים שלך. בקשו מהמפתח לעדכן אותו לפי מסמכי התוספים העדכניים של BitChord.</string>
     <string name="show_listen_together_button">הצגת הכפתור להאזין ביחד</string>
     <string name="show_listen_together_button_subtitle">כשהאפשרות כבויה, הנגן מציג רק את כפתור פלט השמע בין המילים לתור ההשמעה</string>
     <string name="font">גופן</string>

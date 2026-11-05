@@ -1278,6 +1278,7 @@
 
 
     <string name="source_needs_lossless_output">Precisa de uma saída sem perdas · use um dispositivo compatível com áudio sem perdas</string>
+    <string name="source_needs_update">Este addon está desatualizado, então o BitChord não pode usá-lo. Peça ao desenvolvedor para atualizá-lo seguindo a documentação de addons mais recente do BitChord.</string>
     <string name="source_needs_lossless_bt_codec">Precisa de uma saída sem perdas · o Bluetooth está em %1$s; use um dispositivo compatível com áudio sem perdas</string>
     <string name="source_needs_lossless_bt_unknown">Precisa de uma saída sem perdas · não é possível saber qual codec Bluetooth está em uso</string>
     <string name="source_downloads_on">Downloads permitidos</string>
@@ -1425,6 +1426,7 @@
     <string name="download_addon_left_out_title">Baixando sem %1$s</string>
     <string name="download_addon_not_allowed">%1$s não permite downloads, então suas músicas estão sendo salvas das suas outras fontes.</string>
     <string name="download_addon_needs_lossless_output">%1$s só envia música com fones com fio, USB ou de classe LDAC conectados. Os downloads o ignoram até que um esteja conectado, então suas músicas estão sendo salvas das suas outras fontes.</string>
+    <string name="download_addon_needs_update">%1$s está desatualizado, então o BitChord não pode usá-lo. Suas músicas estão sendo salvas das suas outras fontes. Peça ao desenvolvedor para atualizá-lo seguindo a documentação de addons mais recente do BitChord.</string>
     <string name="show_listen_together_button">Mostrar botão Ouvir junto</string>
     <string name="show_listen_together_button_subtitle">Desativado, o player mostra apenas o botão de saída de áudio entre a letra e a fila</string>
     <string name="font">Fonte</string>

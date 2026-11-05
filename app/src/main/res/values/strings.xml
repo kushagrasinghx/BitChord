@@ -38,6 +38,7 @@
     <string name="download_addon_left_out_title">Downloading without %1$s</string>
     <string name="download_addon_not_allowed">%1$s doesn\'t allow downloads, so your songs are being saved from your other sources instead.</string>
     <string name="download_addon_needs_lossless_output">%1$s only serves music while wired, USB or LDAC-class headphones are connected. Downloads skip it until one is, so your songs are being saved from your other sources instead.</string>
+    <string name="download_addon_needs_update">%1$s is out of date, so BitChord can\'t use it. Your songs are being saved from your other sources instead. Ask its developer to update it by following the latest BitChord addon docs.</string>
     <string name="audio_files_on_device">Audio files on device</string>
     <string name="on_device">On Device</string>
     <string name="playlists">Playlists</string>
@@ -1212,6 +1213,7 @@
     <string name="card_songs_format">%1$s songs</string>
 
     <string name="source_needs_lossless_output">Needs a lossless output · use a lossless supported device</string>
+    <string name="source_needs_update">This addon is out of date, so BitChord can\'t use it. Ask its developer to update it by following the latest BitChord addon docs.</string>
     <string name="source_needs_lossless_bt_codec">Needs a lossless output · Bluetooth is on %1$s; use a lossless supported device</string>
     <string name="source_needs_lossless_bt_unknown">Needs a lossless output · can’t tell which Bluetooth codec is in use</string>
     <string name="source_downloads_on">Downloads allowed</string>

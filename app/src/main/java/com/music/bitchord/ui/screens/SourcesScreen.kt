@@ -243,6 +243,9 @@ fun SourcesScreen(
                         // today".
                         skippedByQuality = config.enabled && !ceiling.permits(config.kind),
                         awaitingOutput = if (config.enabled && config.awaitsLosslessOutput) losslessOutput else null,
+                        // Read off the stored manifest, so it shows before the
+                        // probe below answers, and on a server that is down.
+                        needsUpdate = config.needsAddonUpdate,
                         onMetered = metered == true,
                         ceiling = ceiling,
                         // Anything the user configured is theirs to edit or
@@ -495,12 +498,17 @@ private fun ReorderableAddons(
     /** Which slot of [liveOrder] it began on. */
     var startIndex by remember { mutableIntStateOf(0) }
 
-    // The distance from one row's top to the next — the row plus the hairline
-    // above it, measured off the wrapper holding both. Frozen for the duration
-    // of a gesture so a relayout mid-drag cannot move the boundaries the drag
-    // is being measured against underneath it.
-    var pitchPx by remember { mutableFloatStateOf(0f) }
-    var lockedPitchPx by remember { mutableFloatStateOf(0f) }
+    // Each row's height — the row plus its trailing hairline, measured off the
+    // wrapper holding both — by addon id. Per row rather than one shared pitch,
+    // because a row's status line wraps to as many lines as its message needs,
+    // so an addon with an error stands taller than its neighbours. Frozen for
+    // the duration of a gesture so a relayout mid-drag cannot move the
+    // boundaries the drag is being measured against underneath it.
+    val heights = remember { mutableStateMapOf<String, Float>() }
+    var lockedHeights by remember { mutableStateOf<Map<String, Float>>(emptyMap()) }
+
+    /** How far the dragged row's slot has moved since the gesture began: the heights of the rows it has passed. */
+    var slotShift by remember { mutableFloatStateOf(0f) }
 
     liveOrder.forEachIndexed { index, config ->
         // Keyed on the config's id so this composable — gesture and all —
@@ -514,7 +522,7 @@ private fun ReorderableAddons(
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex(if (isDragging) 1f else 0f)
-                    .onSizeChanged { pitchPx = it.height.toFloat() }
+                    .onSizeChanged { heights[config.id] = it.height.toFloat() }
                     .graphicsLayer {
                         // Read in the draw phase, so a drag moves the row
                         // without recomposing the list at all. The row sits
@@ -522,12 +530,7 @@ private fun ReorderableAddons(
                         // picked up, less whatever the swaps have already moved
                         // its slot — so a swap relocates the slot and shortens
                         // this by exactly as much, and the row does not budge.
-                        translationY = if (isDragging) {
-                            totalDrag -
-                                (liveOrder.indexOfFirst { it.id == config.id } - startIndex) * lockedPitchPx
-                        } else {
-                            0f
-                        }
+                        translationY = if (isDragging) totalDrag - slotShift else 0f
                     },
             ) {
                 row(index + 1, config) {
@@ -545,39 +548,50 @@ private fun ReorderableAddons(
                                     onDragStart = {
                                         dragged = config.id
                                         totalDrag = 0f
+                                        slotShift = 0f
                                         startIndex = liveOrder.indexOfFirst { it.id == config.id }
-                                        lockedPitchPx = pitchPx
+                                        lockedHeights = heights.toMap()
                                     },
                                     onDrag = { change, delta ->
                                         change.consume()
-                                        val pitch = lockedPitchPx
-                                        if (pitch <= 0f) return@detectDragGestures
+                                        val height = { id: String -> lockedHeights[id] ?: 0f }
                                         var at = liveOrder.indexOfFirst { it.id == config.id }
-                                        if (at < 0) return@detectDragGestures
+                                        if (at < 0 || lockedHeights.isEmpty()) return@detectDragGestures
 
                                         // Held past either end the row stops
                                         // there under the finger, rather than
                                         // running off the list and having to be
-                                        // dragged all the way back.
+                                        // dragged all the way back. The ends are
+                                        // the rows above and below the slot it
+                                        // started in, taken from the current
+                                        // order with the swaps undone.
+                                        val others = liveOrder.filterNot { it.id == config.id }
                                         totalDrag = (totalDrag + delta.y).coerceIn(
-                                            -startIndex * pitch,
-                                            (liveOrder.lastIndex - startIndex) * pitch,
+                                            -others.take(startIndex).sumOf { height(it.id).toDouble() }.toFloat(),
+                                            others.drop(startIndex).sumOf { height(it.id).toDouble() }.toFloat(),
                                         )
 
                                         // A loop, not an `if`: one pointer event
                                         // can cover several rows when the finger
                                         // is quick, and settling one row per
                                         // event would leave the list trailing.
+                                        // A swap with a neighbour moves the slot
+                                        // by that neighbour's height, so the
+                                        // threshold is a share of the row being
+                                        // passed, whatever height either row is.
                                         while (true) {
-                                            val travelled = totalDrag / pitch
-                                            val moved = (at - startIndex).toFloat()
-                                            if (travelled > moved + SWAP_THRESHOLD && at < liveOrder.lastIndex) {
+                                            val offset = totalDrag - slotShift
+                                            val below = liveOrder.getOrNull(at + 1)?.let { height(it.id) }
+                                            val above = liveOrder.getOrNull(at - 1)?.let { height(it.id) }
+                                            if (below != null && below > 0f && offset > below * SWAP_THRESHOLD) {
                                                 liveOrder = liveOrder.toMutableList()
                                                     .apply { add(at + 1, removeAt(at)) }
+                                                slotShift += below
                                                 at++
-                                            } else if (travelled < moved - SWAP_THRESHOLD && at > 0) {
+                                            } else if (above != null && above > 0f && offset < -above * SWAP_THRESHOLD) {
                                                 liveOrder = liveOrder.toMutableList()
                                                     .apply { add(at - 1, removeAt(at)) }
+                                                slotShift -= above
                                                 at--
                                             } else {
                                                 break
@@ -587,11 +601,13 @@ private fun ReorderableAddons(
                                     onDragEnd = {
                                         dragged = null
                                         totalDrag = 0f
+                                        slotShift = 0f
                                         onReorder(liveOrder)
                                     },
                                     onDragCancel = {
                                         dragged = null
                                         totalDrag = 0f
+                                        slotShift = 0f
                                         liveOrder = addons
                                     },
                                 )
@@ -599,10 +615,9 @@ private fun ReorderableAddons(
                     )
                 }
                 // After the row, not before it, so every wrapper is exactly one
-                // row plus one hairline — the pitch the drag measures against.
+                // row plus one hairline — the height the drag measures it by.
                 // With the divider leading, the first wrapper was short by a
-                // rule and whichever row reported its size last decided the
-                // pitch for all of them.
+                // rule.
                 RowDivider()
             }
         }
@@ -611,7 +626,7 @@ private fun ReorderableAddons(
 
 /**
  * How far past a neighbour the finger has to carry a row before the two trade
- * places, as a share of one row's pitch.
+ * places, as a share of the height of the row being passed.
  *
  * Deliberately more than half, for the reason spelled out in
  * [LyricsSourcesDialog][com.music.bitchord.ui.components.LyricsSourcesDialog]:
@@ -740,7 +755,6 @@ private fun BluetoothCodecPermissionRow() {
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
             )
         }
     }
@@ -759,6 +773,8 @@ private fun SourceRow(
     skippedByQuality: Boolean = false,
     /** On, but its addon needs a lossless output and this is what is connected instead. Null when not waiting. */
     awaitingOutput: LosslessOutput.State? = null,
+    /** An addon that is out of date (no `bitchordAuth` in its manifest), so BitChord won't use it. */
+    needsUpdate: Boolean = false,
     /** Which of the two ceilings [ceiling] is, so the row can name it. */
     onMetered: Boolean = false,
     ceiling: AudioQuality = AudioQuality.LOSSLESS,
@@ -773,7 +789,7 @@ private fun SourceRow(
     // Dimmed for the same reason an off source is: it is not in the walk. The
     // switch stays where the user left it, so the row reads "on, but not
     // today" rather than "off".
-    val dimmed = !config.enabled || skippedByQuality || awaitingOutput != null
+    val dimmed = !config.enabled || skippedByQuality || awaitingOutput != null || needsUpdate
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -862,6 +878,9 @@ private fun SourceRow(
                 // going to be asked at all is not usefully described by
                 // whether its server answered a probe.
                 text = when {
+                    // Outranks everything: until its developer updates it, this
+                    // addon is not used on any connection or output.
+                    needsUpdate -> stringResource(R.string.source_needs_update)
                     // Outranks the ceiling: this one is not reached on *any*
                     // connection until the output changes.
                     awaitingOutput != null -> when {
@@ -880,6 +899,7 @@ private fun SourceRow(
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = when {
+                    needsUpdate -> MaterialTheme.colorScheme.error
                     // A warning, not a fault: the addon is fine, the output is
                     // what has to change — but it is something to act on.
                     awaitingOutput != null -> MaterialTheme.colorScheme.error
@@ -892,7 +912,9 @@ private fun SourceRow(
                     health is SourceHealth.Rejected -> MaterialTheme.colorScheme.error
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                maxLines = 2,
+                // No line limit: an error is only useful read in full, so the
+                // row grows to fit it. [ReorderableAddons] measures each row's
+                // own height, so a tall row still drags correctly.
             )
             // The addon's own `allowDownloads`, on a line of its own and both
             // ways round, so whether downloads come from it is answered here

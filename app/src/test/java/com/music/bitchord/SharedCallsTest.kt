@@ -207,4 +207,31 @@ class SharedCallsTest {
         repeat(400) { at -> shared.get("q$at", { "" }) { Result.success("a") } }
         assertTrue("held ${shared.size()}", shared.size() <= 128)
     }
+
+    /**
+     * An answer that says it will be different shortly — an addon's "not yet,
+     * ask again in 30 seconds" — is a success, and holding it would replay the
+     * stale "not yet" to every caller for the whole window.
+     */
+    @Test
+    fun `an answer the caller says not to keep is asked again`() = runBlocking {
+        val calls = AtomicInteger()
+        val shared = shared<String>(ttlMs = 60_000)
+
+        repeat(3) {
+            shared.get("q", { "" }, keep = { it != "not yet" }) {
+                calls.incrementAndGet()
+                Result.success("not yet")
+            }
+        }
+        assertEquals(3, calls.get())
+
+        repeat(3) {
+            shared.get("r", { "" }, keep = { it != "not yet" }) {
+                calls.incrementAndGet()
+                Result.success("flac")
+            }
+        }
+        assertEquals(4, calls.get())
+    }
 }

@@ -43,18 +43,76 @@ class PartyAutomaticTransitionTest {
         )
     }
 
+    @Test
+    fun `own transition echo waits for the player to leave buffering before aligning`() = runTest {
+        checkTransitionEcho(
+            positionMs = 300L,
+            updatedBy = "me",
+            expectedSeeks = emptyList(),
+            bufferingBeforeEcho = true,
+        )
+    }
+
+    @Test
+    fun `same-track manual seek echo still aligns precisely`() = runTest {
+        withPartyState(liveParty().copy(
+            playback = PartyPlayback(
+                track = PartyTrack(videoId = "next"),
+                isPlaying = true,
+            ),
+            queue = PartyQueue(items = listOf(PartyTrack(videoId = "next")), index = 0),
+        )) {
+            val fake = FakePlayer("next", initialPosition = 5_000L)
+            val sync = PartySync(this) { fake.player }
+            try {
+                sync.onLocalIntent()
+                PartySync::class.java.getDeclaredField("lastPartyCode").apply {
+                    isAccessible = true
+                    set(sync, "ABC123")
+                }
+                sync.start()
+                advanceTimeBy(200L)
+                runCurrent()
+                assertTrue(fake.seeks.isEmpty())
+
+                fake.currentPosition = 5_300L
+                withPartyState(liveParty().copy(
+                    playback = PartyPlayback(
+                        seq = 1L,
+                        track = PartyTrack(videoId = "next"),
+                        isPlaying = true,
+                        positionMs = 5_000L,
+                        effectivePositionMs = 5_000L,
+                        updatedBy = "me",
+                    ),
+                    queue = PartyQueue(items = listOf(PartyTrack(videoId = "next")), index = 0),
+                )) {
+                    runCurrent()
+                    val reconcile = PartySync::class.java.getDeclaredMethod("reconcile").apply {
+                        isAccessible = true
+                    }
+                    reconcile.invoke(sync)
+                    assertEquals(listOf(5_000L), fake.seeks)
+                }
+            } finally {
+                sync.stop()
+            }
+        }
+    }
+
     private suspend fun kotlinx.coroutines.test.TestScope.checkTransitionEcho(
         positionMs: Long,
         updatedBy: String,
         expectedSeeks: List<Long>,
         userIntent: Boolean = false,
+        bufferingBeforeEcho: Boolean = false,
     ) {
         withPartyState(liveParty()) {
             val fake = FakePlayer("next")
             val sync = PartySync(this) { fake.player }
             try {
-                sync.onAutomaticTransition()
-                if (userIntent) sync.onLocalIntent()
+                if (bufferingBeforeEcho) fake.playbackState = Player.STATE_BUFFERING
+                sync.onLocalIntent()
                 // This test starts in an existing party, without the personal-queue stash.
                 PartySync::class.java.getDeclaredField("lastPartyCode").apply {
                     isAccessible = true
@@ -67,6 +125,7 @@ class PartyAutomaticTransitionTest {
                 assertEquals(0, fake.pauseCalls)
                 assertFalse(ListenTogether.awaitingStart.value)
 
+                if (userIntent) sync.onLocalIntent()
                 // Audio advances while the server confirms the position published above.
                 fake.currentPosition = positionMs
                 withPartyState(liveParty().copy(playback = PartyPlayback(
@@ -76,13 +135,23 @@ class PartyAutomaticTransitionTest {
                     updatedBy = updatedBy,
                 ), queue = PartyQueue(seq = 1L, index = 0, items = listOf(PartyTrack(videoId = "next"))))) {
                     runCurrent()
-                    assertEquals(expectedSeeks, fake.seeks)
+                    if (bufferingBeforeEcho) {
+                        assertTrue(fake.seeks.isEmpty())
+                        fake.playbackState = Player.STATE_READY
+                    } else if (userIntent) {
+                        // The second local intent reset the quiet window; its same-track publish
+                        // settles before explicit reconcile handles the transition echo.
+                        advanceTimeBy(200L)
+                        runCurrent()
+                    }
                     assertTrue(fake.playWhenReady)
                     val reconcile = PartySync::class.java.getDeclaredMethod("reconcile").apply {
                         isAccessible = true
                     }
                     reconcile.invoke(sync)
                     assertEquals("echo is handled only once", expectedSeeks, fake.seeks)
+                    reconcile.invoke(sync)
+                    assertEquals("repeat reconcile does not seek again", expectedSeeks, fake.seeks)
                 }
             } finally {
                 sync.stop()
@@ -112,7 +181,7 @@ class PartyAutomaticTransitionTest {
                 val fake = FakePlayer("next")
                 val sync = PartySync(this) { fake.player }
                 try {
-                    sync.onAutomaticTransition()
+                    sync.onLocalIntent()
                     assertTrue(label, fake.playWhenReady)
                     assertEquals(label, 0, fake.pauseCalls)
                     assertFalse(label, ListenTogether.awaitingStart.value)
@@ -131,7 +200,7 @@ class PartyAutomaticTransitionTest {
             val fake = FakePlayer("ignored", item = fileItem)
             val sync = PartySync(this) { fake.player }
             try {
-                sync.onAutomaticTransition()
+                sync.onLocalIntent()
                 assertTrue(fake.playWhenReady)
                 assertEquals(0, fake.pauseCalls)
                 assertFalse(ListenTogether.awaitingStart.value)
@@ -172,12 +241,14 @@ class PartyAutomaticTransitionTest {
     private class FakePlayer(
         id: String,
         item: MediaItem = Song(videoId = id, title = id, artist = "Artist", thumbnailUrl = null).toMediaItem(),
+        initialPosition: Long = 0L,
     ) {
         var playWhenReady = true
         var pauseCalls = 0
         var playCalls = 0
         val seeks = mutableListOf<Long>()
-        var currentPosition = 0L
+        var currentPosition = initialPosition
+        var playbackState = Player.STATE_READY
         private val currentItem = item
 
         val player: Player = Proxy.newProxyInstance(
@@ -197,7 +268,7 @@ class PartyAutomaticTransitionTest {
                     null
                 }
                 "getDuration" -> 180_000L
-                "getPlaybackState" -> Player.STATE_READY
+                "getPlaybackState" -> playbackState
                 "getPlaybackSuppressionReason" -> Player.PLAYBACK_SUPPRESSION_REASON_NONE
                 "pause" -> {
                     pauseCalls++

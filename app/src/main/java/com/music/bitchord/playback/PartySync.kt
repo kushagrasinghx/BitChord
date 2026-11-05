@@ -194,7 +194,8 @@ class PartySync(
      * limit, so never corrected, and permanent.
      */
     private var alignedSeq = -1L
-    private var automaticTransitionTrackId: String? = null
+    private var localTrackChangeId: String? = null
+    private var localTrackChangeSeq = -1L
 
     /**
      * A resume this device has accepted but not yet performed.
@@ -310,7 +311,7 @@ class PartySync(
      * would put three controls on the wire for one tap.
      */
     fun onLocalIntent() {
-        automaticTransitionTrackId = null
+        localTrackChangeId = null
         val party = ListenTogether.state.value
         if (!party.inParty) return
         // Nothing this device does while the host holds control is the party's
@@ -346,22 +347,6 @@ class PartySync(
         publishJob = scope.launch {
             delay(PUBLISH_DEBOUNCE_MS)
             publish()
-        }
-    }
-
-    /** A natural advance is already audible when its server confirmation arrives. */
-    fun onAutomaticTransition() {
-        onLocalIntent()
-        val party = ListenTogether.state.value
-        val exo = player() ?: return
-        val song = exo.currentMediaItem?.toSong() ?: return
-        val partyTrack = party.playback.track
-        if (!focusLost && exo.playWhenReady && !song.isDeviceFile() &&
-            party.inParty && party.connection == ListenTogether.Connection.LIVE && party.clockSynced &&
-            !party.controlsLocked && party.playback.isPlaying && partyTrack != null &&
-            partyTrack.videoId != song.videoId
-        ) {
-            automaticTransitionTrackId = song.videoId
         }
     }
 
@@ -567,7 +552,7 @@ class PartySync(
             lastPositionMs = 0L
             lastTrackId = null
             lastIsPlaying = false
-            automaticTransitionTrackId = null
+            localTrackChangeId = null
             return
         }
         // Before any of the early returns below, so a local pause cannot
@@ -704,9 +689,9 @@ class PartySync(
         // position, track, or playing state (e.g. queue operations or metadata updates),
         // we must not force an audible seek flush.
         if (target.seq != alignedSeq) {
-            val ownAutomaticAdvance = automaticTransitionTrackId == track.videoId &&
-                target.seq == awaitPlaybackSeq && party.you != null && target.updatedBy == party.you.memberId
-            automaticTransitionTrackId = null
+            val ownTrackChange = localTrackChangeId == track.videoId &&
+                target.seq == localTrackChangeSeq && party.you != null && target.updatedBy == party.you.memberId
+            localTrackChangeId = null
             val isPlaybackAnchorChanged = lastAnchorMs != target.anchorMs ||
                 lastPositionMs != target.positionMs ||
                 lastTrackId != track.videoId ||
@@ -718,7 +703,7 @@ class PartySync(
             lastTrackId = track.videoId
             lastIsPlaying = target.isPlaying
 
-            val tolerance = if (ownAutomaticAdvance) DRIFT_LIMIT_MS else ALIGN_TOLERANCE_MS
+            val tolerance = if (ownTrackChange) DRIFT_LIMIT_MS else ALIGN_TOLERANCE_MS
             if (isPlaybackAnchorChanged && abs(drift) > tolerance) {
                 Log.i(TAG, "aligning ${drift}ms onto party control ${target.seq}")
                 exo.seekTo(want)
@@ -926,6 +911,11 @@ class PartySync(
                 // After the queue, never before: a track change that arrives
                 // pointing into a running order nobody has yet is the bug that
                 // played the wrong song.
+                // A track already starting here must not replay its intro on its own confirmation.
+                if (party.connection == ListenTogether.Connection.LIVE && party.clockSynced && exo.playWhenReady) {
+                    localTrackChangeId = track.videoId
+                    localTrackChangeSeq = basePlayback + 1
+                }
                 ListenTogether.setTrack(track, position, wantsPlaying)
                 playbackControls++
             }

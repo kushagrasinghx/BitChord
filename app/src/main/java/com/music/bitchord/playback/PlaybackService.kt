@@ -1005,7 +1005,7 @@ class PlaybackService : MediaLibraryService() {
             }
 
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                partySync?.onAutomaticTransition()
+                partySync?.onLocalIntent()
             }
 
             // A receiver, if it is the speaker, is put on whatever became

@@ -15,7 +15,7 @@ type Option = { kind: 'query'; text: string; typed: string; rest: string } | { k
  * a glass dropdown of completions, then artist, album and song suggestions.
  * Arrow keys move through it; Enter picks; Escape closes.
  */
-export function SearchField({ initial, onSearch }: { initial: string; onSearch: (query: string) => void }) {
+export function SearchField({ initial, onSearch, autoFocus = false }: { initial: string; onSearch: (query: string) => void; autoFocus?: boolean }) {
   const [value, setValue] = useState(initial);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -23,6 +23,11 @@ export function SearchField({ initial, onSearch }: { initial: string; onSearch: 
   const listId = useId();
   const navigate = useNavigate();
   const suggestions = useSuggestions(open ? value : '');
+  // Landing on Search (sidebar, /, ⌘/Ctrl+F) puts the cursor in the field
+  // right away, so typing starts immediately — no click needed first.
+  useEffect(() => {
+    if (autoFocus) input.current?.focus({ preventScroll: true });
+  }, [autoFocus]);
   // A suggestion's track menu takes focus when it opens (Menu focuses its
   // first item), which would otherwise read as the field blurring and close
   // the dropdown under the open menu. While a menu is open the blur close is

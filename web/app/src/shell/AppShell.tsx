@@ -10,6 +10,7 @@ import { config } from '@/config';
 import { useExtension } from '@/extension/useExtension';
 import { isMobileBrowser } from '@/lib/platform';
 import { useUi } from '@/state/ui';
+import { useDocumentTitle } from './useDocumentTitle';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
 import { MobileTopBar } from './MobileTopBar';
@@ -26,8 +27,28 @@ const FullScreenPlayer = lazy(() => import('./FullScreenPlayer').then((m) => ({ 
  * The app frame (report §1): glass sidebar, the scrolling page, the floating
  * player pill, the side panel, and the bottom band when there is one.
  */
+/**
+ * A mouse click shouldn't leave a button focused: the browser would then
+ * re-trigger that button on the next Space/Enter, which reads as the player's
+ * shortcuts firing the last thing the user clicked. Walk the focus off, but
+ * only for pointer input, so keyboard tabbing still shows focus.
+ */
+function useBlurAfterPointer() {
+  useEffect(() => {
+    const onPointerUp = (event: PointerEvent) => {
+      if (event.pointerType !== 'mouse') return;
+      const button = (event.target as HTMLElement | null)?.closest<HTMLElement>('button, a, [role="button"]');
+      button?.blur();
+    };
+    window.addEventListener('pointerup', onPointerUp);
+    return () => window.removeEventListener('pointerup', onPointerUp);
+  }, []);
+}
+
 export function AppShell() {
+  useDocumentTitle();
   useKeyboardShortcuts();
+  useBlurAfterPointer();
   useDiscordPresence();
   // Listen Together: pick a party back up after a reload, and keep the player in step with it.
   useEffect(() => {

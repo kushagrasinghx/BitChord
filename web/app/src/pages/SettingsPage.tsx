@@ -16,6 +16,7 @@ import { AppleMusicIntegration, AppleMusicToggles, CanvasToggle, DiscordIntegrat
 import { settingsUi } from './settingsStyles';
 
 const LyricsSettings = lazy(() => import('@/shell/LyricsSettings').then((m) => ({ default: m.LyricsSettings })));
+const Keybinds = lazy(() => import('@/shell/KeybindsSettings').then((m) => ({ default: m.KeybindsSettings })));
 
 /** An integration's coloured glyph, as on the Extension page. */
 function Glyph({ Icon, color, ink }: { Icon: ComponentType<{ size?: number }>; color: string; ink?: string }) {
@@ -67,6 +68,7 @@ export default function SettingsPage() {
   const setShareHistory = useHistorySettings((s) => s.setShare);
   const { setAutoplay, setCrossfade, setAutomix, setAutomixBars, setShowNerdStats } = usePlayer.getState();
   const [lyrics, setLyrics] = useState(false);
+  const [keybinds, setKeybinds] = useState(false);
   const present = extension.state === 'present';
   const discordText =
     discord.state === 'ready' && discord.discord.connected
@@ -175,6 +177,13 @@ export default function SettingsPage() {
             checked={showNerdStats}
             onChange={setShowNerdStats}
           />
+          <button className={`${settingsUi.integrationPlain} ${settingsUi.linkRow}`} onClick={() => setKeybinds(true)}>
+            <span className={settingsUi.integrationName}>Keybinds</span>
+            <span className={settingsUi.value}>
+              Keyboard shortcuts
+              <ChevronRight size={16} />
+            </span>
+          </button>
         </section>
         {automix && (
           <p className={settingsUi.footer}>
@@ -202,6 +211,11 @@ export default function SettingsPage() {
       {lyrics && (
         <Suspense fallback={null}>
           <LyricsSettings onClose={() => setLyrics(false)} />
+        </Suspense>
+      )}
+      {keybinds && (
+        <Suspense fallback={null}>
+          <Keybinds onClose={() => setKeybinds(false)} />
         </Suspense>
       )}
     </div>

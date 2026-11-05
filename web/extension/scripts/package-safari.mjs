@@ -11,7 +11,7 @@ run('xcodebuild', ['-version']);
 mkdirSync(output, { recursive: true });
 run('xcrun', ['safari-web-extension-packager', `${root}.output/safari-mv3`,
   '--project-location', output, '--app-name', 'BitChord',
-  '--bundle-identifier', 'in.bitchord.safari', '--swift', '--macos-only',
+  '--bundle-identifier', 'in.bitchord.BitChord', '--swift', '--macos-only',
   '--copy-resources', '--no-open', '--no-prompt', '--force']);
 const project = `${output}/BitChord/BitChord.xcodeproj`;
 const listing = JSON.parse(execFileSync('xcodebuild', ['-list', '-json', '-project', project], { encoding: 'utf8' }));

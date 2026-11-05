@@ -35,7 +35,7 @@ export default defineConfig({
     // the cookies themselves never leave the extension (lib/ytAuth.ts).
     // `scripting` reads the Discord token from a discord.com tab, and only on
     // the user's "Connect Discord" (lib/discord.ts).
-    permissions: ['storage', 'declarativeNetRequest', 'cookies', ...(DISCORD_PRESENCE && browser !== 'safari' ? ['scripting'] : [])],
+    permissions: ['storage', browser === 'safari' ? 'declarativeNetRequestWithHostAccess' : 'declarativeNetRequest', 'cookies', ...(DISCORD_PRESENCE && browser !== 'safari' ? ['scripting'] : [])],
     // YouTube (phases 3 and 5) and Spotify (phase 9; the sp_dc cookie is read
     // and used here only, lib/spotify.ts). The site's own origins are listed
     // because header rules need host access to the initiator as well as the

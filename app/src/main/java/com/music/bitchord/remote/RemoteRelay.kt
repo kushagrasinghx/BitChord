@@ -59,39 +59,57 @@ object RemoteRelay {
     private var token: String = ""
     @Volatile private var relayHost: String = FALLBACK_HOST
     @Volatile private var relayPort: Int = DEFAULT_PORT
+    @Volatile private var relayTls: Boolean = true
     private val openSockets = ConcurrentHashMap.newKeySet<Socket>()
 
+    /** A parsed relay address: where to dial, and whether over TLS. */
+    class Address(val host: String, val port: Int, val useTls: Boolean)
+
     /**
-     * Parse the address setting into (host, port), forgivingly: an
-     * optional scheme and anything past the first `/` are dropped, a
-     * `:port` suffix is honoured, and an empty result falls back to
-     * the defaults — a pasted browser URL should just work.
+     * Parse the address setting, forgivingly. The scheme chooses the
+     * transport: `wss://`/`https://` (or no scheme) is TLS — the
+     * tunnel hostname's shape — while `ws://`/`http://` is a
+     * plaintext WebSocket to a relay reached directly, whose port
+     * speaks plain HTTP for the tunnel's local side. Anything past
+     * the first `/` is dropped, a `:port` suffix is honoured, and an
+     * empty result falls back to the defaults — a pasted browser URL
+     * should just work either way.
      */
-    fun parseAddress(raw: String): Pair<String, Int> {
+    fun parseAddress(raw: String): Address {
         var text = raw.trim()
+        var useTls = true
         val schemeEnd = text.indexOf("://")
-        if (schemeEnd >= 0) text = text.substring(schemeEnd + 3)
+        if (schemeEnd >= 0) {
+            val scheme = text.substring(0, schemeEnd).lowercase()
+            useTls = scheme != "ws" && scheme != "http"
+            text = text.substring(schemeEnd + 3)
+        }
         text = text.substringBefore('/').trim()
         val colon = text.lastIndexOf(':')
         if (colon > 0) {
             val port = text.substring(colon + 1).toIntOrNull()
-            if (port != null) return text.substring(0, colon).lowercase() to port
+            if (port != null) {
+                return Address(text.substring(0, colon).lowercase(), port, useTls)
+            }
         }
-        return text.lowercase().ifEmpty { FALLBACK_HOST } to DEFAULT_PORT
+        val host = text.lowercase().ifEmpty { FALLBACK_HOST }
+        return Address(host, if (useTls) DEFAULT_PORT else 80, useTls)
     }
 
     @Synchronized
     fun start(relayToken: String, address: String) {
         if (running) return
         token = relayToken
-        val (host, port) = parseAddress(address)
-        relayHost = host
-        relayPort = port
+        val parsed = parseAddress(address)
+        relayHost = parsed.host
+        relayPort = parsed.port
+        relayTls = parsed.useTls
         running = true
         repeat(CHANNELS) { i ->
             Thread({ channelLoop() }, "remote-relay-$i").apply { isDaemon = true }.start()
         }
-        Log.i(REMOTE_LOG_TAG, "relay client started ($CHANNELS channels to wss://$relayHost:$relayPort$CHANNEL_PATH)")
+        val scheme = if (relayTls) "wss" else "ws"
+        Log.i(REMOTE_LOG_TAG, "relay client started ($CHANNELS channels to $scheme://$relayHost:$relayPort$CHANNEL_PATH)")
     }
 
     @Synchronized
@@ -181,16 +199,26 @@ object RemoteRelay {
      */
     private class WsConnection(private val token: String) {
 
-        val socket: SSLSocket = run {
-            // An unconnected SSLSocket, then connect(): the layered
-            // createSocket(Socket, ...) overload is not visible
-            // through getDefault()'s declared SocketFactory type.
-            val tls = SSLSocketFactory.getDefault().createSocket() as SSLSocket
-            tls.connect(InetSocketAddress(relayHost, relayPort), CONNECT_TIMEOUT_MS)
-            tls.soTimeout = PING_INTERVAL_MS
-            tls.startHandshake()
-            verifyPeer(tls)
-            tls
+        val socket: Socket = run {
+            if (!relayTls) {
+                // Plaintext to a directly reached relay: the same
+                // WebSocket protocol, minus TLS — the relay's port
+                // speaks plain HTTP for the tunnel's local side.
+                val plain = Socket()
+                plain.connect(InetSocketAddress(relayHost, relayPort), CONNECT_TIMEOUT_MS)
+                plain.soTimeout = PING_INTERVAL_MS
+                plain
+            } else {
+                // An unconnected SSLSocket, then connect(): the layered
+                // createSocket(Socket, ...) overload is not visible
+                // through getDefault()'s declared SocketFactory type.
+                val tls = SSLSocketFactory.getDefault().createSocket() as SSLSocket
+                tls.connect(InetSocketAddress(relayHost, relayPort), CONNECT_TIMEOUT_MS)
+                tls.soTimeout = PING_INTERVAL_MS
+                tls.startHandshake()
+                verifyPeer(tls)
+                tls
+            }
         }
 
         private val input: InputStream = socket.getInputStream()

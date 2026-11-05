@@ -101,8 +101,13 @@ Relay settings apply at the next remote start, like the PIN
 settings. The relay address is editable in Settings because the
 relay is a personal service whose tunnel hostname belongs to
 whoever deployed it; the client parses the field forgivingly
-(scheme and path of a pasted URL are dropped, an optional `:port`
-is honoured, blank restores the default).
+(the path of a pasted URL is dropped, an optional `:port` is
+honoured, blank restores the default). The scheme also chooses
+the transport: a bare hostname or `wss://` is TLS via the tunnel,
+while `ws://` dials a relay directly in plaintext — the relay's
+port speaks plain HTTP for the tunnel's local side, so the same
+service answers both, and the direct form trades encryption for
+having no Cloudflare or DNS in the path.
 
 ## How it works
 

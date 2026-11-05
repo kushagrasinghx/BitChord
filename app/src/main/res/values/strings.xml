@@ -952,7 +952,7 @@
     <string name="remote_relay_token_label">Token</string>
     <string name="remote_relay_address">Relay address</string>
     <string name="remote_relay_address_dialog_title">Relay address</string>
-    <string name="remote_relay_address_dialog_hint">The relay service\'s hostname — channels connect to it over HTTPS. A pasted URL works too; leave empty for the default. Applies the next time the remote starts.</string>
+    <string name="remote_relay_address_dialog_hint">The relay service\'s address. A hostname (remote.gaspol.men) connects over HTTPS via its tunnel; ws:// plus an address (ws://203.0.113.4:8890) connects directly, without encryption. Leave empty for the default. Applies the next time the remote starts.</string>
     <string name="remote_relay_address_label">Address</string>
     <string name="listen_together_in_party">In a party · %1$s</string>
     <string name="listen_together_sign_in_footer">Listening together needs an account, so everyone in the party can see who else is in it.</string>

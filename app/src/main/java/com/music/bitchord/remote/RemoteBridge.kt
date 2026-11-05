@@ -11,6 +11,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.music.bitchord.data.YtMusicRepository
+import com.music.bitchord.data.model.BrowseItem
 import com.music.bitchord.data.model.SearchFilter
 import com.music.bitchord.data.model.SearchResult
 import com.music.bitchord.data.model.Song
@@ -22,6 +23,8 @@ import com.music.bitchord.playback.toggleShuffle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -317,26 +320,124 @@ object RemoteBridge {
         } ?: false
     }
 
-    // ── search ───────────────────────────────────────────────────────
+    // ── search & browse ──────────────────────────────────────────────
 
-    /** YouTube Music song search, the same repository the app searches with. */
-    suspend fun search(query: String): List<Song> {
-        if (query.isBlank()) return emptyList()
-        val page = YtMusicRepository.searchPage(query, SearchFilter.SONGS).getOrNull()
-            ?: return emptyList()
-        return page.rows.mapNotNull { row ->
+    /**
+     * Search across everything: songs, artists, albums and playlists —
+     * one filtered repository search per kind, run together, the same
+     * searches the app's own search screen makes. The page groups the
+     * answer by kind; the browse entries open through [browse].
+     */
+    suspend fun searchAll(query: String): JSONObject {
+        val out = JSONObject()
+            .put("songs", JSONArray())
+            .put("artists", JSONArray())
+            .put("albums", JSONArray())
+            .put("playlists", JSONArray())
+        if (query.isBlank()) return out
+        val pages = coroutineScope {
+            listOf(
+                async { searchRows(query, SearchFilter.SONGS) },
+                async { searchRows(query, SearchFilter.ARTISTS) },
+                async { searchRows(query, SearchFilter.ALBUMS) },
+                async { searchRows(query, SearchFilter.PLAYLISTS) },
+            ).map { it.await() }
+        }
+        val songs = JSONArray()
+        pages[0].forEach { row ->
             when (row) {
-                is SearchResult.Track -> row.song
-                is SearchResult.TopTrack -> row.song
-                else -> null
+                is SearchResult.Track -> songs.put(songJson(row.song))
+                is SearchResult.TopTrack -> songs.put(songJson(row.song))
+                else -> Unit
             }
-        }.take(MAX_SEARCH_RESULTS)
+        }
+        out.put("songs", songs)
+        out.put("artists", browseJsonArray(pages[1], "artist"))
+        out.put("albums", browseJsonArray(pages[2], "album"))
+        out.put("playlists", browseJsonArray(pages[3], "playlist"))
+        return out
     }
 
-    fun searchJson(songs: List<Song>): JSONObject {
-        val results = JSONArray()
-        for (song in songs) results.put(songJson(song))
-        return JSONObject().put("results", results)
+    private suspend fun searchRows(query: String, filter: SearchFilter): List<SearchResult> =
+        YtMusicRepository.search(query, filter).getOrNull().orEmpty().take(MAX_SEARCH_RESULTS)
+
+    private fun browseJsonArray(rows: List<SearchResult>, kind: String): JSONArray {
+        val arr = JSONArray()
+        rows.filterIsInstance<SearchResult.Browse>()
+            .take(MAX_BROWSE_RESULTS)
+            .forEach { arr.put(browseJson(it.item, kind)) }
+        return arr
+    }
+
+    private fun browseJson(item: BrowseItem, kind: String): JSONObject = JSONObject().apply {
+        put("kind", kind)
+        put("browseId", item.browseId)
+        put("title", item.title)
+        put("subtitle", item.subtitle)
+        put("thumbnailUrl", item.thumbnailUrl ?: JSONObject.NULL)
+    }
+
+    /**
+     * The page behind an artist, album or playlist card — the same page
+     * tapping the card opens in the app: an artist page's songs for an
+     * artist (with its album/single shelves as further cards), the
+     * browse listing for an album or playlist. A missing or unknown
+     * kind falls back to the browseId prefixes the app classifies by.
+     */
+    suspend fun browse(browseId: String, kind: String): JSONObject {
+        val resolved = when {
+            kind == "artist" || browseId.startsWith("UC") -> "artist"
+            kind == "album" || browseId.startsWith("MPREb") ||
+                browseId.startsWith("VLOLAK") || browseId.startsWith("OLAK") -> "album"
+            else -> "playlist"
+        }
+        var title: String? = null
+        var subtitle: String? = null
+        val sections = JSONArray()
+        val songs: List<Song> = if (resolved == "artist") {
+            YtMusicRepository.artistPage(browseId).fold(
+                onSuccess = { page ->
+                    title = page.name
+                    page.sections.forEach { shelf ->
+                        val items = JSONArray()
+                        shelf.items.forEach { item ->
+                            val id = item.browseId ?: return@forEach
+                            items.put(
+                                JSONObject()
+                                    .put("browseId", id)
+                                    .put("title", item.title)
+                                    .put("subtitle", item.subtitle)
+                                    .put("thumbnailUrl", item.thumbnailUrl ?: JSONObject.NULL),
+                            )
+                        }
+                        if (items.length() > 0) {
+                            sections.put(JSONObject().put("title", shelf.title).put("items", items))
+                        }
+                    }
+                    page.songs
+                },
+                onFailure = { emptyList() },
+            )
+        } else {
+            YtMusicRepository.browseSongs(browseId).fold(
+                onSuccess = { page ->
+                    title = page.header?.title
+                    subtitle = page.header?.subtitle
+                    page.songs
+                },
+                onFailure = { emptyList() },
+            )
+        }
+        val arr = JSONArray()
+        songs.take(MAX_BROWSE_SONGS).forEach { arr.put(songJson(it)) }
+        return JSONObject().apply {
+            put("kind", resolved)
+            put("browseId", browseId)
+            if (title != null) put("title", title)
+            if (subtitle != null) put("subtitle", subtitle)
+            put("songs", arr)
+            put("sections", sections)
+        }
     }
 
     // ── helpers ──────────────────────────────────────────────────────
@@ -377,4 +478,6 @@ object RemoteBridge {
 
     private const val MAX_QUEUE_ITEMS = 200
     private const val MAX_SEARCH_RESULTS = 30
+    private const val MAX_BROWSE_RESULTS = 15
+    private const val MAX_BROWSE_SONGS = 200
 }

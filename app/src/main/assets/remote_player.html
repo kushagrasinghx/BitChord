@@ -73,6 +73,18 @@
   }
   .item .ctl:disabled { opacity: 0.3; cursor: default; }
   .item .ctl.del { color: var(--danger); }
+  .group {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 16px 2px 6px;
+  }
+  .item .chev { flex: none; color: var(--muted); font-size: 20px; padding: 0 4px; }
+  .browse-head { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; }
+  .browse-head .back {
+    flex: none; background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px; font-size: 13px; cursor: pointer;
+  }
+  .browse-head .t { font-weight: 700; }
+  .browse-head .a { color: var(--muted); font-size: 12.5px; }
   .toast .undo-btn {
     background: none; border: none; color: var(--mint); font-weight: 700; font-size: 13px;
     cursor: pointer; margin-left: 10px; padding: 2px 4px;
@@ -370,38 +382,131 @@ async function command(obj) {
 }
 
 let searchSeq = 0;
+let searchData = null;
+let browseStack = [];
+let cardList = [];
+
 async function search() {
   const q = $('searchInput').value.trim();
   if (!q) return;
   const seq = ++searchSeq;
+  browseStack = [];
   $('resultsList').innerHTML = '<p class="muted small">Searching…</p>';
   try {
     const res = await api('/api/search?q=' + encodeURIComponent(q));
     const data = await res.json();
     if (seq !== searchSeq) return;
-    const results = data.results || [];
-    $('resultsList').innerHTML = results.map((r, i) =>
-      '<div class="item" data-play-result="' + i + '">'
-      + (r.thumbnailUrl ? '<img src="' + esc(r.thumbnailUrl) + '" alt="">' : '<img alt="">')
-      + '<span class="main"><span class="t">' + esc(r.title) + '</span><br><span class="a">' + esc(r.artist || '') + '</span></span>'
-      + '<span class="dur">' + esc(r.durationText || '') + '</span>'
-      + '<button class="add" data-add-result="' + i + '" title="Add to queue">+</button></div>',
-    ).join('') || '<p class="muted small">No results.</p>';
-    for (const el of document.querySelectorAll('[data-play-result]')) {
-      el.addEventListener('click', (e) => {
-        if (e.target.closest('[data-add-result]')) return;
-        command({ action: 'playSong', song: results[Number(el.dataset.playResult)] });
-        toast('Playing on BitChord');
-      });
-    }
-    for (const el of document.querySelectorAll('[data-add-result]')) {
-      el.addEventListener('click', () => {
-        command({ action: 'addSong', song: results[Number(el.dataset.addResult)] });
-        toast('Added to the queue');
-      });
-    }
+    searchData = data;
+    renderResults();
   } catch (e) {
     if (e.message !== 'locked') $('resultsList').innerHTML = '<p class="muted small">Search failed — is the phone online?</p>';
+  }
+}
+
+function songRowHtml(r, i, scope) {
+  return '<div class="item" data-play-result="' + scope + ':' + i + '">'
+    + (r.thumbnailUrl ? '<img src="' + esc(r.thumbnailUrl) + '" alt="">' : '<img alt="">')
+    + '<span class="main"><span class="t">' + esc(r.title) + '</span><br><span class="a">' + esc(r.artist || '') + '</span></span>'
+    + '<span class="dur">' + esc(r.durationText || '') + '</span>'
+    + '<button class="add" data-add-result="' + scope + ':' + i + '" title="Add to queue">+</button></div>';
+}
+
+function cardRowHtml(c, i) {
+  return '<div class="item" data-open-card="' + i + '">'
+    + (c.thumbnailUrl ? '<img src="' + esc(c.thumbnailUrl) + '" alt="">' : '<img alt="">')
+    + '<span class="main"><span class="t">' + esc(c.title) + '</span><br><span class="a">' + esc(c.subtitle || '') + '</span></span>'
+    + '<span class="chev">›</span></div>';
+}
+
+function songAt(ref) {
+  const parts = ref.split(':');
+  const i = Number(parts[1]);
+  if (parts[0] === 's') return searchData && searchData.songs ? searchData.songs[i] : null;
+  const top = browseStack[browseStack.length - 1];
+  return top && top.songs ? top.songs[i] : null;
+}
+
+function wireResults(box) {
+  for (const el of box.querySelectorAll('[data-play-result]')) {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-add-result]')) return;
+      const song = songAt(el.dataset.playResult);
+      if (song) { command({ action: 'playSong', song }); toast('Playing on BitChord'); }
+    });
+  }
+  for (const el of box.querySelectorAll('[data-add-result]')) {
+    el.addEventListener('click', () => {
+      const song = songAt(el.dataset.addResult);
+      if (song) { command({ action: 'addSong', song }); toast('Added to the queue'); }
+    });
+  }
+  for (const el of box.querySelectorAll('[data-open-card]')) {
+    el.addEventListener('click', () => openCard(Number(el.dataset.openCard)));
+  }
+}
+
+function renderResults() {
+  const box = $('resultsList');
+  if (browseStack.length) { renderBrowse(); return; }
+  if (!searchData) { box.innerHTML = ''; return; }
+  cardList = [];
+  let html = '';
+  let any = false;
+  const groups = [['Songs', 'songs'], ['Artists', 'artists'], ['Albums', 'albums'], ['Playlists', 'playlists']];
+  for (const [label, key] of groups) {
+    const items = searchData[key] || [];
+    if (!items.length) continue;
+    any = true;
+    html += '<h3 class="group">' + label + '</h3>';
+    if (key === 'songs') {
+      html += items.map((r, i) => songRowHtml(r, i, 's')).join('');
+    } else {
+      for (const c of items) { html += cardRowHtml(c, cardList.length); cardList.push(c); }
+    }
+  }
+  box.innerHTML = any ? html : '<p class="muted small">No results.</p>';
+  wireResults(box);
+}
+
+function renderBrowse() {
+  const box = $('resultsList');
+  const p = browseStack[browseStack.length - 1];
+  cardList = [];
+  let html = '<div class="browse-head"><button class="back" id="browseBack">← Back</button>'
+    + '<span class="main"><span class="t">' + esc(p.title || 'Untitled') + '</span>'
+    + (p.subtitle ? '<br><span class="a">' + esc(p.subtitle) + '</span>' : '') + '</span></div>';
+  if (p.songs && p.songs.length) {
+    html += p.songs.map((r, i) => songRowHtml(r, i, 'b')).join('');
+  }
+  for (const sec of p.sections || []) {
+    if (!sec.items || !sec.items.length) continue;
+    html += '<h3 class="group">' + esc(sec.title) + '</h3>';
+    for (const c of sec.items) {
+      html += cardRowHtml(c, cardList.length);
+      cardList.push({ browseId: c.browseId, kind: '', title: c.title, subtitle: c.subtitle, thumbnailUrl: c.thumbnailUrl });
+    }
+  }
+  if ((!p.songs || !p.songs.length) && !(p.sections || []).length) {
+    html += '<p class="muted small">Nothing here.</p>';
+  }
+  box.innerHTML = html;
+  $('browseBack').addEventListener('click', () => { browseStack.pop(); renderResults(); });
+  wireResults(box);
+}
+
+async function openCard(i) {
+  const c = cardList[i];
+  if (!c) return;
+  $('resultsList').innerHTML = '<p class="muted small">Loading…</p>';
+  try {
+    const res = await api('/api/browse?id=' + encodeURIComponent(c.browseId) + '&kind=' + encodeURIComponent(c.kind || ''));
+    const data = await res.json();
+    if (!data.title) data.title = c.title;
+    if (!data.subtitle && c.subtitle) data.subtitle = c.subtitle;
+    browseStack.push(data);
+    renderResults();
+  } catch (e) {
+    if (e.message !== 'locked') { renderResults(); toast('Could not open that'); }
   }
 }
 

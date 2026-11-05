@@ -211,6 +211,13 @@ private class RemoteHttpServer(
                     return // the search coroutine writes the response and closes the socket
                 }
 
+                method == "GET" && path == "/api/browse" -> {
+                    val id = queryParam(rawPath, "id") ?: ""
+                    val kind = queryParam(rawPath, "kind") ?: ""
+                    browseAndRespond(output, client, id, kind)
+                    return // the browse coroutine writes the response and closes the socket
+                }
+
                 else -> respondJson(output, 404, JSONObject().put("error", "not found"))
             }
         } catch (e: Exception) {
@@ -223,18 +230,25 @@ private class RemoteHttpServer(
         }
     }
 
-    private fun searchAndRespond(output: OutputStream, client: Socket, query: String) {
-        // Runs the suspend search on the IO scope and keeps this worker
-        // thread parked until the response is written.
+    private fun searchAndRespond(output: OutputStream, client: Socket, query: String) =
+        asyncJson(output, client) { RemoteBridge.searchAll(query) }
+
+    private fun browseAndRespond(output: OutputStream, client: Socket, id: String, kind: String) =
+        asyncJson(output, client) { RemoteBridge.browse(id, kind) }
+
+    /**
+     * Runs a suspend JSON producer on the IO scope and keeps this worker
+     * thread parked until the response is written.
+     */
+    private fun asyncJson(output: OutputStream, client: Socket, block: suspend () -> JSONObject) {
         val latch = java.util.concurrent.CountDownLatch(1)
         scope.launch {
             try {
-                val songs = RemoteBridge.search(query)
                 respond(output, 200, "application/json",
-                    RemoteBridge.searchJson(songs).toString().toByteArray(StandardCharsets.UTF_8))
+                    block().toString().toByteArray(StandardCharsets.UTF_8))
             } catch (e: Exception) {
                 runCatching {
-                    respondJson(output, 500, JSONObject().put("error", "search failed"))
+                    respondJson(output, 500, JSONObject().put("error", "request failed"))
                 }
             } finally {
                 latch.countDown()
@@ -244,7 +258,7 @@ private class RemoteHttpServer(
                 }
             }
         }
-        latch.await(20, java.util.concurrent.TimeUnit.SECONDS)
+        latch.await(30, java.util.concurrent.TimeUnit.SECONDS)
     }
 
     /** The display name behind the request's session token, if it has one. */

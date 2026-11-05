@@ -33,6 +33,12 @@ The queue is editable from the page: every row has **move up**,
 toast with **Undo** that puts it back at its old position, label
 included.
 
+Search covers **songs, artists, albums and playlists**, grouped on
+the page. Tapping an artist, album or playlist card opens its page —
+the artist's songs (with their albums and singles as further cards),
+the album's tracklist, the playlist's songs — and **Back** returns
+to the results.
+
 The server starts automatically on app launch if the switch was left on,
 and stops when the switch is turned off. The PIN is regenerated every
 time the server starts.
@@ -59,9 +65,11 @@ time the server starts.
 | `POST /api/unlock` `{pin, name}` | – | → `{token, name}`; send the token as `X-Remote-Token` afterwards. Each unlock mints its own session |
 | `GET /api/state` | token | playing, position/duration, current track, queue (≤200, each item labelled `queuedBy` when a web user queued it), shuffle/repeat, volume, `users` (names with songs in the queue), `you` (the caller's name) |
 | `POST /api/command` | token | `{action}`: `play` `pause` `toggle` `next` `prev` `seek{ms}` `playIndex{index}` `playSong{song}` `addSong{song}` `addSongNext{song}` `addSongAt{index, song}` `move{from, to}` `remove{index}` `volume{level 0..1}` `shuffle` `repeat` |
-| `GET /api/search?q=` | token | YouTube Music song search via `YtMusicRepository` → `{results: [song]}` |
+| `GET /api/search?q=` | token | YouTube Music search via `YtMusicRepository` → `{songs: [song], artists: [card], albums: [card], playlists: [card]}` |
+| `GET /api/browse?id=&kind=` | token | The page behind a card → `{kind, browseId, title?, subtitle?, songs: [song], sections: [{title, items: [card]}]}` (sections only on artist pages) |
 
 A `song` is `{videoId, title, artist, thumbnailUrl, durationText}`.
+A `card` is `{kind, browseId, title, subtitle, thumbnailUrl}`.
 
 ## Notes and limits
 

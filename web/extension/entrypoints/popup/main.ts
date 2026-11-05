@@ -195,6 +195,20 @@ document.getElementById('version')!.textContent = `v${browser.runtime.getManifes
 const site = document.getElementById('site') as HTMLAnchorElement;
 site.href = __SITE_ORIGINS__[0] ?? '#';
 
+if (import.meta.env.SAFARI) {
+  const access = el('button', 'site', 'Allow access to music services');
+  const status = el('p', 'detail');
+  status.setAttribute('role', 'status');
+  access.onclick = () => {
+    void browser.permissions.request({ origins: browser.runtime.getManifest().host_permissions ?? [] })
+      .then((granted) => {
+        status.textContent = granted ? 'Access allowed. Reload BitChord to reconnect.' : 'Access was not allowed. You can try again.';
+      })
+      .catch(() => { status.textContent = 'Could not request access. Check Safari Settings → Extensions.'; });
+  };
+  site.before(access, status);
+}
+
 render();
 call('yt.authState', {})
   .then(setYoutube)

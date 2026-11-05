@@ -34,7 +34,7 @@ function impersonate(origin: string): HeaderInfo[] {
 }
 
 /** Rule ids 1–99 are this module's; it replaces all of them on every install and startup. */
-export function youtubeRules(initiatorDomains: string[]): Rule[] {
+export function youtubeRules(initiatorDomains: string[], safari = false): Rule[] {
   const rule = (
     id: number,
     urlFilter: string,
@@ -47,7 +47,8 @@ export function youtubeRules(initiatorDomains: string[]): Rule[] {
     condition: { urlFilter, initiatorDomains, resourceTypes },
     action: {
       type: 'modifyHeaders',
-      ...(requestHeaders && { requestHeaders }),
+      // Safari rejects the whole ruleset for an unrecognized modification header.
+      ...(requestHeaders && { requestHeaders: safari ? requestHeaders.filter(({ header }) => header !== 'X-Origin') : requestHeaders }),
       responseHeaders: CORS_RESPONSE,
     },
   });
@@ -79,7 +80,7 @@ export function initiatorDomainsFor(origins: string[]): string[] {
 export async function installRules(origins: string[]): Promise<void> {
   await browser.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: RULE_IDS,
-    addRules: youtubeRules(initiatorDomainsFor(origins)),
+    addRules: youtubeRules(initiatorDomainsFor(origins), import.meta.env.SAFARI),
   });
 }
 

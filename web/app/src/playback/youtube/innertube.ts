@@ -1,5 +1,6 @@
 import type { Innertube, Types } from 'youtubei.js/web';
 import { getBridge } from '@/extension/bridge';
+import { extensionBrowser } from '@/lib/platform';
 import { ensureYtAuth, identityOf, noteMusicIdentity } from '@/extension/useYtAuth';
 import { trackLog } from '../trackLog';
 
@@ -70,6 +71,10 @@ async function simpleRequestFetch(input: RequestInfo | URL, init?: RequestInit):
   const request = input instanceof Request ? input : null;
   const url = new URL(request ? request.url : input.toString());
 
+  if (extensionBrowser() === 'safari' && YOUTUBE_HOSTS.has(url.hostname)) {
+    return extensionFetch(input, init, false);
+  }
+
   if (!YOUTUBE_HOSTS.has(url.hostname) || url.pathname.startsWith('/api/jnn/')) {
     return fetch(input, init);
   }
@@ -110,9 +115,14 @@ async function signedFetch(input: RequestInfo | URL, init?: RequestInit): Promis
   const request = input instanceof Request ? input : null;
   const url = new URL(request ? request.url : input.toString());
   if (!isInnertubeCall(url)) return simpleRequestFetch(input, init);
+  return extensionFetch(input, init, true);
+}
 
+async function extensionFetch(input: RequestInfo | URL, init: RequestInit | undefined, auth: boolean): Promise<Response> {
+  const request = input instanceof Request ? input : null;
+  const url = new URL(request ? request.url : input.toString());
   const bridge = getBridge();
-  if (!bridge) throw new Error('Signed-in requests need the BitChord extension');
+  if (!bridge) throw new Error('YouTube requests need the BitChord extension');
   const method = (init?.method ?? request?.method ?? 'GET').toUpperCase() as 'GET' | 'POST';
   const headers: Record<string, string> = {};
   new Headers(init?.headers ?? request?.headers).forEach((value, key) => (headers[key] = value));
@@ -122,8 +132,8 @@ async function signedFetch(input: RequestInfo | URL, init?: RequestInit): Promis
 
   const response = await bridge.call(
     'yt.fetch',
-    { url: url.toString(), method, headers, ...(typeof body === 'string' && { body }), auth: true },
-    { ...(init?.signal && { signal: init.signal }) },
+    { url: url.toString(), method, headers, ...(typeof body === 'string' && { body }), auth },
+    { signal: init?.signal ?? request?.signal ?? undefined },
   );
   const payload = response.bodyEncoding === 'base64' ? decodeBase64(response.body) : response.body;
   return new Response(response.status === 204 || response.status === 304 ? null : payload, {

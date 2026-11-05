@@ -67,7 +67,7 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
         return okResponse<'ping'>(request.id, {
           version: browser.runtime.getManifest().version,
           protocol: BRIDGE_PROTOCOL,
-          browser: import.meta.env.FIREFOX ? 'firefox' : 'chromium',
+          browser: import.meta.env.SAFARI ? 'safari' : import.meta.env.FIREFOX ? 'firefox' : 'chromium',
           capabilities: CAPABILITIES,
         });
       case 'yt.fetch':

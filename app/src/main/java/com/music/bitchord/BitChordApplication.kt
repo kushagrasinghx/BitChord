@@ -142,6 +142,9 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
             CoroutineScope(Dispatchers.IO).launch { Innertube.ensureSessionScope() }
         }
         AppSettings.init(this, authStore)
+        // Restores the addon token, so the first search after a process restart
+        // doesn't have to attest the device again.
+        com.music.bitchord.data.sources.addon.AddonAuth.init(this)
         // Before anything resolves a track: an addon with `checkValidLossless`
         // is gated on this, and the gate reads "no" until it has looked.
         com.music.bitchord.playback.audio.LosslessOutput.init(this)
@@ -198,6 +201,10 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
+        // An addon marked out of date is left out of every search, so nothing
+        // else would notice its developer updating it. One manifest read each,
+        // and only for the addons not already known to be current.
+        CoroutineScope(Dispatchers.IO).launch { SourceRegistry.refreshOutdatedAddons() }
     }
 
     /**

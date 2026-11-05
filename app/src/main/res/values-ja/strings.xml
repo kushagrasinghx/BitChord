@@ -1251,6 +1251,7 @@
 
 
     <string name="source_needs_lossless_output">ロスレス出力が必要 · ロスレス対応のデバイスを使用してください</string>
+    <string name="source_needs_update">このアドオンは古いため、BitChordでは使用できません。最新のBitChordアドオンドキュメントに沿って更新するよう開発者に依頼してください。</string>
     <string name="source_needs_lossless_bt_codec">ロスレス出力が必要 · Bluetoothは%1$sです。ロスレス対応のデバイスを使用してください</string>
     <string name="source_needs_lossless_bt_unknown">ロスレス出力が必要 · 使用中のBluetoothコーデックを判別できません</string>
     <string name="source_downloads_on">ダウンロード可</string>
@@ -1398,6 +1399,7 @@
     <string name="download_addon_left_out_title">%1$sを使わずにダウンロード中</string>
     <string name="download_addon_not_allowed">%1$sはダウンロードを許可していないため、曲は他のソースから保存されます。</string>
     <string name="download_addon_needs_lossless_output">%1$sは有線、USB、またはLDACクラスのヘッドホンが接続されているときのみ音楽を提供します。接続されるまでダウンロードでは使用されないため、曲は他のソースから保存されます。</string>
+    <string name="download_addon_needs_update">%1$sは古いため、BitChordでは使用できません。曲は他のソースから保存されます。最新のBitChordアドオンドキュメントに沿って更新するよう開発者に依頼してください。</string>
     <string name="show_listen_together_button">「一緒に聴く」ボタンを表示</string>
     <string name="show_listen_together_button_subtitle">オフにすると、プレーヤーの歌詞と再生キューの間にはオーディオ出力ボタンだけが表示されます</string>
     <string name="font">フォント</string>

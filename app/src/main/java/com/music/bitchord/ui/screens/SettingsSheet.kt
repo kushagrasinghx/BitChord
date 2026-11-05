@@ -243,6 +243,8 @@ fun SettingsScreen(
     val listenTogetherButton by AppSettings.showListenTogetherButton.collectAsStateWithLifecycle()
     val remoteControlEnabled by AppSettings.remoteControlEnabled.collectAsStateWithLifecycle()
     val remoteControlState by com.music.bitchord.remote.RemoteControl.state.collectAsStateWithLifecycle()
+    val remoteControlPin by AppSettings.remoteControlPin.collectAsStateWithLifecycle()
+    val remoteControlPinPersistent by AppSettings.remoteControlPinPersistent.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
@@ -335,6 +337,8 @@ fun SettingsScreen(
     var exportStatus by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf<String?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
+    var showRemotePinDialog by remember { mutableStateOf(false) }
+    var remotePinInput by remember { mutableStateOf("") }
     var confirmClearSongCache by remember { mutableStateOf(false) }
     var showPerformanceWarning by remember { mutableStateOf(false) }
     var showPerformanceConfirmation by remember { mutableStateOf(false) }
@@ -519,6 +523,47 @@ fun SettingsScreen(
                             } else {
                                 com.music.bitchord.remote.RemoteControl.stop()
                             }
+                        },
+                    )
+                }
+                // The remote's PIN, user-settable: a custom PIN is always
+                // the PIN (and so always kept); without one, the persistent
+                // switch decides whether a generated PIN survives restarts
+                // or is fresh at every start, as it was before either
+                // setting existed. Both apply at the next server start —
+                // a running server never changes its PIN mid-flight.
+                val remotePinTitle = stringResource(R.string.remote_control_pin)
+                row(remotePinTitle, "pin", "code", "password") {
+                    SettingsRow(
+                        icon = SfIcons.Key,
+                        title = remotePinTitle,
+                        subtitle = when {
+                            remoteControlPin.isNotBlank() ->
+                                stringResource(R.string.remote_control_pin_custom, remoteControlPin)
+                            remoteControlPinPersistent ->
+                                stringResource(R.string.remote_control_pin_auto_kept)
+                            else -> stringResource(R.string.remote_control_pin_auto)
+                        },
+                        onClick = {
+                            remotePinInput = remoteControlPin
+                            showRemotePinDialog = true
+                        },
+                    )
+                }
+                val remotePinPersistentTitle = stringResource(R.string.remote_control_pin_persistent)
+                row(remotePinPersistentTitle, "pin", "keep", "same", "restart") {
+                    SettingsRow(
+                        icon = SfIcons.Lock,
+                        title = remotePinPersistentTitle,
+                        subtitle = stringResource(R.string.remote_control_pin_persistent_subtitle),
+                        trailing = {
+                            IosSwitch(
+                                checked = remoteControlPinPersistent,
+                                onCheckedChange = { AppSettings.setRemoteControlPinPersistent(it) },
+                            )
+                        },
+                        onClick = {
+                            AppSettings.setRemoteControlPinPersistent(!remoteControlPinPersistent)
                         },
                     )
                 }
@@ -1740,6 +1785,45 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmClearSongCache = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showRemotePinDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemotePinDialog = false },
+            title = { Text(stringResource(R.string.remote_control_pin_dialog_title)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = remotePinInput,
+                        onValueChange = { remotePinInput = it.filter { ch -> ch.isDigit() }.take(8) },
+                        label = { Text(stringResource(R.string.remote_control_pin_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        text = stringResource(R.string.remote_control_pin_dialog_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = remotePinInput.isEmpty() || remotePinInput.length >= 4,
+                    onClick = {
+                        AppSettings.setRemoteControlPin(remotePinInput)
+                        showRemotePinDialog = false
+                    },
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemotePinDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             },

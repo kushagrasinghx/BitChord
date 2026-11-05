@@ -65,7 +65,7 @@ object RemoteControl {
     @Synchronized
     fun start(app: Context) {
         if (server != null) return
-        val pin = "%04d".format(SecureRandom().nextInt(10_000))
+        val pin = resolvePin()
         val http = RemoteHttpServer(app.applicationContext, pin)
         try {
             http.start()
@@ -78,6 +78,28 @@ object RemoteControl {
         _state.value = State(running = true, url = lanUrl(), pin = pin)
         Log.i(REMOTE_LOG_TAG, "remote control listening at ${_state.value.url}")
     }
+
+    /**
+     * Which PIN this start uses: the user's own PIN when one is set;
+     * else, with the persistent option on, the last generated PIN —
+     * generating and remembering one when there is none yet; else a
+     * fresh PIN for this start only. Settings changes therefore take
+     * effect at the next start, never under a running server.
+     */
+    private fun resolvePin(): String {
+        val custom = AppSettings.remoteControlPin.value
+        if (custom.isNotBlank()) return custom
+        if (AppSettings.remoteControlPinPersistent.value) {
+            val saved = AppSettings.remoteControlSavedPin.value
+            if (saved.isNotBlank()) return saved
+            val generated = newPin()
+            AppSettings.setRemoteControlSavedPin(generated)
+            return generated
+        }
+        return newPin()
+    }
+
+    private fun newPin(): String = "%04d".format(SecureRandom().nextInt(10_000))
 
     @Synchronized
     fun stop() {

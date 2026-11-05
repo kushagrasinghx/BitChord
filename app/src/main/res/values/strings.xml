@@ -932,6 +932,15 @@
     <string name="remote_control">Remote control</string>
     <string name="remote_control_subtitle">Control this phone\u2019s player from a browser on the same Wi-Fi</string>
     <string name="remote_control_running">Open %1$s \u00b7 PIN %2$s</string>
+    <string name="remote_control_pin">Remote PIN</string>
+    <string name="remote_control_pin_custom">Custom PIN: %1$s</string>
+    <string name="remote_control_pin_auto">Automatic \u2014 a new PIN at every start</string>
+    <string name="remote_control_pin_auto_kept">Automatic \u2014 kept across restarts</string>
+    <string name="remote_control_pin_persistent">Persistent PIN</string>
+    <string name="remote_control_pin_persistent_subtitle">Keep the same PIN when the remote restarts</string>
+    <string name="remote_control_pin_dialog_title">Custom PIN</string>
+    <string name="remote_control_pin_dialog_hint">4 to 8 digits. Leave empty for an automatic PIN. Applies the next time the remote starts.</string>
+    <string name="remote_control_pin_label">PIN</string>
     <string name="listen_together_in_party">In a party · %1$s</string>
     <string name="listen_together_sign_in_footer">Listening together needs an account, so everyone in the party can see who else is in it.</string>
     <string name="listen_together_server">Party server</string>

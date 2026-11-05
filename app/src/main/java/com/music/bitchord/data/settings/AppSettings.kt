@@ -516,6 +516,23 @@ object AppSettings {
     val remoteControlEnabled = MutableStateFlow(false)
 
     /**
+     * The remote's own PIN, when the user sets one: 4–8 digits, used
+     * instead of a generated PIN (and so always kept). Empty means the
+     * server generates its PIN.
+     */
+    val remoteControlPin = MutableStateFlow("")
+
+    /**
+     * Whether a generated PIN is kept across server restarts. Only
+     * matters while [remoteControlPin] is empty; off (the default) a
+     * fresh PIN is generated at every start.
+     */
+    val remoteControlPinPersistent = MutableStateFlow(false)
+
+    /** The last generated PIN, reused at start while [remoteControlPinPersistent] is on. */
+    val remoteControlSavedPin = MutableStateFlow("")
+
+    /**
      * Whether [animatedCanvas] is allowed to actually stream on a metered
      * connection, as distinct from the switch that turns the feature off
      * altogether.
@@ -1002,6 +1019,9 @@ object AppSettings {
         }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
         remoteControlEnabled.value = prefs.getBoolean(KEY_REMOTE_CONTROL_ENABLED, false)
+        remoteControlPin.value = prefs.getString(KEY_REMOTE_CONTROL_PIN, "").orEmpty()
+        remoteControlPinPersistent.value = prefs.getBoolean(KEY_REMOTE_CONTROL_PIN_PERSISTENT, false)
+        remoteControlSavedPin.value = prefs.getString(KEY_REMOTE_CONTROL_SAVED_PIN, "").orEmpty()
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
@@ -1572,6 +1592,21 @@ object AppSettings {
     fun setRemoteControlEnabled(value: Boolean) {
         remoteControlEnabled.value = value
         prefs.edit().putBoolean(KEY_REMOTE_CONTROL_ENABLED, value).apply()
+    }
+
+    fun setRemoteControlPin(value: String) {
+        remoteControlPin.value = value
+        prefs.edit().putString(KEY_REMOTE_CONTROL_PIN, value).apply()
+    }
+
+    fun setRemoteControlPinPersistent(value: Boolean) {
+        remoteControlPinPersistent.value = value
+        prefs.edit().putBoolean(KEY_REMOTE_CONTROL_PIN_PERSISTENT, value).apply()
+    }
+
+    fun setRemoteControlSavedPin(value: String) {
+        remoteControlSavedPin.value = value
+        prefs.edit().putString(KEY_REMOTE_CONTROL_SAVED_PIN, value).apply()
     }
 
     fun setCanvasOverCellular(value: Boolean) {
@@ -2200,6 +2235,9 @@ object AppSettings {
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
     private const val KEY_REMOTE_CONTROL_ENABLED = "remote_control_enabled"
+    private const val KEY_REMOTE_CONTROL_PIN = "remote_control_pin"
+    private const val KEY_REMOTE_CONTROL_PIN_PERSISTENT = "remote_control_pin_persistent"
+    private const val KEY_REMOTE_CONTROL_SAVED_PIN = "remote_control_saved_pin"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"

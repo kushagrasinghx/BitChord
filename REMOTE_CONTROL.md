@@ -40,8 +40,14 @@ the album's tracklist, the playlist's songs — and **Back** returns
 to the results.
 
 The server starts automatically on app launch if the switch was left on,
-and stops when the switch is turned off. The PIN is regenerated every
-time the server starts.
+and stops when the switch is turned off. By default the PIN is
+regenerated every time the server starts. Two settings change that,
+both under the switch and both applied at the next start:
+
+- **Remote PIN** — set your own PIN (4–8 digits). A custom PIN is
+  always the PIN, so it never changes.
+- **Persistent PIN** — with no custom PIN set, keep the generated PIN
+  across restarts instead of minting a fresh one each time.
 
 ## How it works
 

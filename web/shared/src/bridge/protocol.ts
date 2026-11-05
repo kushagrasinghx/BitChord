@@ -18,7 +18,7 @@ export const EVENTS_PORT = 'bitchord-events';
 /** What the installed extension can do; `ping` reports it. */
 export type Capability = 'yt' | 'yt.auth' | 'yt.stats' | 'addon' | 'lyrics' | 'spotify' | 'discord';
 
-export type BrowserFamily = 'chromium' | 'firefox';
+export type BrowserFamily = 'chromium' | 'firefox' | 'safari';
 
 /** A plain HTTP exchange, serialisable across the message channel. */
 export interface HttpRequest {

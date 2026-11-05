@@ -48,10 +48,35 @@ jobs:
       - name: Test
         run: pnpm test
 
-      # The app's build runs tsc then vite; the extension's builds Chrome and Firefox.
+      # The app's build runs tsc then vite; the extension builds all three browsers.
       # The real party server is a Cloudflare Pages variable; this build is
       # never deployed, it only needs a value to get past vite.config.ts.
       - name: Build
         run: pnpm build
         env:
           VITE_PARTY_SERVER_URL: https://party.example.com
+
+  safari:
+    name: Safari · unsigned macOS app
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir extension package:safari
+      - name: Archive unsigned app
+        run: ditto -c -k --keepParent extension/.output/safari-native/build/Build/Products/Release/BitChord.app extension/.output/BitChord-unsigned.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-Safari-unsigned
+          path: web/extension/.output/BitChord-unsigned.zip

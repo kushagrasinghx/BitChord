@@ -1,10 +1,11 @@
 import { ChevronRight } from 'lucide-react';
 import { useState, type ComponentType } from 'react';
-import { FaChrome, FaFirefoxBrowser } from 'react-icons/fa';
+import { FaChrome, FaFirefoxBrowser, FaSafari } from 'react-icons/fa';
 import { SiDiscord, SiSpotify, SiYoutubemusic } from 'react-icons/si';
 import type { Capability } from '@bitchord/shared/bridge';
 import { PageHeader } from '@/components/PageHeader';
 import { config } from '@/config';
+import { extensionBrowser } from '@/lib/platform';
 import { useExtension, type ExtensionStatus } from '@/extension/useExtension';
 import { downloadUrl, useExtensionUpdate, usePublishedExtension, type PublishedExtension } from '@/extension/useExtensionUpdate';
 import { useYtAuth, type YtAuthStatus } from '@/extension/useYtAuth';
@@ -12,7 +13,8 @@ import { PrefetchLink } from '@/components/PrefetchLink';
 import { DiscordIntegration, SpotifyIntegration } from './IntegrationSettings';
 import { settingsUi } from './settingsStyles';
 
-type Browser = 'chrome' | 'firefox';
+type Browser = 'chrome' | 'firefox' | 'safari';
+const browserLabels = { chrome: 'Chrome', firefox: 'Firefox', safari: 'Safari' };
 
 interface Download {
   browser: Browser;
@@ -68,11 +70,30 @@ function downloadsFor(published: PublishedExtension | null): Download[] {
         'Come back to this page: the version above updates on its own.',
       ],
     },
+    {
+      browser: 'safari',
+      title: 'Download for Safari',
+      detail: 'macOS Safari · temporary development extension',
+      href: published?.files.safari ? downloadUrl(published.files.safari) : config.extensionSafariUrl,
+      Icon: FaSafari,
+      steps: [
+        `Extract the zip. It holds one folder, ${folder('safari')}.`,
+        'In Safari Settings → Advanced, enable Show features for web developers.',
+        'In Settings → Developer, allow unsigned extensions and approve the macOS prompt.',
+        'In Settings → Developer, add a temporary extension and select the extracted folder.',
+        'Enable BitChord and allow access to the BitChord site and the music services you use.',
+        'Return here and reload the page. This is a temporary installation for development.',
+      ],
+      updateSteps: [
+        `Extract the new zip. It holds ${folder('safari')}.`,
+        'Replace the contents of the installed folder. In Safari Settings → Extensions, click Reload beside BitChord, then reload this page.',
+      ],
+    },
   ];
 }
 
 /** The browser this page is open in, to put its download first. */
-const currentBrowser: Browser = /firefox/i.test(navigator.userAgent) ? 'firefox' : 'chrome';
+const currentBrowser = extensionBrowser();
 
 interface Integration {
   name: string;
@@ -115,7 +136,7 @@ export default function ExtensionPage() {
   const [updating, setUpdating] = useState(false);
   const downloads = [...DOWNLOADS].sort((a, b) => Number(b.browser === currentBrowser) - Number(a.browser === currentBrowser));
   const installedBrowser: Browser | null =
-    status.state === 'present' ? (status.extension.info.browser === 'firefox' ? 'firefox' : 'chrome') : null;
+    status.state === 'present' ? (status.extension.info.browser === 'chromium' ? 'chrome' : status.extension.info.browser) : null;
   const forUpdate = DOWNLOADS.find((d) => d.browser === (installedBrowser ?? currentBrowser))!;
   const steps = DOWNLOADS.find((d) => d.browser === chosen)?.steps;
 
@@ -151,7 +172,7 @@ export default function ExtensionPage() {
               <span>Connection</span>
               <span className={settingsUi.value}>
                 {status.extension.bridge.transport === 'external' ? 'Direct' : 'Page relay'} ·{' '}
-                {status.extension.info.browser === 'firefox' ? 'Firefox' : 'Chromium'}
+                {status.extension.info.browser === 'chromium' ? 'Chromium' : browserLabels[status.extension.info.browser]}
               </span>
             </div>
           )}
@@ -168,7 +189,7 @@ export default function ExtensionPage() {
               <span className={settingsUi.downloadText}>
                 <span className={settingsUi.downloadTitle}>Update to v{update.latest.version}</span>
                 <span className={settingsUi.downloadDetail}>
-                  You have v{update.installed}. Download the new {forUpdate.browser === 'firefox' ? 'Firefox' : 'Chrome'}{' '}
+                  You have v{update.installed}. Download the new {browserLabels[forUpdate.browser]}{' '}
                   build, then reload the extension.
                 </span>
               </span>

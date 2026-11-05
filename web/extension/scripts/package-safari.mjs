@@ -13,7 +13,11 @@ run('xcrun', ['safari-web-extension-packager', `${root}.output/safari-mv3`,
   '--project-location', output, '--app-name', 'BitChord',
   '--bundle-identifier', 'in.bitchord.safari', '--swift', '--macos-only',
   '--copy-resources', '--no-open', '--no-prompt', '--force']);
-run('xcodebuild', ['-project', `${output}/BitChord/BitChord.xcodeproj`,
-  '-scheme', 'BitChord (macOS)', '-configuration', 'Release',
+const project = `${output}/BitChord/BitChord.xcodeproj`;
+const listing = JSON.parse(execFileSync('xcodebuild', ['-list', '-json', '-project', project], { encoding: 'utf8' }));
+const scheme = listing.project.schemes.find(name => name === 'BitChord' || name === 'BitChord (macOS)');
+if (!scheme) throw new Error(`No BitChord app scheme in ${JSON.stringify(listing.project.schemes)}`);
+run('xcodebuild', ['-project', project,
+  '-scheme', scheme, '-configuration', 'Release',
   '-derivedDataPath', `${output}/build`, 'CODE_SIGNING_ALLOWED=NO', 'build']);
 console.log(`Unsigned app: ${output}/build/Build/Products/Release/BitChord.app`);

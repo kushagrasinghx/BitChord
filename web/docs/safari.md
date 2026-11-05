@@ -13,7 +13,8 @@ testing. Cookies and account signing remain inside the extension.
 3. In Settings → Developer, allow unsigned extensions and approve macOS authentication.
 4. Use **Add Temporary Extension** to select `web/extension/.output/safari-mv3`.
 5. Enable BitChord in Settings → Extensions and grant access to its declared
-   websites. One-day access is sufficient for testing.
+   websites using **Allow access to music services** in its toolbar popup.
+   One-day access is sufficient for testing.
 6. Open BitChord. Its Extension page should report **Safari**, **Page relay**,
    and the installed version.
 
@@ -38,7 +39,8 @@ notarization and distribution. No App Store submission is part of this workflow.
 ## Validation status
 
 Live Safari 27.2 on macOS 27.2: temporary installation, page relay handshake,
-version detection and YouTube bootstrap/player-script loading were observed.
+version detection, the permission request button's success state, and YouTube
+bootstrap/player-script loading were observed.
 Safari rejected `X-Origin` modification rules; the Safari target omits that
 header. Google then returned HTTP 403 with an automated-query rejection for
 anonymous API requests. Account refresh also returned 403 after Safari login.

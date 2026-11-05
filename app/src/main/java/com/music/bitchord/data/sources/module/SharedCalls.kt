@@ -80,7 +80,19 @@ internal class SharedCalls<T>(
      */
     private val lock = Mutex()
 
-    suspend fun get(key: String, describe: () -> String, produce: suspend () -> Result<T>): Result<T> {
+    /**
+     * [keep] decides whether a successful answer is held for [ttlMs] once it
+     * lands. An answer that says it will be different shortly — an addon's
+     * "not yet, ask again in 30 seconds" — is a success, and holding it would
+     * hand the next caller the stale "not yet" for five minutes. It is still
+     * shared while in flight, like every answer.
+     */
+    suspend fun get(
+        key: String,
+        describe: () -> String,
+        keep: (T) -> Boolean = { true },
+        produce: suspend () -> Result<T>,
+    ): Result<T> {
         val entry = lock.withLock {
             val live = entries[key]?.takeIf { it.work.isActive || now() - it.startedAtMs < ttlMs }
             if (live != null) {
@@ -94,7 +106,7 @@ internal class SharedCalls<T>(
         return entry.work.await().also { result ->
             // By identity, so a retry that has already replaced this entry is
             // not thrown away along with the failure it replaced.
-            if (result.isFailure) entries.remove(key, entry)
+            if (result.isFailure || result.getOrNull()?.let(keep) == false) entries.remove(key, entry)
         }
     }
 

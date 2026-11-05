@@ -4,12 +4,15 @@ import android.net.Uri
 import android.util.Log
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.NerdStats
+import com.music.bitchord.data.sources.RetryHints
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
 import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -399,6 +402,28 @@ object QualityUpgrade {
     }
 
     /**
+     * How long to wait before asking again, after a source said "not yet, in
+     * [RetryHints.Hint.afterSec] seconds" — or null to stop.
+     *
+     * The addon's figure is believed within bounds. Never sooner than
+     * [RETRY_MIN_MS], so an addon answering `retryAfter: 1` cannot turn the
+     * second look into a busy loop over the whole catalogue. Never later than
+     * [RETRY_MAX_MS] between attempts, because a song is a few minutes long and
+     * an estimate of "an hour" for a download that finishes in two would miss
+     * it entirely. And never past [RETRY_WINDOW_MS] in all: a track paused for
+     * the night should not keep asking.
+     */
+    internal fun retryDelayMs(hint: RetryHints.Hint?, waitedMs: Long): Long? {
+        hint ?: return null
+        val wait = (hint.afterSec * 1000L).coerceIn(RETRY_MIN_MS, RETRY_MAX_MS)
+        return if (waitedMs + wait > RETRY_WINDOW_MS) null else wait
+    }
+
+    internal const val RETRY_MIN_MS = 10_000L
+    internal const val RETRY_MAX_MS = 120_000L
+    internal const val RETRY_WINDOW_MS = 30 * 60_000L
+
+    /**
      * Looks for a stream that actually satisfies the request, for a track
      * already playing.
      *
@@ -417,7 +442,9 @@ object QualityUpgrade {
      *   the one thing here that is measured rather than claimed. A candidate
      *   has to match it — see [SourceResolver.upgradeFor].
      * @return the better stream, or null if there isn't one, in which case
-     *   this track is never asked about again.
+     *   this track is never asked about again. A source that answers "not
+     *   yet" with a time to come back is waited on first — see
+     *   [retryDelayMs].
      */
     /**
      * Computes the duration to match against during an upgrade.
@@ -456,7 +483,7 @@ object QualityUpgrade {
                 about = mediaId,
             )
         }
-        return try {
+        try {
             // The lookup that was still running when the fallback won the race
             // gets first refusal: what it returns is the stream that would
             // have played with no seam at all had it been a few seconds
@@ -511,21 +538,60 @@ object QualityUpgrade {
             // again from scratch — this time waiting on every module, which is
             // what the live path could not afford to do. The source already
             // serving the track is left out — see [SourceResolver.upgradeFor].
-            SourceResolver.upgradeFor(
-                waiting.target.copy(durationSec = effectiveDurationSec),
-                playing = waiting.playing,
-                servedBy = waiting.servedBy,
-            ).also {
-                found = it
-                if (it != null && needsLosslessFollowUp(it.format)) {
-                    followUps[mediaId] = waiting.copy(
-                        target = waiting.target.copy(durationSec = effectiveDurationSec),
-                        inFlight = null,
-                        playing = it.format,
-                        servedBy = it.sourceConfigId,
-                    )
+            val target = waiting.target.copy(durationSec = effectiveDurationSec)
+            var waitedMs = 0L
+            while (true) {
+                val hints = RetryHints()
+                val better = withContext(hints) {
+                    SourceResolver.upgradeFor(target, playing = waiting.playing, servedBy = waiting.servedBy)
                 }
-                answered = true
+                if (better != null) {
+                    found = better
+                    if (needsLosslessFollowUp(better.format)) {
+                        followUps[mediaId] = waiting.copy(
+                            target = target,
+                            inFlight = null,
+                            playing = better.format,
+                            servedBy = better.sourceConfigId,
+                        )
+                    }
+                    answered = true
+                    return better
+                }
+                // Nothing better *yet*. A source that is fetching the
+                // recording for this very request — an addon whose debrid
+                // service is downloading the album — said when to come back,
+                // and the track is still playing, so this waits and asks
+                // again instead of settling for what is playing. The queue
+                // moving on cancels the wait along with this job, which
+                // leaves the track pending exactly as a cancelled search does.
+                val hint = hints.soonestHint
+                val wait = retryDelayMs(hint, waitedMs)
+                if (hint == null || wait == null) {
+                    if (hint != null) {
+                        TrackLog.d(
+                            TAG,
+                            "'${target.title}': ${hint.source} is still preparing a better copy after " +
+                                "${waitedMs / 1000}s of waiting; staying on what is playing",
+                            about = mediaId,
+                        )
+                    }
+                    answered = true
+                    return null
+                }
+                TrackLog.d(
+                    TAG,
+                    "'${target.title}': ${hint.source} is still preparing a better copy" +
+                        (hint.reason?.ifBlank { null }?.let { " ($it)" } ?: "") +
+                        "; asking again in ${wait / 1000}s",
+                    about = mediaId,
+                )
+                // The badge says a search is running, and none is while this
+                // waits; it comes back up for the next attempt.
+                NerdStats.onLosslessRaceEnd(mediaId)
+                delay(wait)
+                waitedMs += wait
+                NerdStats.onLosslessRaceStart(mediaId)
             }
         } finally {
             if (answered) {

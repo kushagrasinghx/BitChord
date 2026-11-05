@@ -3,6 +3,7 @@ package com.music.bitchord
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.sources.AddonSource
 import com.music.bitchord.data.sources.DeviceCodecs
+import com.music.bitchord.data.sources.RetryHints
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
@@ -11,8 +12,10 @@ import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.data.sources.addon.AddonAuth
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonQualityOption
+import com.music.bitchord.data.sources.addon.AddonStream
 import com.music.bitchord.playback.StreamContainer
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -1164,6 +1167,59 @@ class AddonSourceTest {
         route("/manifest.json", manifest())
         route("/stream/t1", json("""{"error":"Deezer ARL required — set it in the setup page"}"""))
         assertNull(AddonSource(config()).stream("t1", StreamRequest.Lossless))
+    }
+
+    /**
+     * A debrid-backed addon asked for an album its service is still
+     * downloading answers at once, with no URL and a time to come back. It is
+     * a miss now — playback must not wait on it — but whoever is looking and
+     * can wait hears when to ask again, and the "not yet" is not kept: the
+     * next ask has to reach the addon, or it would be answered "not yet" from
+     * the cache for five minutes after the download finished.
+     */
+    @Test
+    fun `a not-yet answer is a miss that says when to ask again and is not reused`() = runBlocking {
+        route("/manifest.json", manifest())
+        route(
+            "/stream/t1",
+            json("""{"error":"Downloading on TorBox: 32% (~5 min)","availability":"downloading","retryAfter":30}"""),
+        )
+        val source = source()
+        val hints = RetryHints()
+
+        assertNull(withContext(hints) { source.stream("t1", StreamRequest.Lossless) })
+        assertNull(source.stream("t1", StreamRequest.Lossless))
+
+        val hint = hints.soonestHint
+        assertNotNull(hint)
+        assertEquals(30, hint!!.afterSec)
+        assertEquals("Downloading on TorBox: 32% (~5 min)", hint.reason)
+        assertEquals(2, synchronized(seen) { seen.count { it.requestUrl?.encodedPath == "/stream/t1" } })
+    }
+
+    /** The ordinary "no" is final, and is reused like any other answer. */
+    @Test
+    fun `a miss without retryAfter is final and reused`() = runBlocking {
+        route("/manifest.json", manifest())
+        route("/stream/t1", json("""{"error":"No playable audio — all clients exhausted"}"""))
+        val source = source()
+        val hints = RetryHints()
+
+        assertNull(withContext(hints) { source.stream("t1", StreamRequest.Lossless) })
+        assertNull(source.stream("t1", StreamRequest.Lossless))
+
+        assertNull(hints.soonestHint)
+        assertEquals(1, synchronized(seen) { seen.count { it.requestUrl?.encodedPath == "/stream/t1" } })
+    }
+
+    @Test
+    fun `retryAfter only counts on an answer with no url`() {
+        assertEquals(30, AddonStream(retryAfter = 30.0).retryAfterSec)
+        assertEquals(3, AddonStream(retryAfter = 2.2).retryAfterSec)
+        assertNull(AddonStream(url = "https://cdn/a.flac", retryAfter = 30.0).retryAfterSec)
+        assertNull(AddonStream(retryAfter = 0.0).retryAfterSec)
+        assertNull(AddonStream(retryAfter = -5.0).retryAfterSec)
+        assertNull(AddonStream().retryAfterSec)
     }
 
     /** That addon answers an unknown id with a 502, not the 404 the spec implies. */

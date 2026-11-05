@@ -11,6 +11,7 @@ import com.music.bitchord.data.sources.addon.AddonStream
 import com.music.bitchord.data.sources.addon.AddonTrack
 import com.music.bitchord.playback.StreamContainer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import java.util.Collections
 import java.util.Locale
@@ -310,11 +311,18 @@ class AddonSource(
                 // up empty, others a credential the user has to go and set on
                 // the addon's own setup page — and that second kind is only
                 // ever actionable if it is said out loud here.
+                val retryAfter = answer.retryAfterSec
                 TrackLog.w(
                     TAG,
                     "${config.displayName}: no stream for $trackId" +
-                        (answer.error?.ifBlank { null }?.let { " — $it" } ?: ""),
+                        (answer.error?.ifBlank { null }?.let { " — $it" } ?: "") +
+                        (retryAfter?.let { " (ask again in ${it}s)" } ?: ""),
                 )
+                // A "not yet" rather than a "no": whoever is looking and can
+                // afford to wait hears when to come back — see [RetryHints].
+                if (retryAfter != null) {
+                    currentCoroutineContext()[RetryHints]?.note(retryAfter, config.displayName, answer.error)
+                }
                 return@withContext fromRow(trackId, tier)
             }
 

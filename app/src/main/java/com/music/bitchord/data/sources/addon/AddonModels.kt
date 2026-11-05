@@ -316,7 +316,27 @@ data class AddonStream(
      * track that silently plays from YouTube instead.
      */
     @SerialName("error") val error: String? = null,
+    /**
+     * Seconds after which asking again could get a URL, on an answer that has
+     * none. Not in the spec. Sent by an addon that is fetching the recording
+     * for this request — a debrid service downloading the album, say — and
+     * would rather answer at once than hold the request open until it is done.
+     * Read through [retryAfterSec].
+     */
+    @SerialName("retryAfter") val retryAfter: Double? = null,
 ) {
+    /**
+     * [retryAfter] as whole seconds, only where it means something: on an
+     * answer with no URL, and positive. An answer that did carry a URL is final
+     * whatever else it says.
+     */
+    val retryAfterSec: Int?
+        get() = if (url.isNotBlank()) {
+            null
+        } else {
+            retryAfter?.takeIf { it > 0 && it.isFinite() }?.let { kotlin.math.ceil(it).toInt() }
+        }
+
     /** Whichever codec field the addon filled in, lowercased. */
     val statedCodec: String?
         get() = (codec?.ifBlank { null } ?: fileCodec?.ifBlank { null })?.lowercase()

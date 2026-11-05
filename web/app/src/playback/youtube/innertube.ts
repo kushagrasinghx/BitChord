@@ -1,14 +1,13 @@
 import type { Innertube, Types } from 'youtubei.js/web';
-import { getBridge } from '@/extension/bridge';
+import { extensionFetch } from '@/extension/fetch';
 import { extensionBrowser } from '@/lib/platform';
 import { ensureYtAuth, identityOf, noteMusicIdentity } from '@/extension/useYtAuth';
 import { trackLog } from '../trackLog';
 
 /**
  * The page's YouTube.js instance, created on first use (YouTube.js is large,
- * prompt §3). All of its requests leave from the browser itself; the
- * extension's declarativeNetRequest rules supply the YouTube headers
- * (web/extension/lib/rules.ts).
+ * prompt §3). Safari uses the extension bridge; other browsers use page
+ * requests with headers supplied by declarativeNetRequest rules.
  */
 let instance: Promise<Innertube> | null = null;
 
@@ -106,40 +105,12 @@ function isInnertubeCall(url: URL): boolean {
   return (url.hostname === 'music.youtube.com' || url.hostname === 'www.youtube.com') && url.pathname.startsWith('/youtubei/');
 }
 
-function decodeBase64(base64: string): Uint8Array<ArrayBuffer> {
-  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-}
-
 /** InnerTube calls through the extension, signed as the chosen channel; the rest as simpleRequestFetch. */
 async function signedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const request = input instanceof Request ? input : null;
   const url = new URL(request ? request.url : input.toString());
   if (!isInnertubeCall(url)) return simpleRequestFetch(input, init);
   return extensionFetch(input, init, true);
-}
-
-async function extensionFetch(input: RequestInfo | URL, init: RequestInit | undefined, auth: boolean): Promise<Response> {
-  const request = input instanceof Request ? input : null;
-  const url = new URL(request ? request.url : input.toString());
-  const bridge = getBridge();
-  if (!bridge) throw new Error('YouTube requests need the BitChord extension');
-  const method = (init?.method ?? request?.method ?? 'GET').toUpperCase() as 'GET' | 'POST';
-  const headers: Record<string, string> = {};
-  new Headers(init?.headers ?? request?.headers).forEach((value, key) => (headers[key] = value));
-  let body = init?.body ?? undefined;
-  if (body === undefined && request && method !== 'GET') body = await request.text();
-  if (body != null && typeof body !== 'string') body = await new Response(body).text();
-
-  const response = await bridge.call(
-    'yt.fetch',
-    { url: url.toString(), method, headers, ...(typeof body === 'string' && { body }), auth },
-    { signal: init?.signal ?? request?.signal ?? undefined },
-  );
-  const payload = response.bodyEncoding === 'base64' ? decodeBase64(response.body) : response.body;
-  return new Response(response.status === 204 || response.status === 304 ? null : payload, {
-    status: response.status,
-    headers: response.headers,
-  });
 }
 
 async function isFirstRun(): Promise<boolean> {

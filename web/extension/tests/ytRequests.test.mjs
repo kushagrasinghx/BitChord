@@ -10,3 +10,10 @@ test('allows only YouTube bootstrap, player and API endpoints', () => {
     assert.equal(allowsAnonymousYtRequest(url), false, url);
   }
 });
+
+test('accepts media only at HTTPS Googlevideo playback endpoints', () => {
+  assert.equal(allowsAnonymousYtRequest('https://rr1.googlevideo.com/videoplayback?range=0-1023'), true);
+  for (const url of ['https://googlevideo.com.evil.test/videoplayback', 'https://rr1.googlevideo.com/account', 'http://rr1.googlevideo.com/videoplayback']) {
+    assert.equal(allowsAnonymousYtRequest(url), false);
+  }
+});

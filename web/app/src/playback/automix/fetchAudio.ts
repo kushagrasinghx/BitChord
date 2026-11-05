@@ -1,4 +1,5 @@
 import { botguard } from '@/playback/youtube/botguard';
+import { mediaFetch } from '@/playback/youtube/mediaFetch';
 import { ytAuthSnapshot } from '@/extension/useYtAuth';
 import { getInnertube, getSignedInnertube } from '@/playback/youtube/innertube';
 import { resolvePlayer, UnplayableError, usesWebPo } from '@/playback/youtube/resolver';
@@ -34,7 +35,7 @@ export async function fetchTrackAudio(videoId: string, signal?: AbortSignal): Pr
     const { url, total } = source;
     const end = total ? Math.min(total, at + CHUNK_BYTES) - 1 : at + CHUNK_BYTES - 1;
     url.searchParams.set('range', `${at}-${end}`);
-    const response = await fetch(url, { signal, credentials: 'omit' });
+    const response = await mediaFetch(url, { signal, credentials: 'omit' });
     if (response.status === 403 && refusals < MAX_REFUSALS) {
       // googlevideo sometimes refuses a URL part-way through; a fresh one
       // (another player response) carries on from the same byte.

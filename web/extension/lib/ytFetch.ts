@@ -57,8 +57,10 @@ export async function ytFetch(request: YtFetchParams): Promise<HttpResponse> {
     headers: Object.fromEntries(Object.entries(request.headers ?? {}).filter(([key]) => !IDENTITY_HEADERS.includes(key.toLowerCase()))),
     body: body as BodyInit | undefined,
     credentials: 'omit',
-    redirect: 'error',
+    // Google's media servers redirect between CDN hosts; no identity headers or cookies travel with these requests.
+    redirect: new URL(request.url).hostname.endsWith('.googlevideo.com') ? 'follow' : 'error',
   });
+  if (!allowsAnonymousYtRequest(response.url)) throw forbidden(response.url);
   return serialise(response);
 }
 

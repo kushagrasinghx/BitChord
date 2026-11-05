@@ -9,6 +9,7 @@
 // DRM content), and the non-null assertions strict TypeScript needs.
 
 import shaka from 'shaka-player/dist/shaka-player.compiled';
+import { mediaFetch } from './mediaFetch';
 
 import { FormatKeyUtils, type CacheManager, type RequestMetadataManager, isGoogleVideoURL } from 'googlevideo/utils';
 
@@ -309,7 +310,7 @@ export class ShakaPlayerAdapter implements SabrPlayerAdapter {
       }
 
 
-      const response = await fetch(uri, init);
+      const response = await mediaFetch(uri, init);
       headersReceived(headersToGenericObject(response.headers));
 
       if (requestMetadata && init.method !== 'HEAD' && response.headers.get('content-type') === 'application/vnd.yt-ump') {

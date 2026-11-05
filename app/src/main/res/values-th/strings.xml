@@ -207,6 +207,7 @@
     <string name="crossfade">ครอสเฟด</string>
     <string name="crossfade_subtitle">ผสานเพลงหนึ่งเข้ากับเพลงถัดไป</string>
     <string name="automix">Automix [เบต้า]</string>
+    <string name="automix_overview">ภาพรวม Automix</string>
     <string name="automix_performance">ประสิทธิภาพ Automix</string>
     <string name="automix_performance_subtitle">กำหนดปริมาณ CPU ที่ใช้วิเคราะห์ในพื้นหลัง</string>
     <string name="automix_performance_warning">ประสิทธิภาพที่สูงขึ้นจะวิเคราะห์แทร็กได้เร็วขึ้น แต่อาจใช้แบตเตอรี่มากขึ้นและทำให้เครื่องร้อนขึ้น</string>

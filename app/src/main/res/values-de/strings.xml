@@ -200,6 +200,7 @@
     <string name="crossfade">Überblendung</string>
     <string name="crossfade_subtitle">Blendet einen Track in den nächsten über</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Automix-Übersicht</string>
     <string name="skip_silence">Stille überspringen</string>
     <string name="skip_silence_subtitle">Kürzt Pausen länger als eine Sekunde</string>
     <string name="skip_silence_float_subtitle">Bei 32-Bit-Float-Ausgabe nicht verfügbar</string>

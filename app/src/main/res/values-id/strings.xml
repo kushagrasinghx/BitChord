@@ -195,6 +195,7 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">Memadukan satu trek ke trek berikutnya</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Ringkasan Automix</string>
     <string name="skip_silence">Lewati keheningan</string>
     <string name="skip_silence_subtitle">Memotong jeda lebih dari satu detik</string>
     <string name="skip_silence_float_subtitle">Tidak tersedia pada output float 32-bit</string>

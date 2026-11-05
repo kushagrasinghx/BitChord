@@ -217,6 +217,7 @@
     <string name="crossfade">Chuyển bài mượt (Crossfade)</string>
     <string name="crossfade_subtitle">Hòa quyện bài hát hiện tại vào bài tiếp theo</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Tổng quan Automix</string>
     <string name="automix_performance">Hiệu năng Automix</string>
     <string name="automix_performance_subtitle">Đặt mức sử dụng CPU cho phân tích nền</string>
     <string name="automix_performance_warning">Hiệu năng cao hơn phân tích nhanh hơn, nhưng có thể tốn pin hơn và làm máy ấm lên.</string>

@@ -201,6 +201,7 @@
     <string name="crossfade">Crossfade</string>
     <string name="crossfade_subtitle">ממזג רצועה אחת לתוך הבאה</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">סקירה כללית של Automix</string>
     <string name="skip_silence">דילוג על שקט</string>
     <string name="skip_silence_subtitle">קיצוץ הפסקות ארוכות משנייה</string>
     <string name="skip_silence_float_subtitle">לא זמין בפלט float של 32 סיביות</string>

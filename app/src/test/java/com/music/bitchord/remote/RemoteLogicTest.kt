@@ -115,7 +115,17 @@ class RemoteLogicTest {
     @Test
     fun explicitKindWinsOverPrefixes() {
         assertEquals("artist", resolveBrowseKind("VLPL123", "artist"))
-        assertEquals("album", resolveBrowseKind("UCabc", "album"))
+        assertEquals("album", resolveBrowseKind("VLPL123", "album"))
+    }
+
+    @Test
+    fun artistPrefixIsCheckedBeforeTheAlbumKind() {
+        // The app's own classification order: the artist branch comes
+        // first, so a UC-prefixed id is an artist even if a caller
+        // passes kind "album". Search results never pair the two —
+        // kinds and ids agree there — but the order is the app's, so
+        // the remote keeps it and this test pins it.
+        assertEquals("artist", resolveBrowseKind("UCabc", "album"))
     }
 
     @Test

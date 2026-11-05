@@ -233,6 +233,7 @@ fun SettingsScreen(
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
+    val sleepTimerFadeOut by AppSettings.sleepTimerFadeOut.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
     val directSourceStream by AppSettings.directSourceStream.collectAsStateWithLifecycle()
     // A property of the hardware, so it is read once rather than remembered
@@ -861,6 +862,21 @@ fun SettingsScreen(
                         onClick = { AppSettings.setSkipSilence(!skipSilence) },
                     )
                 }
+            }
+            val sleepTimerFadeOutTitle = stringResource(R.string.sleep_timer_fade_out)
+            row(sleepTimerFadeOutTitle, "sleep", "timer", "fade") {
+                SettingsRow(
+                    icon = SfIcons.SleepTimer,
+                    title = sleepTimerFadeOutTitle,
+                    subtitle = stringResource(R.string.sleep_timer_fade_out_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = sleepTimerFadeOut,
+                            onCheckedChange = AppSettings::setSleepTimerFadeOut,
+                        )
+                    },
+                    onClick = { AppSettings.setSleepTimerFadeOut(!sleepTimerFadeOut) },
+                )
             }
             val spatialAudioTitle = stringResource(R.string.spatial_audio)
             row(spatialAudioTitle, "surround", "3d") {

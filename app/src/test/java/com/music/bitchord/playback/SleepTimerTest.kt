@@ -27,4 +27,19 @@ class SleepTimerTest {
             assertEquals(minutes, SleepTimer.minutesAt(SleepTimer.fractionOf(minutes)))
         }
     }
+
+    @Test
+    fun calculateFadeVolumeKeepsFullVolumeWhenDisabledOrOutsideWindow() {
+        assertEquals(1.0f, SleepTimer.calculateFadeVolume(45_000L, fadeOutEnabled = true), 0.001f)
+        assertEquals(1.0f, SleepTimer.calculateFadeVolume(30_000L, fadeOutEnabled = true), 0.001f)
+        assertEquals(1.0f, SleepTimer.calculateFadeVolume(15_000L, fadeOutEnabled = false), 0.001f)
+    }
+
+    @Test
+    fun calculateFadeVolumeFadesLinearlyDuringLastThirtySeconds() {
+        assertEquals(0.5f, SleepTimer.calculateFadeVolume(15_000L, fadeOutEnabled = true), 0.001f)
+        assertEquals(0.25f, SleepTimer.calculateFadeVolume(7_500L, fadeOutEnabled = true), 0.001f)
+        assertEquals(0.0f, SleepTimer.calculateFadeVolume(0L, fadeOutEnabled = true), 0.001f)
+        assertEquals(0.0f, SleepTimer.calculateFadeVolume(-100L, fadeOutEnabled = true), 0.001f)
+    }
 }

@@ -6616,11 +6616,34 @@ class PlaybackService : MediaLibraryService() {
     private fun watchSleepTimer() {
         scope.launch {
             SleepTimer.deadline.collectLatest { deadline ->
-                if (deadline == null) return@collectLatest
-                val remaining = deadline - SystemClock.elapsedRealtime()
-                if (remaining > 0) delay(remaining)
-                player?.pause()
-                SleepTimer.cancel()
+                if (deadline == null) {
+                    player?.volume = 1f
+                    return@collectLatest
+                }
+                try {
+                    val fadeDurationMs = if (AppSettings.sleepTimerFadeOut.value) SleepTimer.FADE_OUT_DURATION_MS else 0L
+                    val totalRemaining = deadline - SystemClock.elapsedRealtime()
+                    val waitBeforeFade = (totalRemaining - fadeDurationMs).coerceAtLeast(0L)
+                    if (waitBeforeFade > 0) delay(waitBeforeFade)
+
+                    val remainingBeforeFade = deadline - SystemClock.elapsedRealtime()
+                    if (fadeDurationMs > 0 && remainingBeforeFade > 0) {
+                        val fadeStart = SystemClock.elapsedRealtime()
+                        val actualDuration = remainingBeforeFade.coerceAtMost(fadeDurationMs)
+                        while (true) {
+                            val elapsed = SystemClock.elapsedRealtime() - fadeStart
+                            val remaining = (actualDuration - elapsed).coerceAtLeast(0L)
+                            player?.volume = SleepTimer.calculateFadeVolume(remaining, actualDuration, true)
+                            if (elapsed >= actualDuration) break
+                            delay(100L)
+                        }
+                    }
+
+                    player?.pause()
+                    SleepTimer.cancel()
+                } finally {
+                    player?.volume = 1f
+                }
             }
         }
     }

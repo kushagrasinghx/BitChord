@@ -1,8 +1,10 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { precacheList } from './src/pwa/precache.ts';
 
 // The development extension's id, pinned by its manifest `key`
 // (web/extension/dev-key/). Read at build time so the page can message it.
@@ -24,10 +26,34 @@ function requirePartyServer(mode: string): void {
   }
 }
 
+// Emits dist/sw.js from pwa/sw.js with this build's precache list. The version
+// is a hash of that list, whose names are content hashes, so an unchanged
+// shell keeps the installed worker.
+function serviceWorker(): Plugin {
+  return {
+    name: 'bitchord-service-worker',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const files = Object.values(bundle).map((file) => ({
+        fileName: file.fileName,
+        size: file.type === 'chunk' ? Buffer.byteLength(file.code) : Buffer.byteLength(file.source),
+      }));
+      const precache = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png', ...precacheList(files)];
+      const version = createHash('sha256').update(precache.join('\n')).digest('hex').slice(0, 12);
+      const template = readFileSync(new URL('./pwa/sw.js', import.meta.url), 'utf8');
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sw.js',
+        source: template.replace('__VERSION__', JSON.stringify(version)).replace('__PRECACHE__', JSON.stringify(precache)),
+      });
+    },
+  };
+}
+
 export default defineConfig(({ command, mode }) => {
   if (command === 'build') requirePartyServer(mode);
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), serviceWorker()],
     define: {
       DEV_EXTENSION_ID: JSON.stringify(devExtensionId()),
     },

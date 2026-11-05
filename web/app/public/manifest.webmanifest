@@ -1,0 +1,23 @@
+{
+  "id": "/",
+  "name": "BitChord",
+  "short_name": "BitChord",
+  "description": "Aesthetic YouTube Music client.",
+  "start_url": "/home",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1f1f1f",
+  "theme_color": "#1f1f1f",
+  "categories": ["music", "entertainment"],
+  "launch_handler": { "client_mode": ["focus-existing", "auto"] },
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ],
+  "shortcuts": [
+    { "name": "Search", "url": "/search", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "New", "url": "/new", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ]
+}

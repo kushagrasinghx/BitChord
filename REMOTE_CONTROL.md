@@ -62,6 +62,10 @@ A `song` is `{videoId, title, artist, thumbnailUrl, durationText}`.
 
 - Same-LAN only by design. Treat the PIN as a lock against strangers on
   shared Wi-Fi, not as real security: traffic is plain HTTP.
+- The address shown in Settings is the Wi-Fi interface's, picked over
+  any VPN tunnel interface, so the remote stays reachable on the LAN
+  while a VPN is connected. (A VPN app that firewalls local traffic can
+  still block it — that app needs its "allow LAN" option on.)
 - The server lives in the app process. If Android kills BitChord (app
   swiped away and playback stopped), the remote stops with it.
 - State updates are polled (1 s), not pushed; good enough for a remote,

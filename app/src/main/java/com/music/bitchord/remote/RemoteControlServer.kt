@@ -89,10 +89,20 @@ object RemoteControl {
 
     fun lanUrl(): String? = lanIp()?.let { "http://$it:$PORT" }
 
-    /** First site-local IPv4 (the Wi-Fi address, in practice). */
+    /**
+     * The address browsers on the LAN should use. The Wi-Fi interface
+     * wins: with a VPN connected, the tunnel interface also carries a
+     * site-local address, and advertising that one leaves the remote
+     * unreachable for everyone on the Wi-Fi — the server itself listens
+     * on every interface either way. Falls back to the first site-local
+     * IPv4 on any up interface when no Wi-Fi interface is found.
+     */
     fun lanIp(): String? = runCatching {
-        NetworkInterface.getNetworkInterfaces().asSequence()
+        val interfaces = NetworkInterface.getNetworkInterfaces().asSequence()
             .filter { it.isUp && !it.isLoopback }
+            .toList()
+        interfaces.sortedByDescending { it.name.startsWith("wlan") }
+            .asSequence()
             .flatMap { it.inetAddresses.asSequence() }
             .firstOrNull { it is Inet4Address && it.isSiteLocalAddress }
             ?.hostAddress

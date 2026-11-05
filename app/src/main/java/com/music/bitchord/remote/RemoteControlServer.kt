@@ -138,7 +138,9 @@ object RemoteControl {
         // does. Settings changes apply here, at the next start.
         if (AppSettings.remoteRelayEnabled.value) {
             val relayToken = AppSettings.remoteRelayToken.value
-            if (relayToken.isNotBlank()) RemoteRelay.start(relayToken)
+            val relayAddress = AppSettings.remoteRelayHost.value
+                .ifBlank { AppSettings.DEFAULT_REMOTE_RELAY_HOST }
+            if (relayToken.isNotBlank()) RemoteRelay.start(relayToken, relayAddress)
         }
     }
 

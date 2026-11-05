@@ -86,8 +86,10 @@ every 30 seconds so the tunnel never reaps them as idle.
 1. Run the relay service (`bitchord-relay`, a single-file Python
    service on localhost port 8890 behind the tunnel; it generates
    its token on first start).
-2. In BitChord: **Settings → Relay token** → paste the token, then
-   **Relay via VPS** on, with Remote control on.
+2. In BitChord: **Settings → Relay token** → paste the token, and
+   **Relay address** → the relay's tunnel hostname if it isn't the
+   default (`remote.gaspol.men`); then **Relay via VPS** on, with
+   Remote control on.
 3. In any browser: `https://remote.gaspol.men/r/<token>/` — the first
    visit plants a cookie, after which the page's own addresses work
    as usual. The remote's PIN gate applies exactly as on the LAN:
@@ -96,8 +98,11 @@ every 30 seconds so the tunnel never reaps them as idle.
    through it.
 
 Relay settings apply at the next remote start, like the PIN
-settings. The relay client's target address is a constant in
-`RemoteRelay.kt` — the relay is a personal service, deployed once.
+settings. The relay address is editable in Settings because the
+relay is a personal service whose tunnel hostname belongs to
+whoever deployed it; the client parses the field forgivingly
+(scheme and path of a pasted URL are dropped, an optional `:port`
+is honoured, blank restores the default).
 
 ## How it works
 

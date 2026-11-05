@@ -547,6 +547,16 @@ object AppSettings {
     val remoteRelayToken = MutableStateFlow("")
 
     /**
+     * The relay's address — a hostname, optionally with a port
+     * (`relay.example.com:8443`). Editable because the relay is a
+     * personal service: its tunnel hostname is whatever its owner
+     * configured, and a compiled-in constant cannot follow a rename.
+     * Blank keeps [DEFAULT_REMOTE_RELAY_HOST]. The client parses it
+     * forgivingly (a pasted URL works too).
+     */
+    val remoteRelayHost = MutableStateFlow("")
+
+    /**
      * Whether [animatedCanvas] is allowed to actually stream on a metered
      * connection, as distinct from the switch that turns the feature off
      * altogether.
@@ -1038,6 +1048,7 @@ object AppSettings {
         remoteControlSavedPin.value = prefs.getString(KEY_REMOTE_CONTROL_SAVED_PIN, "").orEmpty()
         remoteRelayEnabled.value = prefs.getBoolean(KEY_REMOTE_RELAY_ENABLED, false)
         remoteRelayToken.value = prefs.getString(KEY_REMOTE_RELAY_TOKEN, "").orEmpty()
+        remoteRelayHost.value = prefs.getString(KEY_REMOTE_RELAY_HOST, "").orEmpty()
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
@@ -1633,6 +1644,11 @@ object AppSettings {
     fun setRemoteRelayToken(value: String) {
         remoteRelayToken.value = value
         prefs.edit().putString(KEY_REMOTE_RELAY_TOKEN, value).apply()
+    }
+
+    fun setRemoteRelayHost(value: String) {
+        remoteRelayHost.value = value
+        prefs.edit().putString(KEY_REMOTE_RELAY_HOST, value).apply()
     }
 
     fun setCanvasOverCellular(value: Boolean) {
@@ -2264,7 +2280,11 @@ object AppSettings {
     private const val KEY_REMOTE_CONTROL_PIN = "remote_control_pin"
     private const val KEY_REMOTE_CONTROL_PIN_PERSISTENT = "remote_control_pin_persistent"
     private const val KEY_REMOTE_CONTROL_SAVED_PIN = "remote_control_saved_pin"
+    /** The relay address used while [remoteRelayHost] is blank. */
+    const val DEFAULT_REMOTE_RELAY_HOST = "remote.gaspol.men"
+
     private const val KEY_REMOTE_RELAY_ENABLED = "remote_relay_enabled"
+    private const val KEY_REMOTE_RELAY_HOST = "remote_relay_host"
     private const val KEY_REMOTE_RELAY_TOKEN = "remote_relay_token"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"

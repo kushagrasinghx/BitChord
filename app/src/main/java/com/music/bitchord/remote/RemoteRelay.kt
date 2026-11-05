@@ -24,11 +24,15 @@ import javax.net.ssl.SSLSocketFactory
  * first version took raw TCP channels on a public VPS port, which
  * worked but left the port exposed and the traffic plaintext. The
  * Cloudflare Tunnel in front of the VPS carries HTTP and WebSocket
- * only, so the channels moved to `wss://remote.gaspol.men/channel`:
+ * only, so the channels moved to `wss://<relay address>/channel`:
  * to every network on the way — the phone's VPN above all — a channel
  * is ordinary HTTPS, and once the tunnel path is proven the VPS needs
  * no open port at all. Cloudflare reaps idle WebSockets, so a parked
  * channel pings every [PING_INTERVAL_MS]; the relay answers.
+ *
+ * The address is a setting, not a constant: the relay is a personal
+ * service and its tunnel hostname is whatever its owner configured
+ * in their DNS — the client cannot know it at compile time.
  *
  * The relay is a dumb pipe: binary messages are the spliced byte
  * stream, and the local server still enforces the PIN, its lockout
@@ -40,8 +44,9 @@ import javax.net.ssl.SSLSocketFactory
  */
 object RemoteRelay {
 
-    private const val RELAY_HOST = "remote.gaspol.men"
-    private const val RELAY_PORT = 443
+    /** Used only if the address setting somehow parses to nothing. */
+    private const val FALLBACK_HOST = "remote.gaspol.men"
+    private const val DEFAULT_PORT = 443
     private const val CHANNEL_PATH = "/channel"
     private const val CHANNELS = 4
     private const val CONNECT_TIMEOUT_MS = 10_000
@@ -52,17 +57,41 @@ object RemoteRelay {
 
     @Volatile private var running = false
     private var token: String = ""
+    @Volatile private var relayHost: String = FALLBACK_HOST
+    @Volatile private var relayPort: Int = DEFAULT_PORT
     private val openSockets = ConcurrentHashMap.newKeySet<Socket>()
 
+    /**
+     * Parse the address setting into (host, port), forgivingly: an
+     * optional scheme and anything past the first `/` are dropped, a
+     * `:port` suffix is honoured, and an empty result falls back to
+     * the defaults — a pasted browser URL should just work.
+     */
+    fun parseAddress(raw: String): Pair<String, Int> {
+        var text = raw.trim()
+        val schemeEnd = text.indexOf("://")
+        if (schemeEnd >= 0) text = text.substring(schemeEnd + 3)
+        text = text.substringBefore('/').trim()
+        val colon = text.lastIndexOf(':')
+        if (colon > 0) {
+            val port = text.substring(colon + 1).toIntOrNull()
+            if (port != null) return text.substring(0, colon).lowercase() to port
+        }
+        return text.lowercase().ifEmpty { FALLBACK_HOST } to DEFAULT_PORT
+    }
+
     @Synchronized
-    fun start(relayToken: String) {
+    fun start(relayToken: String, address: String) {
         if (running) return
         token = relayToken
+        val (host, port) = parseAddress(address)
+        relayHost = host
+        relayPort = port
         running = true
         repeat(CHANNELS) { i ->
             Thread({ channelLoop() }, "remote-relay-$i").apply { isDaemon = true }.start()
         }
-        Log.i(REMOTE_LOG_TAG, "relay client started ($CHANNELS channels to wss://$RELAY_HOST$CHANNEL_PATH)")
+        Log.i(REMOTE_LOG_TAG, "relay client started ($CHANNELS channels to wss://$relayHost:$relayPort$CHANNEL_PATH)")
     }
 
     @Synchronized
@@ -157,7 +186,7 @@ object RemoteRelay {
             // createSocket(Socket, ...) overload is not visible
             // through getDefault()'s declared SocketFactory type.
             val tls = SSLSocketFactory.getDefault().createSocket() as SSLSocket
-            tls.connect(InetSocketAddress(RELAY_HOST, RELAY_PORT), CONNECT_TIMEOUT_MS)
+            tls.connect(InetSocketAddress(relayHost, relayPort), CONNECT_TIMEOUT_MS)
             tls.soTimeout = PING_INTERVAL_MS
             tls.startHandshake()
             verifyPeer(tls)
@@ -173,7 +202,7 @@ object RemoteRelay {
             val key = ByteArray(16).also { random.nextBytes(it) }
             val request = buildString {
                 append("GET $CHANNEL_PATH HTTP/1.1\r\n")
-                append("Host: $RELAY_HOST\r\n")
+                append("Host: ${if (relayPort == DEFAULT_PORT) relayHost else "$relayHost:$relayPort"}\r\n")
                 append("Upgrade: websocket\r\n")
                 append("Connection: Upgrade\r\n")
                 append("Sec-WebSocket-Key: ${Base64.encodeToString(key, Base64.NO_WRAP)}\r\n")
@@ -335,8 +364,8 @@ object RemoteRelay {
             val dnsNames = names.filter { it.size >= 2 && it[0] == 7 }.map { it[1].toString() }
             val cn = Regex("CN=([^,]+)").find(cert.subjectX500Principal.name)?.groupValues?.get(1)
             val candidates = dnsNames + listOfNotNull(cn)
-            if (candidates.none { nameMatches(it, RELAY_HOST) }) {
-                throw IOException("relay certificate is not for $RELAY_HOST")
+            if (candidates.none { nameMatches(it, relayHost) }) {
+                throw IOException("relay certificate is not for $relayHost")
             }
         }
 

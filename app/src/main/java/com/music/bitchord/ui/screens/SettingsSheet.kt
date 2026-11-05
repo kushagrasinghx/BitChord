@@ -247,6 +247,7 @@ fun SettingsScreen(
     val remoteControlPinPersistent by AppSettings.remoteControlPinPersistent.collectAsStateWithLifecycle()
     val remoteRelayEnabled by AppSettings.remoteRelayEnabled.collectAsStateWithLifecycle()
     val remoteRelayToken by AppSettings.remoteRelayToken.collectAsStateWithLifecycle()
+    val remoteRelayHost by AppSettings.remoteRelayHost.collectAsStateWithLifecycle()
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
@@ -343,6 +344,8 @@ fun SettingsScreen(
     var remotePinInput by remember { mutableStateOf("") }
     var showRelayTokenDialog by remember { mutableStateOf(false) }
     var relayTokenInput by remember { mutableStateOf("") }
+    var showRelayHostDialog by remember { mutableStateOf(false) }
+    var relayHostInput by remember { mutableStateOf("") }
     var confirmClearSongCache by remember { mutableStateOf(false) }
     var showPerformanceWarning by remember { mutableStateOf(false) }
     var showPerformanceConfirmation by remember { mutableStateOf(false) }
@@ -607,6 +610,18 @@ fun SettingsScreen(
                         onClick = {
                             relayTokenInput = remoteRelayToken
                             showRelayTokenDialog = true
+                        },
+                    )
+                }
+                val remoteRelayAddressTitle = stringResource(R.string.remote_relay_address)
+                row(remoteRelayAddressTitle, "relay", "address", "host", "url") {
+                    SettingsRow(
+                        icon = SfIcons.Cloud,
+                        title = remoteRelayAddressTitle,
+                        subtitle = remoteRelayHost.ifBlank { AppSettings.DEFAULT_REMOTE_RELAY_HOST },
+                        onClick = {
+                            relayHostInput = remoteRelayHost
+                            showRelayHostDialog = true
                         },
                     )
                 }
@@ -1905,6 +1920,44 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRelayTokenDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (showRelayHostDialog) {
+        AlertDialog(
+            onDismissRequest = { showRelayHostDialog = false },
+            title = { Text(stringResource(R.string.remote_relay_address_dialog_title)) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = relayHostInput,
+                        onValueChange = { relayHostInput = it },
+                        label = { Text(stringResource(R.string.remote_relay_address_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        text = stringResource(R.string.remote_relay_address_dialog_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        AppSettings.setRemoteRelayHost(relayHostInput.trim())
+                        showRelayHostDialog = false
+                    },
+                ) {
+                    Text(stringResource(R.string.save))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRelayHostDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             },

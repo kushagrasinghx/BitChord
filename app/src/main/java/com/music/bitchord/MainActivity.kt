@@ -685,6 +685,8 @@ private fun BitChordApp(
      * question has to be answered by whoever opened the menu.
      */
     var menuFromPlayer by remember { mutableStateOf(false) }
+    /** Whether the track menu was opened from a row in the player's queue. */
+    var menuFromQueue by remember { mutableStateOf(false) }
     /** Whether the track menu was opened from the History screen. */
     var menuFromHistory by remember { mutableStateOf(false) }
     /**
@@ -720,6 +722,7 @@ private fun BitChordApp(
     /** Holding a row anywhere but the player — the menu without the player's rows. */
     val openSongMenu: (Song) -> Unit = { song ->
         menuFromPlayer = false
+        menuFromQueue = false
         songMenuOrigin = LongPressOrigin.consume()
         songMenuAnchor = MenuAnchor.consume()
         songActions = song
@@ -2627,10 +2630,19 @@ private fun BitChordApp(
             onRemoveFromQueue = { controller?.removeMediaItem(it) },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
+            onQueueSongMenu = { _, queueSong ->
+                menuFromQueue = true
+                menuFromPlayer = true
+                songMenuOrigin = LongPressOrigin.consume()
+                songMenuAnchor = MenuAnchor.consume()
+                songActions = queueSong
+                if (!AppSettings.reduceDynamicBlur.value && !playerLiveCanvas) playerBackdrop.capture()
+            },
             // The enriched copy, not player.song — otherwise the menu
             // hides the album and artist rows even once their browse
             // ids have been resolved.
             onOpenMenu = {
+                menuFromQueue = false
                 menuFromPlayer = true
                 songMenuOrigin = null
                 songMenuAnchor = MenuAnchor.consume()
@@ -4252,12 +4264,13 @@ private fun BitChordApp(
             // read off the player's own visibility any more, because on a
             // tablet the player is visible whatever the menu was opened from.
             val fromPlayer = menuFromPlayer
+            val fromQueue = menuFromQueue
             // A row from search results, recents or a feed rarely knows which
             // album or artist page it belongs to, which left the menu with no
             // way to get there. Ask as the menu opens, the way the player
             // backfills its own track — the player's copy is already kept in
             // sync above, so it is left alone here.
-            val needsLinks = !fromPlayer && heldSong.localUri == null &&
+            val needsLinks = (!fromPlayer || fromQueue) && heldSong.localUri == null &&
                 heldSong.videoId.isNotBlank() &&
                 (heldSong.albumId == null || heldSong.artistId == null)
             var menuLinks by remember(heldSong.videoId) { mutableStateOf<Song?>(null) }
@@ -4419,6 +4432,7 @@ private fun BitChordApp(
             }
             SongActionsMenu(
                 song = song,
+                fromQueue = fromQueue,
                 signedIn = signedIn,
                 likeStatus = likeStatusOf(song),
                 onPlayNext = { playNext(song); songActions = null },
@@ -4517,8 +4531,8 @@ private fun BitChordApp(
                 },
                 // The player backfills its own track; any other row is
                 // looked up as the menu opens — see `needsLinks` above.
-                resolvingLinks = if (fromPlayer) linksLoading else needsLinks && menuLinksLoading,
-                showSleepTimer = fromPlayer,
+                resolvingLinks = if (fromPlayer && !fromQueue) linksLoading else needsLinks && menuLinksLoading,
+                showSleepTimer = fromPlayer && !fromQueue,
                 // Offered for every playing track with a YouTube upload
                 // behind it, not only for one an upgrade visibly swapped:
                 // a source ranked above YouTube can be playing its own
@@ -4583,7 +4597,7 @@ private fun BitChordApp(
                 // drops it for a local file via `isOffline`, this catches
                 // the rest.
                 onShare = share.takeIf { song.videoId.isNotBlank() },
-                onCopyLog = if (fromPlayer) {
+                onCopyLog = if (fromPlayer && !fromQueue) {
                     {
                         songActions = null
                         scope.launch {
@@ -4607,7 +4621,7 @@ private fun BitChordApp(
                 } else {
                     null
                 },
-                onLyricsOffset = if (fromPlayer) {
+                onLyricsOffset = if (fromPlayer && !fromQueue) {
                     {
                         songActions = null
                         showLyricsOffset = true
@@ -4617,7 +4631,7 @@ private fun BitChordApp(
                 },
                 // The popup lives in the player, so the menu only has to close
                 // and ask for it; it lays the next transition out on its own.
-                onAutomixOverview = if (fromPlayer && automixOn) {
+                onAutomixOverview = if (fromPlayer && !fromQueue && automixOn) {
                     {
                         songActions = null
                         MixViewRequest.open = true
@@ -4717,6 +4731,7 @@ private fun BitChordApp(
                     if (!reducePlayerMotion) playerSheetMotion.attachWindow(sheetWindow)
                     onDispose { }
                 }
+                val playerMenuHaze = remember { HazeState() }
                 Box(
                     Modifier
                         // Where the app is holding the player, if it is — see
@@ -4768,7 +4783,9 @@ private fun BitChordApp(
                             reduceDynamicBlur -> Modifier
                             playerLiveCanvas -> Modifier.layerBackdrop(livePlayerBackdrop)
                             else -> Modifier.snapshotBackdropSource(playerBackdrop)
-                        },
+                        }.then(
+                            if (reduceDynamicBlur) Modifier else Modifier.hazeSource(playerMenuHaze),
+                        ),
                     ) {
                         CompositionLocalProvider(LocalPlayerDock provides activeDock) {
                             nowPlaying(playerSong)
@@ -4779,6 +4796,22 @@ private fun BitChordApp(
                         anchor = songMenuAnchor,
                         onDismiss = { songActions = null },
                         backdrop = if (playerLiveCanvas) livePlayerBackdrop else playerBackdrop,
+                    ) { song ->
+                        songMenuBody(song)
+                    }
+                    HeldContextMenu(
+                        item = songActions?.takeIf { menuFromPlayer },
+                        held = songMenuOrigin,
+                        hazeState = playerMenuHaze,
+                        inPlayerSheet = true,
+                        onDismiss = { songActions = null },
+                        onPreviewClick = { song ->
+                            song.albumId?.let { id ->
+                                songActions = null
+                                dismissPlayer()
+                                viewModel.openDetail(id, song.albumName ?: song.title, song.artist, song.thumbnailUrl, BrowseType.ALBUM)
+                            }
+                        },
                     ) { song ->
                         songMenuBody(song)
                     }
@@ -4838,7 +4871,7 @@ private fun BitChordApp(
             // Drawn over everything, tab bar and mini player included, and kept
             // composed through its own exit — so it is not gated on songActions.
             HeldContextMenu(
-                item = songActions,
+                item = songActions?.takeUnless { menuFromPlayer && playerRaised },
                 held = songMenuOrigin,
                 hazeState = hazeState,
                 onDismiss = { songActions = null },
@@ -4846,6 +4879,7 @@ private fun BitChordApp(
                 onPreviewClick = { song ->
                     song.albumId?.let { id ->
                         songActions = null
+                        dismissPlayer()
                         viewModel.openDetail(id, song.albumName ?: song.title, song.artist, song.thumbnailUrl, BrowseType.ALBUM)
                     }
                 },
@@ -4876,6 +4910,7 @@ private fun BitChordApp(
                 if (songActions == null) {
                     songMenuOrigin = null
                     songMenuAnchor = null
+                    menuFromQueue = false
                     menuFromHistory = false
                 }
             }

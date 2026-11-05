@@ -49,7 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.ui.player.PlayerBackHandler
 import com.music.bitchord.ui.player.additiveChrome
+import com.music.bitchord.ui.utils.containSheetGestures
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -87,6 +89,7 @@ fun <T : Any> HeldContextMenu(
     onDismiss: () -> Unit,
     /** Tapping the lifted item — open what it stands for. Null leaves it inert. */
     onPreviewClick: ((T) -> Unit)?,
+    inPlayerSheet: Boolean = false,
     actions: @Composable (T) -> Unit,
 ) {
     val requested = if (item != null && held != null) item to held else null
@@ -130,7 +133,11 @@ fun <T : Any> HeldContextMenu(
         }
     }
 
-    BackHandler(enabled = open, onBack = onDismiss)
+    if (inPlayerSheet) {
+        PlayerBackHandler(enabled = open, onBack = onDismiss)
+    } else {
+        BackHandler(enabled = open, onBack = onDismiss)
+    }
 
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
@@ -162,6 +169,7 @@ fun <T : Any> HeldContextMenu(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { overlayOffset = it.positionInWindow() }
+            .then(if (inPlayerSheet) Modifier.containSheetGestures() else Modifier)
             // Once it is on its way out nothing on it answers any more — a
             // second tap on a row mid-exit would run its action twice.
             .then(if (open) Modifier else Modifier.pointerInput(Unit) { swallowAll() }),

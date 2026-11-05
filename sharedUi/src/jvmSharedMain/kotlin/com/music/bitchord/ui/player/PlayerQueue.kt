@@ -68,6 +68,9 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -229,6 +232,7 @@ internal fun InlineQueue(
     onRemove: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onClear: () -> Unit,
+    onSongMenu: (Int, Song) -> Unit = { _, _ -> },
     onScrollingChange: (Boolean) -> Unit = {},
     onDragActiveChange: (Boolean) -> Unit = {},
     /** Phone only: let queue scrolling dismiss/restore the lower half player. */
@@ -318,6 +322,7 @@ internal fun InlineQueue(
                             isCurrent = false,
                             onClick = { onJumpTo(track.timelineIndex) },
                             onRemove = { onRemove(track.timelineIndex) },
+                            onLongPress = { onSongMenu(track.timelineIndex, track.song) },
                             locked = controlsLocked,
                             modifier = queueMotion(),
                         )
@@ -336,6 +341,7 @@ internal fun InlineQueue(
                             isCurrent = true,
                             onClick = { onJumpTo(nowPlaying.timelineIndex) },
                             onRemove = { onRemove(nowPlaying.timelineIndex) },
+                            onLongPress = { onSongMenu(nowPlaying.timelineIndex, nowPlaying.song) },
                             locked = controlsLocked,
                             modifier = queueMotion(),
                         )
@@ -350,7 +356,7 @@ internal fun InlineQueue(
                             QueueClearButton(MaterialTheme.typography.labelLarge, controlsLocked, onClear)
                         }
                     }
-                    queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, onJumpTo, onRemove)
+                    queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, onJumpTo, onRemove, onSongMenu)
                 }
                 if (tracks.context.isNotEmpty()) {
                     item(key = "header-context") {
@@ -363,13 +369,13 @@ internal fun InlineQueue(
                             modifier = Modifier.padding(top = 16.dp, bottom = 6.dp).then(queueMotion()),
                         )
                     }
-                    queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onRemove)
+                    queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onRemove, onSongMenu)
                 }
                 if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
                     item(key = "autoplay-heading") {
                         AutoplayHeading(hasTracks = tracks.autoplay.isNotEmpty(), modifier = queueMotion())
                     }
-                    queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onRemove)
+                    queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onRemove, onSongMenu)
                 }
             }
             // The held row, drawn over the list where the finger is. Positioned
@@ -405,6 +411,7 @@ private fun LazyListScope.queueSection(
     locked: Boolean,
     onJumpTo: (Int) -> Unit,
     onRemove: (Int) -> Unit,
+    onSongMenu: (Int, Song) -> Unit,
 ) {
     items(rows, key = { it.key }) { track ->
         val held = drag.held?.key == track.key
@@ -418,6 +425,7 @@ private fun LazyListScope.queueSection(
             isCurrent = false,
             onClick = { onJumpTo(track.timelineIndex) },
             onRemove = { onRemove(track.timelineIndex) },
+            onLongPress = { onSongMenu(track.timelineIndex, track.song) },
             locked = locked,
             draggable = !locked,
             onDragStart = { drag.start(track.key, section) },
@@ -725,6 +733,7 @@ private fun InlineQueueRow(
     isCurrent: Boolean,
     onClick: () -> Unit,
     onRemove: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     /** @see InlineQueue */
     locked: Boolean = false,
@@ -736,17 +745,26 @@ private fun InlineQueueRow(
     onDrag: (Float) -> Unit = {},
     onDragEnd: () -> Unit = {},
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (lifted) Color.White.copy(alpha = 0.06f) else Color.Transparent)
-            // Disabled rather than ignored: a tap that ripples and then does
-            // nothing reads as the app having missed it.
-            .clickable(enabled = !locked, onClick = onClick)
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val ltr = LocalLayoutDirection.current == LayoutDirection.Ltr
+    val removeControl: @Composable () -> Unit = {
+        if (!locked) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onRemove),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = stringResource(Res.string.remove_from_queue),
+                    tint = Color.White.copy(alpha = 0.55f),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+    val handle: @Composable () -> Unit = {
         if (draggable) {
             Icon(
                 Icons.Rounded.DragHandle,
@@ -754,9 +772,7 @@ private fun InlineQueueRow(
                 tint = Color.White.copy(alpha = 0.4f),
                 modifier = Modifier
                     .size(20.dp)
-                    // The glyph sits well inset in its own box; this pulls it
-                    // back to the row's edge.
-                    .offset(x = (-4).dp)
+                    .offset(x = if (ltr) 4.dp else (-4).dp)
                     .pointerInput(Unit) {
                         detectDragGestures(
                             onDragStart = { onDragStart() },
@@ -770,7 +786,22 @@ private fun InlineQueueRow(
                     },
             )
             Spacer(Modifier.width(4.dp))
+        } else if (ltr) {
+            Spacer(Modifier.width(24.dp))
         }
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (lifted) Color.White.copy(alpha = 0.06f) else Color.Transparent)
+            // Disabled rather than ignored: a tap that ripples and then does
+            // nothing reads as the app having missed it.
+            .longPressMenuClickable(enabled = !locked, onClick = onClick, onLongClick = onLongPress)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (ltr) removeControl() else handle()
         AsyncImage(
             model = rememberRemoteArtworkUrl(song),
             contentDescription = null,
@@ -805,21 +836,6 @@ private fun InlineQueueRow(
             )
             Spacer(Modifier.width(10.dp))
         }
-        if (!locked) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = onRemove),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = stringResource(Res.string.remove_from_queue),
-                    tint = Color.White.copy(alpha = 0.55f),
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        }
+        if (ltr) handle() else removeControl()
     }
 }

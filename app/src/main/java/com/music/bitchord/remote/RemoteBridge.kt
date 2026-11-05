@@ -139,8 +139,9 @@ object RemoteBridge {
         val c = controller ?: return@onMain null
         val audio = app.getSystemService(AudioManager::class.java)
         val current = c.currentMediaItem?.toSong()
-        val songs = ArrayList<Song>(minOf(c.mediaItemCount, MAX_QUEUE_ITEMS))
-        for (i in 0 until songs.capacity()) {
+        val count = minOf(c.mediaItemCount, MAX_QUEUE_ITEMS)
+        val songs = ArrayList<Song>(count)
+        for (i in 0 until count) {
             c.getMediaItemAt(i).toSong()?.let { songs.add(it) }
         }
         val labels = attributeQueueIds(songs.map { it.videoId })

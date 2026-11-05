@@ -165,6 +165,7 @@ object QueueTimeline {
 
     /**
      * Computes the jump plan and index permutation for tapping a track at [targetIndex].
+     * [preserveQueue] makes a party jump a seek within its shared running order.
      *
      * Invariants:
      * 1. Backward or same track ([targetIndex] <= [currentIndex]): pure seek.
@@ -180,9 +181,10 @@ object QueueTimeline {
         tiers: List<QueueTier>,
         currentIndex: Int,
         targetIndex: Int,
+        preserveQueue: Boolean = false,
     ): JumpOrderPlan? {
         if (currentIndex !in tiers.indices || targetIndex !in tiers.indices) return null
-        if (targetIndex <= currentIndex) {
+        if (preserveQueue || targetIndex <= currentIndex) {
             return JumpOrderPlan(
                 isPureSeek = true,
                 newOrderIndices = tiers.indices.toList(),

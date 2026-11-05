@@ -141,6 +141,7 @@ object QueueCoordinator {
         tierAt: (Int) -> QueueTier = player::queueTierAt,
         positionMs: Long = 0L,
         play: Boolean = true,
+        preserveQueue: Boolean = false,
     ) {
         val currentIndex = player.currentMediaItemIndex
         val count = player.mediaItemCount
@@ -148,7 +149,7 @@ object QueueCoordinator {
 
         val tiers = cachedTimeline?.takeIf { it.size == count }?.map { it.queueTier }
             ?: (0 until count).map { tierAt(it) }
-        val plan = QueueTimeline.computeJumpOrder(tiers, currentIndex, targetIndex) ?: return
+        val plan = QueueTimeline.computeJumpOrder(tiers, currentIndex, targetIndex, preserveQueue) ?: return
 
         if (plan.isPureSeek) {
             player.seekTo(plan.newTargetIndex, positionMs)

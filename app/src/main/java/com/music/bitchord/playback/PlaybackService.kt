@@ -8491,6 +8491,8 @@ class PlaybackService : MediaLibraryService() {
                 mediaItemIndex,
                 positionMs = positionMs,
                 play = false,
+                // Party history anchors the retained playlist tail, including bypassed tracks.
+                preserveQueue = ListenTogether.state.value.inParty,
             )
         }
 

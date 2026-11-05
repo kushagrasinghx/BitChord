@@ -881,6 +881,32 @@ class QueueCoordinatorTest {
     }
 
     @Test
+    fun `party jump to future user queue item seeks without pruning playlist tail`() {
+        val songs = listOf(
+            testSong("current", tier = QueueTier.CONTEXT),
+            testSong("manual-1", tier = QueueTier.USER_QUEUE),
+            testSong("context-1", tier = QueueTier.CONTEXT),
+            testSong("manual-2", tier = QueueTier.USER_QUEUE),
+            testSong("context-2", tier = QueueTier.CONTEXT),
+            testSong("auto-1", tier = QueueTier.AUTOPLAY),
+        )
+        val originalIds = songs.map { it.videoId }
+        val testPlayer = TestPlayer(songs.map { it.toMediaItem() }.toMutableList(), activeIndex = 0)
+
+        QueueCoordinator.jumpToQueueItem(
+            player = testPlayer.player,
+            targetIndex = 3,
+            cachedTimeline = songs,
+            preserveQueue = true,
+        )
+
+        assertEquals(1, testPlayer.seekCallCount)
+        assertEquals(0, testPlayer.queueEditCallCount)
+        assertEquals(3, testPlayer.activeIndex)
+        assertEquals(originalIds, testPlayer.items.map { it.mediaId })
+    }
+
+    @Test
     fun `jumpToQueueItem to context track crossing user queue reorders user queue after target and preserves preceding context in history (Timelines A, B, C, D)`() {
         fun makeItem(song: Song, cIdx: Int?): MediaItem =
             QueueShuffle.withQueueMetadata(song.toMediaItem(), newEntryId = song.queueEntryId, newCanonicalIndex = cIdx, newTier = song.queueTier)

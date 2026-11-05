@@ -3,6 +3,10 @@ package com.music.bitchord.playback
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.listentogether.PartyPlayback
+import com.music.bitchord.data.listentogether.PartyPlaylistContinuation
+import com.music.bitchord.data.listentogether.PartyQueue
+import com.music.bitchord.data.listentogether.PartyTrack
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -87,5 +91,58 @@ class PartyPlaybackQueueTest {
         assertEquals(PlaybackSourceType.BROWSE, queue[0].playbackSourceType)
         assertEquals("playlist-id", queue[0].playbackSourceId)
         assertNotNull(queue[0].queueEntryId)
+    }
+
+    @Test
+    fun `party queue jumps preserve the continuation tail and subsequent refill order`() {
+        val songs = List(70) { index -> song("playlist-${index % 4}").copy(title = "Track $index") }
+        val timeline = QueueTimeline.buildPartyPlaybackQueue(songs, 0, source, emptyList())
+        val tracks = timeline.map { PartyTrack(it.videoId, title = it.title) }
+        val defaultJump = QueueTimeline.computeJumpOrder(
+            tiers = timeline.map { it.queueTier },
+            currentIndex = 0,
+            targetIndex = 10,
+        )!!
+        assertEquals(listOf(0) + (10 until timeline.size).toList(), defaultJump.newOrderIndices)
+
+        val jump = QueueTimeline.computeJumpOrder(
+            tiers = timeline.map { it.queueTier },
+            currentIndex = 0,
+            targetIndex = 10,
+            preserveQueue = true,
+        )!!
+        assertEquals(timeline.indices.toList(), jump.newOrderIndices)
+        assertEquals(10, jump.newTargetIndex)
+        val partyOrder = jump.newOrderIndices.map(tracks::get)
+
+        val continuation = PartyPlaylistContinuation()
+        var queue = continuation.start(partyOrder, index = 0, baseQueueSeq = 5).copy(seq = 5)
+        var playback = PartyPlayback(track = partyOrder[0], queueSeq = 5, queueLength = queue.items.size, queueIndex = 0)
+        assertTrue(continuation.nextBatch(queue, playback).isEmpty())
+
+        // Seeking ahead to playlist item 10 leaves the same server queue and opens ten slots.
+        playback = playback.copy(track = partyOrder[10], queueIndex = 10)
+        val batch = continuation.nextBatch(queue, playback)
+        assertEquals((26..35).map { partyOrder[it] }, batch)
+        assertEquals((26..35).map { partyOrder[it].videoId }, batch.map { it.videoId })
+
+        queue = queue.copy(seq = 6, items = queue.items + batch)
+        playback = playback.copy(queueSeq = 6, queueLength = queue.items.size)
+        assertTrue(continuation.nextBatch(queue, playback).isEmpty())
+        assertTrue(queue.items.size - playback.queueIndex - 1 <= 25)
+        assertTrue(continuation.active)
+
+        // A backward seek followed by another forward tap also leaves the running order intact.
+        val backward = QueueTimeline.computeJumpOrder(
+            timeline.map { it.queueTier }, currentIndex = 10, targetIndex = 4, preserveQueue = true,
+        )!!
+        val forward = QueueTimeline.computeJumpOrder(
+            timeline.map { it.queueTier }, currentIndex = 4, targetIndex = 10, preserveQueue = true,
+        )!!
+        assertEquals(timeline.indices.toList(), backward.newOrderIndices)
+        assertEquals(timeline.indices.toList(), forward.newOrderIndices)
+
+        playback = playback.copy(track = partyOrder[11], queueIndex = 11)
+        assertEquals(listOf(partyOrder[36]), continuation.nextBatch(queue, playback))
     }
 }

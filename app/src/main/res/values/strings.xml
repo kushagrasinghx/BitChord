@@ -1501,4 +1501,10 @@
     <string name="replay_year_summary_minutes">Minutes listened</string>
     <string name="replay_year_mute">Mute the story</string>
     <string name="replay_year_unmute">Unmute the story</string>
+
+    <!-- Local metadata editor -->
+    <string name="track_title" translatable="false">Title</string>
+    <string name="edit_metadata" translatable="false">Edit metadata</string>
+    <string name="metadata_updated" translatable="false">Metadata updated</string>
+    <string name="metadata_update_failed" translatable="false">Failed to update metadata</string>
 </resources>

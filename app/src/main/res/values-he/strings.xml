@@ -1565,4 +1565,70 @@
     <string name="drive_backup_row_subtitle">גיבוי וסנכרון של Replay בין המכשירים שלך</string>
     <string name="drive_over_cellular">סנכרון בחבילת גלישה</string>
     <string name="drive_over_cellular_subtitle">כשכבוי, סנכרונים אוטומטיים ממתינים ל-Wi-Fi</string>
+
+    <string name="automix_art_transition">Art transition</string>
+    <string name="automix_art_transition_subtitle">Smoothly blends cover art between tracks during AutoMix.</string>
+    <string name="automix_mini_art_transition">Mini-player art transition</string>
+    <string name="automix_mini_art_transition_subtitle">Shows artwork transitions in the mini-player during AutoMix.</string>
+    <string name="show_best_part">Best Part button</string>
+    <string name="show_best_part_subtitle">A button on the artwork that skips to the part of the song people replay most</string>
+    <string name="replay_year_open">Open your Replay %1$s</string>
+    <string name="replay_year_building">Building your year…</string>
+    <string name="replay_year_opener_start">Your</string>
+    <string name="replay_year_opener_end">in BitChord</string>
+    <string name="replay_year_opener_detail">Let’s look back at what you played.</string>
+    <string name="replay_year_minutes_start">This year you listened for</string>
+    <plurals name="replay_year_minutes_word">
+        <item quantity="one">minute</item>
+        <item quantity="other">minutes</item>
+    </plurals>
+    <string name="replay_year_minutes_days_start">That’s</string>
+    <string name="replay_year_minutes_days_value">%1$s days</string>
+    <string name="replay_year_minutes_hours_value">%1$s hours</string>
+    <string name="replay_year_minutes_days_end">of music.</string>
+    <string name="replay_year_busiest_start">Your biggest day was</string>
+    <string name="replay_year_busiest_minutes">%1$s minutes of music in one day</string>
+    <string name="replay_year_busiest_song">Mostly %1$s</string>
+    <string name="replay_year_clock_start">You came alive around</string>
+    <string name="replay_year_night_owl">Night Owl</string>
+    <string name="replay_year_night_owl_detail">So much of your listening happened after 10 pm.</string>
+    <string name="replay_year_early_bird">Early Riser</string>
+    <string name="replay_year_early_bird_detail">Your days started with music before 10 am.</string>
+    <string name="replay_year_golden_hour">Golden Hour</string>
+    <string name="replay_year_golden_hour_detail">Evenings were when the music came out.</string>
+    <string name="replay_year_daytime">Daytime Drifter</string>
+    <string name="replay_year_daytime_detail">You kept the music going through the day.</string>
+    <string name="replay_year_all_day">Around the Clock</string>
+    <string name="replay_year_all_day_detail">Morning, noon or night, something was playing.</string>
+    <string name="replay_year_genres_start">Your sound this year</string>
+    <string name="replay_year_artist_start">Your top artist this year was…</string>
+    <string name="replay_year_minutes_together">%1$s minutes together</string>
+    <string name="replay_year_top_artists">Your top artists</string>
+    <string name="replay_year_song_start">And your song of the year…</string>
+    <plurals name="replay_year_played_times">
+        <item quantity="one">Played %1$s time</item>
+        <item quantity="other">Played %1$s times</item>
+    </plurals>
+    <string name="replay_year_top_songs">The rest of your top songs</string>
+    <string name="replay_year_albums">Albums you lived in</string>
+    <string name="replay_year_months">Your year, month by month</string>
+    <string name="replay_year_discovery_start">This year you explored</string>
+    <plurals name="replay_year_songs_word">
+        <item quantity="one">song</item>
+        <item quantity="other">songs</item>
+    </plurals>
+    <plurals name="replay_year_artists_word">
+        <item quantity="one">artist</item>
+        <item quantity="other">artists</item>
+    </plurals>
+    <plurals name="replay_year_albums_word">
+        <item quantity="one">album</item>
+        <item quantity="other">albums</item>
+    </plurals>
+    <string name="replay_year_summary_title">Your %1$s</string>
+    <string name="replay_year_summary_artists">Top artists</string>
+    <string name="replay_year_summary_songs">Top songs</string>
+    <string name="replay_year_summary_minutes">Minutes listened</string>
+    <string name="replay_year_mute">Mute the story</string>
+    <string name="replay_year_unmute">Unmute the story</string>
 </resources>

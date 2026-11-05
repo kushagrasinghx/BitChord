@@ -493,14 +493,14 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = SfIcons.Wifi,
                         title = remoteControlTitle,
-                        subtitle = if (remoteControlState.running) {
-                            stringResource(
+                        subtitle = when {
+                            remoteControlState.error != null -> remoteControlState.error
+                            remoteControlState.running -> stringResource(
                                 R.string.remote_control_running,
                                 remoteControlState.url ?: "",
                                 remoteControlState.pin ?: "",
                             )
-                        } else {
-                            stringResource(R.string.remote_control_subtitle)
+                            else -> stringResource(R.string.remote_control_subtitle)
                         },
                         trailing = {
                             IosSwitch(

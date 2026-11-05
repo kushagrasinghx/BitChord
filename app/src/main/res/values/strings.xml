@@ -932,6 +932,7 @@
     <string name="remote_control">Remote control</string>
     <string name="remote_control_subtitle">Control this phone\u2019s player from a browser on the same Wi-Fi</string>
     <string name="remote_control_running">Open %1$s \u00b7 PIN %2$s</string>
+    <string name="remote_control_start_failed">Couldn\u2019t start \u2014 port 8899 is already in use on this phone</string>
     <string name="remote_control_pin">Remote PIN</string>
     <string name="remote_control_pin_custom">Custom PIN: %1$s</string>
     <string name="remote_control_pin_auto">Automatic \u2014 a new PIN at every start</string>

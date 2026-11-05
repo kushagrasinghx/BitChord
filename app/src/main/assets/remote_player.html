@@ -15,7 +15,28 @@
     background: var(--bg); color: var(--text);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-size: 15px; line-height: 1.45; padding: 16px 16px 48px;
-    max-width: 560px; margin: 0 auto;
+  }
+  /* One column, phone-width, by default. */
+  header, #pinCard, #playerUi { max-width: 560px; margin-left: auto; margin-right: auto; }
+  #pinCard { margin-top: 12px; margin-bottom: 12px; }
+  /* Wide screens (a laptop on the same Wi-Fi is a first-class remote):
+     two columns — player and lyrics on the left, search and the queue
+     on the right — instead of a phone column adrift in a big window. */
+  @media (min-width: 1080px) {
+    body { padding: 24px 32px 64px; }
+    header, #pinCard, #playerUi { max-width: 1180px; }
+    #playerUi {
+      display: grid; grid-template-columns: 400px 1fr;
+      column-gap: 16px; align-items: start;
+    }
+    #playerUi > section { margin: 8px 0; }
+    #playerUi > section:nth-of-type(1) { grid-column: 1; grid-row: 1; }
+    #lyricsCard { grid-column: 1; grid-row: 2; }
+    #playerUi > section:nth-of-type(3) { grid-column: 2; grid-row: 1; }
+    #playerUi > section:nth-of-type(4) { grid-column: 2; grid-row: 2; }
+    .lyrics-body { max-height: 60vh; }
+    .item:hover { border-color: var(--sky); }
+    .tbtn:hover { border-color: var(--sky); }
   }
   header { display: flex; align-items: center; gap: 10px; padding: 4px 2px 14px; }
   header .note { width: 28px; height: 28px; flex: none; }
@@ -85,7 +106,7 @@
   }
   .browse-head .t { font-weight: 700; }
   .browse-head .a { color: var(--muted); font-size: 12.5px; }
-  .lyrics-body { max-height: 48vh; overflow-y: auto; padding: 2px; }
+  .lyrics-body { max-height: 48vh; overflow-y: auto; padding: 2px; position: relative; }
   .lrow { color: var(--muted); margin: 7px 0; line-height: 1.45; }
   .lrow.synced { cursor: pointer; }
   .lrow.active { color: var(--text); font-weight: 700; }
@@ -251,9 +272,15 @@ function toast(msg, actionLabel, onAction, ms) {
 function removeFromQueue(index) {
   const q = state && state.queue ? state.queue[index] : null;
   if (!q) return;
-  command({ action: 'remove', index });
+  // Name the song, not just its position: with several people editing,
+  // the queue can shift between this page's render and the tap, and the
+  // server refuses a removal whose index no longer holds this song.
+  // The undo names the song that followed it, so the server can tell
+  // whether the old position still means what it meant.
+  const next = state.queue[index + 1];
+  command({ action: 'remove', index, videoId: q.videoId });
   toast('Removed "' + q.title + '"', 'Undo', () => {
-    command({ action: 'addSongAt', index, song: q });
+    command({ action: 'addSongAt', index, song: q, beforeVideoId: next ? next.videoId : '' });
   }, 6000);
 }
 
@@ -370,13 +397,15 @@ function render() {
     for (const el of document.querySelectorAll('[data-move-up]')) {
       el.addEventListener('click', () => {
         const from = Number(el.dataset.moveUp);
-        command({ action: 'move', from, to: from - 1 });
+        const q = state.queue[from];
+        command({ action: 'move', from, to: from - 1, fromId: q ? q.videoId : '' });
       });
     }
     for (const el of document.querySelectorAll('[data-move-down]')) {
       el.addEventListener('click', () => {
         const from = Number(el.dataset.moveDown);
-        command({ action: 'move', from, to: from + 1 });
+        const q = state.queue[from];
+        command({ action: 'move', from, to: from + 1, fromId: q ? q.videoId : '' });
       });
     }
     for (const el of document.querySelectorAll('[data-remove]')) {
@@ -591,7 +620,13 @@ function updateLyricsHighlight(force) {
   lyricsActiveIdx = idx;
   const rows = $('lyricsBody').querySelectorAll('.lrow');
   rows.forEach((el, i) => el.classList.toggle('active', i === idx));
-  if (idx >= 0 && rows[idx]) rows[idx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (idx >= 0 && rows[idx]) {
+    // Scroll the panel, not the page: scrollIntoView would also drag
+    // the window back to the lyrics card on every line change.
+    const body = $('lyricsBody');
+    const target = rows[idx].offsetTop - (body.clientHeight - rows[idx].clientHeight) / 2;
+    body.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+  }
 }
 
 function startPolling() {

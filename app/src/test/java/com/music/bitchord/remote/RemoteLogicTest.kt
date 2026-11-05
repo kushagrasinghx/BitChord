@@ -1,0 +1,137 @@
+package com.music.bitchord.remote
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+
+/**
+ * The web remote's pure decisions: who queued what, which PIN a start
+ * uses, how join names are cleaned, and which page a browse card opens.
+ *
+ * Worth their own tests because every one of them fails silently.
+ * Attribution consuming out of order still renders a queue — just with
+ * the wrong names on it. A PIN precedence slip still starts a server —
+ * with a PIN the user did not choose. A browse-prefix slip still opens
+ * a page — the wrong kind. None of it crashes, so only a test notices.
+ */
+class RemoteLogicTest {
+
+    // ── attribution ─────────────────────────────────────────────────
+
+    @Test
+    fun attributionLabelsInQueueOrder() {
+        val (labels, kept) = attributeIds(
+            queueIds = listOf("a", "b"),
+            entries = listOf("a" to "Ana", "b" to "Ben"),
+        )
+        assertEquals(listOf("Ana", "Ben"), labels)
+        assertEquals(listOf("a" to "Ana", "b" to "Ben"), kept)
+    }
+
+    @Test
+    fun attributionConsumesDuplicatesInTheOrderTheyWereAdded() {
+        // The same song queued twice by two people: the first copy in
+        // the queue belongs to whoever added it first.
+        val (labels, kept) = attributeIds(
+            queueIds = listOf("a", "x", "a"),
+            entries = listOf("a" to "Ana", "a" to "Ben"),
+        )
+        assertEquals(listOf("Ana", null, "Ben"), labels)
+        assertEquals(2, kept.size)
+    }
+
+    @Test
+    fun attributionDropsEntriesWhoseSongLeftTheQueue() {
+        // A kept entry for a song no longer queued would mislabel a
+        // later re-add of the same song, so the walk drops it.
+        val (labels, kept) = attributeIds(
+            queueIds = listOf("b"),
+            entries = listOf("a" to "Ana", "b" to "Ben"),
+        )
+        assertEquals(listOf("Ben"), labels)
+        assertEquals(listOf("b" to "Ben"), kept)
+    }
+
+    @Test
+    fun attributionSurvivesPastTheDisplayCap() {
+        // The page shows at most 200 queue items, but the walk runs
+        // over the whole queue: a label at position 204 is consumed
+        // and kept, not pruned for being off-screen.
+        val ids = (0 until 205).map { "v$it" }
+        val (labels, kept) = attributeIds(ids, listOf("v204" to "Zed"))
+        assertEquals("Zed", labels[204])
+        assertEquals(listOf("v204" to "Zed"), kept)
+    }
+
+    @Test
+    fun attributionOfAnUnlabelledQueueIsAllNull() {
+        val (labels, kept) = attributeIds(listOf("a", "b"), emptyList())
+        assertEquals(listOf(null, null), labels)
+        assertEquals(emptyList<Pair<String, String>>(), kept)
+    }
+
+    // ── PIN choice ──────────────────────────────────────────────────
+
+    @Test
+    fun customPinAlwaysWins() {
+        assertEquals("9876", pickPin(custom = "9876", persistent = true, saved = "1234"))
+        assertEquals("9876", pickPin(custom = "9876", persistent = false, saved = ""))
+    }
+
+    @Test
+    fun savedPinIsUsedOnlyWhenPersistent() {
+        assertEquals("1234", pickPin(custom = "", persistent = true, saved = "1234"))
+        assertNull(pickPin(custom = "", persistent = false, saved = "1234"))
+    }
+
+    @Test
+    fun noPinAnywhereMeansGenerateAFreshOne() {
+        assertNull(pickPin(custom = "", persistent = true, saved = ""))
+        assertNull(pickPin(custom = "", persistent = false, saved = ""))
+    }
+
+    // ── name sanitizing ─────────────────────────────────────────────
+
+    @Test
+    fun namesAreTrimmedAndCapped() {
+        assertEquals("Ana", sanitizeRemoteName("  Ana  "))
+        assertEquals(24, sanitizeRemoteName("a".repeat(40)).length)
+    }
+
+    @Test
+    fun namesLoseControlCharacters() {
+        assertEquals("AB", sanitizeRemoteName("A\u0007B"))
+    }
+
+    @Test
+    fun blankNamesJoinAsGuest() {
+        assertEquals("Guest", sanitizeRemoteName(null))
+        assertEquals("Guest", sanitizeRemoteName(""))
+        assertEquals("Guest", sanitizeRemoteName("   "))
+    }
+
+    // ── browse kind resolution ──────────────────────────────────────
+
+    @Test
+    fun explicitKindWinsOverPrefixes() {
+        assertEquals("artist", resolveBrowseKind("VLPL123", "artist"))
+        assertEquals("album", resolveBrowseKind("UCabc", "album"))
+    }
+
+    @Test
+    fun browsePrefixesClassifyLikeTheApp() {
+        assertEquals("artist", resolveBrowseKind("UCabc", ""))
+        assertEquals("album", resolveBrowseKind("MPREb123", ""))
+        assertEquals("album", resolveBrowseKind("OLAK123", ""))
+        assertEquals("playlist", resolveBrowseKind("VLPL123", ""))
+        assertEquals("playlist", resolveBrowseKind("PL123", ""))
+        assertEquals("playlist", resolveBrowseKind("RD123", ""))
+    }
+
+    @Test
+    fun albumWrapperPrefixBeatsThePlaylistPrefix() {
+        // VLOLAK is an album delivered in a playlist-shaped id; the
+        // whole point of the ordering is that it is not a playlist.
+        assertEquals("album", resolveBrowseKind("VLOLAK123", ""))
+    }
+}

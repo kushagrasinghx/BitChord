@@ -28,6 +28,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
@@ -48,6 +50,51 @@ import kotlin.math.roundToInt
  * Controller calls have to happen on the main thread; the HTTP worker
  * threads that call in here hop over and wait for the answer.
  */
+
+/**
+ * The attribution walk, pure: given the queue's videoIds in order and
+ * the (videoId, name) entries recorded for web-queued songs, returns
+ * the label for each queue position (null where a song carries none)
+ * and the entries the walk consumed. Matching consumes entries in
+ * order, so duplicate songs keep the order their owners added them;
+ * entries the walk does not consume belong to songs no longer queued
+ * and are dropped by the caller. The walk runs over the WHOLE queue,
+ * not just the page's visible slice, so a label on a song past the
+ * display cap survives until the song itself leaves.
+ */
+internal fun attributeIds(
+    queueIds: List<String>,
+    entries: List<Pair<String, String>>,
+): Pair<List<String?>, List<Pair<String, String>>> {
+    val pending = entries.toMutableList()
+    val kept = mutableListOf<Pair<String, String>>()
+    val labels = queueIds.map { id ->
+        val idx = pending.indexOfFirst { it.first == id }
+        if (idx < 0) {
+            null
+        } else {
+            val entry = pending.removeAt(idx)
+            kept.add(entry)
+            entry.second
+        }
+    }
+    return labels to kept
+}
+
+/**
+ * Which kind of page a browse card opens, pure: an explicit kind from
+ * the search results wins; otherwise the browseId prefixes the app
+ * itself classifies by decide. Order matters — `VLOLAK` (an album in
+ * a playlist-shaped wrapper) must be tested before the plain `VL`
+ * playlist prefix.
+ */
+internal fun resolveBrowseKind(browseId: String, kind: String): String = when {
+    kind == "artist" || browseId.startsWith("UC") -> "artist"
+    kind == "album" || browseId.startsWith("MPREb") ||
+        browseId.startsWith("VLOLAK") || browseId.startsWith("OLAK") -> "album"
+    else -> "playlist"
+}
+
 object RemoteBridge {
 
     private val main = Handler(Looper.getMainLooper())
@@ -78,10 +125,14 @@ object RemoteBridge {
             future?.let(MediaController::releaseFuture)
             future = null
             controller = null
+            // Labels, the undo record and cached lyrics live exactly as
+            // long as the server does — the docs promise it, so clear
+            // them here rather than letting the next start inherit them.
+            synchronized(queuedByLock) { queuedBy.clear() }
+            lyricsCache.clear()
+            lastRemoved = null
         }
     }
-
-    fun isConnected(): Boolean = controller != null
 
     // ── queued-by attribution ─────────────────────────────────────
 
@@ -113,29 +164,35 @@ object RemoteBridge {
     }
 
     /**
-     * Labels up to [count] queue songs from [attributions], consuming
-     * matches in order and keeping only the consumed entries, so the
-     * stored list shrinks along with the queue.
+     * Labels the queue from the stored entries via [attributeIds],
+     * keeping only the entries the walk consumed, so the stored list
+     * shrinks along with the queue.
      */
     private fun attributeQueueIds(ids: List<String>): List<String?> {
         synchronized(queuedByLock) {
-            val pending = queuedBy.toMutableList()
-            val kept = mutableListOf<Pair<String, String>>()
-            val labels = ids.map { id ->
-                val idx = pending.indexOfFirst { it.first == id }
-                if (idx < 0) {
-                    null
-                } else {
-                    val entry = pending.removeAt(idx)
-                    kept.add(entry)
-                    entry.second
-                }
-            }
+            val (labels, kept) = attributeIds(ids, queuedBy.toList())
             queuedBy.clear()
             queuedBy.addAll(kept)
             return labels
         }
     }
+
+    /** The label at [index] without consuming anything (a copy is walked). */
+    private fun peekLabel(ids: List<String>, index: Int): String? {
+        val copy = synchronized(queuedByLock) { queuedBy.toList() }
+        return attributeIds(ids, copy).first.getOrNull(index)
+    }
+
+    /**
+     * The most recent removal made through the web remote, kept for the
+     * page's Undo: the bridge — not the page — remembers the label the
+     * song carried, so a re-insert restores the original attribution
+     * from server-side truth instead of trusting the request body.
+     * Only ever touched inside [onMain] blocks, so it is main-thread
+     * confined like the controller itself.
+     */
+    private data class RemovedSong(val song: Song, val label: String?)
+    private var lastRemoved: RemovedSong? = null
 
     // ── state ────────────────────────────────────────────────────────
 
@@ -144,14 +201,22 @@ object RemoteBridge {
         val c = controller ?: return@onMain null
         val audio = app.getSystemService(AudioManager::class.java)
         val current = c.currentMediaItem?.toSong()
-        val count = minOf(c.mediaItemCount, MAX_QUEUE_ITEMS)
-        val songs = ArrayList<Song>(count)
-        for (i in 0 until count) {
-            c.getMediaItemAt(i).toSong()?.let { songs.add(it) }
+        // Attribution walks the whole queue so a label past the display
+        // cap is not pruned while its song is still queued; only the
+        // JSON is capped, and labels stay indexed by queue position.
+        val all = ArrayList<Song?>(c.mediaItemCount)
+        for (i in 0 until c.mediaItemCount) {
+            all.add(c.getMediaItemAt(i).toSong())
         }
-        val labels = attributeQueueIds(songs.map { it.videoId })
+        val labels = attributeQueueIds(all.map { it?.videoId ?: "" })
         val queue = JSONArray()
-        songs.forEachIndexed { i, song -> queue.put(songJson(song, labels.getOrNull(i))) }
+        var shown = 0
+        all.forEachIndexed { i, song ->
+            if (song != null && shown < MAX_QUEUE_ITEMS) {
+                queue.put(songJson(song, labels.getOrNull(i)))
+                shown++
+            }
+        }
         val userList = JSONArray()
         synchronized(queuedByLock) { queuedBy.map { it.second }.distinct().forEach { userList.put(it) } }
         JSONObject().apply {
@@ -251,24 +316,45 @@ object RemoteBridge {
                 }
                 "addSongAt" -> {
                     // The queue editor's undo: put a just-removed song back
-                    // where it was, keeping the name it was queued under —
-                    // the page hands the label back in the song object, and
-                    // only a blank one falls back to the caller.
-                    val raw = body.optJSONObject("song")
-                    val song = songFromJson(raw) ?: return@onMain false
-                    val at = body.optInt("index", c.mediaItemCount).coerceIn(0, c.mediaItemCount)
+                    // where it was, with the label it carried. The label
+                    // comes from the bridge's own removal record when the
+                    // song matches it — never from the request body, which
+                    // any joined user could fill with someone else's name.
+                    val song = songFromJson(body.optJSONObject("song")) ?: return@onMain false
+                    val stash = lastRemoved?.takeIf { it.song.videoId == song.videoId }
+                    if (stash != null) lastRemoved = null
+                    var at = body.optInt("index", c.mediaItemCount).coerceIn(0, c.mediaItemCount)
+                    // The page names the song that used to follow the
+                    // removed one; if it is no longer at the index, the
+                    // queue moved since the removal and the song goes at
+                    // the end rather than landing mid-list at random.
+                    val beforeId = body.optString("beforeVideoId")
+                    if (beforeId.isNotBlank() && at < c.mediaItemCount &&
+                        c.getMediaItemAt(at).toSong()?.videoId != beforeId
+                    ) {
+                        at = c.mediaItemCount
+                    }
                     c.addMediaItem(at, song.toMediaItem())
-                    noteQueued(song, raw?.optString("queuedBy")?.takeIf { it.isNotBlank() } ?: user)
+                    noteQueued(song, stash?.label ?: user)
                     true
                 }
                 "move" -> {
                     // The same Player.moveMediaItem the app's own queue UI
                     // sends for a drag (a plain reorder, no drag bracket —
                     // that only batches party publishes during a drag).
+                    // The page names the song it means (fromId): with
+                    // several people editing, positions shift between a
+                    // page's render and its tap, and moving the wrong
+                    // song is worse than refusing the move.
                     val count = c.mediaItemCount
                     val from = body.optInt("from", -1)
                     val to = body.optInt("to", -1)
+                    val fromId = body.optString("fromId")
                     if (from !in 0 until count || to !in 0 until count) {
+                        false
+                    } else if (fromId.isNotBlank() &&
+                        c.getMediaItemAt(from).toSong()?.videoId != fromId
+                    ) {
                         false
                     } else if (from == to) {
                         true
@@ -278,12 +364,27 @@ object RemoteBridge {
                     }
                 }
                 "remove" -> {
+                    // The page names the song it means (videoId) for the
+                    // same reason as move: an index alone can point at a
+                    // different song by the time the tap lands.
                     val index = body.optInt("index", -1)
                     if (index !in 0 until c.mediaItemCount) {
                         false
                     } else {
-                        c.removeMediaItem(index)
-                        true
+                        val expected = body.optString("videoId")
+                        val song = c.getMediaItemAt(index).toSong()
+                        if (expected.isNotBlank() && song?.videoId != expected) {
+                            false
+                        } else {
+                            if (song != null) {
+                                val ids = (0 until c.mediaItemCount).map {
+                                    c.getMediaItemAt(it).toSong()?.videoId ?: ""
+                                }
+                                lastRemoved = RemovedSong(song, peekLabel(ids, index))
+                            }
+                            c.removeMediaItem(index)
+                            true
+                        }
                     }
                 }
                 "volume" -> {
@@ -387,12 +488,7 @@ object RemoteBridge {
      * kind falls back to the browseId prefixes the app classifies by.
      */
     suspend fun browse(browseId: String, kind: String): JSONObject {
-        val resolved = when {
-            kind == "artist" || browseId.startsWith("UC") -> "artist"
-            kind == "album" || browseId.startsWith("MPREb") ||
-                browseId.startsWith("VLOLAK") || browseId.startsWith("OLAK") -> "album"
-            else -> "playlist"
-        }
+        val resolved = resolveBrowseKind(browseId, kind)
         var title: String? = null
         var subtitle: String? = null
         val sections = JSONArray()
@@ -449,6 +545,28 @@ object RemoteBridge {
     private val lyricsCache = java.util.concurrent.ConcurrentHashMap<String, JSONObject>()
 
     /**
+     * Serializes the cache-check → lookup → store sequence: without it,
+     * two browsers opening the panel at the same moment both miss the
+     * cache and both pay the provider race. The second simply waits
+     * and then reads the first's answer.
+     */
+    private val lyricsMutex = Mutex()
+
+    /**
+     * A fingerprint of the lyrics settings the cache was filled under.
+     * Change the sources or their order in Settings and the next call
+     * sees a different fingerprint and starts the cache over, instead
+     * of serving answers (or misses) the old settings produced.
+     */
+    @Volatile private var lyricsSettingsKey: String? = null
+
+    private fun currentLyricsSettingsKey(): String = listOf(
+        AppSettings.lyricsSources.value.joinToString(","),
+        AppSettings.lyricsSourceOrder.value.joinToString(","),
+        AppSettings.prioritizeSyllableSync.value.toString(),
+    ).joinToString("|")
+
+    /**
      * Lyrics for the track playing right now, from the same repository
      * and the same source settings the app's own lyrics view uses.
      * Lines carry their timestamps (`synced` when any line is timed);
@@ -460,41 +578,48 @@ object RemoteBridge {
     suspend fun lyrics(): JSONObject {
         val c = controller ?: return JSONObject().put("found", false)
         val song = onMain { c.currentMediaItem?.toSong() } ?: return JSONObject().put("found", false)
-        lyricsCache[song.videoId]?.let { return it }
-        val durationMs = onMain { c.duration } ?: 0L
-        if (durationMs <= 0L) {
-            return JSONObject()
-                .put("found", false)
-                .put("pending", true)
-                .put("videoId", song.videoId)
-        }
-        val found = LyricsRepository.lyrics(
-            videoId = song.videoId,
-            title = song.title,
-            artist = song.artist,
-            durationMs = durationMs,
-            sources = AppSettings.lyricsSources.value,
-            order = AppSettings.lyricsSourceOrder.value,
-            prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
-        )
-        val out = JSONObject().put("videoId", song.videoId)
-        if (found == null) {
-            out.put("found", false)
-        } else {
-            val lines = JSONArray()
-            var synced = false
-            for (line in found.lines) {
-                if (line.timeMs > 0) synced = true
-                lines.put(JSONObject().put("at", line.timeMs).put("text", line.text))
+        return lyricsMutex.withLock {
+            val key = currentLyricsSettingsKey()
+            if (key != lyricsSettingsKey) {
+                lyricsCache.clear()
+                lyricsSettingsKey = key
             }
-            out.put("found", true)
-            out.put("synced", synced)
-            out.put("source", found.source.label)
-            out.put("lines", lines)
+            lyricsCache[song.videoId]?.let { return@withLock it }
+            val durationMs = onMain { c.duration } ?: 0L
+            if (durationMs <= 0L) {
+                return@withLock JSONObject()
+                    .put("found", false)
+                    .put("pending", true)
+                    .put("videoId", song.videoId)
+            }
+            val found = LyricsRepository.lyrics(
+                videoId = song.videoId,
+                title = song.title,
+                artist = song.artist,
+                durationMs = durationMs,
+                sources = AppSettings.lyricsSources.value,
+                order = AppSettings.lyricsSourceOrder.value,
+                prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+            )
+            val out = JSONObject().put("videoId", song.videoId)
+            if (found == null) {
+                out.put("found", false)
+            } else {
+                val lines = JSONArray()
+                var synced = false
+                for (line in found.lines) {
+                    if (line.timeMs > 0) synced = true
+                    lines.put(JSONObject().put("at", line.timeMs).put("text", line.text))
+                }
+                out.put("found", true)
+                out.put("synced", synced)
+                out.put("source", found.source.label)
+                out.put("lines", lines)
+            }
+            if (lyricsCache.size > 64) lyricsCache.clear()
+            lyricsCache[song.videoId] = out
+            out
         }
-        if (lyricsCache.size > 64) lyricsCache.clear()
-        lyricsCache[song.videoId] = out
-        return out
     }
 
     // ── helpers ──────────────────────────────────────────────────────

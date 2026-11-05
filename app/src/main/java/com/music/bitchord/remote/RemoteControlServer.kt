@@ -1,6 +1,7 @@
 package com.music.bitchord.remote
 
 import android.content.Context
+import com.music.bitchord.R
 import com.music.bitchord.data.DebugLog as Log
 import com.music.bitchord.data.settings.AppSettings
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +24,56 @@ import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 
 internal const val REMOTE_LOG_TAG = "RemoteControl"
+
+/**
+ * The largest request body the server will read. Every legitimate body
+ * is a small JSON object (a PIN, a name, one song); anything bigger is
+ * a mistake or an attack, and it is refused before a single byte is
+ * buffered — the claimed Content-Length is never trusted as an
+ * allocation size.
+ */
+private const val MAX_BODY_BYTES = 64 * 1024
+
+/** Wrong PINs from one address that trip the unlock lockout. */
+private const val UNLOCK_FAILURE_LIMIT = 5
+
+/** Wrong PINs across all addresses that trip the global lockout. */
+private const val UNLOCK_GLOBAL_FAILURE_LIMIT = 30
+
+/** How long failures count toward a lockout. */
+private const val UNLOCK_WINDOW_MS = 10 * 60 * 1000L
+
+/** How long one address stays locked out. */
+private const val UNLOCK_LOCKOUT_MS = 10 * 60 * 1000L
+
+/** How long everyone stays locked out after a global trip. */
+private const val UNLOCK_GLOBAL_LOCKOUT_MS = 5 * 60 * 1000L
+
+/** A beat of delay on every wrong PIN, so guessing is never free. */
+private const val UNLOCK_FAILURE_DELAY_MS = 400L
+
+/**
+ * Which PIN a server start uses, before any generation happens: the
+ * user's own PIN when one is set (it always wins); else, with the
+ * persistent option on, the last generated PIN; else null, meaning
+ * "mint a fresh one" (the caller saves it when persistent is on).
+ * Pure, so the order is unit-testable.
+ */
+internal fun pickPin(custom: String, persistent: Boolean, saved: String): String? = when {
+    custom.isNotBlank() -> custom
+    persistent && saved.isNotBlank() -> saved
+    else -> null
+}
+
+/**
+ * Display names are cosmetic, not identities: trim, cap the length,
+ * and drop control characters so a name can never break the page's
+ * layout or its logs. Empty names join as "Guest".
+ */
+internal fun sanitizeRemoteName(raw: String?): String {
+    val cleaned = raw.orEmpty().trim().filter { !it.isISOControl() }.take(24).trim()
+    return cleaned.ifEmpty { "Guest" }
+}
 
 /**
  * A tiny web server in the app that turns any browser on the same Wi-Fi
@@ -50,6 +101,8 @@ object RemoteControl {
         val running: Boolean = false,
         val url: String? = null,
         val pin: String? = null,
+        /** Why the last start failed, shown under the switch; null when fine. */
+        val error: String? = null,
     )
 
     private val _state = MutableStateFlow(State())
@@ -71,6 +124,9 @@ object RemoteControl {
             http.start()
         } catch (e: Exception) {
             Log.e(REMOTE_LOG_TAG, "remote server failed to bind", e)
+            // Surface it: a switch that silently does nothing leaves the
+            // user with no recourse and no explanation.
+            _state.value = State(error = app.getString(R.string.remote_control_start_failed))
             return
         }
         server = http
@@ -87,16 +143,17 @@ object RemoteControl {
      * effect at the next start, never under a running server.
      */
     private fun resolvePin(): String {
-        val custom = AppSettings.remoteControlPin.value
-        if (custom.isNotBlank()) return custom
+        val chosen = pickPin(
+            custom = AppSettings.remoteControlPin.value,
+            persistent = AppSettings.remoteControlPinPersistent.value,
+            saved = AppSettings.remoteControlSavedPin.value,
+        )
+        if (chosen != null) return chosen
+        val generated = newPin()
         if (AppSettings.remoteControlPinPersistent.value) {
-            val saved = AppSettings.remoteControlSavedPin.value
-            if (saved.isNotBlank()) return saved
-            val generated = newPin()
             AppSettings.setRemoteControlSavedPin(generated)
-            return generated
         }
-        return newPin()
+        return generated
     }
 
     private fun newPin(): String = "%04d".format(SecureRandom().nextInt(10_000))
@@ -136,12 +193,71 @@ private class RemoteHttpServer(
     private val app: Context,
     private val pin: String,
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val job = SupervisorJob()
+    private val scope = CoroutineScope(job + Dispatchers.IO)
     @Volatile private var running = false
     private var socket: ServerSocket? = null
 
     /** Session token -> display name, one entry per joined browser. */
     private val sessions = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * Wrong-PIN bookkeeping for /api/unlock. A 4-digit PIN is only a
+     * lock against strangers if guessing is expensive, so failures are
+     * counted per source address and globally: an address that trips
+     * [UNLOCK_FAILURE_LIMIT] inside the window is refused — even with
+     * the right PIN — until its lockout passes, and a flood from many
+     * addresses locks everyone out briefly. The direct socket address
+     * is the key: connections here are direct LAN traffic, no proxy,
+     * so it cannot be spoofed the way a forwarded-for header can.
+     */
+    private val unlockLock = Any()
+    private val unlockFailures = HashMap<String, ArrayDeque<Long>>()
+    private val unlockLockouts = HashMap<String, Long>()
+    private val globalUnlockFailures = ArrayDeque<Long>()
+    private var globalUnlockLockoutUntil = 0L
+
+    private fun unlockLockedOut(ip: String, now: Long): Boolean = synchronized(unlockLock) {
+        (unlockLockouts[ip] ?: 0L) > now || globalUnlockLockoutUntil > now
+    }
+
+    private fun noteUnlockFailure(ip: String, now: Long) {
+        synchronized(unlockLock) {
+            val cutoff = now - UNLOCK_WINDOW_MS
+            fun prune(stamps: ArrayDeque<Long>) {
+                while (stamps.isNotEmpty() && stamps.first() < cutoff) stamps.removeFirst()
+            }
+            val mine = unlockFailures.getOrPut(ip) { ArrayDeque() }
+            prune(mine)
+            mine.addLast(now)
+            if (mine.size >= UNLOCK_FAILURE_LIMIT) {
+                unlockLockouts[ip] = now + UNLOCK_LOCKOUT_MS
+            }
+            prune(globalUnlockFailures)
+            globalUnlockFailures.addLast(now)
+            if (globalUnlockFailures.size >= UNLOCK_GLOBAL_FAILURE_LIMIT) {
+                globalUnlockLockoutUntil = now + UNLOCK_GLOBAL_LOCKOUT_MS
+            }
+            // Keep the maps household-sized: drop addresses whose
+            // window has drained and whose lockout has passed.
+            val it = unlockFailures.entries.iterator()
+            while (it.hasNext()) {
+                val entry = it.next()
+                prune(entry.value)
+                if (entry.value.isEmpty() && (unlockLockouts[entry.key] ?: 0L) <= now) {
+                    unlockLockouts.remove(entry.key)
+                    it.remove()
+                }
+            }
+        }
+    }
+
+    private fun noteUnlockSuccess(ip: String) {
+        synchronized(unlockLock) {
+            unlockFailures.remove(ip)
+            unlockLockouts.remove(ip)
+        }
+    }
 
     private val pageBytes: ByteArray by lazy {
         app.assets.open("remote_player.html").use { it.readBytes() }
@@ -170,6 +286,7 @@ private class RemoteHttpServer(
         }
         socket = null
         sessions.clear()
+        job.cancel()
     }
 
     private fun handle(client: Socket) {
@@ -188,6 +305,12 @@ private class RemoteHttpServer(
             val path = rawPath.substringBefore('?')
             val headers = parseHeaders(lines)
             val length = headers["content-length"]?.toIntOrNull() ?: 0
+            if (length > MAX_BODY_BYTES) {
+                // Refused before auth and before any allocation: the
+                // claimed length is the attack, not the body.
+                respondJson(output, 400, JSONObject().put("error", "request too large"))
+                return
+            }
             val body = if (length > 0) readBody(input, length) else ""
 
             when {
@@ -195,24 +318,37 @@ private class RemoteHttpServer(
                     respond(output, 200, "text/html; charset=utf-8", pageBytes)
 
                 method == "POST" && path == "/api/unlock" -> {
+                    val ip = client.inetAddress?.hostAddress ?: "unknown"
+                    val now = System.currentTimeMillis()
                     val json = runCatching { JSONObject(body) }.getOrNull()
                     val given = json?.optString("pin")
-                    if (given == pin) {
-                        val name = sanitizeName(json?.optString("name"))
-                        val fresh = ByteArray(16).also { SecureRandom().nextBytes(it) }
-                            .joinToString("") { "%02x".format(it) }
-                        sessions[fresh] = name
-                        respondJson(output, 200, JSONObject().put("token", fresh).put("name", name))
-                    } else {
-                        respondJson(output, 401, JSONObject().put("error", "wrong PIN"))
+                    when {
+                        unlockLockedOut(ip, now) ->
+                            respondJson(
+                                output, 429,
+                                JSONObject().put("error", "too many wrong PINs — wait a few minutes"),
+                            )
+                        given == pin -> {
+                            noteUnlockSuccess(ip)
+                            val name = sanitizeRemoteName(json?.optString("name"))
+                            val fresh = ByteArray(16).also { SecureRandom().nextBytes(it) }
+                                .joinToString("") { "%02x".format(it) }
+                            sessions[fresh] = name
+                            respondJson(output, 200, JSONObject().put("token", fresh).put("name", name))
+                        }
+                        else -> {
+                            noteUnlockFailure(ip, now)
+                            Thread.sleep(UNLOCK_FAILURE_DELAY_MS)
+                            respondJson(output, 401, JSONObject().put("error", "wrong PIN"))
+                        }
                     }
                 }
 
-                path.startsWith("/api/") && sessionUser(headers, rawPath) == null ->
+                path.startsWith("/api/") && sessionUser(headers) == null ->
                     respondJson(output, 401, JSONObject().put("error", "locked"))
 
                 method == "GET" && path == "/api/state" -> {
-                    val snapshot = RemoteBridge.snapshot(app, sessionUser(headers, rawPath))
+                    val snapshot = RemoteBridge.snapshot(app, sessionUser(headers))
                     if (snapshot == null) {
                         respondJson(output, 503, JSONObject().put("error", "player not connected yet"))
                     } else {
@@ -222,7 +358,7 @@ private class RemoteHttpServer(
 
                 method == "POST" && path == "/api/command" -> {
                     val ok = runCatching {
-                        RemoteBridge.command(app, JSONObject(body), sessionUser(headers, rawPath))
+                        RemoteBridge.command(app, JSONObject(body), sessionUser(headers))
                     }.getOrDefault(false)
                     respondJson(output, if (ok) 200 else 400, JSONObject().put("ok", ok))
                 }
@@ -291,20 +427,14 @@ private class RemoteHttpServer(
         latch.await(30, java.util.concurrent.TimeUnit.SECONDS)
     }
 
-    /** The display name behind the request's session token, if it has one. */
-    private fun sessionUser(headers: Map<String, String>, rawPath: String): String? {
-        val presented = headers["x-remote-token"] ?: queryParam(rawPath, "t") ?: return null
-        return sessions[presented]
-    }
-
     /**
-     * Display names are cosmetic, not identities: trim, cap the length,
-     * and drop control characters so a name can never break the page's
-     * layout or its logs. Empty names join as "Guest".
+     * The display name behind the request's session token, if it has
+     * one. The token travels in a header only — never in the URL, where
+     * it would leak into browser history and logs.
      */
-    private fun sanitizeName(raw: String?): String {
-        val cleaned = raw.orEmpty().trim().filter { !it.isISOControl() }.take(24).trim()
-        return cleaned.ifEmpty { "Guest" }
+    private fun sessionUser(headers: Map<String, String>): String? {
+        val presented = headers["x-remote-token"] ?: return null
+        return sessions[presented]
     }
 
     private fun respondJson(output: OutputStream, status: Int, json: JSONObject) {
@@ -317,6 +447,7 @@ private class RemoteHttpServer(
             400 -> "Bad Request"
             401 -> "Unauthorized"
             404 -> "Not Found"
+            429 -> "Too Many Requests"
             500 -> "Internal Server Error"
             503 -> "Service Unavailable"
             else -> "OK"

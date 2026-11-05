@@ -5,6 +5,10 @@ import { test } from 'node:test';
 const root = new URL('../.output/safari-mv3/', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', root), 'utf8'));
 
+test('Safari requests the host-scoped permission required to modify headers', () => {
+  assert.ok(manifest.permissions.includes('declarativeNetRequestWithHostAccess'));
+});
+
 test('Safari can reach the background through a relay on trusted sites', () => {
   const relay = manifest.content_scripts?.find(script => script.js.some(file => file.includes('relay')));
   assert.ok(relay, 'Safari requires the page relay');

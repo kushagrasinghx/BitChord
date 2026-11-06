@@ -97,6 +97,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -240,6 +241,7 @@ import com.music.bitchord.ui.components.ConfirmationAlert
 import com.music.bitchord.ui.components.InfoAlert
 import com.music.bitchord.ui.components.DownloadManagerPage
 import com.music.bitchord.ui.components.PlaylistPickerSheet
+import com.music.bitchord.ui.components.QueuePlaylistPicker
 import com.music.bitchord.ui.components.ReorderPlaylistPage
 import com.music.bitchord.ui.components.LongPressOrigin
 import com.music.bitchord.ui.components.MenuAnchor
@@ -308,6 +310,8 @@ import com.music.bitchord.data.model.TopPickKind
 import com.music.bitchord.data.model.TopPickMood
 import com.music.bitchord.ui.screens.MoodGridPage
 import com.music.bitchord.ui.player.NowPlayingScreen
+import com.music.bitchord.ui.player.QueueBulkAction
+import kotlinx.coroutines.CompletableDeferred
 import com.music.bitchord.ui.player.MixViewRequest
 import com.music.bitchord.ui.player.MusicVideoEngine
 import com.music.bitchord.ui.player.PlayerSheetMotion
@@ -740,6 +744,10 @@ private fun BitChordApp(
     // Separate from [songActions] so the menu can close behind it — the picker
     // is the next step, not a second sheet stacked on the first.
     var playlistTarget by remember { mutableStateOf<Song?>(null) }
+    var queuePlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
+    var queuePlaylistCompletion by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
+    var queueMenuTarget by remember { mutableStateOf<Pair<Int, Song>?>(null) }
+    var queueSelectionTarget by remember { mutableStateOf<Pair<Int, Song>?>(null) }
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
@@ -2424,6 +2432,55 @@ private fun BitChordApp(
         startDownload(listOf(withDuration), null)
     }
 
+    val performQueueBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { songs, action ->
+        try {
+            when (action) {
+                QueueBulkAction.PLAYLIST -> if (queuePlaylistSongs != null) false else {
+                    val completion = CompletableDeferred<Boolean>()
+                    queuePlaylistCompletion = completion
+                    queuePlaylistSongs = songs
+                    try {
+                        completion.await()
+                    } finally {
+                        if (queuePlaylistCompletion === completion) {
+                            queuePlaylistCompletion = null
+                            queuePlaylistSongs = null
+                        }
+                    }
+                }
+                QueueBulkAction.LIKE -> {
+                    val requested = songs.distinctBy { it.localUri ?: it.videoId }
+                    if (!signedIn && requested.any { it.localUri == null }) {
+                        Toast.makeText(context, R.string.queue_like_sign_in, Toast.LENGTH_SHORT).show()
+                    }
+                    var succeeded = true
+                    for (song in requested) {
+                        if (song.localUri != null) OfflinePlaylists.like(song)
+                        else {
+                            val completion = CompletableDeferred<Boolean>()
+                            viewModel.setLike(song.videoId, LikeStatus.LIKE) { completion.complete(it) }
+                            if (!completion.await()) succeeded = false
+                        }
+                    }
+                    if (!succeeded && signedIn) Toast.makeText(context, R.string.failed, Toast.LENGTH_SHORT).show()
+                    succeeded
+                }
+                QueueBulkAction.DOWNLOAD -> {
+                    val requested = songs.filter { it.localUri == null }.distinctBy { it.videoId }
+                    if (requested.isEmpty()) {
+                        Toast.makeText(context, R.string.already_downloaded, Toast.LENGTH_SHORT).show()
+                    } else startDownload(requested, null)
+                    true
+                }
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            Toast.makeText(context, R.string.failed, Toast.LENGTH_SHORT).show()
+            false
+        }
+    }
+
     // Content padding leaves room for the frosted bar above and the tab bar
     // (plus mini player) below, so nothing is ever trapped under the glass.
     //
@@ -2646,6 +2703,9 @@ private fun BitChordApp(
                 if (c != null && queueSong != null) scope.launch { c.removeQueueItemWithUndo(index, queueSong) }
             },
             onQueueSwipeToQueue = { index, queueSong -> controller?.moveQueueEntryToUser(index, queueSong) ?: false },
+            queueSelectionTarget = queueSelectionTarget,
+            onQueueSelectionConsumed = { queueSelectionTarget = null },
+            onQueueBulkAction = performQueueBulkAction,
             queueUndoNotice = {
                 QueueActionNoticeHost(
                     notice = queueUndoNotice,
@@ -2660,7 +2720,8 @@ private fun BitChordApp(
             },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
-            onQueueSongMenu = { _, queueSong ->
+            onQueueSongMenu = { index, queueSong ->
+                queueMenuTarget = index to queueSong
                 menuFromQueue = true
                 menuFromPlayer = true
                 songMenuOrigin = LongPressOrigin.consume()
@@ -4463,6 +4524,12 @@ private fun BitChordApp(
             SongActionsMenu(
                 song = song,
                 fromQueue = fromQueue,
+                onSelectQueueSongs = if (fromQueue) {
+                    {
+                        queueSelectionTarget = queueMenuTarget
+                        songActions = null
+                    }
+                } else null,
                 signedIn = signedIn,
                 likeStatus = likeStatusOf(song),
                 onPlayNext = { playNext(song); songActions = null },
@@ -4941,8 +5008,26 @@ private fun BitChordApp(
                     songMenuOrigin = null
                     songMenuAnchor = null
                     menuFromQueue = false
+                    queueMenuTarget = null
                     menuFromHistory = false
                 }
+            }
+        }
+
+        queuePlaylistSongs?.let { targets ->
+            val completion = queuePlaylistCompletion
+            val finish: (Boolean) -> Unit = { completed ->
+                completion?.complete(completed)
+                if (queuePlaylistCompletion === completion) queuePlaylistSongs = null
+            }
+            key(completion) {
+                QueuePlaylistPicker(
+                    songs = targets,
+                    viewModel = viewModel,
+                    onNotice = { message -> Toast.makeText(context, message, Toast.LENGTH_LONG).show() },
+                    onComplete = { finish(true) },
+                    onDismiss = { finish(false) },
+                )
             }
         }
 

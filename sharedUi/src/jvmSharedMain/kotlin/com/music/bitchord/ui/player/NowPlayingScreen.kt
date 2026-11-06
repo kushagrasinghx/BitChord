@@ -823,6 +823,9 @@ fun NowPlayingScreen(
     onQueueSongMenu: (Int, Song) -> Unit = { _, _ -> },
     onQueueSwipeToQueue: suspend (Int, Song) -> Boolean = { _, _ -> false },
     queueUndoNotice: @Composable () -> Unit = {},
+    queueSelectionTarget: Pair<Int, Song>? = null,
+    onQueueSelectionConsumed: () -> Unit = {},
+    onQueueBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { _, _ -> false },
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
     /**
@@ -1024,6 +1027,15 @@ fun NowPlayingScreen(
     var queueOpen by remember {
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.QUEUE)
     }
+    val queueSelection = remember { QueueSelectionState() }
+    val showQueueHistory by PlayerSettings.showQueueHistory.collectAsStateWithLifecycle()
+    LaunchedEffect(queueOpen, queueSelectionTarget, controlsLocked) {
+        if (!queueOpen || controlsLocked) queueSelection.clear()
+        else queueSelectionTarget?.let { target ->
+            queueSelection.start(target, splitQueue(queue, queueIndex, showQueueHistory).rows)
+        }
+        if (queueSelectionTarget != null) onQueueSelectionConsumed()
+    }
     var lyricsOpen by remember {
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.LYRICS)
     }
@@ -1188,7 +1200,9 @@ fun NowPlayingScreen(
     PlayerBackHandler(enabled = lyricsOpen, onBack = closeLyrics)
 
     // Back out of the queue to the player.
-    PlayerBackHandler(enabled = queueOpen) { queueOpen = false }
+    PlayerBackHandler(enabled = queueOpen) {
+        if (queueSelection.active) queueSelection.clear() else queueOpen = false
+    }
 
     // Registered ahead of the pipeline dialog's own handler below: the
     // pipeline is now only ever opened from the row at the bottom of this
@@ -2340,6 +2354,8 @@ fun NowPlayingScreen(
                             onSwipeToQueue = onQueueSwipeToQueue,
                             gesturesEnabled = queueOpen && !lyricsOpen && !queueDragging,
                             undoNotice = queueUndoNotice,
+                            selection = queueSelection,
+                            onBulkAction = onQueueBulkAction,
                             modifier = Modifier.fillMaxSize(),
                         )
                     },
@@ -3998,6 +4014,8 @@ fun NowPlayingScreen(
                                     onSwipeToQueue = onQueueSwipeToQueue,
                                     gesturesEnabled = queuePanelVisible && queueOpen && !queueDragging,
                                     undoNotice = queueUndoNotice,
+                                    selection = queueSelection,
+                                    onBulkAction = onQueueBulkAction,
                                     onDragActiveChange = onQueueDragActiveChange,
                                     collapsePlayerOnScroll = true,
                                     onRevealPlayer = { queueControlsOpen = true },

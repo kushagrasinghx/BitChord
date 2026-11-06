@@ -1324,4 +1324,9 @@
     <string name="queue_undo_action">Undo</string>
     <string name="queue_cleared_section">Cleared %1$s</string>
     <string name="next_in_queue">Next in queue</string>
+    <string name="select_queue_songs">Select queue songs</string>
+    <string name="queue_selected_count">%1$d selected</string>
+    <string name="queue_playlist_added">Added %1$d of %2$d songs</string>
+    <string name="queue_playlist_partial">%1$s (%2$d incompatible, %3$d already present, %4$d failed)</string>
+    <string name="queue_like_sign_in">Sign in to like online songs</string>
 </resources>

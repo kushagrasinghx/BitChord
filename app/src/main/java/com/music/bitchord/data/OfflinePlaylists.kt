@@ -109,6 +109,13 @@ object OfflinePlaylists {
         return nowLiked
     }
 
+    /** Idempotent bulk Like, reusing the existing eligibility and mutation under one lock. */
+    fun like(song: Song) {
+        synchronized(lock) {
+            if (!isLiked(song)) toggleLike(song)
+        }
+    }
+
     /** A new, empty playlist — or one holding [songs], when it was made to take them. */
     fun create(title: String, songs: List<Song> = emptyList()): OfflinePlaylist {
         val playlist = OfflinePlaylist(

@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.SystemClock
 import com.music.bitchord.R
+import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import androidx.media3.common.C
@@ -21,6 +22,7 @@ import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.ContentMetadataMutations
 import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import java.io.IOException
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.Song
@@ -30,6 +32,7 @@ import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.SourceStream
+import com.music.bitchord.data.sources.StreamFormat
 import com.music.bitchord.data.sources.TrackMatcher
 import com.music.bitchord.download.Downloads
 import kotlinx.coroutines.CoroutineScope
@@ -170,6 +173,23 @@ object AudioCache {
 
     /** Enough to cover a hand-over, not enough to keep chasing a lost race. */
     private const val MAX_ATTEMPTS = 4
+
+    /**
+     * How long [completeUpgrade] leaves a fresh swap alone before filling in
+     * behind it: the player's opening reads and Automix's head fetch go first,
+     * and both are on the listener's critical path where this is not.
+     */
+    private const val UPGRADE_FILL_FIRST_DELAY_MS = 5_000L
+
+    /** Spacing between [completeUpgrade]'s passes. Each is a few index reads unless there is something it can fetch. */
+    private const val UPGRADE_FILL_RETRY_MS = 20_000L
+
+    /**
+     * How many passes [completeUpgrade] makes at most — twenty minutes at
+     * [UPGRADE_FILL_RETRY_MS], longer than all but the longest tracks. It
+     * stops sooner as soon as the upgrade stops being what is playing.
+     */
+    private const val UPGRADE_FILL_PASSES = 60
 
     /**
      * How many tracks past the immediate next one get their stream URL warmed
@@ -465,9 +485,11 @@ object AudioCache {
                 val rendition = QualityUpgrade.cacheTag(spec.uri)
                 when {
                     rendition != null -> "$videoId#$rendition"
-                    SourceResolver.canSubstituteForYouTube() ->
-                        "$videoId#alt${atmosKeySuffix()}".let { completeSibling(videoId, it) ?: it }
-                    else -> completeSibling(videoId, videoId) ?: videoId
+                    else -> keptUpgradeFor(videoId, spec.uri) ?: when {
+                        SourceResolver.canSubstituteForYouTube() ->
+                            "$videoId#alt${atmosKeySuffix()}".let { completeSibling(videoId, it) ?: it }
+                        else -> completeSibling(videoId, videoId) ?: videoId
+                    }
                 }
             }
             // A source-backed track keys on the source and its track id alone.
@@ -530,6 +552,113 @@ object AudioCache {
         if (preferred != videoId) return null
         return siblings.firstOrNull { key -> isComplete(key) && isKeptOrigin(key) }
     }
+
+    /**
+     * The better copy a previous play of [videoId] swapped in mid-song, when it
+     * is on disk in full — what a fresh play of the track reads instead of the
+     * copy it started on that time.
+     *
+     * Without this, an upgrade bought for one play only. Its bytes sit under
+     * their own rendition key (see [QualityUpgrade.upgradedUri]), and a fresh
+     * queue entry carries no marker, so it read the base entry — last time's
+     * Opus — searched all over again, found the same FLAC and cut the audio a
+     * second time to swap to it. Every play of a song the listener likes paid
+     * that cut, and the FLAC's megabytes, again.
+     *
+     * Only a copy that can stand as final: lossless, or a Dolby Atmos mix
+     * while Atmos is wanted ([tierPlayable]). Those are the tiers nothing
+     * searches past, so the track plays from them with no second look and no
+     * swap — [QualityUpgrade.adoptUnresolved] reads the decoder and stops
+     * there. A lossy upgrade would be searched past again, and a second
+     * upgrade keyed off this same unmarked item would land on the rendition
+     * slot being read.
+     *
+     * Only whole, and only once [keepsUpgrade] has checked the file and marked
+     * it, so this reads the cache index and never the file: a complete entry is
+     * never written to again, so a fresh play reading it can't be finished by a
+     * different stream — and the resolver refuses to try, see PlaybackService.
+     *
+     * Only while something still outranks YouTube — the rule [completeSibling]
+     * applies online to an addon's `#alt` copy, for the same reason: with
+     * nothing ranked above YouTube, the source that served this copy is not
+     * one the listener has asked to hear. Not relaxed offline, unlike there:
+     * this is asked again on every re-open of a playing track, and an answer
+     * that flipped with the connection would switch files under the decoder
+     * mid-song. [keepsUpgrade] is held off the tracks near the playhead for
+     * the same reason.
+     *
+     * Never for the reads that keep entries of their own: the watch's capped
+     * copy, Automix's YouTube Opus, and a track the listener reverted to
+     * YouTube's own upload ([OriginalVersion]).
+     */
+    private fun keptUpgradeFor(videoId: String, uri: Uri): String? {
+        if (!::cache.isInitialized) return null
+        if (uri.getQueryParameter(WATCH_READ_PARAM) != null ||
+            uri.getQueryParameter(DIRECT_YOUTUBE_PARAMETER) == "1" ||
+            AutomixAnalysisSource.requestsYouTubeOpus(
+                uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
+            ) ||
+            OriginalVersion.isPinned(videoId) ||
+            !SourceResolver.canSubstituteForYouTube()
+        ) {
+            return null
+        }
+        return upgradeKeysOf(videoId).firstOrNull(::isKeptUpgrade)
+    }
+
+    /** Whether [key] holds an upgrade [keepsUpgrade] has marked, whole, and playable on the current settings. */
+    private fun isKeptUpgrade(key: String): Boolean = runCatching {
+        val meta = cache.getContentMetadata(key)
+        meta.get(META_REUSABLE, null as String?) != null &&
+            tierPlayable(meta.get(META_TIER, null as String?), DeviceCodecs.atmosWanted) &&
+            isComplete(key)
+    }.getOrDefault(false)
+
+    /**
+     * The upgrade tag of the kept copy a plain [uri] is reading — see
+     * [keptUpgradeFor] — or null when it is reading anything else.
+     *
+     * For the places that ask an item's [QualityUpgrade.MARKER] what it is
+     * playing: a fresh play of an upgraded track carries no marker, and is
+     * playing the upgrade all the same.
+     */
+    fun keptRenditionOf(uri: Uri): String? {
+        if (!::cache.isInitialized || uri.scheme != "bitchord" || QualityUpgrade.cacheTag(uri) != null) return null
+        return cacheKeyOf(uri).takeIf(::isReusableUpgradeKey)?.substringAfter('#')
+    }
+
+    /**
+     * Whether the upgrade's rendition under [key] is worth keeping once the
+     * queue has moved past it, and so worth a fresh play's reuse — see
+     * [keptUpgradeFor]. Three things, each checked as cheaply as it can be:
+     *
+     *  - **Tagged final when it was served** — lossless or Atmos, from a
+     *    progressive stream; see [recordServed]. A lossy upgrade is not kept:
+     *    nothing reads it again.
+     *  - **Complete.** A whole entry is never written to again. An upgrade is
+     *    only ever fetched from the swap point onward, so this needs
+     *    [completeUpgrade] to have filled in the part before it.
+     *  - **Audio, by its first bytes**, as [cachedContainerOf] reads them.
+     *
+     * The first time all three hold, the entry is marked [META_REUSABLE]: that
+     * mark is what [keptUpgradeFor] reads, which keeps the file itself out of
+     * the cache key factory — a hot path, some of it on the main thread.
+     *
+     * Setting the mark changes which entry a fresh play of the track opens, so
+     * it is only ever set from [dropForeignEntries], for tracks away from the
+     * playhead: a new queue entry of the same song, already reading its old
+     * copy, must not have the key change under it at its next re-open.
+     */
+    private fun keepsUpgrade(key: String): Boolean = runCatching {
+        if (!isReusableUpgradeKey(key)) return@runCatching false
+        val meta = cache.getContentMetadata(key)
+        if (meta.get(META_TIER, null as String?) == null || !isComplete(key)) return@runCatching false
+        if (meta.get(META_REUSABLE, null as String?) != null) return@runCatching true
+        if (containerOf(key) == null) return@runCatching false
+        cache.applyContentMetadataMutations(key, ContentMetadataMutations().set(META_REUSABLE, "1"))
+        TrackLog.d(TAG, "kept $key whole for the next play", about = meta.get(META_MEDIA_ID, null as String?))
+        true
+    }.getOrDefault(false)
 
     /**
      * Whether [key]'s bytes came from YouTube or JioSaavn — see [Origin]. An
@@ -769,6 +898,14 @@ object AudioCache {
         val analysis = AutomixAnalysisSource.requestsYouTubeOpus(
             spec.uri.getQueryParameter(AutomixAnalysisSource.OPUS_QUERY_PARAMETER),
         )
+        // What an upgrade's rendition is, written while the stream that fills
+        // it is still in hand — the one moment anything knows. It is what lets
+        // [keepsUpgrade] keep the file and a fresh play reuse it; see
+        // [keptUpgradeFor]. Not for a manifest, whose entry holds an index of
+        // the audio rather than the audio.
+        val tier = QualityUpgrade.forcedStream(spec.uri)
+            ?.takeIf { isReusableUpgradeKey(key) && !StreamContainer.isManifest(it.url) }
+            ?.let { reusableTierOf(it.format) }
         runCatching {
             val meta = cache.getContentMetadata(key)
             fun has(name: String) = meta.get(name, null as String?) != null
@@ -778,7 +915,8 @@ object AudioCache {
                 meta.get(META_MEDIA_ID, null as String?) == mediaId &&
                 has(META_PLAYBACK) == usedByPlayback &&
                 (usedByPlayback || has(META_ANALYSIS)) &&
-                has(META_PLAYED) == played
+                has(META_PLAYED) == played &&
+                (tier == null || meta.get(META_TIER, null as String?) == tier)
             // Every re-open — a seek, a continuation fetch — passes through
             // here. Only write when something would actually change.
             if (tagged && (song == null || has(META_TITLE))) return
@@ -789,6 +927,7 @@ object AudioCache {
                     mutations.set(META_MEDIA_ID, mediaId)
                     if (usedByPlayback) mutations.set(META_PLAYBACK, "1") else mutations.set(META_ANALYSIS, "1")
                     if (played) mutations.set(META_PLAYED, "1")
+                    tier?.let { mutations.set(META_TIER, it) }
                     describe(mutations, song, spec.uri)
                 },
             )
@@ -1086,6 +1225,14 @@ object AudioCache {
             var dropped = 0
             cache.keys.toList().forEach { key ->
                 val meta = runCatching { cache.getContentMetadata(key) }.getOrNull() ?: return@forEach
+                // Nothing near the playhead goes — and nothing there is judged
+                // either, because judging an upgrade's rendition is what marks
+                // it kept ([keepsUpgrade]), and the mark changes which entry a
+                // fresh play of the track opens. A new queue entry of the same
+                // song, already reading its old copy, must not have its key
+                // change under it at the next re-open.
+                val mediaId = meta.get(META_MEDIA_ID, null as String?)
+                if (mediaId != null && mediaId in keep) return@forEach
                 val foreign = meta.get(META_ORIGIN, null as String?) == Origin.OTHER.name &&
                     !keepsAddonCopy(key)
                 val analysisOnly = !keepAnalysis &&
@@ -1093,8 +1240,6 @@ object AudioCache {
                     meta.get(META_PLAYBACK, null as String?) == null &&
                     meta.get(META_PLAYED, null as String?) == null
                 if (!foreign && !analysisOnly) return@forEach
-                val mediaId = meta.get(META_MEDIA_ID, null as String?)
-                if (mediaId != null && mediaId in keep) return@forEach
                 runCatching { cache.removeResource(key) }
                     .onSuccess {
                         dropped++
@@ -1117,16 +1262,22 @@ object AudioCache {
      *
      *  - **Complete.** A whole entry is never written to again, so it can't
      *    become the mixed-file seam a partial one is.
-     *  - **Not an upgrade's rendition.** A `#hifi` entry is reached only
-     *    through the marked item that swapped it in, which no restored or
-     *    newly queued item carries — kept, it would sit on disk unread.
      *  - **Audio, by its first bytes.** Tidal answers with a DASH manifest, and
      *    the XML lands under the track's own key; kept, the next play would
      *    read a manifest of expired segment URLs off disk as if it were the
      *    song. WebM, MP4 and FLAC pass, as [cachedContainerOf] reads them.
+     *
+     * An upgrade's rendition answers to [keepsUpgrade] instead, which adds the
+     * one condition that makes it worth keeping: a fresh play can reuse it.
+     * Any other `#hifi` entry — a source row's, a lossy upgrade — is reached
+     * only through the marked item that swapped it in, which no restored or
+     * newly queued item carries; kept, it would sit on disk unread.
      */
-    private fun keepsAddonCopy(key: String): Boolean =
-        !key.contains("#hifi") && isComplete(key) && containerOf(key) != null
+    private fun keepsAddonCopy(key: String): Boolean = when {
+        isReusableUpgradeKey(key) -> keepsUpgrade(key)
+        key.contains("#hifi") -> false
+        else -> isComplete(key) && containerOf(key) != null
+    }
 
     /** The part of a cache key that names the track, before any `#rendition`; see [keyFactory]. */
     private fun cacheKeyBaseOf(mediaId: String): String =
@@ -1160,6 +1311,15 @@ object AudioCache {
 
     /** Set once the player has played the track from this entry. */
     private const val META_PLAYED = "bc_played"
+
+    /**
+     * On an upgrade's rendition: [TIER_LOSSLESS] or [TIER_ATMOS], from the
+     * stream that filled it — see [recordServed]. Absent for anything lossy.
+     */
+    private const val META_TIER = "bc_tier"
+
+    /** Set by [keepsUpgrade] once an upgrade's rendition is whole and checked; read by [keptUpgradeFor]. */
+    private const val META_REUSABLE = "bc_reusable"
     private const val MAX_NOTED_SONGS = 256
     private const val COPY_BUFFER_BYTES = 64 * 1024
 
@@ -1438,8 +1598,14 @@ object AudioCache {
                 // earlier play: the player reads that head straight off disk,
                 // and the pin would then stream the substitute after it. That
                 // track's way up is the second look — see [heldByYouTube].
-                val youTubeFilled = heldByYouTube(cacheKeyOf(Uri.parse("bitchord://watch?v=$next")))
-                val warmed = if (substitutable && target != null && !pinnedToYouTube && !youTubeFilled) {
+                val nextKey = cacheKeyOf(Uri.parse("bitchord://watch?v=$next"))
+                val youTubeFilled = heldByYouTube(nextKey)
+                // A track that will play an upgrade kept whole from an earlier
+                // play — see [keptUpgradeFor] — needs nothing from here: no
+                // source pinned, no bytes, no URL. All of it would be spent on
+                // copies the player is not going to open.
+                val keptWhole = isReusableUpgradeKey(nextKey)
+                val warmed = if (substitutable && target != null && !pinnedToYouTube && !youTubeFilled && !keptWhole) {
                     runCatching { SourceResolver.prefetchSubstitute(target) }
                         .onFailure { TrackLog.d(TAG, "warm-up substitute failed for $next: ${it.message}", about = next) }
                         .getOrNull()
@@ -1450,7 +1616,7 @@ object AudioCache {
                 // Safe to fill for the same reason in both cases: either nothing
                 // outranks YouTube and read-ahead is the only writer, or a
                 // source has been pinned and every writer now resolves to it.
-                val cacheBytes = (!substitutable || warmed != null) && !pinnedToYouTube
+                val cacheBytes = (!substitutable || warmed != null) && !pinnedToYouTube && !keptWhole
                 if (cacheBytes) {
                     launch(TrackLog.about(next)) {
                         delay(PREFETCH_DELAY_MS)
@@ -1465,7 +1631,7 @@ object AudioCache {
                         // for a YouTube URL: nothing will ask for one, and
                         // minting it spends a client walk to fill a cache entry
                         // that is never read.
-                        if (id == next && warmed != null) continue
+                        if (id == next && (warmed != null || keptWhole)) continue
                         runCatching { StreamResolver.resolve(id) }
                             .onFailure { TrackLog.d(TAG, "queue warm-up skipped $id: ${it.message}", about = id) }
                         delay(QUEUE_RESOLVE_STAGGER_MS)
@@ -1503,6 +1669,10 @@ object AudioCache {
             return
         }
         directJob = scope.launch(TrackLog.about(id)) {
+            // An upgrade kept whole from an earlier play is what the player
+            // will open — see [keptUpgradeFor] — so there is nothing to look up
+            // or fetch for it.
+            if (isReusableUpgradeKey(cacheKeyOf(Uri.parse("bitchord://watch?v=$id")))) return@launch
             if (StreamChoice.of(id) == null) {
                 val addon = runCatching { DirectSourceGate.lookup(id, upcoming.target) }
                     .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
@@ -1661,6 +1831,95 @@ object AudioCache {
         val key = keyFactory.buildCacheKey(DataSpec(uri))
         fetch(key, uri, position, length)
     }
+
+    /**
+     * Fills in what an upgrade's rendition is missing, so the whole file is on
+     * disk for the next play of the track — see [keptUpgradeFor].
+     *
+     * An upgrade is fetched from the swap point onward, plus its header and
+     * Automix's head. Everything between that head and the swap point — the
+     * part the listener already heard on the old copy — is a stretch nothing
+     * downloads, and so is whatever a seek forward jumps over. With those
+     * holes the entry never comes whole on its own and the next play could not
+     * use it. This fetches them, from the stream that filled the rest.
+     *
+     * Only holes with bytes already on disk after them. The open end is the
+     * player's: it holds the entry from where it is writing onward, so a fetch
+     * there lands nowhere — measured, a 64 kB probe thrown away every pass —
+     * and the tail comes whole as the track is played to its end.
+     *
+     * Passes run every [UPGRADE_FILL_RETRY_MS] while [isPlaying] says the
+     * upgrade is what is playing, and one more once it stops. That last pass
+     * is the one that finishes a track jumped to its end, which runs out
+     * before the next pass would come round — and it only runs when the
+     * track's last bytes are on disk. A track skipped part-way has its whole
+     * tail missing, and fetching that would be a download of a song the
+     * listener walked away from. [permitted] is asked before every pass: a
+     * ceiling that no longer pays for the source stops the fill outright.
+     *
+     * Straight from [stream]'s URL rather than through the resolver: a marked
+     * URI is only answered with [stream] while [QualityUpgrade] still has it
+     * parked, and once the queue moves on, a fetch through it would resolve to
+     * some other server and write a different file into this one. The URL
+     * itself stays good for hours, far past the last pass.
+     *
+     * Only for a copy worth keeping ([reusableTierOf]) from a progressive
+     * stream. Marked kept later, by [dropForeignEntries] once the track is
+     * away from the playhead — see [keepsUpgrade] for why not from here.
+     */
+    suspend fun completeUpgrade(
+        uri: Uri,
+        stream: SourceStream,
+        isPlaying: suspend () -> Boolean,
+        permitted: () -> Boolean,
+    ) {
+        if (!::cache.isInitialized || reusableTierOf(stream.format) == null || StreamContainer.isManifest(stream.url)) {
+            return
+        }
+        val key = keyFactory.buildCacheKey(DataSpec(uri))
+        if (!isReusableUpgradeKey(key)) return
+        val about = mediaIdIn(uri)
+        repeat(UPGRADE_FILL_PASSES) { pass ->
+            delay(if (pass == 0) UPGRADE_FILL_FIRST_DELAY_MS else UPGRADE_FILL_RETRY_MS)
+            if (isComplete(key)) return
+            if (!permitted()) return
+            val playing = isPlaying()
+            val length = runCatching { ContentMetadata.getContentLength(cache.getContentMetadata(key)) }
+                .getOrDefault(C.LENGTH_UNSET.toLong())
+                .takeIf { it > 0 }
+                ?: return@repeat
+            val onDiskUpTo = cachedEndOf(key)
+            if (!playing && onDiskUpTo < length) {
+                TrackLog.d(TAG, "$key left part-way; not fetching the rest of it", about = about)
+                return
+            }
+            val holes = missingRanges(length, CHUNK_BYTES) { position, size ->
+                cache.getCachedBytes(key, position, size)
+            }.filter { (position, _) -> position < onDiskUpTo }
+            for ((position, size) in holes) {
+                if (playing && !isPlaying()) break
+                fetch(key, uri, position, size, direct = stream)
+                // Written nowhere means someone else holds that stretch — the
+                // player after a seek back, or Automix's head fetch. The next
+                // pass tries again.
+                if (cache.getCachedBytes(key, position, size) < size) break
+            }
+            if (isComplete(key)) {
+                TrackLog.d(TAG, "$key is whole on disk", about = about)
+                return
+            }
+            if (!playing) return
+        }
+        TrackLog.d(TAG, "stopped short of keeping $key whole", about = about)
+    }
+
+    /** Where the last byte on disk for [key] ends — 0 when nothing is. */
+    private fun cachedEndOf(key: String): Long = runCatching {
+        cache.getCachedSpans(key).filter { it.isCached }.maxOfOrNull { it.position + it.length } ?: 0L
+    }.getOrDefault(0L)
+
+    /** Plain HTTP for [completeUpgrade]'s fetches, which carry their stream's own URL and headers. */
+    private val directUpstream: DataSource.Factory by lazy { OkHttpDataSource.Factory(Http.client) }
 
     /**
      * Video ids whose analysis copy has already been asked for this session.
@@ -2336,6 +2595,10 @@ object AudioCache {
      * from what this request resolves to. A caller that knows exactly what it is
      * fetching, as [requestAnalysisHead] does, is better off saying so than
      * letting a global decide on its behalf.
+     *
+     * [direct] fetches that stream's URL over plain HTTP instead of resolving
+     * [uri], and always writes under [cacheKey] — see [completeUpgrade]. [uri]
+     * then only says whose track it is, for the log.
      */
     private suspend fun fetch(
         cacheKey: String,
@@ -2343,8 +2606,9 @@ object AudioCache {
         position: Long,
         length: Long,
         pinKey: Boolean = false,
+        direct: SourceStream? = null,
     ) {
-        if (upstreamFactory == null) return
+        if (direct == null && upstreamFactory == null) return
         if (cache.getCachedBytes(cacheKey, position, length) >= length) return
 
         // A cheap first knock rather than the whole range on the door.
@@ -2362,15 +2626,22 @@ object AudioCache {
         // the cost, and only a probe that actually lands is worth following
         // with the rest of the range.
         if (length > LOCK_PROBE_BYTES) {
-            pull(cacheKey, uri, position, LOCK_PROBE_BYTES, pinKey)
+            pull(cacheKey, uri, position, LOCK_PROBE_BYTES, pinKey, direct)
             if (cache.getCachedBytes(cacheKey, position, LOCK_PROBE_BYTES) < LOCK_PROBE_BYTES) return
         }
-        pull(cacheKey, uri, position, length, pinKey)
+        pull(cacheKey, uri, position, length, pinKey, direct)
     }
 
     /** The actual network pull behind [fetch], unconditional and unchecked. */
-    private suspend fun pull(cacheKey: String, uri: Uri, position: Long, length: Long, pinKey: Boolean) {
-        val upstream = upstreamFactory ?: return
+    private suspend fun pull(
+        cacheKey: String,
+        uri: Uri,
+        position: Long,
+        length: Long,
+        pinKey: Boolean,
+        direct: SourceStream? = null,
+    ) {
+        val upstream = if (direct != null) directUpstream else upstreamFactory ?: return
 
         // Whose track this is, taken off the URI rather than off [cacheKey]:
         // the key splits a track's renditions apart on purpose, and reading
@@ -2386,10 +2657,11 @@ object AudioCache {
         TrackLog.d(TAG, "read-ahead fetching $cacheKey [$position, ${position + length})", about = about)
 
         val source = readAheadCacheFactory(upstream)
-            .apply { if (pinKey) setCacheKeyFactory { cacheKey } }
+            .apply { if (pinKey || direct != null) setCacheKeyFactory { cacheKey } }
             .createDataSource()
         val spec = DataSpec.Builder()
-            .setUri(uri)
+            .setUri(direct?.let { Uri.parse(it.url) } ?: uri)
+            .setHttpRequestHeaders(direct?.headers ?: emptyMap())
             .setPosition(position)
             .setLength(length)
             .build()
@@ -2441,4 +2713,72 @@ internal fun cachedContainerOf(magic: ByteArray): Pair<String, String>? {
         ascii(0, 4) == "fLaC" -> "flac" to "audio/flac"
         else -> null
     }
+}
+
+/** What an upgrade's rendition is tagged with when it is lossless — see [reusableTierOf]. */
+internal const val TIER_LOSSLESS = "lossless"
+
+/** What an upgrade's rendition is tagged with when it is a Dolby Atmos mix — see [reusableTierOf]. */
+internal const val TIER_ATMOS = "atmos"
+
+/**
+ * Whether a stream an upgrade swapped in is worth keeping whole for the next
+ * play, and as what: [TIER_LOSSLESS] or [TIER_ATMOS], or null for anything
+ * lossy. The two are the tiers nothing searches past — see
+ * [QualityUpgrade.needsLosslessFollowUp] — so a copy of either is final, and a
+ * fresh play that starts on one has nothing left to look for.
+ */
+internal fun reusableTierOf(format: StreamFormat): String? = when {
+    format.isLossless == true -> TIER_LOSSLESS
+    format.isDolbyAtmos -> TIER_ATMOS
+    else -> null
+}
+
+/**
+ * Whether a kept copy tagged [tier] may be played under the current Dolby
+ * Atmos setting. An Atmos mix kept while the setting was on must not come back
+ * out of the cache once the listener has turned it off — the same rule the
+ * `#alt` entry's `-noatmos` split enforces.
+ */
+internal fun tierPlayable(tier: String?, atmosWanted: Boolean): Boolean = when (tier) {
+    TIER_LOSSLESS -> true
+    TIER_ATMOS -> atmosWanted
+    else -> false
+}
+
+/** The cache keys an upgrade of the YouTube track [videoId] can leave behind, the later generation first. */
+internal fun upgradeKeysOf(videoId: String): List<String> =
+    QualityUpgrade.UPGRADE_TAGS.map { "$videoId#$it" }
+
+/**
+ * Whether [key] is one of [upgradeKeysOf] — a YouTube track's own upgrade
+ * rendition, and so the only kind a fresh play can be pointed at. A
+ * source-backed row's rendition (`source|track#hifi`) and the watch's capped
+ * copy (`…#hifi#watch`) are not: nothing reuses either.
+ */
+internal fun isReusableUpgradeKey(key: String): Boolean {
+    val base = key.substringBefore('#', missingDelimiterValue = "")
+    if (base.isEmpty() || '|' in base) return false
+    return key.substringAfter('#') in QualityUpgrade.UPGRADE_TAGS
+}
+
+/**
+ * The [chunk]-sized ranges of a [length]-byte entry that are not fully on
+ * disk, in order, as `position to size`. [cachedBytes] answers how many bytes
+ * of one range the cache already holds.
+ */
+internal fun missingRanges(
+    length: Long,
+    chunk: Long,
+    cachedBytes: (position: Long, length: Long) -> Long,
+): List<Pair<Long, Long>> {
+    if (length <= 0 || chunk <= 0) return emptyList()
+    val missing = ArrayList<Pair<Long, Long>>()
+    var position = 0L
+    while (position < length) {
+        val size = minOf(chunk, length - position)
+        if (cachedBytes(position, size) < size) missing += position to size
+        position += size
+    }
+    return missing
 }

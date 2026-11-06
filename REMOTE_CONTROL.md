@@ -53,8 +53,9 @@ runs; changing the lyrics sources or their order in Settings starts
 the cache over.
 
 On a wide screen — a laptop on the same Wi-Fi is a first-class
-remote — the page lays out in two columns: player and lyrics on the
-left, search and the queue on the right.
+remote — the page lays out in columns: two from 1080px (player and
+lyrics on the left, search and the queue on the right), three from
+1280px (search takes the middle, the queue gets its own column).
 
 The server starts automatically on app launch if the switch was left on,
 and stops when the switch is turned off. By default the PIN is
@@ -145,7 +146,8 @@ having no Cloudflare or DNS in the path.
   only while the server runs.
 - `assets/remote_player.html` — the whole player page in one file. It
   polls `/api/state` once a second. One column on phones; two columns
-  (player + lyrics | search + queue) on screens 1080px and wider.
+  (player + lyrics | search + queue) from 1080px; three columns
+  (player + lyrics | search | queue) from 1280px.
 - The feature's pure decisions — the attribution walk, PIN choice,
   name sanitizing, browse-kind resolution — are unit-tested in
   `app/src/test/java/com/music/bitchord/remote/RemoteLogicTest.kt`.

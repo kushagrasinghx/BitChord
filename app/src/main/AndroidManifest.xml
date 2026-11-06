@@ -60,6 +60,18 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- External downloaders supported via Send intent: YTDLnis, Seal, Seal Plus, and custom downloaders -->
+    <queries>
+        <package android:name="com.deniscerri.ytdl" />
+        <package android:name="com.junkfood.seal" />
+        <package android:name="com.junkfood.sealplus" />
+        <package android:name="com.seal.plus" />
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+
     <application
         android:name=".BitChordApplication"
         android:allowBackup="true"

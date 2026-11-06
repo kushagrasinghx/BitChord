@@ -229,6 +229,8 @@ import com.music.bitchord.download.DownloadStore
 import com.music.bitchord.download.MediaTagger
 import com.music.bitchord.download.DownloadTarget
 import com.music.bitchord.download.Downloads
+import com.music.bitchord.download.ExternalDownloader
+import com.music.bitchord.data.settings.DownloadMode
 import com.music.bitchord.ui.components.BrowseActionsMenu
 import com.music.bitchord.ui.components.BrowseTarget
 import com.music.bitchord.ui.components.ConfirmationAlert
@@ -2252,6 +2254,17 @@ private fun BitChordApp(
     // track, which is not a release however many of them are asked for one at a
     // time.
     val startDownload: (List<Song>, DownloadTarget?) -> Unit = { requested, from ->
+        if (AppSettings.downloadMode.value == DownloadMode.EXTERNAL) {
+            val url = if (from != null && from.playlist) {
+                ExternalDownloader.buildMediaUrl(null, from.id)
+            } else {
+                requested.firstOrNull()?.let { ExternalDownloader.buildMediaUrl(it) }.orEmpty()
+            }
+            if (url.isNotBlank()) {
+                ExternalDownloader.launch(context, url)
+            }
+            return@startDownload
+        }
         val saved = Downloads.saved.value
         // Already on disk, and already queued or running: neither needs asking
         // again. What's left is what a tap on "Download" actually means.

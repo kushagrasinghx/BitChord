@@ -15,6 +15,7 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.R
 import kotlinx.coroutines.flow.MutableStateFlow
 
 
@@ -123,6 +124,26 @@ enum class DownloadQuality(
     ),
 }
 
+enum class DownloadMode {
+    IN_APP,
+    EXTERNAL,
+}
+
+enum class ExternalDownloaderApp(val defaultPackage: String) {
+    YTDLNIS("com.deniscerri.ytdl"),
+    SEAL("com.junkfood.seal"),
+    SEAL_PLUS("com.junkfood.sealplus"),
+    OTHER(""),
+    ;
+
+    fun displayName(context: Context): String = when (this) {
+        YTDLNIS -> context.getString(R.string.downloader_ytdlnis)
+        SEAL -> context.getString(R.string.downloader_seal)
+        SEAL_PLUS -> context.getString(R.string.downloader_seal_plus)
+        OTHER -> context.getString(R.string.downloader_other)
+    }
+}
+
 enum class ThemeMode(val label: String) {
     SYSTEM("System"), LIGHT("Light"), DARK("Dark")
 }
@@ -218,6 +239,9 @@ object AppSettings {
      * keeps it that way for the people it didn't.
      */
     val downloadQuality = MutableStateFlow(DownloadQuality.LOSSLESS)
+    val downloadMode = MutableStateFlow(DownloadMode.IN_APP)
+    val externalDownloaderApp = MutableStateFlow(ExternalDownloaderApp.YTDLNIS)
+    val externalDownloaderPackage = MutableStateFlow("")
 
     /**
      * Refuse to start a download while the connection charges for data.
@@ -966,6 +990,13 @@ object AppSettings {
         ).coerceIn(MIN_UPGRADE_LENGTH_SLACK_SECONDS, MAX_UPGRADE_LENGTH_SLACK_SECONDS)
         migrateDownloadQuality()
         downloadQuality.value = readDownloadQuality()
+        downloadMode.value = runCatching {
+            DownloadMode.valueOf(prefs.getString(KEY_DOWNLOAD_MODE, DownloadMode.IN_APP.name) ?: DownloadMode.IN_APP.name)
+        }.getOrDefault(DownloadMode.IN_APP)
+        externalDownloaderApp.value = runCatching {
+            ExternalDownloaderApp.valueOf(prefs.getString(KEY_EXTERNAL_DOWNLOADER_APP, ExternalDownloaderApp.YTDLNIS.name) ?: ExternalDownloaderApp.YTDLNIS.name)
+        }.getOrDefault(ExternalDownloaderApp.YTDLNIS)
+        externalDownloaderPackage.value = prefs.getString(KEY_EXTERNAL_DOWNLOADER_PACKAGE, "").orEmpty()
         wifiOnlyDownloads.value = prefs.getBoolean(KEY_WIFI_ONLY_DOWNLOADS, true)
         exportDownloads.value = prefs.getBoolean(KEY_EXPORT_DOWNLOADS, false)
         syncDownloadedPlaylists.value = prefs.getBoolean(KEY_SYNC_DOWNLOADED_PLAYLISTS, false)
@@ -1276,6 +1307,22 @@ object AppSettings {
     fun setDownloadQuality(value: DownloadQuality) {
         downloadQuality.value = value
         prefs.edit().putString(KEY_QUALITY_DOWNLOAD, value.name).apply()
+    }
+
+    fun setDownloadMode(value: DownloadMode) {
+        downloadMode.value = value
+        prefs.edit().putString(KEY_DOWNLOAD_MODE, value.name).apply()
+    }
+
+    fun setExternalDownloaderApp(value: ExternalDownloaderApp) {
+        externalDownloaderApp.value = value
+        prefs.edit().putString(KEY_EXTERNAL_DOWNLOADER_APP, value.name).apply()
+    }
+
+    fun setExternalDownloaderPackage(value: String) {
+        val trimmed = value.trim()
+        externalDownloaderPackage.value = trimmed
+        prefs.edit().putString(KEY_EXTERNAL_DOWNLOADER_PACKAGE, trimmed).apply()
     }
 
     fun setWifiOnlyDownloads(value: Boolean) {
@@ -2243,6 +2290,9 @@ object AppSettings {
     private const val KEY_QUALITY_CELLULAR = "audio_quality_cellular"
     private const val KEY_UPGRADE_LENGTH_SLACK_SECONDS = "upgrade_length_slack_seconds"
     private const val KEY_QUALITY_DOWNLOAD = "audio_quality_download"
+    private const val KEY_DOWNLOAD_MODE = "download_mode"
+    private const val KEY_EXTERNAL_DOWNLOADER_APP = "external_downloader_app"
+    private const val KEY_EXTERNAL_DOWNLOADER_PACKAGE = "external_downloader_package"
     private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
     private const val KEY_EXPORT_DOWNLOADS = "export_downloads"
     private const val KEY_SYNC_DOWNLOADED_PLAYLISTS = "sync_downloaded_playlists"

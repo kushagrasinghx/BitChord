@@ -5,6 +5,13 @@ import androidx.compose.ui.layout.ContentScale
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.components.ExplicitSongTitle
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -249,13 +256,38 @@ internal fun splitQueue(queue: List<Song>, currentIndex: Int, showHistory: Boole
     return QueueTracks(track(currentIndex, "np"), user, context, autoplay, history)
 }
 
-/** Rows fade only on arrival; departing rows have already slid out and collapsed. */
+/** Heading visibility is owned by its live slot, never a detached lazy exit layer. */
 private fun LazyItemScope.queueMotion(reduceAnimation: Boolean, heading: Boolean = false): Modifier =
     if (reduceAnimation) Modifier else Modifier.animateItem(
-        fadeInSpec = tween(160),
-        fadeOutSpec = if (heading) tween(140) else null,
+        fadeInSpec = if (heading) null else tween(160),
+        fadeOutSpec = null,
         placementSpec = QUEUE_ROW_MOTION,
     )
+
+/**
+ * Keep the key composed when a section empties. Lazy disappearance keeps a
+ * recording of a removed heading (including its buttons), outside the live
+ * section predicate. Animate the live content and its measured height instead,
+ * so the heading cannot outlive its visibility transition as a detached item.
+ */
+private fun LazyListScope.queueHeadingItem(
+    key: String,
+    visible: Boolean,
+    reduceAnimation: Boolean,
+    content: @Composable () -> Unit,
+) {
+    item(key = key) {
+        AnimatedVisibility(
+            visible = visible,
+            modifier = queueMotion(reduceAnimation, heading = true),
+            enter = if (reduceAnimation) EnterTransition.None else
+                fadeIn(tween(160)) + expandVertically(tween(160), expandFrom = Alignment.Top),
+            exit = if (reduceAnimation) ExitTransition.None else
+                fadeOut(tween(140)) + shrinkVertically(tween(140), shrinkTowards = Alignment.Top),
+            label = key,
+        ) { content() }
+    }
+}
 
 /** The live queue, in the player itself. */
 @Composable
@@ -371,7 +403,8 @@ internal fun InlineQueue(
     // Include the entry key because trimming history can leave the index unchanged.
     var hasScrolledOnce by remember { mutableStateOf(false) }
     LaunchedEffect(currentIndex, nowPlaying?.key, showHistory) {
-        val nowPlayingRow = if (tracks.history.isEmpty()) 0 else tracks.history.size + 1
+        // The history heading has a stable slot even while its height is zero.
+        val nowPlayingRow = tracks.history.size + 1
         val scrolledAway = listState.firstVisibleItemIndex != nowPlayingRow || listState.firstVisibleItemScrollOffset != 0
         if (!selectionState.active && drag.held == null && nowPlaying != null && scrolledAway) {
             if (hasScrolledOnce) {
@@ -442,15 +475,15 @@ internal fun InlineQueue(
                     .then(if (collapsePlayerOnScroll) Modifier.nestedScroll(controlsOnScroll) else Modifier),
                 contentPadding = PaddingValues(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = footerHeight),
             ) {
-                if (tracks.history.isNotEmpty()) {
-                    item(key = "header-history") {
-                        QueueHeading(
-                            title = stringResource(Res.string.previously_played),
-                            modifier = queueMotion(reduceAnimation, heading = true).padding(top = 12.dp, bottom = 6.dp),
-                        ) {
-                            if (!selectionState.active) QueueAddAllButton(controlsLocked) { addAll(tracks.history) }
-                        }
+                queueHeadingItem("header-history", tracks.history.isNotEmpty(), reduceAnimation) {
+                    QueueHeading(
+                        title = stringResource(Res.string.previously_played),
+                        modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                    ) {
+                        if (!selectionState.active) QueueAddAllButton(controlsLocked) { addAll(tracks.history) }
                     }
+                }
+                if (tracks.history.isNotEmpty()) {
                     items(tracks.history, key = { it.key }) { track ->
                         SwipeableQueueRow(
                             track = track,
@@ -468,13 +501,13 @@ internal fun InlineQueue(
                         )
                     }
                 }
+                queueHeadingItem("header-now-playing", nowPlaying != null, reduceAnimation) {
+                    QueueHeading(
+                        title = stringResource(Res.string.now_playing),
+                        modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                    )
+                }
                 if (nowPlaying != null) {
-                    item(key = "header-now-playing") {
-                        QueueHeading(
-                            title = stringResource(Res.string.now_playing),
-                            modifier = queueMotion(reduceAnimation, heading = true).padding(top = 12.dp, bottom = 6.dp),
-                        )
-                    }
                     item(key = nowPlaying.key) {
                         SwipeableQueueRow(
                             track = nowPlaying,
@@ -492,48 +525,48 @@ internal fun InlineQueue(
                         )
                     }
                 }
-                if (tracks.user.isNotEmpty()) {
-                    item(key = "header-user-queue") {
-                        QueueHeading(
-                            title = stringResource(Res.string.next_in_queue),
-                            modifier = queueMotion(reduceAnimation, heading = true).padding(top = 16.dp, bottom = 6.dp),
-                        ) {
-                            if (!selectionState.active) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    QueueAddAllButton(controlsLocked) { addAll(tracks.user) }
-                                    Spacer(Modifier.width(4.dp))
-                                    QueueClearButton(MaterialTheme.typography.labelLarge, controlsLocked, onClear)
-                                }
+                queueHeadingItem("header-user-queue", tracks.user.isNotEmpty(), reduceAnimation) {
+                    QueueHeading(
+                        title = stringResource(Res.string.next_in_queue),
+                        modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
+                    ) {
+                        if (!selectionState.active) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                QueueAddAllButton(controlsLocked) { addAll(tracks.user) }
+                                Spacer(Modifier.width(4.dp))
+                                QueueClearButton(MaterialTheme.typography.labelLarge, controlsLocked, onClear)
                             }
                         }
                     }
+                }
+                if (tracks.user.isNotEmpty()) {
                     queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, onJumpTo, onRemove, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
-                if (tracks.context.isNotEmpty()) {
-                    item(key = "header-context") {
-                        QueueHeading(
-                            title = if (contextTitle != null) {
-                                stringResource(Res.string.next_from, contextTitle)
-                            } else {
-                                stringResource(Res.string.queue)
-                            },
-                            modifier = queueMotion(reduceAnimation, heading = true).padding(top = 16.dp, bottom = 6.dp),
-                        ) {
-                            if (!selectionState.active) QueueAddAllButton(controlsLocked) { addAll(tracks.context) }
-                        }
+                queueHeadingItem("header-context", tracks.context.isNotEmpty(), reduceAnimation) {
+                    QueueHeading(
+                        title = if (contextTitle != null) {
+                            stringResource(Res.string.next_from, contextTitle)
+                        } else {
+                            stringResource(Res.string.queue)
+                        },
+                        modifier = Modifier.padding(top = 16.dp, bottom = 6.dp),
+                    ) {
+                        if (!selectionState.active) QueueAddAllButton(controlsLocked) { addAll(tracks.context) }
                     }
+                }
+                if (tracks.context.isNotEmpty()) {
                     queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onRemove, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
-                if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
-                    item(key = "autoplay-heading") {
-                        AutoplayHeading(hasTracks = tracks.autoplay.isNotEmpty(), modifier = queueMotion(reduceAnimation, heading = true)) {
-                            if (!selectionState.active && tracks.autoplay.isNotEmpty()) {
-                                QueueAddAllButton(controlsLocked) { addAll(tracks.autoplay) }
-                            }
+                queueHeadingItem("autoplay-heading", autoplayEnabled || tracks.autoplay.isNotEmpty(), reduceAnimation) {
+                    AutoplayHeading(hasTracks = tracks.autoplay.isNotEmpty()) {
+                        if (!selectionState.active && tracks.autoplay.isNotEmpty()) {
+                            QueueAddAllButton(controlsLocked) { addAll(tracks.autoplay) }
                         }
                     }
+                }
+                if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
                     queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onRemove, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }

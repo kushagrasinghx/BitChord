@@ -2706,6 +2706,9 @@ private fun BitChordApp(
             queueSelectionTarget = queueSelectionTarget,
             onQueueSelectionConsumed = { queueSelectionTarget = null },
             onQueueBulkAction = performQueueBulkAction,
+            onQueueAddAllToPlaylist = { songs ->
+                scope.launch { performQueueBulkAction(songs, QueueBulkAction.PLAYLIST) }
+            },
             queueUndoNotice = {
                 QueueActionNoticeHost(
                     notice = queueUndoNotice,

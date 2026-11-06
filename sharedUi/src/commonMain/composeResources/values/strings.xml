@@ -283,4 +283,5 @@
     <string name="queue_close_selection">Close selection mode</string>
     <string name="queue_add_to_playlist">Add to playlist</string>
     <string name="queue_download">Download</string>
+    <string name="queue_add_all_to_playlist">Add all to playlist</string>
 </resources>

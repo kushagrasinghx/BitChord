@@ -826,6 +826,7 @@ fun NowPlayingScreen(
     queueSelectionTarget: Pair<Int, Song>? = null,
     onQueueSelectionConsumed: () -> Unit = {},
     onQueueBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { _, _ -> false },
+    onQueueAddAllToPlaylist: (List<Song>) -> Unit = {},
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
     /**
@@ -2357,6 +2358,7 @@ fun NowPlayingScreen(
                             selection = queueSelection,
                             onBulkAction = onQueueBulkAction,
                             modifier = Modifier.fillMaxSize(),
+                            onAddAllToPlaylist = onQueueAddAllToPlaylist,
                         )
                     },
                 )
@@ -4017,6 +4019,7 @@ fun NowPlayingScreen(
                                     selection = queueSelection,
                                     onBulkAction = onQueueBulkAction,
                                     onDragActiveChange = onQueueDragActiveChange,
+                                    onAddAllToPlaylist = onQueueAddAllToPlaylist,
                                     collapsePlayerOnScroll = true,
                                     onRevealPlayer = { queueControlsOpen = true },
                                     onHidePlayer = { queueControlsOpen = false },

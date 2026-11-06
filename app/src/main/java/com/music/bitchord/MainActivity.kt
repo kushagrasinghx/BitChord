@@ -22,6 +22,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.EnterTransition
@@ -63,6 +64,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
@@ -76,6 +78,8 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Upgrade
 import com.music.bitchord.data.listentogether.ServerConnectionState
+import com.music.bitchord.ui.haptics.Haptic
+import com.music.bitchord.ui.haptics.rememberHaptics
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -151,6 +155,7 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.model.SearchHistoryEntity
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
@@ -380,6 +385,12 @@ private const val TOP_FADE_START = 0.55f
 private const val TOP_FADE_RAMP = 0.3f
 
 private const val INITIAL_RADIO_TRACKS = 24
+
+/** Duration of the smooth scroll-to-top animation in milliseconds. */
+private const val SCROLL_TO_TOP_DURATION_MS = 550
+
+/** Number of items above which we treat a list as "far" and do a bounded jump near the top. */
+private const val FAR_LIST_THRESHOLD = 15
 
 internal fun shouldSkipAfterDislike(
     previousStatus: LikeStatus,
@@ -4137,6 +4148,21 @@ private fun BitChordApp(
                     }
                 }
 
+                val haptics = rememberHaptics()
+                val scrollScope = rememberCoroutineScope()
+                var scrollJob by remember { mutableStateOf<Job?>(null) }
+                /** Scroll the current tab's list back to top when the active tab is tapped (excludes Search). */
+                val onActiveTabTap: () -> Unit = fun() {
+                    // Capture overlay state at tap time, before any navigation handler clears it.
+                    if (route != null || detail != null || selectedMoodGenre != null) return
+                    if (selectedTab == TAB_SEARCH) return
+                    haptics.play(Haptic.Select)
+                    scrollJob?.cancel()
+                    scrollJob = scrollScope.launch {
+                        currentListState.scrollToTopEased()
+                    }
+                }
+
                 if (glassActive) Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -4172,6 +4198,7 @@ private fun BitChordApp(
                         dock = activeDock,
                         pull = playerSheetMotion.takeIf { !reducePlayerMotion },
                         modifier = Modifier.fillMaxWidth(),
+                        onActiveTabTap = onActiveTabTap,
                     )
                 } else Column(
                     modifier = Modifier
@@ -4217,6 +4244,7 @@ private fun BitChordApp(
                         selectedIndex = selectedTab,
                         hazeState = hazeState,
                         onTabSelected = onTabSelected,
+                        onActiveTabTap = onActiveTabTap,
                     )
                 }
             }
@@ -6228,3 +6256,52 @@ private const val TAB_HOME = 0
 private const val TAB_EXPLORE = 1
 private const val TAB_LIBRARY = 2
 private const val TAB_SEARCH = 3
+
+/**
+ * Smoothly scroll a LazyList back to the top with eased deceleration.
+ *
+ * For near lists (≤ FAR_LIST_THRESHOLD items above), animates the full estimated distance then
+ * finishes at exactly index 0. For far lists, does a bounded jump near the top first, then
+ * animates the remaining short distance — avoiding long-distance scroll inconsistencies.
+ */
+private suspend fun LazyListState.scrollToTopEased() {
+    val firstIndex = this.firstVisibleItemIndex
+    val scrollOffset = this.firstVisibleItemScrollOffset
+    if (firstIndex == 0 && scrollOffset == 0) return // already at top
+
+    val visibleItems = this.layoutInfo.visibleItemsInfo
+    if (visibleItems.isEmpty()) return // empty list guard
+
+    val avgHeight: Float = visibleItems.sumOf { it.size }.toFloat() / visibleItems.size
+    val estimatedDistance: Float = avgHeight * firstIndex + scrollOffset
+
+    if (firstIndex > FAR_LIST_THRESHOLD) {
+        // Far list: jump to a bounded index near the top, then animate the remainder.
+        val targetIndex = firstIndex - FAR_LIST_THRESHOLD.coerceAtMost(firstIndex)
+        this.scrollToItem(targetIndex)
+        kotlinx.coroutines.delay(16L) // layout settle after scrollToItem
+        val remainingOffset: Float = this.firstVisibleItemScrollOffset.toFloat() +
+            visibleItems.getOrNull(0)?.size?.toFloat().orZero()
+        if (remainingOffset > 0) {
+            this.animateScrollBy(
+                value = -remainingOffset,
+                animationSpec = tween(SCROLL_TO_TOP_DURATION_MS, easing = FastOutSlowInEasing),
+            )
+        }
+    } else {
+        // Near distance: animate the full estimated distance.
+        if (estimatedDistance > 0) {
+            this.animateScrollBy(
+                value = -estimatedDistance,
+                animationSpec = tween(SCROLL_TO_TOP_DURATION_MS, easing = FastOutSlowInEasing),
+            )
+        }
+    }
+    // Finish at exactly index 0 with a short settling scroll.
+    if (this.firstVisibleItemIndex != 0 || this.firstVisibleItemScrollOffset != 0) {
+        this.animateScrollToItem(0)
+    }
+}
+
+/** Safely converts a nullable Float to non-null, defaulting to 0f for null. */
+private fun Float?.orZero(): Float = this ?: 0f

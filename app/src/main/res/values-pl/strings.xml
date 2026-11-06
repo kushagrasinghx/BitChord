@@ -210,6 +210,8 @@
     <string name="reduce_animation_subtitle">Zatrzymuje gradient głównego odtwarzacza zamiast dryfowania</string>
     <string name="reduce_dynamic_blur">Zmniejsz rozmycie dynamiczne</string>
     <string name="reduce_dynamic_blur_subtitle">Zastępuje matowe szkło jednolitymi wypełnieniami w całej aplikacji</string>
+    <string name="disable_blend_effects">Wyłącz efekty mieszania</string>
+    <string name="disable_blend_effects_subtitle">Pokazuje ikony, tekst i ciemne menu odtwarzacza w czystej bieli zamiast barwić je kolorem okładki</string>
     <string name="full_screen_cover_art">Pełnoekranowa okładka</string>
     <string name="animated_cover_art">Animowana okładka</string>
     <string name="synced_lyrics">Zsynchronizowany tekst</string>
@@ -240,6 +242,8 @@
     <string name="light">Jasny</string>
     <string name="dark">Ciemny</string>
     <string name="full_screen_cover_art_subtitle">Wyświetla okładkę na całym ekranie odtwarzacza zamiast kwadratowej okładki</string>
+    <string name="full_screen_detail_cover">Pełnoekranowa okładka albumu/playlisty</string>
+    <string name="full_screen_detail_cover_subtitle">Wyświetla okładki albumów i playlist do krawędzi strony zamiast w ramce</string>
     <string name="animated_cover_art_subtitle">Odtwarza animowaną okładkę dostępną w niektórych wydaniach zamiast statycznej</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay nie zaproponuje utworu, który został już odtworzony lub zaproponowany w tej sesji</string>
     <string name="download_quality_subtitle">%1$s na utwór, niezależnie od połączenia</string>
@@ -829,7 +833,6 @@
 
     <string name="addon_url_description">Wklej adres URL wtyczki — katalog główny lub manifest.json.</string>
 
-    <string name="advanced_options">Opcje zaawansowane i eksperymentalne</string>
 
     <string name="automix_mode_balanced">Zrównoważony</string>
 
@@ -895,9 +898,14 @@
     <string name="playlist_sync_done_title">Dodano do %1$s: %2$d</string>
     <string name="playlist_updates_channel">Aktualizacje playlist</string>
 
-    <string name="legacy_mesh_gradient">Klasyczny gradient siatkowy</string>
+    <string name="player_theme">Motyw odtwarzacza</string>
+    <string name="player_theme_default">Domyślny</string>
+    <string name="player_theme_legacy">Klasyczny</string>
+    <string name="player_theme_simple">Prosty</string>
+    <string name="player_theme_default_subtitle">Kolory okładki ciągną się pod nią</string>
+    <string name="player_theme_simple_subtitle">Rozmyta okładka za całym odtwarzaczem</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Przywraca płynne plamy kolorów z wersji v1.5</string>
+    <string name="player_theme_legacy_subtitle">Przywraca płynne plamy kolorów z wersji v1.5</string>
 
     <string name="liquid_glass">Płynne szkło</string>
 
@@ -1106,6 +1114,16 @@
 
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">Inteligentne dopasowanie dźwięku</string>
 
     <string name="smart_version_alignment_subtitle">Analizuje ścieżkę dźwiękową, by idealnie zgrać moment utworu (np. omijając intro w wideo)</string>
@@ -1295,6 +1313,8 @@
 
 
     <string name="source_needs_lossless_output">Wymaga wyjścia bezstratnego · użyj urządzenia obsługującego dźwięk bezstratny</string>
+    <string name="source_needs_update">Ten dodatek jest nieaktualny. Nadal działa, ale poproś jego twórcę o aktualizację zgodnie z najnowszą dokumentacją dodatków BitChord.</string>
+    <string name="source_outdated">Nieaktualny dodatek</string>
     <string name="source_needs_lossless_bt_codec">Wymaga wyjścia bezstratnego · Bluetooth używa %1$s; użyj urządzenia obsługującego dźwięk bezstratny</string>
     <string name="source_needs_lossless_bt_unknown">Wymaga wyjścia bezstratnego · nie można ustalić, jaki kodek Bluetooth jest używany</string>
     <string name="source_downloads_on">Pobieranie dozwolone</string>
@@ -1433,6 +1453,7 @@
     <string name="direct_source_stream">Bezpośredni strumień ze źródła</string>
     <string name="find_your_mood">Znajdź swój nastrój</string>
     <string name="progressive_blur">Stopniowe rozmycie</string>
+    <string name="glass_performance">Lepsza wydajność szkła</string>
     <string name="remove_from_history">Usuń z historii</string>
     <string name="remove_from_history_failed">Nie udało się usunąć z historii</string>
     <string name="addon_blocked_title">Nie można odtworzyć tego utworu</string>

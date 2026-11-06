@@ -2,6 +2,7 @@ package com.music.bitchord.ui.components
 
 import android.provider.Settings
 import com.music.bitchord.ui.player.PlayerBackHandler
+import com.music.bitchord.ui.player.additiveChrome
 import com.music.bitchord.ui.utils.containSheetGestures
 import com.music.bitchord.ui.components.backdrop.Backdrop
 import com.music.bitchord.ui.components.backdrop.drawBackdrop
@@ -103,10 +104,18 @@ private val DarkMenu = IosMenuColors(
     dark = true,
     fill = Color(0xFF1C1C1E),
     rim = Color.White.copy(alpha = 0.10f),
-    label = Color.White,
-    secondaryLabel = Color.White.copy(alpha = 0.70f),
+    // Below full strength for [additiveChrome], which both panels draw their
+    // rows through here: solid white would stay solid white under it.
+    label = Color.White.copy(alpha = 0.75f),
+    secondaryLabel = Color.White.copy(alpha = 0.60f),
     separator = Color.White.copy(alpha = 0.10f),
     pressed = Color.White.copy(alpha = 0.10f),
+)
+
+/** [DarkMenu] with "Disable blend effects" on: the rows laid over the frost at full strength again. */
+private val PlainDarkMenu = DarkMenu.copy(
+    label = Color.White,
+    secondaryLabel = Color.White.copy(alpha = 0.70f),
 )
 
 private val LightMenu = IosMenuColors(
@@ -121,8 +130,14 @@ private val LightMenu = IosMenuColors(
 
 /** The panel colours for the theme in force. */
 @Composable
-fun iosMenuColors(): IosMenuColors =
-    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) DarkMenu else LightMenu
+fun iosMenuColors(): IosMenuColors {
+    val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
+    return when {
+        MaterialTheme.colorScheme.background.luminance() >= 0.5f -> LightMenu
+        plain -> PlainDarkMenu
+        else -> DarkMenu
+    }
+}
 
 /** The panel's silhouette: a large, continuously curved corner. */
 val IosMenuShape: Shape = RoundedCornerShape(30.dp).continuous()
@@ -159,11 +174,14 @@ fun Modifier.iosMenuPanel(
     castsShadow: Boolean = true,
 ): Modifier {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
     val blurs = translucent && !reduceDynamicBlur
     val backdropFrost = blurs && backdrop != null && isGlassSupported()
     val hazeFrost = blurs && !backdropFrost && hazeState != null
     val fill = fillOverride ?: if (backdropFrost || hazeFrost) {
-        colors.fill.copy(alpha = if (colors.dark) 0.80f else 0.72f)
+        // Thinner on a dark panel while its rows are blended, which takes them
+        // further into the colour behind; plain rows want the denser slab back.
+        colors.fill.copy(alpha = if (!colors.dark) 0.72f else if (plain) 0.80f else 0.60f)
     } else {
         colors.fill
     }
@@ -346,7 +364,7 @@ fun IosMenuRow(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = (iconTint ?: foreground).copy(alpha = alpha),
+                    tint = (iconTint ?: foreground).let { it.copy(alpha = it.alpha * alpha) },
                     modifier = Modifier.size(21.dp),
                 )
             }
@@ -355,7 +373,7 @@ fun IosMenuRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 text = label,
-                color = foreground.copy(alpha = alpha),
+                color = foreground.copy(alpha = foreground.alpha * alpha),
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontSize = 17.sp,
                     lineHeight = 21.sp,
@@ -379,7 +397,7 @@ fun IosMenuRow(
             Spacer(Modifier.width(10.dp))
             Text(
                 text = value,
-                color = (valueColor ?: colors.secondaryLabel).copy(alpha = alpha),
+                color = (valueColor ?: colors.secondaryLabel).let { it.copy(alpha = it.alpha * alpha) },
                 fontSize = 15.sp,
                 maxLines = 1,
             )
@@ -475,6 +493,7 @@ fun <T : Any> IosMenuPopover(
     PlayerBackHandler(enabled = open, onBack = onDismiss)
 
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
     val scrim = Color.Black.copy(alpha = if (dark) 0.30f else 0.14f)
     val insets = WindowInsets.safeDrawing
     var overlayOffset by remember { mutableStateOf(Offset.Zero) }
@@ -527,10 +546,18 @@ fun <T : Any> IosMenuPopover(
                 // in the same layer, every label and glyph went with it, each
                 // frame at a new scale: rasterized again and uploaded again on
                 // the render thread. Apart, they are drawn once, full size,
-                // and only scaled.
+                // and only scaled. On a dark panel that layer is the blend's
+                // own, added onto the frost; on a light one it would wash the
+                // dark labels out, so it stays plain.
                 Column(
                     Modifier
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .then(
+                            if (dark && !plain) {
+                                Modifier.additiveChrome(true)
+                            } else {
+                                Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            },
+                        )
                         .padding(vertical = 8.dp),
                 ) {
                     content(menuItem)

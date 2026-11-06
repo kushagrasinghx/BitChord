@@ -3,12 +3,14 @@ package com.music.bitchord.data.sources
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.sources.addon.AddonAuth
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.AddonManifest
 import com.music.bitchord.data.sources.addon.AddonNotFound
 import com.music.bitchord.data.sources.addon.AddonStream
 import com.music.bitchord.data.sources.addon.AddonTrack
+import com.music.bitchord.data.sources.addon.AddonUnavailable
 import com.music.bitchord.playback.StreamContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,7 +40,8 @@ class AddonSource(
     override val kind: SourceKind get() = config.kind
     override val displayName: String get() = config.displayName
 
-    private val client = AddonClient(config.baseUrl)
+    /** Holds the pick for this instance's life: changing it is an edit, and [SourceRegistry] rebuilds on one. */
+    private val client = AddonClient(config.baseUrl, config.pickedQuality)
 
     /**
      * Rows this addon has recently handed over, by their own track id.
@@ -83,15 +86,67 @@ class AddonSource(
      * an addon that has just turned the switch on is stopped before the request
      * rather than after it. The manifest is the client's shared, cached copy,
      * which the request was about to read for its settings anyway.
+     *
+     * An addon that doesn't declare `bitchordAuth` is out of date but still
+     * used: the sources screen flags it, and nothing is sent to it but the
+     * plain requests it has always had. One that declares it needs this device
+     * verified. While the device was just refused, every request would fail
+     * the same way before leaving the phone, so none is made, and the reason is
+     * logged once rather than once per query.
      */
     private suspend fun admitted(what: String): Boolean {
         if (shutOut(what)) return false
-        client.manifest().getOrNull()?.let(::recordPolicy)
-        return !shutOut(what)
+        val declared = refreshPolicy()
+        if (shutOut(what)) return false
+        if ((declared ?: live.bitchordAuth) != true) return true
+        AddonAuth.standingRefusal()?.let { reason ->
+            if (reason != loggedRefusal) {
+                loggedRefusal = reason
+                TrackLog.d(TAG, "${config.displayName}: skipped until verification is retried — $reason")
+            }
+            return false
+        }
+        loggedRefusal = null
+        return true
     }
 
+    /** The refusal [admitted] last logged a skip for, so a run of skips costs one line. */
+    @Volatile
+    private var loggedRefusal: String? = null
+
+    /**
+     * Reads the manifest (the client's cached copy when there is one) and
+     * stores what it says. An addon with no usable manifest is recorded as out
+     * of date, since it has nowhere to declare `bitchordAuth`; a manifest that
+     * merely couldn't be fetched just now changes nothing.
+     *
+     * Returns whether the addon is up to date by what was just read, or null
+     * when nothing could be read and the stored answer has to stand.
+     */
+    suspend fun refreshPolicy(): Boolean? =
+        client.manifest().fold(
+            onSuccess = { manifest ->
+                recordPolicy(manifest)
+                manifest.requiresBitChordAuth
+            },
+            onFailure = { failure ->
+                if (failure is AddonException) {
+                    SourceRegistry.markAddonOutdated(config.id)
+                    false
+                } else {
+                    null
+                }
+            },
+        )
+
     private fun recordPolicy(manifest: AddonManifest) =
-        SourceRegistry.updatePolicy(config.id, manifest.downloadsAllowed, manifest.requiresLosslessOutput)
+        SourceRegistry.updatePolicy(
+            config.id,
+            manifest.downloadsAllowed,
+            manifest.requiresLosslessOutput,
+            manifest.qualityOptions,
+            manifest.requiresBitChordAuth,
+        )
 
     // ── Health ────────────────────────────────────────────────────────────
 
@@ -115,6 +170,19 @@ class AddonSource(
         client.manifest().fold(
             onSuccess = { manifest ->
                 recordPolicy(manifest)
+                // An addon that asks for auth is still not usable if this device
+                // can't be verified. Said here, in the auth service's words,
+                // because otherwise the row reads healthy while every search
+                // fails, and the reason is only in the log. One that doesn't ask
+                // is out of date, which the row flags on its own line, but works.
+                if (manifest.requiresBitChordAuth) client.checkAuth().exceptionOrNull()?.let { failure ->
+                    val reason = failure.message ?: "BitChord couldn't verify this device"
+                    return@fold if (failure is AddonUnavailable) {
+                        SourceHealth.Unreachable(reason)
+                    } else {
+                        SourceHealth.Rejected(reason)
+                    }
+                }
                 SourceHealth.Ok(
                     listOfNotNull(
                         manifest.displayName.takeIf { it.isNotBlank() },
@@ -123,12 +191,12 @@ class AddonSource(
                 )
             },
             onFailure = { failure ->
-                // No readable manifest is not the same as no addon. The
-                // endpoints are what this app uses; the manifest only describes
-                // them, and an addon that never published one is healthy the
-                // moment it answers a search. Reported plainly rather than as a
-                // success with a hidden caveat, so the row says which of the two
-                // kinds of working this is.
+                // No readable manifest is not the same as no addon: one that
+                // never published a manifest still answers a search, and is
+                // healthy the moment it does. It has nowhere to declare
+                // `bitchordAuth`, though, so it is recorded as out of date and
+                // the row flags that on its own line.
+                if (failure is AddonException) SourceRegistry.markAddonOutdated(config.id)
                 if (client.probeSearch().isSuccess) {
                     TrackLog.d(TAG, "${config.displayName}: no manifest, but search answers")
                     return@fold SourceHealth.Ok("No manifest · search works")

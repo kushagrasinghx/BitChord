@@ -25,7 +25,7 @@ then reload the BitChord page. Temporary installation is for development, not
 permanent distribution. Safari can require enabling unsigned extensions again
 after restarting.
 
-## Unsigned containing app
+## Development containing app
 
 With full Xcode selected (`xcode-select -p`), run:
 
@@ -33,10 +33,28 @@ With full Xcode selected (`xcode-select -p`), run:
 pnpm --dir web/extension package:safari
 ```
 
-This generates a macOS Xcode project and an unsigned app under
-`web/extension/.output/safari-native/`. Command Line Tools alone cannot build it.
+This generates a macOS Xcode project and an ad-hoc signed app under
+`web/extension/.output/safari-native/`. The app and extension receive sandbox and
+outgoing-network entitlements, and packaging verifies their resource signatures.
+Without a sandbox entitlement macOS refuses to register the extension. Ad-hoc
+signing provides local integrity checks, not an Apple developer identity.
+Command Line Tools alone cannot build it.
 The maintainer owns the final bundle identifier, Developer ID signing,
 notarization and distribution. No App Store submission is part of this workflow.
+
+Install the containing app in Applications and open it, then enable BitChord in
+the Safari web app's Settings → Extensions. Temporary extensions loaded in Safari
+do not appear in the standalone web app. Each app has its own unsigned-extension
+setting; restarting can require enabling it again and authenticating with macOS.
+
+The default local origin is `http://localhost:5173`. For another local address,
+include its exact origin in `BITCHORD_SITE_ORIGINS` when building the extension
+(the setting replaces the default list). The standalone test app at
+`http://127.0.0.1:5183` was tested with:
+
+```sh
+BITCHORD_SITE_ORIGINS=https://bitchord.in,https://bitchord-8bw.pages.dev,http://localhost:5173,http://127.0.0.1:5183 pnpm --dir web/extension build
+```
 
 ## Validation status
 
@@ -53,9 +71,37 @@ Live Safari 27.2 on macOS 27.2:
   signed-in requests worked after refreshing the page following Safari login.
 - Signed-in Spotify testing is left to the maintainer. The signed-out state was
   checked. Discord is deliberately unavailable in this target.
-- The unsigned containing app built successfully with Xcode 26.6 in macOS CI.
-  Signing, notarization, native-app installation and forced background
-  suspension/resumption have not been verified.
+- The containing app built with Xcode 26.6 in macOS CI. Its original artifact
+  failed signature validation and extension registration on the Mac. Applying
+  the packaging script's ad-hoc signatures and sandbox entitlements to that
+  artifact passed the native regression check and allowed registration.
+  Developer ID signing, notarization and forced background suspension remain
+  unverified. A fresh full-Xcode package build is validated by CI.
+
+### Combined PWA validation (6 November 2026)
+
+The heads of #1493 (PWA) and #1497 (Safari) were merged locally for this test;
+neither PR depends on that temporary merge commit. All 172 app tests, workspace
+typechecks and the production build passed with a placeholder party-server URL.
+
+- Brave: extension detection, account recognition, search, playback,
+  pause/resume and lyric seeking passed in the browser. Installed-PWA playback
+  and pause/resume passed.
+- Safari: extension detection, account recognition, search, playback,
+  pause/resume and lyric seeking passed in the browser. The installed web app
+  connected through the packaged extension; signed-out search and playback
+  passed with an advancing clock.
+- Both installed PWAs reloaded their app shell with the local server stopped.
+  This does not provide offline music playback.
+- A temporary worker-version change offered updates while the playback clocks
+  continued advancing. Updates waited for explicit activation. Both apps
+  reloaded; Safari's old-cache cleanup was inspected. Native automation did not
+  dispatch the final Safari restore-button click, so that activation was tested
+  through the same button's DOM click in Web Inspector. The normal build was
+  restored, with no waiting worker in Safari.
+
+Signed-in Spotify, physical audio output, long sessions and multi-window update
+coordination were not tested in this follow-up.
 
 Safari requires `declarativeNetRequestWithHostAccess` and rejects `X-Origin`
 modifications. Page-side header rewriting still failed live CORS checks, so the

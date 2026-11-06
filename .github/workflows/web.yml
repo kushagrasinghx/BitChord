@@ -74,6 +74,8 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm --dir extension package:safari
+      - name: Verify development app signatures and entitlements
+        run: node --test extension/tests/safari-native.test.mjs
       - name: Archive unsigned app
         run: ditto -c -k --keepParent extension/.output/safari-native/build/Build/Products/Release/BitChord.app extension/.output/BitChord-unsigned.zip
       - uses: actions/upload-artifact@v4

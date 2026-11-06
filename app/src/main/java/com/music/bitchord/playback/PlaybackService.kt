@@ -264,6 +264,12 @@ internal class ManualUpgradeThrottle(private val cooldownMs: Long) {
 const val ACTION_QUEUE_DRAG = "com.music.bitchord.action.QUEUE_DRAG"
 const val EXTRA_QUEUE_DRAG_ACTIVE = "bitchord.queueDrag.active"
 
+/** Move an existing queue occurrence without resolving or copying its media source. */
+const val ACTION_QUEUE_MOVE_TO_USER = "com.music.bitchord.action.QUEUE_MOVE_TO_USER"
+const val EXTRA_QUEUE_MOVE_INDEX = "bitchord.queueMove.index"
+const val EXTRA_QUEUE_MOVE_ENTRY = "bitchord.queueMove.entry"
+const val EXTRA_QUEUE_MOVE_MEDIA = "bitchord.queueMove.media"
+
 /** A full first page for an explicitly requested station. */
 private const val INITIAL_STATION_TRACKS = 24
 
@@ -791,6 +797,8 @@ class PlaybackService : MediaLibraryService() {
     private val upgradeQualityCommand = SessionCommand(ACTION_UPGRADE_QUALITY, Bundle.EMPTY)
     private val swapVersionCommand = SessionCommand(ACTION_SWAP_VERSION, Bundle.EMPTY)
     private val queueDragCommand = SessionCommand(ACTION_QUEUE_DRAG, Bundle.EMPTY)
+    private val queueMoveToUserCommand = SessionCommand(ACTION_QUEUE_MOVE_TO_USER, Bundle.EMPTY)
+    private val queueMoveMutex = Mutex()
 
     private var favoriteActionJob: Job? = null
     private var stationActionJob: Job? = null
@@ -2701,6 +2709,83 @@ class PlaybackService : MediaLibraryService() {
         activePlayer.seekTo(index, position)
         if (wasPlaying) activePlayer.play()
         refreshCustomLayouts()
+    }
+
+    private suspend fun moveQueueEntryToUser(args: Bundle): Boolean {
+        if (ListenTogether.state.value.controlsLocked) return false
+        val before = mediaSession?.player ?: return false
+        val requestedIndex = args.getInt(EXTRA_QUEUE_MOVE_INDEX, -1)
+        val entryId = args.getString(EXTRA_QUEUE_MOVE_ENTRY)
+        val mediaId = args.getString(EXTRA_QUEUE_MOVE_MEDIA)
+        val candidates = (0 until before.mediaItemCount).filter { index ->
+            val candidate = before.getMediaItemAt(index)
+            candidate.mediaId == mediaId && candidate.queueEntryId == entryId
+        }
+        val originalIndex = if (entryId != null) {
+            candidates.singleOrNull() ?: candidates.firstOrNull { it == requestedIndex }
+        } else candidates.firstOrNull { it == requestedIndex }
+        if (originalIndex == null || originalIndex == before.currentMediaItemIndex) return false
+        val original = before.getMediaItemAt(originalIndex)
+        val wasHistory = originalIndex < before.currentMediaItemIndex
+        val contextGeneration = boundedEditState.contextGeneration
+        val partyCode = ListenTogether.state.value.code
+        // A standby owns a snapshot of the old running order. Settle it before
+        // editing, then reacquire the player in case the handoff adopted it.
+        val settled = withTimeoutOrNull(5_000L) {
+            versionSwapJob?.join()
+            if (crossfade?.isTransitioning() == true) crossfade?.onSkipRequested()
+            while (crossfade?.isTransitioning() == true || versionSwapJob?.isActive == true) delay(16L)
+            true
+        } ?: false
+        if (!settled || ListenTogether.state.value.controlsLocked ||
+            ListenTogether.state.value.code != partyCode || boundedEditState.contextGeneration != contextGeneration
+        ) return false
+        val activePlayer = mediaSession?.player ?: return false
+        val from = (0 until activePlayer.mediaItemCount)
+            .filter { activePlayer.getMediaItemAt(it) === original }.singleOrNull() ?: return false
+        if (from == activePlayer.currentMediaItemIndex ||
+            (from < activePlayer.currentMediaItemIndex) != wasHistory
+        ) return false
+        val item = activePlayer.getMediaItemAt(from)
+        val timeline = (0 until activePlayer.mediaItemCount).map { activePlayer.getMediaItemAt(it).toSong() }
+        val insertion = QueueCoordinator.findUserQueueInsertionIndex(
+            timeline = timeline,
+            currentIndex = activePlayer.currentMediaItemIndex,
+            isNext = AppSettings.swipeToPlayNext.value,
+        )
+        val target = if (from < insertion) insertion - 1 else insertion
+        if (item.queueTier == QueueTier.USER_QUEUE && from == target) return false
+        val window = boundedContextWindow
+        if (!wasHistory && item.queueTier == QueueTier.CONTEXT && window != null &&
+            !ListenTogether.state.value.inParty
+        ) {
+            if (boundedContextToken == null ||
+                boundedContextRegistry.snapshot()?.contextToken != boundedContextToken
+            ) return false
+            val canonicalIndex = item.canonicalIndex ?: return false
+            val cycleId = item.contextCycleId ?: return false
+            // The canonical index identifies this source occurrence, even when
+            // other source positions have the same media id. Filtering this
+            // cycle prevents refill/refresh from recreating the promoted row.
+            val excluded = window.snapshot().excludedEntries
+            val lastPlannedOccurrence = cycleId > window.cycleId &&
+                (0 until window.canonicalSize).none { index ->
+                    index != canonicalIndex && QueueWindowEntry(index, cycleId) !in excluded
+                }
+            // Materialization and commit admit only the immediately following
+            // cycle. Retain its last source occurrence rather than strand refill;
+            // the move still succeeds, so this one occurrence can appear twice.
+            if (!lastPlannedOccurrence && !window.exclude(QueueWindowEntry(canonicalIndex, cycleId))) return false
+        }
+        // This is the session's native player, not a controller round-trip through
+        // resolveMediaItems: retain canonical metadata, URI, and occurrence identity.
+        activePlayer.replaceMediaItem(from, QueueShuffle.withQueueMetadata(item, newTier = QueueTier.USER_QUEUE))
+        if (from != target) activePlayer.moveMediaItem(from, target)
+        // Retiering the first context row can leave its index unchanged; that
+        // still counts as an explicit queue edit for a listening party.
+        partySync?.onLocalIntent()
+        player?.let(::saveQueueSnapshotImmediately)
+        return true
     }
 
     private fun toggleShuffleFromSession() {
@@ -8537,6 +8622,7 @@ class PlaybackService : MediaLibraryService() {
                 .add(upgradeQualityCommand)
                 .add(swapVersionCommand)
                 .add(queueDragCommand)
+                .add(queueMoveToUserCommand)
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
@@ -8562,6 +8648,17 @@ class PlaybackService : MediaLibraryService() {
             args: Bundle,
         ): ListenableFuture<SessionResult> {
             when (customCommand.customAction) {
+                ACTION_QUEUE_MOVE_TO_USER -> {
+                    val moveArgs = Bundle(args)
+                    return scope.future {
+                        queueMoveMutex.withLock {
+                            SessionResult(
+                                if (moveQueueEntryToUser(moveArgs)) SessionResult.RESULT_SUCCESS
+                                else SessionError.ERROR_INVALID_STATE,
+                            )
+                        }
+                    }
+                }
                 ACTION_START_BOUNDED_CONTEXT -> startBoundedContext(args)
                 ACTION_CLEAR_BOUNDED_CONTEXT -> clearBoundedContext()
                 ACTION_TOGGLE_AUTOPLAY -> toggleAutoplayFromNotification()

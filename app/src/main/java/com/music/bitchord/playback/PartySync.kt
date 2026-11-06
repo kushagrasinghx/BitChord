@@ -752,10 +752,8 @@ class PartySync(
         var playbackControls = 0
         var queueControls = 0
 
-        // Compared by id first, which is a plain field read per item. Building
-        // the full list is not — it parses a metadata bundle per track — and
-        // this runs on every pause and every seek, on a queue that can be
-        // hundreds long.
+        // Compare only ids and tiers before building full PartyTracks. This
+        // runs on every pause and seek, on a queue that can be hundreds long.
         val rawLocalItems = (0 until exo.mediaItemCount)
             .map { exo.getMediaItemAt(it) }
             .filterNot { it.mediaId.startsWith("content://") || it.mediaId.startsWith("file://") }
@@ -778,6 +776,7 @@ class PartySync(
         } else {
             localIds.take(1 + MAX_PARTY_UPCOMING_QUEUE)
         }
+        val localSignatures = clampedIds.indices.map { clampedIds[it] to localItems[it].fromAutoplay }
 
         // Covers the ways a running order changes without the playhead moving —
         // Play next, Add to queue, removing a row, dragging one. Before this,
@@ -791,6 +790,7 @@ class PartySync(
         }
 
         val partyIds = party.queue.items.map(PartyTrack::videoId)
+        val partySignatures = party.queue.items.map { it.videoId to it.fromAutoplay }
         if (party.playback.track?.videoId != track.videoId && clampedIds.size == 1 && upcomingPartyTracks.isNotEmpty()) {
             val toPreserve = upcomingPartyTracks
                 .filterNot { it.fromAutoplay }
@@ -801,9 +801,15 @@ class PartySync(
             val queue = listOf(track) + toPreserve
             ListenTogether.setQueue(queue, 0)
             queueControls++
-        } else if (clampedIds != partyIds) {
+        } else if (localSignatures != partySignatures) {
             val singleMove = if (partyIds.size == clampedIds.size && trackIndex >= 0 && trackIndex < partyIds.size && partyIds[trackIndex] == clampedIds[trackIndex]) {
-                detectSingleMove(partyIds, clampedIds)
+                detectSingleMove(partyIds, clampedIds)?.takeIf { move ->
+                    // queueMove carries no tiers. A move plus retiering needs
+                    // setQueue, even when the ids alone describe one move.
+                    val movedSignatures = partySignatures.toMutableList()
+                    movedSignatures.add(move.toIndex, movedSignatures.removeAt(move.fromIndex))
+                    movedSignatures == localSignatures
+                }
             } else {
                 null
             }
@@ -950,35 +956,48 @@ class PartySync(
             // its decoder and audio renderer untouched on every device.
             if (desiredUpcomingIds.startsWith(localUpcomingIds)) {
                 exo.addMediaItems(desiredUpcoming.drop(localUpcomingIds.size).map { it.toSong().toMediaItem() })
-                return
-            }
-
-            // Likewise, trimming only the tail leaves the active source alone.
-            if (localUpcomingIds.startsWith(desiredUpcomingIds)) {
+            } else if (localUpcomingIds.startsWith(desiredUpcomingIds)) {
+                // Likewise, trimming only the tail leaves the active source alone.
                 exo.removeMediaItems(currentIndex + 1 + desiredUpcomingIds.size, exo.mediaItemCount)
-                return
-            }
-
-            val singleMove = if (localUpcomingIds.size == desiredUpcomingIds.size) {
-                detectSingleMove(localUpcomingIds, desiredUpcomingIds)
             } else {
-                null
-            }
+                val singleMove = if (localUpcomingIds.size == desiredUpcomingIds.size) {
+                    detectSingleMove(localUpcomingIds, desiredUpcomingIds)
+                } else {
+                    null
+                }
 
-            if (singleMove != null) {
-                exo.moveMediaItem(
-                    currentIndex + 1 + singleMove.fromIndex,
-                    currentIndex + 1 + singleMove.toIndex,
-                )
-            } else {
-                // One atomic timeline edit. Removing and then adding the tail
-                // creates an empty intermediate timeline, which can briefly
-                // rebuffer or interrupt the current renderer on some devices.
-                // The active item is deliberately outside this replacement.
+                if (singleMove != null) {
+                    exo.moveMediaItem(
+                        currentIndex + 1 + singleMove.fromIndex,
+                        currentIndex + 1 + singleMove.toIndex,
+                    )
+                } else {
+                    // One atomic timeline edit. Removing and then adding the tail
+                    // creates an empty intermediate timeline, which can briefly
+                    // rebuffer or interrupt the current renderer on some devices.
+                    // The active item is deliberately outside this replacement.
+                    exo.replaceMediaItems(
+                        currentIndex + 1,
+                        exo.mediaItemCount,
+                        desiredUpcoming.map { it.toSong().toMediaItem() },
+                    )
+                }
+            }
+        }
+
+        // Run after every structural path, including unchanged ids, append,
+        // trim and move: each can also carry a manual/AutoPlay tier change.
+        // Keep native sources, entry ids and canonical metadata, and never
+        // replace the active item just to synchronize an upcoming tier.
+        desiredUpcoming.forEachIndexed { index, track ->
+            val localIndex = currentIndex + 1 + index
+            val item = exo.getMediaItemAt(localIndex)
+            val tier = if (track.fromAutoplay) QueueTier.AUTOPLAY else QueueTier.USER_QUEUE
+            if (item.queueTier != tier) {
                 exo.replaceMediaItems(
-                    currentIndex + 1,
-                    exo.mediaItemCount,
-                    desiredUpcoming.map { it.toSong().toMediaItem() },
+                    localIndex,
+                    localIndex + 1,
+                    listOf(QueueShuffle.withQueueMetadata(item, newTier = tier)),
                 )
             }
         }

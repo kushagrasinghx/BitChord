@@ -208,6 +208,7 @@ import com.music.bitchord.playback.autoplayEnabledFor
 import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.playback.beginRadioQueue
 import com.music.bitchord.playback.commitRadioQueue
+import com.music.bitchord.playback.moveQueueEntryToUser
 import com.music.bitchord.playback.fromAutoplay
 import com.music.bitchord.playback.hasYouTubeOriginal
 import com.music.bitchord.playback.loadAutoplayTracks
@@ -2628,6 +2629,7 @@ private fun BitChordApp(
                 }
             },
             onRemoveFromQueue = { controller?.removeMediaItem(it) },
+            onQueueSwipeToQueue = { index, queueSong -> controller?.moveQueueEntryToUser(index, queueSong) ?: false },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
             onQueueSongMenu = { _, queueSong ->

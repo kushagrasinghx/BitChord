@@ -22,6 +22,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.NOTIFICATION_ART_PX
@@ -297,6 +298,23 @@ fun MediaController.setQueueDragActive(active: Boolean) {
         bundleOf(EXTRA_QUEUE_DRAG_ACTIVE to active),
     )
 }
+
+/** A queue-screen swipe moves this occurrence rather than adding a second copy. */
+suspend fun MediaController.moveQueueEntryToUser(index: Int, song: Song): Boolean =
+    try {
+        sendCustomCommand(
+            SessionCommand(ACTION_QUEUE_MOVE_TO_USER, Bundle.EMPTY),
+            bundleOf(
+                EXTRA_QUEUE_MOVE_INDEX to index,
+                EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+                EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+            ),
+        ).await().resultCode == SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
 
 /** Mirrors the controller into Compose state, polling position while playing. */
 @Composable

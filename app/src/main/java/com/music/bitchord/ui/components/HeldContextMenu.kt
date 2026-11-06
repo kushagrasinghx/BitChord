@@ -90,12 +90,18 @@ fun <T : Any> HeldContextMenu(
     /** Tapping the lifted item — open what it stands for. Null leaves it inert. */
     onPreviewClick: ((T) -> Unit)?,
     inPlayerSheet: Boolean = false,
+    /** Optional controls-free rendering; all other origins keep their captured picture. */
+    preview: (@Composable (T) -> Unit)? = null,
     actions: @Composable (T) -> Unit,
 ) {
     val requested = if (item != null && held != null) item to held else null
     var last by remember { mutableStateOf<Pair<T, HeldItem>?>(null) }
+    var lastPreview by remember { mutableStateOf<(@Composable (T) -> Unit)?>(null) }
     if (requested != null && requested != last) {
-        SideEffect { last = requested }
+        SideEffect {
+            last = requested
+            lastPreview = preview
+        }
     }
     val shown = requested ?: last ?: return
     val (menuItem, heldItem) = shown
@@ -219,7 +225,10 @@ fun <T : Any> HeldContextMenu(
                     )
                     .padding(platePadding),
             ) {
-                heldItem.image?.let { image ->
+                val renderPreview = if (requested != null) preview else lastPreview
+                if (renderPreview != null) {
+                    renderPreview(menuItem)
+                } else heldItem.image?.let { image ->
                     Image(
                         bitmap = image,
                         contentDescription = null,

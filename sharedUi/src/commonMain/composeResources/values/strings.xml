@@ -280,6 +280,7 @@
     <string name="automix_overview_unavailable">No Automix transition coming up</string>
     <string name="queue_selected_count">%1$d selected</string>
     <string name="queue_select_all">Select all</string>
+    <string name="queue_select">Select</string>
     <string name="queue_close_selection">Close selection mode</string>
     <string name="queue_add_to_playlist">Add to playlist</string>
     <string name="queue_download">Download</string>

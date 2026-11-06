@@ -1464,7 +1464,6 @@
     <string name="queue_undo_action">ביטול</string>
     <string name="queue_cleared_section">נוקה %1$s</string>
     <string name="next_in_queue">הבא בתור</string>
-    <string name="select_queue_songs">בחירת שירים מהתור</string>
     <string name="queue_selected_count">%1$d נבחרו</string>
     <string name="queue_playlist_added">נוספו %1$d מתוך %2$d שירים</string>
     <string name="queue_playlist_partial">%1$s (%2$d לא תואמים, %3$d כבר קיימים, %4$d נכשלו)</string>

@@ -398,8 +398,16 @@ internal fun InlineQueue(
                 IconButton(onClick = selectionState::clear) {
                     Icon(Icons.Rounded.Close, contentDescription = stringResource(Res.string.queue_close_selection), tint = Color.White)
                 }
-            } else if (tracks.user.isNotEmpty()) {
-                QueueClearButton(MaterialTheme.typography.titleMedium, controlsLocked, onClear)
+            } else {
+                Text(
+                    text = stringResource(Res.string.queue_select),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White.copy(alpha = if (controlsLocked) 0.25f else 0.75f),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(percent = 50))
+                        .clickable(enabled = !controlsLocked, onClick = selectionState::start)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
             }
         }
         Spacer(Modifier.height(4.dp))
@@ -976,6 +984,12 @@ private class QueueDrag(private val listState: LazyListState) {
     }
 }
 
+/** The held menu keeps the row's metadata, but not its queue editing controls. */
+@Composable
+fun QueueSongPreview(song: Song) {
+    InlineQueueRow(song = song, isCurrent = false, onClick = {}, onRemove = {}, preview = true)
+}
+
 @Composable
 private fun InlineQueueRow(
     song: Song,
@@ -984,6 +998,7 @@ private fun InlineQueueRow(
     onRemove: () -> Unit,
     onLongPress: (() -> Unit)? = null,
     selectionChecked: Boolean? = null,
+    preview: Boolean = false,
     modifier: Modifier = Modifier,
     /** @see InlineQueue */
     locked: Boolean = false,
@@ -1061,7 +1076,7 @@ private fun InlineQueueRow(
                 enabled = !locked,
                 modifier = Modifier.size(32.dp),
             )
-        } else {
+        } else if (!preview) {
             if (ltr) removeControl() else handle()
         }
         AsyncImage(
@@ -1100,7 +1115,7 @@ private fun InlineQueueRow(
         }
         if (selectionChecked != null) {
             Spacer(Modifier.width(24.dp))
-        } else {
+        } else if (!preview) {
             if (ltr) handle() else removeControl()
         }
     }

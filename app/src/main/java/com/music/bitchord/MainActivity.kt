@@ -746,8 +746,6 @@ private fun BitChordApp(
     var playlistTarget by remember { mutableStateOf<Song?>(null) }
     var queuePlaylistSongs by remember { mutableStateOf<List<Song>?>(null) }
     var queuePlaylistCompletion by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
-    var queueMenuTarget by remember { mutableStateOf<Pair<Int, Song>?>(null) }
-    var queueSelectionTarget by remember { mutableStateOf<Pair<Int, Song>?>(null) }
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
@@ -2703,8 +2701,6 @@ private fun BitChordApp(
                 if (c != null && queueSong != null) scope.launch { c.removeQueueItemWithUndo(index, queueSong) }
             },
             onQueueSwipeToQueue = { index, queueSong -> controller?.moveQueueEntryToUser(index, queueSong) ?: false },
-            queueSelectionTarget = queueSelectionTarget,
-            onQueueSelectionConsumed = { queueSelectionTarget = null },
             onQueueBulkAction = performQueueBulkAction,
             onQueueAddAllToPlaylist = { songs ->
                 scope.launch { performQueueBulkAction(songs, QueueBulkAction.PLAYLIST) }
@@ -2723,8 +2719,7 @@ private fun BitChordApp(
             },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
-            onQueueSongMenu = { index, queueSong ->
-                queueMenuTarget = index to queueSong
+            onQueueSongMenu = { _, queueSong ->
                 menuFromQueue = true
                 menuFromPlayer = true
                 songMenuOrigin = LongPressOrigin.consume()
@@ -4527,12 +4522,6 @@ private fun BitChordApp(
             SongActionsMenu(
                 song = song,
                 fromQueue = fromQueue,
-                onSelectQueueSongs = if (fromQueue) {
-                    {
-                        queueSelectionTarget = queueMenuTarget
-                        songActions = null
-                    }
-                } else null,
                 signedIn = signedIn,
                 likeStatus = likeStatusOf(song),
                 onPlayNext = { playNext(song); songActions = null },
@@ -4904,6 +4893,9 @@ private fun BitChordApp(
                         held = songMenuOrigin,
                         hazeState = playerMenuHaze,
                         inPlayerSheet = true,
+                        preview = if (menuFromQueue) {
+                            { song -> com.music.bitchord.ui.player.QueueSongPreview(song) }
+                        } else null,
                         onDismiss = { songActions = null },
                         onPreviewClick = { song ->
                             song.albumId?.let { id ->
@@ -4975,6 +4967,9 @@ private fun BitChordApp(
                 held = songMenuOrigin,
                 hazeState = hazeState,
                 onDismiss = { songActions = null },
+                preview = if (menuFromQueue) {
+                    { song -> com.music.bitchord.ui.player.QueueSongPreview(song) }
+                } else null,
                 // Tapping the lifted track opens its album, as Apple Music's does.
                 onPreviewClick = { song ->
                     song.albumId?.let { id ->
@@ -5011,7 +5006,6 @@ private fun BitChordApp(
                     songMenuOrigin = null
                     songMenuAnchor = null
                     menuFromQueue = false
-                    queueMenuTarget = null
                     menuFromHistory = false
                 }
             }

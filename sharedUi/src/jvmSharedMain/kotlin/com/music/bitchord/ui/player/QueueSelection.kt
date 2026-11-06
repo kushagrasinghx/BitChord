@@ -55,16 +55,11 @@ internal class QueueSelectionState {
         private set
     private var keys by mutableStateOf(emptySet<String>())
 
-    fun start(target: Pair<Int, Song>, rows: List<QueueTrack>) {
-        val (index, song) = target
-        val track = rows.firstOrNull { it.timelineIndex == index && it.song === song }
-            ?: song.queueEntryId?.let { id -> rows.singleOrNull { it.uniqueEntryId == id } }
-            ?: rows.singleOrNull { it.song === song }
-            ?: return
+    fun start() {
         generation++
         active = true
         busy = false
-        keys = setOf(track.selectionKey)
+        keys = emptySet()
     }
 
     fun isSelected(track: QueueTrack): Boolean = track.selectionKey in keys

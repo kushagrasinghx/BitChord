@@ -128,6 +128,7 @@ fun BrowseActionsMenu(
     isPinned: Boolean = false,
     onTogglePin: (() -> Unit)? = null,
     onRename: ((String) -> Unit)? = null,
+    onChangeCover: (() -> Unit)? = null,
     /**
      * Opens the reorder page for one of the account's own playlists — set
      * under the same rule as [onRename], since YouTube refuses to rearrange a
@@ -250,6 +251,9 @@ fun BrowseActionsMenu(
                         renaming = true
                     }
                 }
+            }
+            onChangeCover?.let {
+                ActionRow(SfIcons.Image, stringResource(R.string.playlist_cover_change), onClick = it)
             }
             onReorder?.let {
                 ActionRow(SfIcons.Reorder, stringResource(R.string.reorder_songs), onClick = it)

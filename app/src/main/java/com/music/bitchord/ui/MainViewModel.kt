@@ -3,6 +3,11 @@ package com.music.bitchord.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import coil3.SingletonImageLoader
+import com.music.bitchord.data.model.artworkAt
+import com.music.bitchord.data.model.ROW_ART_PX
+import com.music.bitchord.data.model.CARD_ART_PX
+import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.R
 import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.auth.SignedIn
@@ -920,6 +925,148 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _playlistsLoading = MutableStateFlow(false)
     val playlistsLoading: StateFlow<Boolean> = _playlistsLoading.asStateFlow()
+
+    private val _coverArtUploading = MutableStateFlow(false)
+    val coverArtUploading: StateFlow<Boolean> = _coverArtUploading.asStateFlow()
+    private val _coverArtOutcome = MutableStateFlow<Result<Boolean>?>(null)
+    val coverArtOutcome: StateFlow<Result<Boolean>?> = _coverArtOutcome.asStateFlow()
+    private val coverArtGeneration = AtomicLong(0L)
+
+    fun clearCoverArtOutcome() {
+        _coverArtOutcome.value = null
+    }
+
+    /**
+     * A successful result means the mutation was accepted. Its Boolean reports
+     * whether the subsequent header refresh worked, NOT whether the upload did.
+     * Duplicate submissions are ignored synchronously; state survives UI recreation.
+     * An account/profile switch invalidates the operation, including its callback.
+     */
+    fun changePlaylistCover(
+        playlist: UserPlaylist,
+        image: ByteArray,
+        onResult: (Result<Boolean>) -> Unit,
+    ) {
+        if (_coverArtUploading.value) return
+        val identity = listenerKey()
+        if (!_signedIn.value || identity == null) {
+            val result = Result.failure<Boolean>(IllegalStateException("signed out"))
+            _coverArtOutcome.value = result
+            onResult(result)
+            return
+        }
+        if (!_coverArtUploading.compareAndSet(false, true)) return
+        val generation = coverArtGeneration.incrementAndGet()
+        _coverArtOutcome.value = null
+        fun isCurrent() = generation == coverArtGeneration.get() && identity == listenerKey()
+        viewModelScope.launch {
+            var accepted = false
+            try {
+                val result = try {
+                    if (!isCurrent()) return@launch
+                    YtMusicRepository.setPlaylistCover(playlist.playlistId, image, ::isCurrent).getOrThrow()
+                    if (!isCurrent()) return@launch
+                    accepted = true
+                    libraryStale = true
+                    // Fetch metadata only. Never replace the current songs,
+                    // duplicates, continuation, or in-flight pagination state.
+                    val thumbnail = try {
+                        YtMusicRepository.browseSongs(playlist.browseId)
+                            .getOrNull()?.header?.thumbnailUrl?.takeIf { it.isNotBlank() }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (!isCurrent()) return@launch
+                    try {
+                        evictPlaylistCover(playlist, thumbnail)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // The unique URI revision still bypasses old entries.
+                    }
+                    if (!isCurrent()) return@launch
+                    setPlaylistCoverArtwork(playlist, thumbnail)
+                    Result.success(thumbnail != null)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Once accepted, a refresh/cache failure must not invite the
+                    // user to retry an upload that already succeeded remotely.
+                    if (accepted) Result.success(false) else Result.failure<Boolean>(e)
+                }
+                if (!isCurrent()) return@launch
+                _coverArtOutcome.value = result
+                _coverArtUploading.value = false
+                onResult(result)
+            } finally {
+                if (isCurrent()) _coverArtUploading.value = false
+            }
+        }
+    }
+
+    private suspend fun evictPlaylistCover(playlist: UserPlaylist, thumbnail: String?) {
+        val urls = buildSet {
+            fun include(url: String?) {
+                if (url.isNullOrBlank()) return
+                // Include both the last displayed revision and the actual URL.
+                for (source in listOf(url, url.substringBefore('#'))) {
+                    add(source)
+                    add(source.artworkAt(ROW_ART_PX)!!)
+                    add(source.artworkAt(CARD_ART_PX)!!)
+                    add(source.artworkAt(HEADER_ART_PX)!!)
+                }
+            }
+            include(playlist.thumbnailUrl)
+            include(thumbnail)
+            (_home.value as? UiState.Success)?.data
+                ?.flatMap { it.items }?.filter { it.browseId == playlist.browseId }
+                ?.forEach { include(it.thumbnailUrl) }
+            _playlists.value.filter { it.playlistId == playlist.playlistId }.forEach { include(it.thumbnailUrl) }
+            _detailStack.value.filter { it.browseId == playlist.browseId }.forEach { include(it.thumbnailUrl) }
+            (_library.value as? UiState.Success)?.data?.shelves
+                ?.flatMap { it.items }?.filter { it.browseId == playlist.browseId }
+                ?.forEach { include(it.thumbnailUrl) }
+        }
+        withContext(Dispatchers.IO) {
+            val loader = SingletonImageLoader.get(getApplication<Application>())
+            loader.memoryCache?.let { cache ->
+                // Match the URL, not Key extras: decoded sizes share this URL
+                // but have distinct keys, all of which must be removed.
+                cache.keys.filter { it.key in urls }.forEach { cache.remove(it) }
+            }
+            urls.forEach { loader.diskCache?.remove(it) }
+        }
+    }
+
+    private fun setPlaylistCoverArtwork(playlist: UserPlaylist, thumbnail: String?) {
+        val revision = java.util.UUID.randomUUID().toString()
+        fun revised(previous: String?): String? = (thumbnail ?: previous)
+            ?.takeIf { it.isNotBlank() }?.substringBefore('#')
+            ?.let { "$it#bitchord-cover=$revision" }
+        // Coil keys the full URI, while HTTP never sends its fragment. Changing
+        // the model restarts an already displayed painter even if YouTube reuses
+        // the URL. artworkAt preserves the fragment for row/card/header variants.
+        _detailStack.value = _detailStack.value.map {
+            if (it.browseId == playlist.browseId) it.copy(thumbnailUrl = revised(it.thumbnailUrl)) else it
+        }
+        _playlists.value = _playlists.value.map {
+            if (it.playlistId == playlist.playlistId) it.copy(thumbnailUrl = revised(it.thumbnailUrl)) else it
+        }
+        (_home.value as? UiState.Success)?.let { home ->
+            _home.value = UiState.Success(home.data.map { shelf ->
+                shelf.copy(items = shelf.items.map {
+                    if (it.browseId == playlist.browseId) it.copy(thumbnailUrl = revised(it.thumbnailUrl)) else it
+                })
+            })
+        }
+        editPlaylistShelf { items ->
+            items.map {
+                if (it.browseId == playlist.browseId) it.copy(thumbnailUrl = revised(it.thumbnailUrl)) else it
+            }
+        }
+    }
 
     /** Re-fetched rather than cached for the session: playlists are edited here. */
     fun loadPlaylists() {
@@ -3541,6 +3688,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun clearListenerState(restoreCached: Boolean = false) {
+        // A switch away and back must not resurrect an older upload's result.
+        coverArtGeneration.incrementAndGet()
+        _coverArtUploading.value = false
+        _coverArtOutcome.value = null
         _account.value = null
         likedSyncJob?.cancel()
         LikeState.clear()
@@ -3588,6 +3739,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             removeAccount(current)
             return
         }
+        coverArtGeneration.incrementAndGet()
+        _coverArtUploading.value = false
+        _coverArtOutcome.value = null
         authStore.signOut()
         Innertube.cookie = null
         // The mirror image: verdicts reached with a session in hand say nothing

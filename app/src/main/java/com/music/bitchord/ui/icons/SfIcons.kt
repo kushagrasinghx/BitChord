@@ -73,6 +73,7 @@ import com.composables.sfsymbols.monochrome.SFPerson2BadgeGearshape
 import com.composables.sfsymbols.monochrome.SFPersonCropCircle
 import com.composables.sfsymbols.monochrome.SFPersonCropCircleBadgePlus
 import com.composables.sfsymbols.monochrome.SFPersonCropCircleFill
+import com.composables.sfsymbols.monochrome.SFPhoto
 import com.composables.sfsymbols.monochrome.SFPin
 import com.composables.sfsymbols.monochrome.SFPlay
 import com.composables.sfsymbols.monochrome.SFPlayCircle
@@ -216,6 +217,7 @@ object SfIcons {
     val Info: ImageVector by lazy { bold(SfSymbols.Monochrome.SFInfoCircle) }
     val Open: ImageVector by lazy { bold(SfSymbols.Monochrome.SFChevronRight) }
     val Pencil: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPencil) }
+    val Image: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPhoto) }
     val Pin: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPin) }
     val Play: ImageVector by lazy { bold(SfSymbols.Monochrome.SFPlay) }
     val PlayLast: ImageVector by lazy { bold(SfSymbols.Monochrome.SFTextLineLastAndArrowtriangleForward) }

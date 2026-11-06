@@ -1245,6 +1245,7 @@
 
 
     <string name="source_needs_lossless_output">Necesita una salida sin pérdida · usa un dispositivo compatible con audio sin pérdida</string>
+    <string name="source_needs_update">Este complemento está desactualizado, así que BitChord no puede usarlo. Pide a su desarrollador que lo actualice siguiendo la documentación más reciente de complementos de BitChord.</string>
     <string name="source_needs_lossless_bt_codec">Necesita una salida sin pérdida · el Bluetooth usa %1$s; usa un dispositivo compatible con audio sin pérdida</string>
     <string name="source_needs_lossless_bt_unknown">Necesita una salida sin pérdida · no se puede saber qué códec Bluetooth se usa</string>
     <string name="source_downloads_on">Descargas permitidas</string>
@@ -1394,6 +1395,7 @@
     <string name="download_addon_left_out_title">Descargando sin %1$s</string>
     <string name="download_addon_not_allowed">%1$s no permite descargas, así que tus canciones se guardan desde tus otras fuentes.</string>
     <string name="download_addon_needs_lossless_output">%1$s solo sirve música con auriculares con cable, USB o de clase LDAC conectados. Las descargas lo omiten hasta que conectes unos, así que tus canciones se guardan desde tus otras fuentes.</string>
+    <string name="download_addon_needs_update">%1$s está desactualizado, así que BitChord no puede usarlo. Tus canciones se guardan desde tus otras fuentes. Pide a su desarrollador que lo actualice siguiendo la documentación más reciente de complementos de BitChord.</string>
     <string name="show_listen_together_button">Mostrar botón de Escuchar juntos</string>
     <string name="show_listen_together_button_subtitle">Si está desactivado, el reproductor solo muestra el botón de salida de audio entre la letra y la cola</string>
     <string name="font">Fuente</string>

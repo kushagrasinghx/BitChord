@@ -5902,6 +5902,8 @@ private fun BitChordApp(
                         stringResource(R.string.download_addon_not_allowed, addon)
                     SourceRegistry.DownloadExclusion.NEEDS_LOSSLESS_OUTPUT ->
                         stringResource(R.string.download_addon_needs_lossless_output, addon)
+                    SourceRegistry.DownloadExclusion.NEEDS_ADDON_UPDATE ->
+                        stringResource(R.string.download_addon_needs_update, addon)
                 },
                 onDismiss = { addonLeftOutOfDownload = null },
                 // A download can be asked for from the player or from either

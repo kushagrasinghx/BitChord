@@ -1230,6 +1230,7 @@
 
 
     <string name="source_needs_lossless_output">Kayıpsız çıkış gerekir · kayıpsız sesi destekleyen bir cihaz kullanın</string>
+    <string name="source_needs_update">Bu eklenti güncel değil, bu yüzden BitChord onu kullanamıyor. Geliştiricisinden en son BitChord eklenti belgelerine göre güncellemesini isteyin.</string>
     <string name="source_needs_lossless_bt_codec">Kayıpsız çıkış gerekir · Bluetooth %1$s kullanıyor; kayıpsız sesi destekleyen bir cihaz kullanın</string>
     <string name="source_needs_lossless_bt_unknown">Kayıpsız çıkış gerekir · hangi Bluetooth kodeğinin kullanıldığı anlaşılamıyor</string>
     <string name="source_downloads_on">İndirmeye izin veriliyor</string>
@@ -1379,6 +1380,7 @@
     <string name="download_addon_left_out_title">%1$s olmadan indiriliyor</string>
     <string name="download_addon_not_allowed">%1$s indirmeye izin vermiyor, bu yüzden şarkılarınız diğer kaynaklarınızdan kaydediliyor.</string>
     <string name="download_addon_needs_lossless_output">%1$s yalnızca kablolu, USB veya LDAC sınıfı kulaklık bağlıyken müzik sunar. Biri bağlanana kadar indirmeler onu atlar, bu yüzden şarkılarınız diğer kaynaklarınızdan kaydediliyor.</string>
+    <string name="download_addon_needs_update">%1$s güncel değil, bu yüzden BitChord onu kullanamıyor. Şarkılarınız diğer kaynaklarınızdan kaydediliyor. Geliştiricisinden en son BitChord eklenti belgelerine göre güncellemesini isteyin.</string>
     <string name="show_listen_together_button">Birlikte dinle düğmesini göster</string>
     <string name="show_listen_together_button_subtitle">Kapalıyken oynatıcı, şarkı sözleri ile sıra arasında yalnızca ses çıkışı düğmesini gösterir</string>
     <string name="font">Yazı tipi</string>

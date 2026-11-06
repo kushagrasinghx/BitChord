@@ -1313,6 +1313,7 @@
 
 
     <string name="source_needs_lossless_output">Wymaga wyjścia bezstratnego · użyj urządzenia obsługującego dźwięk bezstratny</string>
+    <string name="source_needs_update">Ten dodatek jest nieaktualny, więc BitChord nie może z niego korzystać. Poproś jego twórcę o aktualizację zgodnie z najnowszą dokumentacją dodatków BitChord.</string>
     <string name="source_needs_lossless_bt_codec">Wymaga wyjścia bezstratnego · Bluetooth używa %1$s; użyj urządzenia obsługującego dźwięk bezstratny</string>
     <string name="source_needs_lossless_bt_unknown">Wymaga wyjścia bezstratnego · nie można ustalić, jaki kodek Bluetooth jest używany</string>
     <string name="source_downloads_on">Pobieranie dozwolone</string>
@@ -1462,6 +1463,7 @@
     <string name="download_addon_left_out_title">Pobieranie bez %1$s</string>
     <string name="download_addon_not_allowed">%1$s nie pozwala na pobieranie, więc utwory są zapisywane z innych źródeł.</string>
     <string name="download_addon_needs_lossless_output">%1$s udostępnia muzykę tylko przy podłączonych słuchawkach przewodowych, USB lub klasy LDAC. Pobieranie je pomija, dopóki takich nie podłączysz, więc utwory są zapisywane z innych źródeł.</string>
+    <string name="download_addon_needs_update">%1$s jest nieaktualny, więc BitChord nie może z niego korzystać. Utwory są zapisywane z innych źródeł. Poproś jego twórcę o aktualizację zgodnie z najnowszą dokumentacją dodatków BitChord.</string>
     <string name="show_listen_together_button">Pokaż przycisk Słuchajcie razem</string>
     <string name="show_listen_together_button_subtitle">Gdy wyłączone, odtwarzacz pokazuje między tekstem a kolejką tylko przycisk wyjścia audio</string>
     <string name="font">Czcionka</string>

@@ -1305,6 +1305,7 @@
 
 
     <string name="source_needs_lossless_output">Нужен выход без потерь · используйте устройство с поддержкой звука без потерь</string>
+    <string name="source_needs_update">Это дополнение устарело, поэтому BitChord не может его использовать. Попросите разработчика обновить его по актуальной документации для дополнений BitChord.</string>
     <string name="source_needs_lossless_bt_codec">Нужен выход без потерь · Bluetooth работает на %1$s; используйте устройство с поддержкой звука без потерь</string>
     <string name="source_needs_lossless_bt_unknown">Нужен выход без потерь · не удаётся определить используемый Bluetooth-кодек</string>
     <string name="source_downloads_on">Загрузки разрешены</string>
@@ -1454,6 +1455,7 @@
     <string name="download_addon_left_out_title">Загрузка без %1$s</string>
     <string name="download_addon_not_allowed">%1$s не разрешает загрузки, поэтому треки сохраняются из других ваших источников.</string>
     <string name="download_addon_needs_lossless_output">%1$s отдаёт музыку, только когда подключены проводные, USB или LDAC-наушники. Пока их нет, загрузки его пропускают, поэтому треки сохраняются из других ваших источников.</string>
+    <string name="download_addon_needs_update">%1$s устарело, поэтому BitChord не может его использовать. Треки сохраняются из других ваших источников. Попросите разработчика обновить его по актуальной документации для дополнений BitChord.</string>
     <string name="show_listen_together_button">Показывать кнопку «Слушать вместе»</string>
     <string name="show_listen_together_button_subtitle">Если выключено, плеер показывает между текстом песни и очередью только кнопку аудиовыхода</string>
     <string name="font">Шрифт</string>

@@ -72,7 +72,17 @@ data class AddonManifest(
      * Read through [requiresLosslessOutput].
      */
     @SerialName("checkValidLossless") val checkValidLossless: JsonElement? = null,
+    /**
+     * `bitchordAuth`: the addon only serves the genuine BitChord app, so every
+     * request has to carry [AddonAuth]'s token and proof. Absent means nothing
+     * is sent. An addon that leaves it out but answers `401` with
+     * `WWW-Authenticate: BitChord` is handled the same way, one round trip
+     * later. Read through [requiresBitChordAuth].
+     */
+    @SerialName("bitchordAuth") val bitchordAuth: JsonElement? = null,
 ) {
+    val requiresBitChordAuth: Boolean get() = bitchordAuth.asFlag() ?: false
+
     val downloadsAllowed: Boolean get() = allowDownloads.asFlag() ?: true
 
     val requiresLosslessOutput: Boolean get() = checkValidLossless.asFlag() ?: false

@@ -202,6 +202,7 @@
     <string name="crossfade">Fade cruzado</string>
     <string name="crossfade_subtitle">Mescla uma faixa com a próxima</string>
     <string name="automix">Automix [BETA]</string>
+    <string name="automix_overview">Visão geral do Automix</string>
     <string name="skip_silence">Pular silêncio</string>
     <string name="skip_silence_subtitle">Corta pausas maiores que um segundo</string>
     <string name="skip_silence_float_subtitle">Indisponível com saída float de 32 bits</string>

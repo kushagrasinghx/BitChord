@@ -210,6 +210,7 @@
     <string name="crossfade">Кроссфейд</string>
     <string name="crossfade_subtitle">Плавно переходит от одного трека к другому</string>
     <string name="automix">Автомикс [БЕТА]</string>
+    <string name="automix_overview">Обзор автомикса</string>
     <string name="skip_silence">Пропускать тишину</string>
     <string name="skip_silence_subtitle">Обрезает паузы длиннее секунды</string>
     <string name="skip_silence_float_subtitle">Недоступно при 32-битном выводе с плавающей точкой</string>

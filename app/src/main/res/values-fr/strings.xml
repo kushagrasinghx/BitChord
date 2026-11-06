@@ -201,6 +201,7 @@
     <string name="crossfade">Fondu enchaîné</string>
     <string name="crossfade_subtitle">Fait fondre une piste dans la suivante</string>
     <string name="automix">Automix [BÊTA]</string>
+    <string name="automix_overview">Vue d\'ensemble d\'Automix</string>
     <string name="skip_silence">Ignorer les silences</string>
     <string name="skip_silence_subtitle">Coupe les silences de plus d\'une seconde</string>
     <string name="skip_silence_float_subtitle">Indisponible avec la sortie flottante 32 bits</string>

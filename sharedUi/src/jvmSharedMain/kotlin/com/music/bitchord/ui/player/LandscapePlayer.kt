@@ -466,8 +466,8 @@ internal fun LandscapeCredits(
         Spacer(Modifier.width(10.dp))
         // Same gate as the portrait player's: no account to like against for a
         // guest — but a local file or a finished download is liked on the
-        // device, which needs none.
-        if (signedIn || song.localUri != null) {
+        // device, which needs none. Only true external local files use the offline path.
+        if (signedIn || song.localUri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))) {
             val liked = likeStatus == LikeStatus.LIKE
             CircleGlyph(
                 icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,

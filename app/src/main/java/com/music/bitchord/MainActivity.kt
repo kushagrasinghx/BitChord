@@ -976,12 +976,15 @@ private fun BitChordApp(
     val likeStatusOf: (Song) -> LikeStatus = { song ->
         val uri = song.localUri
         when {
-            uri != null -> if (uri in offlineLiked) LikeStatus.LIKE else LikeStatus.INDIFFERENT
+            // Only true external local files (no YouTube identity) use the offline liked list.
+            uri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://")) ->
+                if (uri in offlineLiked) LikeStatus.LIKE else LikeStatus.INDIFFERENT
             else -> likeStatuses[song.videoId] ?: LikeStatus.INDIFFERENT
         }
     }
     val toggleLikeOf: (Song) -> Unit = { song ->
-        if (song.localUri != null) OfflinePlaylists.toggleLike(song) else viewModel.toggleLike(song.videoId)
+        // Only true external local files use the offline liked list; app-downloaded songs go through YouTube Music.
+        if (song.localUri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))) OfflinePlaylists.toggleLike(song) else viewModel.toggleLike(song.videoId)
     }
     // Which tracks are being held on YouTube's own upload, so the player's menu
     // offers the way back out of a revert rather than the revert again.

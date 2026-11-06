@@ -3774,9 +3774,10 @@ fun NowPlayingScreen(
                             // liking is about *this song*, and the row below is about
                             // how the queue plays. Guests get nothing to tap, since
                             // there's no account to record it against — except on a
-                            // local file or a finished download, whose star is the
-                            // device's own Liked playlist and needs no account.
-                            if (signedIn || song.localUri != null) {
+                            // true external local file, whose star is the device's own
+                            // Liked playlist and needs no account. App-downloaded songs
+                            // have YouTube identity and are liked through the account.
+                            if (signedIn || song.localUri != null && (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))) {
                                 val liked = likeStatus == LikeStatus.LIKE
                                 CircleGlyph(
                                     icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,

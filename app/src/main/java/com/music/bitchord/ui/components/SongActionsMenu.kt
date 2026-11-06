@@ -81,9 +81,9 @@ import java.util.Locale
  * always the fallback for "I meant to do something with this song".
  *
  * Everything that writes to the account is hidden outright when [signedIn] is
- * false rather than shown and refused. A track playing from a local file or a
- * finished download (`song.localUri != null`) carries no YouTube identity to
- * rate, fetch again or share, so it gets the offline player's rows instead:
+  * false rather than shown and refused. A track playing from a true external local file
+  * (`song.localUri != null` and no YouTube identity) carries no YouTube identity to
+  * rate, fetch again or share, so it gets the offline player's rows instead:
  * Like and Add to playlist against the device's own playlists (see
  * [com.music.bitchord.data.OfflinePlaylists]), signed in or not.
  *
@@ -195,9 +195,10 @@ fun SongActionsMenu(
     val palette = neutralMenuPalette()
     val liked = likeStatus == LikeStatus.LIKE
     val disliked = likeStatus == LikeStatus.DISLIKE
-    // A local file or a finished download has no YouTube identity behind it to
-    // rate, save, queue into a playlist, fetch again, or share a link for.
-    val isOffline = song.localUri != null
+    // Only a true external local file (no YouTube identity) is "offline" in the
+    // sense that it can't be rated to the account, shared by link, or fetched again.
+    val isOffline = song.localUri != null &&
+        (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))
 
     val rows: @Composable ColumnScope.() -> Unit = {
         // Groups are drawn as they turn out to have something in them, and the

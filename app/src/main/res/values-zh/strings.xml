@@ -207,6 +207,8 @@
     <string name="reduce_animation_subtitle">让主播放器的渐变保持静止，而不是流动</string>
     <string name="reduce_dynamic_blur">减少动态模糊</string>
     <string name="reduce_dynamic_blur_subtitle">在整个应用中用纯色填充替代磨砂玻璃效果</string>
+    <string name="disable_blend_effects">关闭混合效果</string>
+    <string name="disable_blend_effects_subtitle">播放器图标、文字和深色菜单以纯白显示，不再混入封面颜色</string>
     <string name="full_screen_cover_art">全屏封面</string>
     <string name="animated_cover_art">动态封面</string>
     <string name="synced_lyrics">同步歌词</string>
@@ -237,6 +239,8 @@
     <string name="light">浅色</string>
     <string name="dark">深色</string>
     <string name="full_screen_cover_art_subtitle">让封面延伸至播放器边缘，而不是显示为方形</string>
+    <string name="full_screen_detail_cover">全屏专辑/歌单封面</string>
+    <string name="full_screen_detail_cover_subtitle">让专辑和歌单封面延伸至页面边缘，而不是显示为方形</string>
     <string name="animated_cover_art_subtitle">播放部分发行版自带的循环视频，而不是静态封面</string>
     <string name="dont_repeat_songs_subtitle">自动播放不会在本次会话中重复推荐已播放或已推荐过的歌曲</string>
     <string name="download_quality_subtitle">无论何种网络连接，每首曲目均为%1$s</string>
@@ -770,7 +774,6 @@
 
     <string name="addon_url_description">粘贴插件网址 — 根目录或 manifest.json 均可。BitChord 会读取其搜索和流式播放内容，并通过标准 HTTP 请求曲目。</string>
 
-    <string name="advanced_options">高级选项</string>
 
     <string name="automix_mode_balanced">均衡</string>
 
@@ -836,9 +839,14 @@
     <string name="playlist_sync_done_title">已添加到 %1$s：%2$d</string>
     <string name="playlist_updates_channel">播放列表更新</string>
 
-    <string name="legacy_mesh_gradient">经典网格渐变</string>
+    <string name="player_theme">播放器主题</string>
+    <string name="player_theme_default">默认</string>
+    <string name="player_theme_legacy">旧版</string>
+    <string name="player_theme_simple">简洁</string>
+    <string name="player_theme_default_subtitle">封面的色彩向下延续</string>
+    <string name="player_theme_simple_subtitle">在整个播放器背后显示模糊的封面</string>
 
-    <string name="legacy_mesh_gradient_subtitle">恢复 v1.5 中播放器背后的流动色块效果</string>
+    <string name="player_theme_legacy_subtitle">恢复 v1.5 中播放器背后的流动色块效果</string>
 
     <string name="liquid_glass">液态玻璃 （Liquid Glass）</string>
 
@@ -1046,6 +1054,16 @@
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">智能音频对齐</string>
     <string name="smart_version_alignment_subtitle">分析音频波形，精确匹配对应的播放时刻</string>
 
@@ -1232,6 +1250,8 @@
 
 
     <string name="source_needs_lossless_output">需要无损输出 · 请使用支持无损的设备</string>
+    <string name="source_needs_update">此插件已过时。目前仍可使用，但请让开发者按照最新的 BitChord 插件文档进行更新。</string>
+    <string name="source_outdated">插件已过时</string>
     <string name="source_needs_lossless_bt_codec">需要无损输出 · 蓝牙当前为 %1$s；请使用支持无损的设备</string>
     <string name="source_needs_lossless_bt_unknown">需要无损输出 · 无法识别正在使用的蓝牙编解码器</string>
     <string name="source_downloads_on">允许下载</string>
@@ -1370,6 +1390,7 @@
     <string name="direct_source_stream">直接从来源串流</string>
     <string name="find_your_mood">寻找你的心情</string>
     <string name="progressive_blur">渐进模糊</string>
+    <string name="glass_performance">提升玻璃性能</string>
     <string name="remove_from_history">从历史记录中移除</string>
     <string name="remove_from_history_failed">无法从历史记录中移除</string>
     <string name="addon_blocked_title">无法播放这首歌</string>

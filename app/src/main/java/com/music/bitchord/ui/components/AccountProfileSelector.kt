@@ -138,9 +138,8 @@ fun AccountProfileSelector(
                         managing, { onSelect(account, profile); onDismiss() }, { onRemoveAccount(account) })
                 }
                 }
-                item { SelectorAction(SfIcons.AddAccount, stringResource(R.string.add_account), onClick = onAddAccount) }
-                // A wide glyph — two people and a gear — drawn a size up to match the others.
-                item { SelectorAction(SfIcons.ManageAccounts, stringResource(R.string.manage_accounts), iconSize = 28.dp) { managing = !managing } }
+                item { SelectorAction(SfIcons.Add, stringResource(R.string.add_account), onClick = onAddAccount) }
+                item { SelectorAction(SfIcons.Close, stringResource(R.string.manage_accounts)) { managing = !managing } }
                 item { SelectorAction(SfIcons.Settings, stringResource(R.string.settings), onClick = onOpenSettings) }
             }
         }

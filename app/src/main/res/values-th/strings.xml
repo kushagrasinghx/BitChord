@@ -228,6 +228,8 @@
     <string name="reduce_animation_subtitle">หยุดเกรเดียนต์ของเครื่องเล่นหลักแทนการเคลื่อนไหว</string>
     <string name="reduce_dynamic_blur">ลดเบลอแบบไดนามิก</string>
     <string name="reduce_dynamic_blur_subtitle">เปลี่ยนกระจกฝ้าเป็นพื้นทึบทั่วทั้งแอป</string>
+    <string name="disable_blend_effects">ปิดเอฟเฟกต์ผสมสี</string>
+    <string name="disable_blend_effects_subtitle">แสดงไอคอน ข้อความ และเมนูสีเข้มของเครื่องเล่นเป็นสีขาวล้วน แทนการย้อมด้วยสีจากปกอัลบั้ม</string>
     <string name="liquid_glass">Liquid Glass</string>
     <string name="liquid_glass_subtitle">กระจกหักเหแสงจริงบนแถบนำทางแบบลอย ใช้ได้เฉพาะ Android 12 ขึ้นไป และใช้ GPU มากขึ้น</string>
     <string name="liquid_glass_unavailable">ต้องใช้ Android 12 ขึ้นไป</string>
@@ -261,6 +263,8 @@
     <string name="light">สว่าง</string>
     <string name="dark">มืด</string>
     <string name="full_screen_cover_art_subtitle">ขยายปกอัลบั้มเต็มขอบเครื่องเล่นแทนปกสี่เหลี่ยมจัตุรัส</string>
+    <string name="full_screen_detail_cover">ปกอัลบั้ม/เพลย์ลิสต์เต็มจอ</string>
+    <string name="full_screen_detail_cover_subtitle">ขยายปกอัลบั้มและเพลย์ลิสต์เต็มขอบหน้าแทนการแสดงในกรอบ</string>
     <string name="animated_cover_art_subtitle">เล่นวิดีโอวนซ้ำที่บางผลงานมีให้แทนปกนิ่ง</string>
     <string name="dont_repeat_songs_subtitle">AutoPlay จะไม่แนะนำเพลงที่เล่นหรือแนะนำไปแล้วในเซสชันนี้</string>
     <string name="download_quality_subtitle">%1$s ต่อแทร็ก ไม่ว่าการเชื่อมต่อจะเป็นแบบใด</string>
@@ -858,6 +862,16 @@
     <string name="dolby_atmos_unavailable">This device can\'t play Atmos, so these songs play in their usual version</string>
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">จัดตำแหน่งเสียงอัจฉริยะ</string>
     <string name="smart_version_alignment_subtitle">วิเคราะห์รูปคลื่นเสียงเพื่อหาจุดเล่นที่ตรงกันพอดี</string>
 
@@ -940,9 +954,14 @@
 
     <string name="eq_preset_custom">Custom</string>
 
-    <string name="legacy_mesh_gradient">Legacy mesh gradient</string>
+    <string name="player_theme">ธีมเครื่องเล่น</string>
+    <string name="player_theme_default">ค่าเริ่มต้น</string>
+    <string name="player_theme_legacy">แบบเดิม</string>
+    <string name="player_theme_simple">เรียบง่าย</string>
+    <string name="player_theme_default_subtitle">สีของปกต่อเนื่องลงมาด้านล่าง</string>
+    <string name="player_theme_simple_subtitle">ปกแบบเบลอด้านหลังเครื่องเล่นทั้งหมด</string>
 
-    <string name="legacy_mesh_gradient_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
+    <string name="player_theme_legacy_subtitle">Brings back the drifting colour blobs behind the player from v1.5</string>
 
     <string name="add_addon">Add an addon</string>
 
@@ -1103,7 +1122,6 @@
     <string name="blur_unfocused_lyrics_subtitle">Keeps the spotlight on the current line</string>
 
 
-    <string name="advanced_options">Advanced options</string>
 
 
     <string name="lyrics_debug_logs">Lyrics debug logs</string>
@@ -1238,6 +1256,8 @@
 
 
     <string name="source_needs_lossless_output">ต้องใช้เอาต์พุตแบบ lossless · ใช้อุปกรณ์ที่รองรับ lossless</string>
+    <string name="source_needs_update">แอดออนนี้ล้าสมัย ยังใช้งานได้อยู่ แต่โปรดขอให้นักพัฒนาอัปเดตตามเอกสารแอดออน BitChord ล่าสุด</string>
+    <string name="source_outdated">แอดออนล้าสมัย</string>
     <string name="source_needs_lossless_bt_codec">ต้องใช้เอาต์พุตแบบ lossless · Bluetooth ใช้ %1$s อยู่ ใช้อุปกรณ์ที่รองรับ lossless</string>
     <string name="source_needs_lossless_bt_unknown">ต้องใช้เอาต์พุตแบบ lossless · ไม่ทราบว่ากำลังใช้ตัวแปลงสัญญาณ Bluetooth ใด</string>
     <string name="source_downloads_on">อนุญาตให้ดาวน์โหลด</string>
@@ -1376,6 +1396,7 @@
     <string name="direct_source_stream">สตรีมตรงจากแหล่งที่มา</string>
     <string name="find_your_mood">ค้นหาอารมณ์ของคุณ</string>
     <string name="progressive_blur">เบลอแบบไล่ระดับ</string>
+    <string name="glass_performance">ประสิทธิภาพกระจกที่ดีขึ้น</string>
     <string name="remove_from_history">นำออกจากประวัติ</string>
     <string name="remove_from_history_failed">นำออกจากประวัติไม่ได้</string>
     <string name="addon_blocked_title">เล่นเพลงนี้ไม่ได้</string>

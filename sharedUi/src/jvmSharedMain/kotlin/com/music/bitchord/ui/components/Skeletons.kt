@@ -144,35 +144,6 @@ fun LazyListScope.songListSkeleton(
     }
 }
 
-/**
- * The lead shelf on Home and Explore: near-page-width cards that page sideways.
- *
- * Both carousels below are built on a [LazyRow] with scrolling off rather than a
- * plain [Row], so a card running past the right edge is measured and clipped
- * exactly as the real shelf's is — which is the whole point of a skeleton.
- */
-@Composable
-private fun HeroShelfSkeleton() {
-    Column(Modifier.padding(bottom = 26.dp)) {
-        SectionHeaderSkeleton()
-        BoxWithConstraints {
-            val cardWidth = heroCardWidth(maxWidth)
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                userScrollEnabled = false,
-            ) {
-                items(2) {
-                    ShimmerBox(
-                        modifier = Modifier.width(cardWidth).aspectRatio(HERO_CARD_RATIO),
-                        shape = RoundedCornerShape(18.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
 /** Reserved at the top of Play while Recents loads. */
 fun LazyListScope.recentlyPlayedSkeleton() {
     item(key = "skeleton:recently-played") {
@@ -211,7 +182,13 @@ private fun RecentsHeaderSkeleton() {
     }
 }
 
-/** The compact carousel of square cards used by every shelf below the first. */
+/**
+ * The compact carousel of square cards.
+ *
+ * Built on a [LazyRow] with scrolling off rather than a plain [Row], so a card
+ * running past the right edge is measured and clipped exactly as the real
+ * shelf's is — which is the whole point of a skeleton.
+ */
 @Composable
 fun ShelfSkeleton(index: Int = 0, cardWidth: Dp = SHELF_CARD_WIDTH, cardCorner: Dp = 12.dp) {
     Column(Modifier.padding(bottom = 26.dp)) {
@@ -238,16 +215,9 @@ fun ShelfSkeleton(index: Int = 0, cardWidth: Dp = SHELF_CARD_WIDTH, cardCorner: 
 }
 
 /** Home and Explore while the first page of shelves is still loading. */
-fun LazyListScope.feedSkeleton(shelves: Int = 3, firstIsHero: Boolean = true) {
-    if (firstIsHero) {
-        item(key = "skeleton:hero") { HeroShelfSkeleton() }
-        items(shelves - 1, key = { "skeleton:shelf:$it" }) { index ->
-            ShelfSkeleton(index = index + 1)
-        }
-    } else {
-        items(shelves, key = { "skeleton:shelf:$it" }) { index ->
-            ShelfSkeleton(index = index)
-        }
+fun LazyListScope.feedSkeleton(shelves: Int = 3) {
+    items(shelves, key = { "skeleton:shelf:$it" }) { index ->
+        ShelfSkeleton(index = index)
     }
 }
 

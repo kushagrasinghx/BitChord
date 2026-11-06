@@ -83,6 +83,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.music.bitchord.ui.components.longPressMenuClickable
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -656,8 +657,8 @@ private fun SwipeableQueueRow(
         modifier = modifier,
         allowQueueGesture = !isCurrent,
     ) { interactive ->
-        // The original handle's pointerInput(Unit) intentionally survives
-        // recomposition. Its callbacks read live gates, not captured ones.
+        // The handle survives ordinary recomposition; swipe visibility also
+        // gates its detector. Its callbacks read live gates, not captured ones.
         val currentInteractive by rememberUpdatedState(interactive)
         val currentDragStart by rememberUpdatedState(onDragStart)
         val currentDrag by rememberUpdatedState(onDrag)
@@ -670,6 +671,7 @@ private fun SwipeableQueueRow(
             onRemove = { if (interactive) onRemove() },
             onLongPress = { if (interactive) onLongPress() },
             locked = locked,
+            controlsVisible = interactive,
             draggable = draggable,
             onDragStart = {
                 handleDragging = currentInteractive
@@ -1024,6 +1026,8 @@ private fun InlineQueueRow(
     modifier: Modifier = Modifier,
     /** @see InlineQueue */
     locked: Boolean = false,
+    /** Reserve control slots while this row swipes, but hide and disable them. */
+    controlsVisible: Boolean = true,
     /** Shows the handle; drags on it go to the callbacks below. */
     draggable: Boolean = false,
     /** The copy drawn under the finger while the row is being moved. */
@@ -1038,8 +1042,10 @@ private fun InlineQueueRow(
             Box(
                 modifier = Modifier
                     .size(32.dp)
+                    .alpha(if (controlsVisible) 1f else 0f)
+                    .then(if (controlsVisible) Modifier else Modifier.clearAndSetSemantics {})
                     .clip(CircleShape)
-                    .clickable(onClick = onRemove),
+                    .clickable(enabled = controlsVisible, onClick = onRemove),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -1059,8 +1065,11 @@ private fun InlineQueueRow(
                 tint = Color.White.copy(alpha = 0.4f),
                 modifier = Modifier
                     .size(20.dp)
+                    .alpha(if (controlsVisible) 1f else 0f)
+                    .then(if (controlsVisible) Modifier else Modifier.clearAndSetSemantics {})
                     .offset(x = if (ltr) 4.dp else (-4).dp)
-                    .pointerInput(Unit) {
+                    .pointerInput(controlsVisible) {
+                        if (!controlsVisible) return@pointerInput
                         detectDragGestures(
                             onDragStart = { onDragStart() },
                             onDragEnd = { onDragEnd() },

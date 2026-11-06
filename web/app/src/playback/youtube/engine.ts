@@ -17,6 +17,8 @@ import {
   type ResolvedPlayer,
 } from './resolver';
 import { ShakaPlayerAdapter } from './ShakaPlayerAdapter';
+import { extensionBrowser } from '@/lib/platform';
+import { safariMediaPlugin } from './mediaFetch';
 
 /** What the engine knows about the track it loaded. */
 export interface LoadedTrack {
@@ -282,8 +284,10 @@ export class YouTubeEngine {
     for (const scheme of ['http', 'https']) {
       shaka.net.NetworkingEngine.registerScheme(
         scheme,
-        shaka.net.HttpFetchPlugin.parse,
-        shaka.net.NetworkingEngine.PluginPriority.FALLBACK,
+        extensionBrowser() === 'safari' ? safariMediaPlugin : shaka.net.HttpFetchPlugin.parse,
+        extensionBrowser() === 'safari'
+          ? shaka.net.NetworkingEngine.PluginPriority.PREFERRED
+          : shaka.net.NetworkingEngine.PluginPriority.FALLBACK,
       );
     }
     // BotGuard clients attach the streaming token to every media URL, as

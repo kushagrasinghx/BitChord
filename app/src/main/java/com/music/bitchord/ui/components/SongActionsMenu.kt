@@ -347,7 +347,9 @@ fun SongActionsMenu(
             )
         }
 
-        if (startsGroup()) IosMenuSeparator()
+        if (song.albumId != null || song.artistId != null || resolvingLinks || !isOffline) {
+            if (startsGroup()) IosMenuSeparator()
+        }
         // Names where each one leads under it, as a menu's "Go to" does.
         when (val id = song.albumId) {
             null -> if (resolvingLinks) {

@@ -316,6 +316,33 @@ suspend fun MediaController.moveQueueEntryToUser(index: Int, song: Song): Boolea
         false
     }
 
+/** Only queue-screen removals enter the service's transient Undo history. */
+suspend fun MediaController.removeQueueItemWithUndo(index: Int, song: Song): Boolean =
+    acknowledgedQueueEdit(
+        ACTION_QUEUE_REMOVE_WITH_UNDO,
+        bundleOf(
+            EXTRA_QUEUE_MOVE_INDEX to index,
+            EXTRA_QUEUE_MOVE_ENTRY to song.queueEntryId,
+            EXTRA_QUEUE_MOVE_MEDIA to song.videoId,
+        ),
+    )
+
+suspend fun MediaController.clearUserQueueWithUndo(): Boolean =
+    acknowledgedQueueEdit(ACTION_QUEUE_CLEAR_WITH_UNDO, Bundle.EMPTY)
+
+suspend fun MediaController.undoQueueEdit(token: String): Boolean =
+    acknowledgedQueueEdit(ACTION_QUEUE_UNDO, bundleOf(EXTRA_QUEUE_UNDO_TOKEN to token))
+
+private suspend fun MediaController.acknowledgedQueueEdit(action: String, args: Bundle): Boolean =
+    try {
+        sendCustomCommand(SessionCommand(action, Bundle.EMPTY), args).await().resultCode ==
+            SessionResult.RESULT_SUCCESS
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        false
+    }
+
 /** Mirrors the controller into Compose state, polling position while playing. */
 @Composable
 fun rememberPlayerState(controller: MediaController?): PlayerState {

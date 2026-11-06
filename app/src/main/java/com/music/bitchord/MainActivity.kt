@@ -209,6 +209,10 @@ import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.playback.beginRadioQueue
 import com.music.bitchord.playback.commitRadioQueue
 import com.music.bitchord.playback.moveQueueEntryToUser
+import com.music.bitchord.playback.QueueScreenUndo
+import com.music.bitchord.playback.removeQueueItemWithUndo
+import com.music.bitchord.playback.clearUserQueueWithUndo
+import com.music.bitchord.playback.undoQueueEdit
 import com.music.bitchord.playback.fromAutoplay
 import com.music.bitchord.playback.hasYouTubeOriginal
 import com.music.bitchord.playback.loadAutoplayTracks
@@ -1079,6 +1083,7 @@ private fun BitChordApp(
     }
     val controller = rememberMediaController()
     val player = rememberPlayerState(controller)
+    val queueUndo by QueueScreenUndo.notice.collectAsStateWithLifecycle()
     // A music video's picture follows this controller's clock — see [MusicVideoEngine].
     DisposableEffect(controller) {
         MusicVideoEngine.attach(controller)
@@ -1097,6 +1102,13 @@ private fun BitChordApp(
     val controlsLocked = partyState.controlsLocked
     var queueNotice by remember { mutableStateOf<QueueActionNotice?>(null) }
     var queueNoticeId by remember { mutableIntStateOf(0) }
+    var queueUndoNotice by remember { mutableStateOf<QueueActionNotice?>(null) }
+    LaunchedEffect(queueUndo) {
+        queueUndoNotice = queueUndo?.let { notice ->
+            queueNoticeId += 1
+            QueueActionNotice(queueNoticeId, notice.message)
+        }
+    }
     val showQueueNotice: (String) -> Unit = { message ->
         queueNoticeId += 1
         queueNotice = QueueActionNotice(queueNoticeId, message)
@@ -2628,8 +2640,24 @@ private fun BitChordApp(
                     c.play()
                 }
             },
-            onRemoveFromQueue = { controller?.removeMediaItem(it) },
+            onRemoveFromQueue = { index ->
+                val queueSong = player.queue.getOrNull(index)
+                val c = controller
+                if (c != null && queueSong != null) scope.launch { c.removeQueueItemWithUndo(index, queueSong) }
+            },
             onQueueSwipeToQueue = { index, queueSong -> controller?.moveQueueEntryToUser(index, queueSong) ?: false },
+            queueUndoNotice = {
+                QueueActionNoticeHost(
+                    notice = queueUndoNotice,
+                    modifier = Modifier.navigationBarsPadding(),
+                    actionLabel = stringResource(R.string.queue_undo_action),
+                    onAction = {
+                        val token = queueUndo?.token
+                        val c = controller
+                        if (c != null && token != null) scope.launch { c.undoQueueEdit(token) }
+                    },
+                )
+            },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
             onQueueSongMenu = { _, queueSong ->
@@ -2769,7 +2797,7 @@ private fun BitChordApp(
             onClearQueue = {
                 // Keep what's playing and context/autoplay; drop user-queued tracks.
                 controller?.let { c ->
-                    QueueCoordinator.clearUserQueue(c)
+                    scope.launch { c.clearUserQueueWithUndo() }
                 }
             },
         )

@@ -10,13 +10,16 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -36,6 +39,8 @@ data class QueueActionNotice(
 fun QueueActionNoticeHost(
     notice: QueueActionNotice?,
     modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
 
@@ -65,11 +70,21 @@ fun QueueActionNoticeHost(
                     .padding(bottom = 8.dp)
                     .semantics { liveRegion = LiveRegionMode.Polite },
             ) {
-                Text(
-                    text = current.message,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                )
+                Row(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = current.message,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f).padding(vertical = 16.dp),
+                    )
+                    if (actionLabel != null && onAction != null) {
+                        TextButton(onClick = onAction) {
+                            Text(actionLabel, color = Color.White)
+                        }
+                    }
+                }
             }
         }
     }

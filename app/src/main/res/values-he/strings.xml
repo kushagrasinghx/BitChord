@@ -1460,4 +1460,8 @@
     <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
     <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
     <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
+    <string name="queue_removed_song">הוסר %1$s</string>
+    <string name="queue_undo_action">ביטול</string>
+    <string name="queue_cleared_section">נוקה %1$s</string>
+    <string name="next_in_queue">הבא בתור</string>
 </resources>

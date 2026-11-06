@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.draw.alpha
-import kotlin.math.abs
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -262,6 +261,7 @@ internal fun InlineQueue(
     onClear: () -> Unit,
     onSongMenu: (Int, Song) -> Unit = { _, _ -> },
     onSwipeToQueue: suspend (Int, Song) -> Boolean = { _, _ -> false },
+    undoNotice: @Composable () -> Unit = {},
     /** Prewarmed/offscreen queue panes must not accept or finish a swipe. */
     gesturesEnabled: Boolean = true,
     onScrollingChange: (Boolean) -> Unit = {},
@@ -372,6 +372,7 @@ internal fun InlineQueue(
         Spacer(Modifier.height(4.dp))
         Box(
             modifier = Modifier
+                .weight(1f)
                 .fillMaxWidth()
                 .bleedHorizontally(PLAYER_GUTTER)
                 .fadingEdges(),
@@ -483,6 +484,7 @@ internal fun InlineQueue(
                 }
             }
         }
+        undoNotice()
     }
 }
 

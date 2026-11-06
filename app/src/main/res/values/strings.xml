@@ -1320,4 +1320,8 @@
     <string name="no_audio_version">No audio version found for this video</string>
     <string name="no_video_version">No video version found for this song</string>
     <string name="version_switch_in_party">Everyone in Listen Together hears the same version</string>
+    <string name="queue_removed_song">Removed %1$s</string>
+    <string name="queue_undo_action">Undo</string>
+    <string name="queue_cleared_section">Cleared %1$s</string>
+    <string name="next_in_queue">Next in queue</string>
 </resources>

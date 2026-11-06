@@ -1274,7 +1274,8 @@
 
 
     <string name="source_needs_lossless_output">Nécessite une sortie sans perte · utilisez un appareil compatible sans perte</string>
-    <string name="source_needs_update">Cet add-on n\'est plus à jour, BitChord ne peut donc pas l\'utiliser. Demandez à son développeur de le mettre à jour en suivant la dernière documentation des add-ons BitChord.</string>
+    <string name="source_needs_update">Cet add-on n\'est plus à jour. Il fonctionne toujours, mais demandez à son développeur de le mettre à jour en suivant la dernière documentation des add-ons BitChord.</string>
+    <string name="source_outdated">Add-on obsolète</string>
     <string name="source_needs_lossless_bt_codec">Nécessite une sortie sans perte · le Bluetooth utilise %1$s ; utilisez un appareil compatible sans perte</string>
     <string name="source_needs_lossless_bt_unknown">Nécessite une sortie sans perte · impossible de savoir quel codec Bluetooth est utilisé</string>
     <string name="source_downloads_on">Téléchargements autorisés</string>
@@ -1422,7 +1423,6 @@
     <string name="download_addon_left_out_title">Téléchargement sans %1$s</string>
     <string name="download_addon_not_allowed">%1$s n\'autorise pas les téléchargements : vos titres sont donc enregistrés depuis vos autres sources.</string>
     <string name="download_addon_needs_lossless_output">%1$s ne diffuse de la musique que lorsqu\'un casque filaire, USB ou de classe LDAC est connecté. Les téléchargements l\'ignorent tant qu\'aucun ne l\'est : vos titres sont donc enregistrés depuis vos autres sources.</string>
-    <string name="download_addon_needs_update">%1$s n\'est plus à jour, BitChord ne peut donc pas l\'utiliser. Vos titres sont enregistrés depuis vos autres sources. Demandez à son développeur de le mettre à jour en suivant la dernière documentation des add-ons BitChord.</string>
     <string name="show_listen_together_button">Afficher le bouton Écouter ensemble</string>
     <string name="show_listen_together_button_subtitle">Si désactivé, le lecteur n\'affiche que le bouton de sortie audio entre les paroles et la file d\'attente</string>
     <string name="font">Police</string>

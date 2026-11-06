@@ -434,6 +434,16 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
         return AddonAuth.headersFor(parsed.host, rejectedToken)
     }
 
+    /**
+     * Whether this device can get [AddonAuth]'s credentials for this addon,
+     * without asking the addon anything. What the sources screen shows when it
+     * can't: a well-formed manifest says nothing about whether the auth service
+     * will let this phone in (an unlocked bootloader, a revoked keybox).
+     */
+    suspend fun checkAuth(): Result<Unit> =
+        runCatching { authHeaders(baseUrl, rejectedToken = null); Unit }
+            .onFailure { if (it is CancellationException) throw it }
+
     /** How long to wait after a 429, from the header when it sent one. */
     private fun retryAfterMs(header: String?, attempt: Int): Long {
         val stated = header?.trim()?.toDoubleOrNull()?.times(1000)?.toLong()

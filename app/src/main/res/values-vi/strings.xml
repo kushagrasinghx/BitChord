@@ -1190,7 +1190,8 @@
     <string name="prioritize_spotify_canvas_subtitle">Thử Spotify trước Apple Music và các nhà cung cấp ảnh bìa động khác</string>
 
     <string name="source_needs_lossless_output">Cần đầu ra lossless · hãy dùng thiết bị hỗ trợ lossless</string>
-    <string name="source_needs_update">Tiện ích này đã lỗi thời nên BitChord không thể sử dụng. Hãy nhờ nhà phát triển cập nhật theo tài liệu tiện ích mới nhất của BitChord.</string>
+    <string name="source_needs_update">Tiện ích này đã lỗi thời. Tiện ích vẫn hoạt động, nhưng hãy nhờ nhà phát triển cập nhật theo tài liệu tiện ích mới nhất của BitChord.</string>
+    <string name="source_outdated">Tiện ích lỗi thời</string>
     <string name="source_needs_lossless_bt_codec">Cần đầu ra lossless · Bluetooth đang dùng %1$s; hãy dùng thiết bị hỗ trợ lossless</string>
     <string name="source_needs_lossless_bt_unknown">Cần đầu ra lossless · không xác định được codec Bluetooth đang dùng</string>
     <string name="source_downloads_on">Cho phép tải xuống</string>
@@ -1338,7 +1339,6 @@
     <string name="download_addon_left_out_title">Đang tải xuống không dùng %1$s</string>
     <string name="download_addon_not_allowed">%1$s không cho phép tải xuống, nên bài hát của bạn được lưu từ các nguồn khác.</string>
     <string name="download_addon_needs_lossless_output">%1$s chỉ phát nhạc khi có tai nghe có dây, USB hoặc chuẩn LDAC được kết nối. Lượt tải xuống sẽ bỏ qua nó cho đến khi có tai nghe như vậy, nên bài hát của bạn được lưu từ các nguồn khác.</string>
-    <string name="download_addon_needs_update">%1$s đã lỗi thời nên BitChord không thể sử dụng. Bài hát của bạn được lưu từ các nguồn khác. Hãy nhờ nhà phát triển cập nhật theo tài liệu tiện ích mới nhất của BitChord.</string>
     <string name="show_listen_together_button">Hiện nút Listen together</string>
     <string name="show_listen_together_button_subtitle">Khi tắt, trình phát chỉ hiện nút đầu ra âm thanh giữa lời bài hát và hàng đợi</string>
     <string name="font">Phông chữ</string>

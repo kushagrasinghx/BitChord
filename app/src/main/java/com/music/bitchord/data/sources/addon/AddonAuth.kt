@@ -140,6 +140,22 @@ object AddonAuth {
         throw AddonException("BitChord couldn't use this device's secure key store")
     }
 
+    /**
+     * Why this device can't get a token right now, while the last refusal's
+     * backoff runs; null when it has one or may ask again.
+     *
+     * Read by [SourceRegistry.active][com.music.bitchord.data.sources.SourceRegistry.active]
+     * to leave addons that ask for auth out of the walks meanwhile: each request
+     * would only re-throw this, and a resolve tries several queries per source,
+     * so the same refusal filled the log a dozen times per track.
+     */
+    fun standingRefusal(): String? = refusal?.takeIf { it.untilMs > System.currentTimeMillis() }?.message
+
+    /** JVM tests only: a refusal as [session] would record it, without attesting. */
+    internal fun refuseForTest(message: String?, transient: Boolean = false) {
+        refusal = message?.let { Refusal(it, System.currentTimeMillis() + REFUSED_BACKOFF_MS, transient) }
+    }
+
     /** What to tell the listener when an addon refused credentials that were sent. */
     fun rejectionMessage(code: String?): String = when (code) {
         "stale_proof" -> "This addon rejected the request because this phone's clock is wrong"

@@ -644,6 +644,8 @@ private fun BitChordApp(
     // and the mini player, like every other alert in the app.
     var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
     var choosingSourceQuality by remember { mutableStateOf<SourceConfig?>(null) }
+    /** An addon whose "Outdated addon" line was tapped; see [SourceConfig.needsAddonUpdate]. */
+    var explainingOutdatedAddon by remember { mutableStateOf<SourceConfig?>(null) }
     var confirmJioSaavn by remember { mutableStateOf(false) }
     var confirmBitPerfect by remember { mutableStateOf<BitPerfectMode?>(null) }
     var confirmFixedVolume by remember { mutableStateOf(false) }
@@ -2810,6 +2812,7 @@ private fun BitChordApp(
         BackHandler(enabled = discordDialog != null) { discordDialog = null }
         BackHandler(enabled = editingSource != null) { editingSource = null }
         BackHandler(enabled = choosingSourceQuality != null) { choosingSourceQuality = null }
+        BackHandler(enabled = explainingOutdatedAddon != null) { explainingOutdatedAddon = null }
         BackHandler(enabled = editingPartyServer) { editingPartyServer = false }
         BackHandler(enabled = editingSignatureApi) { editingSignatureApi = false }
 
@@ -3041,6 +3044,7 @@ private fun BitChordApp(
                                 contentPadding = listPadding,
                                 onEditSource = { editingSource = it },
                                 onChooseSourceQuality = { choosingSourceQuality = it },
+                                onExplainOutdatedAddon = { explainingOutdatedAddon = it },
                                 onEditWebDav = { showWebDavEditor = true },
                                 onEditSmb = { showSmbEditor = true },
                                 onConfirmJioSaavn = { confirmJioSaavn = true },
@@ -5838,6 +5842,15 @@ private fun BitChordApp(
             )
         }
 
+        explainingOutdatedAddon?.let { config ->
+            InfoAlert(
+                hazeState = hazeState,
+                title = config.displayName,
+                description = stringResource(R.string.source_needs_update),
+                onDismiss = { explainingOutdatedAddon = null },
+            )
+        }
+
         if (confirmJioSaavn) {
             ConfirmationAlert(
                 hazeState = hazeState,
@@ -5902,8 +5915,6 @@ private fun BitChordApp(
                         stringResource(R.string.download_addon_not_allowed, addon)
                     SourceRegistry.DownloadExclusion.NEEDS_LOSSLESS_OUTPUT ->
                         stringResource(R.string.download_addon_needs_lossless_output, addon)
-                    SourceRegistry.DownloadExclusion.NEEDS_ADDON_UPDATE ->
-                        stringResource(R.string.download_addon_needs_update, addon)
                 },
                 onDismiss = { addonLeftOutOfDownload = null },
                 // A download can be asked for from the player or from either

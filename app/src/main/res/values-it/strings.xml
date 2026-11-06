@@ -1212,7 +1212,8 @@
 
 
     <string name="source_needs_lossless_output">Richiede un’uscita lossless · usa un dispositivo compatibile con il lossless</string>
-    <string name="source_needs_update">Questo add-on non è aggiornato, quindi BitChord non può usarlo. Chiedi al suo sviluppatore di aggiornarlo seguendo la documentazione più recente degli add-on BitChord.</string>
+    <string name="source_needs_update">Questo add-on non è aggiornato. Funziona ancora, ma chiedi al suo sviluppatore di aggiornarlo seguendo la documentazione più recente degli add-on BitChord.</string>
+    <string name="source_outdated">Add-on obsoleto</string>
     <string name="source_needs_lossless_bt_codec">Richiede un’uscita lossless · il Bluetooth usa %1$s; usa un dispositivo compatibile con il lossless</string>
     <string name="source_needs_lossless_bt_unknown">Richiede un’uscita lossless · impossibile sapere quale codec Bluetooth è in uso</string>
     <string name="source_downloads_on">Download consentiti</string>
@@ -1360,7 +1361,6 @@
     <string name="download_addon_left_out_title">Download senza %1$s</string>
     <string name="download_addon_not_allowed">%1$s non consente i download, quindi i tuoi brani vengono salvati dalle altre fonti.</string>
     <string name="download_addon_needs_lossless_output">%1$s fornisce musica solo con cuffie cablate, USB o di classe LDAC collegate. I download lo saltano finché non ne colleghi una, quindi i tuoi brani vengono salvati dalle altre fonti.</string>
-    <string name="download_addon_needs_update">%1$s non è aggiornato, quindi BitChord non può usarlo. I tuoi brani vengono salvati dalle altre fonti. Chiedi al suo sviluppatore di aggiornarlo seguendo la documentazione più recente degli add-on BitChord.</string>
     <string name="show_listen_together_button">Mostra il pulsante Ascoltare insieme</string>
     <string name="show_listen_together_button_subtitle">Se disattivato, il lettore mostra solo il pulsante dell\'uscita audio tra il testo e la coda</string>
     <string name="font">Carattere</string>

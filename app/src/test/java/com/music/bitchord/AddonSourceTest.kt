@@ -10,7 +10,9 @@ import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.data.sources.addon.AddonAuth
 import com.music.bitchord.data.sources.addon.AddonClient
+import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.AddonQualityOption
+import com.music.bitchord.data.sources.addon.AddonUnavailable
 import com.music.bitchord.playback.StreamContainer
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
@@ -72,6 +74,7 @@ class AddonSourceTest {
         DeviceCodecs.forced = null
         AppSettings.dolbyAtmos.value = true
         AddonAuth.testHeaders = null
+        AddonAuth.refuseForTest(null)
     }
 
     // ── URL handling ──────────────────────────────────────────────────────
@@ -155,18 +158,17 @@ class AddonSourceTest {
     }
 
     /**
-     * An addon that never published a manifest still answers a search, but it
-     * has nowhere to declare `bitchordAuth`, so it is out of date — and is told
-     * so, rather than reported as a broken URL.
+     * An addon that never published a manifest still answers a search, so it is
+     * healthy. It has nowhere to declare `bitchordAuth`, which the sources row
+     * flags on a line of its own, but that doesn't stop it working.
      */
     @Test
-    fun `an addon with no manifest is out of date even when its search endpoint answers`() = runBlocking {
+    fun `an addon with no manifest is healthy when its search endpoint answers`() = runBlocking {
         route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
 
         val health = source().health()
 
-        assertTrue("expected Rejected, got $health", health is SourceHealth.Rejected)
-        assertTrue((health as SourceHealth.Rejected).reason.contains("out of date"))
+        assertTrue("expected Ok, got $health", health is SourceHealth.Ok)
     }
 
     // ── Out-of-date addons (no `bitchordAuth`) ────────────────────────────
@@ -175,48 +177,98 @@ class AddonSourceTest {
         """{"id":"com.test.old","name":"Old Addon","version":"1.0.0","resources":["search","stream"]}""",
     )
 
+    /** Flagged on the sources row, not refused: the health line reads as for any working addon. */
     @Test
-    fun `a manifest without bitchordAuth is reported out of date`() = runBlocking {
+    fun `a manifest without bitchordAuth is still healthy`() = runBlocking {
         route("/manifest.json", outdatedManifest())
 
         val health = source().health()
 
-        assertTrue("expected Rejected, got $health", health is SourceHealth.Rejected)
-        assertTrue((health as SourceHealth.Rejected).reason.contains("latest BitChord addon docs"))
+        assertTrue("expected Ok, got $health", health is SourceHealth.Ok)
     }
 
+    /**
+     * Out of date, but working: searched and streamed from as before, with no
+     * credentials sent, and unaffected by this device being refused
+     * verification, since it never asked for it.
+     */
     @Test
-    fun `an out-of-date addon is never asked to search or stream`() = runBlocking {
+    fun `an out-of-date addon is still searched and streamed without credentials`() = runBlocking {
         route("/manifest.json", outdatedManifest())
         route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
         route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+        AddonAuth.refuseForTest("BitChord couldn't verify this device: The bootloader is unlocked")
         val source = source()
 
-        assertTrue(source.search("S", 10, false, null).isEmpty())
-        assertNull(source.stream("t1", StreamRequest.Lossless))
-        val asked = synchronized(seen) { seen.map { it.requestUrl?.encodedPath } }
-        assertEquals(listOf("/manifest.json"), asked.distinct())
+        assertEquals(1, source.search("S", 10, false, null).size)
+        assertNotNull(source.stream("t1", StreamRequest.Lossless))
+        val sent = synchronized(seen) { seen.toList() }
+        assertTrue(sent.none { it.getHeader(AddonAuth.TOKEN_HEADER) != null })
     }
 
     /** A manifest that says `false` is the same as one that says nothing. */
     @Test
-    fun `bitchordAuth false is out of date too`() = runBlocking {
+    fun `bitchordAuth false is out of date but still searched`() = runBlocking {
         route(
             "/manifest.json",
             json("""{"id":"x","name":"X","bitchordAuth":false,"resources":["search","stream"]}"""),
         )
         route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
 
-        assertTrue(source().search("S", 10, false, null).isEmpty())
+        assertEquals(1, source().search("S", 10, false, null).size)
     }
 
-    /** Never seen declaring it, and the manifest can't be read: refused rather than guessed at. */
+    /** The sources screen and the add dialog both read this, so the auth service's reason has to reach it. */
     @Test
-    fun `an addon never seen up to date is refused while its manifest is down`() = runBlocking {
+    fun `a device the auth service refuses is reported in its words`() = runBlocking {
+        route("/manifest.json", manifest())
+        AddonAuth.testHeaders = { _, _ ->
+            throw AddonException("BitChord couldn't verify this device: The bootloader is unlocked")
+        }
+
+        val health = source().health()
+
+        assertTrue("expected Rejected, got $health", health is SourceHealth.Rejected)
+        assertEquals(
+            "BitChord couldn't verify this device: The bootloader is unlocked",
+            (health as SourceHealth.Rejected).reason,
+        )
+    }
+
+    @Test
+    fun `an auth service that can't be reached reads as unreachable`() = runBlocking {
+        route("/manifest.json", manifest())
+        AddonAuth.testHeaders = { _, _ -> throw AddonUnavailable("Couldn't reach BitChord's addon verification service") }
+
+        assertTrue(source().health() is SourceHealth.Unreachable)
+    }
+
+    /** One refusal, not one failed request per query per pass. */
+    @Test
+    fun `while the device is refused an addon is not asked to search or stream`() = runBlocking {
+        route("/manifest.json", manifest())
+        route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+        AddonAuth.refuseForTest("BitChord couldn't verify this device: revoked")
+        val source = source()
+
+        assertTrue(source.search("S", 10, false, null).isEmpty())
+        assertTrue(source.search("S A", 10, false, null).isEmpty())
+        assertNull(source.stream("t1", StreamRequest.Lossless))
+        val asked = synchronized(seen) { seen.map { it.requestUrl?.encodedPath } }
+        assertEquals(listOf("/manifest.json"), asked.distinct())
+
+        AddonAuth.refuseForTest(null)
+        assertEquals(1, source.search("S", 10, false, null).size)
+    }
+
+    /** A manifest that is down for a minute doesn't stop the addon being searched. */
+    @Test
+    fun `an addon is still searched while its manifest is down`() = runBlocking {
         route("/manifest.json", MockResponse().setResponseCode(503))
         route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
 
-        assertTrue(source().search("S", 10, false, null).isEmpty())
+        assertEquals(1, source().search("S", 10, false, null).size)
     }
 
     @Test

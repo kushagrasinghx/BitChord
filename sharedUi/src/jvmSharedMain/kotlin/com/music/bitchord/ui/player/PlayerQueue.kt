@@ -267,13 +267,14 @@ internal fun InlineQueue(
      * the queue is here to be looked at and scrolled, not worked.
      */
     controlsLocked: Boolean,
+    hazeState: HazeState,
     onJumpTo: (Int) -> Unit,
     onRemove: (Int) -> Unit,
     onMove: (Int, Int) -> Unit,
     onClear: () -> Unit,
     onSongMenu: (Int, Song) -> Unit = { _, _ -> },
     onSwipeToQueue: suspend (Int, Song) -> Boolean = { _, _ -> false },
-    undoNotice: @Composable () -> Unit = {},
+    undoNotice: @Composable (HazeState) -> Unit = {},
     selection: QueueSelectionState? = null,
     onBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { _, _ -> false },
     onAddAllToPlaylist: (List<Song>) -> Unit = {},
@@ -288,7 +289,6 @@ internal fun InlineQueue(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    val selectionHaze = remember { HazeState() }
     val density = LocalDensity.current
     var footerHeight by remember { mutableStateOf(0.dp) }
     val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
@@ -431,8 +431,8 @@ internal fun InlineQueue(
                     .fadingEdges()
                     .then(
                         if (!reduceDynamicBlur) {
-                            // Below any enclosing source, so the sibling frost can sample it.
-                            Modifier.hazeSource(selectionHaze, zIndex = -1f)
+                            // Composite queue rows above the sibling player artwork.
+                            Modifier.hazeSource(hazeState, zIndex = 1f)
                         } else Modifier,
                     )
                     // Without this the sheet treats the list's leftover scroll as a
@@ -560,8 +560,8 @@ internal fun InlineQueue(
                     .padding(horizontal = PLAYER_GUTTER)
                     .onSizeChanged { footerHeight = with(density) { it.height.toDp() } },
             ) {
-                undoNotice()
-                QueueSelectionBar(selectionState, allTracks, reduceAnimation, onBulkAction, selectionHaze)
+                undoNotice(hazeState)
+                QueueSelectionBar(selectionState, allTracks, reduceAnimation, onBulkAction, hazeState)
             }
         }
     }

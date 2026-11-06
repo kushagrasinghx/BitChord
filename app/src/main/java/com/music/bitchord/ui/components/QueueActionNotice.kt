@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import dev.chrisbanes.haze.HazeState
 
 /** A unique queue result, so repeating the same action restarts its lifetime. */
 data class QueueActionNotice(
@@ -41,8 +42,10 @@ fun QueueActionNoticeHost(
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
+    hazeState: HazeState? = null,
 ) {
     val reduceAnimation by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
 
     AnimatedContent(
         targetState = notice,
@@ -60,14 +63,15 @@ fun QueueActionNoticeHost(
     ) { current ->
         if (current != null) {
             Surface(
-                color = Color(0xFF282828),
+                color = if (hazeState != null) Color.Transparent else Color(0xFF282828),
                 contentColor = Color.White,
-                shape = RoundedCornerShape(5.dp),
-                shadowElevation = 4.dp,
+                shape = RoundedCornerShape(if (hazeState != null) 16.dp else 5.dp),
+                shadowElevation = if (hazeState != null) 0.dp else 4.dp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 8.dp)
+                    .then(if (hazeState != null) Modifier.queueActionSurface(hazeState, reduceDynamicBlur) else Modifier)
                     .semantics { liveRegion = LiveRegionMode.Polite },
             ) {
                 Row(
@@ -77,6 +81,7 @@ fun QueueActionNoticeHost(
                     Text(
                         text = current.message,
                         style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = if (hazeState != null) 0.75f else 1f),
                         modifier = Modifier.weight(1f).padding(vertical = 16.dp),
                     )
                     if (actionLabel != null && onAction != null) {

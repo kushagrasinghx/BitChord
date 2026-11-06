@@ -23,6 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -353,27 +354,64 @@ class SourcesTest {
     /**
      * Film catalogues credit from opposite ends: YouTube Music files this
      * under the composer, every store under the singer, and the two credits
-     * share nothing at all. An exact runtime is what says they are the same
-     * master anyway.
+     * share nothing at all. An exact runtime on the same soundtrack is what
+     * says they are the same master anyway.
      */
     @Test
     fun `accepts a composer credit against a singer credit on an exact runtime`() {
-        assertTrue(
-            matches(
-                song("Jhak Maar Ke", "Neeraj Shridhar", duration = "3:53"),
-                title = "Jhak Maar Ke",
-                artist = "Pritam",
-                durationSec = 233,
-            ),
+        val target = TrackMatcher.Target("Jhak Maar Ke", "Pritam", durationSec = 233, album = "Desi Boyz")
+        assertNotNull(
+            TrackMatcher.score(song("Jhak Maar Ke", "Neeraj Shridhar", duration = "3:53", album = "Desi Boyz"), target),
         )
         // The remix and the acoustic cover from the same result set are the
         // reason this is safe: neither agrees on length.
-        assertFalse(
-            matches(
-                song("Jhak Maar Ke", "Leo Lz Mix", duration = "4:01"),
-                title = "Jhak Maar Ke",
-                artist = "Pritam",
-                durationSec = 233,
+        assertNull(
+            TrackMatcher.score(song("Jhak Maar Ke", "Leo Lz Mix", duration = "4:01", album = "Desi Boyz"), target),
+        )
+    }
+
+    /**
+     * A film song's row often names its soundtrack in the title and leaves the
+     * album field empty. That names the release as well as the field would,
+     * from either side.
+     */
+    @Test
+    fun `accepts a composer credit when the title names the singer's soundtrack`() {
+        val fromFilm = TrackMatcher.Target("Jhak Maar Ke (From \"Desi Boyz\")", "Pritam", durationSec = 233)
+        assertNotNull(
+            TrackMatcher.score(
+                song("Jhak Maar Ke", "Neeraj Shridhar", "3:53", album = "Desi Boyz (Original Motion Picture Soundtrack)"),
+                fromFilm,
+            ),
+        )
+        assertNotNull(
+            TrackMatcher.score(
+                song("Jhak Maar Ke (From \"Desi Boyz\")", "Neeraj Shridhar", "3:53"),
+                TrackMatcher.Target("Jhak Maar Ke", "Pritam", durationSec = 233, album = "Desi Boyz"),
+            ),
+        )
+        // A different film is a different release.
+        assertNull(
+            TrackMatcher.score(song("Jhak Maar Ke", "Neeraj Shridhar", "3:53", album = "Love Aaj Kal"), fromFilm),
+        )
+    }
+
+    /**
+     * A runtime alone does not make another artist's song the one asked for.
+     * Tidal held only Mat Kearney's "As Long As I Live", one second off the
+     * Catherine Russell track being played, and its FLAC went out under her
+     * name. Without the same release on both sides the credits must agree.
+     */
+    @Test
+    fun `refuses another artist's song of the same title and runtime without a shared release`() {
+        val target = TrackMatcher.Target("As Long As I Live", "Catherine Russell", durationSec = 214)
+        val other = song("As Long As I Live", "Mat Kearney", duration = "3:35", album = "Hanging by a Heartstring")
+        assertNull(TrackMatcher.score(other, target))
+        assertNull(TrackMatcher.score(other, target.copy(album = "Inside This Heart of Mine")))
+        assertNull(
+            TrackMatcher.score(
+                song("Jhak Maar Ke", "Neeraj Shridhar", duration = "3:53"),
+                TrackMatcher.Target("Jhak Maar Ke", "Pritam", durationSec = 233, album = "Desi Boyz"),
             ),
         )
     }

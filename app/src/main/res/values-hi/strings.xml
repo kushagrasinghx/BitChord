@@ -1457,4 +1457,7 @@
     <string name="bit_perfect_status_inexact">%1$s · सटीक नहीं: यह सोर्स लॉसलेस PCM नहीं है</string>
     <string name="bit_perfect_status_waiting">समर्थित आउटपुट पर लॉसलेस ट्रैक का इंतज़ार है</string>
     <string name="bit_perfect_status_unavailable">इस ट्रैक के लिए उपलब्ध नहीं (%1$s)</string>
+    <string name="diwali_title">BitChord की ओर से दीपावली की शुभकामनाएँ</string>
+    <string name="diwali_subtitle">रोशनी का यह त्योहार आपके घर को खुशियों से और आपके दिनों को संगीत से भर दे।</string>
+    <string name="diwali_cta">चलो जश्न मनाएँ</string>
 </resources>

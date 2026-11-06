@@ -640,13 +640,20 @@ object Innertube {
         }
 
     /** The next page of a filtered search result. */
-    suspend fun searchContinuation(token: String): JsonObject = postMusic(
-        endpoint = "search",
-        query = mapOf("ctoken" to token, "continuation" to token, "type" to "next"),
-        region = searchRegion,
-    ) {
-        put("continuation", token)
-    }
+    suspend fun searchContinuation(token: String, anonymous: Boolean = true): JsonObject =
+        if (anonymous) {
+            postMusicAnonymous(
+                endpoint = "search",
+                query = mapOf("ctoken" to token, "continuation" to token, "type" to "next"),
+                region = searchRegion,
+            ) { put("continuation", token) }
+        } else {
+            postMusic(
+                endpoint = "search",
+                query = mapOf("ctoken" to token, "continuation" to token, "type" to "next"),
+                region = searchRegion,
+            ) { put("continuation", token) }
+        }
 
     /**
      * The typeahead list YouTube Music's own search box shows for a
@@ -1194,6 +1201,7 @@ object Innertube {
      */
     private suspend fun postMusicAnonymous(
         endpoint: String,
+        query: Map<String, String> = emptyMap(),
         /** The context's `gl`; null sends none. */
         region: String? = currentRegion,
         bodyExtras: JsonObjectBuilder.() -> Unit,
@@ -1210,6 +1218,7 @@ object Innertube {
                 header("X-YouTube-Client-Version", clientVersion)
                 header("Accept-Language", acceptLanguageHeader)
                 parameter("hl", currentLanguage)
+                query.forEach { (key, value) -> parameter(key, value) }
                 visitorData?.let { header("X-Goog-Visitor-Id", it) }
                 // No Cookie / Authorization headers — anonymous request.
                 setBody(

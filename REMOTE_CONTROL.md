@@ -84,6 +84,12 @@ TLS + WebSocket handshake per poll; any slow redial drained the
 pool and the page hung. Persistent channels made redials rare and
 the spottiness went with them. The relay still accepts the old
 one-request channels, so an un-upgraded build keeps working.
+Failures inside the relay are terminal, never hangs: a request
+whose channel dies, whose response times out, or which cannot be
+placed after its body was read is answered with a clean 502 (when
+no response byte has reached the browser yet), and response bytes
+are written to the browser by a per-request writer thread so one
+wedged browser cannot stall the channel it shares.
 
 Both legs ride the VPS's Cloudflare Tunnel under one hostname
 (`remote.gaspol.men`): browsers over HTTPS, phone channels over WSS

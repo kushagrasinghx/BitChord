@@ -179,6 +179,14 @@ object RemoteRelay {
             try {
                 conn = MuxConnection(token)
                 openSockets.add(conn.ws.socket)
+                // stop() flips `running` before sweeping openSockets;
+                // a socket added after that sweep would escape it, so
+                // re-check here and self-close instead of leaking a
+                // channel that outlives the stop.
+                if (!running) {
+                    conn.ws.close()
+                    break
+                }
                 conn.ws.handshake()
                 conn.run()
             } catch (e: Exception) {
@@ -220,7 +228,10 @@ object RemoteRelay {
                     when (msg.type) {
                         MUX_REQUEST -> {
                             val exchange = Exchange(msg.id, this)
-                            exchanges[msg.id] = exchange
+                            // The relay never reuses a live id; if one
+                            // ever arrives, close the orphan rather than
+                            // leak its socket and cross its responses.
+                            exchanges.put(msg.id, exchange)?.close()
                             Thread(
                                 { exchange.serve(msg.payload) },
                                 "remote-relay-req-${msg.id}",
@@ -430,6 +441,9 @@ object RemoteRelay {
                     0x0, 0x1, 0x2 -> {
                         if (frame.fin && assembled == null) return frame.payload
                         val acc = assembled ?: ByteArrayOutputStream().also { assembled = it }
+                        // Mirror the relay's reassembly cap: frames are
+                        // capped individually, the message was not.
+                        if (acc.size() + frame.payload.size > MESSAGE_MAX) return null
                         acc.write(frame.payload)
                         if (frame.fin) return acc.toByteArray()
                     }
@@ -439,19 +453,26 @@ object RemoteRelay {
         }
 
         fun sendBinary(data: ByteArray) {
-            if (data.size <= FRAME_LIMIT) {
-                sendFrame(0x2, data, data.size)
-                return
-            }
-            // Larger than one frame: fragment, FIN only on the last.
-            var off = 0
-            var first = true
-            while (off < data.size) {
-                val n = minOf(FRAME_LIMIT, data.size - off)
-                val fin = off + n == data.size
-                sendFrame(if (first) 0x2 else 0x0, data.copyOfRange(off, off + n), n, fin)
-                first = false
-                off += n
+            // Hold sendLock for the WHOLE message (sendFrame's own
+            // lock is the same monitor, hence reentrant): releasing it
+            // between fragments would let another message — or a pong
+            // from the reader thread — splice into this one's frame
+            // sequence and corrupt the peer's reassembly.
+            synchronized(sendLock) {
+                if (data.size <= FRAME_LIMIT) {
+                    sendFrame(0x2, data, data.size)
+                    return
+                }
+                // Larger than one frame: fragment, FIN only on the last.
+                var off = 0
+                var first = true
+                while (off < data.size) {
+                    val n = minOf(FRAME_LIMIT, data.size - off)
+                    val fin = off + n == data.size
+                    sendFrame(if (first) 0x2 else 0x0, data.copyOfRange(off, off + n), n, fin)
+                    first = false
+                    off += n
+                }
             }
         }
 
@@ -577,6 +598,9 @@ object RemoteRelay {
         private companion object {
             /** One frame's payload cap; larger messages fragment. */
             const val FRAME_LIMIT = 64 * 1024
+
+            /** Whole-message reassembly cap, mirroring the relay. */
+            const val MESSAGE_MAX = 16 * 1024 * 1024
         }
     }
 }

@@ -195,9 +195,9 @@ fun SongActionsMenu(
     val palette = neutralMenuPalette()
     val liked = likeStatus == LikeStatus.LIKE
     val disliked = likeStatus == LikeStatus.DISLIKE
-    // A local file or a finished download has no YouTube identity behind it to
-    // rate, save, queue into a playlist, fetch again, or share a link for.
-    val isOffline = song.localUri != null
+    // External device files have no YouTube identity to rate, fetch, or share.
+    val isOffline = song.localUri != null &&
+        (song.videoId.startsWith("content://") || song.videoId.startsWith("file://"))
 
     val rows: @Composable ColumnScope.() -> Unit = {
         // Groups are drawn as they turn out to have something in them, and the

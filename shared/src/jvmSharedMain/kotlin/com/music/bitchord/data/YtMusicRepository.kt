@@ -34,6 +34,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -160,9 +161,6 @@ object YtMusicRepository {
      */
     private suspend fun fetchHistory(): List<Song> = historyLock.withLock {
         val cookie = Innertube.cookie
-        // Recents and Top Picks both want the history the moment Home opens;
-        // whichever asks second waits for the first and shares its answer
-        // instead of sending the same request again.
         historyMemo?.takeIf { it.cookie == cookie && System.currentTimeMillis() - it.at < HISTORY_SHARE_MS }
             ?.let { return@withLock it.songs }
         InnertubeParser.collectSongsDeep(Innertube.browse(HISTORY)).distinctBy { it.videoId }

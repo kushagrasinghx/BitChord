@@ -810,6 +810,7 @@ object InnertubeParser {
                     .o("durationText").runs(),
             ),
             isExplicit = renderer.hasExplicitBadge(),
+            feedbackToken = extractFeedbackToken(renderer),
         )
     }
 
@@ -1419,20 +1420,53 @@ object InnertubeParser {
 
     /**
      * The "Remove from history" feedback token on a history row's menu, or
-     * null. The same plain menu items also carry other feedback actions —
-     * "Don't recommend this", for one — so only the item wearing the DELETE
-     * icon is taken; sending a stranger's token would quietly do something
-     * else to the account.
+     * null. Only accepts items with icon type REMOVE_FROM_HISTORY or DELETE.
      */
-    private fun extractFeedbackToken(renderer: JsonObject): String? =
-        renderer.o("menu")
-            ?.o("menuRenderer")
-            ?.a("items")
-            ?.firstNotNullOfOrNull { item ->
-                val service = item.o("menuServiceItemRenderer") ?: return@firstNotNullOfOrNull null
-                if (service.o("icon")?.s("iconType") != "DELETE") return@firstNotNullOfOrNull null
-                service.o("serviceEndpoint")?.o("feedbackEndpoint")?.s("feedbackToken")
+    private fun extractFeedbackToken(renderer: JsonObject): String? {
+        val items = renderer.o("menu")?.o("menuRenderer")?.a("items") ?: return null
+
+        for (item in items) {
+            val rendererKey = (item as? JsonObject)?.keys?.firstOrNull() ?: continue
+            // Skip toggle items (like, dislike, library add/remove, etc.)
+            if (rendererKey == "toggleMenuServiceItemRenderer") continue
+
+            val service = item.o("menuServiceItemRenderer") ?: continue
+
+            // Check icon type — accept both the old DELETE and the current REMOVE_FROM_HISTORY.
+            val iconType = service.o("icon")?.s("iconType")
+                ?: service.o("defaultIcon")?.s("iconType")
+            if (iconType != "DELETE" && iconType != "REMOVE_FROM_HISTORY") continue
+
+            // Find the token at any depth inside this item's subtree.
+            return findFeedbackTokenInSubtree(service)
+        }
+
+        return null
+    }
+
+    /**
+     * Search [root]'s subtree for a `feedbackEndpoint.feedbackToken` string
+     * at any depth. JSON trees have no cycles, so unbounded recursion is safe.
+     */
+    private fun findFeedbackTokenInSubtree(root: JsonElement?): String? {
+        if (root == null) return null
+        if (root is JsonObject) {
+            val fe = root["feedbackEndpoint"] as? JsonObject ?: let {
+                for (value in root.values) {
+                    findFeedbackTokenInSubtree(value)?.let { return it }
+                }
+                return null
             }
+            val token = fe["feedbackToken"] as? JsonPrimitive ?: return null
+            return token.contentOrNull?.takeIf { it.isNotBlank() }
+        }
+        if (root is JsonArray) {
+            for (element in root) {
+                findFeedbackTokenInSubtree(element)?.let { return it }
+            }
+        }
+        return null
+    }
 
     /**
      * The account's own state for one track, read off the watch queue's row

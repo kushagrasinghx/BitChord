@@ -237,6 +237,19 @@ fun SongActionsMenu(
             }
         }
 
+        // Remove from history — only shown when opened from the History screen
+        // and the track has a feedback token. Sits at the top of the action
+        // list, directly below the quick actions and above Convert to video.
+        onRemoveFromHistory?.let {
+            if (startsGroup()) IosMenuSeparator()
+            ActionRow(
+                icon = SfIcons.History,
+                label = stringResource(R.string.remove_from_history),
+                accent = palette.accent,
+                onClick = it,
+            )
+        }
+
         // Leads the list whenever it's available: which recording is playing
         // is the one question that has to be answered before any of the rows
         // below mean anything — there is no point rating, queueing or
@@ -338,14 +351,6 @@ fun SongActionsMenu(
             )
         }
         WebDavUploadRow(song, palette, isOffline, onUploadToWebDav)
-        onRemoveFromHistory?.let {
-            ActionRow(
-                icon = SfIcons.History,
-                label = stringResource(R.string.remove_from_history),
-                accent = palette.accent,
-                onClick = it,
-            )
-        }
 
         if (startsGroup()) IosMenuSeparator()
         // Names where each one leads under it, as a menu's "Go to" does.

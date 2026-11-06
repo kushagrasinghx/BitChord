@@ -14,8 +14,10 @@
 
 package com.music.bitchord.playback.smart
 
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.ceil
+import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.ln
 import kotlin.math.max
@@ -142,6 +144,8 @@ object LoopMix {
         val exitBars: Int,
         /** Outgoing bars from the outgoing loop's start to the incoming loop's release. */
         val totalBars: Int,
+        val keyClash: Boolean = false,
+        val volumeRatio: Double = 1.0,
     ) {
         /** The tempo the ramp arrives at, in outgoing beats per minute. */
         val targetBpm: Double get() = inn.bpm / fold
@@ -207,10 +211,24 @@ object LoopMix {
 
         val fold = doubleArrayOf(1.0, 2.0, 0.5).minBy { abs(ln(inBpm / it / outBpm)) }
         val target = inBpm / fold
+        val keyClash = run {
+            val kOut = out.key.takeIf { it.isNotBlank() && out.keyConfidence >= 0.25 }
+            val kIn = inn.key.takeIf { it.isNotBlank() && inn.keyConfidence >= 0.25 }
+            if (kOut != null && kIn != null) !harmonicallyCompatible(kOut, kIn) else false
+        }
+        val enterBars = if (keyClash) 2 else ENTER_BARS
         val rampBars = ceil(abs(target - outBpm) / MAX_BPM_PER_BAR).toInt().coerceIn(MIN_RAMP_BARS, MAX_RAMP_BARS)
         // the incoming loop lets go only at its own loop boundary: round the mix up to whole incoming loops
         val inLoopOutBars = inPick.bars / fold
-        val totalBars = (ceil((ENTER_BARS + rampBars + EXIT_BARS) / inLoopOutBars) * inLoopOutBars).roundToInt()
+        val totalBars = (ceil((enterBars + rampBars + EXIT_BARS) / inLoopOutBars) * inLoopOutBars).roundToInt()
+
+        val outRms = quietestBar(out.levelWindows, outPick, outPick.bars)
+        val inRms = quietestBar(inn.levelWindows, inPick, inPick.bars)
+        val volumeRatio = if (!outRms.isNaN() && !inRms.isNaN() && inRms > 0 && outRms > 0) {
+            (outRms / inRms).coerceIn(0.6, 1.8)
+        } else {
+            1.0
+        }
 
         fun pick(clean: Clean, beatSec: Double, bpm: Double) = Pick(
             loopStart = clean.start,
@@ -225,10 +243,12 @@ object LoopMix {
             out = pick(outPick, outBeat, outBpm),
             inn = pick(inPick, inBeat, inBpm),
             fold = fold,
-            enterBars = ENTER_BARS,
+            enterBars = enterBars,
             rampBars = rampBars,
-            exitBars = totalBars - ENTER_BARS - rampBars,
+            exitBars = totalBars - enterBars - rampBars,
             totalBars = totalBars,
+            keyClash = keyClash,
+            volumeRatio = volumeRatio,
         )
     }
 
@@ -335,6 +355,7 @@ object LoopMix {
             val louds = DoubleArray(loops.size) { quietestBar(analysis.levelWindows, loops[it], bars) }
             val known = louds.filter { !it.isNaN() }.sorted()
             val typical = if (known.isEmpty()) Double.NaN else known[min(known.size - 1, floor(known.size * 0.6).toInt())]
+            val cleanCandidates = ArrayList<Clean>()
             for ((index, loop) in loops.withIndex()) {
                 val loud = louds[index]
                 if (!loud.isNaN() && (loud < typical * MIN_LOUDNESS || loud <= SILENT_RMS)) {
@@ -348,7 +369,10 @@ object LoopMix {
                         count.lyrics++
                         continue
                     }
-                    if (touching.isEmpty()) return Clean(loop.start, loop.end, bars, 0.0, Check.LYRICS)
+                    if (touching.isEmpty()) {
+                        cleanCandidates += Clean(loop.start, loop.end, bars, 0.0, Check.LYRICS)
+                        continue
+                    }
                     // Only the guessed tails of open lines reach it: the mask decides those.
                     val mask = maskStats(analysis.vocalWindows, loop.start - beatSec, loop.end)
                     if (mask == null) {
@@ -359,7 +383,8 @@ object LoopMix {
                         count.sung++
                         continue
                     }
-                    return Clean(loop.start, loop.end, bars, mask.share, Check.LYRICS_AND_MASK)
+                    cleanCandidates += Clean(loop.start, loop.end, bars, mask.share, Check.LYRICS_AND_MASK)
+                    continue
                 }
                 val mask = maskStats(analysis.vocalWindows, loop.start - beatSec, loop.end)
                 if (mask == null) {
@@ -370,7 +395,19 @@ object LoopMix {
                     count.sung++
                     continue
                 }
-                return Clean(loop.start, loop.end, bars, mask.share, Check.MASK)
+                cleanCandidates += Clean(loop.start, loop.end, bars, mask.share, Check.MASK)
+            }
+            if (cleanCandidates.isNotEmpty()) {
+                val phrases = analysis.phraseBoundaries
+                if (phrases.isNotEmpty()) {
+                    val best = cleanCandidates.minByOrNull { clean ->
+                        val distToPhrase = phrases.minOfOrNull { abs(it - clean.start) } ?: Double.MAX_VALUE
+                        val phrasePenalty = if (distToPhrase <= beatSec * 1.25) 0.0 else min(10.0, distToPhrase)
+                        phrasePenalty * 10.0 + cleanCandidates.indexOf(clean) * 0.01
+                    }
+                    return best ?: cleanCandidates.first()
+                }
+                return cleanCandidates.first()
             }
         }
         return null
@@ -480,11 +517,15 @@ object LoopMix {
         val rampFrom: Int = plan.enterBars * 4
         val rampTo: Int = (plan.enterBars + plan.rampBars) * 4
 
-        /** Master tempo during outgoing beat [k]. */
+        /** Master tempo during outgoing beat [k]. Uses a smooth S-curve (cosine ease) across the ramp. */
         fun tempo(k: Int): Double = when {
             k < rampFrom -> plan.out.bpm
             k >= rampTo -> plan.targetBpm
-            else -> plan.out.bpm + (plan.targetBpm - plan.out.bpm) * (k - rampFrom + 0.5) / (rampTo - rampFrom)
+            else -> {
+                val t = (k - rampFrom + 0.5) / (rampTo - rampFrom)
+                val smoothT = 0.5 * (1.0 - cos(PI * t))
+                plan.out.bpm + (plan.targetBpm - plan.out.bpm) * smoothT
+            }
         }
 
         /** Beat k of the mix, for k in 0..beats + settleBeats. */

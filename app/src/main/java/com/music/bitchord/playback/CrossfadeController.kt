@@ -1288,6 +1288,19 @@ class CrossfadeController(
         if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) return
         requestAnalysis(currentItem, duration)
         requestAnalysis(nextItem, nextItemDurationMs(nextIndex, nextItem))
+
+        // Predictive queue lookahead: pre-analyze up to 2 items ahead in queue
+        val total = player.mediaItemCount
+        for (offset in 1..2) {
+            val futureIndex = nextIndex + offset
+            if (futureIndex < total) {
+                val futureItem = player.getMediaItemAt(futureIndex)
+                if (!futureItem.isVideoOrigin) {
+                    val futureDuration = nextItemDurationMs(futureIndex, futureItem)
+                    requestAnalysis(futureItem, futureDuration)
+                }
+            }
+        }
     }
 
     /**
@@ -2511,6 +2524,7 @@ class CrossfadeController(
             plan.fold < 1 -> " (next in half time)"
             else -> ""
         }
+        val keyNote = if (plan.keyClash) " · key clash" else ""
         fun side(pick: LoopMix.Pick): String {
             val by = when (pick.checkedBy) {
                 LoopMix.Check.LYRICS -> "lyrics"
@@ -2519,7 +2533,7 @@ class CrossfadeController(
             }
             return "${pick.bars}-bar, clear by $by"
         }
-        return "out ${side(plan.out)} · in ${side(plan.inn)} · $tempo$fold"
+        return "out ${side(plan.out)} · in ${side(plan.inn)} · $tempo$fold$keyNote"
     }
 
     /**
@@ -2551,8 +2565,9 @@ class CrossfadeController(
         armDeadline = SystemClock.elapsedRealtime() + LOOP_BUILD_TIMEOUT_MS
         holdAtEnd(out)
         val sampleRate = outPort.sampleRate
-        val inLevel = (loudnessGain(inItem.mediaId) / loudnessGain(outItem.mediaId))
+        val baseInLevel = (loudnessGain(inItem.mediaId) / loudnessGain(outItem.mediaId))
             .takeIf { it.isFinite() && it > 0f } ?: 1f
+        val inLevel = (baseInLevel * plan.volumeRatio.toFloat()).coerceIn(0.25f, 3.0f)
         Log.d(
             TAG,
             "loop build ${outItem.mediaId}->${inItem.mediaId} at ${sampleRate}Hz, loop at " +

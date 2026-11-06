@@ -1,4 +1,4 @@
-import type { DiscordNowPlaying, DiscordPresenceOptions, DiscordState } from '@bitchord/shared/bridge';
+import { discordButtonLabel, type DiscordNowPlaying, type DiscordPresenceOptions, type DiscordState } from '@bitchord/shared/bridge';
 import { installDiscordFetchRule } from './rules';
 
 declare const __DISCORD_PRESENCE__: boolean;
@@ -391,13 +391,6 @@ export class Gateway {
 
 // ---- The activity (DiscordRPC.updateSong) -------------------------------------------
 
-function resolveVariables(text: string, track: DiscordNowPlaying): string {
-  return text
-    .replaceAll('{song_name}', track.title)
-    .replaceAll('{artist_name}', track.artist)
-    .replaceAll('{album_name}', track.album ?? '');
-}
-
 const ACTIVITY_TYPES = { playing: 0, listening: 2, watching: 3, competing: 5 } as const;
 
 export async function buildPresence(token: string, track: DiscordNowPlaying, options: DiscordPresenceOptions): Promise<Presence> {
@@ -405,8 +398,8 @@ export async function buildPresence(token: string, track: DiscordNowPlaying, opt
   const rate = track.playbackRate > 0 ? track.playbackRate : 1;
   const watchUrl = `https://music.youtube.com/watch?v=${track.videoId}`;
   const buttons: [string, string][] = [];
-  if (options.button1Visible) buttons.push([resolveVariables(options.button1Text || DEFAULT_BUTTON_1, track), watchUrl]);
-  if (options.button2Visible) buttons.push([resolveVariables(options.button2Text || DEFAULT_BUTTON_2, track), PROJECT_URL]);
+  if (options.button1Visible) buttons.push([discordButtonLabel(options.button1Text, DEFAULT_BUTTON_1, track), watchUrl]);
+  if (options.button2Visible) buttons.push([discordButtonLabel(options.button2Text, DEFAULT_BUTTON_2, track), PROJECT_URL]);
   const art = track.artworkUrl?.startsWith('http') ? track.artworkUrl : null;
   // An unreachable mirror keeps the raw URL, as RpcImage.ExternalImage does.
   const largeImage = art ? ((await externalAsset(token, art)) ?? art) : null;

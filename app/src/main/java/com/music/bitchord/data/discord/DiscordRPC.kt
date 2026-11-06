@@ -84,17 +84,11 @@ class DiscordRPC(
 
         val buttonsList = mutableListOf<Pair<String, String>>()
         if (button1Visible) {
-            val resolvedText = resolveVariables(
-                button1Text.ifEmpty { DEFAULT_BUTTON_1 },
-                song,
-            )
+            val resolvedText = buttonLabel(button1Text, DEFAULT_BUTTON_1, song)
             buttonsList.add(resolvedText to watchUrl(song))
         }
         if (button2Visible) {
-            val resolvedText = resolveVariables(
-                button2Text.ifEmpty { DEFAULT_BUTTON_2 },
-                song,
-            )
+            val resolvedText = buttonLabel(button2Text, DEFAULT_BUTTON_2, song)
             buttonsList.add(resolvedText to PROJECT_URL)
         }
 
@@ -169,6 +163,24 @@ class DiscordRPC(
                 .replace("{song_name}", song.title)
                 .replace("{artist_name}", song.artist)
                 .replace("{album_name}", song.albumName ?: "")
+        }
+
+        /** Discord drops a whole activity whose button label isn't 1 to 32 characters. */
+        const val BUTTON_LABEL_MAX = 32
+
+        /**
+         * A button's label with its variables filled in, kept to what Discord
+         * accepts: cut to fit with an ellipsis, and [fallback] when it comes
+         * out empty (an {album_name} for a single), so a long song name never
+         * takes the whole card down (#1258).
+         */
+        fun buttonLabel(text: String, fallback: String, song: Song): String {
+            val label = resolveVariables(text.ifEmpty { fallback }, song).trim()
+            if (label.isEmpty()) return fallback
+            if (label.codePointCount(0, label.length) <= BUTTON_LABEL_MAX) return label
+            // By code point, so an emoji is never cut in half.
+            val end = label.offsetByCodePoints(0, BUTTON_LABEL_MAX - 1)
+            return label.substring(0, end).trimEnd() + "…"
         }
     }
 }

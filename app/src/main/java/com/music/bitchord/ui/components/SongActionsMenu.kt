@@ -371,8 +371,10 @@ fun SongActionsMenu(
                 description = song.artist.takeIf { it.isNotBlank() },
             ) { onOpenArtist(id) }
         }
-        ActionRow(SfIcons.Info, stringResource(R.string.song_info), accent = palette.accent) {
-            showingSongInfo = true
+        if (!isOffline) {
+            ActionRow(SfIcons.Info, stringResource(R.string.song_info), accent = palette.accent) {
+                showingSongInfo = true
+            }
         }
 
         // The player's own: about the track playing right now rather than

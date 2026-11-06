@@ -78,6 +78,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import com.music.bitchord.ui.components.longPressMenuClickable
@@ -94,6 +95,8 @@ import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.autoplaySectionStart
 import com.music.bitchord.ui.AppUi
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -285,6 +288,10 @@ internal fun InlineQueue(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    val selectionHaze = remember { HazeState() }
+    val density = LocalDensity.current
+    var footerHeight by remember { mutableStateOf(0.dp) }
+    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     LaunchedEffect(listState) {
         snapshotFlow { listState.isScrollInProgress }.collect(onScrollingChange)
     }
@@ -415,18 +422,24 @@ internal fun InlineQueue(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .bleedHorizontally(PLAYER_GUTTER)
-                .fadingEdges(),
+                .bleedHorizontally(PLAYER_GUTTER),
         ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .fadingEdges()
+                    .then(
+                        if (!reduceDynamicBlur) {
+                            // Below any enclosing source, so the sibling frost can sample it.
+                            Modifier.hazeSource(selectionHaze, zIndex = -1f)
+                        } else Modifier,
+                    )
                     // Without this the sheet treats the list's leftover scroll as a
                     // drag on itself and slides the whole player away.
                     .nestedScroll(keepScroll)
                     .then(if (collapsePlayerOnScroll) Modifier.nestedScroll(controlsOnScroll) else Modifier),
-                contentPadding = PaddingValues(horizontal = PLAYER_GUTTER),
+                contentPadding = PaddingValues(start = PLAYER_GUTTER, end = PLAYER_GUTTER, bottom = footerHeight),
             ) {
                 if (tracks.history.isNotEmpty()) {
                     item(key = "header-history") {
@@ -540,9 +553,17 @@ internal fun InlineQueue(
                     )
                 }
             }
+            // A sibling of the source: the list scrolls behind the bar, never captures it.
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = PLAYER_GUTTER)
+                    .onSizeChanged { footerHeight = with(density) { it.height.toDp() } },
+            ) {
+                undoNotice()
+                QueueSelectionBar(selectionState, allTracks, reduceAnimation, onBulkAction, selectionHaze)
+            }
         }
-        undoNotice()
-        QueueSelectionBar(selectionState, allTracks, reduceAnimation, onBulkAction)
     }
 }
 

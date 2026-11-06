@@ -211,7 +211,7 @@ function InParty() {
   const status =
     state.connection === 'live'
       ? state.clockSynced
-        ? `In sync · ${state.roundTripMs} ms round trip`
+        ? `In sync · ${Math.round(state.roundTripMs)} ms round trip`
         : 'Measuring the clock…'
       : state.connection === 'connecting'
         ? 'Reconnecting…'

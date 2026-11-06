@@ -654,6 +654,7 @@ private fun SwipeableQueueRow(
         canCommit = canCommitSwipe,
         onCommit = commitSwipe,
         modifier = modifier,
+        allowQueueGesture = !isCurrent,
     ) { interactive ->
         // The original handle's pointerInput(Unit) intentionally survives
         // recomposition. Its callbacks read live gates, not captured ones.

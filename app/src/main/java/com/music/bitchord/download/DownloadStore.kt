@@ -92,7 +92,34 @@ object DownloadStore {
             title.isEmpty() -> artist
             else -> "$artist - $title"
         }.ifEmpty { song.videoId }
-        return "${stem.take(MAX_STEM_CHARS).trimEnd()}.$extension"
+        // The file actually created first is `.<name>.part`, so that is what
+        // has to fit the filesystem's 255 bytes.
+        val budget = MAX_NAME_BYTES - PART_OVERHEAD_BYTES - 1 - extension.toByteArray(Charsets.UTF_8).size
+        return "${clip(stem, budget).trimEnd()}.$extension"
+    }
+
+    /**
+     * [stem] cut to [MAX_STEM_CHARS] characters and [maxBytes] of UTF-8, whichever
+     * comes first, and never inside a surrogate pair. A name that fits both comes
+     * out unchanged, so earlier downloads are still found by [existing].
+     */
+    private fun clip(stem: String, maxBytes: Int): String {
+        var end = 0
+        var bytes = 0
+        while (end < stem.length) {
+            val codePoint = stem.codePointAt(end)
+            val units = Character.charCount(codePoint)
+            val size = when {
+                codePoint < 0x80 -> 1
+                codePoint < 0x800 -> 2
+                codePoint < 0x10000 -> 3
+                else -> 4
+            }
+            if (end + units > MAX_STEM_CHARS || bytes + size > maxBytes) break
+            end += units
+            bytes += size
+        }
+        return stem.substring(0, end)
     }
 
     /**
@@ -108,8 +135,17 @@ object DownloadStore {
     private val ILLEGAL = Regex("""[\\/:*?"<>|\x00-\x1F]""")
     private val WHITESPACE = Regex("""\s+""")
 
-    /** Long enough for anything real, short of the 255-byte filename ceiling. */
+    /** Long enough for anything real. */
     private const val MAX_STEM_CHARS = 120
+
+    /**
+     * The filename ceiling on ext4, FAT32 and the media store, in bytes: 120
+     * characters of Japanese or Telugu are 360.
+     */
+    private const val MAX_NAME_BYTES = 255
+
+    /** The leading `.` and trailing `.part` of the file a download is written to. */
+    private const val PART_OVERHEAD_BYTES = 6
 
     /** What a file of some codec is called and what the store is told it is. */
     class Storable(val extension: String, val mimeType: String)

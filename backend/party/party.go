@@ -362,15 +362,21 @@ func (p *PlaybackState) AddUpcoming(memberId *string, tracks []*Track, playNext 
 	return true, ""
 }
 
-func (p *PlaybackState) RemoveUpcoming(memberId *string, videoId string) bool {
-	match := -1
-	for i, item := range p.Queue {
-		if item.VideoId == videoId {
-			match = i
-			break
+// upcomingIndexOf finds videoId after the current track. The queue keeps its
+// history, so a track that played earlier can also be waiting to play again,
+// and the copy already played is never the one being removed or moved.
+func (p *PlaybackState) upcomingIndexOf(videoId string) int {
+	for i := p.QueueIndex + 1; i < len(p.Queue); i++ {
+		if i >= 0 && p.Queue[i].VideoId == videoId {
+			return i
 		}
 	}
-	if match == -1 || match == p.QueueIndex {
+	return -1
+}
+
+func (p *PlaybackState) RemoveUpcoming(memberId *string, videoId string) bool {
+	match := p.upcomingIndexOf(videoId)
+	if match == -1 {
 		return false
 	}
 
@@ -399,14 +405,9 @@ func (p *PlaybackState) ClearUpcoming(memberId *string) bool {
 }
 
 func (p *PlaybackState) MoveUpcoming(memberId *string, fromIdx, toIdx int, videoId string) bool {
-	if videoId != "" {
-		match := -1
-		for i, item := range p.Queue {
-			if item.VideoId == videoId {
-				match = i
-				break
-			}
-		}
+	// Trust fromIdx when it already points at this upcoming track, so the right copy of a repeat moves.
+	if videoId != "" && !(fromIdx > p.QueueIndex && fromIdx < len(p.Queue) && p.Queue[fromIdx].VideoId == videoId) {
+		match := p.upcomingIndexOf(videoId)
 		if match == -1 {
 			return false
 		}

@@ -2,6 +2,7 @@ package party
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/KabirSinghBhatia/BitChord/backend/codes"
@@ -483,4 +484,52 @@ func TestQueueIndexPrefersTheCopyAtTheNeedle(t *testing.T) {
 	if ps.QueueIndex != 3 {
 		t.Fatalf("expected b at 3 despite a stale index, got %d", ps.QueueIndex)
 	}
+}
+
+func TestQueueRemoveAndMoveActOnTheUpcomingCopy(t *testing.T) {
+	ps := NewPlaybackState()
+	x := &Track{VideoId: "x"}
+	a := &Track{VideoId: "a"}
+	b := &Track{VideoId: "b"}
+	// x has played and is queued again: [x, a, x, b] with a current.
+	ps.SetTrack(nil, a, 0, true, nil, nil)
+	ps.SetQueue(nil, []*Track{x, a, x, b}, 1)
+
+	// Moving x to the end takes the upcoming copy, not the one in history.
+	if !ps.MoveUpcoming(nil, 2, 3, "x") {
+		t.Fatalf("moving the upcoming x should succeed")
+	}
+	if got := videoIds(ps.Queue); got != "x,a,b,x" {
+		t.Fatalf("expected x,a,b,x after the move, got %s", got)
+	}
+
+	// Removing x drops the upcoming copy; the one already played stays put.
+	if !ps.RemoveUpcoming(nil, "x") {
+		t.Fatalf("removing the upcoming x should succeed")
+	}
+	if got := videoIds(ps.Queue); got != "x,a,b" || ps.QueueIndex != 1 {
+		t.Fatalf("expected x,a,b with a at 1, got %s at %d", got, ps.QueueIndex)
+	}
+
+	// Only the played copy is left, so there is nothing upcoming to remove.
+	if ps.RemoveUpcoming(nil, "x") {
+		t.Fatalf("a track that is only in history should not be removable")
+	}
+
+	// With two upcoming copies, dragging the second one moves that copy.
+	ps.SetQueue(nil, []*Track{a, x, b, x}, 0)
+	if !ps.MoveUpcoming(nil, 3, 1, "x") {
+		t.Fatalf("moving the second upcoming x should succeed")
+	}
+	if got := videoIds(ps.Queue); got != "a,x,x,b" {
+		t.Fatalf("expected a,x,x,b after moving the second x, got %s", got)
+	}
+}
+
+func videoIds(queue []*Track) string {
+	ids := make([]string, len(queue))
+	for i, item := range queue {
+		ids[i] = item.VideoId
+	}
+	return strings.Join(ids, ",")
 }

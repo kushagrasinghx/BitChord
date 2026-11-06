@@ -2451,13 +2451,14 @@ private fun BitChordApp(
     // to read the same source the page does or the bars stay the YouTube photo's
     // colour while the page beneath them has moved on.
     val appleArtVersion by AppleArtistArtRepository.updates.collectAsStateWithLifecycle()
+    val disableArtistVideo by AppSettings.disableArtistVideo.collectAsStateWithLifecycle()
     val detailApple = remember(topDetail?.browseId, topDetail?.type, appleArtVersion) {
         topDetail?.takeIf { it.type == BrowseType.ARTIST }
             ?.let { AppleArtistArtRepository.cached(it.browseId) }
     }
     val detailPalette = rememberArtworkPalette(
         imageUrl = detailApple?.heroUrl ?: topDetail?.thumbnailUrl,
-        keyColors = detailApple?.keyColors(),
+        keyColors = if (disableArtistVideo) detailApple?.stillKeyColors else detailApple?.keyColors(),
     )
 
     // One set of numbers for the cards, the page, the stories and the shared

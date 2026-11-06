@@ -236,6 +236,7 @@ object PlayerPlatform {
 /** The settings the player reads, named and typed as the phone's AppSettings has them. */
 interface PlayerSettingsSource {
     val animatedCanvas: StateFlow<Boolean>
+    val disableArtistVideo: StateFlow<Boolean>
     val audioQualityCellular: StateFlow<AudioQuality>
     val audioQualityWifi: StateFlow<AudioQuality>
     val canvasOverCellular: StateFlow<Boolean>

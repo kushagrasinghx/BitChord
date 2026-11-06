@@ -541,6 +541,7 @@ object AppSettings {
      * all. See [CanvasRepository][com.music.bitchord.data.canvas.CanvasRepository].
      */
     val animatedCanvas = MutableStateFlow(true)
+    val disableArtistVideo = MutableStateFlow(false)
 
     /**
      * Whether [animatedCanvas] is allowed to actually stream on a metered
@@ -1055,6 +1056,7 @@ object AppSettings {
             reduceDynamicBlur.value = false
         }
         animatedCanvas.value = prefs.getBoolean(KEY_ANIMATED_CANVAS, true)
+        disableArtistVideo.value = prefs.getBoolean(KEY_DISABLE_ARTIST_VIDEO, false)
         canvasOverCellular.value = prefs.getBoolean(KEY_CANVAS_OVER_CELLULAR, false)
         spotifyCanvasAutoHide.value = prefs.getBoolean(KEY_SPOTIFY_CANVAS_AUTO_HIDE, true)
         prioritizeSpotifyCanvas.value = prefs.getBoolean(KEY_PRIORITIZE_SPOTIFY_CANVAS, false)
@@ -1672,6 +1674,11 @@ object AppSettings {
     fun setAnimatedCanvas(value: Boolean) {
         animatedCanvas.value = value
         prefs.edit().putBoolean(KEY_ANIMATED_CANVAS, value).apply()
+    }
+
+    fun setDisableArtistVideo(value: Boolean) {
+        disableArtistVideo.value = value
+        prefs.edit().putBoolean(KEY_DISABLE_ARTIST_VIDEO, value).apply()
     }
 
     fun setCanvasOverCellular(value: Boolean) {
@@ -2313,6 +2320,7 @@ object AppSettings {
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"
+    private const val KEY_DISABLE_ARTIST_VIDEO = "disable_artist_video"
     private const val KEY_CANVAS_OVER_CELLULAR = "canvas_over_cellular"
     private const val KEY_SPOTIFY_CANVAS_AUTO_HIDE = "spotify_canvas_auto_hide"
     private const val KEY_PRIORITIZE_SPOTIFY_CANVAS = "prioritize_spotify_canvas"

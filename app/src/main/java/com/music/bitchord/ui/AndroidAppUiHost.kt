@@ -35,10 +35,10 @@ object AndroidAppUiHost : AppUiHost {
      * fetched only when that lookup hasn't settled already.
      */
     override suspend fun artistMotion(browseId: String, artistName: String): CanvasArtwork? {
-        if (!AppSettings.animatedCanvas.value) return null
+        if (!AppSettings.animatedCanvas.value || AppSettings.disableArtistVideo.value) return null
         val art = AppleArtistArtRepository.artFor(browseId, artistName) {
             YtMusicRepository.artistLanding(browseId).getOrNull()?.let(AppleCatalogue::titlesOf).orEmpty()
         }
-        return art?.videoUrl?.let { CanvasArtwork(url = it) }
+        return art?.videoUrl?.takeUnless { AppSettings.disableArtistVideo.value }?.let { CanvasArtwork(url = it) }
     }
 }

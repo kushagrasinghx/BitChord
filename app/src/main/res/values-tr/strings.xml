@@ -1230,6 +1230,8 @@
 
 
     <string name="source_needs_lossless_output">Kayıpsız çıkış gerekir · kayıpsız sesi destekleyen bir cihaz kullanın</string>
+    <string name="source_needs_update">Bu eklenti güncel değil. Hâlâ çalışıyor, ancak geliştiricisinden en son BitChord eklenti belgelerine göre güncellemesini isteyin.</string>
+    <string name="source_outdated">Güncel olmayan eklenti</string>
     <string name="source_needs_lossless_bt_codec">Kayıpsız çıkış gerekir · Bluetooth %1$s kullanıyor; kayıpsız sesi destekleyen bir cihaz kullanın</string>
     <string name="source_needs_lossless_bt_unknown">Kayıpsız çıkış gerekir · hangi Bluetooth kodeğinin kullanıldığı anlaşılamıyor</string>
     <string name="source_downloads_on">İndirmeye izin veriliyor</string>

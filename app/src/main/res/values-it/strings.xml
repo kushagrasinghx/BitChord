@@ -1212,6 +1212,8 @@
 
 
     <string name="source_needs_lossless_output">Richiede un’uscita lossless · usa un dispositivo compatibile con il lossless</string>
+    <string name="source_needs_update">Questo add-on non è aggiornato. Funziona ancora, ma chiedi al suo sviluppatore di aggiornarlo seguendo la documentazione più recente degli add-on BitChord.</string>
+    <string name="source_outdated">Add-on obsoleto</string>
     <string name="source_needs_lossless_bt_codec">Richiede un’uscita lossless · il Bluetooth usa %1$s; usa un dispositivo compatibile con il lossless</string>
     <string name="source_needs_lossless_bt_unknown">Richiede un’uscita lossless · impossibile sapere quale codec Bluetooth è in uso</string>
     <string name="source_downloads_on">Download consentiti</string>

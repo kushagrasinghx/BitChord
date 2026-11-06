@@ -1250,6 +1250,8 @@
 
 
     <string name="source_needs_lossless_output">需要無損輸出 · 請使用支援無損的裝置</string>
+    <string name="source_needs_update">此附加元件已過時。目前仍可使用，但請要求開發者依照最新的 BitChord 附加元件文件進行更新。</string>
+    <string name="source_outdated">附加元件已過時</string>
     <string name="source_needs_lossless_bt_codec">需要無損輸出 · 藍芽當前為 %1$s；請使用支援無損的裝置</string>
     <string name="source_needs_lossless_bt_unknown">需要無損輸出 · 無法識別正在使用的藍芽編解碼器</string>
     <string name="source_downloads_off">僅限線上播放</string>

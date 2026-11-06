@@ -225,6 +225,13 @@
     <string name="language">Language</string>
     <string name="app_language">App language</string>
     <string name="app_language_description">Choose the language used by BitChord.</string>
+    <!-- Hidden tester-code field: tap the App language title 10 times. Not translated: testers only. -->
+    <string name="tester_code_title" translatable="false">Tester code</string>
+    <string name="tester_code_message" translatable="false">For BitChord testers. Lets addon verification work on this phone with an unlocked bootloader.</string>
+    <string name="tester_code_message_saved" translatable="false">A tester code is saved on this phone. Enter a new one to replace it, or remove it.</string>
+    <string name="tester_code_placeholder" translatable="false">XXXXX-XXXXX-XXXXX-XXXXX-XXXXX</string>
+    <string name="tester_code_saved" translatable="false">Tester code saved</string>
+    <string name="tester_code_removed" translatable="false">Tester code removed</string>
     <string name="english">English</string>
     <string name="spanish">Spanish</string>
     <string name="french">French</string>
@@ -1212,6 +1219,8 @@
     <string name="card_songs_format">%1$s songs</string>
 
     <string name="source_needs_lossless_output">Needs a lossless output · use a lossless supported device</string>
+    <string name="source_needs_update">This addon is out of date. It still works, but ask its developer to update it by following the latest BitChord addon docs.</string>
+    <string name="source_outdated">Outdated addon</string>
     <string name="source_needs_lossless_bt_codec">Needs a lossless output · Bluetooth is on %1$s; use a lossless supported device</string>
     <string name="source_needs_lossless_bt_unknown">Needs a lossless output · can’t tell which Bluetooth codec is in use</string>
     <string name="source_downloads_on">Downloads allowed</string>
@@ -1328,4 +1337,7 @@
     <string name="queue_playlist_added">Added %1$d of %2$d songs</string>
     <string name="queue_playlist_partial">%1$s (%2$d incompatible, %3$d already present, %4$d failed)</string>
     <string name="queue_like_sign_in">Sign in to like online songs</string>
+    <string name="diwali_title">BitChord wishes you a Happy Diwali</string>
+    <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
+    <string name="diwali_cta">Let\'s Celebrate</string>
 </resources>

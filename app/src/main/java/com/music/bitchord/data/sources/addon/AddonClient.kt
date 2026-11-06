@@ -69,6 +69,17 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
     @Volatile
     private var quietUntilMs = 0L
 
+    /**
+     * Whether this addon only answers the genuine app, so every request has to
+     * carry [AddonAuth]'s token and proof.
+     *
+     * Learned rather than configured: the manifest declares `bitchordAuth`, or
+     * a request comes back `401` with `WWW-Authenticate: BitChord`. Until then
+     * nothing is sent, so an addon that never asked never sees a credential.
+     */
+    @Volatile
+    private var authRequired = false
+
     // ── Manifest ──────────────────────────────────────────────────────────
 
     /**
@@ -94,6 +105,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
                 val declared = manifest.resources.joinToString(", ")
                 throw AddonException("This addon declares $declared — BitChord needs search")
             }
+            if (manifest.requiresBitChordAuth) authRequired = true
             manifest
         }.recoverCatching { failure ->
             // A manifest 404 is not "no such track", it is "no addon here" —
@@ -344,22 +356,46 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
      * protocol's way of saying this addon does not hold that recording, which
      * is precisely the miss the caller is equipped to handle and not something
      * to log as a fault.
+     *
+     * A `401` carrying `WWW-Authenticate: BitChord` is the addon asking for
+     * [AddonAuth]. The request is sent again at once with credentials. If an
+     * addon reports the token `expired` or `invalid_token`, one fresh token is
+     * fetched and the request tried once more. Any other refusal is final and
+     * says why. None of these retries count against the 429 budget.
      */
     private suspend fun body(url: String): String = withContext(Dispatchers.IO) {
         var attempt = 0
+        var authRetries = 0
+        var rejectedToken: String? = null
         while (true) {
             (quietUntilMs - System.currentTimeMillis()).takeIf { it > 0 }?.let { delay(it) }
 
+            val auth = if (authRequired) authHeaders(url, rejectedToken) else emptyMap()
             val request = Request.Builder().url(url)
                 .header("Accept", "application/json")
                 .header("User-Agent", USER_AGENT)
+                .apply { auth.forEach { (name, value) -> header(name, value) } }
                 .build()
 
             val wait = client.newCall(request).execute().use { response ->
+                val authChallenge = response.takeIf { it.code == 401 }
+                    ?.header("WWW-Authenticate")
+                    ?.takeIf { it.trimStart().startsWith("BitChord", ignoreCase = true) }
                 when {
                     response.isSuccessful ->
                         return@withContext response.body?.string()?.takeIf { it.isNotBlank() }
                             ?: throw AddonException("Empty response")
+                    authChallenge != null -> {
+                        val code = AUTH_ERROR.find(authChallenge)?.groupValues?.get(1)
+                        when {
+                            authRetries >= 2 -> throw AddonException(AddonAuth.rejectionMessage(code))
+                            auth.isEmpty() -> authRequired = true
+                            code == "expired" || code == "invalid_token" -> rejectedToken = auth[AddonAuth.TOKEN_HEADER]
+                            else -> throw AddonException(AddonAuth.rejectionMessage(code))
+                        }
+                        authRetries++
+                        RETRY_NOW
+                    }
                     response.code == 404 -> throw AddonNotFound()
                     // A 5xx is a server having a bad minute and will be tried
                     // again on the next track; a 4xx is this app asking for
@@ -374,6 +410,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
                     else -> retryAfterMs(response.header("Retry-After"), attempt)
                 }
             }
+            if (wait == RETRY_NOW) continue
             quietUntilMs = System.currentTimeMillis() + wait
             attempt++
         }
@@ -381,6 +418,31 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
         @Suppress("UNREACHABLE_CODE")
         throw AddonException("unreachable")
     }
+
+    /**
+     * [AddonAuth]'s headers for [url]'s host. HTTPS only: over plain HTTP anyone
+     * on the network could lift the token and a proof and replay them to this
+     * addon within the proof's lifetime. The one exception is loopback, which
+     * never leaves the machine, so an addon developer can test locally.
+     */
+    private suspend fun authHeaders(url: String, rejectedToken: String?): Map<String, String> {
+        val parsed = url.toHttpUrlOrNull() ?: throw AddonException("Invalid addon URL")
+        val loopback = parsed.host == "localhost" || parsed.host == "127.0.0.1" || parsed.host == "::1"
+        if (!parsed.isHttps && !loopback) {
+            throw AddonException("This addon asks for BitChord verification but isn't using HTTPS")
+        }
+        return AddonAuth.headersFor(parsed.host, rejectedToken)
+    }
+
+    /**
+     * Whether this device can get [AddonAuth]'s credentials for this addon,
+     * without asking the addon anything. What the sources screen shows when it
+     * can't: a well-formed manifest says nothing about whether the auth service
+     * will let this phone in (an unlocked bootloader, a revoked keybox).
+     */
+    suspend fun checkAuth(): Result<Unit> =
+        runCatching { authHeaders(baseUrl, rejectedToken = null); Unit }
+            .onFailure { if (it is CancellationException) throw it }
 
     /** How long to wait after a 429, from the header when it sent one. */
     private fun retryAfterMs(header: String?, attempt: Int): Long {
@@ -402,6 +464,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
         searches.clear()
         streams.clear()
         quietUntilMs = 0L
+        authRequired = false
     }
 
     /**
@@ -508,6 +571,12 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
         const val STREAM_TTL_MS = 5 * 60 * 1000L
 
         private const val MAX_RETRIES = 2
+
+        /** [body]'s "send again now": an auth handshake, not back-pressure. */
+        private const val RETRY_NOW = -1L
+
+        /** The `error="..."` parameter of a `WWW-Authenticate: BitChord` challenge. */
+        private val AUTH_ERROR = Regex("""error="([^"]*)"""")
         private const val BACKOFF_BASE_MS = 500L
         private const val BACKOFF_CAP_MS = 8_000L
 

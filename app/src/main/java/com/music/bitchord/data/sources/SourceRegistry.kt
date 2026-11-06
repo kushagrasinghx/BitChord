@@ -8,6 +8,7 @@ import com.music.bitchord.auth.EncryptedPrefs
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.permits
+import com.music.bitchord.data.sources.addon.AddonAuth
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.AddonQualityOption
@@ -60,6 +61,15 @@ data class SourceConfig(
     val qualityOptions: List<AddonQualityOption> = emptyList(),
     /** Which of [qualityOptions] the user chose, or null for the first one listed. */
     val pickedQuality: String? = null,
+    /**
+     * Whether the addon's manifest declares `bitchordAuth`, as it last said;
+     * null until it has been read. Addons that don't are out of date. They are
+     * still searched and streamed from, without credentials, but the sources
+     * screen flags them and tells the user to ask the developer to update.
+     * Stored so the flag shows while the addon is down, and refreshed whenever
+     * the manifest is next read.
+     */
+    val bitchordAuth: Boolean? = null,
 ) {
     /** The entry of [qualityOptions] in force: the pick while the addon still lists it, else its first. */
     val activeQuality: AddonQualityOption?
@@ -69,12 +79,21 @@ data class SourceConfig(
     val awaitsLosslessOutput: Boolean
         get() = checkValidLossless && !LosslessOutput.capable
 
+    /**
+     * Whether this is an addon known to be out of date: its manifest doesn't
+     * declare `bitchordAuth`, or it has no manifest at all. Not yet knowing
+     * (null) doesn't count. Only flagged, never gated on: see [bitchordAuth].
+     */
+    val needsAddonUpdate: Boolean
+        get() = kind == SourceKind.ADDON && bitchordAuth == false
+
     /** What the manifest last said, without the parts of the config the user set. */
     internal fun withPolicyOf(other: SourceConfig) =
         copy(
             allowDownloads = other.allowDownloads,
             checkValidLossless = other.checkValidLossless,
             qualityOptions = other.qualityOptions,
+            bitchordAuth = other.bitchordAuth,
         )
 
     /** What the sources screen and the player show. Never blank. */
@@ -200,14 +219,20 @@ object SourceRegistry {
      * stream is budgeted further by [activeForPlayback]; downloads deliberately
      * apply no connection-quality ceiling — see [SourceResolver.forDownload].
      */
-    fun active(): List<MusicSource> =
-        enabledConfigs(configs.value)
+    fun active(): List<MusicSource> {
+        val unverified = AddonAuth.standingRefusal() != null
+        return enabledConfigs(configs.value)
             // Not in the walk at all while it would be refused anyway: an addon
             // that asked for a lossless output costs nothing — not even a timed
             // out search — while there isn't one. See [SourceConfig.checkValidLossless].
             .filterNot { it.awaitsLosslessOutput }
+            // Nor, for an addon that asks for auth, while this device was just
+            // refused verification: back in the walk once the backoff lapses,
+            // when the next resolve asks the auth service again.
+            .filterNot { unverified && it.kind == SourceKind.ADDON && it.bitchordAuth == true }
             .sortedBy { it.kind.rank }
             .mapNotNull { instances[it.id] }
+    }
 
     /**
      * [active], minus the addons whose manifest said `allowDownloads: 0`. A
@@ -258,18 +283,21 @@ object SourceRegistry {
         allowDownloads: Boolean,
         checkValidLossless: Boolean,
         qualityOptions: List<AddonQualityOption>,
+        bitchordAuth: Boolean,
     ) {
         val current = config(configId) ?: return
         if (current.allowDownloads == allowDownloads &&
             current.checkValidLossless == checkValidLossless &&
-            current.qualityOptions == qualityOptions
+            current.qualityOptions == qualityOptions &&
+            current.bitchordAuth == bitchordAuth
         ) {
             return
         }
         TrackLog.d(
             TAG,
             "${current.displayName}: manifest now says allowDownloads=$allowDownloads " +
-                "checkValidLossless=$checkValidLossless qualityOptions=${qualityOptions.map { it.value }}",
+                "checkValidLossless=$checkValidLossless qualityOptions=${qualityOptions.map { it.value }} " +
+                "bitchordAuth=$bitchordAuth",
         )
         publish(
             configs.value.map {
@@ -278,12 +306,25 @@ object SourceRegistry {
                         allowDownloads = allowDownloads,
                         checkValidLossless = checkValidLossless,
                         qualityOptions = qualityOptions,
+                        bitchordAuth = bitchordAuth,
                     )
                 } else {
                     it
                 }
             },
         )
+    }
+
+    /**
+     * Records that an addon is out of date because it has no usable manifest,
+     * and so cannot declare `bitchordAuth`. The other stored policy is left as
+     * it was: there is nothing new to replace it with.
+     */
+    fun markAddonOutdated(configId: String) {
+        val current = config(configId) ?: return
+        if (current.bitchordAuth == false) return
+        TrackLog.d(TAG, "${current.displayName}: no usable manifest, so it can't declare bitchordAuth")
+        publish(configs.value.map { if (it.id == configId) it.copy(bitchordAuth = false) else it })
     }
 
     /** The common eligibility gate used by playback and download source walks. */
@@ -468,6 +509,7 @@ object SourceRegistry {
                     allowDownloads = detected.manifest.downloadsAllowed,
                     checkValidLossless = detected.manifest.requiresLosslessOutput,
                     qualityOptions = detected.manifest.qualityOptions,
+                    bitchordAuth = detected.manifest.requiresBitChordAuth,
                     // The address may now name a different addon, whose list
                     // this pick was never on.
                     pickedQuality = existing?.pickedQuality?.takeIf { picked ->

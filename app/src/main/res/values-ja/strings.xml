@@ -1251,6 +1251,8 @@
 
 
     <string name="source_needs_lossless_output">ロスレス出力が必要 · ロスレス対応のデバイスを使用してください</string>
+    <string name="source_needs_update">このアドオンは古いバージョンです。引き続き使用できますが、最新のBitChordアドオンドキュメントに沿って更新するよう開発者に依頼してください。</string>
+    <string name="source_outdated">古いアドオン</string>
     <string name="source_needs_lossless_bt_codec">ロスレス出力が必要 · Bluetoothは%1$sです。ロスレス対応のデバイスを使用してください</string>
     <string name="source_needs_lossless_bt_unknown">ロスレス出力が必要 · 使用中のBluetoothコーデックを判別できません</string>
     <string name="source_downloads_on">ダウンロード可</string>

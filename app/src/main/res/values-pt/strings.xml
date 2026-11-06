@@ -1278,6 +1278,8 @@
 
 
     <string name="source_needs_lossless_output">Precisa de uma saída sem perdas · use um dispositivo compatível com áudio sem perdas</string>
+    <string name="source_needs_update">Este addon está desatualizado. Ele ainda funciona, mas peça ao desenvolvedor para atualizá-lo seguindo a documentação de addons mais recente do BitChord.</string>
+    <string name="source_outdated">Addon desatualizado</string>
     <string name="source_needs_lossless_bt_codec">Precisa de uma saída sem perdas · o Bluetooth está em %1$s; use um dispositivo compatível com áudio sem perdas</string>
     <string name="source_needs_lossless_bt_unknown">Precisa de uma saída sem perdas · não é possível saber qual codec Bluetooth está em uso</string>
     <string name="source_downloads_on">Downloads permitidos</string>

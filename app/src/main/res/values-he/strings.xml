@@ -1278,6 +1278,8 @@
 
 
     <string name="source_needs_lossless_output">דורש פלט ללא אובדן · השתמשו במכשיר שתומך באודיו ללא אובדן</string>
+    <string name="source_needs_update">התוסף הזה אינו מעודכן. הוא עדיין עובד, אבל בקשו מהמפתח לעדכן אותו לפי מסמכי התוספים העדכניים של BitChord.</string>
+    <string name="source_outdated">תוסף לא מעודכן</string>
     <string name="source_needs_lossless_bt_codec">דורש פלט ללא אובדן · ה‑Bluetooth משתמש ב‑%1$s; השתמשו במכשיר שתומך באודיו ללא אובדן</string>
     <string name="source_needs_lossless_bt_unknown">דורש פלט ללא אובדן · לא ניתן לדעת באיזה קודק Bluetooth נעשה שימוש</string>
     <string name="source_downloads_on">הורדות מותרות</string>

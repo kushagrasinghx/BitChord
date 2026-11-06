@@ -165,6 +165,7 @@ import com.music.bitchord.ui.components.LIBRARY_GRID_SPACING
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.NUMBERED_ROW_DIVIDER_INSET
+import com.music.bitchord.ui.components.QuickScrollBar
 import com.music.bitchord.ui.components.RowMoreButton
 import com.music.bitchord.ui.components.ROW_DIVIDER_INSET
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
@@ -576,7 +577,16 @@ fun DetailScreen(
 
                 if (reorder != null) {
                     reorder(palette)
-                } else LazyColumn(
+                } else QuickScrollBar(
+                    listState = listState,
+                    enabled = page.type == BrowseType.PLAYLIST && folder == null,
+                    leadingItemCount = if (searching) 2 else 1,
+                    trackPadding = PaddingValues(
+                        top = topBarContentPadding(),
+                        bottom = contentPadding.calculateBottomPadding(),
+                    ),
+                ) {
+                LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     // The artist photo runs edge-to-edge up under the glass bar;
@@ -876,6 +886,7 @@ fun DetailScreen(
             }
             if (isArtist) aboutItem()
         }
+                }
 
                 if (folder != null && folderState != null && folderState.selecting) {
                     LocalFolderSelectionBar(

@@ -257,12 +257,14 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
                 add(OkHttpNetworkFetcherFactory(callFactory = { coilHttpClient }))
             }
             .memoryCache {
-                MemoryCache.Builder()
+                if (AppSettings.audioCacheLimitBytes.value == AppSettings.DISABLED_CACHE_LIMIT_BYTES) null
+                else MemoryCache.Builder()
                     .maxSizePercent(context, 0.20)
                     .build()
             }
             .diskCache {
-                DiskCache.Builder()
+                if (AppSettings.audioCacheLimitBytes.value == AppSettings.DISABLED_CACHE_LIMIT_BYTES) null
+                else DiskCache.Builder()
                     .directory(cacheDir.resolve("image_cache"))
                     .maxSizeBytes(100L * 1024 * 1024)
                     .build()

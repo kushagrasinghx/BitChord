@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">SpotyTeo</string>
     <string name="playback_channel_name">Lecture en cours</string>
     <string name="download_channel_name">Téléchargements</string>
     <string name="download_channel_description">Chansons enregistrées dans votre dossier Musique</string>

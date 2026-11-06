@@ -1512,8 +1512,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             // A leftover APK only means "Install Now" for the session that
             // downloaded it — see AppUpdateChecker.clearCache.
-            AppUpdateChecker.clearCache(getApplication())
-            AppUpdateChecker.check()
+            // App updater disabled in this fork: an upstream release would
+            // overwrite the fork's customizations. Music library stays live via
+            // the YouTube Music / Spotify APIs regardless of app version.
+            // (AppUpdateChecker.clearCache / check() intentionally not called.)
         }
     }
 

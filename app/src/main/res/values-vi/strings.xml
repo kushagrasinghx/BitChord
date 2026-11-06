@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">SpotyTeo</string>
     <string name="playback_channel_name">Đang phát</string>
     <string name="download_channel_name">Tải xuống</string>
     <string name="download_channel_description">Các bài hát đang được lưu vào thư mục Nhạc của bạn</string>

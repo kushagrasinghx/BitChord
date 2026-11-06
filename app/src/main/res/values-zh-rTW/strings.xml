@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BitChord</string>
+    <string name="app_name">SpotyTeo</string>
     <string name="playback_channel_name">正在播放</string>
     <string name="download_channel_name">下載</string>
     <string name="download_channel_description">正在儲存到你的音樂資料夾的歌曲</string>

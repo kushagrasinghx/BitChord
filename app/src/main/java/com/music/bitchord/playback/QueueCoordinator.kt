@@ -1,7 +1,6 @@
 package com.music.bitchord.playback
 
 import androidx.media3.common.Player
-import com.music.bitchord.data.listentogether.PartyTrack
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 
@@ -46,13 +45,13 @@ object QueueCoordinator {
 
     /** @see QueueTimeline.buildPartyPlaybackQueue */
     fun buildPartyPlaybackQueue(
-        tappedSong: Song,
+        songs: List<Song>,
+        selectedIndex: Int,
         source: QueueSource,
-        upcomingPartyTracks: List<PartyTrack>,
     ): List<Song> = QueueTimeline.buildPartyPlaybackQueue(
-        tappedSong,
+        songs,
+        selectedIndex,
         source,
-        upcomingPartyTracks.map { it.toSong() },
     )
 
     /** @see QueueTimeline.findUserQueueInsertionIndex */
@@ -139,6 +138,7 @@ object QueueCoordinator {
         tierAt: (Int) -> QueueTier = player::queueTierAt,
         positionMs: Long = 0L,
         play: Boolean = true,
+        preserveQueue: Boolean = false,
     ) {
         val currentIndex = player.currentMediaItemIndex
         val count = player.mediaItemCount
@@ -146,7 +146,7 @@ object QueueCoordinator {
 
         val tiers = cachedTimeline?.takeIf { it.size == count }?.map { it.queueTier }
             ?: (0 until count).map { tierAt(it) }
-        val plan = QueueTimeline.computeJumpOrder(tiers, currentIndex, targetIndex) ?: return
+        val plan = QueueTimeline.computeJumpOrder(tiers, currentIndex, targetIndex, preserveQueue) ?: return
 
         if (plan.isPureSeek) {
             player.seekTo(plan.newTargetIndex, positionMs)

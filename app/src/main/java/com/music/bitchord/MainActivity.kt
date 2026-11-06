@@ -132,7 +132,6 @@ import com.music.bitchord.data.AppUpdateChecker
 import com.music.bitchord.data.LocalMediaRepository
 import com.music.bitchord.data.listentogether.JamInviteLink
 import com.music.bitchord.data.listentogether.ListenTogether
-import com.music.bitchord.data.listentogether.partyQueueIndexOf
 import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.innertube.InnertubeParser
@@ -1517,6 +1516,7 @@ private fun BitChordApp(
         // never will); those can't be queued, so play the rest in their order.
         if (allSongs.getOrNull(allIndex)?.isUnresolvedSpotify == true) return
         val songs = allSongs.filterNot { it.isUnresolvedSpotify }
+        if (songs.isEmpty()) return
         val index = songs.indexOf(allSongs.getOrNull(allIndex)).coerceAtLeast(0)
         playRequestGeneration++
         activeRadioSeed = null
@@ -1528,21 +1528,25 @@ private fun BitChordApp(
             val currentIndex = c.currentMediaItemIndex
 
             if (ListenTogether.state.value.inParty) {
-                val selectedSong = songs.getOrNull(index) ?: return@launch
-                val party = ListenTogether.state.value
-                val partyQueue = party.queue.items
-                val partyIndex = partyQueueIndexOf(party.queue, party.playback, party.playback.track?.videoId)
-                val upcomingPartyTracks = if (partyIndex >= 0) {
-                    partyQueue.drop(partyIndex + 1)
+                val shuffled = QueueShuffle.enabled.value
+                val partySongs = if (shuffled) {
+                    listOf(songs[index]) + songs.filterIndexed { i, _ -> i != index }.shuffled()
                 } else {
-                    emptyList()
+                    songs
                 }
                 val timeline = QueueCoordinator.buildPartyPlaybackQueue(
-                    tappedSong = selectedSong,
+                    songs = partySongs,
+                    selectedIndex = if (shuffled) 0 else index,
                     source = source,
-                    upcomingPartyTracks = upcomingPartyTracks,
                 )
-                c.playSongs(timeline, 0)
+                val selectedId = timeline.first().videoId
+                if (CastController.state.value.casting ||
+                    selectedId.startsWith("content://") || selectedId.startsWith("file://")
+                ) {
+                    c.playSongs(timeline, 0)
+                } else {
+                    c.playBoundedContext(timeline, 0, source, continuationToken, shuffle = false)
+                }
             } else {
                 // A Cast session still owns the full queue on the phone so the
                 // receiver can follow its existing queue semantics. The bounded

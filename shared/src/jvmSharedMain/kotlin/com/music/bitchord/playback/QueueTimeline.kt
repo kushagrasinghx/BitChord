@@ -47,6 +47,8 @@ data class JumpOrderPlan(
  */
 object QueueTimeline {
 
+    const val MAX_PARTY_UPCOMING_QUEUE = 25
+
     /**
      * Converts a [Song] into a queue entry belonging to [tier].
      *
@@ -117,22 +119,24 @@ object QueueTimeline {
             upcomingUserQueue(currentTimeline, currentIndex)
 
     /**
-     * Constructs a single-song playback timeline for Listen Together mode:
+     * Constructs a playback timeline for Listen Together mode:
      *
-     * Invariant: [Tapped Track (CONTEXT)] + [Upcoming manual party tracks (USER_QUEUE)].
-     * Preceding and following context tracks from the album/playlist are excluded from the shared
-     * queue, and the previous track's AutoPlay suggestions are dropped. [upcomingPartySongs] is the
-     * party's own queue after its current track, in order.
+     * Invariant: [Selected Track (CONTEXT)] + [Following songs as USER_QUEUE].
+     * Starting a playlist replaces the party queue; history and the previous queue are excluded.
+     * The service retains this complete running order and shares it through a window of at most
+     * 25 upcoming tracks.
      */
     fun buildPartyPlaybackQueue(
-        tappedSong: Song,
+        songs: List<Song>,
+        selectedIndex: Int,
         source: QueueSource,
-        upcomingPartySongs: List<Song>,
-    ): List<Song> =
-        listOf(tappedSong.from(source).asQueueEntry(QueueTier.CONTEXT)) +
-            upcomingPartySongs
-                .filterNot { it.fromAutoplay }
-                .map { it.asQueueEntry(QueueTier.USER_QUEUE) }
+    ): List<Song> {
+        if (songs.isEmpty()) return emptyList()
+        val index = selectedIndex.coerceIn(songs.indices)
+        val upcoming = songs.drop(index + 1)
+            .map { it.from(source).asQueueEntry(QueueTier.USER_QUEUE) }
+        return listOf(songs[index].from(source).asQueueEntry(QueueTier.CONTEXT)) + upcoming
+    }
 
     /**
      * Finds the insertion index for user-queued tracks.
@@ -157,6 +161,7 @@ object QueueTimeline {
 
     /**
      * Computes the jump plan and index permutation for tapping a track at [targetIndex].
+     * [preserveQueue] makes a party jump a seek within its shared running order.
      *
      * Invariants:
      * 1. Backward or same track ([targetIndex] <= [currentIndex]): pure seek.
@@ -172,9 +177,10 @@ object QueueTimeline {
         tiers: List<QueueTier>,
         currentIndex: Int,
         targetIndex: Int,
+        preserveQueue: Boolean = false,
     ): JumpOrderPlan? {
         if (currentIndex !in tiers.indices || targetIndex !in tiers.indices) return null
-        if (targetIndex <= currentIndex) {
+        if (preserveQueue || targetIndex <= currentIndex) {
             return JumpOrderPlan(
                 isPureSeek = true,
                 newOrderIndices = tiers.indices.toList(),

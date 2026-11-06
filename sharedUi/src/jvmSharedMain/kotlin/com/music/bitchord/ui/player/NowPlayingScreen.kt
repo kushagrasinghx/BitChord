@@ -328,6 +328,7 @@ private fun PlayerMeshBackdrop(
     canvasFrame: () -> ImageBitmap?,
     seamTarget: () -> Dp,
     alpha: () -> Float,
+    modifier: Modifier = Modifier,
 ) {
     val mesh = key(trackKey) { rememberArtworkMesh(imageUrl, canvasFrame(), ART_PX) }
     val currentSeamTarget by rememberUpdatedState(seamTarget)
@@ -346,7 +347,7 @@ private fun PlayerMeshBackdrop(
     ArtworkMeshBackdrop(
         mesh = mesh,
         seam = { seam.value },
-        modifier = Modifier.graphicsLayer { this.alpha = alpha() },
+        modifier = modifier.graphicsLayer { this.alpha = alpha() },
     )
 }
 
@@ -820,6 +821,11 @@ fun NowPlayingScreen(
      */
     onQueueDragActiveChange: (Boolean) -> Unit = {},
     onClearQueue: () -> Unit,
+    onQueueSongMenu: (Int, Song) -> Unit = { _, _ -> },
+    onQueueSwipeToQueue: suspend (Int, Song) -> Boolean = { _, _ -> false },
+    queueUndoNotice: @Composable (HazeState) -> Unit = {},
+    onQueueBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { _, _ -> false },
+    onQueueAddAllToPlaylist: (List<Song>) -> Unit = {},
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
     /**
@@ -895,6 +901,8 @@ fun NowPlayingScreen(
     // source tree, so it needs its own source for the same frosted material as
     // the bottom navigation pill.
     val playerHaze = remember { HazeState() }
+    // Only sibling backdrop/list sources: queue actions never capture themselves.
+    val queueHaze = remember { HazeState() }
     var showAudioPipeline by remember { mutableStateOf(false) }
     var showCast by remember { mutableStateOf(false) }
     var showAudioOutput by remember { mutableStateOf(false) }
@@ -1021,6 +1029,10 @@ fun NowPlayingScreen(
     var queueOpen by remember {
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.QUEUE)
     }
+    val queueSelection = remember { QueueSelectionState() }
+    LaunchedEffect(queueOpen, controlsLocked) {
+        if (!queueOpen || controlsLocked) queueSelection.clear()
+    }
     var lyricsOpen by remember {
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.LYRICS)
     }
@@ -1053,6 +1065,10 @@ fun NowPlayingScreen(
         mutableStateOf(restoredPlayerScreen == LastPlayerScreen.LYRICS)
     }
     var queueControlsOpen by remember { mutableStateOf(true) }
+    LaunchedEffect(queueSelection.active) {
+        // Leave it hidden on exit; the normal scroll-up reveal resumes then.
+        if (queueSelection.active) queueControlsOpen = false
+    }
     // Shared with Spotify's title placement below. The deck and credits must
     // read one clock: the weighted region changes size as this value moves, so
     // independently animating the title towards that moving target makes it
@@ -1185,7 +1201,9 @@ fun NowPlayingScreen(
     PlayerBackHandler(enabled = lyricsOpen, onBack = closeLyrics)
 
     // Back out of the queue to the player.
-    PlayerBackHandler(enabled = queueOpen) { queueOpen = false }
+    PlayerBackHandler(enabled = queueOpen) {
+        if (queueSelection.active) queueSelection.clear() else queueOpen = false
+    }
 
     // Registered ahead of the pipeline dialog's own handler below: the
     // pipeline is now only ever opened from the row at the bottom of this
@@ -1607,8 +1625,8 @@ fun NowPlayingScreen(
     // screen, the landscape one on the sleeve alone — the right column there is
     // full of horizontal sliders and a lyric list that should not be one stray
     // sideways drag away from changing the song.
-    val skipSwipeGesture = Modifier.pointerInput(showAudioPipeline, showCast, panelScrolling, controlsLocked) {
-        if (showAudioPipeline || showCast || panelScrolling) return@pointerInput
+    val skipSwipeGesture = Modifier.pointerInput(showAudioPipeline, showCast, panelScrolling, controlsLocked, queueOpen) {
+        if (showAudioPipeline || showCast || panelScrolling || queueOpen) return@pointerInput
         var total = 0f
         detectHorizontalDragGestures(
             onDragStart = { total = 0f },
@@ -2089,7 +2107,11 @@ fun NowPlayingScreen(
                     background = { backgroundModifier ->
                         // The whole screen is the sheets' frost source: there is
                         // no full-bleed banner here to be it instead.
-                        fullArtworkBlurContent(backgroundModifier.hazeSource(playerHaze))
+                        fullArtworkBlurContent(
+                            backgroundModifier
+                                .hazeSource(playerHaze)
+                                .then(if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier),
+                        )
                     },
                     artwork = { artworkModifier ->
                         LandscapeArtwork(
@@ -2328,12 +2350,20 @@ fun NowPlayingScreen(
                             currentIndex = queueIndex,
                             autoplayEnabled = autoplayEnabled,
                             controlsLocked = controlsLocked,
+                            hazeState = queueHaze,
                             onJumpTo = onJumpTo,
                             onRemove = onRemoveFromQueue,
                             onMove = onMoveInQueue,
                             onClear = onClearQueue,
+                            onSongMenu = onQueueSongMenu,
                             onDragActiveChange = onQueueDragActiveChange,
+                            onSwipeToQueue = onQueueSwipeToQueue,
+                            gesturesEnabled = queueOpen && !lyricsOpen && !queueDragging,
+                            undoNotice = queueUndoNotice,
+                            selection = queueSelection,
+                            onBulkAction = onQueueBulkAction,
                             modifier = Modifier.fillMaxSize(),
+                            onAddAllToPlaylist = onQueueAddAllToPlaylist,
                         )
                     },
                 )
@@ -2384,7 +2414,9 @@ fun NowPlayingScreen(
                         imageUrl = remoteArt,
                         canvasFrame = { canvasFrame },
                         trackKey = song.videoId,
-                        modifier = Modifier.graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
+                        modifier = Modifier
+                            .then(if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier)
+                            .graphicsLayer { alpha = 1f - fullArtworkBackdropAlpha },
                     )
                 }
                 if (artworkMeshBackdrop) {
@@ -2401,6 +2433,7 @@ fun NowPlayingScreen(
                         trackKey = song.videoId,
                         imageUrl = remoteArt,
                         canvasFrame = { canvasFrame },
+                        modifier = if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier,
                         seamTarget = {
                             val stillBottom = stillBottomPx()
                             when {
@@ -2419,7 +2452,9 @@ fun NowPlayingScreen(
                     )
                 }
                 fullArtworkBlurContent(
-                    Modifier.graphicsLayer { alpha = fullArtworkBackdropAlpha },
+                    Modifier
+                        .then(if (!frostOff) Modifier.hazeSource(queueHaze, zIndex = -1f) else Modifier)
+                        .graphicsLayer { alpha = fullArtworkBackdropAlpha },
                 )
 
                 // Mount once, behind the controls. A known portrait aspect changes the
@@ -3982,14 +4017,22 @@ fun NowPlayingScreen(
                                     currentIndex = queueIndex,
                                     autoplayEnabled = autoplayEnabled,
                                     controlsLocked = controlsLocked,
+                                    hazeState = queueHaze,
                                     onJumpTo = onJumpTo,
                                     onRemove = onRemoveFromQueue,
                                     onMove = onMoveInQueue,
                                     onClear = onClearQueue,
+                                    onSongMenu = onQueueSongMenu,
                                     onScrollingChange = { queueScrolling = it },
+                                    onSwipeToQueue = onQueueSwipeToQueue,
+                                    gesturesEnabled = queuePanelVisible && queueOpen && !queueDragging,
+                                    undoNotice = queueUndoNotice,
+                                    selection = queueSelection,
+                                    onBulkAction = onQueueBulkAction,
                                     onDragActiveChange = onQueueDragActiveChange,
+                                    onAddAllToPlaylist = onQueueAddAllToPlaylist,
                                     collapsePlayerOnScroll = true,
-                                    onRevealPlayer = { queueControlsOpen = true },
+                                    onRevealPlayer = { if (!queueSelection.active) queueControlsOpen = true },
                                     onHidePlayer = { queueControlsOpen = false },
                                     modifier = Modifier.weight(1f),
                                 )
@@ -4009,7 +4052,7 @@ fun NowPlayingScreen(
                         // player back under somebody choosing lines.
                         visible = !lyricPicker.picking &&
                             (!lyricsOpen || lyricsControlsOpen) &&
-                            (!queueOpen || queueControlsOpen) &&
+                            (!queueOpen || (queueControlsOpen && !queueSelection.active)) &&
                             (!spotifyCanvasPresentation || spotifyCanvasControlsOpen || mixing),
                         reveal = playerDeckReveal,
                         // Back to the main player from lyrics or the queue with the

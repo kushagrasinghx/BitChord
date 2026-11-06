@@ -37,6 +37,9 @@ interface RemoteSpeaker {
     fun pause()
     fun seekTo(positionMs: Long)
 
+    /** Queue-screen inverse only: accept a load/stop with an explicit clock and play intent. */
+    fun restoreQueueCurrent(item: MediaItem?, positionMs: Long, playWhenReady: Boolean): Boolean = false
+
     /** 0..1 of the receiver's own range. */
     fun setVolume(fraction: Float)
 
@@ -76,6 +79,8 @@ class Speakers(private val all: List<RemoteSpeaker>) : RemoteSpeaker {
     override fun play() = current.play()
     override fun pause() = current.pause()
     override fun seekTo(positionMs: Long) = current.seekTo(positionMs)
+    override fun restoreQueueCurrent(item: MediaItem?, positionMs: Long, playWhenReady: Boolean): Boolean =
+        active && current.restoreQueueCurrent(item, positionMs, playWhenReady)
     override fun setVolume(fraction: Float) = current.setVolume(fraction)
 
     override fun onLocalTransition(item: MediaItem?, reason: Int) = all.forEach { it.onLocalTransition(item, reason) }

@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync } from 'node:fs';
+import { signSafariApp } from './sign-safari.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = `${root}.output/safari-native`;
@@ -20,4 +21,6 @@ if (!scheme) throw new Error(`No BitChord app scheme in ${JSON.stringify(listing
 run('xcodebuild', ['-project', project,
   '-scheme', scheme, '-configuration', 'Release',
   '-derivedDataPath', `${output}/build`, 'CODE_SIGNING_ALLOWED=NO', 'build']);
-console.log(`Unsigned app: ${output}/build/Build/Products/Release/BitChord.app`);
+const app = `${output}/build/Build/Products/Release/BitChord.app`;
+signSafariApp(app);
+console.log(`Development app (ad-hoc signed, not notarized): ${app}`);

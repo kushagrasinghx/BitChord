@@ -113,6 +113,8 @@ fun SourcesScreen(
     onEditSource: (SourceConfig) -> Unit,
     /** Asks the activity to open an addon's quality list — raised for the same reason as [onEditSource]. */
     onChooseSourceQuality: (SourceConfig) -> Unit,
+    /** Asks the activity to explain an addon's "Outdated addon" line — raised for the same reason. */
+    onExplainOutdatedAddon: (SourceConfig) -> Unit,
     /**
      * Asks the activity to open the WebDAV editor — raised for the same
      * reason as [onEditSource]: the frosted alert cannot be drawn from inside
@@ -253,6 +255,7 @@ fun SourcesScreen(
                         // change, so a tap on them would open an empty editor.
                         onClick = if (config.kind.needsServer) ({ onEditSource(config) }) else null,
                         onChooseQuality = { onChooseSourceQuality(config) },
+                        onExplainOutdated = { onExplainOutdatedAddon(config) },
                         // YouTube gets no switch at all — see
                         // [SourceRegistry.setEnabled] for why one would be a lie.
                         onToggle = if (config.kind == SourceKind.YOUTUBE) {
@@ -767,13 +770,15 @@ private fun SourceRow(
     health: SourceHealth?,
     onClick: (() -> Unit)?,
     onChooseQuality: () -> Unit,
+    /** Explains the "Outdated addon" line, which only an addon with [needsUpdate] shows. */
+    onExplainOutdated: () -> Unit,
     /** Null for a source that cannot be switched off, which gets a label instead. */
     onToggle: ((Boolean) -> Unit)?,
     /** On, but skipped by the ceiling the current connection is set to. */
     skippedByQuality: Boolean = false,
     /** On, but its addon needs a lossless output and this is what is connected instead. Null when not waiting. */
     awaitingOutput: LosslessOutput.State? = null,
-    /** An addon that is out of date (no `bitchordAuth` in its manifest), so BitChord won't use it. */
+    /** An addon that is out of date (no `bitchordAuth` in its manifest). Still used; flagged on a line of its own. */
     needsUpdate: Boolean = false,
     /** Which of the two ceilings [ceiling] is, so the row can name it. */
     onMetered: Boolean = false,
@@ -789,7 +794,7 @@ private fun SourceRow(
     // Dimmed for the same reason an off source is: it is not in the walk. The
     // switch stays where the user left it, so the row reads "on, but not
     // today" rather than "off".
-    val dimmed = !config.enabled || skippedByQuality || awaitingOutput != null || needsUpdate
+    val dimmed = !config.enabled || skippedByQuality || awaitingOutput != null
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -878,9 +883,6 @@ private fun SourceRow(
                 // going to be asked at all is not usefully described by
                 // whether its server answered a probe.
                 text = when {
-                    // Outranks everything: until its developer updates it, this
-                    // addon is not used on any connection or output.
-                    needsUpdate -> stringResource(R.string.source_needs_update)
                     // Outranks the ceiling: this one is not reached on *any*
                     // connection until the output changes.
                     awaitingOutput != null -> when {
@@ -899,7 +901,6 @@ private fun SourceRow(
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = when {
-                    needsUpdate -> MaterialTheme.colorScheme.error
                     // A warning, not a fault: the addon is fine, the output is
                     // what has to change — but it is something to act on.
                     awaitingOutput != null -> MaterialTheme.colorScheme.error
@@ -943,6 +944,34 @@ private fun SourceRow(
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            }
+            // A caution, not a block: the addon still works, but its developer
+            // should update it. Short here, with the full explanation a tap
+            // away, so it costs the row one line.
+            if (needsUpdate) {
+                Row(
+                    modifier = Modifier
+                        .clickable(
+                            onClickLabel = stringResource(R.string.source_outdated),
+                            onClick = onExplainOutdated,
+                        )
+                        .padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = SfIcons.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.source_outdated),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
                         maxLines = 1,
                     )
                 }

@@ -1273,7 +1273,8 @@
 
 
     <string name="source_needs_lossless_output">Braucht eine verlustfreie Ausgabe · nutze ein Gerät, das Lossless unterstützt</string>
-    <string name="source_needs_update">Dieses Add-on ist veraltet, deshalb kann BitChord es nicht verwenden. Bitte den Entwickler, es nach der aktuellen BitChord-Add-on-Dokumentation zu aktualisieren.</string>
+    <string name="source_needs_update">Dieses Add-on ist veraltet. Es funktioniert weiterhin, aber bitte den Entwickler, es nach der aktuellen BitChord-Add-on-Dokumentation zu aktualisieren.</string>
+    <string name="source_outdated">Veraltetes Add-on</string>
     <string name="source_needs_lossless_bt_codec">Braucht eine verlustfreie Ausgabe · Bluetooth nutzt %1$s; nutze ein Gerät, das Lossless unterstützt</string>
     <string name="source_needs_lossless_bt_unknown">Braucht eine verlustfreie Ausgabe · der Bluetooth-Codec ist nicht erkennbar</string>
     <string name="source_downloads_on">Downloads erlaubt</string>
@@ -1423,7 +1424,6 @@
     <string name="download_addon_left_out_title">Download ohne %1$s</string>
     <string name="download_addon_not_allowed">%1$s erlaubt keine Downloads, deshalb werden deine Songs aus deinen anderen Quellen gespeichert.</string>
     <string name="download_addon_needs_lossless_output">%1$s liefert Musik nur, solange kabelgebundene, USB- oder LDAC-Kopfhörer verbunden sind. Downloads überspringen es, bis welche verbunden sind, deshalb werden deine Songs aus deinen anderen Quellen gespeichert.</string>
-    <string name="download_addon_needs_update">%1$s ist veraltet, deshalb kann BitChord es nicht verwenden. Deine Songs werden stattdessen aus deinen anderen Quellen gespeichert. Bitte den Entwickler, es nach der aktuellen BitChord-Add-on-Dokumentation zu aktualisieren.</string>
     <string name="show_listen_together_button">Schaltfläche „Gemeinsam hören“ anzeigen</string>
     <string name="show_listen_together_button_subtitle">Wenn aus, zeigt der Player zwischen Liedtexten und Warteschlange nur die Schaltfläche für die Audioausgabe</string>
     <string name="font">Schriftart</string>

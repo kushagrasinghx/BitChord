@@ -89,6 +89,13 @@ object AddonAuth {
     }
 
     @Volatile private var prefs: SharedPreferences? = null
+
+    /**
+     * Separate from [prefs], which [drop] clears whenever the token is thrown
+     * away, and left out of backups (see backup_rules.xml): a tester code is a
+     * credential for this phone's owner, not data to restore elsewhere.
+     */
+    @Volatile private var testerPrefs: SharedPreferences? = null
     @Volatile private var session: Session? = null
     @Volatile private var refusal: Refusal? = null
     @Volatile private var clockOffsetMs = 0L
@@ -102,6 +109,7 @@ object AddonAuth {
 
     /** Restores the last token, so a process restart doesn't cost a fresh attestation. */
     fun init(context: Context) {
+        testerPrefs = context.getSharedPreferences("bitchord_tester", Context.MODE_PRIVATE)
         val p = context.getSharedPreferences("bitchord_addon_auth", Context.MODE_PRIVATE)
         prefs = p
         val token = p.getString("token", null)
@@ -139,6 +147,54 @@ object AddonAuth {
         }
         throw AddonException("BitChord couldn't use this device's secure key store")
     }
+
+    /**
+     * Why this device can't get a token right now, while the last refusal's
+     * backoff runs; null when it has one or may ask again.
+     *
+     * Read by [SourceRegistry.active][com.music.bitchord.data.sources.SourceRegistry.active]
+     * to leave addons that ask for auth out of the walks meanwhile: each request
+     * would only re-throw this, and a resolve tries several queries per source,
+     * so the same refusal filled the log a dozen times per track.
+     */
+    fun standingRefusal(): String? = refusal?.takeIf { it.untilMs > System.currentTimeMillis() }?.message
+
+    /** JVM tests only: a refusal as [session] would record it, without attesting. */
+    internal fun refuseForTest(message: String?, transient: Boolean = false) {
+        refusal = message?.let { Refusal(it, System.currentTimeMillis() + REFUSED_BACKOFF_MS, transient) }
+    }
+
+    // ── Tester code ───────────────────────────────────────────────────────
+
+    /**
+     * Whether a tester code is saved. The code itself is never read back out
+     * for display: the hidden field in the app-language dialog only replaces
+     * or removes it.
+     */
+    fun hasTesterCode(): Boolean = !testerPrefs?.getString(TESTER_KEY, null).isNullOrEmpty()
+
+    /**
+     * Saves (or with blank, removes) the tester code sent with each
+     * attestation. The auth service accepts a valid one in place of a locked
+     * bootloader and an unrevoked attestation key; nothing else changes.
+     *
+     * Forgets the current token and any standing refusal, so the next addon
+     * request attests again with the new code instead of waiting out the
+     * 15-minute backoff from the last "no".
+     */
+    fun setTesterCode(raw: String?) {
+        val code = normalizeTesterCode(raw)
+        testerPrefs?.edit()?.apply { if (code.isEmpty()) remove(TESTER_KEY) else putString(TESTER_KEY, code) }?.apply()
+        refusal = null
+        session?.let(::drop)
+        TrackLog.i(TAG, "addon auth: tester code ${if (code.isEmpty()) "removed" else "saved"}")
+    }
+
+    /** Same rule as the auth service: case, spaces and dashes don't matter. */
+    internal fun normalizeTesterCode(raw: String?): String =
+        raw.orEmpty().uppercase().filter { it in 'A'..'Z' || it in '0'..'9' }
+
+    private const val TESTER_KEY = "code"
 
     /** What to tell the listener when an addon refused credentials that were sent. */
     fun rejectionMessage(code: String?): String = when (code) {
@@ -201,7 +257,12 @@ object AddonAuth {
 
     @Serializable private data class ChallengeResponse(val challenge: String, val serverTime: Long)
 
-    @Serializable private data class AttestRequest(val challenge: String, val chain: List<String>)
+    @Serializable private data class AttestRequest(
+        val challenge: String,
+        val chain: List<String>,
+        /** Left out of the JSON when null (see [json]'s explicitNulls). */
+        val testerCode: String? = null,
+    )
 
     @Serializable private data class AttestResponse(val token: String, val expiresAt: Long, val serverTime: Long? = null)
 
@@ -225,7 +286,11 @@ object AddonAuth {
         try {
             val body = json.encodeToString(
                 AttestRequest.serializer(),
-                AttestRequest(challenge.challenge, chain.map { Base64.getEncoder().encodeToString(it) }),
+                AttestRequest(
+                    challenge.challenge,
+                    chain.map { Base64.getEncoder().encodeToString(it) },
+                    testerPrefs?.getString(TESTER_KEY, null)?.ifEmpty { null },
+                ),
             )
             val request = Request.Builder().url("$base/v1/attest")
                 .post(body.toRequestBody("application/json".toMediaType()))

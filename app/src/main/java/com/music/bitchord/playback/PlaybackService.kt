@@ -4186,6 +4186,32 @@ class PlaybackService : MediaLibraryService() {
         val videoId = playbackUri.getQueryParameter("v")
         val substituted = videoId?.let(StreamChoice::isSubstitute) == true
         if (!PlaybackFallback.isAlternative(playbackUri.toString(), substituted)) return false
+        return replaceWithYouTube(
+            item = item,
+            playbackUri = playbackUri,
+            position = position,
+            keepComplete = isNetworkFault(error),
+            why = "failed on a higher-quality source",
+        )
+    }
+
+    /**
+     * Puts [item] back on YouTube's own audio at [position], and never offers
+     * the source it was on again during this playback. Shared by a stream that
+     * failed and one that opened fine and turned out to be the wrong length —
+     * see [checkSubstituteLength].
+     *
+     * @param keepComplete see [AudioCache.discard]: true only when the fault
+     *   was the network's, so the bytes on disk are not to blame.
+     */
+    private fun replaceWithYouTube(
+        item: MediaItem,
+        playbackUri: Uri,
+        position: Long,
+        keepComplete: Boolean,
+        why: String,
+    ): Boolean {
+        val videoId = playbackUri.getQueryParameter("v")
         val fallback = item.toYouTubeFallbackMediaItem() ?: return false
         val mediaId = item.mediaId
 
@@ -4199,14 +4225,13 @@ class PlaybackService : MediaLibraryService() {
         recoveries.remove(mediaId)
         TrackLog.w(
             "BitChord",
-            "$mediaId failed on a higher-quality source; falling back to YouTube audio",
+            "$mediaId $why; falling back to YouTube audio",
             about = mediaId,
         )
 
-        val networkFault = isNetworkFault(error)
         scope.launch(TrackLog.about(mediaId)) {
             delay(RECOVERY_DELAY_MS)
-            withContext(Dispatchers.IO) { AudioCache.discard(playbackUri, keepComplete = networkFault) }
+            withContext(Dispatchers.IO) { AudioCache.discard(playbackUri, keepComplete = keepComplete) }
             withContext(Dispatchers.Main) {
                 val live = this@PlaybackService.player ?: return@withContext
                 if (live.currentMediaItem?.mediaId != mediaId) return@withContext
@@ -6497,6 +6522,82 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
+    /** The playback URI [checkSubstituteLength] last measured, so each opened item is measured once. */
+    private var lengthCheckedUri: String? = null
+
+    /**
+     * Puts a YouTube-queued track back on YouTube when the addon copy it
+     * started on decodes to the wrong length — the check the upgrade path's
+     * audition makes before any swap, made here for a copy that played from
+     * the first note with no audition behind it.
+     *
+     * What it catches is what the catalogue cannot see: an addon's 30-second
+     * preview, or a different cut, behind a row that claimed the right
+     * runtime. [SourceResolver.directStream] already refuses what it can
+     * measure up front — rows of the wrong length, files too small to hold the
+     * track — and this is the guarantee behind it, since a server that will
+     * not say how big its file is gets past that.
+     *
+     * The bar is the listener's "Track length tolerance", the same one the
+     * audition and [SourceResolver.upgradeFor] use, measured against the
+     * runtime the queue row carried (or the one [DirectSourceGate] looked up
+     * for a row that carried none). A second is added for rounding, because
+     * that runtime is whole seconds and the decoder's is not.
+     *
+     * Only a copy known to be an addon's is held to the tolerance. Bytes
+     * already on disk from an earlier session have no record of who served
+     * them, and may be YouTube's own, whose length can sit a few seconds off
+     * its listing; those are refused only when they hold under half the
+     * track, which is a preview played back from the cache and nothing else.
+     *
+     * Ticked from [driveDirectWindow], so it runs whether or not Direct Source
+     * Stream is on: an addon that wins the ordinary race plays without an
+     * audition too.
+     */
+    private fun checkSubstituteLength(exoPlayer: ExoPlayer) {
+        val item = exoPlayer.currentMediaItem ?: return
+        val uri = item.localConfiguration?.uri ?: return
+        // A track picked from an addon is that addon's or nothing, an upgrade
+        // was auditioned before it was swapped in, and a revert is YouTube's
+        // own audio — none of them is a substitute to measure.
+        if (uri.scheme != "bitchord" || uri.authority == "source") return
+        if (QualityUpgrade.cacheTag(uri) != null) return
+        val key = uri.toString()
+        if (key == lengthCheckedUri) return
+        if (exoPlayer.playbackState != Player.STATE_READY) return
+        val decodedMs = exoPlayer.duration.takeIf { it != C.TIME_UNSET && it > 0 } ?: return
+        lengthCheckedUri = key
+        val videoId = uri.getQueryParameter("v") ?: return
+        val expectedSec = SourceResolver.targetIn(uri).durationSec
+            ?: DirectSourceGate.knownLength(videoId)
+            ?: return
+        val expectedMs = expectedSec * 1_000L
+        val substituted = StreamChoice.isSubstitute(videoId)
+        val unattributed = StreamChoice.of(videoId) == null && SourceResolver.canSubstituteForYouTube()
+        val wrong = when {
+            substituted -> abs(decodedMs - expectedMs) > upgradeLengthSlackMs + 1_000L
+            unattributed -> decodedMs < expectedMs / 2
+            else -> false
+        }
+        if (!wrong) return
+        TrackLog.w(
+            "BitChord",
+            "'${item.mediaMetadata.title}' decodes to ${decodedMs}ms against ${expectedSec}s listed " +
+                "(tolerance ±${AppSettings.upgradeLengthSlackSeconds.value}s) on " +
+                if (substituted) "an addon copy" else "a cached copy of unknown origin",
+            about = item.mediaId,
+        )
+        // From the top: what played was not this recording, so where it had
+        // got to says nothing about where this one should start.
+        replaceWithYouTube(
+            item = item,
+            playbackUri = uri,
+            position = 0L,
+            keepComplete = false,
+            why = "is the wrong length on the copy it started on",
+        )
+    }
+
     /** When the listener last seeked, so [driveDirectWindow] can tell a scrub from playback. */
     private var lastSeekAt = 0L
 
@@ -6525,6 +6626,7 @@ class PlaybackService : MediaLibraryService() {
      */
     private fun driveDirectWindow() {
         val exoPlayer = player ?: return
+        checkSubstituteLength(exoPlayer)
         val audible = buildSet {
             exoPlayer.currentMediaItem?.mediaId?.let(::add)
             if (crossfade?.isTransitioning() == true) spare?.currentMediaItem?.mediaId?.let(::add)

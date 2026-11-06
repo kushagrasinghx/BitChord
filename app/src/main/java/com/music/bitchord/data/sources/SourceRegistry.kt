@@ -8,6 +8,7 @@ import com.music.bitchord.auth.EncryptedPrefs
 import com.music.bitchord.data.TrackLog
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.permits
+import com.music.bitchord.data.sources.addon.AddonAuth
 import com.music.bitchord.data.sources.addon.AddonClient
 import com.music.bitchord.data.sources.addon.AddonException
 import com.music.bitchord.data.sources.addon.AddonQualityOption
@@ -62,11 +63,11 @@ data class SourceConfig(
     val pickedQuality: String? = null,
     /**
      * Whether the addon's manifest declares `bitchordAuth`, as it last said;
-     * null until it has been read. Addons that don't are out of date: BitChord
-     * no longer searches or streams from them, and the sources screen tells
-     * the user to ask the developer to update. Stored so that the source walks
-     * can leave such an addon out without contacting it, and refreshed
-     * whenever the manifest is next read — see [SourceRegistry.refreshOutdatedAddons].
+     * null until it has been read. Addons that don't are out of date. They are
+     * still searched and streamed from, without credentials, but the sources
+     * screen flags them and tells the user to ask the developer to update.
+     * Stored so the flag shows while the addon is down, and refreshed whenever
+     * the manifest is next read.
      */
     val bitchordAuth: Boolean? = null,
 ) {
@@ -81,8 +82,7 @@ data class SourceConfig(
     /**
      * Whether this is an addon known to be out of date: its manifest doesn't
      * declare `bitchordAuth`, or it has no manifest at all. Not yet knowing
-     * (null) doesn't count; [AddonSource] checks the manifest before the first
-     * request in that case.
+     * (null) doesn't count. Only flagged, never gated on: see [bitchordAuth].
      */
     val needsAddonUpdate: Boolean
         get() = kind == SourceKind.ADDON && bitchordAuth == false
@@ -219,16 +219,20 @@ object SourceRegistry {
      * stream is budgeted further by [activeForPlayback]; downloads deliberately
      * apply no connection-quality ceiling — see [SourceResolver.forDownload].
      */
-    fun active(): List<MusicSource> =
-        enabledConfigs(configs.value)
+    fun active(): List<MusicSource> {
+        val unverified = AddonAuth.standingRefusal() != null
+        return enabledConfigs(configs.value)
             // Not in the walk at all while it would be refused anyway: an addon
             // that asked for a lossless output costs nothing — not even a timed
             // out search — while there isn't one. See [SourceConfig.checkValidLossless].
             .filterNot { it.awaitsLosslessOutput }
-            // Nor while it is out of date: it would be refused anyway.
-            .filterNot { it.needsAddonUpdate }
+            // Nor, for an addon that asks for auth, while this device was just
+            // refused verification: back in the walk once the backoff lapses,
+            // when the next resolve asks the auth service again.
+            .filterNot { unverified && it.kind == SourceKind.ADDON && it.bitchordAuth == true }
             .sortedBy { it.kind.rank }
             .mapNotNull { instances[it.id] }
+    }
 
     /**
      * [active], minus the addons whose manifest said `allowDownloads: 0`. A
@@ -244,9 +248,6 @@ object SourceRegistry {
 
         /** It asks for a lossless output (`checkValidLossless`) and none is connected. */
         NEEDS_LOSSLESS_OUTPUT,
-
-        /** It is out of date: its manifest doesn't declare `bitchordAuth`. */
-        NEEDS_ADDON_UPDATE,
     }
 
     /**
@@ -263,7 +264,6 @@ object SourceRegistry {
             .filter { it.kind == SourceKind.ADDON }
             .mapNotNull { config ->
                 when {
-                    config.needsAddonUpdate -> config to DownloadExclusion.NEEDS_ADDON_UPDATE
                     !config.allowDownloads -> config to DownloadExclusion.DOWNLOADS_NOT_ALLOWED
                     config.awaitsLosslessOutput -> config to DownloadExclusion.NEEDS_LOSSLESS_OUTPUT
                     else -> null
@@ -325,20 +325,6 @@ object SourceRegistry {
         if (current.bitchordAuth == false) return
         TrackLog.d(TAG, "${current.displayName}: no usable manifest, so it can't declare bitchordAuth")
         publish(configs.value.map { if (it.id == configId) it.copy(bitchordAuth = false) else it })
-    }
-
-    /**
-     * Rereads the manifest of every enabled addon not yet known to be up to
-     * date. [active] leaves an out-of-date addon out of every walk, so without
-     * this an addon its developer has since updated would only be noticed the
-     * next time the sources screen is opened. Called once at startup, off the
-     * main thread; each is one manifest request.
-     */
-    suspend fun refreshOutdatedAddons() {
-        enabledConfigs(configs.value)
-            .filter { it.kind == SourceKind.ADDON && it.bitchordAuth != true }
-            .mapNotNull { instances[it.id] as? AddonSource }
-            .forEach { source -> runCatching { source.refreshPolicy() } }
     }
 
     /** The common eligibility gate used by playback and download source walks. */

@@ -152,4 +152,14 @@ class AddonAuthTest {
         )
         assertEquals("addon.example.com", AddonAuth.normalizeHost(" Addon.Example.COM. "))
     }
+
+    /** Must match normalizeTesterCode in the auth service (src/server.js), or a typed code never matches its hash. */
+    @Test
+    fun `tester codes ignore case, spaces and dashes like the auth service does`() {
+        val code = "K7Q2M-9XW4T-ZD3HP-RN8CV-JB6YF"
+        assertEquals("K7Q2M9XW4TZD3HPRN8CVJB6YF", AddonAuth.normalizeTesterCode(code))
+        assertEquals("K7Q2M9XW4TZD3HPRN8CVJB6YF", AddonAuth.normalizeTesterCode(" k7q2m 9xw4t zd3hp rn8cv jb6yf "))
+        assertEquals("", AddonAuth.normalizeTesterCode(null))
+        assertEquals("", AddonAuth.normalizeTesterCode(" - - "))
+    }
 }

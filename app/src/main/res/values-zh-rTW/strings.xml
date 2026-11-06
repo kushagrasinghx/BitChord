@@ -1250,7 +1250,8 @@
 
 
     <string name="source_needs_lossless_output">需要無損輸出 · 請使用支援無損的裝置</string>
-    <string name="source_needs_update">此附加元件已過時，BitChord 無法使用。請要求開發者依照最新的 BitChord 附加元件文件進行更新。</string>
+    <string name="source_needs_update">此附加元件已過時。目前仍可使用，但請要求開發者依照最新的 BitChord 附加元件文件進行更新。</string>
+    <string name="source_outdated">附加元件已過時</string>
     <string name="source_needs_lossless_bt_codec">需要無損輸出 · 藍芽當前為 %1$s；請使用支援無損的裝置</string>
     <string name="source_needs_lossless_bt_unknown">需要無損輸出 · 無法識別正在使用的藍芽編解碼器</string>
     <string name="source_downloads_on">允許下載</string>
@@ -1400,7 +1401,6 @@
     <string name="download_addon_left_out_title">正在下載（不使用 %1$s）</string>
     <string name="download_addon_not_allowed">%1$s 不允許下載，因此你的歌曲將從其他來源儲存。</string>
     <string name="download_addon_needs_lossless_output">%1$s 僅在連接有線、USB 或 LDAC 等級耳機時提供音樂。在連接此類耳機前，下載會略過它，因此你的歌曲將從其他來源儲存。</string>
-    <string name="download_addon_needs_update">%1$s 已過時，BitChord 無法使用。你的歌曲將從其他來源儲存。請要求開發者依照最新的 BitChord 附加元件文件進行更新。</string>
     <string name="show_listen_together_button">顯示「一起聽」按鈕</string>
     <string name="show_listen_together_button_subtitle">關閉後，播放器在歌詞和播放佇列之間只顯示音訊輸出按鈕</string>
     <string name="font">字型</string>

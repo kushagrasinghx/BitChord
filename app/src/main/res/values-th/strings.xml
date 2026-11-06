@@ -1256,7 +1256,8 @@
 
 
     <string name="source_needs_lossless_output">ต้องใช้เอาต์พุตแบบ lossless · ใช้อุปกรณ์ที่รองรับ lossless</string>
-    <string name="source_needs_update">แอดออนนี้ล้าสมัย BitChord จึงใช้งานไม่ได้ โปรดขอให้นักพัฒนาอัปเดตตามเอกสารแอดออน BitChord ล่าสุด</string>
+    <string name="source_needs_update">แอดออนนี้ล้าสมัย ยังใช้งานได้อยู่ แต่โปรดขอให้นักพัฒนาอัปเดตตามเอกสารแอดออน BitChord ล่าสุด</string>
+    <string name="source_outdated">แอดออนล้าสมัย</string>
     <string name="source_needs_lossless_bt_codec">ต้องใช้เอาต์พุตแบบ lossless · Bluetooth ใช้ %1$s อยู่ ใช้อุปกรณ์ที่รองรับ lossless</string>
     <string name="source_needs_lossless_bt_unknown">ต้องใช้เอาต์พุตแบบ lossless · ไม่ทราบว่ากำลังใช้ตัวแปลงสัญญาณ Bluetooth ใด</string>
     <string name="source_downloads_on">อนุญาตให้ดาวน์โหลด</string>
@@ -1406,7 +1407,6 @@
     <string name="download_addon_left_out_title">กำลังดาวน์โหลดโดยไม่ใช้ %1$s</string>
     <string name="download_addon_not_allowed">%1$s ไม่อนุญาตให้ดาวน์โหลด เพลงของคุณจึงถูกบันทึกจากแหล่งอื่นแทน</string>
     <string name="download_addon_needs_lossless_output">%1$s ให้บริการเพลงเฉพาะเมื่อเชื่อมต่อหูฟังแบบมีสาย USB หรือระดับ LDAC เท่านั้น การดาวน์โหลดจะข้ามไปจนกว่าจะเชื่อมต่อ เพลงของคุณจึงถูกบันทึกจากแหล่งอื่นแทน</string>
-    <string name="download_addon_needs_update">%1$s ล้าสมัย BitChord จึงใช้งานไม่ได้ เพลงของคุณจึงถูกบันทึกจากแหล่งอื่นแทน โปรดขอให้นักพัฒนาอัปเดตตามเอกสารแอดออน BitChord ล่าสุด</string>
     <string name="show_listen_together_button">แสดงปุ่มฟังด้วยกัน</string>
     <string name="show_listen_together_button_subtitle">เมื่อปิด เครื่องเล่นจะแสดงเฉพาะปุ่มเอาต์พุตเสียงระหว่างเนื้อเพลงกับคิว</string>
     <string name="font">ฟอนต์</string>

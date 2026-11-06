@@ -350,6 +350,8 @@ import com.music.bitchord.ui.screens.MoodGenrePlaylistsScreen
 import com.music.bitchord.ui.screens.SearchScreen
 import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.ui.onboarding.OnboardingScreen
+import com.music.bitchord.ui.festive.DiwaliGate
+import com.music.bitchord.ui.festive.DiwaliGreetingScreen
 import com.music.bitchord.ui.replay.ReplayScreen
 import com.music.bitchord.ui.replay.cards
 import com.music.bitchord.ui.replay.ReplayShareSheet
@@ -644,6 +646,8 @@ private fun BitChordApp(
     // and the mini player, like every other alert in the app.
     var editingSource by remember { mutableStateOf<SourceConfig?>(null) }
     var choosingSourceQuality by remember { mutableStateOf<SourceConfig?>(null) }
+    /** An addon whose "Outdated addon" line was tapped; see [SourceConfig.needsAddonUpdate]. */
+    var explainingOutdatedAddon by remember { mutableStateOf<SourceConfig?>(null) }
     var confirmJioSaavn by remember { mutableStateOf(false) }
     var confirmBitPerfect by remember { mutableStateOf<BitPerfectMode?>(null) }
     var confirmFixedVolume by remember { mutableStateOf(false) }
@@ -795,6 +799,23 @@ private fun BitChordApp(
     onboardingShown.targetState = !onboardingComplete
     val onboardingVisible = onboardingShown.currentState || onboardingShown.targetState
 
+    // ---- Diwali (greeting once after the welcome, golden home wordmark) ----
+    // Indian users only, by the device timezone alone, and only on Diwali
+    // itself (see DiwaliGate). Asked again each time the app comes to the
+    // front, so one left open overnight into the day still greets — and one
+    // left open past it lets the gold go.
+    val diwaliFestive = remember(appForeground) {
+        DiwaliGate.isIndianTimezone() && DiwaliGate.isDiwaliDay()
+    }
+    var showDiwali by rememberSaveable { mutableStateOf(false) }
+    var diwaliAutoShown by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(diwaliFestive, onboardingComplete) {
+        if (diwaliFestive && onboardingComplete && !diwaliAutoShown) {
+            diwaliAutoShown = true
+            if (!AppSettings.diwaliGreetingShown.value) showDiwali = true
+        }
+    }
+
     // ---- Navigation ----
     // One back stack for every page: the routes pushed over the tabs, and the
     // album / artist / playlist pages interleaved with them — see
@@ -824,7 +845,7 @@ private fun BitChordApp(
     }
 
     SystemBarIcons(
-        dark = !darkTheme && !showNowPlaying && route != AppRoute.Replay && replayStory == null && !onboardingVisible,
+        dark = !darkTheme && !showNowPlaying && route != AppRoute.Replay && replayStory == null && !onboardingVisible && !showDiwali,
     )
 
     val homeState by viewModel.home.collectAsStateWithLifecycle()
@@ -2810,6 +2831,7 @@ private fun BitChordApp(
         BackHandler(enabled = discordDialog != null) { discordDialog = null }
         BackHandler(enabled = editingSource != null) { editingSource = null }
         BackHandler(enabled = choosingSourceQuality != null) { choosingSourceQuality = null }
+        BackHandler(enabled = explainingOutdatedAddon != null) { explainingOutdatedAddon = null }
         BackHandler(enabled = editingPartyServer) { editingPartyServer = false }
         BackHandler(enabled = editingSignatureApi) { editingSignatureApi = false }
 
@@ -3041,6 +3063,7 @@ private fun BitChordApp(
                                 contentPadding = listPadding,
                                 onEditSource = { editingSource = it },
                                 onChooseSourceQuality = { choosingSourceQuality = it },
+                                onExplainOutdatedAddon = { explainingOutdatedAddon = it },
                                 onEditWebDav = { showWebDavEditor = true },
                                 onEditSmb = { showSmbEditor = true },
                                 onConfirmJioSaavn = { confirmJioSaavn = true },
@@ -3359,6 +3382,8 @@ private fun BitChordApp(
                                 currentSong = player.song,
                                 isPlaying = player.isPlaying,
                                 title = stringResource(R.string.listen_now),
+                                festiveLogo = diwaliFestive,
+                                onFestiveLogoClick = { showDiwali = true },
                                 signedIn = signedIn,
                                 onSignIn = { webSession = WebSessionMode.SIGN_IN },
                                 onItemClick = { item, shelfTitle ->
@@ -3396,7 +3421,8 @@ private fun BitChordApp(
                                 onTopPickClick = openTopPick.takeUnless { hideTopPicks },
                                 onMoodClick = playMood.takeUnless { hideHomeMoods },
                                 onMoodsShowAll = { navigator.push(AppRoute.Moods) },
-                                artworkMotion = artworkMotion,
+                                // Nothing on Home is seen while the greeting covers it.
+                                artworkMotion = artworkMotion && !showDiwali,
                                 onTopPickLongPress = { pick ->
                                     pick.browseId?.let { browseId ->
                                         onShelfLongPress(
@@ -5386,8 +5412,22 @@ private fun BitChordApp(
             }
         }
 
-        // ---- Update available (once per launch; held until the welcome is done) ----
-        if (showUpdateDialog && onboardingComplete) {
+        // ---- Diwali greeting ----
+        AnimatedVisibility(
+            visible = showDiwali,
+            enter = fadeIn(tween(400)),
+            exit = fadeOut(tween(300)),
+        ) {
+            val dismissDiwali = {
+                showDiwali = false
+                AppSettings.setDiwaliGreetingShown()
+            }
+            BackHandler(onBack = dismissDiwali)
+            DiwaliGreetingScreen(onDismiss = dismissDiwali)
+        }
+
+        // ---- Update available (once per launch; held until the welcome and Diwali greeting are done) ----
+        if (showUpdateDialog && onboardingComplete && !showDiwali) {
             updateNotice?.let { update ->
                 UpdateAvailableDialog(
                     version = update.version,
@@ -5838,6 +5878,15 @@ private fun BitChordApp(
             )
         }
 
+        explainingOutdatedAddon?.let { config ->
+            InfoAlert(
+                hazeState = hazeState,
+                title = config.displayName,
+                description = stringResource(R.string.source_needs_update),
+                onDismiss = { explainingOutdatedAddon = null },
+            )
+        }
+
         if (confirmJioSaavn) {
             ConfirmationAlert(
                 hazeState = hazeState,
@@ -5902,8 +5951,6 @@ private fun BitChordApp(
                         stringResource(R.string.download_addon_not_allowed, addon)
                     SourceRegistry.DownloadExclusion.NEEDS_LOSSLESS_OUTPUT ->
                         stringResource(R.string.download_addon_needs_lossless_output, addon)
-                    SourceRegistry.DownloadExclusion.NEEDS_ADDON_UPDATE ->
-                        stringResource(R.string.download_addon_needs_update, addon)
                 },
                 onDismiss = { addonLeftOutOfDownload = null },
                 // A download can be asked for from the player or from either

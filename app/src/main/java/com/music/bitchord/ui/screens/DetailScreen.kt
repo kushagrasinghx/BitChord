@@ -6,6 +6,7 @@ import com.music.bitchord.R
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -13,6 +14,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import com.music.bitchord.ui.components.liquidGlassRim
 import com.music.bitchord.ui.components.continuous
@@ -22,14 +24,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -69,12 +74,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -94,6 +103,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -121,7 +131,9 @@ import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.request.transformations
 import androidx.compose.runtime.mutableIntStateOf
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -231,6 +243,7 @@ private val PILL_SHAPE = RoundedCornerShape(12.dp)
  * search can carry the page up to it.
  */
 private const val SEARCH_ITEM_INDEX = 1
+private const val SEARCH_SCROLL_DURATION_MS = 250
 
 /** The inset the header text and the action pills share. */
 private val HEADER_GUTTER = PAGE_GUTTER + 8.dp
@@ -297,6 +310,7 @@ private fun String.looksLikeCredit() = CREDIT_SEPARATOR.containsMatchIn(this)
  * the tint — since that picture runs edge to edge up under the bar. Nothing in
  * either is re-blurred while the page scrolls.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(
     page: DetailPage,
@@ -519,12 +533,51 @@ fun DetailScreen(
     // the tap, so the row it scrolls to is already in the list by the time it
     // runs.
     val searchStop = with(LocalDensity.current) { topBarContentPadding().roundToPx() }
-    LaunchedEffect(searching) {
+    val keyboardVisible = WindowInsets.isImeVisible
+    val releaseSearch = folder == null &&
+        (page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST)
+    var searchHasFocus by remember(page.browseId) { mutableStateOf(false) }
+    var keyboardSeen by remember(page.browseId) { mutableStateOf(false) }
+    val searchScrollScope = rememberCoroutineScope()
+    var searchScrollJob by remember(page.browseId) { mutableStateOf<Job?>(null) }
+    fun positionSearch() {
+        searchScrollJob?.cancel()
+        searchScrollJob = searchScrollScope.launch {
+            val items = listState.layoutInfo.visibleItemsInfo
+            val search = items.firstOrNull { it.key == "search" }
+            val header = items.firstOrNull { it.key == "header" }
+            val searchOffset = search?.offset ?: header?.let { it.offset + it.size }
+            if (releaseSearch && searchOffset != null) {
+                val distance = searchOffset - searchStop
+                if (distance != 0) {
+                    listState.animateScrollBy(distance.toFloat(), tween(SEARCH_SCROLL_DURATION_MS))
+                }
+            } else {
+                listState.animateScrollToItem(SEARCH_ITEM_INDEX, -searchStop)
+            }
+        }
+    }
+    DisposableEffect(page.browseId, listState) {
+        onDispose { searchScrollJob?.cancel() }
+    }
+    LaunchedEffect(page.browseId, listState, searching) {
         if (searching) {
             focusSearch = true
-            listState.animateScrollToItem(SEARCH_ITEM_INDEX, -searchStop)
+            positionSearch()
         } else {
+            searchScrollJob?.cancel()
+            keyboardSeen = false
             query = ""
+        }
+    }
+    LaunchedEffect(page.browseId, listState, searching, keyboardVisible, searchHasFocus) {
+        if (searching && releaseSearch) {
+            if (keyboardVisible && searchHasFocus) {
+                if (!keyboardSeen) keyboardSeen = true
+                else if (!listState.isScrollInProgress) positionSearch()
+            } else if (keyboardSeen) {
+                searchScrollJob?.cancel()
+            }
         }
     }
 
@@ -543,6 +596,57 @@ fun DetailScreen(
             // bars at either end of the screen are already fading into.
             val pageColor = if (isArtist) palette.wash else palette.background
             BoxWithConstraints(Modifier.fillMaxSize().background(pageColor)) {
+                val stabilizeSearch = searching && keyboardVisible && releaseSearch
+                val density = LocalDensity.current
+                val bottomPadding = contentPadding.calculateBottomPadding()
+                val viewportHeight = with(density) { maxHeight.roundToPx() }
+                val bottomPaddingPx = with(density) { bottomPadding.roundToPx() }
+                val layoutKey = "search-layout-$query-${matches.hashCode()}-${suggested.hashCode()}"
+                var measuredReserve by remember(layoutKey, viewportHeight, bottomPaddingPx, searchStop, stabilizeSearch) {
+                    mutableStateOf<Int?>(null)
+                }
+                val provisionalReserve = remember(layoutKey, viewportHeight, bottomPaddingPx, searchStop, stabilizeSearch) {
+                    if (listState.firstVisibleItemIndex > SEARCH_ITEM_INDEX) 0
+                    else (viewportHeight - searchStop - bottomPaddingPx).coerceAtLeast(0)
+                }
+                // Reserve space before filtering is measured so the lazy list
+                // cannot clamp its position before the shortfall is known.
+                val reserve = if (stabilizeSearch) {
+                    measuredReserve ?: provisionalReserve
+                } else 0
+                var heldReserve by remember(page.browseId) { mutableIntStateOf(0) }
+                SideEffect {
+                    if (stabilizeSearch) heldReserve = reserve
+                }
+                val scrollInProgress = listState.isScrollInProgress
+                LaunchedEffect(page.browseId, searching, keyboardVisible, releaseSearch, scrollInProgress) {
+                    if (!searching || !releaseSearch) {
+                        heldReserve = 0
+                    } else if (!keyboardVisible && !scrollInProgress) {
+                        animate(heldReserve.toFloat(), 0f, animationSpec = tween(SEARCH_SCROLL_DURATION_MS)) { value, _ ->
+                            heldReserve = value.roundToInt().coerceAtLeast(0)
+                        }
+                    }
+                }
+                val appliedReserve = if (stabilizeSearch) reserve else if (searching && releaseSearch) heldReserve else 0
+                LaunchedEffect(stabilizeSearch, layoutKey, viewportHeight, bottomPaddingPx, searchStop) {
+                    if (stabilizeSearch) {
+                        snapshotFlow { listState.layoutInfo }.collect { layout ->
+                            val items = layout.visibleItemsInfo
+                            val marker = items.firstOrNull { it.key == layoutKey }
+                            val search = items.firstOrNull { it.key == "search" }
+                            if (marker != null && search != null) {
+                                val end = items.firstOrNull { it.key == "search-layout-end" }
+                                if (end != null) {
+                                    measuredReserve = (layout.viewportEndOffset - bottomPaddingPx -
+                                        searchStop - (end.offset + end.size - search.offset)).coerceAtLeast(0)
+                                } else if (search.offset <= searchStop) {
+                                    measuredReserve = 0
+                                }
+                            }
+                        }
+                    }
+                }
                 // Measured rather than read off the window. The player runs
                 // full-screen at every window size, so this page's own width in
                 // landscape is the *whole* window. Straight off that width, the ratio hands back
@@ -581,7 +685,7 @@ fun DetailScreen(
                     modifier = Modifier.fillMaxSize(),
                     // The artist photo runs edge-to-edge up under the glass bar;
                     // a release header clears the bar itself, see [ReleaseHeader].
-                    contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                    contentPadding = PaddingValues(bottom = bottomPadding + with(density) { appliedReserve.toDp() }),
                 ) {
             item(key = "header") {
                 if (isArtist) {
@@ -612,9 +716,13 @@ fun DetailScreen(
                         onClose = closeSearch,
                         autoFocus = focusSearch,
                         onFocused = { focusSearch = false },
+                        onFocusChange = { searchHasFocus = it },
                         palette = palette,
                         type = page.type,
                     )
+                }
+                if (stabilizeSearch) {
+                    item(key = layoutKey) { Spacer(Modifier.height(1.dp)) }
                 }
             }
 
@@ -875,6 +983,9 @@ fun DetailScreen(
                 }
             }
             if (isArtist) aboutItem()
+            if (stabilizeSearch) {
+                item(key = "search-layout-end") { Spacer(Modifier.height(1.dp)) }
+            }
         }
 
                 if (folder != null && folderState != null && folderState.selecting) {
@@ -1197,6 +1308,7 @@ private fun DetailSearchField(
     onClose: () -> Unit,
     autoFocus: Boolean,
     onFocused: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
     palette: ArtworkPalette,
     type: BrowseType,
 ) {
@@ -1248,6 +1360,7 @@ private fun DetailSearchField(
                 cursorBrush = SolidColor(palette.accent),
                 modifier = Modifier
                     .fillMaxWidth()
+                    .onFocusChanged { onFocusChange(it.isFocused) }
                     .focusRequester(focus),
             )
         }

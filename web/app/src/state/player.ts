@@ -12,7 +12,7 @@ import {
   buildContextQueue,
   buildOneOffQueue,
   playedUserQueueIndices,
-  sectionedOrder,
+  restoredOrder,
   shuffledStartingOrder,
   shuffledUpcomingOrder,
   upcomingUserQueueIndices,
@@ -570,15 +570,9 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
       const order = shuffledUpcomingOrder(upcoming.map((e) => e.tier));
       set({ shuffle: true, queue: [...head, ...order.map((i) => upcoming[i]!)] });
     } else {
-      // Back to the order the queue had, by section; tracks added since keep their place at the end.
-      const known = canonical ?? new Map<string, number>();
-      const restored = upcoming
-        .map((entry, i) => ({ i, at: known.get(entry.entryId) ?? Number.MAX_SAFE_INTEGER - upcoming.length + i }))
-        .sort((a, b) => a.at - b.at)
-        .map((x) => x.i);
-      const order = sectionedOrder(restored, upcoming.map((e) => e.tier));
+      const restored = restoredOrder(queue, index, canonical ?? new Map());
       canonical = null;
-      set({ shuffle: false, queue: [...head, ...order.map((i) => upcoming[i]!)] });
+      set({ shuffle: false, queue: restored.timeline, index: restored.index });
     }
     saveSettings(get());
   },

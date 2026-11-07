@@ -21,7 +21,7 @@ Rules, as on the phone:
 - **Clear** removes only the upcoming hand-queued tracks.
 - **Shuffle:**
   - It never moves the user queue, and shuffles the context and AutoPlay each within their own section.
-  - Turning it off restores the order the queue had.
+  - Turning it off restores the order the queue had around the playing track: what came before it goes behind it, and what came after it plays next.
   - A list started with shuffle on leads with the picked track.
 - **Repeat all** prunes hand-queued tracks that have played, so only the context cycles.
 - **Back** restarts the track after 10 seconds (`BACK_RESTARTS_AFTER_SEC`).

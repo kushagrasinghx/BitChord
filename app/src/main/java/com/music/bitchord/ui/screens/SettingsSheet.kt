@@ -89,6 +89,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -166,6 +167,7 @@ import com.music.bitchord.data.settings.AutomixPerformanceMode
 import com.music.bitchord.R
 import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.settings.AudioQuality
+import com.music.bitchord.data.settings.DesignMode
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.settings.AppFont
@@ -248,6 +250,7 @@ fun SettingsScreen(
     val liquidGlass by AppSettings.liquidGlass.collectAsStateWithLifecycle()
     val glassPerformance by AppSettings.glassPerformance.collectAsStateWithLifecycle()
     val progressiveBlur by AppSettings.progressiveBlur.collectAsStateWithLifecycle()
+    val design by AppSettings.designMode.collectAsStateWithLifecycle()
     val liquidGlassSupported = isGlassSupported()
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
@@ -344,6 +347,7 @@ fun SettingsScreen(
     var importStatus by remember { mutableStateOf<String?>(null) }
     var confirmImport by remember { mutableStateOf(false) }
     var confirmClearSongCache by remember { mutableStateOf(false) }
+    var pickingDesign by remember { mutableStateOf(false) }
     var showPerformanceWarning by remember { mutableStateOf(false) }
     var showPerformanceConfirmation by remember { mutableStateOf(false) }
     val backupScope = rememberCoroutineScope()
@@ -1064,27 +1068,14 @@ fun SettingsScreen(
                     onClick = { AppSettings.setDisableBlendEffects(!disableBlendEffects) },
                 )
             }
-            val liquidGlassTitle = stringResource(R.string.liquid_glass)
-            row(liquidGlassTitle, "glass", "blur") {
+            val designTitle = stringResource(R.string.design)
+            row(designTitle, "liquid glass", "material you", "theme", "blur") {
                 SettingsRow(
-                    icon = SfIcons.AutoAwesome,
-                    title = liquidGlassTitle,
-                    subtitle = stringResource(
-                        if (liquidGlassSupported) {
-                            R.string.liquid_glass_subtitle
-                        } else {
-                            R.string.liquid_glass_unavailable
-                        },
-                    ),
-                    enabled = liquidGlassSupported,
-                    trailing = {
-                        IosSwitch(
-                            checked = liquidGlass,
-                            onCheckedChange = AppSettings::setLiquidGlass,
-                            enabled = liquidGlassSupported,
-                        )
-                    },
-                    onClick = { AppSettings.setLiquidGlass(!liquidGlass) },
+                    icon = SfIcons.Appearance,
+                    title = designTitle,
+                    subtitle = design.localizedSubtitle(),
+                    value = design.localizedLabel(),
+                    onClick = { pickingDesign = true },
                 )
             }
             // One line each, like Direct Source Stream under Sources, and only
@@ -1824,6 +1815,21 @@ fun SettingsScreen(
         }
     }
 
+    if (pickingDesign) {
+        ModalBottomSheet(
+            onDismissRequest = { pickingDesign = false },
+            containerColor = MaterialTheme.colorScheme.background,
+        ) {
+            DesignSheet(
+                selected = design,
+                onSelect = { mode ->
+                    AppSettings.setDesignMode(mode)
+                    pickingDesign = false
+                },
+            )
+        }
+    }
+
     // Everything in the Cached songs folder goes with it, so say so first.
     if (confirmClearSongCache) {
         AlertDialog(
@@ -2106,6 +2112,24 @@ private fun AppFont.description(): String = stringResource(
 )
 
 @Composable
+private fun DesignMode.localizedLabel(): String = stringResource(
+    when (this) {
+        DesignMode.DEFAULT -> R.string.design_default
+        DesignMode.LIQUID_GLASS -> R.string.liquid_glass
+        DesignMode.MATERIAL_YOU -> R.string.design_material_you
+    },
+)
+
+@Composable
+private fun DesignMode.localizedSubtitle(): String = stringResource(
+    when (this) {
+        DesignMode.DEFAULT -> R.string.design_default_subtitle
+        DesignMode.LIQUID_GLASS -> R.string.liquid_glass_subtitle
+        DesignMode.MATERIAL_YOU -> R.string.design_material_you_subtitle
+    },
+)
+
+@Composable
 private fun AutomixPerformanceMode.localizedLabel(): String = stringResource(
     when (this) {
         AutomixPerformanceMode.EFFICIENT -> R.string.automix_mode_efficient
@@ -2227,6 +2251,77 @@ internal fun AccountCard(
         if (!signedIn) {
             Spacer(Modifier.width(8.dp))
             Chevron()
+        }
+    }
+}
+
+/** The three-way look selector: Default, Liquid Glass, Material You. */
+@Composable
+private fun DesignSheet(
+    selected: DesignMode,
+    onSelect: (DesignMode) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    Column(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        Row(
+            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = SfIcons.Appearance,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = stringResource(R.string.design),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.design_sheet_subtitle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
+        DesignMode.entries.forEach { mode ->
+            val chosen = mode == selected
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(mode)
+                    }
+                    .padding(horizontal = 22.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = mode.localizedLabel(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Text(
+                        text = mode.localizedSubtitle(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (chosen) {
+                    Spacer(Modifier.width(12.dp))
+                    Icon(
+                        Icons.Rounded.Check,
+                        contentDescription = stringResource(R.string.selected),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
         }
     }
 }

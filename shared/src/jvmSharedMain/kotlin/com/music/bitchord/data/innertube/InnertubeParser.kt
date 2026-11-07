@@ -317,6 +317,34 @@ object InnertubeParser {
     }
 
     /**
+     * Release carousels off an album/playlist detail response — YouTube Music's
+     * "Other versions", "More from this artist" and friends.
+     *
+     * Walked out wherever they land rather than read off a fixed tab path, so
+     * single-column and two-column layouts answer alike. Only shelves whose
+     * cards link somewhere (a browse id) are kept: a carousel of playable
+     * rows would only repeat the track list above it.
+     */
+    fun parseBrowseSections(root: JsonElement): List<HomeShelf> {
+        val out = mutableListOf<HomeShelf>()
+        fun walk(node: JsonElement) {
+            when (node) {
+                is JsonObject -> {
+                    (node["musicCarouselShelfRenderer"] as? JsonObject)
+                        ?.let(::carouselShelf)
+                        ?.takeIf { shelf -> shelf.items.any { it.browseId != null } }
+                        ?.let(out::add)
+                    node.values.forEach(::walk)
+                }
+                is JsonArray -> node.forEach(::walk)
+                else -> Unit
+            }
+        }
+        walk(root)
+        return out
+    }
+
+    /**
      * Artist landing page: a "Top songs" shelf (only ~5 rows, but its header
      * links to a playlist with the full list) plus carousels for Albums,
      * Singles & EPs and friends.

@@ -135,6 +135,8 @@
     <string name="spotify_empty_playlists">No playlists on this account</string>
     <string name="spotify_empty_tracks">This playlist has no tracks</string>
     <string name="spotify_track_unavailable">Couldn\'t find that song on YouTube Music</string>
+    <string name="lyrics_original_title">Search lyrics with the original title</string>
+    <string name="lyrics_original_title_desc">Restore the original YouTube title before searching, so translated titles still match</string>
     <string name="account_scrobbling">Account &amp; scrobbling</string>
     <string name="rich_presence">Rich presence</string>
     <string name="scrobbling">Scrobbling</string>
@@ -382,6 +384,12 @@
     <string name="progressive_blur">Progressive Blur</string>
     <string name="glass_performance">Better Performance for Glass</string>
     <string name="liquid_glass_unavailable">Requires Android 12 or newer</string>
+    <string name="design">Design</string>
+    <string name="design_sheet_subtitle">How BitChord draws its chrome</string>
+    <string name="design_default">Default</string>
+    <string name="design_default_subtitle">BitChord’s own flat, artwork-tinted look</string>
+    <string name="design_material_you">Material You</string>
+    <string name="design_material_you_subtitle">Colours taken from your wallpaper (Android 12+)</string>
     <string name="full_screen_cover_art">Full-screen cover art</string>
     <string name="player_theme">Player theme</string>
     <string name="player_theme_default">Default</string>
@@ -639,6 +647,12 @@
     <string name="integrate_spotify_canvas">Set up Spotify Canvas</string>
     <string name="lastfm_login">Last.fm login</string>
     <string name="lastfm_login_description">Sign in with your Last.fm account to enable scrobbling.</string>
+    <string name="lastfm_api_key">Last.fm API key</string>
+    <string name="lastfm_api_key_subtitle">Use your own Last.fm API key</string>
+    <string name="lastfm_api_key_configured">Using your own API key</string>
+    <string name="lastfm_api_key_description">Scrobble with your own Last.fm API key and shared secret. Both are required — Last.fm signs every request with the secret. Save with the fields blank to go back to the key this build ships with.</string>
+    <string name="lastfm_api_key_field">API key</string>
+    <string name="lastfm_api_secret_field">Shared secret</string>
     <string name="lastfm_now_playing_subtitle">Update Last.fm with what you are listening to</string>
     <string name="scrobble_primary_artist_only">Only scrobble primary artist</string>
     <string name="scrobble_primary_artist_only_subtitle">Use the first artist when a track credits multiple artists</string>

@@ -699,6 +699,11 @@ object YtMusicRepository {
         val continuation: String?,
         val suggested: List<Song> = emptyList(),
         /**
+         * Release carousels off the same page — "Other versions", "More from
+         * this artist". Only the first page can answer, same as [library].
+         */
+        val sections: List<HomeShelf> = emptyList(),
+        /**
          * Whether the release this page describes is in the library. Only the
          * first page can answer — a continuation carries rows and nothing else
          * — so it is null from [moreSongs] and must not overwrite what
@@ -761,10 +766,12 @@ object YtMusicRepository {
     private suspend fun albumPageOf(albumResponse: JsonObject): SongPage {
         val metadata = pageOf(albumResponse)
         val playlist = albumPlaylistOf(albumResponse, metadata.songs.size) ?: return metadata
-        return pageOf(playlist).copy(
+        val tracks = pageOf(playlist)
+        return tracks.copy(
             library = metadata.library,
             header = metadata.header,
             description = metadata.description,
+            sections = (metadata.sections + tracks.sections).distinctBy { it.title to it.items.mapNotNull { item -> item.browseId } },
         )
     }
 
@@ -838,12 +845,13 @@ object YtMusicRepository {
     private fun pageOf(response: JsonObject, show: String? = null): SongPage {
         val library = InnertubeParser.parseLibraryState(response)
         val header = InnertubeParser.parseBrowseHeader(response)
+        val sections = InnertubeParser.parseBrowseSections(response)
         // A playlist page is scoped to its own shelf so its "Suggested
         // tracks" never read as songs the user added — see
         // parsePlaylistShelf. Anything else (album, library, history,
         // podcast) has no such shelf, and falls back to the layout-agnostic walk.
         InnertubeParser.parsePlaylistShelf(response)?.let { shelf ->
-            return SongPage(shelf.songs, shelf.continuation, shelf.suggested, library, header = header)
+            return SongPage(shelf.songs, shelf.continuation, shelf.suggested, sections, library, header = header)
         }
         val podcast = InnertubeParser.podcastShow(response) ?: show
         val continuation = InnertubeParser.continuationToken(response)
@@ -854,6 +862,7 @@ object YtMusicRepository {
             // map used to take care of that; paging by hand means saying so.
             songs = InnertubeParser.collectSongsDeep(response, podcast).distinctBy { it.videoId },
             continuation = continuation,
+            sections = sections,
             library = library,
             header = header,
             description = InnertubeParser.parseDescription(response),

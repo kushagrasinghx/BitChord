@@ -135,6 +135,22 @@ enum class ThemeMode(val label: String) {
 enum class AppFont { DEFAULT, LEGACY }
 
 /**
+ * The app-wide visual design, chosen as one of three mutually exclusive looks.
+ *
+ * One combo box rather than a set of independent switches, because the three are
+ * three renderings of the same chrome: [DEFAULT] is BitChord's own flat,
+ * artwork-tinted Material 3 look, [LIQUID_GLASS] swaps the floating bars for
+ * real backdrop-sampling refraction, and [MATERIAL_YOU] derives the whole
+ * palette from the device wallpaper (Android 12+). Turning two of them on at
+ * once has no defined meaning, so they are one choice — see [designMode].
+ */
+enum class DesignMode(val label: String) {
+    DEFAULT("Default"),
+    LIQUID_GLASS("Liquid Glass"),
+    MATERIAL_YOU("Material You"),
+}
+
+/**
  * Which of the equaliser's two tabs is driving the sound.
  *
  * One at a time rather than both at once: they are two ways of describing the
@@ -513,6 +529,13 @@ object AppSettings {
      * frames. Reduce dynamic blur overrides it.
      */
     val progressiveBlur = MutableStateFlow(false)
+
+    /**
+     * The app-wide visual design. Persisted as [KEY_DESIGN_MODE] and mirrored
+     * into [liquidGlass] so the many callers that only care whether glass is on
+     * keep reading a single boolean.
+     */
+    val designMode = MutableStateFlow(DesignMode.DEFAULT)
 
     /** Blurs unfocused lyric lines, keeping the active line sharp. */
     val lyricsBlur = MutableStateFlow(true)
@@ -1042,8 +1065,14 @@ object AppSettings {
         VideoThumbnails.square = squareVideoThumbnails.value
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)
+        // Falls back to the legacy boolean for anyone who had Liquid Glass on
+        // before this became one of three choices: an absent [KEY_DESIGN_MODE]
+        // with the old switch thrown is Liquid Glass, not Default.
+        designMode.value = prefs.getString(KEY_DESIGN_MODE, null)
+            ?.let { runCatching { DesignMode.valueOf(it) }.getOrNull() }
+            ?: if (prefs.getBoolean(KEY_LIQUID_GLASS, false)) DesignMode.LIQUID_GLASS else DesignMode.DEFAULT
+        liquidGlass.value = designMode.value == DesignMode.LIQUID_GLASS
         disableBlendEffects.value = prefs.getBoolean(KEY_DISABLE_BLEND_EFFECTS, false)
-        liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
         glassPerformance.value = prefs.getBoolean(KEY_GLASS_PERFORMANCE, false)
         progressiveBlur.value = prefs.getBoolean(KEY_PROGRESSIVE_BLUR, false)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
@@ -1061,7 +1090,10 @@ object AppSettings {
         signatureApiEnabled.value = prefs.getBoolean(KEY_SIGNATURE_API_ENABLED, false)
         signatureApiUrl.value = normalizeSignatureApiUrl(prefs.getString(KEY_SIGNATURE_API_URL, "").orEmpty())
         fullBleedArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_ARTWORK, true)
-        fullBleedDetailArtwork.value = prefs.getBoolean(KEY_FULL_BLEED_DETAIL_ARTWORK, false)
+        fullBleedDetailArtwork.value = prefs.getBoolean(
+            KEY_FULL_BLEED_DETAIL_ARTWORK,
+            prefs.getBoolean(KEY_FULL_SCREEN_ALBUM_ARTS, false),
+        )
         // The old legacy mesh switch answers until a theme has been picked.
         playerTheme.value = runCatching {
             PlayerTheme.valueOf(prefs.getString(KEY_PLAYER_THEME, null).orEmpty())
@@ -1514,8 +1546,19 @@ object AppSettings {
     }
 
     fun setLiquidGlass(value: Boolean) {
-        liquidGlass.value = value
-        prefs.edit().putBoolean(KEY_LIQUID_GLASS, value).apply()
+        setDesignMode(if (value) DesignMode.LIQUID_GLASS else DesignMode.DEFAULT)
+    }
+
+    fun setDesignMode(value: DesignMode) {
+        designMode.value = value
+        val glass = value == DesignMode.LIQUID_GLASS
+        liquidGlass.value = glass
+        // The legacy key is written too so a downgrade to a build that only knows
+        // the boolean still lands on the same look, glass or not.
+        prefs.edit()
+            .putString(KEY_DESIGN_MODE, value.name)
+            .putBoolean(KEY_LIQUID_GLASS, glass)
+            .apply()
     }
 
     fun setGlassPerformance(value: Boolean) {
@@ -1757,12 +1800,12 @@ object AppSettings {
     }
 
     fun setLastfmApiKey(value: String) {
-        lastfmApiKey.value = value
+        lastfmApiKey.value = value.ifBlank { BuildConfig.LASTFM_API_KEY }
         prefs.edit().putString(KEY_LASTFM_API_KEY, value).apply()
     }
 
     fun setLastfmSecret(value: String) {
-        lastfmSecret.value = value
+        lastfmSecret.value = value.ifBlank { BuildConfig.LASTFM_SECRET }
         prefs.edit().putString(KEY_LASTFM_SECRET, value).apply()
     }
 
@@ -1770,6 +1813,17 @@ object AppSettings {
         lastfmEndpoint.value = value
         prefs.edit().putString(KEY_LASTFM_ENDPOINT, value).apply()
     }
+
+    /**
+     * The Last.fm credentials the *user* supplied, or blank when the build's own
+     * key is still in force. Read straight from preferences rather than from the
+     * [lastfmApiKey]/[lastfmSecret] flows, which have already fallen back to the
+     * compiled-in defaults — so the API-key dialog can start empty on a build
+     * that ships credentials and still offer "reset to default".
+     */
+    fun lastfmCustomApiKey(): String = prefs.getString(KEY_LASTFM_API_KEY, "").orEmpty()
+
+    fun lastfmCustomSecret(): String = prefs.getString(KEY_LASTFM_SECRET, "").orEmpty()
 
     fun setSpotifySpdcToken(value: String) {
         spotifySpdcToken.value = value
@@ -2309,6 +2363,7 @@ object AppSettings {
     private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_GLASS_PERFORMANCE = "glass_performance"
     private const val KEY_PROGRESSIVE_BLUR = "progressive_blur"
+    private const val KEY_DESIGN_MODE = "design_mode"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
@@ -2320,6 +2375,7 @@ object AppSettings {
     private const val KEY_SIGNATURE_API_URL = "signature_api_url"
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_FULL_BLEED_DETAIL_ARTWORK = "full_bleed_detail_artwork"
+    private const val KEY_FULL_SCREEN_ALBUM_ARTS = "full_screen_album_arts"
     private const val KEY_PLAYER_THEME = "player_theme"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
@@ -2381,6 +2437,3 @@ object AppSettings {
     private const val KEY_DISCORD_INFO_DISMISSED = "discord_info_dismissed"
     private const val KEY_LAST_VERSION_CODE = "last_version_code"
 }
-
-
-

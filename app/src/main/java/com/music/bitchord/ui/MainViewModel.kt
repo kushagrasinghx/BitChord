@@ -2837,6 +2837,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                                 if (thumbnailUrl == null) artwork = header.thumbnailUrl
                             }
                             description = page.description
+                            // Release carousels ("Other versions", "More from this
+                            // artist") arrive on the same response as the tracks.
+                            sections = page.sections
                             if (page.songs.isEmpty()) {
                                 UiState.Error(text(R.string.no_tracks_here))
                             } else {

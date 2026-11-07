@@ -227,6 +227,14 @@ object Innertube {
         val pageId: String?,
         val authUser: String,
         val clientVersion: String?,
+        /**
+         * Whether the shell this was read from reported itself signed in.
+         *
+         * A cached scope can outlive the cookie it described, and so can a
+         * channel the listener picked. Only a shell that says it is signed in
+         * makes either safe to send — see [requestIdentity].
+         */
+        val signedIn: Boolean,
     )
 
     @Volatile
@@ -306,7 +314,7 @@ object Innertube {
         val version = clientVersion ?: scope?.clientVersion
         if (!loggedIn) {
             Log.w(TAG, "captured page was signed out; not scoping requests to it")
-            scope = version?.let { SessionScope(null, null, "0", it) }
+            scope = version?.let { SessionScope(null, null, "0", it, signedIn = false) }
             return
         }
         scope = SessionScope(
@@ -314,6 +322,7 @@ object Innertube {
             pageId = pageId?.takeIf { it.isNotBlank() },
             authUser = authUser?.takeIf { it.isNotBlank() } ?: "0",
             clientVersion = version,
+            signedIn = true,
         )
         // The page's own visitor id, bound to this session — strictly better
         // than the anonymous one [fetchVisitorData] mints. See [visitorData].
@@ -324,9 +333,47 @@ object Innertube {
         Log.d(TAG, "adopted page scope: pageId=${pageId ?: "none"} authUser=${authUser ?: "0"}")
     }
 
-    /** The brand channel to send, chosen one first. */
-    private fun pageIdFor(session: SessionScope?): String? =
-        (channelOverride ?: return session?.pageId).pageId
+    /** The three identity claims a request can make. None at all is a guest. */
+    internal data class RequestIdentity(
+        val dataSyncId: String?,
+        val pageId: String?,
+        val authUser: String,
+    )
+
+    /**
+     * What a request may claim to be, from the shell's live answer and whatever
+     * channel the listener picked.
+     *
+     * The signed-out branch is the load-bearing one. A stored channel outlives
+     * the credential it belonged to: once the cookie has expired the shell
+     * answers signed-out, and an `onBehalfOfUser` with no authenticated session
+     * behind it is not treated as an anonymous request — it is refused with 401
+     * UNAUTHENTICATED on every call, Home included. So nothing is claimed
+     * unless the shell itself says somebody is signed in.
+     */
+    internal fun requestIdentity(
+        shellSignedIn: Boolean,
+        shellDataSyncId: String?,
+        shellPageId: String?,
+        shellAuthUser: String,
+        chosen: ChannelSelection?,
+    ): RequestIdentity {
+        if (!shellSignedIn) return RequestIdentity(dataSyncId = null, pageId = null, authUser = "0")
+        val channel = chosen
+            ?: return RequestIdentity(shellDataSyncId, shellPageId, shellAuthUser)
+        return RequestIdentity(channel.dataSyncId, channel.pageId, channel.authUser ?: shellAuthUser)
+    }
+
+    private fun identityFor(session: SessionScope?): RequestIdentity = requestIdentity(
+        shellSignedIn = session?.signedIn == true,
+        shellDataSyncId = session?.dataSyncId,
+        shellPageId = session?.pageId,
+        shellAuthUser = session?.authUser ?: "0",
+        chosen = channelOverride,
+    )
+
+    /** The brand channel to send, chosen one first, and only for a live session. */
+    private fun pageIdFor(session: SessionScope?): String? = identityFor(session).pageId
 
     /**
      * The account to send as `onBehalfOfUser`, chosen one first.
@@ -334,14 +381,13 @@ object Innertube {
      * No falling back to the shell's value once a channel has been chosen: the
      * shell's id names the default identity, and pairing it with another
      * channel's [pageId] describes an account/page combination that doesn't
-     * exist.
+     * exist. And nothing at all once the shell says signed-out, for the reason
+     * [requestIdentity] gives.
      */
-    private fun dataSyncIdFor(session: SessionScope?): String? =
-        (channelOverride ?: return session?.dataSyncId).dataSyncId
+    private fun dataSyncIdFor(session: SessionScope?): String? = identityFor(session).dataSyncId
 
     /** Which account in the cookie jar, chosen channel's first. */
-    private fun authUserFor(session: SessionScope?): String =
-        channelOverride?.authUser ?: session?.authUser ?: "0"
+    private fun authUserFor(session: SessionScope?): String = identityFor(session).authUser
 
     /**
      * The WEB_REMIX version to claim, live if the shell has been read.
@@ -380,9 +426,20 @@ object Innertube {
                         return@let
                     }
                     scope = fresh
-                    channelOverride?.let { selected ->
-                        if (selected.pageId != fresh.pageId || selected.dataSyncId != fresh.dataSyncId) {
-                            Log.w(TAG, "server shell identity differs from selected profile; retaining override")
+                    if (!fresh.signedIn) {
+                        // The channel the listener picked belonged to the session
+                        // that just ended. Keeping it would put an
+                        // `onBehalfOfUser` no cookie backs behind every request,
+                        // which Google answers 401 — see [requestIdentity].
+                        if (channelOverride != null) {
+                            channelOverride = null
+                            Log.w(TAG, "the shell session has ended; dropping the selected channel")
+                        }
+                    } else {
+                        channelOverride?.let { selected ->
+                            if (selected.pageId != fresh.pageId || selected.dataSyncId != fresh.dataSyncId) {
+                                Log.w(TAG, "server shell identity differs from selected profile; retaining override")
+                            }
                         }
                     }
                     Log.d(
@@ -400,6 +457,11 @@ object Innertube {
     suspend fun refreshSessionScope() {
         if (cookie == null) return
         scopeLock.withLock { scope = null }
+        // Re-reading is what decides whether the chosen channel survives: the
+        // shell's own answer is the authority, and [ensureSessionScope] drops
+        // the override when that answer is signed-out. A transient rejection
+        // over one write therefore cannot silently move a brand-account
+        // listener to another identity.
         ensureSessionScope()
     }
 
@@ -428,7 +490,7 @@ object Innertube {
         if (!signedIn) {
             Log.w(TAG, "music.youtube.com served a signed-out shell; not scoping requests")
             // Still worth the client version — that part is true either way.
-            return clientVersion?.let { SessionScope(null, null, "0", it) }
+            return clientVersion?.let { SessionScope(null, null, "0", it, signedIn = false) }
         }
 
         val pageId = CONFIG_PAGE_ID.find(html)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
@@ -449,7 +511,7 @@ object Innertube {
                 visitorDataIsSessionBound = true
             }
 
-        return SessionScope(dataSyncId, pageId, authUser ?: "0", clientVersion)
+        return SessionScope(dataSyncId, pageId, authUser ?: "0", clientVersion, signedIn = true)
     }
 
     private val CONFIG_LOGGED_IN = Regex(""""LOGGED_IN"\s*:\s*(true|false)""")

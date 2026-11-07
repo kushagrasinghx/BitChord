@@ -783,7 +783,7 @@ internal fun CircleGlyph(
                 imageVector = glyph,
                 contentDescription = contentDescription,
                 tint = Color.White,
-                modifier = Modifier.size(19.dp),
+                modifier = Modifier.size(24.dp),
             )
         }
     }

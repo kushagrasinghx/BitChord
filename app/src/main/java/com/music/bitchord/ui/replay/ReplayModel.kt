@@ -198,7 +198,7 @@ fun ReplayPeriod.localizedTab(context: Context): String = when (this) {
 }
 
 fun ReplaySummary.localizedLabel(context: Context): String = when (period) {
-    ReplayPeriod.THIS_WEEK -> "This week"
+    ReplayPeriod.THIS_WEEK -> context.getString(R.string.replay_this_week)
     ReplayPeriod.THIS_MONTH -> DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
         .format(LocalDate.now())
         .replaceFirstChar { it.titlecase(Locale.getDefault()) }

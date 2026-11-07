@@ -22,6 +22,7 @@ import {
   fetchLibrary,
   fetchLibraryPlaylists,
   fetchLikeStatus,
+  fetchTrackAlbum,
   fetchPlaylist,
   fetchPlaylistOptions,
   fetchSearch,
@@ -198,6 +199,16 @@ export function useLibraryPlaylists() {
 }
 
 const likeKey = (videoId: string) => ['music', 'like', videoId] as const;
+
+/** A song's album, looked up only when [enabled] (an open menu for a song that didn't come with one). */
+export function useTrackAlbum(videoId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['music', 'track-album', videoId],
+    queryFn: () => fetchTrackAlbum(videoId),
+    enabled,
+    staleTime: Infinity,
+  });
+}
 
 export function useLikeStatus(videoId: string | null) {
   const signedIn = useSignedIn();

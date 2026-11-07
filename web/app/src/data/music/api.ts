@@ -15,8 +15,10 @@ import {
   mapShelves,
   mapSuggestions,
 } from './mappers';
+import { albumFromNext } from './trackAlbum';
 import type {
   AlbumPage,
+  AlbumRef,
   MusicItem,
   ArtistPage,
   BrowseLink,
@@ -219,6 +221,13 @@ async function libraryContinuation(token: string, title: string): Promise<Paged<
 export async function fetchLibraryPlaylists(): Promise<MusicItem[]> {
   const { data } = await fetchLibrary('playlists');
   return data.grid.filter((item) => item.kind === 'playlist');
+}
+
+/** A song's album when the list it came from didn't say (search results): from its watch page. */
+export async function fetchTrackAlbum(videoId: string): Promise<AlbumRef | null> {
+  const yt = await getMusicClient();
+  const response = await yt.actions.execute('/next', { videoId, client: 'YTMUSIC' });
+  return albumFromNext(response.data, videoId);
 }
 
 export type LikeStatus = 'LIKE' | 'DISLIKE' | 'INDIFFERENT';

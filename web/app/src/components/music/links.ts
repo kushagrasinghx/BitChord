@@ -43,3 +43,8 @@ export function formatDuration(seconds: number | null): string {
   const sec = String(s % 60).padStart(2, '0');
   return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
 }
+
+/** A song's link on YouTube Music, for Copy Song Link. */
+export function songLink(videoId: string): string {
+  return `https://music.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+}

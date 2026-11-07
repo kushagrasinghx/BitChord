@@ -8,7 +8,7 @@ import { Artwork } from './Artwork';
 import { ExplicitBadge } from './ExplicitBadge';
 import { albumHref, artistHref, formatDuration } from './links';
 import { playList, playTrack, type ListContext } from './play';
-import { TrackMenu } from './TrackMenu';
+import { TrackMenu, useTrackContextMenu } from './TrackMenu';
 
 type Variant = 'album' | 'playlist';
 
@@ -98,6 +98,7 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
   const togglePlay = usePlayer((s) => s.togglePlay);
   const unavailable = track.unavailable;
   const onPlay = () => (unavailable ? undefined : current ? togglePlay() : onPlayRow());
+  const context = useTrackContextMenu(unavailable ? null : track);
 
   return (
     <div
@@ -107,7 +108,9 @@ function Row({ track, variant, position, fallbackArtwork, onPlayRow }: RowProps)
       data-unavailable={unavailable}
       title={unavailable === 'matching' ? 'Looking for this on YouTube Music…' : unavailable === 'missing' ? 'Not found on YouTube Music' : undefined}
       onDoubleClick={onPlay}
+      onContextMenu={context.onContextMenu}
     >
+      {context.menu}
       <div className={`${cell} gap-3`}>
         <div className={`relative grid w-10 shrink-0 place-items-center${variant === 'playlist' ? ' ms-[7px]' : ''}`}>
           {variant === 'playlist' ? (

@@ -362,22 +362,29 @@ func (p *PlaybackState) AddUpcoming(memberId *string, tracks []*Track, playNext 
 	return true, ""
 }
 
-func (p *PlaybackState) RemoveUpcoming(memberId *string, videoId string) bool {
-	match := -1
-	for i, item := range p.Queue {
-		if item.VideoId == videoId {
-			match = i
-			break
+// upcomingIndexOf finds videoId among the tracks after the playing one only.
+// A song can sit in the queue twice, once played and once to come, and the
+// copy in history is never the one an upcoming-queue edit means.
+func (p *PlaybackState) upcomingIndexOf(videoId string) int {
+	for i := p.QueueIndex + 1; i < len(p.Queue); i++ {
+		if i >= 0 && p.Queue[i].VideoId == videoId {
+			return i
 		}
 	}
-	if match == -1 || match == p.QueueIndex {
+	return -1
+}
+
+func (p *PlaybackState) RemoveUpcoming(memberId *string, videoId string) bool {
+	return p.RemoveUpcomingAt(memberId, p.upcomingIndexOf(videoId))
+}
+
+// RemoveUpcomingAt removes the upcoming track at index. Played and playing
+// tracks are refused.
+func (p *PlaybackState) RemoveUpcomingAt(memberId *string, index int) bool {
+	if index <= p.QueueIndex || index < 0 || index >= len(p.Queue) {
 		return false
 	}
-
-	p.Queue = append(p.Queue[:match], p.Queue[match+1:]...)
-	if p.QueueIndex > match {
-		p.QueueIndex--
-	}
+	p.Queue = append(p.Queue[:index], p.Queue[index+1:]...)
 	p.touchQueue(memberId)
 	return true
 }
@@ -399,18 +406,13 @@ func (p *PlaybackState) ClearUpcoming(memberId *string) bool {
 }
 
 func (p *PlaybackState) MoveUpcoming(memberId *string, fromIdx, toIdx int, videoId string) bool {
-	if videoId != "" {
-		match := -1
-		for i, item := range p.Queue {
-			if item.VideoId == videoId {
-				match = i
-				break
-			}
-		}
-		if match == -1 {
+	// The sender's index wins when it still names that track; otherwise the
+	// queue moved under it and the upcoming copy is found by id.
+	if videoId != "" && !(fromIdx > p.QueueIndex && fromIdx < len(p.Queue) && p.Queue[fromIdx].VideoId == videoId) {
+		fromIdx = p.upcomingIndexOf(videoId)
+		if fromIdx == -1 {
 			return false
 		}
-		fromIdx = match
 	}
 
 	if fromIdx < 0 || fromIdx >= len(p.Queue) || toIdx < 0 || toIdx >= len(p.Queue) {
@@ -670,15 +672,39 @@ func (p *Party) Remove(memberId string) *Member {
 		return nil
 	}
 	delete(p.Members, memberId)
-	if m.IsHost && len(p.Members) > 0 {
-		for _, next := range p.Members {
+	if m.IsHost {
+		// A socket can outlive its membership for a moment; the pointer it holds
+		// must not keep host powers.
+		m.IsHost = false
+		if next := p.nextHost(); next != nil {
 			next.IsHost = true
-			break
 		}
 	}
 	p.Touch()
 	p.refreshEmptiness()
 	return m
+}
+
+// nextHost picks who inherits the party: the longest-standing connected
+// member, else the longest-standing member at all. Map order is random, so
+// without this the crown went to whoever the runtime happened to visit first.
+func (p *Party) nextHost() *Member {
+	var best *Member
+	for _, m := range p.Members {
+		if best == nil ||
+			(m.Connected && !best.Connected) ||
+			(m.Connected == best.Connected && (m.JoinedAtMs < best.JoinedAtMs ||
+				(m.JoinedAtMs == best.JoinedAtMs && m.MemberId < best.MemberId))) {
+			best = m
+		}
+	}
+	return best
+}
+
+// IsMember reports whether m is still this party's record for its member id.
+// A removed member, or one replaced since, is not.
+func (p *Party) IsMember(m *Member) bool {
+	return p.Members[m.MemberId] == m
 }
 
 func (p *Party) SpendControlBudget(member *Member) bool {

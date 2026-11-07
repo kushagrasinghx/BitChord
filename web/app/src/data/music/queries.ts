@@ -13,6 +13,10 @@ import { useYtAuth, ytAuthSnapshot } from '@/extension/useYtAuth';
 import { queryClient } from '@/lib/queryClient';
 import {
   addToPlaylist,
+  deletePlaylist,
+  editPlaylist,
+  moveItem,
+  movePlaylistItem,
   fetchAlbum,
   fetchArtist,
   fetchBrowse,
@@ -26,13 +30,14 @@ import {
   fetchPlaylistOptions,
   fetchSearch,
   fetchSuggestions,
+  removeFromPlaylist,
   setListSaved,
   setTrackLiked,
   type LikeStatus,
   type Paged,
 } from './api';
 import { isLibrarySection, LIKED_MUSIC_PLAYLIST, type LibrarySection } from './library';
-import type { AlbumPage, BrowseLink, BrowsePage, HeaderInfo, PlaylistPage, Shelf, Track } from './types';
+import type { AlbumPage, BrowseLink, BrowsePage, HeaderInfo, PlaylistPage, PlaylistPrivacy, Shelf, Track } from './types';
 
 // TanStack Query for every browse request (prompt §1: caching, dedupe,
 // retries). YouTube requests need the extension, so every query waits for it;
@@ -265,6 +270,125 @@ export function useAddToPlaylist() {
     onSettled: (_data, _error, { playlistId }) => {
       void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', playlistId] });
       void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', `VL${playlistId.replace(/^VL/, '')}`] });
+    },
+  });
+}
+
+/** Both cache keys a playlist can be under: the page is reached with and without the VL prefix. */
+function refreshPlaylist(playlistId: string) {
+  const bareId = playlistId.replace(/^VL/, '');
+  void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', bareId] });
+  void queryClient.invalidateQueries({ queryKey: ['music', 'playlist', `VL${bareId}`] });
+}
+
+/**
+ * YouTube's library and playlists lag a change by a moment: an answer fetched
+ * at once can still be the old one. These ask again once it has caught up.
+ */
+const CATCH_UP_MS = [2_000, 6_000];
+
+/** The library after a playlist is made, renamed or deleted: now, and again as YouTube catches up. */
+export function refreshLibrary() {
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: ['music', 'library'] });
+  refresh();
+  for (const ms of CATCH_UP_MS) setTimeout(refresh, ms);
+}
+
+/**
+ * A playlist after its songs changed and the change is already on screen:
+ * only once YouTube has caught up, so an early, stale answer can't undo it.
+ */
+function refreshPlaylistSoon(playlistId: string) {
+  for (const ms of CATCH_UP_MS) setTimeout(() => refreshPlaylist(playlistId), ms);
+}
+
+/** Both cache keys of a playlist, with and without the VL prefix. */
+function playlistKeys(playlistId: string) {
+  const bareId = playlistId.replace(/^VL/, '');
+  return [bareId, `VL${bareId}`].map((key) => ['music', 'playlist', key] as const);
+}
+
+/** [chunks] without the first row of [videoId]. */
+function withoutTrack(data: InfiniteData<PlaylistChunk>, videoId: string): InfiniteData<PlaylistChunk> {
+  let removed = false;
+  const pages = data.pages.map((page) => {
+    if (removed) return page;
+    const at = page.tracks.findIndex((track) => track.videoId === videoId);
+    if (at < 0) return page;
+    removed = true;
+    return { ...page, tracks: page.tracks.filter((_, i) => i !== at) };
+  });
+  return { ...data, pages };
+}
+
+/** Rename, describe or change the privacy of one of the user's playlists. */
+export function useEditPlaylist() {
+  return useMutation({
+    mutationFn: ({ playlistId, ...changes }: { playlistId: string; title?: string; description?: string; privacy?: PlaylistPrivacy }) =>
+      editPlaylist(playlistId, changes),
+    onSettled: (_data, _error, { playlistId }) => {
+      refreshPlaylist(playlistId);
+      refreshPlaylistSoon(playlistId);
+      // The sidebar and All Playlists show the name.
+      refreshLibrary();
+    },
+  });
+}
+
+/** "Remove from Playlist" on a row of one of the user's playlists. */
+export function useRemoveFromPlaylist() {
+  return useMutation({
+    mutationFn: ({ playlistId, videoId }: { playlistId: string; videoId: string }) => removeFromPlaylist(playlistId, videoId),
+    // Gone from the screen at once; YouTube is asked again once it has caught up.
+    onSuccess: (_data, { playlistId, videoId }) => {
+      for (const key of playlistKeys(playlistId)) {
+        queryClient.setQueryData<InfiniteData<PlaylistChunk>>(key, (data) => data && withoutTrack(data, videoId));
+      }
+      refreshPlaylistSoon(playlistId);
+    },
+    onError: (_error, { playlistId }) => refreshPlaylist(playlistId),
+  });
+}
+
+/** [chunks] with their songs reordered, each page keeping its length. */
+function reorderChunks(data: InfiniteData<PlaylistChunk>, from: number, to: number): InfiniteData<PlaylistChunk> {
+  const all = moveItem(data.pages.flatMap((page) => page.tracks), from, to);
+  let start = 0;
+  const pages = data.pages.map((page) => {
+    const tracks = all.slice(start, start + page.tracks.length);
+    start += page.tracks.length;
+    return { ...page, tracks };
+  });
+  return { ...data, pages };
+}
+
+/** Drag to reorder one of the user's playlists: moved on screen at once, then on YouTube. */
+export function useMovePlaylistItem() {
+  return useMutation({
+    mutationFn: ({ playlistId, videoId, from, to }: { playlistId: string; videoId: string; from: number; to: number }) =>
+      movePlaylistItem(playlistId, videoId, from, to),
+    onMutate: ({ playlistId, from, to }) => {
+      const bareId = playlistId.replace(/^VL/, '');
+      for (const key of [bareId, `VL${bareId}`]) {
+        queryClient.setQueryData<InfiniteData<PlaylistChunk>>(['music', 'playlist', key], (data) => data && reorderChunks(data, from, to));
+      }
+    },
+    // A refetch at once could still get the old order and move the song back: wait for YouTube.
+    onSuccess: (_data, { playlistId }) => refreshPlaylistSoon(playlistId),
+    // Not saved: back to YouTube's order now.
+    onError: (_error, { playlistId }) => refreshPlaylist(playlistId),
+  });
+}
+
+/** Deletes one of the user's playlists. */
+export function useDeletePlaylist() {
+  return useMutation({
+    mutationFn: ({ playlistId }: { playlistId: string }) => deletePlaylist(playlistId),
+    onSuccess: (_data, { playlistId }) => {
+      const bareId = playlistId.replace(/^VL/, '');
+      queryClient.removeQueries({ queryKey: ['music', 'playlist', bareId] });
+      queryClient.removeQueries({ queryKey: ['music', 'playlist', `VL${bareId}`] });
+      refreshLibrary();
     },
   });
 }

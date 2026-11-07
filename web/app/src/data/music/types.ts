@@ -103,7 +103,11 @@ export interface AlbumPage extends HeaderInfo {
 export interface PlaylistPage extends HeaderInfo {
   id: string;
   tracks: Track[];
+  /** The signed-in user's own playlist: it can be renamed, emptied of songs and deleted. */
+  editable: boolean;
 }
+
+export type PlaylistPrivacy = 'PUBLIC' | 'UNLISTED' | 'PRIVATE';
 
 export interface ArtistPage {
   id: string;

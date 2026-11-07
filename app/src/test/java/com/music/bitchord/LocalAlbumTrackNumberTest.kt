@@ -12,8 +12,8 @@ import org.junit.Test
 
 class LocalAlbumTrackNumberTest {
 
-    private fun song(id: String, title: String, album: String? = "Album", track: Int? = null) =
-        Song(videoId = id, title = title, artist = "Artist", thumbnailUrl = null, albumName = album, trackNumber = track)
+    private fun song(id: String, title: String, album: String? = "Album", track: Int? = null, disc: Int? = null) =
+        Song(videoId = id, title = title, artist = "Artist", thumbnailUrl = null, albumName = album, trackNumber = track, discNumber = disc)
 
     @Test
     fun mediaStore_unpacksDiscPrefix() {
@@ -33,6 +33,28 @@ class LocalAlbumTrackNumberTest {
         assertNull(LocalMediaRepository.trackNumberFromTag(null))
         assertNull(LocalMediaRepository.trackNumberFromTag("abc"))
         assertNull(LocalMediaRepository.trackNumberFromTag("0"))
+    }
+
+    @Test
+    fun mediaStore_readsDiscPrefix() {
+        assertEquals(1, LocalMediaRepository.discNumberFromMediaStore(1003))
+        assertEquals(2, LocalMediaRepository.discNumberFromMediaStore(2001))
+        assertNull(LocalMediaRepository.discNumberFromMediaStore(3))
+        assertNull(LocalMediaRepository.discNumberFromMediaStore(2000))
+        assertNull(LocalMediaRepository.discNumberFromMediaStore(null))
+    }
+
+    @Test
+    fun album_sortsDiscBeforeTrack() {
+        // Two discs, each numbered from 1, in the title order the library leaves.
+        val group = listOf(
+            song("d2t1", "A", track = 1, disc = 2),
+            song("d1t2", "B", track = 2, disc = 1),
+            song("d2t2", "C", track = 2, disc = 2),
+            song("d1t1", "D", track = 1, disc = 1),
+            song("none", "E"),
+        )
+        assertEquals(listOf("d1t1", "d1t2", "d2t1", "d2t2", "none"), group.sortedForAlbum().map { it.videoId })
     }
 
     @Test

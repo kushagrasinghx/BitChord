@@ -279,7 +279,11 @@ private fun List<Song>.sortedByTitle(): List<Song> =
 fun List<Song>.sortedForAlbum(): List<Song> {
     if (none { it.trackNumber != null }) return this
     return sortedWith(
-        compareBy<Song> { it.trackNumber ?: Int.MAX_VALUE }
+        // Disc before track: each disc numbers its tracks from 1 again. A row
+        // with no disc is on the first one.
+        compareBy<Song> { it.trackNumber == null }
+            .thenBy { it.discNumber ?: 1 }
+            .thenBy { it.trackNumber ?: Int.MAX_VALUE }
             .thenBy(String.CASE_INSENSITIVE_ORDER) { it.title },
     )
 }

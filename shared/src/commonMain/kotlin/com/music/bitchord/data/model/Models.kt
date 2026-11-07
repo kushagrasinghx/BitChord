@@ -102,6 +102,12 @@ data class Song(
      */
     val trackNumber: Int? = null,
     /**
+     * Disc within a multi-disc album, from the same tags as [trackNumber];
+     * null when they don't say. [trackNumber] restarts on every disc, so an
+     * album is put in order by this first (#1254).
+     */
+    val discNumber: Int? = null,
+    /**
      * What a non-YouTube source says it can serve this recording at, as one of
      * `LOSSLESS`, `HIGH` or `LOW` — null for every row that didn't come from
      * one.

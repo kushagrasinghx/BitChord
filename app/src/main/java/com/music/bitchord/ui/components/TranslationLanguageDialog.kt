@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,12 +28,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -165,7 +169,14 @@ fun TranslationLanguageDialog(
             SearchField(query = query, onQueryChange = { query = it })
             AlertRule()
 
-            LazyColumn(modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT)) {
+            val listState = rememberLazyListState()
+            val focusManager = LocalFocusManager.current
+            LaunchedEffect(listState) {
+                snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+                    if (scrolling) focusManager.clearFocus()
+                }
+            }
+            LazyColumn(state = listState, modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT)) {
                 // Only with an empty field: it is the default rather than a
                 // language, so it has no name to match and filtering it in on a
                 // near-miss would be noise.

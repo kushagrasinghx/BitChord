@@ -6,6 +6,7 @@ import { useSpotifyPlaylists } from '@/data/spotify/queries';
 import { useExtension } from '@/extension/useExtension';
 import { openSpotifySignIn, useRefreshSpotifyAuth, useSetSpotifyConnected, useSpotifyAuth } from '@/extension/useSpotifyAuth';
 import { PlainSkeleton } from '@/skeletons/PageSkeletons';
+import { spotifyPlaylistItem } from '@/data/spotify/api';
 import { seeAllGrid } from './pageStyles';
 
 /**
@@ -59,18 +60,7 @@ export default function SpotifyPage() {
   if (playlists.isError && !playlists.data) return <LoadError error={playlists.error} onRetry={() => void playlists.refetch()} />;
   if (!playlists.data) return <PlainSkeleton />;
 
-  const items: MusicItem[] = playlists.data.map((p) => ({
-    kind: 'spotify-playlist',
-    id: p.id,
-    title: p.name,
-    subtitle: p.owner ?? 'Spotify',
-    artists: [],
-    album: null,
-    thumbnail: p.imageUrl,
-    wide: false,
-    durationSec: null,
-    explicit: false,
-  }));
+  const items: MusicItem[] = playlists.data.map(spotifyPlaylistItem);
   return (
     <>
       <PageHeader title="Spotify" />

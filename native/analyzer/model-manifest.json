@@ -1,0 +1,25 @@
+{
+  "postprocessingRevision": 2,
+  "beat": {
+    "asset": "beat_this_final0_q8.onnx",
+    "checkpoint": "final0",
+    "upstream": "https://github.com/CPJKU/beat_this",
+    "license": "MIT",
+    "bytes": 23138816,
+    "sha256": "7801f9c1adfd5ff193f37ececa3320bf1fda1ddee2bf7de341cea4c25ffd0acd",
+    "input": "input_spectrogram",
+    "inputShape": [1, -1, 128],
+    "outputs": { "beat": [-1, -1], "downbeat": [-1, -1] }
+  },
+  "vocal": {
+    "asset": "vocals_umxhq_int8.onnx",
+    "checkpoint": "umxhq-vocals",
+    "upstream": "https://github.com/sigsep/open-unmix-pytorch",
+    "license": "MIT",
+    "bytes": 9054206,
+    "sha256": "a2be987b55a29bc149d3a6ae99b08175d81f85ee292a8ea21f96c3a473bc94cb",
+    "input": "mix_magnitude",
+    "inputShape": [1, 2, 2049, 960],
+    "outputs": { "target_magnitude": [1, 2, 2049, 960] }
+  }
+}

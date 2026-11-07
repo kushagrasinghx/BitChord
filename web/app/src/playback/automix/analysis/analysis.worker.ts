@@ -182,7 +182,7 @@ function beatSide(g: ModelGrid): BeatSide {
 
 /**
  * BitChord: a model grid as AutoMix's constant grid. The model's confidence
- * (0.35-0.95, the phone's scale, beatmatch from 0.55) maps onto AutoMix's
+ * (0-0.95, the phone's mixing score, beatmatch from 0.55) maps onto AutoMix's
  * (0.2 gate) so 0.55 lands at 0.33 and 0.95 at 1.
  */
 function localGrid(side: BeatSide): LocalGrid {
@@ -193,6 +193,7 @@ function localGrid(side: BeatSide): LocalGrid {
     bpm: 60 / beatIntervalSec,
     beatIntervalSec,
     firstDownbeatSec: side.downbeats[0] ?? side.beats[0]!,
-    gridConfidence: Math.max(0, Math.min(1, (side.confidence - 0.35) / 0.6)),
+    gridConfidence: Math.max(0, Math.min(1, (side.confidence - 0.35) / 0.6))
+      * Math.exp(-Math.max(0, (fit?.residualMs ?? Infinity) - TICK_JITTER_MS) / 50),
   };
 }

@@ -12,16 +12,16 @@ export interface TrackTags {
   album?: string;
 }
 
-// BitChord: 8 records music videos, 7 widens the vocal mask to the loop searches, 6 adds Beat This! (re-exported), 5 the vocal mask; 3 since the gap-tolerant fitGrid (beatgrid.ts) and the head/tail
+// BitChord: 9 corrects model chunking/confidence and pins the model revision; 8 records music videos, 7 widens the vocal mask to the loop searches, 6 adds Beat This! (re-exported), 5 the vocal mask; 3 since the gap-tolerant fitGrid (beatgrid.ts) and the head/tail
 // grids; AutoMix's whole-track grids were mostly unusable on real songs.
-export const ANALYSIS_VERSION = 8;
+export const ANALYSIS_VERSION = 9;
 
 /** BitChord: Beat This!'s beats and downbeats over one window, on the track's timeline. */
 export interface BeatSide {
   beats: number[];
   downbeats: number[];
   bpm: number;
-  /** The phone's scale: 0.35-0.95, beatmatchable from 0.55. */
+  /** Conservative mixing confidence, 0-0.95; beatmatchable from 0.55. */
   confidence: number;
 }
 
@@ -80,6 +80,8 @@ export interface TrackAnalysis {
   /** BitChord: vocal curves over the opening and the end; empty when the model couldn't run. */
   vocals?: VocalWindow[];
   analysisVersion: number;
+  /** Fingerprint of the model weights and postprocessing; absent on older cached entries. */
+  analysisRevision?: string;
   manualOverrides?: {
     bpm?: number;
     camelot?: CamelotKey;

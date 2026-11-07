@@ -7,9 +7,10 @@ import { trackLog } from '@/playback/trackLog';
 import { getAnalysis, putAnalysis } from '../db';
 import { fetchTrackAudio, type TrackAudio } from '../fetchAudio';
 import type { AnalyzeResponse } from './analysis.worker';
-import { BEAT_SR, VOCAL_WINDOW_SEC } from './models';
+import { BEAT_SR, VOCAL_WINDOW_SEC } from './audioFormats';
 import type { TrackAnalysis, TrackTags } from './types';
 import { ANALYSIS_VERSION } from './types';
+import { ANALYSIS_REVISION } from './modelManifest';
 
 export type AnalysisStatus = 'pending' | 'analyzing' | 'done' | 'error';
 
@@ -35,15 +36,17 @@ const KEEP_BYTES_FOR = 6;
  * transfer to the essentia worker -> persist TrackAnalysis to IndexedDB. One
  * track at a time keeps peak memory at one decoded file.
  */
-class Analyzer {
+export class Analyzer {
   private worker: Worker | null = null;
   private queue: { videoId: string; tags: TrackTags }[] = [];
   private running = false;
   private pendingResolve: ((r: AnalyzeResponse) => void) | null = null;
+  private pendingFileKey: string | null = null;
   private readonly results = new Map<string, TrackAnalysis>();
   private readonly status = new Map<string, AnalysisStatus>();
   private readonly listeners = new Set<() => void>();
   private readonly failedAt = new Map<string, number>();
+  private readonly urgent = new Set<string>();
   /** BitChord: each recent track's compressed audio (~5 MB), so a mix can decode the bars it loops. */
   private readonly bytes = new Map<string, Promise<TrackAudio>>();
 
@@ -93,19 +96,27 @@ class Analyzer {
     if (known === 'pending') {
       if (urgent) {
         const at = this.queue.findIndex((q) => q.videoId === videoId);
+        if (at < 0) this.urgent.add(videoId); // Its cache lookup is still pending.
         if (at > 0) this.queue.unshift(...this.queue.splice(at, 1));
       }
       return;
     }
+    if (urgent) this.urgent.add(videoId);
     this.setStatus(videoId, 'pending');
-    void getAnalysis(videoId).then((cached) => {
-      if (cached && cached.analysisVersion === ANALYSIS_VERSION) {
-        this.results.set(videoId, cached);
-        this.queue = this.queue.filter((q) => q.videoId !== videoId);
-        this.setStatus(videoId, 'done');
-      }
-    });
-    if (urgent) this.queue.unshift({ videoId, tags });
+    void this.loadOrQueue(videoId, tags);
+  }
+
+  private async loadOrQueue(videoId: string, tags: TrackTags): Promise<void> {
+    // Wait for the cache itself, not a guessed 50 ms delay. Slow IndexedDB must
+    // not trigger a second download or overwrite an analysis already in flight.
+    const cached = await getAnalysis(videoId).catch(() => null);
+    if (cached?.fileKey === videoId && cached.analysisVersion === ANALYSIS_VERSION && cached.analysisRevision === ANALYSIS_REVISION) {
+      this.urgent.delete(videoId);
+      this.results.set(videoId, { ...cached, tags });
+      this.setStatus(videoId, 'done');
+      return;
+    }
+    if (this.urgent.delete(videoId)) this.queue.unshift({ videoId, tags });
     else this.queue.push({ videoId, tags });
     void this.run();
   }
@@ -119,12 +130,20 @@ class Analyzer {
     if (this.worker) return this.worker;
     const worker = new Worker(new URL('./analysis.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (ev: MessageEvent<AnalyzeResponse>) => {
-      this.pendingResolve?.(ev.data);
+      if (ev.data.fileKey !== this.pendingFileKey) return;
+      const resolve = this.pendingResolve;
       this.pendingResolve = null;
+      this.pendingFileKey = null;
+      resolve?.(ev.data);
     };
     worker.onerror = (ev) => {
-      this.pendingResolve?.({ type: 'error', fileKey: '', message: ev.message ?? 'worker error' });
+      const resolve = this.pendingResolve;
+      const fileKey = this.pendingFileKey ?? '';
       this.pendingResolve = null;
+      this.pendingFileKey = null;
+      worker.terminate();
+      if (this.worker === worker) this.worker = null;
+      resolve?.({ type: 'error', fileKey, message: ev.message ?? 'worker error' });
     };
     this.worker = worker;
     return worker;
@@ -133,8 +152,6 @@ class Analyzer {
   private async run(): Promise<void> {
     if (this.running) return;
     this.running = true;
-    // Let the cache lookups above answer before downloading anything.
-    await new Promise((r) => setTimeout(r, 50));
     while (this.queue.length > 0) {
       const { videoId, tags } = this.queue.shift()!;
       if (this.status.get(videoId) !== 'pending') continue;
@@ -143,7 +160,9 @@ class Analyzer {
       try {
         const analysis = await this.analyzeOne(videoId, tags);
         this.results.set(videoId, analysis);
-        await putAnalysis(analysis);
+        // Storage is optional: a full or disabled IndexedDB must not turn a
+        // successful song analysis into an error.
+        await putAnalysis(analysis).catch((error: unknown) => trackLog.w(`automix cache write failed: ${String(error)}`, videoId));
         trackLog.i(
           `automix analysis: ${analysis.bpm?.toFixed(1) ?? '?'} BPM, ${analysis.keyName ?? '?'}, grid ${analysis.gridConfidence.toFixed(2)} in ${Math.round(performance.now() - started)}ms`,
           videoId,
@@ -201,6 +220,7 @@ class Analyzer {
     const worker = this.ensureWorker();
     const response = await new Promise<AnalyzeResponse>((resolve, reject) => {
       this.pendingResolve = resolve;
+      this.pendingFileKey = videoId;
       try {
         worker.postMessage(
           { type: 'analyze', fileKey: videoId, samples: mono, sampleRate: ANALYSIS_SR, beatWindows, vocalWindows },
@@ -208,6 +228,7 @@ class Analyzer {
         );
       } catch (e) {
         this.pendingResolve = null;
+        this.pendingFileKey = null;
         reject(e);
       }
     });
@@ -223,6 +244,7 @@ class Analyzer {
       ...response.result,
       musicVideo,
       analysisVersion: ANALYSIS_VERSION,
+      analysisRevision: ANALYSIS_REVISION,
     };
   }
 }

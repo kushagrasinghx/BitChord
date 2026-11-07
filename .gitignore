@@ -36,6 +36,7 @@ keystore.properties
 *.keystore
 
 # Project scratch / debug artifacts
+__pycache__/
 .shots/
 .tmp_verify/
 .debug/

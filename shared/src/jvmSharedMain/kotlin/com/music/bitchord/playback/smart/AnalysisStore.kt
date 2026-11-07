@@ -6,6 +6,7 @@ import java.io.File
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.roundToInt
 
@@ -91,6 +92,8 @@ class AnalysisStore(
             // way, and a wrong beat grid is worse than none — so it is dropped
             // and re-earned rather than migrated.
             require(stored.version == SCHEMA_VERSION) { "schema ${stored.version}" }
+            require(stored.trackId == trackId) { "track identity mismatch" }
+            require(stored.analysisRevision == AutomixModels.ANALYSIS_REVISION) { "model/analysis revision mismatch" }
             stored.toAnalysis(trackId)
         }
             .onFailure {
@@ -110,7 +113,7 @@ class AnalysisStore(
      * the reason for it is usually missing bytes rather than the track itself.
      */
     fun save(trackId: String, analysis: TrackAnalysis) {
-        if (trackId.isBlank() || !analysis.isUsable) return
+        if (trackId.isBlank() || analysis.trackId != trackId || !analysis.isUsable) return
         runCatching {
             directory.mkdirs()
             val file = File(directory, fileNameFor(trackId))
@@ -164,7 +167,9 @@ class AnalysisStore(
     }
 
     /** Hashed rather than used raw: a track id is not guaranteed to be a legal filename. */
-    private fun fileNameFor(trackId: String): String = "${trackId.hashCode().toUInt()}_${trackId.length}.json"
+    private fun fileNameFor(trackId: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(trackId.toByteArray(Charsets.UTF_8))
+        .joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') } + ".json"
 
     /**
      * The persisted subset, kept separate from [TrackAnalysis] so that adding a
@@ -177,6 +182,8 @@ class AnalysisStore(
     @Serializable
     private data class Stored(
         val version: Int = SCHEMA_VERSION,
+        val trackId: String,
+        val analysisRevision: String,
         val duration: Double = 0.0,
         val bpm: Double = 0.0,
         val beatInterval: Double = 0.0,
@@ -237,6 +244,8 @@ class AnalysisStore(
 
         companion object {
             fun of(analysis: TrackAnalysis) = Stored(
+                trackId = analysis.trackId,
+                analysisRevision = AutomixModels.ANALYSIS_REVISION,
                 duration = analysis.duration,
                 bpm = analysis.bpm,
                 beatInterval = analysis.beatInterval,
@@ -331,7 +340,7 @@ class AnalysisStore(
          * re-analysis costs seconds, and a beat grid interpreted under the wrong
          * assumptions is silently wrong for the life of the file.
          */
-        const val SCHEMA_VERSION = 3
+        const val SCHEMA_VERSION = 4
 
         /** A few thousand tracks' worth, at tens of kilobytes each. */
         const val MAX_ENTRIES = 2_000

@@ -10,6 +10,7 @@ import { createPlaylist } from '@/data/music/api';
 import { useSignedIn } from '@/data/music/queries';
 import type { HeaderInfo } from '@/data/music/types';
 import { useSpotifyPlaylistInfo, useSpotifyRows } from '@/data/spotify/queries';
+import { useRememberRecent } from '@/state/recents';
 import { useExtension } from '@/extension/useExtension';
 import { useSpotifySignedIn } from '@/extension/useSpotifyAuth';
 import { useArtworkColor } from '@/lib/artworkColor';
@@ -30,6 +31,15 @@ export default function SpotifyPlaylistPage() {
   const info = useSpotifyPlaylistInfo(id);
   const rows = useSpotifyRows(id);
   usePageTint(useArtworkColor(info.data?.imageUrl));
+  useRememberRecent(
+    info.data && {
+      kind: 'spotify-playlist',
+      id,
+      title: info.data.name,
+      subtitle: ['Spotify Playlist', info.data.owner, `${info.data.total} tracks`].filter(Boolean).join(' • '),
+      thumbnail: info.data.imageUrl,
+    },
+  );
 
   if (extension.state === 'missing') return <NeedsExtension what="your Spotify playlists" />;
   if (!signedIn) return <EmptyState title="Sign in to Spotify" detail="Open Spotify in the sidebar to connect your account." />;

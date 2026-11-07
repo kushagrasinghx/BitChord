@@ -12,6 +12,7 @@ import { isMobileBrowser } from '@/lib/platform';
 import { useUi } from '@/state/ui';
 import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import { Banner, bannerButtonClass } from './Banner';
+import { CommandPalette } from './CommandPalette';
 import { MobileTopBar } from './MobileTopBar';
 import { PlayerBar } from './PlayerBar';
 import { SidePanel } from './SidePanel';
@@ -91,6 +92,7 @@ export function AppShell() {
         <SidePanel />
       </div>
       {banner}
+      <CommandPalette />
       {fullScreen && (
         <Suspense fallback={null}>
           <FullScreenPlayer />

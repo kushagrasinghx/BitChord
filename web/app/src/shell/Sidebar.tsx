@@ -1,4 +1,4 @@
-import { ArrowUpRight, ListMusic, Settings } from 'lucide-react';
+import { ArrowUpRight, Command, ListMusic, Settings } from 'lucide-react';
 import { MdOutlineExtension } from 'react-icons/md';
 import { PrefetchLink, PrefetchNavLink } from '@/components/PrefetchLink';
 import { LogoMark } from '@/components/icons/LogoMark';
@@ -21,6 +21,7 @@ import { useLibraryPlaylists, useSignedIn } from '@/data/music/queries';
 import { useSpotifyPlaylists } from '@/data/spotify/queries';
 import { useExtensionUpdate } from '@/extension/useExtensionUpdate';
 import { useSpotifySignedIn } from '@/extension/useSpotifyAuth';
+import { isMac } from '@/lib/platform';
 import { useUi } from '@/state/ui';
 import { AccountButton } from './AccountButton';
 
@@ -137,6 +138,7 @@ function SpotifyNav({ onNavigate }: { onNavigate: () => void }) {
 export function Sidebar() {
   const drawerOpen = useUi((s) => s.drawerOpen);
   const setDrawerOpen = useUi((s) => s.setDrawerOpen);
+  const setPaletteOpen = useUi((s) => s.setPaletteOpen);
   const update = useExtensionUpdate();
   const signedIn = useSignedIn();
   const spotifySignedIn = useSpotifySignedIn();
@@ -159,6 +161,20 @@ export function Sidebar() {
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto pr-3 pl-5 [scrollbar-width:none]">
           <NavList items={PRIMARY} onNavigate={close} />
+          <button
+            type="button"
+            className={`${item} w-full text-left`}
+            onClick={() => {
+              close();
+              setPaletteOpen(true);
+            }}
+          >
+            <span className={icon}>
+              <Command size={17} strokeWidth={1.9} />
+            </span>
+            <span className={navLabel}>Quick Search</span>
+            <kbd className="ml-auto rounded-[4px] border border-divider px-1 type-callout text-secondary max-sm:hidden">{isMac() ? '⌘K' : 'Ctrl K'}</kbd>
+          </button>
           {signedIn && <LibraryNav onNavigate={close} />}
           {spotifySignedIn && <SpotifyNav onNavigate={close} />}
         </div>

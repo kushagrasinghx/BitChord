@@ -27,7 +27,7 @@ function focusSearch(navigate: ReturnType<typeof useNavigate>) {
 /**
  * The web player's shortcuts, which BitChord matches (report §8): Space
  * play/pause; ⌘/Ctrl+→ / ← next/previous; ⌘/Ctrl+↑ / ↓ volume; ⌘/Ctrl+F or
- * "/" focuses search; Esc closes the full-screen player, else the side panel.
+ * "/" focuses search; ⌘/Ctrl+K opens the quick search; Esc closes the full-screen player, else the side panel.
  */
 export function useKeyboardShortcuts() {
   const navigate = useNavigate();
@@ -37,6 +37,11 @@ export function useKeyboardShortcuts() {
       const player = usePlayer.getState();
       const command = event.metaKey || event.ctrlKey;
 
+      if (command && (event.key === 'k' || event.key === 'K')) {
+        event.preventDefault();
+        const ui = useUi.getState();
+        return ui.setPaletteOpen(!ui.paletteOpen);
+      }
       if (command && (event.key === 'f' || event.key === 'F')) {
         event.preventDefault();
         return focusSearch(navigate);

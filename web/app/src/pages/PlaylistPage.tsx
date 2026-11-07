@@ -7,6 +7,7 @@ import { TrackList } from '@/components/music/TrackList';
 import { usePlaylist, useYouTubeReady } from '@/data/music/queries';
 import { useArtworkColor } from '@/lib/artworkColor';
 import { usePageTint } from '@/lib/usePageTint';
+import { useRememberRecent } from '@/state/recents';
 import { PlaylistSkeleton } from '@/skeletons/PageSkeletons';
 import { detailFooter } from './pageStyles';
 
@@ -17,6 +18,15 @@ export default function PlaylistPage() {
   const playlist = usePlaylist(id);
   const header = playlist.data?.pages[0]?.header ?? null;
   usePageTint(useArtworkColor(header?.thumbnail));
+  useRememberRecent(
+    header && {
+      kind: 'playlist',
+      id,
+      title: header.title,
+      subtitle: ['Playlist', header.artists.map((a) => a.name).join(', '), [header.subtitle, header.meta].join(' • ').split(' • ').find((part) => /\b(tracks?|songs?|episodes?)\b/i.test(part))].filter(Boolean).join(' • '),
+      thumbnail: header.thumbnail,
+    },
+  );
 
   const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = playlist;
   const onNearEnd = useCallback(() => {

@@ -8,6 +8,7 @@ import { Shelves, TrackShelf } from '@/components/music/ShelfView';
 import { LoadError, NeedsExtension } from '@/components/music/States';
 import { requestAppleAccess, useAppleArtistArt, useUngrantedAppleOrigins, type AppleArtistArt } from '@/data/apple/artistArt';
 import { useArtist, useYouTubeReady } from '@/data/music/queries';
+import { useRememberRecent } from '@/state/recents';
 import type { ArtworkColor } from '@/lib/artworkColor';
 import { usePageTint } from '@/lib/usePageTint';
 import { ArtistSkeleton } from '@/skeletons/PageSkeletons';
@@ -68,6 +69,15 @@ export default function ArtistPage() {
     [apple],
   );
   usePageTint(tint);
+  useRememberRecent(
+    artist.data && {
+      kind: 'artist',
+      id: artist.data.id,
+      title: artist.data.name,
+      subtitle: 'Artist',
+      thumbnail: artist.data.heroImage,
+    },
+  );
 
   if (missing) return <NeedsExtension />;
   if (artist.isError) return <LoadError error={artist.error} onRetry={() => void artist.refetch()} />;

@@ -1458,4 +1458,7 @@
     <string name="bit_perfect_status_inexact">%1$s · inexact : cette source n\'est pas du PCM sans perte</string>
     <string name="bit_perfect_status_waiting">En attente d\'un morceau sans perte sur une sortie compatible</string>
     <string name="bit_perfect_status_unavailable">Indisponible pour ce morceau (%1$s)</string>
+    <string name="diwali_title">BitChord vous souhaite un joyeux Diwali</string>
+    <string name="diwali_subtitle">Que cette fête des lumières remplisse votre foyer de joie et vos journées de musique.</string>
+    <string name="diwali_cta">Célébrons</string>
 </resources>

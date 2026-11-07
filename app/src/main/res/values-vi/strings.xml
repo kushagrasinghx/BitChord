@@ -1374,4 +1374,7 @@
     <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
     <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
     <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
+    <string name="diwali_title">BitChord chúc bạn một mùa Diwali hạnh phúc</string>
+    <string name="diwali_subtitle">Chúc lễ hội ánh sáng này mang niềm vui đến ngôi nhà bạn và âm nhạc đến mỗi ngày của bạn.</string>
+    <string name="diwali_cta">Cùng ăn mừng nào</string>
 </resources>

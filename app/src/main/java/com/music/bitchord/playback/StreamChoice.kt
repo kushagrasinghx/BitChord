@@ -77,6 +77,38 @@ object StreamChoice {
      *   that fails has not.
      */
     fun remember(videoId: String, stream: SourceStream, substituted: Boolean) {
+        makeRoom()
+        chosen[videoId] = Choice(stream, SystemClock.elapsedRealtime(), substituted)
+    }
+
+    /**
+     * [remember], unless a choice for [videoId] already stands — for a pin made
+     * speculatively, ahead of the track, which must never replace one that a
+     * reader of the cache entry may already be honouring.
+     *
+     * Atomic, unlike an [of] check followed by [remember]: the player settles
+     * on its own stream on a loader thread, and a speculative pin landing in
+     * between would hand the entry's later re-opens a different file from the
+     * one its first bytes came from.
+     *
+     * @return whether [stream] was recorded.
+     */
+    fun rememberIfUnchosen(videoId: String, stream: SourceStream, substituted: Boolean): Boolean {
+        makeRoom()
+        var recorded = false
+        chosen.compute(videoId) { _, existing ->
+            val now = SystemClock.elapsedRealtime()
+            if (existing != null && now - existing.at <= TTL_MS) {
+                existing
+            } else {
+                recorded = true
+                Choice(stream, now, substituted)
+            }
+        }
+        return recorded
+    }
+
+    private fun makeRoom() {
         if (chosen.size >= MAX_REMEMBERED) {
             // Drop what can no longer be honoured, and only then the oldest of
             // what can. This used to `clear()`, which is the one eviction
@@ -97,7 +129,6 @@ object StreamChoice {
                 chosen.minByOrNull { it.value.at }?.let { chosen.remove(it.key) }
             }
         }
-        chosen[videoId] = Choice(stream, SystemClock.elapsedRealtime(), substituted)
     }
 
     /**

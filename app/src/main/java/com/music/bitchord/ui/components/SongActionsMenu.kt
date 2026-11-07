@@ -939,6 +939,8 @@ private fun LoadingActionRow(icon: ImageVector, label: String, palette: ArtworkP
  * The track the playlist picker is adding, drawn at its head — the same track
  * the menu it was opened from was about.
  *
+ * [title] is set when that track's artwork and artist preview an album instead.
+ *
  * [subtitleColor] is for ground other than the flat theme background, where
  * the usual dim grey may not hold.
  */
@@ -947,6 +949,7 @@ internal fun SheetTrackHeader(
     song: Song,
     modifier: Modifier = Modifier,
     subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    title: String? = null,
 ) {
     Row(
         modifier = modifier
@@ -966,11 +969,21 @@ internal fun SheetTrackHeader(
         )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            ExplicitSongTitle(
-                song = song,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+            if (title == null) {
+                ExplicitSongTitle(
+                    song = song,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            } else {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
                 text = song.artist,
                 style = MaterialTheme.typography.bodyMedium,

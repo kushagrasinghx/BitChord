@@ -92,6 +92,8 @@ import kotlinx.coroutines.launch
  * [song] is null when the flow started from the Library tab rather than from a
  * track, which is the one case where the header has no track to draw and
  * "New playlist" is the whole point of the sheet.
+ * [headerTitle] overrides the track title when the same preview represents an
+ * album; the song's artwork and artist remain the preview data.
  *
  * Playlists are ticked rather than picked: one track often belongs in more
  * than one list, and a sheet that closed on the first tap meant opening it
@@ -112,6 +114,7 @@ fun PlaylistPickerSheet(
     song: Song? = null,
     startCreating: Boolean = false,
     offline: Boolean = false,
+    headerTitle: String? = null,
 ) {
     var creating by remember { mutableStateOf(startCreating) }
     // By id rather than by value: the list is re-fetched under an open sheet,
@@ -176,7 +179,7 @@ fun PlaylistPickerSheet(
                     onConfirm = { closeAfter { onAdd(playlists.filter { it.playlistId in selected }) } },
                 )
                 if (song != null) {
-                    SheetTrackHeader(song)
+                    SheetTrackHeader(song, title = headerTitle)
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline)
                 }
                 SheetHeading(

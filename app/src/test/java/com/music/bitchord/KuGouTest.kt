@@ -1,6 +1,8 @@
 package com.music.bitchord
 
 import com.music.bitchord.data.lyrics.KuGou
+import com.music.bitchord.data.lyrics.LyricLine
+import com.music.bitchord.data.lyrics.ProviderLyrics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -93,5 +95,16 @@ class KuGouTest {
         assertFalse(instrumental(strip(fixture)))
         assertFalse(instrumental("[00:00.00]纯音乐，请欣赏\n[00:05.00]first sung line"))
         assertFalse(instrumental(""))
+    }
+
+    @Test
+    fun `QQ's notice relayed through BetterLyrics Portato is no lyrics either`() {
+        // A QRC line as Portato sends it, every character stamped.
+        val qrc = "此歌曲为没有填词的纯音乐，请您欣赏".mapIndexed { i, c -> "$c(${i * 300},300)" }
+            .joinToString("", prefix = "[0,5100]")
+        val lines = ProviderLyrics.parse(qrc)!!
+        assertTrue(KuGou.isInstrumentalNotice(lines))
+        assertFalse(KuGou.isInstrumentalNotice(lines + LyricLine(6000, "first sung line")))
+        assertFalse(KuGou.isInstrumentalNotice(emptyList()))
     }
 }

@@ -188,6 +188,11 @@ fun SearchScreen(
     LaunchedEffect(scrollResetTrigger) {
         if (scrollResetTrigger > 0) listState.scrollToItem(0)
     }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }.collect { scrolling ->
+            if (scrolling) focusManager.clearFocus()
+        }
+    }
     // A non-empty suggestion list means the field is mid-edit — see
     // MainViewModel.suggestions. Nothing below it is worth showing while it is
     // up: the results are for whatever was searched before this edit began,

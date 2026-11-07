@@ -79,6 +79,7 @@ import com.music.bitchord.data.listentogether.ServerConnectionState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -122,6 +123,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.auth.DiscordLoginScreen
@@ -3937,8 +3939,28 @@ private fun BitChordApp(
                         // be mistaken for a per-page action — Home, at rest.
                         if (route == null && detail == null && selectedTab == TAB_HOME) {
                             updateNotice?.let { update ->
+                                val updateDownload by AppUpdateChecker.download.collectAsStateWithLifecycle()
+                                val downloading = updateDownload as? AppUpdateChecker.DownloadState.Downloading
                                 IconButton(onClick = { showUpdateDialog = true }) {
-                                    Icon(
+                                    if (downloading != null) {
+                                        // While the APK downloads, the icon becomes a
+                                        // ring that fills with the percent done.
+                                        val percent = (downloading.fraction * 100).toInt()
+                                        Box(contentAlignment = Alignment.Center) {
+                                            CircularProgressIndicator(
+                                                progress = { downloading.fraction },
+                                                modifier = Modifier.size(26.dp),
+                                                strokeWidth = 2.5.dp,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                                            )
+                                            Text(
+                                                text = "$percent",
+                                                fontSize = 9.sp,
+                                                color = MaterialTheme.colorScheme.primary,
+                                            )
+                                        }
+                                    } else Icon(
                                         // An arrow rising out of a bar, not the
                                         // little phone-with-an-arrow: at 24dp the
                                         // handset outline is mush, and the glyph
@@ -5439,7 +5461,7 @@ private fun BitChordApp(
                     onDismiss = { showUpdateDialog = false },
                     onDownload = {
                         if (update.apkUrl != null) {
-                            scope.launch { AppUpdateChecker.downloadApk(context) }
+                            AppUpdateChecker.startDownload(context)
                         } else {
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.releaseUrl)))
                             showUpdateDialog = false

@@ -212,6 +212,8 @@
     <string name="reduce_animation_subtitle">मुख्य प्लेयर के ग्रेडिएंट को बहने के बजाय स्थिर रखता है</string>
     <string name="reduce_dynamic_blur">डायनामिक ब्लर कम करें</string>
     <string name="reduce_dynamic_blur_subtitle">पूरे ऐप में फ्रॉस्टेड ग्लास की जगह ठोस रंग लगाता है</string>
+    <string name="disable_blend_effects">ब्लेंड इफ़ेक्ट बंद करें</string>
+    <string name="disable_blend_effects_subtitle">प्लेयर आइकन, टेक्स्ट और डार्क मेनू को आर्टवर्क के रंग में रंगने के बजाय सादे सफ़ेद में दिखाता है</string>
     <string name="full_screen_cover_art">फ़ुल-स्क्रीन कवर आर्ट</string>
     <string name="animated_cover_art">एनिमेटेड कवर आर्ट</string>
     <string name="synced_lyrics">सिंक किए गए लिरिक्स</string>
@@ -242,6 +244,8 @@
     <string name="light">लाइट</string>
     <string name="dark">डार्क</string>
     <string name="full_screen_cover_art_subtitle">चौकोर स्लीव के बजाय कवर को प्लेयर के किनारों तक ले जाता है</string>
+    <string name="full_screen_detail_cover">फ़ुल-स्क्रीन एल्बम/प्लेलिस्ट कवर</string>
+    <string name="full_screen_detail_cover_subtitle">एल्बम और प्लेलिस्ट कवर को फ़्रेम के बजाय पेज के किनारों तक ले जाता है</string>
     <string name="animated_cover_art_subtitle">स्थिर स्लीव के बजाय कुछ रिलीज़ में मौजूद लूपिंग वीडियो चलाता है</string>
     <string name="dont_repeat_songs_subtitle">ऑटोप्ले इस सेशन में पहले से चलाया या सुझाया गया गाना दोबारा सुझाव नहीं देगा</string>
     <string name="download_quality_subtitle">%1$s प्रति ट्रैक, कनेक्शन चाहे जो भी हो</string>
@@ -791,7 +795,6 @@
 
     <string name="addon_url_description">एडऑन का URL पेस्ट करें — रूट या manifest.json।</string>
 
-    <string name="advanced_options">उन्नत विकल्प</string>
 
     <string name="automix_mode_balanced">संतुलित</string>
 
@@ -857,9 +860,14 @@
     <string name="playlist_sync_done_title">%1$s में जोड़े गए: %2$d</string>
     <string name="playlist_updates_channel">प्लेलिस्ट अपडेट</string>
 
-    <string name="legacy_mesh_gradient">क्लासिक मेश ग्रेडिएंट</string>
+    <string name="player_theme">प्लेयर थीम</string>
+    <string name="player_theme_default">डिफ़ॉल्ट</string>
+    <string name="player_theme_legacy">पुराना</string>
+    <string name="player_theme_simple">सरल</string>
+    <string name="player_theme_default_subtitle">कवर के रंग उसके नीचे तक फैलते हैं</string>
+    <string name="player_theme_simple_subtitle">पूरे प्लेयर के पीछे धुंधला कवर</string>
 
-    <string name="legacy_mesh_gradient_subtitle">v1.5 से प्लेयर के पीछे बहने वाले रंग लौटाएं</string>
+    <string name="player_theme_legacy_subtitle">v1.5 से प्लेयर के पीछे बहने वाले रंग लौटाएं</string>
 
     <string name="liquid_glass">लिक्विड ग्लास</string>
 
@@ -1067,6 +1075,16 @@
     <string name="settings_search_empty">No settings match “%1$s”</string>
 
 
+    <string name="content_preferences">Content Preferences</string>
+    <string name="hide_recents">Hide Recents</string>
+    <string name="hide_home_videos">Hide videos from Home</string>
+    <string name="hide_home_videos_subtitle">Shelves of only videos go too. Search, artists and playlists still show them</string>
+    <string name="hide_top_picks">Hide Top Picks for You</string>
+    <string name="hide_home_moods">Hide Find Your Mood</string>
+    <string name="square_video_thumbnails">Square video thumbnails</string>
+    <string name="square_video_thumbnails_subtitle">Show music videos as squares everywhere, including the player</string>
+    <string name="prefer_music_only">Prefer music-only version</string>
+    <string name="prefer_music_only_subtitle">Music videos play as their audio version, and the next track in the queue is converted ahead of time so Automix and crossfade work</string>
     <string name="smart_version_alignment">स्मार्ट ऑडियो अलाइनमेंट</string>
     <string name="smart_version_alignment_subtitle">ठीक मेल खाने वाला प्लेबैक पल ढूँढने के लिए ऑडियो वेवफ़ॉर्म का विश्लेषण करता है</string>
 
@@ -1255,6 +1273,8 @@
 
 
     <string name="source_needs_lossless_output">लॉसलेस आउटपुट चाहिए · लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
+    <string name="source_needs_update">यह ऐडऑन पुराना है। यह अभी भी काम करता है, लेकिन इसके डेवलपर से कहें कि वे BitChord के नए ऐडऑन डॉक्स के अनुसार इसे अपडेट करें।</string>
+    <string name="source_outdated">पुराना ऐडऑन</string>
     <string name="source_needs_lossless_bt_codec">लॉसलेस आउटपुट चाहिए · Bluetooth %1$s पर है; लॉसलेस सपोर्ट करने वाला डिवाइस इस्तेमाल करें</string>
     <string name="source_needs_lossless_bt_unknown">लॉसलेस आउटपुट चाहिए · पता नहीं चल रहा कि कौन-सा Bluetooth कोडेक चल रहा है</string>
     <string name="source_downloads_on">डाउनलोड की अनुमति है</string>
@@ -1393,6 +1413,7 @@
     <string name="direct_source_stream">स्रोत से सीधी स्ट्रीम</string>
     <string name="find_your_mood">अपना मूड खोजें</string>
     <string name="progressive_blur">क्रमिक ब्लर</string>
+    <string name="glass_performance">ग्लास के लिए बेहतर परफ़ॉर्मेंस</string>
     <string name="remove_from_history">इतिहास से हटाएँ</string>
     <string name="remove_from_history_failed">इतिहास से नहीं हटाया जा सका</string>
     <string name="addon_blocked_title">यह गाना नहीं चल सकता</string>
@@ -1436,4 +1457,7 @@
     <string name="bit_perfect_status_inexact">%1$s · सटीक नहीं: यह सोर्स लॉसलेस PCM नहीं है</string>
     <string name="bit_perfect_status_waiting">समर्थित आउटपुट पर लॉसलेस ट्रैक का इंतज़ार है</string>
     <string name="bit_perfect_status_unavailable">इस ट्रैक के लिए उपलब्ध नहीं (%1$s)</string>
+    <string name="diwali_title">BitChord की ओर से दीपावली की शुभकामनाएँ</string>
+    <string name="diwali_subtitle">रोशनी का यह त्योहार आपके घर को खुशियों से और आपके दिनों को संगीत से भर दे।</string>
+    <string name="diwali_cta">चलो जश्न मनाएँ</string>
 </resources>

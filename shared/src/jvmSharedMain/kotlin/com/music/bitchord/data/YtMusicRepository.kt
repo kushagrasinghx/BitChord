@@ -58,6 +58,11 @@ object YtMusicRepository {
     fun cachedAudioVersion(videoId: String): Song? = audioVersionCache[videoId]
     fun cachedVideoVersion(videoId: String): Song? = videoVersionCache[videoId]
 
+    /** Switching [audioId] back to video returns to [video], the row it was converted from. */
+    fun rememberVideoVersion(audioId: String, video: Song) {
+        videoVersionCache[audioId] = video
+    }
+
     /**
      * How a position in [fromId] maps into [toId], when YouTube Music paired
      * the two itself and said how they line up. Null for a pair found by
@@ -286,7 +291,7 @@ object YtMusicRepository {
     }
 
     private const val HISTORY = "FEmusic_history"
-    private const val RECENT_TITLE = "Recents"
+    const val RECENT_TITLE = "Recents"
 
     /** Enough to scroll through, short of turning the shelf into the history page. */
     private const val RECENT_LIMIT = 20
@@ -415,8 +420,12 @@ object YtMusicRepository {
      *
      * Returns [song] unchanged when it isn't a video, or when nothing better
      * turns up — playing the video's own audio track beats guessing at a
-     * substitute. This is deliberately an explicit action from the player,
-     * never part of normal queueing or playback.
+     * substitute. It only runs when asked for: the player's switch, or the
+     * music-only setting, never otherwise as part of queueing or playback.
+     *
+     * "Nothing turned up" is only remembered when the searches actually
+     * answered. A search that failed says nothing about the song, and caching
+     * it left the track on its video for the rest of the session.
      *
      * [search] already drops video rows from its results (see
      * [InnertubeParser.parseSearch]), so every candidate here is audio-only
@@ -430,8 +439,10 @@ object YtMusicRepository {
             return audio
         }
         val target = TrackMatcher.targetOf(song)
+        var searchFailed = false
         for (query in TrackMatcher.queries(target)) {
             val candidates = search(query, SearchFilter.SONGS)
+                .onFailure { searchFailed = true }
                 .getOrNull()
                 ?.filterIsInstance<SearchResult.Track>()
                 ?.map { it.song }
@@ -451,7 +462,7 @@ object YtMusicRepository {
             }
         }
         Log.w(TAG, "audio switch: no official song match for '${song.title}' by '${song.artist}'")
-        audioVersionCache[song.videoId] = song
+        if (!searchFailed) audioVersionCache[song.videoId] = song
         return song
     }
 

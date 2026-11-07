@@ -61,6 +61,7 @@ import com.music.bitchord.sharedui.resources.ic_player_next
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
+import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
 import com.music.bitchord.ui.player.AndroidMusicVideo
 import androidx.compose.ui.layout.ContentScale
@@ -417,8 +418,9 @@ fun MiniPlayer(
         ) {
             // A music video plays here at its own 16:9, as the web player's
             // mini player does, rather than cropped into the square cover.
+            val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
             val artWidth by animateDpAsState(
-                targetValue = if (song.isVideo) VIDEO_ART_WIDTH else 40.dp,
+                targetValue = if (showsPicture && !VideoThumbnails.square) VIDEO_ART_WIDTH else 40.dp,
                 label = "miniArtWidth",
             )
             Box(
@@ -438,7 +440,7 @@ fun MiniPlayer(
                 // A music video keeps playing in the cover's place, cropped to
                 // it, as the web player's mini player does — the full player,
                 // when it is up, takes the picture over.
-                if (song.isVideo) {
+                if (showsPicture) {
                     AndroidMusicVideo(
                         videoId = song.videoId,
                         fit = false,

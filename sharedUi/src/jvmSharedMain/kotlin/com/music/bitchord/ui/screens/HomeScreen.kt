@@ -5,6 +5,7 @@ import com.music.bitchord.ui.components.contextClick
 import com.music.bitchord.ui.AppUi
 import com.music.bitchord.sharedui.resources.*
 import org.jetbrains.compose.resources.painterResource
+import com.music.bitchord.ui.festive.GoldenLogo
 import org.jetbrains.compose.resources.DrawableResource
 import androidx.compose.foundation.Image
 import org.jetbrains.compose.resources.stringResource
@@ -31,7 +32,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import com.music.bitchord.ui.components.ShelfRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,11 +50,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cached
@@ -65,7 +65,6 @@ import androidx.compose.material.icons.rounded.Storage
 import com.music.bitchord.ui.icons.BitChordIcons
 import coil3.compose.AsyncImage
 import com.music.bitchord.data.model.CARD_ART_PX
-import com.music.bitchord.data.model.HEADER_ART_PX
 import com.music.bitchord.data.model.HomeShelf
 import com.music.bitchord.data.model.ROW_ART_PX
 import com.music.bitchord.data.model.ShelfItem
@@ -76,18 +75,17 @@ import com.music.bitchord.data.model.TopPickMood
 import com.music.bitchord.data.model.UiState
 import java.util.Locale
 import com.music.bitchord.data.model.artworkAt
-import com.music.bitchord.ui.components.HERO_CARD_RATIO
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.PAGE_GUTTER
 import com.music.bitchord.ui.components.RowMoreButton
 import com.music.bitchord.ui.components.PullToRefresh
 import com.music.bitchord.ui.components.SHELF_CARD_WIDTH
+import com.music.bitchord.ui.components.VideoThumbnails
 import com.music.bitchord.ui.components.SearchPlayingBars
 import com.music.bitchord.ui.components.SignInBanner
 import com.music.bitchord.ui.components.feedMoreSkeleton
 import com.music.bitchord.ui.components.feedSkeleton
 import com.music.bitchord.ui.components.recentlyPlayedSkeleton
-import com.music.bitchord.ui.components.heroCardWidth
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.components.trackColumnWidth
 import com.music.bitchord.ui.player.MeshGradientBackground
@@ -124,6 +122,10 @@ fun HomeScreen(
     contentPadding: PaddingValues,
     /** The page's heading, or null for none — the desktop's pages carry no heading. */
     title: String?,
+    /** Casts the wordmark above the heading in glowing gold, for a festival. */
+    festiveLogo: Boolean = false,
+    /** Tapping the festive wordmark, e.g. to bring its greeting back. */
+    onFestiveLogoClick: (() -> Unit)? = null,
     signedIn: Boolean = true,
     onSignIn: (() -> Unit)? = null,
     /**
@@ -137,12 +139,6 @@ fun HomeScreen(
     onLoadMore: (() -> Unit)? = null,
     loadingMore: Boolean = false,
     recentlyPlayedLoading: Boolean = false,
-    /**
-     * Whether the feed's first shelf gets the big full-bleed cards. The phone
-     * leads with them; on a window as wide as a desktop's they are posters, so
-     * there every shelf is the ordinary row.
-     */
-    leadHero: Boolean = true,
     currentSong: Song? = null,
     isPlaying: Boolean = false,
     /**
@@ -194,7 +190,7 @@ fun HomeScreen(
             },
         ) {
             if (title != null) {
-                item { HomeTitle(title) }
+                item { HomeTitle(title, festiveLogo = festiveLogo, onFestiveLogoClick = onFestiveLogoClick) }
             }
             if (!signedIn && onSignIn != null) {
                 item {
@@ -224,13 +220,8 @@ fun HomeScreen(
                 is UiState.Loading -> {
                     if (recentlyPlayedLoading) {
                         recentlyPlayedSkeleton()
-                        // Recents owns the leading layout while its request is
-                        // pending, so the feed behind it starts with ordinary
-                        // shelf placeholders rather than another hero card.
-                        feedSkeleton(firstIsHero = false)
-                    } else {
-                        feedSkeleton(firstIsHero = leadHero)
                     }
+                    feedSkeleton()
                 }
                 is UiState.Error -> item {
                     MessageState(state.message, actionLabel = stringResource(Res.string.retry), onAction = onRetry)
@@ -239,9 +230,6 @@ fun HomeScreen(
                     if (recentlyPlayedLoading) {
                         recentlyPlayedSkeleton()
                     }
-                    // The loading skeleton already owns the hero slot. Until
-                    // Recently Played lands, every real shelf must retain its
-                    // compact-card layout instead of briefly becoming a hero.
                     itemsIndexedShelves(
                         shelves = state.data,
                         onMoodClick = onMoodClick,
@@ -250,7 +238,6 @@ fun HomeScreen(
                         onItemLongPress = onItemLongPress,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
-                        firstIsHero = leadHero && !recentlyPlayedLoading,
                     )
                     if (loadingMore) feedMoreSkeleton()
                 }
@@ -281,17 +268,13 @@ fun HomeScreen(
     }
 }
 
-/**
- * Recents mirrors the artist page's top-tracks pager. Any other lead shelf keeps
- * Apple's full-bleed treatment, while the remaining shelves use square cards.
- */
+/** Recents mirrors the artist page's top-tracks pager; other shelves use square cards. */
 private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
     shelves: List<HomeShelf>,
     onItemClick: (ShelfItem, String) -> Unit,
     onItemLongPress: ((ShelfItem) -> Unit)?,
     currentSong: Song?,
     isPlaying: Boolean,
-    firstIsHero: Boolean = true,
     onMoodClick: ((TopPickMood, String) -> Unit)? = null,
     onMoodsShowAll: () -> Unit = {},
 ) {
@@ -308,14 +291,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedShelves(
                 (index == 0 && shelf.title.equals(RECENTS_TITLE, ignoreCase = true))
             ) {
                 RecentShelf(
-                    shelf = shelf,
-                    onItemClick = openItem,
-                    onItemLongPress = onItemLongPress,
-                    currentSong = currentSong,
-                    isPlaying = isPlaying,
-                )
-            } else if (index == 0 && firstIsHero && shelf.layout == ShelfLayout.CARDS) {
-                HeroShelf(
                     shelf = shelf,
                     onItemClick = openItem,
                     onItemLongPress = onItemLongPress,
@@ -487,19 +462,33 @@ fun CompactTrackRow(
  * system font scale.
  */
 @Composable
-private fun HomeTitle(title: String, modifier: Modifier = Modifier) {
+private fun HomeTitle(
+    title: String,
+    modifier: Modifier = Modifier,
+    festiveLogo: Boolean = false,
+    onFestiveLogoClick: (() -> Unit)? = null,
+) {
     val style = MaterialTheme.typography.displayLarge
     val logoHeight = with(LocalDensity.current) { (style.fontSize * LOGO_TO_FONT).toDp() }
     Column(modifier = modifier.padding(horizontal = PAGE_GUTTER, vertical = 8.dp)) {
-        Icon(
-            painter = painterResource(Res.drawable.ic_logo),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .padding(bottom = 14.dp)
-                .height(logoHeight)
-                .aspectRatio(LOGO_ASPECT),
-        )
+        val logoModifier = Modifier
+            .padding(bottom = 14.dp)
+            .height(logoHeight)
+            .aspectRatio(LOGO_ASPECT)
+        if (festiveLogo) {
+            GoldenLogo(
+                painter = painterResource(Res.drawable.ic_logo),
+                modifier = logoModifier,
+                onClick = onFestiveLogoClick,
+            )
+        } else {
+            Icon(
+                painter = painterResource(Res.drawable.ic_logo),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onBackground,
+                modifier = logoModifier,
+            )
+        }
         // "Listen now" is hidden for now; the wordmark above stays.
         // Text(
         //     text = title,
@@ -732,102 +721,6 @@ internal fun localizeCardSubtitle(subtitle: String): String {
     return localizedParts.joinToString(delimiter)
 }
 
-@Composable
-private fun HeroShelf(
-    shelf: HomeShelf,
-    onItemClick: (ShelfItem) -> Unit,
-    onItemLongPress: ((ShelfItem) -> Unit)? = null,
-    currentSong: Song? = null,
-    isPlaying: Boolean = false,
-) {
-    Column(Modifier.padding(bottom = 26.dp)) {
-        SectionHeader(shelf.title, shelf.subtitle)
-        val isCurrentItem = shelf.items.playingItemMatcher(currentSong)
-        // Measured rather than taken as a share of the parent, because the card
-        // has a ceiling as well as a fraction — see [heroCardWidth]. A fixed
-        // width is also the only one of the two the aspect ratio below can turn
-        // into a height, so the card keeps its shape however it was arrived at.
-        BoxWithConstraints {
-            val cardWidth = heroCardWidth(maxWidth)
-            ShelfRow(
-                state = rememberLazyListState(),
-                contentPadding = PaddingValues(horizontal = PAGE_GUTTER),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                items(shelf.items) { item ->
-                    HeroCard(
-                        item = item,
-                        onClick = { onItemClick(item) },
-                        onLongPress = onItemLongPress?.let { { it(item) } },
-                        modifier = Modifier.width(cardWidth),
-                        isCurrent = isCurrentItem(item),
-                        isPlaying = isCurrentItem(item) && isPlaying,
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Big card: artwork with the caption laid over a scrim, as on Listen Now. */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun HeroCard(
-    item: ShelfItem,
-    onClick: () -> Unit,
-    onLongPress: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-    isCurrent: Boolean = false,
-    isPlaying: Boolean = false,
-) {
-    Box(
-        modifier = modifier
-            .aspectRatio(HERO_CARD_RATIO)
-            .clip(RoundedCornerShape(18.dp))
-            .thumbnailBorder(RoundedCornerShape(18.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
-            .contextClick(onLongPress),
-    ) {
-        AsyncImage(
-            model = item.thumbnailUrl.artworkAt(HEADER_ART_PX),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-        if (isCurrent && isPlaying) SearchPlayingBars(Modifier.align(Alignment.Center))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomStart)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f)),
-                    ),
-                )
-                .padding(start = 16.dp, end = 16.dp, top = 34.dp, bottom = 14.dp),
-        ) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.titleLarge,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (item.subtitle.isNotBlank()) {
-                val displaySubtitle = localizeCardSubtitle(item.subtitle)
-                Text(
-                    text = displaySubtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.72f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
 /**
  * [leadingCard] rides at the head of the row, ahead of the content — the
  * Library tab's "New playlist" tile, which belongs among the playlists rather
@@ -935,11 +828,11 @@ fun VideoShelfCard(
     }
 }
 
-/** A music video's frame. */
-const val VIDEO_ASPECT = 16f / 9f
+/** A music video's frame, or a square one when the listener asked for that — see [VideoThumbnails]. */
+val VIDEO_ASPECT: Float get() = if (VideoThumbnails.square) 1f else 16f / 9f
 
 /** Wide enough that a 16:9 card stands about as tall as a square [SHELF_CARD_WIDTH] one. */
-val VIDEO_CARD_WIDTH = 248.dp
+val VIDEO_CARD_WIDTH: Dp get() = if (VideoThumbnails.square) SHELF_CARD_WIDTH else 248.dp
 
 /**
  * A card that isn't a thing yet — the dashed "New playlist" tile at the head

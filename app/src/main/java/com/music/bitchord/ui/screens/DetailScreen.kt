@@ -962,6 +962,7 @@ private fun ReleaseHeader(
                     }
                     .aspectRatio(1f),
             ) {
+                var canvasCover by remember(canvas) { mutableStateOf(0f) }
                 AsyncImage(
                     model = page.thumbnailUrl.artworkAt(HEADER_ART_PX),
                     contentDescription = null,
@@ -971,7 +972,12 @@ private fun ReleaseHeader(
                         .matchParentSize()
                         // The mask below erases part of what this layer drew,
                         // which it can only do in a buffer of its own.
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                            // Hand off to the clip so its dissolve reveals the
+                            // page colour, not the still sleeve underneath.
+                            alpha = 1f - canvasCover
+                        }
                         .drawWithContent {
                             drawContent()
                             // The player banner's dissolve, along smootherstep so
@@ -997,6 +1003,7 @@ private fun ReleaseHeader(
                         canvas = clip,
                         isPlaying = true,
                         bottomFade = FULL_BLEED_FADE_FRACTION,
+                        onCoverChanged = { canvasCover = it },
                         modifier = Modifier.matchParentSize(),
                     )
                 }

@@ -39,6 +39,9 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Verify Automix models
+      run: python3 scripts/automix_models.py check
+
     - name: Build Prod Debug APK
       run: ./gradlew assembleProdDebug
 

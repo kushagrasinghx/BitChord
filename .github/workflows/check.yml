@@ -42,8 +42,11 @@ jobs:
 
       - run: chmod +x gradlew
 
+      - name: Verify Automix models
+        run: python3 scripts/automix_models.py check
+
       - name: Tests
-        run: ./gradlew testDevDebugUnitTest
+        run: ./gradlew :shared:jvmTest testDevDebugUnitTest
 
       - name: Build the dev APK
         run: ./gradlew assembleDevDebug

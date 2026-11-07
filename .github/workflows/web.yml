@@ -8,10 +8,16 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      - 'native/analyzer/model-manifest.json'
+      - 'scripts/automix_models.py'
+      - 'app/src/main/assets/*.onnx'
       - '.github/workflows/web.yml'
   pull_request:
     paths:
       - 'web/**'
+      - 'native/analyzer/model-manifest.json'
+      - 'scripts/automix_models.py'
+      - 'app/src/main/assets/*.onnx'
       - '.github/workflows/web.yml'
 
 concurrency:
@@ -27,6 +33,9 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify Automix models
+        run: python3 ../scripts/automix_models.py check
 
       # The pnpm version comes from web/package.json's packageManager.
       - uses: pnpm/action-setup@v4

@@ -9,6 +9,7 @@ import { Shelves } from '@/components/music/ShelfView';
 import { TrackMenu } from '@/components/music/TrackMenu';
 import { EmptyState, LoadError, NeedsExtension } from '@/components/music/States';
 import { useCategories, useSearch, useYouTubeReady } from '@/data/music/queries';
+import { useSpotifyPlaylistSearch } from '@/data/spotify/queries';
 import type { MusicItem, SearchResults, Shelf } from '@/data/music/types';
 import { SkeletonBlock, SkeletonLine } from '@/components/Skeleton';
 import { ShelfSkeleton } from '@/skeletons/ShelfSkeleton';
@@ -109,10 +110,16 @@ function ResultsSkeleton() {
 
 function Results({ query }: { query: string }) {
   const search = useSearch(query);
+  const spotify = useSpotifyPlaylistSearch(query);
   if (search.isError) return <LoadError error={search.error} onRetry={() => void search.refetch()} />;
   if (!search.data) return <ResultsSkeleton />;
   const results = search.data;
   const shelves = shelvesFor(results);
+  // Spotify's public playlists, after YouTube's own: each opens as a Spotify playlist, matched to YouTube Music.
+  if (spotify.data?.length) {
+    const at = shelves.findIndex((s) => s.title === 'Playlists');
+    shelves.splice(at < 0 ? shelves.length : at + 1, 0, { title: 'Spotify Playlists', strapline: null, layout: 'square', items: spotify.data, seeAll: null });
+  }
   if (!results.top.length && !shelves.length) {
     return <EmptyState title="No Results" detail={`Try a new search for something other than “${query}”.`} />;
   }

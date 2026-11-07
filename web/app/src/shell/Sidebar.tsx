@@ -1,4 +1,4 @@
-import { ArrowUpRight, ListMusic, Settings } from 'lucide-react';
+import { ArrowUpRight, ListMusic, Pin, Settings } from 'lucide-react';
 import { MdOutlineExtension } from 'react-icons/md';
 import { PrefetchLink, PrefetchNavLink } from '@/components/PrefetchLink';
 import { LogoMark } from '@/components/icons/LogoMark';
@@ -15,12 +15,16 @@ import {
   type NavIconProps,
 } from '@/components/icons/NavIcons';
 import { hrefFor } from '@/components/music/links';
+import { usePinMenu } from '@/components/music/PinMenu';
 import { config } from '@/config';
 import { LIBRARY_SECTIONS, type LibrarySection } from '@/data/music/library';
+import { pinnedFirst } from '@/data/music/libraryView';
 import { useLibraryPlaylists, useSignedIn } from '@/data/music/queries';
+import type { MusicItem } from '@/data/music/types';
 import { useSpotifyPlaylists } from '@/data/spotify/queries';
 import { useExtensionUpdate } from '@/extension/useExtensionUpdate';
 import { useSpotifySignedIn } from '@/extension/useSpotifyAuth';
+import { usePins } from '@/state/pins';
 import { useUi } from '@/state/ui';
 import { AccountButton } from './AccountButton';
 
@@ -75,9 +79,27 @@ function NavList({ items, onNavigate }: { items: NavItem[]; onNavigate: () => vo
   );
 }
 
+/** A playlist in the sidebar; right-click pins it to the top. */
+function PlaylistNavItem({ playlist, pinned, onNavigate }: { playlist: MusicItem; pinned: boolean; onNavigate: () => void }) {
+  const pinMenu = usePinMenu(playlist);
+  return (
+    <li onContextMenu={pinMenu.onContextMenu}>
+      {pinMenu.menu}
+      <PrefetchNavLink to={hrefFor(playlist) ?? '/library/playlists'} className={item} onClick={onNavigate}>
+        <span className={icon}>
+          <ListMusic size={17} strokeWidth={1.8} />
+        </span>
+        <span className={navLabel}>{playlist.title}</span>
+        {pinned && <Pin size={12} strokeWidth={2.2} className="ms-auto flex-none rotate-45 text-key" aria-label="Pinned" />}
+      </PrefetchNavLink>
+    </li>
+  );
+}
+
 /** Library and Playlists (report §1), once YouTube requests are made as the user. */
 function LibraryNav({ onNavigate }: { onNavigate: () => void }) {
   const playlists = useLibraryPlaylists();
+  const pinned = usePins((state) => state.pinned);
   return (
     <>
       <h2 className={sectionHeader}>Library</h2>
@@ -90,15 +112,8 @@ function LibraryNav({ onNavigate }: { onNavigate: () => void }) {
             <span className={navLabel}>{LIBRARY_SECTIONS.playlists.title}</span>
           </PrefetchNavLink>
         </li>
-        {playlists.data?.map((playlist) => (
-          <li key={playlist.id}>
-            <PrefetchNavLink to={hrefFor(playlist) ?? '/library/playlists'} className={item} onClick={onNavigate}>
-              <span className={icon}>
-                <ListMusic size={17} strokeWidth={1.8} />
-              </span>
-              <span className={navLabel}>{playlist.title}</span>
-            </PrefetchNavLink>
-          </li>
+        {pinnedFirst(playlists.data ?? [], pinned).map((playlist) => (
+          <PlaylistNavItem key={playlist.id} playlist={playlist} pinned={pinned.includes(playlist.id)} onNavigate={onNavigate} />
         ))}
       </ul>
     </>

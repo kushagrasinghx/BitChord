@@ -3110,7 +3110,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             delay(150)
             var next: String? = token
             while (next != null) {
-                val fetched = YtMusicRepository.moreSongs(next).getOrNull() ?: return@launch
+                val token = next
+                // One dropped request used to end the walk for good, leaving a
+                // long playlist cut short on screen and in its menu (#1178).
+                val fetched = retryingOrNull(FILL_IN_RETRIES_MS) {
+                    YtMusicRepository.moreSongs(token).getOrNull()
+                } ?: return@launch
                 // Repository calls may finish after cancellation. Do not let
                 // an in-flight UI page append after the playback service has
                 // taken the continuation over.
@@ -3631,6 +3636,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
  * the syllable preference pick a different answer from the same providers, so
  * a change in either is a new lookup, as switching a source on or off is.
  */
+/** Waits before each retry of a page's fill-in, as the service's own loader waits. */
+private val FILL_IN_RETRIES_MS = longArrayOf(2_000L, 5_000L, 15_000L)
+
+/** [attempt], then again after each of [waitsMs] while it answers null; null if it never answers. */
+internal suspend fun <T : Any> retryingOrNull(waitsMs: LongArray, attempt: suspend () -> T?): T? {
+    attempt()?.let { return it }
+    for (wait in waitsMs) {
+        delay(wait)
+        attempt()?.let { return it }
+    }
+    return null
+}
+
 internal fun lyricsLookupKey(
     videoId: String,
     sources: Set<LyricsSource>,

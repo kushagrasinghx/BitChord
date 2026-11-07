@@ -3785,6 +3785,7 @@ fun NowPlayingScreen(
                                     ),
                                     onClick = onToggleLike,
                                     active = liked,
+                                    showDisc = false,
                                     haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
                                 )
                                 Spacer(Modifier.width(8.dp))
@@ -3823,6 +3824,7 @@ fun NowPlayingScreen(
                                     lyricsShareGlyphVisible -> lyricPicker.beginPicking
                                     else -> onOpenMenu
                                 },
+                                showDisc = false,
                                 haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
                                     Haptic.Select
                                 } else {

@@ -476,6 +476,7 @@ internal fun LandscapeCredits(
                 ),
                 onClick = onToggleLike,
                 active = liked,
+                showDisc = false,
                 haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
             )
             Spacer(Modifier.width(8.dp))
@@ -484,6 +485,7 @@ internal fun LandscapeCredits(
             icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
             contentDescription = stringResource(Res.string.more),
             onClick = onOpenMenu,
+            showDisc = false,
             modifier = Modifier.menuAnchor(),
         )
     }

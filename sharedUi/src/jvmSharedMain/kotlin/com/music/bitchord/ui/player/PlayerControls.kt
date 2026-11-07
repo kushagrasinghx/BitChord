@@ -723,12 +723,10 @@ internal fun PlayerActionRow(
 private const val CIRCLE_DISC_DODGE_GAIN = 2.5f
 
 /**
- * Translucent circular button used for the track menu and the like control.
+ * Circular hit target used for the track menu and the like control.
  *
- * [active] brightens the disc rather than only the glyph: this sits on album
- * artwork of any colour, and a white icon on a white-ish sleeve has no tint
- * change left to make. The filled star carries the state as a shape too —
- * see [BitChordIcons.StarFilled].
+ * [active] brightens the optional disc rather than only the glyph. Set
+ * [showDisc] to false when the controls should float freely over artwork.
  */
 @Composable
 internal fun CircleGlyph(
@@ -736,6 +734,7 @@ internal fun CircleGlyph(
     contentDescription: String,
     onClick: () -> Unit,
     active: Boolean = false,
+    showDisc: Boolean = true,
     haptic: Haptic = Haptic.Tap,
     modifier: Modifier = Modifier,
 ) {
@@ -761,18 +760,20 @@ internal fun CircleGlyph(
         // The disc carries the blend, dodged as the bottom row's glyphs are, and
         // the glyph sits on it in plain white. The ink is mixed in at a few times
         // the plain disc's strength: a dodge laid on this thinly is next to nothing.
-        Box(
-            Modifier
-                .matchParentSize()
-                .vibrantChrome(chrome)
-                .background(
-                    if (chrome) {
-                        VibrantChromeInk.copy(alpha = (discAlpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
-                    } else {
-                        Color.White.copy(alpha = discAlpha)
-                    },
-                ),
-        )
+        if (showDisc) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .vibrantChrome(chrome)
+                    .background(
+                        if (chrome) {
+                            VibrantChromeInk.copy(alpha = (discAlpha * CIRCLE_DISC_DODGE_GAIN).coerceAtMost(1f))
+                        } else {
+                            Color.White.copy(alpha = discAlpha)
+                        },
+                    ),
+            )
+        }
         Crossfade(
             targetState = icon,
             animationSpec = tween(durationMillis = 180),
@@ -782,7 +783,7 @@ internal fun CircleGlyph(
                 imageVector = glyph,
                 contentDescription = contentDescription,
                 tint = Color.White,
-                modifier = Modifier.size(19.dp),
+                modifier = Modifier.size(24.dp),
             )
         }
     }

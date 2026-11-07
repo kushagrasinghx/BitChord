@@ -356,8 +356,10 @@ internal fun AndroidCanvasArtworkPlayer(
     // it moves — see [captureStill]. Read off the decoder's own output, not the
     // view: the copy runs on the render thread and leaves this one free.
     val reportStill by rememberUpdatedState(onStillCaptured)
-    LaunchedEffect(captureStill) {
+    LaunchedEffect(canvas, captureStill) {
         if (!captureStill) return@LaunchedEffect
+        // Keep the callback paired with the clip/song that requested this copy.
+        val capturedReport = reportStill
         // The pause was asked for this frame. Let the decoder's last frame land.
         withFrameMillis { }
         withFrameMillis { }
@@ -367,9 +369,12 @@ internal fun AndroidCanvasArtworkPlayer(
         if (!rendered || view == null) return@LaunchedEffect
         val position = player.currentPosition
         val still = view.copyStill(player.videoSize, clipAspect, contentMode, alignPortraitTop)
+        // copyStill's view fallback can return even after its suspended copy
+        // was cancelled by a reversed gesture, a new clip, or disposal.
+        if (!isActive) return@LaunchedEffect
         if (still != null) gate.holdingStill = true
         Log.d(TAG, "still captured: ${still?.let { "${it.width}x${it.height}" }} at $position")
-        reportStill(still?.asImageBitmap(), position)
+        capturedReport(still?.asImageBitmap(), position)
     }
 
     // Repaint onto a surface that has just been handed back. A TextureView's

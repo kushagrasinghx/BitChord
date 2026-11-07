@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.music.bitchord.R
 import com.music.bitchord.data.model.ROW_ART_PX
@@ -64,7 +65,9 @@ import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.rememberHaptics
 import com.music.bitchord.playback.MusicOnlyPlayback
 import com.music.bitchord.ui.player.PlayerDock
+import com.music.bitchord.ui.player.playerCanvasStill
 import com.music.bitchord.ui.player.AndroidMusicVideo
+import com.music.bitchord.data.settings.AppSettings
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.fillMaxSize
@@ -384,6 +387,7 @@ private fun GlassNowPlaying(
                     bottom = 4.dp,
                 ),
         ) {
+            val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
             // A music video plays in the cover's place at its own 16:9, as in
             // the floating mini player; the full player takes it over when up.
             val showsPicture = song.isVideo && MusicOnlyPlayback.showsPicture(song.videoId)
@@ -404,7 +408,7 @@ private fun GlassNowPlaying(
                     model = rememberRemoteArtworkUrl(song)?.artworkAt(ROW_ART_PX),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().playerCanvasStill(song.videoId, animatedCanvas && !showsPicture),
                 )
                 if (showsPicture) {
                     AndroidMusicVideo(

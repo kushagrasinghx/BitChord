@@ -384,7 +384,7 @@ private fun DrawScope.drawCropped(image: ImageBitmap) {
 
 /** An animated cover's frame, and where in its clip it was taken. */
 @Immutable
-internal class CanvasStill(val url: String, val image: ImageBitmap, val positionMs: Long)
+internal class CanvasStill(val url: String, val image: ImageBitmap, val positionMs: Long, val videoId: String)
 
 /**
  * The animated cover's frame from where it last held still for the player
@@ -396,6 +396,28 @@ internal object CanvasStills {
 
     /** Whether [current] is still the clip's frame, rather than one it has played on from. */
     var fresh by mutableStateOf(false)
+}
+
+/** Draws the same held frame as the player's sleeve after it lands in either mini player. */
+@Composable
+fun Modifier.playerCanvasStill(videoId: String, enabled: Boolean): Modifier {
+    LaunchedEffect(videoId, enabled) {
+        if (!enabled || CanvasStills.current?.videoId != videoId) {
+            CanvasStills.current = null
+            CanvasStills.fresh = false
+        }
+    }
+    return drawWithContent {
+        val frame = CanvasStills.current
+        // Check identity at draw time too: a song change must not show the old
+        // frame while its cleanup effect is still waiting to run. Freshness is
+        // for the live clip's handoff, not this deliberately static thumbnail.
+        if (enabled && frame != null && frame.videoId == videoId) {
+            drawCropped(frame.image)
+        } else {
+            drawContent()
+        }
+    }
 }
 
 /** The player's side margin. Scrollable panels reach back across it. */
@@ -1889,7 +1911,7 @@ fun NowPlayingScreen(
     val onStillCaptured: (ImageBitmap?, Long) -> Unit = { image, position ->
         val url = stillClip?.url
         if (image != null && url != null) {
-            CanvasStills.current = CanvasStill(url, image, position)
+            CanvasStills.current = CanvasStill(url, image, position, song.videoId)
             CanvasStills.fresh = true
         } else {
             CanvasStills.current = null

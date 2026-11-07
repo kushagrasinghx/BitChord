@@ -68,6 +68,8 @@ import com.music.bitchord.data.model.UserPlaylist
 import com.music.bitchord.data.model.SearchHistoryEntity
 import com.music.bitchord.data.model.EntityType
 import com.music.bitchord.data.settings.SearchHistory
+import com.music.bitchord.data.settings.SongSort
+import com.music.bitchord.ui.screens.sortedForDetail
 import com.music.bitchord.download.Downloads
 import android.util.LruCache
 import kotlinx.coroutines.Dispatchers
@@ -111,6 +113,7 @@ import com.music.bitchord.data.LocalGroup
 import com.music.bitchord.data.LocalGroups
 import com.music.bitchord.data.OfflinePlaylists
 import com.music.bitchord.data.matchesSearch
+import java.util.IdentityHashMap
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -2927,8 +2930,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             val gate = Semaphore(SPOTIFY_MATCH_PARALLELISM)
+            // Matched in the order the page shows them, so the rows on screen
+            // are playable first. In playlist order, "Recently added" put the
+            // last tracks on top and left them for last (#879).
+            val shown = (_detailStack.value.firstOrNull { it.browseId == browseId }?.songs as? UiState.Success)?.data
+            val order = shown?.takeIf { it.size == tracks.size }
+                ?.let { matchOrder(it, AppSettings.detailSongSorts.value[browseId] ?: SongSort.DEFAULT) }
+                ?: tracks.indices.toList()
             coroutineScope {
-                tracks.forEachIndexed { index, track ->
+                order.forEach { index ->
+                    val track = tracks[index]
                     launch {
                         gate.withPermit {
                             if (!open()) return@withPermit
@@ -3637,3 +3648,13 @@ internal fun lyricsLookupKey(
     order: List<LyricsSource>,
     prioritizeSyllableSync: Boolean,
 ): List<Any> = listOf(videoId, sources, order, prioritizeSyllableSync)
+
+/**
+ * Positions in [rows] in the order the page lists them under [sort]: the
+ * order a Spotify page matches its tracks in. By identity, so two copies of
+ * the same track keep their own places.
+ */
+internal fun matchOrder(rows: List<Song>, sort: SongSort): List<Int> {
+    val at = IdentityHashMap<Song, Int>().apply { rows.forEachIndexed { i, song -> put(song, i) } }
+    return rows.sortedForDetail(sort).map { at.getValue(it) }
+}

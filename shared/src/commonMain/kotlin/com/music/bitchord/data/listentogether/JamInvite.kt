@@ -19,7 +19,8 @@ object JamInvite {
         val text = value?.trim() ?: return null
         val prefix = "$ORIGIN/invite/"
         if (!text.startsWith(prefix, ignoreCase = true)) return null
-        val code = text.removePrefix(prefix).substringBefore('?').substringBefore('#')
+        // Not removePrefix: it is case-sensitive, and the check above is not.
+        val code = text.substring(prefix.length).substringBefore('?').substringBefore('#')
         if (code.length != CODE_LENGTH || !code.all(Char::isLetterOrDigit)) return null
         return code.uppercase()
     }

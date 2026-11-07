@@ -388,7 +388,11 @@ sealed interface SearchResult {
     data class Browse(val item: BrowseItem) : SearchResult
 }
 
-enum class SearchFilter(val label: String, val params: String?) {
+enum class SearchFilter(
+    val label: String,
+    val params: String?,
+    val requiresAuth: Boolean = false,
+) {
     /** YouTube Music's mixed search page: songs, artists, albums and playlists. */
     ALL("All", null),
     SONGS("Songs", "EgWKAQIIAWoKEAkQChAFEAMQBA=="),
@@ -396,6 +400,7 @@ enum class SearchFilter(val label: String, val params: String?) {
     ALBUMS("Albums", "EgWKAQIYAWoKEAkQChAFEAMQBA=="),
     ARTISTS("Artists", "EgWKAQIgAWoKEAkQChAFEAMQBA=="),
     PLAYLISTS("Playlists", "EgWKAQIoAWoKEAkQChAFEAMQBA=="),
+    LIBRARY("Library", "agIYBA==", requiresAuth = true);
 }
 
 /** A card in a home-feed carousel: either a track (videoId) or an album/playlist (browseId). */

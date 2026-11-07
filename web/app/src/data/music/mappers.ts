@@ -146,9 +146,43 @@ export function mapItem(node: unknown): MusicItem | null {
   return null;
 }
 
+/** "2:21" or "1:02:03" in seconds. */
+function clockSeconds(clock: string): number | null {
+  if (!/^\d+(:\d{1,2}){1,2}$/.test(clock.trim())) return null;
+  return clock
+    .trim()
+    .split(':')
+    .reduce((total, part) => total * 60 + Number(part), 0);
+}
+
+/**
+ * A playlist row YouTube.js calls a "non-music track": a music video added to
+ * a playlist, often, which YouTube links to an audio-track page. YouTube.js
+ * reads only its id and title, so the rest comes from its columns: the
+ * artists in the second (their channel links), the length in the fixed one.
+ */
+function nonMusicTrack(n: YTNodes.MusicResponsiveListItem): Track {
+  const runs = (n.flex_columns?.[1]?.title?.runs ?? []) as { text: string; endpoint?: { payload?: { browseId?: string } } }[];
+  const artists = runs
+    .filter((run) => run.endpoint?.payload?.browseId?.startsWith('UC'))
+    .map((run) => ({ name: run.text, id: run.endpoint!.payload!.browseId! }));
+  return {
+    videoId: n.id!,
+    title: n.title ?? '',
+    artists,
+    album: null,
+    durationSec: clockSeconds(text(n.fixed_columns?.[0]?.title)),
+    explicit: explicitOf(n.badges),
+    thumbnail: thumbnailOf(n),
+    index: null,
+    plays: null,
+  };
+}
+
 export function mapTrack(node: unknown): Track | null {
   const n = node as YTNodes.MusicResponsiveListItem;
   if ((n as unknown as AnyNode)?.type !== 'MusicResponsiveListItem' || !n.id) return null;
+  if (n.item_type === 'non_music_track') return nonMusicTrack(n);
   if (n.item_type && n.item_type !== 'song' && n.item_type !== 'video') return null;
   const index = Number.parseInt(text(n.index), 10);
   const plays = n.flex_columns

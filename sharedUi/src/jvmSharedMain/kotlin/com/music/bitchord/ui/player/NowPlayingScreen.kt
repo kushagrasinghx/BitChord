@@ -3779,12 +3779,13 @@ fun NowPlayingScreen(
                             if (signedIn || song.localUri != null) {
                                 val liked = likeStatus == LikeStatus.LIKE
                                 CircleGlyph(
-                                    icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
+                                    icon = if (liked) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                                     contentDescription = stringResource(
                                         if (liked) Res.string.remove_from_liked else Res.string.like,
                                     ),
                                     onClick = onToggleLike,
                                     active = liked,
+                                    showDisc = false,
                                     haptic = if (liked) Haptic.ToggleOff else Haptic.ToggleOn,
                                 )
                                 Spacer(Modifier.width(8.dp))
@@ -3823,6 +3824,7 @@ fun NowPlayingScreen(
                                     lyricsShareGlyphVisible -> lyricPicker.beginPicking
                                     else -> onOpenMenu
                                 },
+                                showDisc = false,
                                 haptic = if (lyricsShareGlyphVisible && !showRevertCue) {
                                     Haptic.Select
                                 } else {

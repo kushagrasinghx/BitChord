@@ -548,6 +548,7 @@ class PlaybackService : MediaLibraryService() {
             // picker for "go back to following the system", so a stuck choice
             // would be a picker that had quietly broken the obvious behaviour.
             AudioRouting.forget()
+            resumeAfterBluetoothAudioConnects(addedDevices)
             requestOutputReconfiguration()
         }
         override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) {
@@ -568,6 +569,28 @@ class PlaybackService : MediaLibraryService() {
      * capturing it.
      */
     private var player: ExoPlayer? = null
+
+    /**
+     * Whether the listener intentionally paused playback, so a Bluetooth
+     * connection must not unexpectedly resume it. Programmatic pauses (such as
+     * the becoming-noisy pause on a disconnect) do not set this.
+     */
+    private var manuallyPaused: Boolean = false
+
+    private fun isBluetoothAudioOutput(info: AudioDeviceInfo): Boolean =
+        info.isSink && AudioRouting.kindOf(info.type) == AudioRouting.Kind.BLUETOOTH
+
+    private fun resumeAfterBluetoothAudioConnects(added: Array<out AudioDeviceInfo>) {
+        if (added.orEmpty().none(::isBluetoothAudioOutput)) return
+        if (!AppSettings.autoPlayOnBluetoothConnection.value || manuallyPaused) return
+        val p = mediaSession?.player ?: return
+        val currentItem = p.currentMediaItem ?: return
+        val canPlay = !p.isPlaying && p.playbackState != Player.STATE_ENDED
+        if (canPlay) {
+            p.play()
+            manuallyPaused = false
+        }
+    }
 
     /**
      * The idle player. Between transitions it holds nothing; to arm one,
@@ -1877,6 +1900,7 @@ class PlaybackService : MediaLibraryService() {
         player,
         crossfade,
         onUserIntent = { partySync?.onLocalIntent() },
+        onManualPlaybackState = { playing -> manuallyPaused = !playing },
         deferPlayToParty = { partySync?.shouldDeferPlay() == true },
         lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
         cast = speakers,
@@ -8054,6 +8078,8 @@ class PlaybackService : MediaLibraryService() {
          * a listener's action from its own corrections. See [PartySync].
          */
         private val onUserIntent: () -> Unit,
+        /** Reports whether playback was just started (true) or paused (false) by the user. */
+        private val onManualPlaybackState: (Boolean) -> Unit = {},
         /** @see PartySync.shouldDeferPlay */
         private val deferPlayToParty: () -> Boolean,
         /** @see PartySync.onLockedTransport */
@@ -8372,6 +8398,7 @@ class PlaybackService : MediaLibraryService() {
             // [PartySync.onLockedTransport], which owns that catch-up.
             if (lockedTransport(true)) return
             onUserIntent()
+            onManualPlaybackState(true)
             // Held back only when a party will schedule the start for everyone
             // at once — see [PartySync.shouldDeferPlay], which starts the player
             // itself on the party's instant, and starts it anyway if the party
@@ -8387,6 +8414,7 @@ class PlaybackService : MediaLibraryService() {
         override fun pause() {
             if (lockedTransport(false)) return
             onUserIntent()
+            onManualPlaybackState(false)
             if (cast.active) {
                 cast.pause()
                 return
@@ -8400,12 +8428,14 @@ class PlaybackService : MediaLibraryService() {
         override fun stop() {
             if (locked()) { super.stop(); return }
             onUserIntent()
+            onManualPlaybackState(false)
             super.stop()
         }
 
         override fun setPlayWhenReady(playWhenReady: Boolean) {
             if (lockedTransport(playWhenReady)) return
             onUserIntent()
+            onManualPlaybackState(playWhenReady)
             if (playWhenReady && deferPlayToParty()) return
             if (cast.active) {
                 if (playWhenReady) cast.play() else cast.pause()

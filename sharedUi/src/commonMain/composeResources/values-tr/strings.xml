@@ -198,4 +198,6 @@
     <string name="search_library_empty">Yerel Müzik klasörünüzdeki şarkıları arar.</string>
     <string name="search_library_hint">Şarkılar, Sanatçılar ve Albümler</string>
     <string name="search_library_no_results">Yerel Müzik’te “%1$s” ile eşleşen bir şey yok.</string>
+    <string name="upgrade_offer_available">%1$s kullanılabilir</string>
+    <string name="upgrade_offer_switch">%1$s sürümüne geç</string>
 </resources>

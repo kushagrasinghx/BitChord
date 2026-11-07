@@ -235,6 +235,8 @@ fun SettingsScreen(
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
     val directSourceStream by AppSettings.directSourceStream.collectAsStateWithLifecycle()
+    val directSourceStartOnYouTube by AppSettings.directSourceStartOnYouTube.collectAsStateWithLifecycle()
+    val directSourceAddonWait by AppSettings.directSourceAddonWaitSeconds.collectAsStateWithLifecycle()
     // A property of the hardware, so it is read once rather than remembered
     // against a key that can never change — see [DeviceCodecs.playsDolbyAtmos],
     // which caches the codec-list walk for the life of the process.
@@ -530,6 +532,33 @@ fun SettingsScreen(
                         onCheckedChange = AppSettings::setDirectSourceStream,
                         subtitle = stringResource(R.string.direct_source_stream_in_party).takeIf { party.inParty },
                         enabled = !party.inParty,
+                    )
+                }
+                // Both qualify Direct Source Stream, so they are drawn the same
+                // way and only mean anything while it is on.
+                val startOnYouTubeTitle = stringResource(R.string.direct_source_start_on_youtube)
+                val startOnYouTubeSubtitle = stringResource(R.string.direct_source_start_on_youtube_subtitle)
+                row(startOnYouTubeTitle, startOnYouTubeSubtitle, "addon", "youtube", "wait", divided = false) {
+                    SettingsSubRow(
+                        title = startOnYouTubeTitle,
+                        checked = directSourceStartOnYouTube && directSourceStream && !party.inParty,
+                        onCheckedChange = AppSettings::setDirectSourceStartOnYouTube,
+                        subtitle = startOnYouTubeSubtitle,
+                        enabled = directSourceStream && !party.inParty,
+                    )
+                }
+                val addonWaitTitle = stringResource(R.string.direct_source_addon_wait)
+                val addonWaitSubtitle = stringResource(R.string.direct_source_addon_wait_subtitle)
+                row(addonWaitTitle, addonWaitSubtitle, "addon", "youtube", "wait", "seconds", divided = false) {
+                    SettingsSubSlider(
+                        title = addonWaitTitle,
+                        subtitle = addonWaitSubtitle,
+                        value = stringResource(R.string.seconds_short, directSourceAddonWait),
+                        current = directSourceAddonWait,
+                        range = AppSettings.MIN_DIRECT_SOURCE_ADDON_WAIT_SECONDS..
+                            AppSettings.MAX_DIRECT_SOURCE_ADDON_WAIT_SECONDS,
+                        onValue = AppSettings::setDirectSourceAddonWaitSeconds,
+                        enabled = directSourceStartOnYouTube && directSourceStream && !party.inParty,
                     )
                 }
                 val onWifiTitle = stringResource(R.string.on_wifi)
@@ -2676,6 +2705,73 @@ internal fun SettingsSubRow(
             checked = checked,
             onCheckedChange = onCheckedChange,
             enabled = enabled,
+        )
+    }
+}
+
+/**
+ * A whole-number slider drawn as a sub-row: no icon, no divider, pulled up
+ * under the setting it qualifies, like [SettingsSubRow].
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SettingsSubSlider(
+    title: String,
+    subtitle: String,
+    value: String,
+    current: Int,
+    range: IntRange,
+    onValue: (Int) -> Unit,
+    enabled: Boolean,
+) {
+    val colors = SliderDefaults.colors(
+        thumbColor = MaterialTheme.colorScheme.primary,
+        activeTrackColor = MaterialTheme.colorScheme.primary,
+        inactiveTrackColor = MaterialTheme.colorScheme.outline,
+    )
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.45f)
+            .padding(start = ROW_INSET, end = ROW_INSET, top = 0.dp, bottom = 6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Slider(
+            value = current.toFloat(),
+            onValueChange = { onValue(it.roundToInt()) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = range.last - range.first - 1,
+            enabled = enabled,
+            colors = colors,
+            // Bare track, as in [SliderRow]: the value is spelled out above.
+            track = { state ->
+                SliderDefaults.Track(
+                    sliderState = state,
+                    colors = colors,
+                    enabled = enabled,
+                    drawStopIndicator = null,
+                    drawTick = { _, _ -> },
+                )
+            },
         )
     }
 }

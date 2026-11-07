@@ -1368,6 +1368,10 @@
     <string name="saved_on_this_device">Bu cihaza kaydedildi</string>
     <string name="direct_source_stream_in_party">Listen Together partisi sırasında kapalı</string>
     <string name="direct_source_stream">Doğrudan kaynak akışı</string>
+    <string name="direct_source_start_on_youtube">Eklenti yavaşsa YouTube ile başla</string>
+    <string name="direct_source_start_on_youtube_subtitle">Bir şarkı başlaması gerektiğinde eklenti yanıt vermediyse YouTube\'dan çalar. Daha iyi bir kopya bulunduğunda oynatıcı geçiş için bir düğme gösterir.</string>
+    <string name="direct_source_addon_wait">Eklentiyi bekle</string>
+    <string name="direct_source_addon_wait_subtitle">Dokunduğunuz veya geçtiğiniz bir şarkının YouTube\'dan çalmadan önce eklentiyi ne kadar bekleyeceği. 0 sn\'de ilk yanıt verenle başlar.</string>
     <string name="find_your_mood">Ruh Halini Bul</string>
     <string name="progressive_blur">Kademeli bulanıklık</string>
     <string name="glass_performance">Cam için daha iyi performans</string>

@@ -1328,6 +1328,10 @@
     <string name="saved_on_this_device">Đã lưu trên thiết bị này</string>
     <string name="direct_source_stream_in_party">Tắt khi bạn đang trong bữa tiệc Listen Together</string>
     <string name="direct_source_stream">Phát trực tiếp từ nguồn</string>
+    <string name="direct_source_start_on_youtube">Bắt đầu trên YouTube nếu tiện ích chậm</string>
+    <string name="direct_source_start_on_youtube_subtitle">Nếu tiện ích chưa trả lời khi bài hát cần bắt đầu, bài hát sẽ phát từ YouTube. Khi tìm thấy bản tốt hơn, trình phát sẽ hiện nút để chuyển.</string>
+    <string name="direct_source_addon_wait">Chờ tiện ích</string>
+    <string name="direct_source_addon_wait_subtitle">Thời gian một bài hát bạn chạm hoặc chuyển tới chờ tiện ích trước khi phát từ YouTube. Ở 0 giây, phát từ nguồn trả lời trước.</string>
     <string name="find_your_mood">Tìm tâm trạng của bạn</string>
     <string name="progressive_blur">Làm mờ dần</string>
     <string name="glass_performance">Hiệu năng kính tốt hơn</string>

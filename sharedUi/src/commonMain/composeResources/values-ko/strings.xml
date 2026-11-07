@@ -278,4 +278,6 @@
     <string name="mix_view_one_bar">1마디</string>
     <string name="mix_view_seconds">%1$d초</string>
     <string name="mix_view_bpm">%1$d bpm</string>
+    <string name="upgrade_offer_available">%1$s 사용 가능</string>
+    <string name="upgrade_offer_switch">%1$s(으)로 전환</string>
 </resources>

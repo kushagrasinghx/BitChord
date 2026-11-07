@@ -1443,6 +1443,10 @@
     <string name="saved_on_this_device">Сохранено на этом устройстве</string>
     <string name="direct_source_stream_in_party">Отключено во время вечеринки Listen Together</string>
     <string name="direct_source_stream">Прямой поток из источника</string>
+    <string name="direct_source_start_on_youtube">Начинать с YouTube, если дополнение медленное</string>
+    <string name="direct_source_start_on_youtube_subtitle">Если дополнение не ответило к моменту начала песни, она играет с YouTube. Когда найдётся копия получше, плеер покажет кнопку для переключения.</string>
+    <string name="direct_source_addon_wait">Ждать дополнение</string>
+    <string name="direct_source_addon_wait_subtitle">Сколько песня, которую вы выбрали или на которую переключились, ждёт дополнение, прежде чем играть с YouTube. При 0 с начинает то, что ответит первым.</string>
     <string name="find_your_mood">Найдите своё настроение</string>
     <string name="progressive_blur">Плавное размытие</string>
     <string name="glass_performance">Производительность стекла</string>

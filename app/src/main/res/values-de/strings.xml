@@ -1411,6 +1411,10 @@
     <string name="saved_on_this_device">Auf diesem Gerät gespeichert</string>
     <string name="direct_source_stream_in_party">Während einer Listen Together-Party deaktiviert</string>
     <string name="direct_source_stream">Direkter Quell-Stream</string>
+    <string name="direct_source_start_on_youtube">Mit YouTube starten, wenn das Add-on langsam ist</string>
+    <string name="direct_source_start_on_youtube_subtitle">Hat das Add-on noch nicht geantwortet, wenn ein Song starten muss, wird er von YouTube abgespielt. Wird eine bessere Kopie gefunden, zeigt der Player eine Schaltfläche zum Wechseln.</string>
+    <string name="direct_source_addon_wait">Auf das Add-on warten</string>
+    <string name="direct_source_addon_wait_subtitle">Wie lange ein Song, den du antippst oder zu dem du springst, auf das Add-on wartet, bevor er von YouTube abgespielt wird. Bei 0 s startet, was zuerst antwortet.</string>
     <string name="find_your_mood">Finde deine Stimmung</string>
     <string name="progressive_blur">Progressive Unschärfe</string>
     <string name="glass_performance">Bessere Leistung für Glas</string>

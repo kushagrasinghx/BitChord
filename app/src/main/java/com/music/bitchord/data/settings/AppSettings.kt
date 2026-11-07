@@ -363,6 +363,20 @@ object AppSettings {
     val directSourceStream = MutableStateFlow(false)
 
     /**
+     * Under Direct Source Stream, a track that has to start now (a tap, a skip)
+     * and whose addon answer isn't ready plays from YouTube after
+     * [directSourceAddonWaitSeconds], instead of waiting up to
+     * [DirectSourceGate.LOOKUP_TIMEOUT_MS][com.music.bitchord.playback.DirectSourceGate.LOOKUP_TIMEOUT_MS]
+     * for the addon. The addon is still asked, and a better copy it finds is
+     * offered on the player rather than swapped in — see
+     * [HeldUpgrade][com.music.bitchord.playback.HeldUpgrade].
+     */
+    val directSourceStartOnYouTube = MutableStateFlow(false)
+
+    /** How long [directSourceStartOnYouTube] gives the addon before YouTube plays. */
+    val directSourceAddonWaitSeconds = MutableStateFlow(DEFAULT_DIRECT_SOURCE_ADDON_WAIT_SECONDS)
+
+    /**
      * Widens stereo output via [com.music.bitchord.playback.SpatialAudioProcessor],
      * a stereo widening + cross-feed effect running inside ExoPlayer's own
      * pipeline. Not true object-based spatial audio — YouTube only ever hands
@@ -996,6 +1010,10 @@ object AppSettings {
         loudnessOffOnSpeaker.value = prefs.getBoolean(KEY_LOUDNESS_OFF_ON_SPEAKER, true)
         dolbyAtmos.value = prefs.getBoolean(KEY_DOLBY_ATMOS, true)
         directSourceStream.value = prefs.getBoolean(KEY_DIRECT_SOURCE_STREAM, false)
+        directSourceStartOnYouTube.value = prefs.getBoolean(KEY_DIRECT_SOURCE_START_ON_YOUTUBE, false)
+        directSourceAddonWaitSeconds.value = coerceAddonWaitSeconds(
+            prefs.getInt(KEY_DIRECT_SOURCE_ADDON_WAIT_SECONDS, DEFAULT_DIRECT_SOURCE_ADDON_WAIT_SECONDS),
+        )
         spatialAudio.value = prefs.getBoolean(KEY_SPATIAL_AUDIO, false)
         equalizerEnabled.value = prefs.getBoolean(KEY_EQ_ENABLED, false)
         equalizerMode.value = runCatching {
@@ -1316,6 +1334,21 @@ object AppSettings {
         directSourceStream.value = value
         prefs.edit().putBoolean(KEY_DIRECT_SOURCE_STREAM, value).apply()
     }
+
+    fun setDirectSourceStartOnYouTube(value: Boolean) {
+        directSourceStartOnYouTube.value = value
+        prefs.edit().putBoolean(KEY_DIRECT_SOURCE_START_ON_YOUTUBE, value).apply()
+    }
+
+    fun setDirectSourceAddonWaitSeconds(value: Int) {
+        val normalized = coerceAddonWaitSeconds(value)
+        if (normalized == directSourceAddonWaitSeconds.value) return
+        directSourceAddonWaitSeconds.value = normalized
+        prefs.edit().putInt(KEY_DIRECT_SOURCE_ADDON_WAIT_SECONDS, normalized).apply()
+    }
+
+    internal fun coerceAddonWaitSeconds(value: Int): Int =
+        value.coerceIn(MIN_DIRECT_SOURCE_ADDON_WAIT_SECONDS, MAX_DIRECT_SOURCE_ADDON_WAIT_SECONDS)
 
     fun setSpatialAudio(value: Boolean) {
         spatialAudio.value = value
@@ -2239,6 +2272,15 @@ object AppSettings {
     const val MIN_UPGRADE_LENGTH_SLACK_SECONDS = 0
     const val MAX_UPGRADE_LENGTH_SLACK_SECONDS = 10
 
+    /**
+     * Measured against a Tidal addon: an answer took 2.6–3.7 s from the tap,
+     * so 3 s sent half the tracks to YouTube and 4 s let all of them play from
+     * the addon.
+     */
+    const val DEFAULT_DIRECT_SOURCE_ADDON_WAIT_SECONDS = 4
+    const val MIN_DIRECT_SOURCE_ADDON_WAIT_SECONDS = 0
+    const val MAX_DIRECT_SOURCE_ADDON_WAIT_SECONDS = 10
+
     private const val DEFAULT_PERFORMANCE_REFRESH_RATE = 120
 
     private fun normalizePerformanceRefreshRate(value: Int): Int =
@@ -2268,6 +2310,8 @@ object AppSettings {
     private const val KEY_LOUDNESS_OFF_ON_SPEAKER = "loudness_off_on_speaker"
     private const val KEY_DOLBY_ATMOS = "dolby_atmos"
     private const val KEY_DIRECT_SOURCE_STREAM = "direct_source_stream"
+    private const val KEY_DIRECT_SOURCE_START_ON_YOUTUBE = "direct_source_start_on_youtube"
+    private const val KEY_DIRECT_SOURCE_ADDON_WAIT_SECONDS = "direct_source_addon_wait_seconds"
     private const val KEY_SPATIAL_AUDIO = "spatial_audio"
     private const val KEY_EQ_ENABLED = "equalizer_enabled"
     private const val KEY_EQ_MODE = "equalizer_mode"

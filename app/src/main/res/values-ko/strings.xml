@@ -1231,6 +1231,10 @@
     <string name="wear_os_done">완료</string>
     <string name="signed_by">%1$s 서명</string>
     <string name="direct_source_stream">소스에서 직접 스트리밍</string>
+    <string name="direct_source_start_on_youtube">애드온이 느리면 YouTube로 시작</string>
+    <string name="direct_source_start_on_youtube_subtitle">곡을 시작해야 할 때 애드온이 응답하지 않았으면 YouTube에서 재생합니다. 더 좋은 사본을 찾으면 플레이어에 전환 버튼이 표시됩니다.</string>
+    <string name="direct_source_addon_wait">애드온 대기</string>
+    <string name="direct_source_addon_wait_subtitle">탭하거나 건너뛴 곡이 YouTube에서 재생되기 전에 애드온을 기다리는 시간입니다. 0초이면 먼저 응답한 쪽으로 시작합니다.</string>
     <string name="direct_source_stream_in_party">함께 듣기 파티 중에는 꺼집니다</string>
     <string name="progressive_blur">점진적 흐림</string>
     <string name="glass_performance">유리 효과 성능 향상</string>

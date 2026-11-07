@@ -16,6 +16,8 @@ interface UiState {
   /** The extension install banner, dismissed for this tab only. */
   installBannerDismissed: boolean;
   dismissInstallBanner: () => void;
+  pipOpen: boolean;
+  setPipOpen: (open: boolean) => void;
 }
 
 const BANNER_KEY = 'bitchord:install-banner-dismissed';
@@ -33,6 +35,8 @@ export const useUi = create<UiState>()((set) => ({
     sessionStorage.setItem(BANNER_KEY, '1');
     set({ installBannerDismissed: true });
   },
+  pipOpen: false,
+  setPipOpen: (pipOpen) => set({ pipOpen }),
 }));
 
 // For browser-driven tests, next to __bcPlayer.

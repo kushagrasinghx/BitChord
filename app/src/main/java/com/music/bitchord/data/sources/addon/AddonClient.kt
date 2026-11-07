@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -36,7 +37,12 @@ import java.util.concurrent.TimeUnit
  * [pickedQuality] is the `quality` value the listener chose for this addon, or
  * null for the addon's first listed option. See [settingsFor] for when it applies.
  */
-class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null) {
+class AddonClient(
+    rawBaseUrl: String,
+    private val pickedQuality: String? = null,
+    /** The clock the manifest's lifetime is measured on; a parameter so tests can move it. */
+    private val now: () -> Long = System::currentTimeMillis,
+) {
 
     /** Where this addon lives, with `/manifest.json` and trailing slashes off. */
     val baseUrl: String = normalizeBase(rawBaseUrl)
@@ -50,7 +56,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
 
     private val calls = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val manifests = SharedCalls<AddonManifest>(MANIFEST_TTL_MS, calls, ::logReuse)
+    private val manifests = SharedCalls<AddonManifest>(MANIFEST_TTL_MS, calls, ::logReuse, now)
     private val searches = SharedCalls<AddonSearchResponse>(SEARCH_TTL_MS, calls, ::logReuse)
     private val streams = SharedCalls<AddonStream>(STREAM_TTL_MS, calls, ::logReuse)
 
@@ -106,6 +112,8 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
                 throw AddonException("This addon declares $declared — BitChord needs search")
             }
             if (manifest.requiresBitChordAuth) authRequired = true
+            lastManifest = manifest
+            lastManifestAtMs = now()
             manifest
         }.recoverCatching { failure ->
             // A manifest 404 is not "no such track", it is "no addon here" —
@@ -113,6 +121,40 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
             if (failure is AddonNotFound) throw AddonException("No manifest at that URL")
             throw failure
         }
+    }
+
+    /** The last manifest [manifest] read, and when — see [manifestForRequest]. */
+    @Volatile
+    private var lastManifest: AddonManifest? = null
+
+    @Volatile
+    private var lastManifestAtMs = 0L
+
+    /**
+     * The manifest a search or stream request reads before it goes out, without
+     * waiting on the network once one has been read.
+     *
+     * [manifest] holds its answer for [MANIFEST_TTL_MS] and then fetches it
+     * again the next time it is asked. Every search and stream reads it first —
+     * [AddonSource]'s policy check and [settingsFor] — so that fetch sat in front
+     * of the first track after the app started and of one track every ten
+     * minutes after that: 0.66 s measured against a Tidal addon, which is time a
+     * listener waits in silence under Direct Source Stream.
+     *
+     * Here the last manifest answers at once, and one older than the TTL is
+     * fetched again beside the request, for the next one. Nothing a request
+     * reads from a manifest is worth a round trip to have a few minutes fresher,
+     * and an addon that starts asking for [AddonAuth] in the meantime says so
+     * with a `401`, which [body] answers with credentials. The sources screen
+     * and the add-addon test keep reading [manifest], where a fresh answer is
+     * the point.
+     */
+    suspend fun manifestForRequest(): Result<AddonManifest> {
+        val known = lastManifest ?: return manifest()
+        if (now() - lastManifestAtMs >= MANIFEST_TTL_MS) {
+            calls.launch { manifest() }
+        }
+        return Result.success(known)
     }
 
     /**
@@ -228,7 +270,7 @@ class AddonClient(rawBaseUrl: String, private val pickedQuality: String? = null)
      * quality. See [atmosHint].
      */
     private suspend fun settingsFor(tier: String, stereoOnly: Boolean = false): Map<String, String> {
-        val manifest = manifest().getOrNull()
+        val manifest = manifestForRequest().getOrNull()
         val declared = manifest?.settings.orEmpty()
         val params = LinkedHashMap<String, String>()
         declared.forEach { setting ->

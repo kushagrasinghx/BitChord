@@ -16,7 +16,11 @@ import com.music.bitchord.data.sources.addon.DetectedFormat
 import com.music.bitchord.data.sources.addon.SourceFormats
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.playback.audio.LosslessOutput
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -346,6 +350,22 @@ object SourceRegistry {
     fun activeForPlayback(): List<MusicSource> {
         val ceiling = AppSettings.effectiveAudioQuality
         return active().filter { ceiling.permits(it.kind) }
+    }
+
+    private val warmups = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Reads every enabled addon's manifest, in the background, as the app
+     * starts. Each search and stream request reads it first, and without this
+     * the first track after a start waited for it. After that the client keeps
+     * the last copy — see [AddonClient.manifestForRequest].
+     */
+    fun warmAddonManifests() {
+        warmups.launch {
+            active().filterIsInstance<AddonSource>().forEach { addon ->
+                launch { addon.refreshPolicy() }
+            }
+        }
     }
 
     /**

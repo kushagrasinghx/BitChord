@@ -1383,6 +1383,10 @@
     <string name="saved_on_this_device">Guardada en este dispositivo</string>
     <string name="direct_source_stream_in_party">Desactivado mientras estás en una fiesta de Listen Together</string>
     <string name="direct_source_stream">Transmisión directa desde la fuente</string>
+    <string name="direct_source_start_on_youtube">Empezar en YouTube si el complemento tarda</string>
+    <string name="direct_source_start_on_youtube_subtitle">Si el complemento no ha respondido cuando una canción tiene que empezar, se reproduce desde YouTube. Cuando se encuentra una copia mejor, el reproductor muestra un botón para cambiar.</string>
+    <string name="direct_source_addon_wait">Esperar al complemento</string>
+    <string name="direct_source_addon_wait_subtitle">Cuánto espera al complemento una canción que tocas o a la que saltas antes de reproducirse desde YouTube. Con 0 s empieza con lo que responda primero.</string>
     <string name="find_your_mood">Encuentra tu estado de ánimo</string>
     <string name="progressive_blur">Desenfoque progresivo</string>
     <string name="glass_performance">Mejor rendimiento del cristal</string>

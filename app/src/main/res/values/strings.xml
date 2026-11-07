@@ -116,6 +116,10 @@
     </plurals>
     <string name="source">Sources</string>
     <string name="direct_source_stream">Direct Source Stream</string>
+    <string name="direct_source_start_on_youtube">Start on YouTube if the addon is slow</string>
+    <string name="direct_source_start_on_youtube_subtitle">If the addon hasn\'t answered when a song has to start, it plays from YouTube. When a better copy is found, the player shows a button to switch.</string>
+    <string name="direct_source_addon_wait">Wait for the addon</string>
+    <string name="direct_source_addon_wait_subtitle">How long a song you tap or skip to waits for the addon before playing from YouTube. 0 s starts on whichever answers first.</string>
     <string name="direct_source_stream_in_party">Off while you\'re in a Listen Together party</string>
     <string name="lossless_audio">Lossless audio</string>
     <string name="prefer_lossless">Prefer lossless</string>

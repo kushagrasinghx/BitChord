@@ -1412,6 +1412,10 @@
     <string name="saved_on_this_device">Enregistrée sur cet appareil</string>
     <string name="direct_source_stream_in_party">Désactivé pendant une fête Listen Together</string>
     <string name="direct_source_stream">Flux direct depuis la source</string>
+    <string name="direct_source_start_on_youtube">Commencer sur YouTube si l\'add-on est lent</string>
+    <string name="direct_source_start_on_youtube_subtitle">Si l\'add-on n\'a pas répondu quand un titre doit commencer, il est lu depuis YouTube. Quand une meilleure copie est trouvée, le lecteur affiche un bouton pour basculer.</string>
+    <string name="direct_source_addon_wait">Attendre l\'add-on</string>
+    <string name="direct_source_addon_wait_subtitle">Combien de temps un titre que vous touchez ou vers lequel vous passez attend l\'add-on avant d\'être lu depuis YouTube. À 0 s, il démarre sur la première réponse.</string>
     <string name="find_your_mood">Trouvez votre humeur</string>
     <string name="progressive_blur">Flou progressif</string>
     <string name="glass_performance">Meilleures performances du verre</string>

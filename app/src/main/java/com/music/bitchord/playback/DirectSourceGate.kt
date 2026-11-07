@@ -114,6 +114,15 @@ object DirectSourceGate {
     private fun Open.admits(mediaId: String) = mediaId in playing || mediaId == next
 
     /**
+     * Returns once [mediaId] is audible, as opposed to only next inside the
+     * window: the moment a track whose addon answer isn't ready has to start
+     * on something — see `PlaybackService.resolveDirectStartingOnYouTube`.
+     */
+    suspend fun awaitPlaying(mediaId: String) {
+        open.first { mediaId in it.playing }
+    }
+
+    /**
      * Blocks a resolve for [mediaId] until it is playing or next inside the
      * window. Returns at once when the gate is off, the track is already
      * admitted, or the calling thread is inside [ungated].
@@ -259,6 +268,21 @@ object DirectSourceGate {
 
     /** The lookup for [videoId] if it is still going, past the point anyone waits for it. */
     fun stillLooking(videoId: String): Deferred<SourceStream?>? = lookups[videoId]?.work
+
+    /** When the lookup still running for [videoId] began, or null when none is. */
+    fun lookingSince(videoId: String): Long? = lookups[videoId]?.startedAtMs
+
+    /**
+     * What is left of a [waitMs] wait for the addon at [nowMs], counted from
+     * when the track's lookup began rather than from now. A lookup read-ahead
+     * started inside the window has already had that long, and no answer by
+     * the time the listener skips to the track is no reason to wait in
+     * silence again — see `PlaybackService.resolveDirectStartingOnYouTube`.
+     */
+    internal fun waitLeftMs(waitMs: Long, lookingSinceMs: Long?, nowMs: Long): Long {
+        val since = lookingSinceMs?.coerceAtMost(nowMs) ?: nowMs
+        return (waitMs - (nowMs - since)).coerceAtLeast(0L)
+    }
 
     /**
      * [videoId] is about to play from YouTube because the addons did not

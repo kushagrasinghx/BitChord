@@ -1416,6 +1416,10 @@
     <string name="saved_on_this_device">נשמר במכשיר הזה</string>
     <string name="direct_source_stream_in_party">כבוי בזמן מסיבת Listen Together</string>
     <string name="direct_source_stream">הזרמה ישירה מהמקור</string>
+    <string name="direct_source_start_on_youtube">להתחיל ב-YouTube אם התוסף איטי</string>
+    <string name="direct_source_start_on_youtube_subtitle">אם התוסף לא ענה כשהשיר צריך להתחיל, הוא מתנגן מ-YouTube. כשנמצא עותק טוב יותר, הנגן מציג כפתור למעבר.</string>
+    <string name="direct_source_addon_wait">המתנה לתוסף</string>
+    <string name="direct_source_addon_wait_subtitle">כמה זמן שיר שבחרת או שדילגת אליו ממתין לתוסף לפני שהוא מתנגן מ-YouTube. ב-0 שניות הוא מתחיל במה שעונה ראשון.</string>
     <string name="find_your_mood">מצא את מצב הרוח שלך</string>
     <string name="progressive_blur">טשטוש הדרגתי</string>
     <string name="glass_performance">ביצועים טובים יותר לזכוכית</string>

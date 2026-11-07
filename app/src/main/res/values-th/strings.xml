@@ -1394,6 +1394,10 @@
     <string name="saved_on_this_device">บันทึกไว้ในอุปกรณ์นี้</string>
     <string name="direct_source_stream_in_party">ปิดอยู่ขณะอยู่ในปาร์ตี้ Listen Together</string>
     <string name="direct_source_stream">สตรีมตรงจากแหล่งที่มา</string>
+    <string name="direct_source_start_on_youtube">เริ่มจาก YouTube หากแอดออนช้า</string>
+    <string name="direct_source_start_on_youtube_subtitle">หากแอดออนยังไม่ตอบเมื่อเพลงต้องเริ่ม เพลงจะเล่นจาก YouTube เมื่อพบสำเนาที่ดีกว่า เครื่องเล่นจะแสดงปุ่มให้สลับ</string>
+    <string name="direct_source_addon_wait">รอแอดออน</string>
+    <string name="direct_source_addon_wait_subtitle">ระยะเวลาที่เพลงที่คุณแตะหรือข้ามไปจะรอแอดออนก่อนเล่นจาก YouTube ที่ 0 วินาทีจะเริ่มจากแหล่งที่ตอบก่อน</string>
     <string name="find_your_mood">ค้นหาอารมณ์ของคุณ</string>
     <string name="progressive_blur">เบลอแบบไล่ระดับ</string>
     <string name="glass_performance">ประสิทธิภาพกระจกที่ดีขึ้น</string>

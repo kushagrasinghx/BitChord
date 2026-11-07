@@ -1451,6 +1451,10 @@
     <string name="saved_on_this_device">Zapisano na tym urządzeniu</string>
     <string name="direct_source_stream_in_party">Wyłączone podczas imprezy Listen Together</string>
     <string name="direct_source_stream">Bezpośredni strumień ze źródła</string>
+    <string name="direct_source_start_on_youtube">Zacznij na YouTube, jeśli dodatek jest wolny</string>
+    <string name="direct_source_start_on_youtube_subtitle">Jeśli dodatek nie odpowiedział, gdy utwór ma się zacząć, gra on z YouTube. Gdy zostanie znaleziona lepsza kopia, odtwarzacz pokaże przycisk do przełączenia.</string>
+    <string name="direct_source_addon_wait">Czekaj na dodatek</string>
+    <string name="direct_source_addon_wait_subtitle">Jak długo utwór, który stukniesz lub do którego przeskoczysz, czeka na dodatek, zanim zagra z YouTube. Przy 0 s zaczyna od tego, co odpowie pierwsze.</string>
     <string name="find_your_mood">Znajdź swój nastrój</string>
     <string name="progressive_blur">Stopniowe rozmycie</string>
     <string name="glass_performance">Lepsza wydajność szkła</string>

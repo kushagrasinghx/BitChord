@@ -1411,6 +1411,10 @@
     <string name="saved_on_this_device">इस डिवाइस पर सेव किया गया</string>
     <string name="direct_source_stream_in_party">Listen Together पार्टी के दौरान बंद</string>
     <string name="direct_source_stream">स्रोत से सीधी स्ट्रीम</string>
+    <string name="direct_source_start_on_youtube">ऐडऑन धीमा हो तो YouTube से शुरू करें</string>
+    <string name="direct_source_start_on_youtube_subtitle">अगर गाना शुरू होने तक ऐडऑन ने जवाब नहीं दिया, तो वह YouTube से चलेगा। बेहतर कॉपी मिलने पर प्लेयर बदलने के लिए एक बटन दिखाता है।</string>
+    <string name="direct_source_addon_wait">ऐडऑन का इंतज़ार</string>
+    <string name="direct_source_addon_wait_subtitle">जिस गाने पर आप टैप करते हैं या स्किप करके जाते हैं, वह YouTube से चलने से पहले कितनी देर ऐडऑन का इंतज़ार करे। 0 s पर जो पहले जवाब दे, उसी से शुरू होता है।</string>
     <string name="find_your_mood">अपना मूड खोजें</string>
     <string name="progressive_blur">क्रमिक ब्लर</string>
     <string name="glass_performance">ग्लास के लिए बेहतर परफ़ॉर्मेंस</string>

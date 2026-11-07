@@ -353,6 +353,13 @@ internal fun PlaybackQualityLabel(
     // should keep saying "loading" through that stretch rather than going
     // blank only to possibly say "loading" again a moment later.
     val racingLossless by NerdStats.racingLossless.collectAsStateWithLifecycle()
+    // A better copy found after a YouTube start, offered here as a button
+    // instead of swapped in — see [com.music.bitchord.data.UpgradeOffers].
+    val offer by com.music.bitchord.data.UpgradeOffers.offered.collectAsStateWithLifecycle()
+    offer?.takeIf { it.mediaId == song.videoId && it.mediaId !in racingLossless }?.let { held ->
+        UpgradeOfferButton(held, modifier)
+        return
+    }
     LosslessOrStats(
         isLoading = isLoading,
         stillRacing = song.videoId in racingLossless,
@@ -1787,6 +1794,27 @@ private fun LosslessOrStats(
         // The space under the bar is kept for what is worth announcing.
         else -> {}
     }
+}
+
+/** "FLAC available", tapped to switch to it. See [com.music.bitchord.data.UpgradeOffers]. */
+@Composable
+private fun UpgradeOfferButton(offer: com.music.bitchord.data.UpgradeOffers.Offer, modifier: Modifier = Modifier) {
+    val switchLabel = stringResource(Res.string.upgrade_offer_switch, offer.label)
+    LosslessLabel(
+        text = stringResource(Res.string.upgrade_offer_available, offer.label),
+        iconPainter = painterResource(Res.drawable.ic_lossless),
+        animated = true,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            // Not [chromeWhite]: under the blend that drops to nothing, and the
+            // pill is what says this one can be tapped. No vertical padding,
+            // because the gap between the timestamps is only a line tall.
+            .background(Color.White.copy(alpha = 0.16f))
+            .clickable(onClickLabel = switchLabel) {
+                com.music.bitchord.data.UpgradeOffers.accept(offer.mediaId)
+            }
+            .padding(horizontal = 10.dp),
+    )
 }
 
 /** A quality glyph ahead of the status label. */

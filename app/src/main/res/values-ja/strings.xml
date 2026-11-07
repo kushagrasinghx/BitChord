@@ -1389,6 +1389,10 @@
     <string name="saved_on_this_device">このデバイスに保存</string>
     <string name="direct_source_stream_in_party">Listen Together パーティー中はオフ</string>
     <string name="direct_source_stream">ソースから直接ストリーミング</string>
+    <string name="direct_source_start_on_youtube">アドオンが遅い場合はYouTubeで開始</string>
+    <string name="direct_source_start_on_youtube_subtitle">曲を開始するときにアドオンが応答していない場合、YouTubeから再生します。より良いコピーが見つかると、プレーヤーに切り替えボタンが表示されます。</string>
+    <string name="direct_source_addon_wait">アドオンを待つ時間</string>
+    <string name="direct_source_addon_wait_subtitle">タップまたはスキップした曲が、YouTubeで再生する前にアドオンを待つ時間です。0秒では先に応答した方で開始します。</string>
     <string name="find_your_mood">気分で探す</string>
     <string name="progressive_blur">段階的なぼかし</string>
     <string name="glass_performance">ガラスのパフォーマンス向上</string>

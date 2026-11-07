@@ -1388,6 +1388,10 @@
     <string name="saved_on_this_device">Disimpan di perangkat ini</string>
     <string name="direct_source_stream_in_party">Nonaktif selama kamu dalam pesta Listen Together</string>
     <string name="direct_source_stream">Streaming langsung dari sumber</string>
+    <string name="direct_source_start_on_youtube">Mulai di YouTube jika addon lambat</string>
+    <string name="direct_source_start_on_youtube_subtitle">Jika addon belum menjawab saat lagu harus dimulai, lagu diputar dari YouTube. Saat salinan yang lebih baik ditemukan, pemutar menampilkan tombol untuk beralih.</string>
+    <string name="direct_source_addon_wait">Tunggu addon</string>
+    <string name="direct_source_addon_wait_subtitle">Berapa lama lagu yang Anda ketuk atau lewati menunggu addon sebelum diputar dari YouTube. Dengan 0 dtk, lagu dimulai dari yang menjawab lebih dulu.</string>
     <string name="find_your_mood">Temukan Mood Anda</string>
     <string name="progressive_blur">Blur progresif</string>
     <string name="glass_performance">Performa kaca lebih baik</string>

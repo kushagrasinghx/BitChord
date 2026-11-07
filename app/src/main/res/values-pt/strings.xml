@@ -1416,6 +1416,10 @@
     <string name="saved_on_this_device">Salva neste dispositivo</string>
     <string name="direct_source_stream_in_party">Desativado durante uma festa do Listen Together</string>
     <string name="direct_source_stream">Transmissão direta da fonte</string>
+    <string name="direct_source_start_on_youtube">Começar no YouTube se o addon demorar</string>
+    <string name="direct_source_start_on_youtube_subtitle">Se o addon não tiver respondido quando uma música precisa começar, ela toca do YouTube. Quando uma cópia melhor é encontrada, o player mostra um botão para trocar.</string>
+    <string name="direct_source_addon_wait">Esperar pelo addon</string>
+    <string name="direct_source_addon_wait_subtitle">Quanto tempo uma música que você toca ou para a qual pula espera pelo addon antes de tocar do YouTube. Com 0 s, começa com o que responder primeiro.</string>
     <string name="find_your_mood">Encontre seu humor</string>
     <string name="progressive_blur">Desfoque progressivo</string>
     <string name="glass_performance">Melhor desempenho do vidro</string>

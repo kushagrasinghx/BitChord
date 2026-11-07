@@ -1388,6 +1388,10 @@
     <string name="saved_on_this_device">已保存在此设备上</string>
     <string name="direct_source_stream_in_party">在 Listen Together 派对中时关闭</string>
     <string name="direct_source_stream">直接从来源串流</string>
+    <string name="direct_source_start_on_youtube">插件较慢时先从 YouTube 开始播放</string>
+    <string name="direct_source_start_on_youtube_subtitle">如果歌曲需要开始时插件还未响应，将从 YouTube 播放。找到更好的版本后，播放器会显示切换按钮。</string>
+    <string name="direct_source_addon_wait">等待插件</string>
+    <string name="direct_source_addon_wait_subtitle">你点按或跳转到的歌曲在从 YouTube 播放前等待插件的时长。设为 0 秒时，以先响应的来源开始播放。</string>
     <string name="find_your_mood">寻找你的心情</string>
     <string name="progressive_blur">渐进模糊</string>
     <string name="glass_performance">提升玻璃性能</string>

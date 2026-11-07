@@ -49,6 +49,7 @@ jobs:
           if-no-files-found: error
 
       - name: Configure release signing
+        id: release_signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -64,8 +65,14 @@ jobs:
 
           for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!name}" ]; then
-              echo "::error::Configure $name in repository Actions secrets to build a signed release."
-              exit 1
+              echo "available=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::Configure $name in repository Actions secrets to build signed release APKs."
+              {
+                echo "### Signed release APKs skipped"
+                echo
+                echo "The debug APK was built and uploaded. Configure \`KEYSTORE_BASE64\`, \`KEYSTORE_PASSWORD\`, \`KEY_ALIAS\`, and \`KEY_PASSWORD\` in repository Actions secrets to enable signed release APKs."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
             fi
           done
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > bitchord-release.jks
@@ -80,11 +87,14 @@ jobs:
             printf 'keyPassword=%s\n' "$KEY_PASSWORD"
           } > keystore.properties
           chmod 600 bitchord-release.jks keystore.properties local.properties
+          echo "available=true" >> "$GITHUB_OUTPUT"
 
       - name: Build signed production release APKs
+        if: steps.release_signing.outputs.available == 'true'
         run: ./gradlew --no-daemon assembleProdRelease
 
       - name: Upload signed production release APKs
+        if: steps.release_signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: bitchord-prod-release-signed
@@ -94,6 +104,7 @@ jobs:
       # Built by the same release task, with the same key. The watch app only
       # pairs with a phone app signed by that key.
       - name: Upload signed Wear OS release APK
+        if: steps.release_signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: bitchord-wear-prod-release-signed

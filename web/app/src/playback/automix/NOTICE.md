@@ -91,3 +91,13 @@ loop mix on two of them:
 - handovers to and from the player's `<audio>` elements.
 
 `engine/stretch-types.d.ts` is AutoMix's type file, verbatim.
+
+## Model and detection updates (2026-11)
+
+`analysis/beatDetection.ts` shares the beat chunking and postprocessing rules
+with `shared/.../BeatDetection.kt`. The outer padding and overlap aggregation
+follow CPJKU's MIT inference implementation. Confidence, bounded downbeat
+snapping and plateau handling are BitChord's changes. `analysis/modelSession.ts`
+pins downloaded weights to the shared manifest and validates runtime outputs.
+The existing Beat This! final0 and Open-Unmix umxhq weights are retained;
+their provenance and replacement procedure are in `docs/AUTOMIX_MODELS.md`.

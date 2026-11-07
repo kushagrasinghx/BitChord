@@ -116,19 +116,25 @@ class VocalTracker(
             session = null
             return runCatching {
                 val file = File(modelPath())
-                val options = OrtSession.SessionOptions().apply {
-                    setIntraOpNumThreads(threads)
-                    setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                    // Same reasoning as BeatTracker: the arena retains every block it allocates for
-                    // the life of the session, which a backgrounded music player cannot justify.
-                    setCPUArenaAllocator(false)
-                    setMemoryPatternOptimization(false)
-                }
-                OrtEnvironment.getEnvironment().createSession(file.absolutePath, options)
-                    .also {
-                        session = it
-                        sessionThreads = threads
+                OrtSession.SessionOptions().use { options ->
+                    options.apply {
+                        setIntraOpNumThreads(threads)
+                        setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+                        // Same allocation policy as BeatTracker for background playback.
+                        setCPUArenaAllocator(false)
+                        setMemoryPatternOptimization(false)
                     }
+                    val created = OrtEnvironment.getEnvironment().createSession(file.absolutePath, options)
+                    try {
+                        AutomixModels.VOCAL.validate(created)
+                        session = created
+                        sessionThreads = threads
+                        created
+                    } catch (error: Exception) {
+                        created.close()
+                        throw error
+                    }
+                }
             }.onFailure { AnalysisLog.warn("Vocal model unavailable; no mask will be produced", it) }
                 .getOrNull()
         }
@@ -137,7 +143,7 @@ class VocalTracker(
     /**
      * Returns one vocal-presence value per STFT frame in [0, 1], or null when unavailable.
      *
-     * The model's input width is fixed at [FIXED_FRAMES] (~22.8 s), which was chosen upstream to
+     * The model's input width is fixed at [FIXED_FRAMES] (~22.3 s), which was chosen upstream to
      * cover a transition overlap plus padding. Shorter input is zero-padded; longer is refused
      * rather than chunked, because a transition never needs more than one window.
      */
@@ -175,13 +181,14 @@ class VocalTracker(
             // has to run on. asFloatBuffer() hands back a view at position 0 and
             // has been there since API 1.
             OnnxTensor.createTensor(environment, backing.asFloatBuffer(), shape).use { tensor ->
-                active.run(mapOf(active.inputNames.first() to tensor)).use { outputs ->
+                active.run(mapOf(AutomixModels.VOCAL.input to tensor)).use { outputs ->
                     // The output tensor's buffer, not `outputs.get(0).value`: that
                     // property boxes this [1, 2, bins, FIXED_FRAMES] result into
                     // one FloatArray per bin per channel — 4098 objects and ~16MB
                     // per call — when the only thing read from it is a band
                     // average.
-                    val target = (outputs.get(0) as OnnxTensor).floatBuffer
+                    val target = (outputs.get("target_magnitude").get() as OnnxTensor).floatBuffer
+                    require(target.limit() == VocalSpectrogram.CHANNELS * bins * FIXED_FRAMES) { "Unexpected vocal output length" }
                     val curve = reduceToBandCurve(backing.asFloatBuffer(), target, bins, spectrogram.frames)
                     AnalysisLog.warn("vocal mask ${spectrogram.frames} frames in " +
                             "${System.currentTimeMillis() - started}ms",
@@ -247,8 +254,10 @@ class VocalTracker(
                     // get, so neither view's position matters.
                     val index = (channel * bins + bin) * FIXED_FRAMES + frame
                     val mixValue = mix.get(index)
+                    val targetValue = target.get(index)
+                    require(mixValue.isFinite() && targetValue.isFinite()) { "Non-finite vocal output" }
                     if (mixValue <= 1e-6f) continue
-                    val ratio = target.get(index) / mixValue
+                    val ratio = targetValue / mixValue
                     sum += ratio.coerceIn(0f, 1f)
                     count += 1
                 }
@@ -269,8 +278,8 @@ class VocalTracker(
     companion object {
         private const val TAG = "BitChordVocalTracker"
         /** The weights this tracker needs, named once for every build that ships them. */
-        const val MODEL_ASSET = "vocals_umxhq_int8.onnx"
-        /** The model's fixed input width, ~22.8 s, chosen upstream to cover a transition overlap. */
+        const val MODEL_ASSET = AutomixModels.VOCAL_ASSET
+        /** The model's fixed input width, ~22.3 s, chosen upstream to cover a transition overlap. */
         const val FIXED_FRAMES = 960
 
         /** The band a vocal actually occupies; below and above it the mask says little. */

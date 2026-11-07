@@ -116,6 +116,11 @@ plays.
 
 ## Beat This! (beats and downbeats)
 
+Model manifests, replacement instructions and the current detection changes
+are documented in [`docs/AUTOMIX_MODELS.md`](../../docs/AUTOMIX_MODELS.md).
+Analysis version 9 pins the weights/postprocessing revision, corrects padded
+inference chunking and makes weak model evidence reduce grid confidence.
+
 The loop mix cuts on Beat This!'s detected downbeats: each loop runs from a
 detected beat 1 to the detected beat 1 four bars on. Essentia's grid is only
 the fallback.

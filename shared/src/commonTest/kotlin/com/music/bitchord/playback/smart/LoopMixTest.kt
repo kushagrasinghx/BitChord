@@ -308,4 +308,52 @@ class LoopMixTest {
     fun noMaskAndNoLyricsMeansNoLoop() {
         assertNull(plan(analysis(120.0, 200.0), analysis(120.0, 180.0), null, null))
     }
+
+    @Test
+    fun prefersPhraseAlignedLoops() {
+        // Track at 120 BPM: 1 bar = 2.0s, 4 bars = 8.0s.
+        // Downbeats start at 0.5s: 0.5, 2.5, 4.5, 6.5, 8.5, 10.5, 12.5, 14.5, 16.5, 18.5...
+        // Candidate 4-bar loops for incoming start at 0.5, 2.5, 4.5, 6.5, 8.5...
+        // If musical phrase boundaries land at 8.5s and 16.5s, the loop starting at 8.5s should be chosen over 0.5s.
+        val inn = analysis(120.0, 180.0).copy(
+            phraseBoundaries = listOf(8.5, 16.5, 24.5),
+        )
+        val p = assertNotNull(plan(analysis(120.0, 200.0), inn))
+        assertEquals(8.5, p.inn.loopStart, 1e-9)
+    }
+
+    @Test
+    fun smoothSCurveRampEasesTempoTransitions() {
+        val p = assertNotNull(plan(analysis(120.0, 200.0), analysis(140.0, 180.0)))
+        val clock = LoopMix.Clock(p)
+        // Before ramp: exactly 120.0 BPM
+        assertEquals(120.0, clock.tempo(clock.rampFrom - 1), 1e-9)
+        // Mid-ramp beats average to exactly 130.0 BPM (50% progress)
+        val midBeatA = (clock.rampFrom + clock.rampTo) / 2 - 1
+        val midBeatB = (clock.rampFrom + clock.rampTo) / 2
+        assertEquals(130.0, (clock.tempo(midBeatA) + clock.tempo(midBeatB)) / 2, 1e-9)
+        assertTrue(abs(clock.tempo(midBeatB) - 130.0) < 1.0)
+        // End of ramp and beyond: exactly target BPM (140.0)
+        assertEquals(140.0, clock.tempo(clock.rampTo), 1e-9)
+        // S-curve derivative near start is smaller than linear slope
+        val nearStartTempo = clock.tempo(clock.rampFrom)
+        val linearDelta = (140.0 - 120.0) * (0.5 / (clock.rampTo - clock.rampFrom))
+        assertTrue(nearStartTempo - 120.0 < linearDelta)
+    }
+
+    @Test
+    fun keyClashShortensEnterBars() {
+        // C Major (8B) and F# Major (2B) clash (tritone / opposite side of Camelot wheel)
+        val out = analysis(120.0, 200.0).copy(key = "C major", keyConfidence = 0.9)
+        val inn = analysis(120.0, 180.0).copy(key = "F♯ major", keyConfidence = 0.9)
+        val p = assertNotNull(plan(out, inn))
+        assertTrue(p.keyClash)
+        assertEquals(2, p.enterBars)
+
+        // Harmonically compatible: C major and G major (distance 1 on circle of fifths)
+        val innCompatible = analysis(120.0, 180.0).copy(key = "G major", keyConfidence = 0.9)
+        val pComp = assertNotNull(plan(out, innCompatible))
+        assertTrue(!pComp.keyClash)
+        assertEquals(LoopMix.ENTER_BARS, pComp.enterBars)
+    }
 }

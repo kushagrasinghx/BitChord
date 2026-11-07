@@ -68,12 +68,12 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
     private val tracker = BeatTracker(
         modelPath = {
             java.io.File(context.filesDir, BeatTracker.RETIRED_MODEL_ASSET).delete()
-            unpackedAsset(BeatTracker.MODEL_ASSET)
+            AutomixModels.BEAT.unpack(context.filesDir) { context.assets.open(BeatTracker.MODEL_ASSET) }
         },
         inferenceThreads = { AppSettings.automixPerformanceMode.value.inferenceThreads },
     )
     private val vocals = VocalTracker(
-        modelPath = { unpackedAsset(VocalTracker.MODEL_ASSET) },
+        modelPath = { AutomixModels.VOCAL.unpack(context.filesDir) { context.assets.open(VocalTracker.MODEL_ASSET) } },
         inferenceThreads = { AppSettings.automixPerformanceMode.value.inferenceThreads },
     )
 
@@ -82,24 +82,6 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // this; with no sink they went nowhere on the phone, which is how a
         // beat model that found nothing went unnoticed.
         AnalysisLog.install { message, error -> Log.w(TAG, message, error) }
-    }
-
-    /**
-     * A model's weights on disk, unpacked from assets the first time they are
-     * asked for.
-     *
-     * ONNX Runtime wants a file it can memory-map, and an asset inside the APK
-     * is not one. This used to live inside each tracker; it moved out when they
-     * became shared with the desktop build, which unpacks from the jar instead.
-     */
-    private fun unpackedAsset(name: String): String {
-        val file = java.io.File(context.filesDir, name)
-        if (!file.exists() || file.length() == 0L) {
-            context.assets.open(name).use { input ->
-                file.outputStream().use { output -> input.copyTo(output) }
-            }
-        }
-        return file.absolutePath
     }
 
     /**
@@ -1110,9 +1092,12 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         }
         if (stopped) return WholeTrack(null)
 
-        val beats = seamBeats(regions)
-        val headSide = beatSide(beats, 0.0, headEnd)
-        val tailSide = beatSide(beats, tailStart, effectiveDuration)
+        val windows = regions.mapNotNull { region ->
+            region.grid?.let { grid -> BeatWindow(region.start, region.seconds,
+                BeatSide(grid.beats, grid.downbeats, grid.bpm, grid.beatConfidence)) }
+        }
+        val headSide = combineBeatWindows(windows, 0.0, headEnd)
+        val tailSide = combineBeatWindows(windows, tailStart, effectiveDuration)
         val headGrid = headSide?.toGrid()
         val tailGrid = tailSide?.toGrid()
 
@@ -1235,46 +1220,6 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             }
         }
         return windows
-    }
-
-    /** One beat list across the windows: at each overlap, the earlier window's beats before its midpoint, the later's after. */
-    private class Beats(val beats: List<Double>, val downbeats: List<Double>, val confidence: Double)
-
-    private fun seamBeats(regions: List<Region>): Beats {
-        val graded = regions.filter { it.grid != null }.sortedBy { it.start }
-        if (graded.isEmpty()) return Beats(emptyList(), emptyList(), 0.0)
-        val beats = ArrayList<Double>()
-        val downbeats = ArrayList<Double>()
-        var weighted = 0.0
-        var count = 0
-        for ((index, region) in graded.withIndex()) {
-            val grid = region.grid!!
-            val previous = graded.getOrNull(index - 1)
-            val next = graded.getOrNull(index + 1)
-            val from = previous?.let { (it.start + it.seconds + region.start) / 2 }
-                ?.takeIf { it > region.start } ?: Double.NEGATIVE_INFINITY
-            val until = next?.let { (region.start + region.seconds + it.start) / 2 }
-                ?.takeIf { it < region.start + region.seconds } ?: Double.POSITIVE_INFINITY
-            val kept = grid.beats.filter { it >= from && it < until }
-            beats += kept
-            downbeats += grid.downbeats.filter { it >= from && it < until }
-            weighted += grid.beatConfidence * kept.size
-            count += kept.size
-        }
-        return Beats(beats.sorted(), downbeats.sorted(), if (count > 0) weighted / count else 0.0)
-    }
-
-    /** The model's grid over [from]..[to], or null where it found too few beats there. */
-    private fun beatSide(all: Beats, from: Double, to: Double): BeatSide? {
-        val beats = all.beats.filter { it >= from && it <= to }
-        val bpm = BeatTracker.tempoFromBeats(beats)
-        if (bpm <= 0) return null
-        return BeatSide(
-            beats = beats,
-            downbeats = all.downbeats.filter { it >= from && it <= to },
-            bpm = bpm,
-            confidence = all.confidence,
-        )
     }
 
     private fun BeatSide.toGrid() = BeatTracker.Grid(

@@ -58,6 +58,8 @@ kotlin {
             implementation(kotlin("test"))
         }
         jvmTest.dependencies {
+            // Exercise the shipped ONNX contracts on the host; not part of either app.
+            implementation("com.microsoft.onnxruntime:onnxruntime:1.20.0")
             implementation("com.squareup.okhttp3:mockwebserver:5.3.2")
         }
     }

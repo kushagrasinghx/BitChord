@@ -350,7 +350,7 @@ private fun keyDistance(left: String, right: String): Int? {
     return pitchDistance + if (leftMode != null && rightMode != null && leftMode != rightMode) 1 else 0
 }
 
-private fun harmonicallyCompatible(left: String, right: String): Boolean {
+internal fun harmonicallyCompatible(left: String, right: String): Boolean {
     val (leftIndex, leftMode) = splitKey(left)
     val (rightIndex, rightMode) = splitKey(right)
     if (leftIndex == null || rightIndex == null) return false

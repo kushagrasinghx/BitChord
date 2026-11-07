@@ -16,12 +16,12 @@
  * won't load or infer resolves to null and the caller keeps essentia's answer.
  */
 import * as ort from 'onnxruntime-web/wasm';
-// The runtime's own .wasm, bundled from the package so it always matches the JS.
-import ortWasmUrl from 'onnxruntime-web/ort-wasm-simd-threaded.wasm?url';
-
-ort.env.wasm.wasmPaths = { wasm: ortWasmUrl };
-// No cross-origin isolation here, so no SharedArrayBuffer: one thread.
-ort.env.wasm.numThreads = 1;
+import { AUTOMIX_MODELS } from './modelManifest';
+import { modelSession } from './modelSession';
+import { BEAT_FPS, BORDER_FRAMES, CHUNK_FRAMES, beatChunks, pickPeaks, tempoFromBeats, gridConfidence, snapDownbeats } from './beatDetection';
+import { BEAT_SR, BEAT_FFT, BEAT_HOP, BEAT_MELS, VOCAL_SR, VOCAL_FFT, VOCAL_HOP, VOCAL_BINS, VOCAL_FRAMES } from './audioFormats';
+export { BEAT_SR, VOCAL_SR, VOCAL_FPS, VOCAL_FRAMES, VOCAL_WINDOW_SEC } from './audioFormats';
+export { BEAT_FPS, pickPeaks, tempoFromBeats, gridConfidence } from './beatDetection';
 
 // ---- FFT (radix-2, in place), as the native code -------------------------------------------
 
@@ -77,12 +77,6 @@ function reflectPad(samples: Float32Array, pad: number): Float32Array {
 }
 
 // ---- Beat This! log-mel front end (mel_spectrogram.cpp) -------------------------------------
-
-export const BEAT_SR = 22050;
-const BEAT_FFT = 1024;
-const BEAT_HOP = 441;
-const BEAT_MELS = 128;
-export const BEAT_FPS = BEAT_SR / BEAT_HOP; // 50
 
 function hzToMel(hz: number): number {
   const fSp = 200 / 3;
@@ -166,22 +160,7 @@ export function beatSpectrogram(samples: Float32Array): { values: Float32Array; 
  * beat_this_int8.onnx also quantized the convolutions and finds no beats;
  * this one matches the float model on 99-100% of beats and every downbeat.
  */
-const BEAT_MODEL_URL = '/models/beat_this_final0_q8.onnx';
-const CHUNK_FRAMES = 1500;
-const BORDER_FRAMES = 6;
-const PEAK_WINDOW = 7;
 const MIN_BEATS = 8;
-
-let beatSession: Promise<ort.InferenceSession | null> | null = null;
-
-function session(url: string): Promise<ort.InferenceSession | null> {
-  return ort.InferenceSession.create(url, { executionProviders: ['wasm'], graphOptimizationLevel: 'all' }).catch(
-    (e: unknown) => {
-      console.warn(`automix: model ${url} unavailable`, e);
-      return null;
-    },
-  );
-}
 
 export interface ModelGrid {
   beats: number[];
@@ -195,43 +174,53 @@ export interface ModelGrid {
  * [offsetSec]. Null when the model can't load or finds no plausible grid.
  */
 export async function trackBeats(pcm: Float32Array, offsetSec: number): Promise<ModelGrid | null> {
+  if (!Number.isFinite(offsetSec)) return null;
   const spec = beatSpectrogram(pcm);
   if (!spec) return null;
-  beatSession ??= session(BEAT_MODEL_URL);
-  const s = await beatSession;
+  const s = await modelSession(AUTOMIX_MODELS.beat);
   if (!s) return null;
 
   const beatLogits = new Float32Array(spec.frames);
   const downLogits = new Float32Array(spec.frames);
-  const stride = CHUNK_FRAMES - 2 * BORDER_FRAMES;
-  for (let start = 0; start < spec.frames; start += stride) {
-    const length = Math.min(CHUNK_FRAMES, spec.frames - start);
-    if (length <= 2 * BORDER_FRAMES && start > 0) break;
-    const chunk = spec.values.slice(start * BEAT_MELS, (start + length) * BEAT_MELS);
-    const out = await s.run({ [s.inputNames[0]!]: new ort.Tensor('float32', chunk, [1, length, BEAT_MELS]) });
-    const beat = out[s.outputNames[0]!]!.data as Float32Array;
-    const down = out[s.outputNames[1]!]!.data as Float32Array;
-    const keepFrom = start === 0 ? 0 : BORDER_FRAMES;
-    const keepTo = start + length >= spec.frames ? length : length - BORDER_FRAMES;
-    for (let i = keepFrom; i < keepTo; i++) {
-      beatLogits[start + i] = beat[i]!;
-      downLogits[start + i] = down[i]!;
+  let writtenUntil = 0;
+  for (const { startFrame: start, frameCount: length } of beatChunks(spec.frames)) {
+    const chunk = new Float32Array(length * BEAT_MELS);
+    const from = Math.max(0, start);
+    const to = Math.min(spec.frames, start + length);
+    chunk.set(spec.values.subarray(from * BEAT_MELS, to * BEAT_MELS), (from - start) * BEAT_MELS);
+    const input = new ort.Tensor('float32', chunk, [1, length, BEAT_MELS]);
+    let out: ort.InferenceSession.ReturnType | undefined;
+    try {
+      out = await s.run({ [AUTOMIX_MODELS.beat.input]: input });
+      const beat = out.beat?.data;
+      const down = out.downbeat?.data;
+      if (!(beat instanceof Float32Array) || !(down instanceof Float32Array)
+        || out.beat!.dims.length !== 2 || out.downbeat!.dims.length !== 2
+        || out.beat!.dims[0] !== 1 || out.downbeat!.dims[0] !== 1
+        || out.beat!.dims[1] !== length || out.downbeat!.dims[1] !== length
+        || beat.length !== length || down.length !== length || !beat.every(Number.isFinite) || !down.every(Number.isFinite)) {
+        throw new Error('invalid beat output');
+      }
+      const keepFrom = Math.max(BORDER_FRAMES, writtenUntil - start);
+      const keepTo = Math.min(length - BORDER_FRAMES, spec.frames - start);
+      for (let i = keepFrom; i < keepTo; i++) {
+        beatLogits[start + i] = beat[i]!;
+        downLogits[start + i] = down[i]!;
+      }
+      writtenUntil = Math.max(writtenUntil, start + keepTo);
+    } finally {
+      input.dispose();
+      if (out) for (const tensor of Object.values(out)) tensor.dispose();
     }
-    if (start + length >= spec.frames) break;
   }
+  if (writtenUntil !== spec.frames) return null;
 
   const beatFrames = pickPeaks(beatLogits);
   const beats = beatFrames.map((f) => f / BEAT_FPS + offsetSec);
   if (beats.length < MIN_BEATS) return null;
   const bpm = tempoFromBeats(beats);
   if (bpm <= 0) return null;
-  const downbeats = [
-    ...new Set(
-      pickPeaks(downLogits)
-        .map((f) => f / BEAT_FPS + offsetSec)
-        .map((t) => beats.reduce((best, b) => (Math.abs(b - t) < Math.abs(best - t) ? b : best), beats[0]!)),
-    ),
-  ].sort((a, b) => a - b);
+  const downbeats = snapDownbeats(beats, pickPeaks(downLogits).map((f) => f / BEAT_FPS + offsetSec));
   const confidence = gridConfidence(
     beats,
     beatFrames.map((f) => beatLogits[Math.round(f)] ?? 0),
@@ -239,82 +228,7 @@ export async function trackBeats(pcm: Float32Array, offsetSec: number): Promise<
   return { beats, downbeats, bpm, confidence };
 }
 
-/** Local maxima over seven frames with a positive logit, ties collapsed, refined by a parabola. */
-export function pickPeaks(logits: Float32Array): number[] {
-  const half = PEAK_WINDOW >> 1;
-  const peaks: number[] = [];
-  for (let i = 0; i < logits.length; i++) {
-    if (logits[i]! <= 0) continue;
-    let max = true;
-    for (let o = -half; o <= half && max; o++) {
-      const n = i + o;
-      if (n >= 0 && n < logits.length && logits[n]! > logits[i]!) max = false;
-    }
-    if (max) peaks.push(i);
-  }
-  const deduped: number[] = [];
-  for (let i = 0; i < peaks.length; i++) {
-    let mean = peaks[i]!;
-    let count = 1;
-    while (i + 1 < peaks.length && peaks[i + 1]! - mean <= 1) {
-      i++;
-      count++;
-      mean += (peaks[i]! - mean) / count;
-    }
-    deduped.push(Math.round(mean));
-  }
-  return deduped.map((f) => {
-    if (f <= 0 || f + 1 >= logits.length) return f;
-    const l = logits[f - 1]!;
-    const c = logits[f]!;
-    const r = logits[f + 1]!;
-    const d = l - 2 * c + r;
-    if (Math.abs(d) <= 1e-9) return f;
-    return f + Math.max(-0.5, Math.min(0.5, (0.5 * (l - r)) / d));
-  });
-}
-
-function median(values: number[]): number {
-  if (!values.length) return 0;
-  const s = [...values].sort((a, b) => a - b);
-  return s[s.length >> 1]!;
-}
-
-export function tempoFromBeats(beats: number[]): number {
-  if (beats.length < MIN_BEATS) return 0;
-  const gaps = beats.slice(1).map((b, i) => b - beats[i]!);
-  const rough = median(gaps);
-  if (rough <= 0) return 0;
-  const kept = gaps.filter((g) => Math.abs(g - rough) <= rough * 0.2);
-  const interval = median(kept.length >= 4 ? kept : gaps);
-  if (interval <= 0) return 0;
-  const bpm = 60 / interval;
-  return bpm >= 40 && bpm <= 220 ? bpm : 0;
-}
-
-/** Regularity of the spacing and decisiveness of the peaks, capped at 0.95 (BeatTracker.gridConfidence). */
-export function gridConfidence(beats: number[], peakLogits: number[]): number {
-  if (beats.length < MIN_BEATS) return 0;
-  const gaps = beats.slice(1).map((b, i) => b - beats[i]!);
-  const interval = median(gaps);
-  if (interval <= 0) return 0;
-  const regular = gaps.filter((g) => Math.abs(g - interval) <= interval * 0.1).length / gaps.length;
-  const strength = 1 / (1 + Math.exp(-(median(peakLogits) - 0.5)));
-  return Math.max(0, Math.min(0.95, 0.35 + 0.4 * regular + 0.25 * strength));
-}
-
 // ---- open-unmix vocal mask (vocal_spectrogram.cpp, VocalTracker.kt) --------------------------
-
-export const VOCAL_SR = 44100;
-const VOCAL_FFT = 4096;
-const VOCAL_HOP = 1024;
-const VOCAL_BINS = VOCAL_FFT / 2 + 1;
-export const VOCAL_FPS = VOCAL_SR / VOCAL_HOP;
-/** The model's fixed input width, ~22.3 s. */
-export const VOCAL_FRAMES = 960;
-export const VOCAL_WINDOW_SEC = ((VOCAL_FRAMES - 2) * VOCAL_HOP) / VOCAL_SR;
-
-let vocalSession: Promise<ort.InferenceSession | null> | null = null;
 
 /**
  * How vocal each STFT frame of a stereo window (44.1 kHz, at most
@@ -325,8 +239,7 @@ export async function vocalCurve(left: Float32Array, right: Float32Array): Promi
   if (left.length <= pad + 1 || left.length !== right.length) return null;
   const frames = Math.floor((left.length + 2 * pad - VOCAL_FFT) / VOCAL_HOP) + 1;
   if (frames > VOCAL_FRAMES) return null;
-  vocalSession ??= session('/models/vocals_umxhq_int8.onnx');
-  const s = await vocalSession;
+  const s = await modelSession(AUTOMIX_MODELS.vocal);
   if (!s) return null;
 
   // [1, 2, bins, VOCAL_FRAMES], bin-major, zero-padded tail; raw |DFT| (normalized=False).
@@ -347,33 +260,53 @@ export async function vocalCurve(left: Float32Array, right: Float32Array): Promi
     }
   });
 
-  const out = await s.run({ [s.inputNames[0]!]: new ort.Tensor('float32', input, [1, 2, VOCAL_BINS, VOCAL_FRAMES]) });
-  const target = out[s.outputNames[0]!]!.data as Float32Array;
-  const lowBin = Math.max(0, Math.floor((200 * VOCAL_FFT) / VOCAL_SR));
-  const highBin = Math.min(VOCAL_BINS - 1, Math.ceil((4000 * VOCAL_FFT) / VOCAL_SR));
-  const curve = new Float32Array(frames);
-  for (let f = 0; f < frames; f++) {
-    let sum = 0;
-    let count = 0;
-    for (let c = 0; c < 2; c++) {
-      for (let b = lowBin; b <= highBin; b++) {
-        const i = (c * VOCAL_BINS + b) * VOCAL_FRAMES + f;
-        const mix = input[i]!;
-        if (mix <= 1e-6) continue;
-        sum += Math.max(0, Math.min(1, target[i]! / mix));
-        count++;
+  const tensor = new ort.Tensor('float32', input, [1, 2, VOCAL_BINS, VOCAL_FRAMES]);
+  let out: ort.InferenceSession.ReturnType | undefined;
+  try {
+    out = await s.run({ [AUTOMIX_MODELS.vocal.input]: tensor });
+    const target = out.target_magnitude?.data;
+    if (!(target instanceof Float32Array) || target.length !== input.length
+      || out.target_magnitude!.dims.length !== 4
+      || !out.target_magnitude!.dims.every((n, i) => n === [1, 2, VOCAL_BINS, VOCAL_FRAMES][i])) throw new Error('invalid vocal output');
+    const lowBin = Math.max(0, Math.floor((200 * VOCAL_FFT) / VOCAL_SR));
+    const highBin = Math.min(VOCAL_BINS - 1, Math.ceil((4000 * VOCAL_FFT) / VOCAL_SR));
+    const curve = new Float32Array(frames);
+    for (let f = 0; f < frames; f++) {
+      let sum = 0;
+      let count = 0;
+      for (let c = 0; c < 2; c++) {
+        for (let b = lowBin; b <= highBin; b++) {
+          const i = (c * VOCAL_BINS + b) * VOCAL_FRAMES + f;
+          const mix = input[i]!;
+          if (!Number.isFinite(mix) || !Number.isFinite(target[i])) throw new Error('non-finite vocal output');
+          if (mix <= 1e-6) continue;
+          sum += Math.max(0, Math.min(1, target[i]! / mix));
+          count++;
+        }
       }
+      curve[f] = count ? sum / count : 0;
     }
-    curve[f] = count ? sum / count : 0;
+    return curve;
+  } finally {
+    tensor.dispose();
+    if (out) for (const value of Object.values(out)) value.dispose();
   }
-  return curve;
 }
 
 /** Dev: the raw model run over the first chunk of [pcm], for checking the front end against the phone. */
 export async function debugBeatLogits(pcm: Float32Array, level: 'disabled' | 'basic' | 'extended' | 'all' = 'all') {
   const spec = beatSpectrogram(pcm)!;
-  const s = await ort.InferenceSession.create(BEAT_MODEL_URL, { executionProviders: ['wasm'], graphOptimizationLevel: level });
+  const s = await ort.InferenceSession.create(`${import.meta.env.BASE_URL}models/${AUTOMIX_MODELS.beat.asset}`, { executionProviders: ['wasm'], graphOptimizationLevel: level });
   const len = Math.min(CHUNK_FRAMES, spec.frames);
-  const out = await s.run({ [s.inputNames[0]!]: new ort.Tensor('float32', spec.values.slice(0, len * BEAT_MELS), [1, len, BEAT_MELS]) });
-  return { spec, inputs: s.inputNames, outputs: s.outputNames, beat: out[s.outputNames[0]!]!.data as Float32Array, down: out[s.outputNames[1]!]!.data as Float32Array };
+  const input = new ort.Tensor('float32', spec.values.slice(0, len * BEAT_MELS), [1, len, BEAT_MELS]);
+  let out: ort.InferenceSession.ReturnType | undefined;
+  try {
+    out = await s.run({ [AUTOMIX_MODELS.beat.input]: input });
+    return { spec, inputs: s.inputNames, outputs: s.outputNames,
+      beat: (out.beat!.data as Float32Array).slice(), down: (out.downbeat!.data as Float32Array).slice() };
+  } finally {
+    input.dispose();
+    if (out) for (const tensor of Object.values(out)) tensor.dispose();
+    await s.release();
+  }
 }

@@ -82,9 +82,17 @@ class MixDeck(
     val low: FloatArray = FloatArray(0),
     val mid: FloatArray = FloatArray(0),
     val high: FloatArray = FloatArray(0),
+    /** Still being measured: [bpm] and [key] are not in yet, and the popup draws a skeleton for them. */
+    val analysing: Boolean = false,
+    /** Its waveform is being decoded: the popup draws a skeleton where it will be. */
+    val decoding: Boolean = false,
 ) {
     fun withWave(low: FloatArray, mid: FloatArray, high: FloatArray, start: Double, end: Double) = MixDeck(
-        title, artist, artworkUrl, bpm, key, durationMs, start, end, low, mid, high,
+        title, artist, artworkUrl, bpm, key, durationMs, start, end, low, mid, high, analysing, decoding,
+    )
+
+    fun withDecoding(decoding: Boolean) = if (decoding == this.decoding) this else MixDeck(
+        title, artist, artworkUrl, bpm, key, durationMs, waveStart, waveEnd, low, mid, high, analysing, decoding,
     )
 }
 

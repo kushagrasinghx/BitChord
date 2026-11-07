@@ -5742,16 +5742,21 @@ class PlaybackService : MediaLibraryService() {
                     null
                 }
             }
-            // The addon's head start. YouTube is resolving meanwhile, so it is
-            // ready the moment this runs out.
-            val waitMs = AppSettings.directSourceAddonWaitSeconds.value * 1_000L
+            // The addon's head start, counted from when this track's lookup
+            // began: one read-ahead started inside the window has had that long
+            // already. YouTube is resolving meanwhile, so it is ready the moment
+            // this runs out.
+            val configuredMs = AppSettings.directSourceAddonWaitSeconds.value * 1_000L
+            val lookingSince = DirectSourceGate.lookingSince(videoId)
+            val waitMs = DirectSourceGate.waitLeftMs(configuredMs, lookingSince, startedAt)
+            val ranBeforeMs = lookingSince?.let { (startedAt - it).coerceAtLeast(0L) } ?: 0L
             if (waitMs > 0 && !addon.isCompleted) {
                 withTimeoutOrNull(waitMs) { addon.await() }?.let { direct ->
                     youtube.cancel()
                     TrackLog.d(
                         "BitChord",
                         "addon answered for '${target.title}' ${SystemClock.elapsedRealtime() - startedAt}ms " +
-                            "after it had to start, inside the ${waitMs / 1000}s wait",
+                            "after it had to start, inside the ${configuredMs / 1000}s wait",
                         about = videoId,
                     )
                     return@coroutineScope Resolved.Module(direct)
@@ -5783,8 +5788,9 @@ class PlaybackService : MediaLibraryService() {
                 if (gaveUp) {
                     "no addon served '${target.title}' in time; playing it from YouTube"
                 } else {
-                    "the addon didn't answer for '${target.title}' within the ${waitMs / 1000}s wait " +
-                        "(${SystemClock.elapsedRealtime() - startedAt}ms); playing it from YouTube and still looking"
+                    "the addon didn't answer for '${target.title}' within the ${configuredMs / 1000}s wait " +
+                        "(${SystemClock.elapsedRealtime() - startedAt}ms after it had to start, its lookup " +
+                        "${ranBeforeMs}ms before); playing it from YouTube and still looking"
                 },
                 about = videoId,
             )

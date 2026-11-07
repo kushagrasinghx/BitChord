@@ -43,6 +43,15 @@ class UpgradeOfferTest {
     }
 
     @Test
+    fun `the addon wait counts from when the track's lookup began`() {
+        fun left(since: Long?, now: Long) = com.music.bitchord.playback.DirectSourceGate.waitLeftMs(4_000, since, now)
+        assertEquals(4_000L, left(10_000, 10_000))
+        assertEquals(4_000L, left(null, 10_000))
+        assertEquals(3_000L, left(9_000, 10_000))
+        assertEquals(0L, left(3_000, 63_000))
+    }
+
+    @Test
     fun `the addon wait stays between 0 and 10 seconds`() {
         assertEquals(0, AppSettings.coerceAddonWaitSeconds(-2))
         assertEquals(4, AppSettings.coerceAddonWaitSeconds(4))

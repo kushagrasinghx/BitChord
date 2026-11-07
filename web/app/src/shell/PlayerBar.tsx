@@ -16,6 +16,7 @@ import { TrackMenu } from '@/components/music/TrackMenu';
 import { usePlayer } from '@/state/player';
 import { useUi } from '@/state/ui';
 import { Lcd } from './Lcd';
+import { SleepTimerButton } from './SleepTimerButton';
 import { fadeForVolume, VolumeControl } from './VolumeControl';
 
 const control = 'grid place-items-center rounded-[6px] disabled:opacity-40';
@@ -51,7 +52,7 @@ export function PlayerBar() {
       data-panel-open={sidePanel !== null}
     >
       <div
-        className="glass-pill group/pill pointer-events-auto relative grid h-(--player-pill-height) w-[min(668px,100%)] grid-cols-[184px_minmax(180px,427px)_minmax(57px,auto)] items-center rounded-pill px-4"
+        className="glass-pill group/pill pointer-events-auto relative grid h-(--player-pill-height) w-[min(668px,100%)] grid-cols-[184px_minmax(0,427px)_auto] items-center rounded-pill px-4"
         role="region"
         aria-label="Player"
       >
@@ -94,6 +95,7 @@ export function PlayerBar() {
         >
           <FavoriteButton videoId={videoId} className={fading} />
           {track && <TrackMenu track={track} className={fading} placement="above-end" />}
+          <SleepTimerButton className={fading} />
           {/* Always here: the panel itself says whether this track has lyrics, and from where. */}
           <button className={fading} aria-label="Lyrics" aria-pressed={sidePanel === 'lyrics'} onClick={() => toggleSidePanel('lyrics')}>
             {sidePanel === 'lyrics' ? <LyricsActiveIcon size={18} /> : <LyricsIcon size={18} />}

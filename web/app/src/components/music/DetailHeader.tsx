@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { PrefetchLink } from '@/components/PrefetchLink';
 import { PlayIcon } from '@/components/icons/Transport';
 import { useSetListSaved, useSignedIn } from '@/data/music/queries';
+import { toastResult } from '@/state/toasts';
 import type { AppleMotion } from '@/data/apple/motionArt';
 import type { HeaderInfo } from '@/data/music/types';
 import { Artwork } from './Artwork';
@@ -110,7 +111,13 @@ export function DetailHeader({ info, onPlay, onShuffle, canPlay, extra, motion }
             aria-pressed={library.saved}
             title={library.saved ? 'In your library' : 'Add to Library'}
             disabled={setSaved.isPending}
-            onClick={() => setSaved.mutate({ playlistId: library.playlistId, saved: !library.saved })}
+            onClick={() =>
+              toastResult(
+                setSaved.mutateAsync({ playlistId: library.playlistId, saved: !library.saved }),
+                library.saved ? 'Removed from Library' : 'Added to Library',
+                'Couldn’t update your Library',
+              )
+            }
           >
             {library.saved ? <Check size={18} strokeWidth={2.4} /> : <Plus size={18} strokeWidth={2.4} />}
           </button>

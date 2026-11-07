@@ -7,7 +7,9 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.QueueCoordinator
 import com.music.bitchord.playback.QueueCoordinator.asQueueEntry
 import com.music.bitchord.playback.QueueSource
+import com.music.bitchord.data.settings.SongSort
 import com.music.bitchord.ui.screens.matching
+import com.music.bitchord.ui.screens.sortedForDetail
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -20,6 +22,7 @@ class DetailScreenQueueTest {
         album: String? = null,
         tier: QueueTier = QueueTier.CONTEXT,
         entryId: String? = null,
+        dateAdded: Long? = null,
     ) = Song(
         videoId = id,
         title = title,
@@ -28,6 +31,7 @@ class DetailScreenQueueTest {
         thumbnailUrl = null,
         queueTier = tier,
         queueEntryId = entryId,
+        localDateAddedSeconds = dateAdded,
     )
 
     @Test
@@ -221,5 +225,55 @@ class DetailScreenQueueTest {
         assertEquals("first-track", timeline[0].videoId)
         assertEquals(QueueTier.CONTEXT, timeline[0].queueTier)
         assertEquals("Search", timeline[0].playbackSource)
+    }
+
+    @Test
+    fun `sorted playlist by date added descending constructs context queue in reverse order of addition`() {
+        val playlistSongs = listOf(
+            testSong(id = "oldest", title = "First Song", dateAdded = 1000L),
+            testSong(id = "middle", title = "Second Song", dateAdded = 2000L),
+            testSong(id = "newest", title = "Third Song", dateAdded = 3000L),
+        )
+
+        val sorted = playlistSongs.sortedForDetail(SongSort.DATE_ADDED_DESC)
+        assertEquals(listOf("newest", "middle", "oldest"), sorted.map { it.videoId })
+
+        // When user taps "middle" (index 1 of sorted list)
+        val result = QueueCoordinator.buildContextQueue(
+            currentTimeline = listOf(testSong("current")),
+            currentIndex = 0,
+            newContextSongs = sorted,
+            selectedIndex = 1,
+            contextSource = QueueSource("My Playlist", PlaybackSourceType.BROWSE, "playlist-1"),
+        )
+
+        // Queue must preserve sorted order: [newest, middle, oldest]
+        assertEquals(1, result.startIndex)
+        assertEquals(listOf("newest", "middle", "oldest"), result.timeline.map { it.videoId })
+    }
+
+    @Test
+    fun `sorted playlist by title ascending constructs context queue in alphabetical order`() {
+        val playlistSongs = listOf(
+            testSong(id = "1", title = "Zebra"),
+            testSong(id = "2", title = "Apple"),
+            testSong(id = "3", title = "Mango"),
+        )
+
+        val sorted = playlistSongs.sortedForDetail(SongSort.TITLE_ASC)
+        assertEquals(listOf("Apple", "Mango", "Zebra"), sorted.map { it.title })
+
+        // Tapping first song ("Apple", index 0)
+        val result = QueueCoordinator.buildContextQueue(
+            currentTimeline = emptyList(),
+            currentIndex = 0,
+            newContextSongs = sorted,
+            selectedIndex = 0,
+            contextSource = QueueSource("Alphabetical", PlaybackSourceType.BROWSE, "playlist-2"),
+        )
+
+        assertEquals(0, result.startIndex)
+        assertEquals(listOf("2", "3", "1"), result.timeline.map { it.videoId })
+        assertEquals(listOf("Apple", "Mango", "Zebra"), result.timeline.map { it.title })
     }
 }

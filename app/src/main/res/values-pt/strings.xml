@@ -1462,4 +1462,7 @@
     <string name="bit_perfect_status_inexact">%1$s · não exato: esta fonte não é PCM sem perdas</string>
     <string name="bit_perfect_status_waiting">Aguardando uma faixa sem perdas em uma saída compatível</string>
     <string name="bit_perfect_status_unavailable">Indisponível para esta faixa (%1$s)</string>
+    <string name="diwali_title">O BitChord deseja a você um feliz Diwali</string>
+    <string name="diwali_subtitle">Que este festival das luzes encha sua casa de alegria e seus dias de música.</string>
+    <string name="diwali_cta">Vamos celebrar</string>
 </resources>

@@ -233,6 +233,7 @@ fun SettingsScreen(
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
     val skipSilence by AppSettings.skipSilence.collectAsStateWithLifecycle()
+    val playbackSpeed by AppSettings.playbackSpeed.collectAsStateWithLifecycle()
     val dolbyAtmos by AppSettings.dolbyAtmos.collectAsStateWithLifecycle()
     val directSourceStream by AppSettings.directSourceStream.collectAsStateWithLifecycle()
     // A property of the hardware, so it is read once rather than remembered
@@ -861,6 +862,19 @@ fun SettingsScreen(
                         onClick = { AppSettings.setSkipSilence(!skipSilence) },
                     )
                 }
+            }
+            val speedTitle = stringResource(R.string.playback_speed)
+            row(speedTitle, "speed", "playback", "tempo", "rate") {
+                SliderRow(
+                    icon = SfIcons.Performance,
+                    title = speedTitle,
+                    subtitle = stringResource(R.string.playback_speed_subtitle),
+                    value = "${(playbackSpeed * 100).roundToInt() / 100f}x",
+                    sliderValue = playbackSpeed,
+                    onSliderValue = { AppSettings.setPlaybackSpeed((it * 20).roundToInt() / 20f) },
+                    valueRange = AppSettings.MIN_PLAYBACK_SPEED..AppSettings.MAX_PLAYBACK_SPEED,
+                    steps = 29,
+                )
             }
             val spatialAudioTitle = stringResource(R.string.spatial_audio)
             row(spatialAudioTitle, "surround", "3d") {

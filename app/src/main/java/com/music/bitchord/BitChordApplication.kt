@@ -201,6 +201,8 @@ class BitChordApplication : Application(), SingletonImageLoader.Factory, Configu
         // The public "apps open right now" count; see Presence.
         com.music.bitchord.data.presence.AndroidPresence.install(this)
         backgroundInit.join()
+        // After the registry is open, and off this thread: see the function.
+        SourceRegistry.warmAddonManifests()
     }
 
     /**

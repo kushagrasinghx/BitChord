@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -47,6 +48,10 @@ class ReplayState(
      * chips were switched to This month.
      */
     val memberSince: String?,
+    /** Every month with listening, newest first: what the month picker offers. */
+    val months: List<YearMonth>,
+    /** Shows another month under This month. */
+    val onMonthChange: (YearMonth) -> Unit,
 )
 
 /**
@@ -60,6 +65,10 @@ class ReplayState(
 @Composable
 fun rememberReplayState(active: Boolean): Pair<ReplayState, (ReplayPeriod) -> Unit> {
     var period by rememberSaveable { mutableStateOf(ReplayPeriod.THIS_YEAR) }
+    // Null is the current month, so a page left open past midnight on the
+    // last day moves on with the calendar.
+    var month by rememberSaveable { mutableStateOf<YearMonth?>(null) }
+    var months by remember { mutableStateOf(emptyList<YearMonth>()) }
     var summary by remember { mutableStateOf<ReplaySummary?>(null) }
     var loading by remember { mutableStateOf(true) }
     var memberSince by remember { mutableStateOf<String?>(null) }
@@ -67,19 +76,19 @@ fun rememberReplayState(active: Boolean): Pair<ReplayState, (ReplayPeriod) -> Un
     LaunchedEffect(active) {
         if (!active) return@LaunchedEffect
         // A directory listing, so off the composition's thread.
-        memberSince = withContext(Dispatchers.IO) {
-            ListeningStats.months().firstOrNull()?.let {
-                "%02d/%02d".format(Locale.ROOT, it.monthValue, it.year % 100)
-            }
+        val all = withContext(Dispatchers.IO) { ListeningStats.months() }
+        months = all.reversed()
+        memberSince = all.firstOrNull()?.let {
+            "%02d/%02d".format(Locale.ROOT, it.monthValue, it.year % 100)
         }
     }
-    LaunchedEffect(period, active) {
+    LaunchedEffect(period, month, active) {
         if (!active) return@LaunchedEffect
         // Only the first read shows a spinner. Switching period must not blank
         // the charts for the beat it takes to merge the files — that reads as
         // the page breaking rather than as it answering a different question.
         loading = summary == null
-        summary = ListeningStats.summary(period)
+        summary = ListeningStats.summary(period, month)
         loading = false
 
         // Artist pictures and pages arrive after the page has been built — see
@@ -93,10 +102,11 @@ fun rememberReplayState(active: Boolean): Pair<ReplayState, (ReplayPeriod) -> Un
         // gets as far as a rebuild.
         ArtistFacts.revision.drop(1).collectLatest {
             delay(SETTLE_MILLIS)
-            summary = ListeningStats.summary(period)
+            summary = ListeningStats.summary(period, month)
         }
     }
-    return ReplayState(period, summary, loading, memberSince) to
+    val onMonthChange = { picked: YearMonth -> month = picked.takeIf { it < YearMonth.now() } }
+    return ReplayState(period, summary, loading, memberSince, months, onMonthChange) to
         { next: ReplayPeriod -> period = next }
 }
 
@@ -199,12 +209,16 @@ fun ReplayPeriod.localizedTab(context: Context): String = when (this) {
 
 fun ReplaySummary.localizedLabel(context: Context): String = when (period) {
     ReplayPeriod.THIS_WEEK -> "This week"
-    ReplayPeriod.THIS_MONTH -> DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
-        .format(LocalDate.now())
-        .replaceFirstChar { it.titlecase(Locale.getDefault()) }
-    ReplayPeriod.THIS_YEAR -> LocalDate.now().year.toString()
+    ReplayPeriod.THIS_MONTH -> YearMonth.from(asOf).localizedName()
+    ReplayPeriod.THIS_YEAR -> asOf.year.toString()
     ReplayPeriod.ALL_TIME -> context.getString(R.string.all_time)
 }
+
+/** "October 2026", in the app's language. */
+fun YearMonth.localizedName(): String =
+    DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
+        .format(this)
+        .replaceFirstChar { it.titlecase(Locale.getDefault()) }
 
 /**
  * Which cover a card is washed in.

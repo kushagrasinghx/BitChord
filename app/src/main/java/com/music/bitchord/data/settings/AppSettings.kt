@@ -467,7 +467,7 @@ object AppSettings {
     val dontRepeatSuggestions = MutableStateFlow(false)
 
     /** Music videos play as their audio version — see [com.music.bitchord.playback.MusicOnlyPlayback]. */
-    val preferMusicOnly = MutableStateFlow(false)
+    val preferMusicOnly = MutableStateFlow(true)
 
     /** Home's Recents shelf. */
     val hideRecents = MutableStateFlow(false)
@@ -482,7 +482,7 @@ object AppSettings {
     val hideHomeMoods = MutableStateFlow(false)
 
     /** Music videos are square wherever they show — see [com.music.bitchord.ui.components.VideoThumbnails]. */
-    val squareVideoThumbnails = MutableStateFlow(false)
+    val squareVideoThumbnails = MutableStateFlow(true)
 
     /** Analyzes audio waveform/envelope to align matching playback moment between versions. */
     val smartVersionAlignment = MutableStateFlow(true)
@@ -1033,12 +1033,12 @@ object AppSettings {
         showQueueHistory.value = prefs.getBoolean(KEY_SHOW_QUEUE_HISTORY, false)
         swipeToPlayNext.value = prefs.getBoolean(KEY_SWIPE_TO_PLAY_NEXT, false)
         dontRepeatSuggestions.value = prefs.getBoolean(KEY_DONT_REPEAT_SUGGESTIONS, false)
-        preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, false)
+        preferMusicOnly.value = prefs.getBoolean(KEY_PREFER_MUSIC_ONLY, true)
         hideRecents.value = prefs.getBoolean(KEY_HIDE_RECENTS, false)
         hideHomeVideos.value = prefs.getBoolean(KEY_HIDE_HOME_VIDEOS, false)
         hideTopPicks.value = prefs.getBoolean(KEY_HIDE_TOP_PICKS, false)
         hideHomeMoods.value = prefs.getBoolean(KEY_HIDE_HOME_MOODS, false)
-        squareVideoThumbnails.value = prefs.getBoolean(KEY_SQUARE_VIDEO_THUMBNAILS, false)
+        squareVideoThumbnails.value = prefs.getBoolean(KEY_SQUARE_VIDEO_THUMBNAILS, true)
         VideoThumbnails.square = squareVideoThumbnails.value
         smartVersionAlignment.value = prefs.getBoolean(KEY_SMART_VERSION_ALIGNMENT, true)
         reduceDynamicBlur.value = prefs.getBoolean(KEY_REDUCE_BLUR, false)

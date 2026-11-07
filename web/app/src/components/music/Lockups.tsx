@@ -135,7 +135,7 @@ export function CircleLockup({ item, width = 160 }: { item: MusicItem; width?: n
 }
 
 /** A song row inside a shelf (report §2, track lockup): 40px art, title, byline. */
-export function TrackLockup({ item, onPlay }: { item: MusicItem; onPlay?: () => void }) {
+export function TrackLockup({ item, onPlay, plays }: { item: MusicItem; onPlay?: () => void; /** "1B plays", after the byline (an artist's Top Songs). */ plays?: string | null }) {
   const play = onPlay ?? (() => playTrack(item));
   return (
     // 52px art column (40 + 12 gap), content, menu; 55px tall.
@@ -157,6 +157,8 @@ export function TrackLockup({ item, onPlay }: { item: MusicItem; onPlay?: () => 
           {item.explicit && <ExplicitBadge />}
         </div>
         <div className="truncate type-callout text-secondary">
+          {/* First, so a long list of artists doesn't cut it off. */}
+          {plays && <span>{plays} · </span>}
           <Byline item={item} />
         </div>
       </div>

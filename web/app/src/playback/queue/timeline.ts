@@ -247,6 +247,34 @@ export function sectionedOrder(restored: readonly number[], upcoming: readonly Q
 }
 
 /**
+ * Shuffle turned off (QueueShuffle.restore): the context goes back to the
+ * order the queue had around the playing track, so what came before it is
+ * behind it for Back and what came after it plays next. Hand-queued and
+ * AutoPlay tracks keep their sections; tracks added since keep their place
+ * at the end. Returns the new timeline and the index to play.
+ */
+export function restoredOrder(
+  timeline: readonly QueueEntry[],
+  currentIndex: number,
+  canonical: ReadonlyMap<string, number>,
+): { timeline: QueueEntry[]; index: number } {
+  const current = timeline[currentIndex];
+  if (!current) return { timeline: [...timeline], index: currentIndex };
+  // Where playback stands in the old order: past the context once AutoPlay plays,
+  // else the playing track's place, or the last known one before it.
+  let here = current.tier === 'autoplay' ? Infinity : -1;
+  for (let i = currentIndex; i >= 0 && here < 0; i--) here = canonical.get(timeline[i]!.entryId) ?? -1;
+  const placed = (e: QueueEntry) => e.tier === 'context' && canonical.has(e.entryId);
+  const at = (e: QueueEntry) => canonical.get(e.entryId) ?? Number.MAX_SAFE_INTEGER;
+  const byAt = (a: QueueEntry, b: QueueEntry) => at(a) - at(b);
+  const context = timeline.filter((e, i) => i !== currentIndex && placed(e));
+  const history = [...timeline.slice(0, currentIndex).filter((e) => !placed(e)), ...context.filter((e) => at(e) <= here).sort(byAt)];
+  const upcoming = [...timeline.slice(currentIndex + 1).filter((e) => !placed(e)), ...context.filter((e) => at(e) > here)].sort(byAt);
+  const order = sectionedOrder(range(0, upcoming.length), upcoming.map((e) => e.tier));
+  return { timeline: [...history, current, ...order.map((i) => upcoming[i]!)], index: history.length };
+}
+
+/**
  * Where AutoPlay's section begins, and so where a hand-queued track belongs:
  * the first AutoPlay track still to come (QueueSections.autoplaySectionStart).
  * The Up Next panel draws its AutoPlay heading at this index.

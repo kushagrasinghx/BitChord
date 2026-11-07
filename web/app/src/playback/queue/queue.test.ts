@@ -8,6 +8,7 @@ import {
   buildContextQueue,
   computeJumpOrder,
   playedUserQueueIndices,
+  restoredOrder,
   shuffledStartingOrder,
   shuffledUpcomingOrder,
   upcomingUserQueueIndices,
@@ -171,5 +172,44 @@ describe('QueueTimeline', () => {
     const identity = () => 0.999999; // Fisher-Yates with j = i keeps the order
     const result = shuffledUpcomingOrder(['context', 'context', 'context'], identity);
     expect(result).not.toEqual([0, 1, 2]);
+  });
+});
+
+describe('restoredOrder (QueueShuffle.restore)', () => {
+  /** Shuffle turned off on the queue [ids], playing the track at [current]; [spec] is the order it had. */
+  const restore = (spec: string, ids: string, current: number) => {
+    const before = timeline(spec);
+    const shuffled = ids.split(' ').map((id) => before.find((e) => e.entryId === id)!);
+    const { timeline: after, index } = restoredOrder(shuffled, current, new Map(before.map((e, i) => [e.entryId, i])));
+    return [order(after), index];
+  };
+
+  it('puts a shuffled album back around the playing track', () => {
+    expect(restore('ccccccc', 'c4 c5 c0 c2 c1 c6 c3', 0)).toEqual(['c0 c1 c2 c3 c4 c5 c6', 4]);
+  });
+
+  it('carries on after the playing track when shuffle went on mid-album', () => {
+    expect(restore('cccccccccc', 'c0 c1 c2 c7 c5 c3 c9 c4 c6 c8', 4)).toEqual(['c0 c1 c2 c3 c4 c5 c6 c7 c8 c9', 5]);
+  });
+
+  it('keeps hand-queued tracks right after the playing track', () => {
+    expect(restore('cccuucc', 'c2 u3 u4 c5 c0 c6 c1', 0)).toEqual(['c0 c1 c2 u3 u4 c5 c6', 2]);
+  });
+
+  it('restores around a hand-queued track that is playing', () => {
+    expect(restore('ccucc', 'c0 u2 c4 c1 c3', 1)).toEqual(['c0 c1 u2 c3 c4', 2]);
+  });
+
+  it('leaves the album behind while AutoPlay plays', () => {
+    const t = timeline('cccaa');
+    const known = new Map(t.slice(0, 3).map((e, i) => [e.entryId, i])); // AutoPlay came after the shuffle
+    const { timeline: after, index } = restoredOrder([t[1]!, t[2]!, t[0]!, t[3]!, t[4]!], 3, known);
+    expect([order(after), index]).toEqual(['c0 c1 c2 a3 a4', 3]);
+  });
+
+  it('leaves a queue with no remembered order, or no queue, as it is', () => {
+    const t = timeline('ccuc');
+    expect(restoredOrder(t, 1, new Map())).toEqual({ timeline: t, index: 1 });
+    expect(restoredOrder([], -1, new Map())).toEqual({ timeline: [], index: -1 });
   });
 });

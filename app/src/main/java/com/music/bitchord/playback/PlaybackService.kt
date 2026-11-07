@@ -151,6 +151,8 @@ import com.music.bitchord.playback.smart.AutomixAnalysisSource
 import com.music.bitchord.playback.smart.VersionAudioAligner
 import com.music.bitchord.widget.MediaWidget
 import com.music.bitchord.widget.MediaWidgetSnapshot
+import com.music.bitchord.widget.QuickPlayStore
+import com.music.bitchord.widget.QuickPlayWidget
 import com.music.bitchord.wear.WearBridge
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -348,6 +350,10 @@ class PlaybackService : MediaLibraryService() {
         if (songs.isNotEmpty()) {
             cachedRecents = SystemClock.elapsedRealtime() to songs
             songs.forEach { songCache[it.videoId] = it }
+            if (QuickPlayStore.load(this@PlaybackService).isEmpty()) {
+                QuickPlayStore.saveSongs(this@PlaybackService, songs)
+                QuickPlayWidget.refresh(this@PlaybackService)
+            }
         }
         songs
     }
@@ -375,6 +381,8 @@ class PlaybackService : MediaLibraryService() {
         if (songs.isNotEmpty()) {
             cachedQuickPicks = SystemClock.elapsedRealtime() to songs
             songs.forEach { songCache[it.videoId] = it }
+            QuickPlayStore.saveSongs(this@PlaybackService, songs)
+            QuickPlayWidget.refresh(this@PlaybackService)
         }
         songs
     }

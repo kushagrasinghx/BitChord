@@ -130,6 +130,7 @@ abstract class MediaWidget : AppWidgetProvider() {
         fun refresh(context: Context) {
             val app = context.applicationContext
             MediaWidgetPill.refresh(app)
+            QuickPlayWidget.refresh(app)
             scope.launch {
                 val manager = runCatching { AppWidgetManager.getInstance(app) }.getOrNull() ?: return@launch
                 for ((provider, fallbackWidthDp) in PROVIDERS) {

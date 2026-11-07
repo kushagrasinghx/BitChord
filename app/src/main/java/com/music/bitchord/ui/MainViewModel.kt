@@ -17,6 +17,8 @@ import com.music.bitchord.data.LikeState
 import com.music.bitchord.data.YtMusicRepository
 import com.music.bitchord.data.TopPicks
 import com.music.bitchord.data.AppleArtistPhotos
+import com.music.bitchord.widget.QuickPlayStore
+import com.music.bitchord.widget.QuickPlayWidget
 import com.music.bitchord.data.model.ArtistRef
 import com.music.bitchord.data.model.TopPick
 import com.music.bitchord.data.stats.ListeningStats
@@ -1873,6 +1875,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val added = shelves.withoutRepeatsOf(existing)
             .filter { homeSeenTitles.add(it.title.lowercase(Locale.ROOT)) }
         if (added.isNotEmpty()) _home.value = UiState.Success(existing + added)
+
+        val quickCandidates = (shelves + existing).flatMap { it.items }
+            .mapNotNull { item ->
+                item.videoId?.let { id ->
+                    Song(
+                        videoId = id,
+                        title = item.title,
+                        artist = com.music.bitchord.data.innertube.InnertubeParser.artistFromSubtitle(item.subtitle),
+                        thumbnailUrl = item.thumbnailUrl,
+                    )
+                }
+            }
+        if (quickCandidates.isNotEmpty()) {
+            QuickPlayStore.saveSongs(getApplication(), quickCandidates)
+            QuickPlayWidget.refresh(getApplication())
+        }
     }
 
     /** Refreshes the core feed without blanking the current Play page first. */

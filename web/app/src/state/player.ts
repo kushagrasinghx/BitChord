@@ -1045,11 +1045,16 @@ function updateMediaSession(track: NowPlaying | null) {
     session.metadata = null;
     return;
   }
+  const { queue, index } = usePlayer.getState();
+  const activeTrack = queue[index]?.track;
+  const albumTitle = activeTrack?.videoId === track.videoId ? activeTrack.album?.name : undefined;
+
   session.metadata = new MediaMetadata({
     title: track.title,
     artist: track.artist,
+    album: albumTitle || undefined,
     artwork: track.artworkUrl
-      ? [96, 256, 512].map((px) => ({ src: artworkAtPixels(track.artworkUrl!, px), sizes: `${px}x${px}` }))
+      ? [96, 128, 192, 256, 384, 512].map((px) => ({ src: artworkAtPixels(track.artworkUrl!, px), sizes: `${px}x${px}` }))
       : [],
   });
 
@@ -1066,25 +1071,31 @@ function updateMediaSession(track: NowPlaying | null) {
   // Through the store, so a party hears about them like any other press.
   // A loop mix holds the elements paused while it plays: that's playing, for the keys.
   const sounding = () => graph?.dj.loopMixing || getAudio()?.paused === false;
+  const currentSec = () => getPlayhead()?.sec ?? getAudio()?.currentTime ?? 0;
   handle('play', () => !sounding() && player().togglePlay());
   handle('pause', () => sounding() && player().togglePlay());
+  handle('stop', () => sounding() && player().togglePlay());
   handle('seekto', (details) => {
     if (details.seekTime !== undefined) player().seek(details.seekTime);
   });
-  handle('seekbackward', (details) => player().seek((getAudio()?.currentTime ?? 0) - (details.seekOffset ?? 10)));
-  handle('seekforward', (details) => player().seek((getAudio()?.currentTime ?? 0) + (details.seekOffset ?? 10)));
+  handle('seekbackward', (details) => player().seek(currentSec() - (details.seekOffset ?? 10)));
+  handle('seekforward', (details) => player().seek(currentSec() + (details.seekOffset ?? 10)));
   handle('previoustrack', () => player().previous());
   handle('nexttrack', () => player().next());
 }
 
 function updatePositionState() {
   const audio = getAudio();
-  if (!audio || !('mediaSession' in navigator) || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+  if (!('mediaSession' in navigator)) return;
+  const playhead = getPlayhead();
+  const currentSec = playhead?.sec ?? audio?.currentTime ?? 0;
+  const duration = audio?.duration ?? 0;
+  if (!Number.isFinite(duration) || duration <= 0) return;
   try {
     navigator.mediaSession.setPositionState({
-      duration: audio.duration,
-      playbackRate: audio.playbackRate,
-      position: Math.min(audio.currentTime, audio.duration),
+      duration,
+      playbackRate: audio?.playbackRate ?? 1,
+      position: Math.min(Math.max(0, currentSec), duration),
     });
   } catch {
     // Position past duration during a seek; the next event corrects it.

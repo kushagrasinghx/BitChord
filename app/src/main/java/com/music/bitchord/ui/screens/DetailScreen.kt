@@ -22,14 +22,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -75,6 +78,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -297,6 +301,7 @@ private fun String.looksLikeCredit() = CREDIT_SEPARATOR.containsMatchIn(this)
  * the tint — since that picture runs edge to edge up under the bar. Nothing in
  * either is re-blurred while the page scrolls.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(
     page: DetailPage,
@@ -543,6 +548,43 @@ fun DetailScreen(
             // bars at either end of the screen are already fading into.
             val pageColor = if (isArtist) palette.wash else palette.background
             BoxWithConstraints(Modifier.fillMaxSize().background(pageColor)) {
+                val stabilizeSearch = searching && WindowInsets.isImeVisible && folder == null &&
+                    (page.type == BrowseType.ALBUM || page.type == BrowseType.PLAYLIST)
+                val density = LocalDensity.current
+                val bottomPadding = contentPadding.calculateBottomPadding()
+                val viewportHeight = with(density) { maxHeight.roundToPx() }
+                val bottomPaddingPx = with(density) { bottomPadding.roundToPx() }
+                val layoutKey = "search-layout-$query-${matches.hashCode()}-${suggested.hashCode()}"
+                var measuredReserve by remember(layoutKey, viewportHeight, bottomPaddingPx, searchStop, stabilizeSearch) {
+                    mutableStateOf<Int?>(null)
+                }
+                val provisionalReserve = remember(layoutKey, viewportHeight, bottomPaddingPx, searchStop, stabilizeSearch) {
+                    if (listState.firstVisibleItemIndex > SEARCH_ITEM_INDEX) 0
+                    else (viewportHeight - searchStop - bottomPaddingPx).coerceAtLeast(0)
+                }
+                // Reserve space before filtering is measured so the lazy list
+                // cannot clamp its position before the shortfall is known.
+                val reserve = if (stabilizeSearch) {
+                    measuredReserve ?: provisionalReserve
+                } else 0
+                LaunchedEffect(stabilizeSearch, layoutKey, viewportHeight, bottomPaddingPx, searchStop) {
+                    if (stabilizeSearch) {
+                        snapshotFlow { listState.layoutInfo }.collect { layout ->
+                            val items = layout.visibleItemsInfo
+                            val marker = items.firstOrNull { it.key == layoutKey }
+                            val search = items.firstOrNull { it.key == "search" }
+                            if (marker != null && search != null) {
+                                val end = items.firstOrNull { it.key == "search-layout-end" }
+                                if (end != null) {
+                                    measuredReserve = (layout.viewportEndOffset - bottomPaddingPx -
+                                        searchStop - (end.offset + end.size - search.offset)).coerceAtLeast(0)
+                                } else if (search.offset <= searchStop) {
+                                    measuredReserve = 0
+                                }
+                            }
+                        }
+                    }
+                }
                 // Measured rather than read off the window. The player runs
                 // full-screen at every window size, so this page's own width in
                 // landscape is the *whole* window. Straight off that width, the ratio hands back
@@ -581,7 +623,7 @@ fun DetailScreen(
                     modifier = Modifier.fillMaxSize(),
                     // The artist photo runs edge-to-edge up under the glass bar;
                     // a release header clears the bar itself, see [ReleaseHeader].
-                    contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding()),
+                    contentPadding = PaddingValues(bottom = bottomPadding + with(density) { reserve.toDp() }),
                 ) {
             item(key = "header") {
                 if (isArtist) {
@@ -615,6 +657,9 @@ fun DetailScreen(
                         palette = palette,
                         type = page.type,
                     )
+                }
+                if (stabilizeSearch) {
+                    item(key = layoutKey) { Spacer(Modifier.height(1.dp)) }
                 }
             }
 
@@ -875,6 +920,9 @@ fun DetailScreen(
                 }
             }
             if (isArtist) aboutItem()
+            if (stabilizeSearch) {
+                item(key = "search-layout-end") { Spacer(Modifier.height(1.dp)) }
+            }
         }
 
                 if (folder != null && folderState != null && folderState.selecting) {

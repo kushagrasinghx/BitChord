@@ -91,8 +91,10 @@ object DirectSourceGate {
      * so a run of skips cost nothing. An early lookup has no such end to wait
      * for, and without a settle of its own every skip in a run would send the
      * addon a search for a track the listener was about to skip past too.
+     * Three seconds is enough for that, and short enough that the next track
+     * is usually ready before the listener decides to skip to it.
      */
-    const val EARLY_LOOKUP_AFTER_MS = 10_000L
+    const val EARLY_LOOKUP_AFTER_MS = 3_000L
 
     /**
      * The furthest ahead of its transition a track is looked up early.

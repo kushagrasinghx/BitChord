@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The recognition widget's picker face: the sheet's waveform in full voice —
+  the LiveWaveform arithmetic at level one and phase 1.1, heights the bars
+  reach mid-listen. The picker shows the widget as it performs, not as it
+  rests; the runtime's first frame after the tap continues from the sleeping
+  face instead (ic_widget_wave_sleep), so nothing here is what the home
+  screen draws.
+
+  Same 88x54dp box the running frames land in, same per-bar run, drawn
+  straight so no host interpolates anything.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="10.6dp"
+        android:height="48.3dp"
+        android:start="0dp"
+        android:gravity="start|center_vertical">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#FFFFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="10.6dp"
+        android:height="49.1dp"
+        android:start="19.4dp"
+        android:gravity="start|center_vertical">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#FFFFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="10.6dp"
+        android:height="34.3dp"
+        android:start="38.7dp"
+        android:gravity="start|center_vertical">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#FFFFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="10.6dp"
+        android:height="38.3dp"
+        android:start="58.1dp"
+        android:gravity="start|center_vertical">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#FFFFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="10.6dp"
+        android:height="50.3dp"
+        android:gravity="start|center_vertical"
+        android:start="77.4dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#FFFFFFFF" />
+        </shape>
+    </item>
+</layer-list>

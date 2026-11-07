@@ -167,6 +167,7 @@
     <string name="search_addons_empty">Search every enabled addon at once. Tracks play straight from the addon.</string>
     <string name="search_addons_no_results">No addon has “%1$s”.</string>
     <string name="search_library_no_results">Nothing in Local Music matches “%1$s”.</string>
+    <string name="search_voice">Search with your voice</string>
     <string name="selected">Selected</string>
     <string name="share">Share</string>
     <string name="shelf_artists_on_the_rise">Artists on the rise</string>

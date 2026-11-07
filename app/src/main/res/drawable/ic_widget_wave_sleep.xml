@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The recognition widget's sleeping face: the sheet's waveform at level zero,
+  frozen where the five bars sit when there is no sound. Heights are the
+  LiveWaveform idle heights at phase zero (22% + 12% of - sin - shaped per
+  bar), so the awake face that RecognitionActivity renders frame by frame
+  starts from exactly this picture and moves from there.
+
+  The bars sit in the 88x54dp ImageView they name; the run over the x axis is
+  the app's own arithmetic — a 10% gap, five bars rounded to their width.
+  They are white on the black capsule, precisely as the sheet wears its own
+  bars over dark glass; nothing else sits behind them.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="10.6dp"
+        android:height="13.8dp"
+        android:start="0dp"
+        android:gravity="start|center_vertical">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#9EFFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="10.6dp"
+        android:height="17.2dp"
+        android:start="19.4dp"
+        android:gravity="start|center_vertical">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#9EFFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="10.6dp"
+        android:height="18.3dp"
+        android:start="38.7dp"
+        android:gravity="start|center_vertical">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#9EFFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="10.6dp"
+        android:height="16.4dp"
+        android:start="58.1dp"
+        android:gravity="start|center_vertical">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#9EFFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="10.6dp"
+        android:height="15dp"
+        android:gravity="start|center_vertical"
+        android:start="77.4dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="5.3dp" />
+            <solid android:color="#9EFFFFFF" />
+        </shape>
+    </item>
+</layer-list>

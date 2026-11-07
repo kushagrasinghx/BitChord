@@ -4,4 +4,19 @@
     <style name="Theme.BitChord" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
     </style>
+
+    <!--
+      The recognition widget's listener. The window paints nothing and dims
+      nothing, so the launcher sits behind it unchanged for the seconds the
+      microphone is up; everything the main theme means by a window — a solid
+      black background, an opaque deck under the status bar — would put a
+      screen here that the flow never asks to have.
+    -->
+    <style name="Theme.BitChord.Recognition">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

@@ -2,6 +2,10 @@ package com.music.bitchord.ui.components
 
 import com.music.bitchord.sharedui.resources.*
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -25,12 +29,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -61,6 +73,13 @@ fun SearchField(
     focusRequester: FocusRequester = remember { FocusRequester() },
     /** What the empty field says it is for — the one part that changes per screen. */
     placeholder: String = stringResource(Res.string.search_hint),
+    /**
+     * Starts the platform's voice input, or null when this device has none.
+     * Only surfaces that can act on a spoken query pass it, which keeps the
+     * microphone off the settings filter and the desktop's sidebar field.
+     */
+    onVoiceSearch: (() -> Unit)? = null,
+    pulseTrigger: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val focusManager = LocalFocusManager.current
@@ -71,9 +90,20 @@ fun SearchField(
         onSubmit()
         focusManager.clearFocus()
     }
+    val pulseScale = remember { Animatable(1f) }
+    LaunchedEffect(pulseTrigger) {
+        if (pulseTrigger == 0) return@LaunchedEffect
+        pulseScale.animateTo(1.02f, animationSpec = tween(120, easing = FastOutSlowInEasing))
+        pulseScale.animateTo(1f, animationSpec = tween(130, easing = FastOutSlowInEasing))
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = pulseScale.value
+                scaleY = pulseScale.value
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0.5f)
+            }
             .then(
                 if (LocalSearchFieldOnSurface.current) {
                     Modifier.fillMaxHeight()
@@ -155,6 +185,53 @@ fun SearchField(
                     modifier = Modifier.size(18.dp),
                 )
             }
+        }
+        // Voice input is the last thing in the pill, after the clear button.
+        // At the trailing edge it stays under the thumb while typing adds the
+        // clear button to its left, rather than sliding away from it.
+        if (onVoiceSearch != null) {
+            Spacer(Modifier.width(4.dp))
+            val voiceDescription = stringResource(Res.string.search_voice)
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onVoiceSearch)
+                    .semantics { contentDescription = voiceDescription },
+                contentAlignment = Alignment.Center,
+            ) {
+                VoiceSearchBars(
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Four rounded bars rather than a microphone: the same mark the recognition
+ * sheet listens with, so the search field's voice action reads as "listen to
+ * this song" instead of Android's text dictation.
+ */
+@Composable
+private fun VoiceSearchBars(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val heights = floatArrayOf(0.46f, 0.78f, 1f, 0.62f)
+        val gap = size.width * 0.14f
+        val barWidth = (size.width - gap * (heights.size - 1)) / heights.size
+        val radius = CornerRadius(barWidth / 2f)
+        heights.forEachIndexed { index, fraction ->
+            val barHeight = size.height * fraction
+            drawRoundRect(
+                color = tint,
+                topLeft = Offset(
+                    x = index * (barWidth + gap),
+                    y = (size.height - barHeight) / 2f,
+                ),
+                size = Size(barWidth, barHeight),
+                cornerRadius = radius,
+            )
         }
     }
 }

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The 3×2 recognition card: a rounded landscape surface with the sheet's
+  five pill-shaped waveform bars centered inside it.
+
+  - sleeping: [ic_widget_wave_sleep], wired at add time and after every take
+    ends; the widget reads as an object at rest;
+  - listening: RecognitionActivity renders the same arithmetic the sheet's
+    LiveWaveform draws — phase-breathing idle heights, level-driven rises —
+    and pushes the frames here through [RecognitionWidgetProvider.showWave].
+
+  There is no text and no separate mic anywhere: the five waveform pills are
+  the whole vocabulary.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!--
+      Keep the waveform centered inside a wide 3×2 card so the widget feels
+      intentional without stretching the animated bars.
+    -->
+    <FrameLayout
+        android:layout_width="150dp"
+        android:layout_height="100dp"
+        android:layout_gravity="center"
+        android:background="@drawable/widget_recognition_background">
+
+        <ImageView
+            android:id="@+id/widget_wave"
+            android:layout_width="88dp"
+            android:layout_height="54dp"
+            android:layout_gravity="center"
+            android:contentDescription="@string/widget_recognition_label"
+            android:src="@drawable/ic_widget_wave_sleep"
+            android:scaleType="fitXY" />
+    </FrameLayout>
+</FrameLayout>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Picker artwork for the 3×2 recognition widget on hosts older than API 31.
+  The rounded card is centered with generous breathing room and a subtle
+  outline; its five bars use the same visual rhythm as the animated runtime
+  waveform.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="180dp"
+    android:height="110dp"
+    android:viewportWidth="180"
+    android:viewportHeight="110">
+
+    <path
+        android:fillColor="#FF151B22"
+        android:pathData="M43,5 L137,5 A28,28 0,0,1 165,33 L165,77 A28,28 0,0,1 137,105 L43,105 A28,28 0,0,1 15,77 L15,33 A28,28 0,0,1 43,5 Z"
+        android:strokeColor="#66FFFFFF"
+        android:strokeWidth="1" />
+
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M46,31.15 A5.3,5.3 0,0,1 56.6,31.15 L56.6,68.85 A5.3,5.3 0,0,1 46,68.85 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M65.4,30.45 A5.3,5.3 0,0,1 76,30.45 L76,69.55 A5.3,5.3 0,0,1 65.4,69.55 Z" />
+    <path
+        android:fillColor="#D9FFFFFF"
+        android:pathData="M84.7,32.85 A5.3,5.3 0,0,1 95.3,32.85 L95.3,67.15 A5.3,5.3 0,0,1 84.7,67.15 Z" />
+    <path
+        android:fillColor="#EFFFFFFF"
+        android:pathData="M104.1,30.85 A5.3,5.3 0,0,1 114.7,30.85 L114.7,69.15 A5.3,5.3 0,0,1 104.1,69.15 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M123.4,24.85 A5.3,5.3 0,0,1 134,24.85 L134,75.15 A5.3,5.3 0,0,1 123.4,75.15 Z" />
+</vector>

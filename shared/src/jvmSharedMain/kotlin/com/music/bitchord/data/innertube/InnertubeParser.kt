@@ -1044,7 +1044,10 @@ object InnertubeParser {
      * YouTube alternates name and separator runs inside a bullet-delimited
      * segment, but only some names are guaranteed to carry an artist endpoint.
      */
-    private fun artistNamesFromRuns(runs: List<JsonElement>): String? {
+    private fun artistNamesFromRuns(
+        runs: List<JsonElement>,
+        pages: (String) -> Boolean = { "ARTIST" in it },
+    ): String? {
         val groups = mutableListOf<MutableList<JsonElement>>(mutableListOf())
         runs.forEach { run ->
             if (run.s("text")?.trim() == "•") {
@@ -1058,7 +1061,7 @@ object InnertubeParser {
                 val pageType = run.o("navigationEndpoint").o("browseEndpoint")
                     .o("browseEndpointContextSupportedConfigs")
                     .o("browseEndpointContextMusicConfig").s("pageType").orEmpty()
-                "ARTIST" in pageType
+                pages(pageType)
             }
         } ?: return null
         return artistGroup.mapIndexedNotNull { index, run ->
@@ -1690,8 +1693,16 @@ object InnertubeParser {
             videoId = videoId,
             browseId = resolvedBrowseId,
             isVideo = isVideo,
+            artist = artistNamesFromRuns(renderer.o("subtitle").a("runs").orEmpty(), CARD_CREDIT_PAGES),
         )
     }
+
+    /**
+     * Who a shelf card is credited to: its linked credit where it has one,
+     * else [artistFromSubtitle]'s reading of the words, which only knows
+     * English type labels (#1283).
+     */
+    fun artistOf(item: ShelfItem): String = item.artist ?: artistFromSubtitle(item.subtitle)
 
     /**
      * The credit out of a shelf card's subtitle, which reads "Song • Chelsea
@@ -1750,6 +1761,8 @@ object InnertubeParser {
     )
     /** Header lines that name the artist, in either header shape. */
     private val HEADER_CREDIT_LINES = listOf("straplineTextOne", "subtitle")
+    /** A card credits an artist, or for a video upload the channel that posted it. */
+    private val CARD_CREDIT_PAGES: (String) -> Boolean = { "ARTIST" in it || "USER_CHANNEL" in it }
     private val TYPE_WORDS = setOf(
         "song", "video", "album", "single", "ep", "artist",
         "playlist", "podcast", "episode",

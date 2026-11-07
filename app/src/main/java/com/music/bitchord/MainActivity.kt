@@ -4956,6 +4956,7 @@ private fun BitChordApp(
                 playlists = playlists,
                 loading = playlistsLoading,
                 song = target.songs.firstOrNull(),
+                headerTitle = target.title,
                 onDismiss = { albumPlaylistTarget = null },
                 onAdd = { picked ->
                     viewModel.addSongsToPlaylists(picked, target.songs) { added, alreadyThere, failed ->

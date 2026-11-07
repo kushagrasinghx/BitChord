@@ -1022,6 +1022,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Adds every distinct song in [songs] to each selected playlist, serially. */
+    fun addSongsToPlaylists(
+        playlists: List<UserPlaylist>,
+        songs: List<Song>,
+        onResult: (added: Int, alreadyThere: Int, failed: Int) -> Unit = { _, _, _ -> },
+    ) {
+        if (!requireSignIn() || playlists.isEmpty() || songs.isEmpty()) return
+        viewModelScope.launch {
+            var addedCount = 0
+            var alreadyThereCount = 0
+            var failedCount = 0
+            val uniqueSongs = songs.distinctBy { it.videoId }
+            playlists.forEach { playlist ->
+                val openSongs = (_detailStack.value.firstOrNull { it.browseId == playlist.browseId }
+                    ?.songs as? UiState.Success)?.data
+                val known = openSongs ?: YtMusicRepository.allSongs(playlist.browseId).getOrNull()
+                val knownIds = known?.mapTo(HashSet()) { it.videoId }
+                val missing = uniqueSongs.filterNot { it.videoId in knownIds.orEmpty() }
+                alreadyThereCount += uniqueSongs.size - missing.size
+                missing.chunked(50).forEach { chunk ->
+                    YtMusicRepository.addToPlaylist(playlist.playlistId, chunk.map { it.videoId }).fold(
+                        onSuccess = { returned ->
+                            libraryStale = true
+                            addedCount += chunk.size
+                            chunk.forEach { song ->
+                                appendToOpenPlaylist(playlist.browseId, song, returned[song.videoId])
+                            }
+                        },
+                        onFailure = { failedCount += chunk.size },
+                    )
+                }
+            }
+            onResult(addedCount, alreadyThereCount, failedCount)
+        }
+    }
+
     private enum class AddOutcome { ADDED, ALREADY_THERE, FAILED }
 
     private suspend fun addOne(playlist: UserPlaylist, song: Song): AddOutcome {

@@ -736,6 +736,8 @@ private fun BitChordApp(
     // Separate from [songActions] so the menu can close behind it — the picker
     // is the next step, not a second sheet stacked on the first.
     var playlistTarget by remember { mutableStateOf<Song?>(null) }
+    // The album whose complete track list is being added to selected playlists.
+    var albumPlaylistTarget by remember { mutableStateOf<BrowseTarget?>(null) }
     // The picker opened from the Library tab, where there is no track and
     // creating the playlist is the whole errand.
     var creatingPlaylist by remember { mutableStateOf(false) }
@@ -4949,6 +4951,34 @@ private fun BitChordApp(
             )
         }
 
+        albumPlaylistTarget?.let { target ->
+            PlaylistPickerSheet(
+                playlists = playlists,
+                loading = playlistsLoading,
+                song = target.songs.firstOrNull(),
+                onDismiss = { albumPlaylistTarget = null },
+                onAdd = { picked ->
+                    viewModel.addSongsToPlaylists(picked, target.songs) { added, alreadyThere, failed ->
+                        showQueueNotice(
+                            when {
+                                added > 0 -> context.getString(R.string.song_added_to_playlist)
+                                alreadyThere > 0 && failed == 0 -> context.getString(R.string.song_already_in_playlist)
+                                else -> context.getString(R.string.failed)
+                            },
+                        )
+                    }
+                },
+                onCreate = { title, privacy ->
+                    viewModel.createPlaylistWithVideoIds(
+                        title = title,
+                        privacy = privacy,
+                        videoIds = target.songs.map { it.videoId },
+                        songs = target.songs,
+                    )
+                },
+            )
+        }
+
         // ---- Add to a device playlist / new device playlist ----
         // The sheet above over the offline player's own playlists, for a track
         // that is a file on this device. Nothing here waits on a network, so
@@ -5108,6 +5138,17 @@ private fun BitChordApp(
                     QueueShuffle.enableForNextQueue()
                     play(songs, songs.indices.random())
                 }.takeIf { target.fromCard },
+                onAddToPlaylists = if (target.type == BrowseType.ALBUM && target.browseId != null && signedIn) {
+                    {
+                        browseActions = null
+                        viewModel.loadPlaylists()
+                        withBrowseSongs(target) { songs ->
+                            if (songs.isNotEmpty()) albumPlaylistTarget = target.copy(songs = songs)
+                        }
+                    }
+                } else {
+                    null
+                },
                 onOpen = target.browseId
                     ?.takeIf { target.fromCard }
                     ?.let { id ->

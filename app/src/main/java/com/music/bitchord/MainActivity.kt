@@ -3674,7 +3674,6 @@ private fun BitChordApp(
                                 // does nothing; see [onBrowseLongPress].
                                 onShelfItemLongPress = onBrowseLongPress,
                                 onNewPlaylist = { creatingPlaylist = true },
-                                onImportSpotifyPlaylist = { showSpotifyImportDialog = true },
                                 onShowAll = { shelf -> navigator.push(AppRoute.LibraryShowAll(shelf)) },
                                 replay = {
                                     LibraryReplayEntry(
@@ -4922,6 +4921,9 @@ private fun BitChordApp(
                 loading = playlistsLoading,
                 song = target,
                 startCreating = target == null,
+                // Making a playlist from nothing, not filing a track: an
+                // import is the other way to start one.
+                onImportSpotify = if (target == null) ({ showSpotifyImportDialog = true }) else null,
                 onDismiss = dismiss,
                 onAdd = { picked ->
                     target?.let { song ->

@@ -14,6 +14,7 @@ import { useUi } from '@/state/ui';
 import { useHasVideo } from '@/state/video';
 import { albumPageFor, artistPageFor } from './nowPlayingLinks';
 import { MixWindowHighlight } from './NerdStats';
+import { Marquee } from '@/components/Marquee';
 import { useScrubber } from './useScrubber';
 
 // The title and each artist: plain until hovered, then underlined on their own.
@@ -158,7 +159,8 @@ export function Lcd() {
               href={albumHref(album?.id ?? null)}
               resolve={() => albumPageFor(videoId, album, [title, artist].filter(Boolean).join(' '))}
             >
-              {title}
+              {/* Too long for the pill: it scrolls, after a moment, as Spotify's does. */}
+              <Marquee watch={videoId}>{title}</Marquee>
             </PageLink>
             {track?.explicit && <ExplicitBadge size={11} />}
           </div>

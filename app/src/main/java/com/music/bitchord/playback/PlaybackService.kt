@@ -1880,6 +1880,7 @@ class PlaybackService : MediaLibraryService() {
         deferPlayToParty = { partySync?.shouldDeferPlay() == true },
         lockedTransport = { playing -> partySync?.onLockedTransport(playing) == true },
         cast = speakers,
+        onShuffleRequest = ::toggleShuffleFromSession,
     ) { lastPublishedSubtitle }
 
     /**
@@ -2309,7 +2310,7 @@ class PlaybackService : MediaLibraryService() {
             standbyPlayer.clearMediaItems()
             standbyPlayer.skipSilenceEnabled = activePlayer.skipSilenceEnabled
             standbyPlayer.repeatMode = activePlayer.repeatMode
-            standbyPlayer.shuffleModeEnabled = activePlayer.shuffleModeEnabled
+            standbyPlayer.shuffleModeEnabled = false
             // The listener's speed, not the active player's: straight after an
             // Advanced Automix blend the active player is still easing off its
             // beatmatch stretch, and copying that would keep it for good.
@@ -6909,6 +6910,9 @@ class PlaybackService : MediaLibraryService() {
         // the previous service instance's value. Only assigning `true` made a
         // stale enabled state consume the first tap meant to enable Shuffle.
         QueueShuffle.setEnabled(AppSettings.shuffleEnabled.value)
+        // ExoPlayer's own shuffle stays off: the app shuffles by reordering the
+        // queue, and this mode would play that queue in a hidden random order.
+        player.shuffleModeEnabled = false
         player.repeatMode = AppSettings.repeatMode.value
     }
 
@@ -7110,7 +7114,6 @@ class PlaybackService : MediaLibraryService() {
         val position = oldActive.currentPosition.coerceAtLeast(0L)
         val playWhenReady = oldActive.playWhenReady
         val repeatMode = oldActive.repeatMode
-        val shuffleMode = oldActive.shuffleModeEnabled
 
         oldActive.playWhenReady = false
         crossfade?.release()
@@ -7141,7 +7144,6 @@ class PlaybackService : MediaLibraryService() {
         applySettings(newActive)
         applySettings(newSpare)
         newActive.repeatMode = repeatMode
-        newActive.shuffleModeEnabled = shuffleMode
         applyEqualizer()
         applySpatialAudioEnabled()
         if (items.isNotEmpty()) {
@@ -8060,6 +8062,8 @@ class PlaybackService : MediaLibraryService() {
         private val lockedTransport: (Boolean) -> Boolean,
         /** Cast or the watch, whichever is the speaker — its clock is what this reports. */
         private val cast: RemoteSpeaker,
+        /** Flips the app's own shuffle — the queue edit in [QueueShuffle]. */
+        private val onShuffleRequest: () -> Unit,
         private val getSubtitle: () -> String?,
     ) : ForwardingPlayer(player), CastSink {
 
@@ -8401,6 +8405,18 @@ class PlaybackService : MediaLibraryService() {
             if (locked()) { super.stop(); return }
             onUserIntent()
             super.stop()
+        }
+
+        /**
+         * A shuffle button outside the app — a car, a Bluetooth headset,
+         * Android Auto, another app's controller — asks for ExoPlayer's own
+         * shuffle mode. That mode plays the queue in a hidden random order while
+         * the queue and the app's button still show it in order, so it is never
+         * passed down: the request becomes the app's shuffle instead, which
+         * rearranges the queue itself (see [QueueShuffle]).
+         */
+        override fun setShuffleModeEnabled(shuffleModeEnabled: Boolean) {
+            if (shuffleModeEnabled != QueueShuffle.enabled.value) onShuffleRequest()
         }
 
         override fun setPlayWhenReady(playWhenReady: Boolean) {

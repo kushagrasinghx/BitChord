@@ -10,6 +10,7 @@ import {
 } from '@/data/music/queries';
 import type { Track } from '@/data/music/types';
 import { usePlayer } from '@/state/player';
+import { toast, toastResult } from '@/state/toasts';
 
 function PlaylistChoices({ videoId, onDone, onBack }: { videoId: string; onDone: () => void; onBack: () => void }) {
   const options = usePlaylistOptions(videoId, true);
@@ -40,7 +41,11 @@ function PlaylistChoices({ videoId, onDone, onBack }: { videoId: string; onDone:
         <MenuItem
           key={option.playlistId}
           onSelect={() => {
-            add.mutate({ playlistId: option.playlistId, videoId });
+            toastResult(
+              add.mutateAsync({ playlistId: option.playlistId, videoId }),
+              { message: `Added to ${option.title}`, action: { label: 'View', href: `/playlist/${encodeURIComponent(option.playlistId)}` } },
+              `Couldn’t add to ${option.title}`,
+            );
             onDone();
           }}
         >
@@ -63,7 +68,11 @@ function AccountItems({ track, onClose, onPlaylists }: { track: Track; onClose: 
         icon={<Star size={15} fill={liked ? 'currentColor' : 'none'} />}
         disabled={status.isPending}
         onSelect={() => {
-          setLiked.mutate({ videoId: track.videoId, liked: !liked });
+          toastResult(
+            setLiked.mutateAsync({ videoId: track.videoId, liked: !liked }),
+            liked ? 'Removed from Favorites' : 'Added to Favorites',
+            'Couldn’t update Favorites',
+          );
           onClose();
         }}
       >
@@ -85,10 +94,10 @@ function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void 
   const { playNext, addToQueue } = usePlayer.getState();
   return (
     <>
-      <MenuItem icon={<ListStart size={15} />} onSelect={() => (onClose(), playNext([track]))}>
+      <MenuItem icon={<ListStart size={15} />} onSelect={() => (onClose(), playNext([track]), toast('Playing next'))}>
         Play Next
       </MenuItem>
-      <MenuItem icon={<ListEnd size={15} />} onSelect={() => (onClose(), addToQueue([track]))}>
+      <MenuItem icon={<ListEnd size={15} />} onSelect={() => (onClose(), addToQueue([track]), toast('Added to queue'))}>
         Add to Queue
       </MenuItem>
       {signedIn && <AccountItems track={track} onClose={onClose} onPlaylists={() => setView('playlists')} />}

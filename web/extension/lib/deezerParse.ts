@@ -30,6 +30,18 @@ export function hasErrors(errors: unknown): boolean {
   return !!o && Object.keys(o).length > 0;
 }
 
+/**
+ * gw-light.php errors that mean the session or its `checkForm` token is no good
+ * (sign in again), as opposed to a problem with the request itself (DATA_ERROR,
+ * a deleted or private playlist).
+ */
+const TOKEN_ERRORS = ['VALID_TOKEN_REQUIRED', 'NEED_USER_AUTH_REQUIRED', 'NEED_API_AUTH_REQUIRED'];
+
+export function isTokenError(errors: unknown): boolean {
+  const o = obj(errors);
+  return !!o && Object.keys(o).some((key) => TOKEN_ERRORS.includes(key));
+}
+
 export function coverUrl(type: string, md5: string | null | undefined, size = 500): string | null {
   const hash = md5?.trim();
   if (!hash) return null;
@@ -40,6 +52,8 @@ export function coverUrl(type: string, md5: string | null | undefined, size = 50
 export function parseUserData(root: Json): {
   userId: string;
   apiToken: string;
+  /** The `sid` that `checkForm` belongs to, when the response names it. */
+  sessionId: string | null;
   lovedTracksId: string | null;
   name: string;
   avatarUrl: string | null;
@@ -50,10 +64,11 @@ export function parseUserData(root: Json): {
   if (!userId || userId === '0') return null;
   const apiToken = str(results?.checkForm)?.trim();
   if (!apiToken) return null;
+  const sessionId = str(results?.SESSION_ID)?.trim() || null;
   const lovedTracksId = str(user?.LOVEDTRACKS_ID)?.trim() || null;
   const name = str(user?.BLOG_NAME)?.trim() || 'Deezer';
   const avatarUrl = coverUrl('user', str(user?.USER_PICTURE), 64);
-  return { userId, apiToken, lovedTracksId, name, avatarUrl };
+  return { userId, apiToken, sessionId, lovedTracksId, name, avatarUrl };
 }
 
 function artistsOfGwTrack(item: Json): string {

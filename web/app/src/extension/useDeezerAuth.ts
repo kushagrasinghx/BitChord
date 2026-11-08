@@ -24,7 +24,7 @@ function adopt(state: DeezerAuthState): void {
   const before = queryClient.getQueryData<DeezerAuthState>(deezerAuthQueryKey);
   queryClient.setQueryData(deezerAuthQueryKey, state);
   // Another account, or none: every list read as the old one goes.
-  if (before && (before.signedIn !== state.signedIn || before.user?.name !== state.user?.name)) {
+  if (before && (before.signedIn !== state.signedIn || before.user?.id !== state.user?.id)) {
     void queryClient.resetQueries({ queryKey: ['deezer', 'data'] });
   }
 }

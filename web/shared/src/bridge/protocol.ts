@@ -126,7 +126,8 @@ export interface DeezerAuthState {
   connected: boolean;
   /** A session was opened for the account: library and playlists will work. */
   signedIn: boolean;
-  user: { name: string; avatarUrl: string | null } | null;
+  /** `id` is the public Deezer user id: a display name is not unique, and may be missing. */
+  user: { id: string; name: string; avatarUrl: string | null } | null;
   /** Signed in to the browser but no session came back: what went wrong, for display. */
   problem: string | null;
 }

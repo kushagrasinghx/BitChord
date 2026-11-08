@@ -114,7 +114,7 @@ const jobs = new Map<string, PlaylistJob>();
 /** Per account and playlist: another account's rows are never shown. */
 export function useDeezerRows(playlistId: string): DeezerRows & { retry: () => void } {
   const auth = useDeezerAuth();
-  const account = auth.state === 'ready' && auth.auth.signedIn ? (auth.auth.user?.name ?? '?') : null;
+  const account = auth.state === 'ready' && auth.auth.signedIn ? (auth.auth.user?.id ?? '?') : null;
   const key = `${account}|${playlistId}`;
   let job = jobs.get(key);
   if (!job) {

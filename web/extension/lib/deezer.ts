@@ -2,6 +2,7 @@ import type { DeezerAuthState, DeezerPage, DeezerPlaylist, DeezerTrack } from '@
 import {
   coverUrl,
   hasErrors,
+  isTokenError,
   LOVED_ID,
   num,
   obj,
@@ -15,6 +16,7 @@ import {
   type Json,
 } from './deezerParse';
 import { installDeezerFetchRule } from './rules';
+import { createCookieGate, createSessionCache } from './sessionState';
 
 export { LOVED_ID, parsePlaylistPage, parsePublicPlaylistsPage, parsePublicTracksPage, parseTrackPage, parseUserData };
 
@@ -54,15 +56,15 @@ interface Session {
   sid: string | null;
   userId: string;
   lovedTracksId: string | null;
-  user: { name: string; avatarUrl: string | null };
+  user: { id: string; name: string; avatarUrl: string | null };
   cookie: string;
   expiresAt: number;
 }
 
 let deezerRules: Promise<void> | null = null;
-let session: Session | null = null;
-let opening: Promise<Session> | null = null;
 let retryAfter = 0;
+
+const SESSION_EXPIRED = 'Your Deezer session has expired. Sign in again at www.deezer.com.';
 
 async function readCookie(name: string): Promise<string | null> {
   const primary = await browser.cookies.get({ url: `${WEB_ORIGIN}/`, name }).catch(() => null);
@@ -72,55 +74,46 @@ async function readCookie(name: string): Promise<string | null> {
 }
 
 const SESSION_COOKIE_RULE_ID = 502;
-let activeCookieRuleCount = 0;
-let installedCookieValue: string | null = null;
 
 /**
  * Like Spotify's `sp_dc`, `credentials: 'include'` from a service worker cannot
  * be relied upon to attach `arl` across browsers, so a temporary session rule
- * sets the `Cookie` header on this extension's own `gw-light.php` call.
- * Refcounted so concurrent `gwCall` requests never remove the rule mid-flight.
+ * sets the `Cookie` header on this extension's own `gw-light.php` call. See
+ * [createCookieGate] for how concurrent calls share it.
  */
-async function withSessionCookie<T>(arl: string, sid: string | null, run: () => Promise<T>): Promise<T> {
-  const value = sid ? `arl=${arl}; sid=${sid}` : `arl=${arl}`;
-  activeCookieRuleCount++;
-  try {
-    if (installedCookieValue !== value) {
-      await browser.declarativeNetRequest.updateSessionRules({
-        removeRuleIds: [SESSION_COOKIE_RULE_ID],
-        addRules: [
-          {
-            id: SESSION_COOKIE_RULE_ID,
-            priority: 2,
-            condition: { urlFilter: '||www.deezer.com/ajax/gw-light.php', tabIds: [-1], resourceTypes: ['xmlhttprequest'] },
-            action: { type: 'modifyHeaders', requestHeaders: [{ header: 'Cookie', operation: 'set', value }] },
-          },
-        ],
-      });
-      installedCookieValue = value;
-    }
-    return await run();
-  } finally {
-    activeCookieRuleCount--;
-    if (activeCookieRuleCount === 0) {
-      installedCookieValue = null;
-      await browser.declarativeNetRequest.updateSessionRules({ removeRuleIds: [SESSION_COOKIE_RULE_ID] }).catch(() => undefined);
-    }
-  }
+const withCookie = createCookieGate((value) =>
+  browser.declarativeNetRequest.updateSessionRules(
+    value === null
+      ? { removeRuleIds: [SESSION_COOKIE_RULE_ID] }
+      : {
+          removeRuleIds: [SESSION_COOKIE_RULE_ID],
+          addRules: [
+            {
+              id: SESSION_COOKIE_RULE_ID,
+              priority: 2,
+              condition: { urlFilter: '||www.deezer.com/ajax/gw-light.php', tabIds: [-1], resourceTypes: ['xmlhttprequest'] },
+              action: { type: 'modifyHeaders', requestHeaders: [{ header: 'Cookie', operation: 'set', value }] },
+            },
+          ],
+        },
+  ),
+);
+
+function withSessionCookie<T>(arl: string, sid: string | null, run: () => Promise<T>): Promise<T> {
+  return withCookie(sid ? `arl=${arl}; sid=${sid}` : `arl=${arl}`, run);
 }
+
+/** Keyed by `arl`: another account's session, or one still opening for it, is never served. */
+const sessions = createSessionCache(openSession);
 
 async function getSession(): Promise<Session> {
   const arl = await readCookie('arl');
-  if (session && session.cookie !== arl) invalidateSession();
-  if (session && Date.now() < session.expiresAt) return session;
-  opening ??= openSession().finally(() => (opening = null));
-  return opening;
+  if (!arl) throw new DeezerAuthError('Not signed in to Deezer in this browser');
+  return sessions.get(arl);
 }
 
-async function openSession(): Promise<Session> {
+async function openSession(arl: string): Promise<Session> {
   if (!(await prefs()).connected) throw new DeezerAuthError('Deezer is disconnected');
-  const arl = await readCookie('arl');
-  if (!arl) throw new DeezerAuthError('Not signed in to Deezer in this browser');
   if (Date.now() < retryAfter) throw new DeezerAuthError('Deezer would not open a session; trying again shortly');
   deezerRules ??= installDeezerFetchRule();
   await deezerRules;
@@ -146,30 +139,28 @@ async function openSession(): Promise<Session> {
     };
   });
 
-  if (status === 401 || status === 403) {
-    throw new DeezerAuthError('Your Deezer session has expired. Sign in again at www.deezer.com.');
-  }
+  if (status === 401 || status === 403) throw new DeezerAuthError(SESSION_EXPIRED);
   if (!body) {
     retryAfter = Date.now() + RETRY_MS;
     throw new DeezerAuthError('Deezer did not answer');
   }
 
   const parsed = parseUserData(body);
-  if (!parsed) {
-    throw new DeezerAuthError('Your Deezer session has expired. Sign in again at www.deezer.com.');
-  }
+  if (!parsed) throw new DeezerAuthError(SESSION_EXPIRED);
 
-  const jarSid = await readCookie('sid');
-  session = {
+  // `checkForm` is tied to the sid it was issued with. The response names it;
+  // the jar is only a fallback, since after a browser restart it may hold none
+  // and Set-Cookie can't be read from a fetch.
+  const sid = parsed.sessionId ?? (await readCookie('sid')) ?? existingSid;
+  return {
     apiToken: parsed.apiToken,
-    sid: jarSid ?? existingSid,
+    sid,
     userId: parsed.userId,
     lovedTracksId: parsed.lovedTracksId,
-    user: { name: parsed.name, avatarUrl: parsed.avatarUrl },
+    user: { id: parsed.userId, name: parsed.name, avatarUrl: parsed.avatarUrl },
     cookie: arl,
     expiresAt: Date.now() + SESSION_TTL_MS,
   };
-  return session;
 }
 
 async function gwCall(method: string, params: Json, retried = false): Promise<Json> {
@@ -188,19 +179,16 @@ async function gwCall(method: string, params: Json, retried = false): Promise<Js
       body: JSON.stringify(params),
     }),
   );
-  if ((response.status === 401 || response.status === 403) && !retried) {
-    session = null;
+  const body = (await response.json().catch(() => null)) as Json | null;
+  // Only a refused session is worth opening a new one for, once; a bad request
+  // (DATA_ERROR, a private or deleted playlist) fails as itself.
+  if (response.status === 401 || response.status === 403 || (body && isTokenError(body.error))) {
+    if (retried) throw new DeezerAuthError(SESSION_EXPIRED);
+    sessions.invalidate(s);
     return gwCall(method, params, true);
   }
-  const body = (await response.json().catch(() => null)) as Json | null;
   if (!body) throw new Error(`Deezer ${method} answered with something other than JSON`);
-  if (hasErrors(body.error)) {
-    if (!retried) {
-      session = null;
-      return gwCall(method, params, true);
-    }
-    throw new Error(`Deezer ${method} returned an error`);
-  }
+  if (hasErrors(body.error)) throw new Error(`Deezer ${method} returned an error`);
   if (!response.ok) throw new Error(`Deezer ${method} failed (${response.status})`);
   return body;
 }
@@ -216,7 +204,10 @@ export async function playlists(offset: number): Promise<DeezerPage<DeezerPlayli
       page = parsePlaylistPage(root);
       // deezer.pageProfile returns all items in one response.
       page = { ...page, total: page.raw };
-    } catch {
+    } catch (error) {
+      // The public API lists public playlists only: falling back on a dead
+      // session would hide the private ones instead of asking to sign in.
+      if (error instanceof DeezerAuthError) throw error;
       const response = await fetch(`${PUBLIC_API}/user/${encodeURIComponent(s.userId)}/playlists?index=${offset}&limit=100`, {
         credentials: 'omit',
       });
@@ -254,7 +245,8 @@ export async function tracks(playlistId: string, offset: number): Promise<Deezer
     if (obj(root.results)) {
       return parseTrackPage(root);
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof DeezerAuthError) throw error;
     // Fall back to the public REST API for public playlists.
   }
 
@@ -297,7 +289,8 @@ export async function playlistInfo(
         total: num(path(root, 'results', 'SONGS', 'total')) ?? num(data.NB_SONG) ?? 0,
       };
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof DeezerAuthError) throw error;
     // Fall back to public API below.
   }
 
@@ -341,7 +334,7 @@ export function isSessionCookie(cookie: Browser.cookies.Cookie): boolean {
 }
 
 export function invalidateSession(): void {
-  session = null;
+  sessions.invalidate();
   retryAfter = 0;
 }
 

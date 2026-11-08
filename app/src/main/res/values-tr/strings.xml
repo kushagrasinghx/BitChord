@@ -1417,4 +1417,6 @@
     <string name="loop_section">Bölümü döngüye al</string>
     <string name="clear_loop">Döngüyü temizle</string>
     <string name="loop_active">Döngü etkin</string>
+    <string name="loop_in_lyrics">Şarkı sözlerinde döngü</string>
+    <string name="loop_in_lyrics_subtitle">Bir bölümü döngüye almak için şarkı sözü satırlarını seçin</string>
 </resources>

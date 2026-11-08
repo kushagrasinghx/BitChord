@@ -923,16 +923,17 @@ fun NowPlayingScreen(
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
     val sectionLoopState by PlayerSettings.sectionLoopState.collectAsStateWithLifecycle()
     val activeSectionLoop by PlayerSettings.activeSectionLoop.collectAsStateWithLifecycle()
+    val loopInLyrics by PlayerSettings.loopInLyrics.collectAsStateWithLifecycle()
     // A lambda, not a value: read by the lyric strip and panel in scopes of
     // their own, so a tick recomposes them and not the player around them.
     val lyricsPlayhead = rememberLyricPlayhead(position)
     val isLyricsSynced = remember(lyrics) { lyrics?.any { it.timeMs > 0L } == true }
     val seekToLyric: (Long) -> Unit = { lineTimeMs ->
         val targetAudioMs = adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs)
-        if (isLyricsSynced && sectionLoopState is SectionLoopState.WaitingForA) {
+        if (loopInLyrics && isLyricsSynced && sectionLoopState is SectionLoopState.WaitingForA) {
             onSetSectionLoopPointA(targetAudioMs)
             onSeek(targetAudioMs)
-        } else if (isLyricsSynced && sectionLoopState is SectionLoopState.SettingA) {
+        } else if (loopInLyrics && isLyricsSynced && sectionLoopState is SectionLoopState.SettingA) {
             val lineIdx = lyrics.orEmpty().indexOfFirst { it.timeMs == lineTimeMs }
             val rawEndMs = if (lineIdx >= 0) {
                 deriveLyricLineEndMs(lineIdx, lyrics.orEmpty(), durationMs)
@@ -1175,8 +1176,8 @@ fun NowPlayingScreen(
         haptics = haptics,
         onCard = { lyricsShare = it },
     )
-    val loopFromPickedLyrics = remember(lyricPicker.picks, lyrics, lyricsOffsetMs, durationMs, isLyricsSynced) {
-        if (isLyricsSynced && lyricPicker.picks.isNotEmpty() && lyrics != null) {
+    val loopFromPickedLyrics = remember(lyricPicker.picks, lyrics, lyricsOffsetMs, durationMs, isLyricsSynced, loopInLyrics) {
+        if (loopInLyrics && isLyricsSynced && lyricPicker.picks.isNotEmpty() && lyrics != null) {
             mapLyricRangeToAudioRange(
                 firstLineIndex = lyricPicker.picks.min(),
                 lastLineIndex = lyricPicker.picks.max(),
@@ -2337,7 +2338,7 @@ fun NowPlayingScreen(
                                     onCancel = lyricPicker.cancel,
                                     onShare = lyricPicker.share,
                                     loopEnabled = loopFromPickedLyrics != null,
-                                    onLoop = if (isLyricsSynced) onLoopFromPickedLyrics else null,
+                                    onLoop = if (loopInLyrics && isLyricsSynced) onLoopFromPickedLyrics else null,
                                 )
                             },
                             romanizationToggle = {
@@ -4005,7 +4006,7 @@ fun NowPlayingScreen(
                                     onCancel = lyricPicker.cancel,
                                     onShare = lyricPicker.share,
                                     loopEnabled = loopFromPickedLyrics != null,
-                                    onLoop = if (isLyricsSynced) onLoopFromPickedLyrics else null,
+                                    onLoop = if (loopInLyrics && isLyricsSynced) onLoopFromPickedLyrics else null,
                                     modifier = Modifier.align(Alignment.BottomCenter),
                                 )
                             }

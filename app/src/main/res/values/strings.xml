@@ -1335,4 +1335,6 @@
     <string name="loop_section">Loop section</string>
     <string name="clear_loop">Clear loop</string>
     <string name="loop_active">Loop active</string>
+    <string name="loop_in_lyrics">Loop in lyrics</string>
+    <string name="loop_in_lyrics_subtitle">Select lines in synced lyrics to loop a section</string>
 </resources>

@@ -1437,4 +1437,6 @@
     <string name="loop_section">片段循環</string>
     <string name="clear_loop">清除循環</string>
     <string name="loop_active">循環中</string>
+    <string name="loop_in_lyrics">歌詞循環片段</string>
+    <string name="loop_in_lyrics_subtitle">在歌詞中選擇行以循環播放片段</string>
 </resources>

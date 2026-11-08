@@ -1432,4 +1432,6 @@
     <string name="loop_section">Repetir sección</string>
     <string name="clear_loop">Quitar bucle</string>
     <string name="loop_active">Bucle activo</string>
+    <string name="loop_in_lyrics">Bucle en letras</string>
+    <string name="loop_in_lyrics_subtitle">Selecciona líneas en las letras para repetir una sección</string>
 </resources>

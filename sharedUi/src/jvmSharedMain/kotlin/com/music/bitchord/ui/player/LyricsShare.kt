@@ -38,6 +38,7 @@ import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.cancel
 import com.music.bitchord.sharedui.resources.lyrics_share_pick_limit
 import com.music.bitchord.sharedui.resources.share
+import com.music.bitchord.sharedui.resources.loop
 import com.music.bitchord.sharedui.resources.loop_section
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.haptics.Haptic
@@ -318,20 +319,21 @@ internal fun LyricsPickBar(
             .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        PickAction(
-            label = stringResource(Res.string.cancel),
-            icon = Icons.Rounded.Close,
-            accent = false,
-            enabled = true,
-            modifier = Modifier.weight(1f),
-            onClick = {
-                haptics.play(Haptic.Tap)
-                onCancel()
-            },
-        )
-        if (onLoop != null) {
+        if (onLoop == null) {
             PickAction(
-                label = stringResource(Res.string.loop_section),
+                label = stringResource(Res.string.cancel),
+                icon = Icons.Rounded.Close,
+                accent = false,
+                enabled = true,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    haptics.play(Haptic.Tap)
+                    onCancel()
+                },
+            )
+        } else {
+            PickAction(
+                label = stringResource(Res.string.loop),
                 icon = BitChordIcons.Repeat,
                 accent = loopEnabled,
                 enabled = loopEnabled,

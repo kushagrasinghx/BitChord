@@ -1465,4 +1465,6 @@
     <string name="loop_section">לולאת קטע</string>
     <string name="clear_loop">נקה לולאה</string>
     <string name="loop_active">לולאה פעילה</string>
+    <string name="loop_in_lyrics">לולאה במילות השיר</string>
+    <string name="loop_in_lyrics_subtitle">בחר שורות במילים כדי ליצור לולאת קטע</string>
 </resources>

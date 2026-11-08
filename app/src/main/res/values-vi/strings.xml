@@ -1377,4 +1377,6 @@
     <string name="loop_section">Lặp đoạn</string>
     <string name="clear_loop">Xóa lặp</string>
     <string name="loop_active">Đang lặp</string>
+    <string name="loop_in_lyrics">Lặp đoạn trong lời bài hát</string>
+    <string name="loop_in_lyrics_subtitle">Chọn các dòng lời bài hát để lặp lại một đoạn</string>
 </resources>

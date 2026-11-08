@@ -1399,4 +1399,6 @@
     <string name="loop_section">Ripeti sezione</string>
     <string name="clear_loop">Rimuovi loop</string>
     <string name="loop_active">Loop attivo</string>
+    <string name="loop_in_lyrics">Loop nei testi</string>
+    <string name="loop_in_lyrics_subtitle">Seleziona righe nei testi per ripetere una sezione</string>
 </resources>

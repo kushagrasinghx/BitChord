@@ -1310,4 +1310,6 @@
     <string name="loop_section">구간 반복</string>
     <string name="clear_loop">반복 해제</string>
     <string name="loop_active">반복 중</string>
+    <string name="loop_in_lyrics">가사에서 구간 반복</string>
+    <string name="loop_in_lyrics_subtitle">가사 줄을 선택하여 해당 구간을 반복 재생</string>
 </resources>

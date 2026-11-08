@@ -94,6 +94,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val smartTransitionWindow get() = AppSettings.smartTransitionWindow
         override val activeSectionLoop get() = AppSettings.activeSectionLoop
         override val sectionLoopState get() = AppSettings.sectionLoopState
+        override val loopInLyrics get() = AppSettings.loopInLyrics
         override val spotifyCanvasAutoHide get() = AppSettings.spotifyCanvasAutoHide
         override val syncedLyrics get() = AppSettings.syncedLyrics
         override val translationLanguage get() = AppSettings.translationLanguage

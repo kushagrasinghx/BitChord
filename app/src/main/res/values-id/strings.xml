@@ -1437,4 +1437,6 @@
     <string name="loop_section">Ulangi bagian</string>
     <string name="clear_loop">Hapus putaran</string>
     <string name="loop_active">Putaran aktif</string>
+    <string name="loop_in_lyrics">Putar ulang di lirik</string>
+    <string name="loop_in_lyrics_subtitle">Pilih baris pada lirik untuk mengulang bagian lagu</string>
 </resources>

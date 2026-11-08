@@ -1443,4 +1443,6 @@
     <string name="loop_section">เล่นวนท่อน</string>
     <string name="clear_loop">ยกเลิกการเล่นวน</string>
     <string name="loop_active">กำลังเล่นวน</string>
+    <string name="loop_in_lyrics">เล่นวนในเนื้อเพลง</string>
+    <string name="loop_in_lyrics_subtitle">เลือกท่อนในเนื้อเพลงเพื่อเล่นวนเฉพาะช่วง</string>
 </resources>

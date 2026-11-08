@@ -1438,4 +1438,6 @@
     <string name="loop_section">区間ループ</string>
     <string name="clear_loop">ループを解除</string>
     <string name="loop_active">ループ中</string>
+    <string name="loop_in_lyrics">歌詞でループ</string>
+    <string name="loop_in_lyrics_subtitle">歌詞の行を選択して区間をループ再生</string>
 </resources>

@@ -1463,4 +1463,6 @@
     <string name="loop_section">सेक्शन लूप करें</string>
     <string name="clear_loop">लूप हटाएं</string>
     <string name="loop_active">लूप सक्रिय</string>
+    <string name="loop_in_lyrics">गीत के बोल में लूप</string>
+    <string name="loop_in_lyrics_subtitle">सेक्शन लूप करने के लिए सिंक किए गए बोल की पंक्तियां चुनें</string>
 </resources>

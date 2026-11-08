@@ -1461,4 +1461,6 @@
     <string name="loop_section">Boucler la section</string>
     <string name="clear_loop">Effacer la boucle</string>
     <string name="loop_active">Boucle active</string>
+    <string name="loop_in_lyrics">Boucle dans les paroles</string>
+    <string name="loop_in_lyrics_subtitle">Sélectionnez des lignes de paroles pour boucler une section</string>
 </resources>

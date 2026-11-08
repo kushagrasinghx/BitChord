@@ -290,6 +290,7 @@ interface PlayerSettingsSource {
     val smartTransitionWindow: StateFlow<TransitionWindow?>
     val activeSectionLoop: StateFlow<SectionLoop?>
     val sectionLoopState: StateFlow<SectionLoopState>
+    val loopInLyrics: StateFlow<Boolean>
     val spotifyCanvasAutoHide: StateFlow<Boolean>
     val syncedLyrics: StateFlow<Boolean>
     val translationLanguage: StateFlow<String>

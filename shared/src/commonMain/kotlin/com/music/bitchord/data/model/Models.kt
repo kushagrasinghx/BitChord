@@ -135,6 +135,12 @@ data class Song(
     val playbackSourceType: PlaybackSourceType? = null,
     /** Browse id for an album, playlist, or other source page. */
     val playbackSourceId: String? = null,
+    /**
+     * Feedback token extracted from the watch-queue row's menu — used to remove
+     * this entry from the account's listening history on YouTube Music. Null on
+     * non-history rows (e.g. search results, library).
+     */
+    val feedbackToken: String? = null,
 ) {
     /** Legacy derived property: true if and only if [queueTier] is [QueueTier.AUTOPLAY]. */
     val fromAutoplay: Boolean get() = queueTier == QueueTier.AUTOPLAY
@@ -464,6 +470,13 @@ data class HomeShelf(
     val moreParams: String? = null,
     val layout: ShelfLayout = ShelfLayout.CARDS,
 )
+
+/** These shelves without their music videos, and without any shelf that leaves empty. */
+fun List<HomeShelf>.withoutVideos(): List<HomeShelf> = mapNotNull { shelf ->
+    if (shelf.layout == ShelfLayout.VIDEO) return@mapNotNull null
+    val items = shelf.items.filterNot { it.isVideo }
+    if (items.isEmpty()) null else shelf.copy(items = items)
+}
 
 /**
  * The layout a shelf of [items] gets, as the web player decides it: rows when

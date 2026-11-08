@@ -3,9 +3,10 @@ import { PrefetchLink } from '@/components/PrefetchLink';
 import { Artwork } from '@/components/music/Artwork';
 import { CategoryTiles } from '@/components/music/CategoryTiles';
 import { hrefFor } from '@/components/music/links';
-import { playTrack } from '@/components/music/play';
+import { playTrack, toTrack } from '@/components/music/play';
 import { SearchField } from '@/components/music/SearchField';
 import { Shelves } from '@/components/music/ShelfView';
+import { TrackMenu } from '@/components/music/TrackMenu';
 import { EmptyState, LoadError, NeedsExtension } from '@/components/music/States';
 import { useCategories, useSearch, useYouTubeReady } from '@/data/music/queries';
 import type { MusicItem, SearchResults, Shelf } from '@/data/music/types';
@@ -41,18 +42,25 @@ const sectionTitle = 'mx-(--body-gutter) mt-3 type-title-2-emphasized';
 // Top Results: 3 columns, gap 20px; 118px cards with 90px artwork.
 const topGrid =
   'mx-(--body-gutter) mt-3 mb-8 grid grid-cols-3 gap-5 max-lg:grid-cols-2 max-[607px]:grid-cols-[minmax(0,1fr)] max-[607px]:gap-1';
+// The card is a relative box and the play/link layer fills it: a playable
+// item's track menu is a sibling over the card's bottom-right corner, because a
+// button can't be nested inside the card's own link or button.
+const topCard = 'group/top relative rounded-[8px] bg-quinary hover:bg-quaternary';
 const top =
-  'grid min-h-[118px] grid-cols-[90px_minmax(0,1fr)] items-center gap-x-3.5 rounded-[8px] bg-quinary px-3 py-3.5 text-left hover:bg-quaternary';
+  'grid min-h-[118px] w-full grid-cols-[90px_minmax(0,1fr)] items-center gap-x-3.5 px-3 py-3.5 text-left';
+const topMenu =
+  'absolute right-2 bottom-2 z-3 grid size-7 place-items-center rounded-full text-key opacity-0 transition-opacity duration-100 ease-in group-hover/top:opacity-100 focus-visible:opacity-100 hover:bg-quinary data-open:opacity-100';
 const topText = 'flex min-w-0 flex-col gap-0.5';
 
 function TopResult({ item }: { item: MusicItem }) {
   const href = hrefFor(item);
+  const playable = item.kind === 'song' || item.kind === 'video';
   const body = (
     <>
       <div className="w-[90px]">
         <Artwork src={item.thumbnail} displayWidth={90} radius={item.kind === 'artist' ? '50%' : 'var(--radius-artwork-small)'} />
       </div>
-      <div className={topText}>
+      <div className={playable ? `${topText} pr-9` : topText}>
         <span className="line-clamp-2 type-title-3">{item.title}</span>
         <span className="truncate type-callout text-secondary">
           {[KIND_LABEL[item.kind], item.kind === 'artist' ? null : item.artists.map((a) => a.name).join(', ')].filter(Boolean).join(' · ')}
@@ -60,14 +68,19 @@ function TopResult({ item }: { item: MusicItem }) {
       </div>
     </>
   );
-  return href ? (
-    <PrefetchLink to={href} className={top}>
-      {body}
-    </PrefetchLink>
-  ) : (
-    <button className={top} onClick={() => playTrack(item)}>
-      {body}
-    </button>
+  return (
+    <div className={topCard}>
+      {href ? (
+        <PrefetchLink to={href} className={top}>
+          {body}
+        </PrefetchLink>
+      ) : (
+        <button className={top} onClick={() => playTrack(item)}>
+          {body}
+        </button>
+      )}
+      {playable && <TrackMenu track={toTrack(item)} className={topMenu} />}
+    </div>
   );
 }
 
@@ -79,7 +92,7 @@ function ResultsSkeleton() {
       </div>
       <div className={topGrid} aria-hidden="true">
         {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className={top}>
+          <div key={i} className={`${topCard} ${top}`}>
             <SkeletonBlock width={90} height={90} radius="var(--radius-artwork-small)" />
             <div className={topText}>
               <SkeletonLine lineHeight={20} fontSize={15} width="70%" />

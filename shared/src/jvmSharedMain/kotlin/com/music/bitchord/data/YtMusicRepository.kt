@@ -23,6 +23,7 @@ import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.model.SongMenu
 import com.music.bitchord.data.model.UserPlaylist
+import com.music.bitchord.data.model.VersionTimeMap
 import com.music.bitchord.data.model.WatchTarget
 import com.music.bitchord.data.sources.TrackMatcher
 import kotlinx.coroutines.CancellationException
@@ -50,8 +51,24 @@ object YtMusicRepository {
     // Cache for video version lookups from audio tracks (null means no video found).
     private val videoVersionCache = ConcurrentHashMap<String, Song?>()
 
+    // (from, to) -> YouTube's own alignment between two versions, kept for
+    // both directions so switching back lines up without asking again.
+    private val versionTimeMaps = ConcurrentHashMap<Pair<String, String>, VersionTimeMap>()
+
     fun cachedAudioVersion(videoId: String): Song? = audioVersionCache[videoId]
     fun cachedVideoVersion(videoId: String): Song? = videoVersionCache[videoId]
+
+    /** Switching [audioId] back to video returns to [video], the row it was converted from. */
+    fun rememberVideoVersion(audioId: String, video: Song) {
+        videoVersionCache[audioId] = video
+    }
+
+    /**
+     * How a position in [fromId] maps into [toId], when YouTube Music paired
+     * the two itself and said how they line up. Null for a pair found by
+     * search, which still has to be measured.
+     */
+    fun versionTimeMap(fromId: String, toId: String): VersionTimeMap? = versionTimeMaps[fromId to toId]
 
     /**
      * The core personalised feed. It stays deliberately independent from the
@@ -175,6 +192,16 @@ object YtMusicRepository {
         emptyList()
     }
 
+    /** Removes a track from the account's listening history via its feedback token. */
+    suspend fun removeFromHistory(token: String): Result<Unit> = call("removeFromHistory") {
+        Innertube.sendFeedback(token)
+    }
+
+    /** Invalidates the in-memory history cache so the next load fetches fresh data. */
+    fun invalidateHistoryCache() {
+        historyMemo = null
+    }
+
     /**
      * Recommended discovery tracks for Quick Picks, strictly excluding listening history and recents.
      */
@@ -264,7 +291,7 @@ object YtMusicRepository {
     }
 
     private const val HISTORY = "FEmusic_history"
-    private const val RECENT_TITLE = "Recents"
+    const val RECENT_TITLE = "Recents"
 
     /** Enough to scroll through, short of turning the shelf into the history page. */
     private const val RECENT_LIMIT = 20
@@ -375,9 +402,9 @@ object YtMusicRepository {
         }
 
     /**
-     * The catalogue (audio-only) release of a music-video upload, found the
-     * same way the "Switch to audio" toggle in the real app would land on
-     * it: searching the title and artist and taking the closest song match.
+     * The catalogue (audio-only) release of a music-video upload: YouTube
+     * Music's own pairing when it has one (see [officialVersion]), otherwise
+     * a search on the title and artist, taking the closest song match.
      * Called before a video-tagged [Song] ever reaches the queue, so
      * playback, the mini player/notification, and YouTube's own history all
      * see the audio track — never the video upload's title, art or id.
@@ -393,8 +420,12 @@ object YtMusicRepository {
      *
      * Returns [song] unchanged when it isn't a video, or when nothing better
      * turns up — playing the video's own audio track beats guessing at a
-     * substitute. This is deliberately an explicit action from the player,
-     * never part of normal queueing or playback.
+     * substitute. It only runs when asked for: the player's switch, or the
+     * music-only setting, never otherwise as part of queueing or playback.
+     *
+     * "Nothing turned up" is only remembered when the searches actually
+     * answered. A search that failed says nothing about the song, and caching
+     * it left the track on its video for the rest of the session.
      *
      * [search] already drops video rows from its results (see
      * [InnertubeParser.parseSearch]), so every candidate here is audio-only
@@ -403,9 +434,15 @@ object YtMusicRepository {
     suspend fun resolveAudio(song: Song): Song {
         if (!song.isVideo) return song
         audioVersionCache[song.videoId]?.let { return it }
+        officialVersion(song, wantAudio = true)?.let { audio ->
+            audioVersionCache[song.videoId] = audio
+            return audio
+        }
         val target = TrackMatcher.targetOf(song)
+        var searchFailed = false
         for (query in TrackMatcher.queries(target)) {
             val candidates = search(query, SearchFilter.SONGS)
+                .onFailure { searchFailed = true }
                 .getOrNull()
                 ?.filterIsInstance<SearchResult.Track>()
                 ?.map { it.song }
@@ -425,7 +462,7 @@ object YtMusicRepository {
             }
         }
         Log.w(TAG, "audio switch: no official song match for '${song.title}' by '${song.artist}'")
-        audioVersionCache[song.videoId] = song
+        if (!searchFailed) audioVersionCache[song.videoId] = song
         return song
     }
 
@@ -440,6 +477,10 @@ object YtMusicRepository {
     suspend fun resolveVideo(song: Song): Song? {
         if (song.isVideo) return null
         videoVersionCache[song.videoId]?.let { return it }
+        officialVersion(song, wantAudio = false)?.let { video ->
+            videoVersionCache[song.videoId] = video
+            return video
+        }
         val target = TrackMatcher.targetOf(song)
         for (query in TrackMatcher.queries(target)) {
             val candidates = search(query, SearchFilter.VIDEOS)
@@ -456,6 +497,41 @@ object YtMusicRepository {
         Log.w(TAG, "video switch: no video match for '${song.title}' by '${song.artist}'")
         videoVersionCache[song.videoId] = null
         return null
+    }
+
+    /**
+     * The other version of [song] as YouTube Music pairs it — the pairing
+     * behind its own Song/Video switch — or null when it offers none. Asked
+     * before any search, because this is an answer rather than a guess: the
+     * search can land on a same-titled cover or a different release, this
+     * cannot. Its time map, when there is one, is kept for the service, so
+     * the swap seeks straight to the matching moment instead of measuring it.
+     *
+     * Signed out, YouTube pairs nothing, so the request is not made at all.
+     */
+    private suspend fun officialVersion(song: Song, wantAudio: Boolean): Song? {
+        if (Innertube.cookie == null) return null
+        val pair = try {
+            InnertubeParser.parseVersionPair(Innertube.next(song.videoId), song.videoId, wantAudio)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "version pair lookup failed for '${song.title}': ${e.message}")
+            null
+        } ?: run {
+            Log.d(TAG, "version pair: YouTube pairs nothing with '${song.title}'")
+            return null
+        }
+        pair.timeMap?.let { map ->
+            versionTimeMaps[song.videoId to pair.song.videoId] = map
+            versionTimeMaps[pair.song.videoId to song.videoId] = map.inverted()
+        }
+        Log.d(
+            TAG,
+            "version pair: '${song.title}' -> '${pair.song.title}' (${pair.song.videoId}), " +
+                "segments=${pair.timeMap?.segments?.size ?: 0}",
+        )
+        return pair.song
     }
 
     /** Signed-in profile for the settings header. Null when signed out. */
@@ -730,8 +806,19 @@ object YtMusicRepository {
 
     /** The page [SongPage.continuation] points at. */
     suspend fun moreSongs(token: String): Result<SongPage> = call("browse:more") {
-        pageOf(Innertube.browseContinuation(token))
+        pageOf(Innertube.browseContinuation(token), showByToken[token])
     }
+
+    /**
+     * The podcast each continuation token pages through — see
+     * [InnertubeParser.podcastShow].
+     *
+     * Kept here rather than handed back with the token, because a token goes
+     * on to places that know nothing about podcasts — the detail page's
+     * fill-in, the playback service's own paging — and each of them only ever
+     * calls [moreSongs] with it.
+     */
+    private val showByToken = ConcurrentHashMap<String, String>()
 
     /**
      * Whether [browseId] is a playlist the account made — see
@@ -747,22 +834,26 @@ object YtMusicRepository {
         InnertubeParser.parsePlaylistOwned(Innertube.browse(browseId))
     }
 
-    private fun pageOf(response: JsonObject): SongPage {
+    /** [show] is the podcast a continuation [response] pages through, if any — see [showByToken]. */
+    private fun pageOf(response: JsonObject, show: String? = null): SongPage {
         val library = InnertubeParser.parseLibraryState(response)
         val header = InnertubeParser.parseBrowseHeader(response)
         // A playlist page is scoped to its own shelf so its "Suggested
         // tracks" never read as songs the user added — see
-        // parsePlaylistShelf. Anything else (album, library, history) has no
-        // such shelf, and falls back to the layout-agnostic walk.
+        // parsePlaylistShelf. Anything else (album, library, history,
+        // podcast) has no such shelf, and falls back to the layout-agnostic walk.
         InnertubeParser.parsePlaylistShelf(response)?.let { shelf ->
             return SongPage(shelf.songs, shelf.continuation, shelf.suggested, library, header = header)
         }
+        val podcast = InnertubeParser.podcastShow(response) ?: show
+        val continuation = InnertubeParser.continuationToken(response)
+        if (podcast != null && continuation != null) showByToken[continuation] = podcast
         return SongPage(
             // One response can name the same track twice — an album page that
             // also carries a "you might also like" shelf, say. Collecting into a
             // map used to take care of that; paging by hand means saying so.
-            songs = InnertubeParser.collectSongsDeep(response).distinctBy { it.videoId },
-            continuation = InnertubeParser.continuationToken(response),
+            songs = InnertubeParser.collectSongsDeep(response, podcast).distinctBy { it.videoId },
+            continuation = continuation,
             library = library,
             header = header,
             description = InnertubeParser.parseDescription(response),
@@ -804,12 +895,14 @@ object YtMusicRepository {
             albumPlaylistOf(response, albumRows)?.let { response = it }
         }
         var page = 1
+        // Named by the first page alone; see [InnertubeParser.podcastShow].
+        val show = InnertubeParser.podcastShow(response)
         while (true) {
             // Same shelf-scoping as pageOf: a playlist (Liked Music and the
             // Library Songs auto-playlist included) is read from its own
             // shelf so a trailing "Suggested tracks" shelf never joins in.
             val shelf = InnertubeParser.parsePlaylistShelf(response)
-            (shelf?.songs ?: InnertubeParser.collectSongsDeep(response)).forEach { out[it.videoId] = it }
+            (shelf?.songs ?: InnertubeParser.collectSongsDeep(response, show)).forEach { out[it.videoId] = it }
             val token = shelf?.continuation ?: InnertubeParser.continuationToken(response)
             if (token == null || page++ >= MAX_PAGES) break
             response = runCatching { Innertube.browseContinuation(token) }.getOrNull() ?: break

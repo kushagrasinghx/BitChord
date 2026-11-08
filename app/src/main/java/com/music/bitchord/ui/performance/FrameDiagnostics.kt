@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.performance
 
+import com.music.bitchord.data.settings.PlayerTheme
 import android.content.Context
 import android.os.Build
 import android.os.Handler
@@ -126,13 +127,13 @@ internal object FrameDiagnostics {
         val blur = AppSettings.reduceDynamicBlur.value
         val artwork = AppSettings.animatedCanvas.value
         val animation = AppSettings.reduceAnimation.value
-        val legacyMesh = AppSettings.legacyMeshGradient.value
+        val playerTheme = AppSettings.playerTheme.value
         // In-memory only: do not invoke setters that persist or couple these switches.
         restoreSettings = {
             if (mode.noBlur) AppSettings.reduceDynamicBlur.value = blur
             if (mode.noArtwork) AppSettings.animatedCanvas.value = artwork
             if (mode.noAnimation) AppSettings.reduceAnimation.value = animation
-            if (mode.noLiveBackground) AppSettings.legacyMeshGradient.value = legacyMesh
+            if (mode.noLiveBackground) AppSettings.playerTheme.value = playerTheme
             com.music.bitchord.ui.components.legacyRimForDiagnostics.value = false
             com.music.bitchord.ui.components.fullPageSampleForDiagnostics.value = false
             com.music.bitchord.ui.components.backdrop.backdropClipForDiagnostics.value = true
@@ -143,7 +144,8 @@ internal object FrameDiagnostics {
         if (mode.noBlur) AppSettings.reduceDynamicBlur.value = true
         if (mode.noArtwork) AppSettings.animatedCanvas.value = false
         if (mode.noAnimation) AppSettings.reduceAnimation.value = true
-        if (mode.noLiveBackground) AppSettings.legacyMeshGradient.value = false
+        // The drifting blobs are the live background; the mesh is drawn once per track.
+        if (mode.noLiveBackground && playerTheme == PlayerTheme.LEGACY) AppSettings.playerTheme.value = PlayerTheme.DEFAULT
         com.music.bitchord.ui.components.legacyRimForDiagnostics.value = mode.legacyGlassRim
         com.music.bitchord.ui.components.fullPageSampleForDiagnostics.value = mode.fullPageSample
         com.music.bitchord.ui.components.backdrop.backdropClipForDiagnostics.value = !mode.noGlassClip
@@ -419,7 +421,7 @@ internal object FrameDiagnostics {
     private fun settings() = JSONObject()
         .put("liquidGlass", AppSettings.liquidGlass.value).put("reduceDynamicBlur", AppSettings.reduceDynamicBlur.value)
         .put("reduceAnimation", AppSettings.reduceAnimation.value).put("animatedCanvas", AppSettings.animatedCanvas.value)
-        .put("legacyMesh", AppSettings.legacyMeshGradient.value).put("highPerformance", AppSettings.highPerformanceMode.value)
+        .put("playerTheme", AppSettings.playerTheme.value.name).put("highPerformance", AppSettings.highPerformanceMode.value)
         .put("preferredRefreshHz", AppSettings.performanceRefreshRate.value)
 
     private fun power(context: Context): JSONObject {

@@ -57,35 +57,62 @@ const val MIN_DJ_CONFIDENCE = 0.2
 const val MIN_BPM = 40.0
 const val MAX_BPM = 220.0
 
-/** How far a tempo pairing may drift from unity and still be considered transparent to stretch. */
-const val MAX_STRETCH_DEVIATION = 0.04
+/**
+ * The blend's stretch window: the incoming song may be slowed down by at most
+ * 10% and sped up by at most 25% to meet the outgoing tempo. Asymmetric
+ * because the two directions fail differently: a stretch that speeds up drops
+ * slivers of audio and stays clean far past 10%, while one that slows down has
+ * to repeat them, which is where the metallic smear comes from. Past either
+ * end the pair is not beatmatched (the filter mix). The web player uses the
+ * same window.
+ */
+const val MIN_INCOMING_RATE = 0.9
+const val MAX_INCOMING_RATE = 1.25
 
 /**
- * Advanced Automix's window: how far either track may be *sped up* to meet
- * the other. Only ever up — a time-stretch that speeds up drops slivers of
- * audio, which stays clean well past 4%, while one that slows down has to
- * repeat them, which is where the metallic smear comes from. So the slower
- * track is always the one moved: the incoming one when it is slower, the
- * outgoing one (over its last beats, before the blend) when it is.
+ * The rate the incoming song plays at to meet [outgoingBpm] (its tempo folded
+ * into the outgoing octave first): above 1 speeds it up.
  */
-const val MAX_SPEED_UP = 0.10
+fun incomingRateBetween(outgoingBpm: Double, incomingBpm: Double): Double {
+    if (outgoingBpm <= 0 || incomingBpm <= 0) return Double.NaN
+    return outgoingBpm / alignTempoOctave(outgoingBpm, incomingBpm)
+}
 
-/**
- * The speed-up that meets [outgoingBpm] and [incomingBpm] (octave-aligned),
- * as a factor above 1 — whichever track it applies to.
- */
-fun speedUpBetween(outgoingBpm: Double, incomingBpm: Double): Double {
-    if (outgoingBpm <= 0 || incomingBpm <= 0) return Double.POSITIVE_INFINITY
-    val ratio = outgoingBpm / alignTempoOctave(outgoingBpm, incomingBpm)
-    return max(ratio, 1 / ratio)
+/** Whether a blend can beatmatch this pair inside [MIN_INCOMING_RATE]..[MAX_INCOMING_RATE]. */
+fun stretchReachable(outgoingBpm: Double, incomingBpm: Double): Boolean {
+    val rate = incomingRateBetween(outgoingBpm, incomingBpm)
+    return rate.isFinite() && rate >= MIN_INCOMING_RATE - 1e-9 && rate <= MAX_INCOMING_RATE + 1e-9
 }
 
 /**
- * A vocal-activity mask value at or above this counts as singing. A fallback
- * analyzer that emits a flat 0.5 mask never trips vocal logic; only a real
- * mask can.
+ * A vocal-activity mask value at or above this counts as singing.
+ *
+ * Measured on the open-unmix mask (Hymn for the Weekend, 2026-10-23): a clear
+ * chorus reads 0.57–0.71, a soft verse over the music 0.2–0.4, an instrumental
+ * break 0.02–0.15. The old 0.6 called a soft verse instrumental. The DSP
+ * fallback mask is rescaled onto this scale when it is stored (see
+ * [heuristicVocalOnModelScale]), and unmeasured instants are stored just under
+ * it, so neither trips vocal logic on its own.
  */
-const val VOCAL_ACTIVE_THRESHOLD = 0.6
+const val VOCAL_ACTIVE_THRESHOLD = 0.25
+
+/**
+ * The DSP heuristic's vocal value, moved onto the model's scale: its own
+ * decision boundary (0.6, where it was tuned) lands on [VOCAL_ACTIVE_THRESHOLD],
+ * linearly on either side, so it decides exactly what it used to.
+ */
+fun heuristicVocalOnModelScale(value: Double): Double {
+    if (!value.isFinite()) return value
+    val v = value.coerceIn(0.0, 1.0)
+    return if (v < HEURISTIC_VOCAL_THRESHOLD) {
+        v / HEURISTIC_VOCAL_THRESHOLD * VOCAL_ACTIVE_THRESHOLD
+    } else {
+        VOCAL_ACTIVE_THRESHOLD + (v - HEURISTIC_VOCAL_THRESHOLD) / (1 - HEURISTIC_VOCAL_THRESHOLD) * (1 - VOCAL_ACTIVE_THRESHOLD)
+    }
+}
+
+/** Where the DSP heuristic was tuned to call a frame sung. */
+private const val HEURISTIC_VOCAL_THRESHOLD = 0.6
 
 /**
  * How much of the outgoing track's remaining *music* a transition may skip by
@@ -450,7 +477,7 @@ fun resolveMixOutAnchor(
 fun assessTransitionTier(
     analysis: TrackAnalysis,
     nextAnalysis: TrackAnalysis,
-    /** Advanced Automix: tempi within [MAX_SPEED_UP] of each other may beat-match, by speeding one up. */
+    /** Advanced Automix: the same stretch window as classic ([stretchReachable]); kept for callers. */
     advanced: Boolean = false,
 ): TransitionPolicyVerdict {
     val outgoingBpm = analysis.bpm.orZero()
@@ -474,13 +501,7 @@ fun assessTransitionTier(
         )
     }
 
-    val stretchRatio = outgoingBpm / alignTempoOctave(outgoingBpm, incomingBpm)
-    val tempoTooFar = if (advanced) {
-        speedUpBetween(outgoingBpm, incomingBpm) - 1 > MAX_SPEED_UP
-    } else {
-        abs(stretchRatio - 1) > MAX_STRETCH_DEVIATION
-    }
-    if (tempoTooFar) reasons += "tempo-distance"
+    if (!stretchReachable(outgoingBpm, incomingBpm)) reasons += "tempo-distance"
     if (outgoingConfidence < MIN_BEATMATCH_CONFIDENCE || incomingConfidence < MIN_BEATMATCH_CONFIDENCE) {
         reasons += "beat-confidence"
     }

@@ -422,6 +422,57 @@ class SearchPagingTest {
         assertNull(songs.first { it.videoId == "cover" }.artistId)
     }
 
+    /**
+     * Signed out, "tum hi ho" promotes an uncatalogued "Episode" upload over
+     * the song itself. The card goes; the real track below it stays first.
+     */
+    @Test
+    fun `an uncatalogued episode card does not take the top result`() {
+        val json = """
+        {
+          "contents": [
+            {
+              "musicCardShelfRenderer": {
+                "title": { "runs": [{ "text": "Tum Hi Ho" }] },
+                "subtitle": { "runs": [
+                  { "text": "Episode" }, { "text": " • " }, { "text": "Mar 23, 2013" },
+                  { "text": " • " }, { "text": "Arijit Singh" }
+                ] },
+                "onTap": { "browseEndpoint": {
+                  "browseId": "MPEDNUo8CKI34o4",
+                  "browseEndpointContextSupportedConfigs": {
+                    "browseEndpointContextMusicConfig": {
+                      "pageType": "MUSIC_PAGE_TYPE_NON_MUSIC_AUDIO_TRACK_PAGE"
+                    }
+                  }
+                } }
+              }
+            },
+            {
+              "musicResponsiveListItemRenderer": {
+                "playlistItemData": { "videoId": "tumhiho" },
+                "flexColumns": [
+                  { "musicResponsiveListItemFlexColumnRenderer": {
+                    "text": { "runs": [{ "text": "Tum Hi Ho" }] }
+                  } },
+                  { "musicResponsiveListItemFlexColumnRenderer": {
+                    "text": { "runs": [
+                      { "text": "Song" }, { "text": " • " }, { "text": "Arijit Singh" }
+                    ] }
+                  } }
+                ]
+              }
+            }
+          ]
+        }
+        """.trimIndent()
+
+        val page = InnertubeParser.parseSearchPage(Json.parseToJsonElement(json).jsonObject)
+
+        assertTrue(page.rows.none { it is SearchResult.Browse })
+        assertEquals("tumhiho", (page.rows.first() as SearchResult.Track).song.videoId)
+    }
+
     @Test
     fun `search page keeps rows and next continuation`() {
         val json = """

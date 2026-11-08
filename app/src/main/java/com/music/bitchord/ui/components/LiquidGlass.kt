@@ -120,6 +120,15 @@ private fun DrawScope.drawGlassFill(light: Boolean, shape: Shape) {
 private const val GLASS_RESOLUTION_SCALE = 0.33f
 
 /**
+ * The blur and resolution under [AppSettings.glassPerformance]. With no lens to
+ * bend what is behind it, the frost alone has to break up a page's text, so it
+ * is twice the radius — and that wider blur hides a smaller recording, which
+ * takes the surface from about 11% of its pixels to about 6%.
+ */
+private const val FROST_BLUR_RADIUS_DP = 16f
+private const val FROST_RESOLUTION_SCALE = 0.25f
+
+/**
  * The hairline along a bar's edge, and what stands in for the glass rim
  * wherever the glass itself is not drawn.
  *
@@ -168,6 +177,10 @@ fun isLiquidGlassActive(): Boolean = LocalLiquidGlassEnabled.current && isGlassS
  * recording the backdrop layer when it is on, and a surface that still tried to
  * sample would be sampling a layer nothing is drawing into.
  *
+ * Under [AppSettings.glassPerformance] the lens goes and the blur frosts instead,
+ * for phones that can't spare the refraction shader. The vibrancy, tint, rim and
+ * shadow are the same either way.
+ *
  * [shape] is restricted to [CornerBasedShape] because the backdrop's lens effect
  * throws for any other shape type. Its corners are drawn continuous — see
  * [ContinuousCornerShape] — which never reaches past the plain shape, so a
@@ -190,6 +203,7 @@ fun Modifier.liquidGlass(
         return background(MaterialTheme.colorScheme.surface, shape)
             .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
     }
+    val glassPerformance by AppSettings.glassPerformance.collectAsStateWithLifecycle()
     val glassShape = remember(shape) { shape.continuous() }
     // The fill uses the same outline on each scrolling frame. Keep its path
     // until the shape, size or drawing environment changes.
@@ -199,9 +213,11 @@ fun Modifier.liquidGlass(
     val backdrop = strip ?: LocalAppBackdrop.current
     val exportedBackdrop = LocalGlassExport.current
     val density = LocalDensity.current
-    val blurPx = with(density) { BLUR_RADIUS_DP.dp.toPx() } * GLASS_RESOLUTION_SCALE
-    val lensHeightPx = with(density) { (LENS_HEIGHT * LENS_MAX_DP).dp.toPx() } * GLASS_RESOLUTION_SCALE
-    val lensAmountPx = with(density) { (LENS_AMOUNT * LENS_MAX_DP).dp.toPx() } * GLASS_RESOLUTION_SCALE
+    val resolutionScale = if (glassPerformance) FROST_RESOLUTION_SCALE else GLASS_RESOLUTION_SCALE
+    val blurRadiusDp = if (glassPerformance) FROST_BLUR_RADIUS_DP else BLUR_RADIUS_DP
+    val blurPx = with(density) { blurRadiusDp.dp.toPx() } * resolutionScale
+    val lensHeightPx = with(density) { (LENS_HEIGHT * LENS_MAX_DP).dp.toPx() } * resolutionScale
+    val lensAmountPx = with(density) { (LENS_AMOUNT * LENS_MAX_DP).dp.toPx() } * resolutionScale
 
     // Every block handed on below is remembered. Built fresh on each pass, they
     // made the backdrop, shadow and rim elements compare unequal whenever the
@@ -211,7 +227,9 @@ fun Modifier.liquidGlass(
     val sampled = strip == null
     // A frame recording can drop the rim or the lens, to price each on its own.
     val diagnostics = diagnosticMode()
-    val lensed = !diagnostics.noGlassLens
+    // Performance glass mode drops the lens and frosts instead — see
+    // [AppSettings.glassPerformance] — which also leaves the drawn rim and fill.
+    val lensed = !glassPerformance && !diagnostics.noGlassLens
     // The rim, fill and edge in the lens's own shader rather than drawn after
     // it — see [glassSurface] — for a surface reading a group's strip, whose
     // sample is already blurred; under A/B while it is judged against the
@@ -222,8 +240,8 @@ fun Modifier.liquidGlass(
     val effects: BackdropEffectScope.() -> Unit = remember(shaderGlass, sampled, lensed, blurPx, lensHeightPx, lensAmountPx, light, glassShape, density) {
         if (shaderGlass) {
             // At full resolution: the scale is 1 below, so the lens's sizes are too.
-            val fullHeight = lensHeightPx / GLASS_RESOLUTION_SCALE
-            val fullAmount = lensAmountPx / GLASS_RESOLUTION_SCALE
+            val fullHeight = lensHeightPx / resolutionScale
+            val fullAmount = lensAmountPx / resolutionScale
             {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     glassSurface(fullHeight, fullAmount, GlassRimMasks.forSurface(glassShape, size, layoutDirection, this), light)
@@ -278,7 +296,7 @@ fun Modifier.liquidGlass(
         shadow = if (diagnostics.noGlassShadow) NoShadow else GlassShadow,
         onDrawSurface = onDrawSurface,
         exportedBackdrop = exportedBackdrop,
-        backdropScale = if (shaderGlass) 1f else GLASS_RESOLUTION_SCALE,
+        backdropScale = if (shaderGlass) 1f else resolutionScale,
         clipShape = clipShape,
     )
 }
@@ -309,7 +327,12 @@ internal fun Modifier.liquidGlassStrip(
      */
     page: Backdrop = LocalPageSample.current.ifLive ?: LocalAppBackdrop.current,
 ): Modifier {
-    val blurPx = with(LocalDensity.current) { BLUR_RADIUS_DP.dp.toPx() } * GLASS_RESOLUTION_SCALE
+    // A strip's members draw its sample at its own scale, so performance glass
+    // mode's frost and resolution are taken here, once for the group.
+    val glassPerformance by AppSettings.glassPerformance.collectAsStateWithLifecycle()
+    val resolutionScale = if (glassPerformance) FROST_RESOLUTION_SCALE else GLASS_RESOLUTION_SCALE
+    val blurRadiusDp = if (glassPerformance) FROST_BLUR_RADIUS_DP else BLUR_RADIUS_DP
+    val blurPx = with(LocalDensity.current) { blurRadiusDp.dp.toPx() } * resolutionScale
     val effects: BackdropEffectScope.() -> Unit = remember(blurPx) { { sampleEffects(blurPx) } }
-    return glassStripSource(strip, page, effects, GLASS_RESOLUTION_SCALE)
+    return glassStripSource(strip, page, effects, resolutionScale)
 }

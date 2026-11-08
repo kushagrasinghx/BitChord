@@ -67,7 +67,7 @@ val listenTogetherServer: String = (
  * comes. Blanking this line is the one step that turns a beta into a release,
  * so it is the one place to get right.
  */
-val betaSuffix = "beta1"
+val betaSuffix = ""
 
 android {
     namespace = "com.music.bitchord"
@@ -82,10 +82,14 @@ android {
         // Haze falls back to a translucent scrim below that.
         minSdk = 26
         targetSdk = 36
-        versionCode = 28
-        versionName = "1.9"
+        versionCode = 39
+        versionName = "1.9.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // The phone app's frame diagnostics compile in from the shared sources;
+        // the TV build never records them.
+        buildConfigField("boolean", "PERFORMANCE_DIAGNOSTICS", "false")
 
         // Last.fm credentials are supplied locally and never committed.
         buildConfigField("String", "LASTFM_API_KEY", "\"${lastfmApiKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
@@ -95,6 +99,9 @@ android {
             "LISTEN_TOGETHER_SERVER",
             "\"${listenTogetherServer.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
         )
+        // TV has no addons; AddonAuth only reaches the compiler through the
+        // shared phone sources, so it gets no server.
+        buildConfigField("String", "ADDON_AUTH_URL", "\"\"")
         // The TV APKs share a GitHub release with the phone ones and are told
         // apart by name (BitChordTV-v1.8.apk, BitChordTV-v1.8_x86_64.apk), so
         // the updater installs the TV app here, never the phone app. See
@@ -313,7 +320,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     // ProcessLifecycleOwner: whether the app is on screen, for the open-app count.
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
+    // The scheduled check behind "Keep playlists updated"; see PlaylistSync.
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
+    // Read by the shared frame diagnostics, which report whether a baseline profile was compiled in.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
@@ -354,6 +365,12 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.0.4")
     // The shared app sources register SvgDecoder (artist signatures).
     implementation("io.coil-kt.coil3:coil-svg:3.0.4")
+    // SF Symbols as Compose vectors: the shared app sources draw their menus and
+    // settings with them. Without its own dependencies, for the reason given in
+    // app/build.gradle.kts.
+    implementation("com.github.cosmictaserdev-creator.Jetpack_SF_Symbols:sfsymbols-android:1.1.1") {
+        isTransitive = false
+    }
     implementation("androidx.palette:palette-ktx:1.0.0")
 
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----

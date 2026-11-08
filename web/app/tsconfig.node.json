@@ -11,11 +11,15 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "signalsmith-stretch": [
+        "./src/playback/automix/engine/stretch-types.d.ts"
       ]
     }
   },
   "include": [
     "vite.config.ts",
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "src/**/*.d.ts"
   ]
 }

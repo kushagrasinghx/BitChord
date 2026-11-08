@@ -1,11 +1,14 @@
 package com.music.bitchord
 
 import android.media.AudioDeviceInfo
+import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.addon.AddonManifest
+import com.music.bitchord.data.sources.addon.AddonQualityOption
 import com.music.bitchord.playback.audio.LosslessOutput
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -48,6 +51,34 @@ class AddonPolicyTest {
         val m = manifest(""","allowDownloads":"sometimes","checkValidLossless":null""")
         assertTrue(m.downloadsAllowed)
         assertFalse(m.requiresLosslessOutput)
+    }
+
+    @Test
+    fun `quality options carry their labels and fall back to the value`() {
+        val m = manifest(
+            ""","settings":[{"key":"atmos","options":[{"value":"stereo"},{"value":"auto"}]},
+                {"key":"quality","options":[{"value":"max","label":"MAX"},{"value":"hires"},{"value":320,"label":{"odd":1}}]}]""",
+        )
+        assertEquals(
+            listOf(AddonQualityOption("max", "MAX"), AddonQualityOption("hires", "hires"), AddonQualityOption("320", "320")),
+            m.qualityOptions,
+        )
+    }
+
+    @Test
+    fun `a quality setting with nothing to choose between offers no options`() {
+        assertEquals(emptyList<AddonQualityOption>(), manifest("").qualityOptions)
+        assertEquals(
+            emptyList<AddonQualityOption>(),
+            manifest(""","settings":[{"key":"quality","options":[{"value":"max"},{"value":"max"},{"label":"no value"}]}]""").qualityOptions,
+        )
+    }
+
+    @Test
+    fun `a source stored before quality options existed still reads`() {
+        val stored = json.decodeFromString(SourceConfig.serializer(), """{"id":"a","kind":"ADDON","baseUrl":"https://x"}""")
+        assertEquals(emptyList<AddonQualityOption>(), stored.qualityOptions)
+        assertNull(stored.pickedQuality)
     }
 
     @Test

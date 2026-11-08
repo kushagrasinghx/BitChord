@@ -23,11 +23,13 @@ import com.music.bitchord.ui.player.WelcomeMeshPalettes
 import com.music.bitchord.ui.player.cyclingMeshPalette
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import kotlinx.coroutines.delay
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DownloadDone
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -60,6 +62,7 @@ import kotlin.math.abs
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -84,9 +87,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.style.TextAlign
@@ -166,42 +166,21 @@ val SHELF_CARD_WIDTH = 150.dp
 /**
  * A track's thumbnail box at [height]: square for a song, 16:9 at the same
  * height for a music video — its picture's own shape, as YouTube Music lists
- * one, rather than a still cropped into a square.
+ * one, rather than a still cropped into a square — unless the listener asked
+ * for square, see [VideoThumbnails].
  */
 fun Modifier.trackArtSize(height: Dp, isVideo: Boolean): Modifier =
-    if (isVideo) size(width = height * (16f / 9f), height = height) else size(height)
-
-/** Share of the row a lead-shelf card takes, so the next one peeks in past it. */
-private const val HERO_CARD_FRACTION = 0.70f
+    if (isVideo && !VideoThumbnails.square) size(width = height * (16f / 9f), height = height) else size(height)
 
 /**
- * How wide a lead-shelf card is ever allowed to get.
- *
- * The fraction alone is a phone measurement wearing a percent sign: 70% of a
- * tablet is a card the better part of a foot across, and a hero card is a
- * caption over some artwork rather than a canvas — blown up that far it stops
- * being the top of a feed and becomes a poster with a shelf hiding under it.
- *
- * Set just clear of what the widest phone asks for (0.70 of 448dp is 314dp), so
- * every phone keeps the width the fraction gives it and only a screen wider than
- * any phone is held back to it.
+ * The "Square video thumbnails" setting, as every surface that sizes a music
+ * video reads it. Compose state rather than a flow so a plain read anywhere in
+ * composition follows it, [trackArtSize] and [VIDEO_CARD_WIDTH][com.music.bitchord.ui.screens.VIDEO_CARD_WIDTH]
+ * included, without each caller collecting it.
  */
-private val HERO_CARD_MAX_WIDTH = 320.dp
-
-/** A lead-shelf card's proportions: a touch taller than it is wide. */
-const val HERO_CARD_RATIO = 0.92f
-
-/**
- * How wide a lead-shelf card should be in a row [available] wide — the shared
- * answer for the real shelf and for the skeleton that stands in for it, which
- * have to agree to the pixel or the feed jumps when the data lands.
- *
- * Given the row's own width rather than the window's, so it is still right in
- * the narrower column a tablet leaves once the player has taken its pane.
- * Height follows from [HERO_CARD_RATIO], so the card keeps its shape at any
- * width.
- */
-fun heroCardWidth(available: Dp): Dp = minOf(available * HERO_CARD_FRACTION, HERO_CARD_MAX_WIDTH)
+object VideoThumbnails {
+    var square by mutableStateOf(false)
+}
 
 /** Share of the row a page of tracks takes, so the next page peeks in past it. */
 private const val TRACK_COLUMN_FRACTION = 0.88f
@@ -209,7 +188,7 @@ private const val TRACK_COLUMN_FRACTION = 0.88f
 /**
  * How wide a sideways-paging column of track rows is ever allowed to get.
  *
- * Same trap [HERO_CARD_MAX_WIDTH] answers, and worse for a list: a track row is
+ * A fraction alone is a phone measurement wearing a percent sign, and a track row is
  * artwork, a title and a subtitle, none of which have any use for more room. At
  * 88% of a tablet the row's contents stay their own size and the space all lands
  * between the title and the overflow button, so four songs eat the width of the
@@ -544,7 +523,11 @@ private fun SongRowContent(
             .fillMaxWidth()
             .alpha(if (unavailable) 0.45f else 1f)
             .background(activeBackground)
-            .longPressMenuClickable(onClick = onClick, onLongClick = onLongPress)
+            .longPressMenuClickable(
+                onClick = onClick,
+                onLongClick = onLongPress,
+                liftPadding = PaddingValues(horizontal = PAGE_GUTTER),
+            )
             .contextClick(onMore ?: onLongPress)
             .padding(horizontal = PAGE_GUTTER, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -689,8 +672,10 @@ fun RowMoreButton(
 ) {
     Box(
         modifier = modifier
+            .leftOutOfHeldPicture()
             .hangIntoGutter(ROW_MORE_OUTSET)
             .size(36.dp)
+            .menuAnchor()
             .clip(CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -719,24 +704,65 @@ fun Modifier.hangIntoGutter(outset: Dp): Modifier = layout { measurable, constra
 }
 
 
+/**
+ * The gap a decorative loop leaves after each of its frames before asking for
+ * the next: 25ms lands the next frame on the vsync a thirtieth of a second on,
+ * at 60, 90 and 120Hz alike.
+ *
+ * Every frame of anything inside the page is a frame of the whole page — the
+ * glass bars sample it live, so they record it again and re-run their blur —
+ * and asked for on every vsync, a 14dp glyph alone kept a 120Hz phone
+ * redrawing the screen without pause until it ran hot and throttled. Nothing
+ * that only decorates needs more than thirty.
+ */
+const val MOTION_FRAME_GAP_MS = 25L
+
+/**
+ * Whether the playing bars may move. Off while the row they sit in isn't
+ * really being looked at — Now Playing pulled up over the page, the app in
+ * the background, or the page on its way out — when they would go on
+ * redrawing a page nobody can see. They hold where they are and carry on
+ * from there when the page is back.
+ */
+val LocalPlayingBarsMotion = compositionLocalOf { true }
+
+/** Each bar's lowest point; all three peak at full height. */
+private val PLAYING_BAR_MINIMUMS = floatArrayOf(0.38f, 0.78f, 0.52f)
+
+/**
+ * Bar [index]'s height at [ms]: up from [minimum] to full and back down over
+ * its own period, then the same again in reverse, so the three drift in and
+ * out of step rather than marching.
+ */
+private fun playingBarHeight(index: Int, minimum: Float, ms: Long): Float {
+    val duration = 520 + index * 130
+    val peak = 260 + index * 50
+    var t = (ms % (2L * duration)).toInt()
+    if (t > duration) t = 2 * duration - t
+    return if (t <= peak) {
+        minimum + (1f - minimum) * t / peak
+    } else {
+        1f - (1f - minimum) * (t - peak) / (duration - peak)
+    }
+}
+
 @Composable
 fun SearchPlayingBars(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "search playing bars")
-    val heights = listOf(0.38f, 0.78f, 0.52f).mapIndexed { index, minimum ->
-        transition.animateFloat(
-            initialValue = minimum,
-            targetValue = 1f - (index * 0.12f),
-            animationSpec = infiniteRepeatable(
-                animation = keyframes {
-                    durationMillis = 520 + index * 130
-                    minimum at 0
-                    1f at (260 + index * 50)
-                    minimum at durationMillis
-                },
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "search bar height $index",
-        )
+    // Time in motion rather than an animation per bar: read only in the draw
+    // below, so a frame of it redraws this canvas and never recomposes or
+    // re-lays out the row it sits in.
+    val elapsedNanos = remember { mutableLongStateOf(0L) }
+    val running = LocalPlayingBarsMotion.current
+    LaunchedEffect(running) {
+        if (!running) return@LaunchedEffect
+        var last = Long.MIN_VALUE
+        while (true) {
+            withFrameNanos { now ->
+                if (last != Long.MIN_VALUE) elapsedNanos.longValue += now - last
+                last = now
+            }
+            delay(MOTION_FRAME_GAP_MS)
+        }
     }
     // The plate is a fixed square so only the bars move, never the box around them.
     Box(
@@ -746,16 +772,18 @@ fun SearchPlayingBars(modifier: Modifier = Modifier) {
             .background(Color.Black.copy(alpha = 0.52f)),
         contentAlignment = Alignment.Center,
     ) {
-        // Read animation state in drawing: a moving 3dp bar does not need to
-        // recompose or remeasure its row at display refresh rate.
         Canvas(Modifier.size(width = 13.dp, height = 14.dp)) {
-            heights.forEachIndexed { index, height ->
-                val barHeight = size.height * height.value
+            val barWidth = 3.dp.toPx()
+            val step = barWidth + 2.dp.toPx()
+            val corner = CornerRadius(minOf(2.dp.toPx(), barWidth / 2f))
+            val ms = elapsedNanos.longValue / 1_000_000L
+            PLAYING_BAR_MINIMUMS.forEachIndexed { index, minimum ->
+                val height = size.height * playingBarHeight(index, minimum, ms)
                 drawRoundRect(
                     color = Color.White,
-                    topLeft = Offset(index * 5.dp.toPx(), size.height - barHeight),
-                    size = Size(3.dp.toPx(), barHeight),
-                    cornerRadius = CornerRadius(2.dp.toPx()),
+                    topLeft = Offset(index * step, size.height - height),
+                    size = Size(barWidth, height),
+                    cornerRadius = corner,
                 )
             }
         }
@@ -829,7 +857,16 @@ fun PullToRefresh(
  * mesh is the card, and white type is what sits on colour.
  */
 @Composable
-fun SignInBanner(onSignIn: () -> Unit, modifier: Modifier = Modifier) {
+fun SignInBanner(
+    onSignIn: () -> Unit,
+    modifier: Modifier = Modifier,
+    /**
+     * Whether the mesh may move. Off, it finishes the fade it is in and rests:
+     * a blurred layer re-drawn every frame is not something to leave running
+     * under a scroll, or under the player where nobody sees it.
+     */
+    motion: Boolean = true,
+) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.98f else 1f, spring(stiffness = 900f), label = "signInScale")
@@ -847,9 +884,10 @@ fun SignInBanner(onSignIn: () -> Unit, modifier: Modifier = Modifier) {
         // A card is a few hundred dp the reader is looking straight at, which
         // is the case the mesh lets keep moving — see its `continuous` note.
         MeshGradientBackground(
-            palette = cyclingMeshPalette(WelcomeMeshPalettes),
+            palette = cyclingMeshPalette(WelcomeMeshPalettes, running = motion),
             modifier = Modifier.matchParentSize(),
             continuous = true,
+            paused = !motion,
             driftMillis = 6_000,
             blurRadius = 36.dp,
             colorFadeMillis = MESH_CYCLE_MILLIS,

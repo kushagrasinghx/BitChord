@@ -7,3 +7,8 @@ minimumReleaseAgeExclude:
   - '@tanstack/react-query@5.104.3'
   - react-dom@19.3.1
   - react@19.3.1
+# protobufjs (via onnxruntime-web) has a postinstall that sets up its Node CLI;
+# the browser never runs it. pnpm in CI (Cloudflare Pages) fails on any
+# unapproved install script, so it is declined here, explicitly.
+allowBuilds:
+  protobufjs: false

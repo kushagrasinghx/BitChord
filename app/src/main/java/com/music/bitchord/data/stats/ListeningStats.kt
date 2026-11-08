@@ -207,10 +207,10 @@ object ListeningStats {
             }
 
             song.albumName?.trim()?.takeIf { it.isNotEmpty() }?.let { name ->
-                // Keyed on album *and* artist: "Greatest Hits" is not one
-                // release, and merging every one of them into a single row is
-                // how a compilation nobody owns tops the album chart.
-                val album = bucket.albums.getOrPut(albumKey(name, song.artist)) {
+                // Keyed on albumId when available (stable across artist-credit
+                // variations), falling back to name+artist for local files.
+                val key = albumKey(song.albumId, name, song.artist)
+                val album = bucket.albums.getOrPut(key) {
                     NameEntry(name = name, sub = song.artist, art = song.thumbnailUrl)
                 }
                 album.ms += playedMs
@@ -505,7 +505,7 @@ object ListeningStats {
                 artists = stored.artists
                     .map { it.copy(name = primaryArtist(it.name) ?: it.name) }
                     .mergedBy(LinkedHashMap()) { it.name.lowercase(Locale.ROOT) },
-                albums = stored.albums.mergedBy(LinkedHashMap()) { albumKey(it.name, it.sub.orEmpty()) },
+                albums = stored.albums.mergedBy(LinkedHashMap()) { albumKey(it.id, it.name, it.sub.orEmpty()) },
                 hours = LongArray(24) { stored.hours.getOrElse(it) { 0L } },
                 days = stored.days.toMutableMap(),
                 trackDays = stored.trackDays?.toMutableMap() ?: mutableMapOf(),
@@ -539,7 +539,7 @@ object ListeningStats {
                 artists.merge(lead.name.lowercase(Locale.ROOT), lead) { a, b -> a.also { it.absorb(b) } }
             }
             bucket.albums.forEach { entry ->
-                val key = albumKey(entry.name, entry.sub.orEmpty())
+                val key = albumKey(entry.id, entry.name, entry.sub.orEmpty())
                 albums.merge(key, entry.copy()) { a, b -> a.also { it.absorb(b) } }
             }
             repeat(24) { hours[it] += bucket.hours.getOrElse(it) { 0L } }
@@ -574,7 +574,7 @@ object ListeningStats {
                 artists.merge(lead.name.lowercase(Locale.ROOT), lead) { a, b -> a.also { it.absorb(b) } }
             }
             bucket.albums.forEach { entry ->
-                val key = albumKey(entry.name, entry.sub.orEmpty())
+                val key = albumKey(entry.id, entry.name, entry.sub.orEmpty())
                 albums.merge(key, entry.copy()) { a, b -> a.also { it.absorb(b) } }
             }
             // Merge day-level sub-buckets for the flat days map and cross-month totals.
@@ -751,7 +751,9 @@ object ListeningStats {
     }
 
     /**
-     * How an album is filed: its name and its artist, folded to lower case.
+     * How an album is filed: uses [albumId] as the primary key when available
+     * (stable across different artist-credit strings), falling back to name+artist
+     * for local files that have no ID.
      *
      * Joined on a NUL rather than a space, because that is the one character
      * neither half can contain: with a space, "Greatest Hits" by "Vol 2" and
@@ -765,6 +767,10 @@ object ListeningStats {
      */
     private fun albumKey(name: String, artist: String): String =
         name.lowercase(Locale.ROOT) + ALBUM_KEY_SEPARATOR + artist.lowercase(Locale.ROOT)
+
+    /** @see albumKey(albumId, name, artist) — overload for keyed lookups. */
+    private fun albumKey(albumId: String?, name: String, artist: String): String =
+        albumId?.let { it } ?: albumKey(name, artist)
 
     /** @see albumKey */
     private val ALBUM_KEY_SEPARATOR = Char(UNIT_SEPARATOR).toString()

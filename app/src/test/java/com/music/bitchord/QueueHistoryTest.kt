@@ -1,13 +1,16 @@
 package com.music.bitchord
 
+import androidx.media3.common.Player
 import com.music.bitchord.playback.MAX_QUEUE_HISTORY
 import com.music.bitchord.playback.LastPlayed
 import com.music.bitchord.playback.queueHistoryTrimCount
 import com.music.bitchord.playback.queueStartingAt
+import com.music.bitchord.playback.rotateExpiredHistory
 import com.music.bitchord.playback.skippedByQueueJump
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.lang.reflect.Proxy
 
 class QueueHistoryTest {
 
@@ -50,4 +53,48 @@ class QueueHistoryTest {
         assertEquals(26, window.count())
     }
 
+    @Test
+    fun `rotating expired history is one queue edit and keeps the order`() {
+        val queue = (0 until 754).toMutableList()
+        var edits = 0
+        val player = Proxy.newProxyInstance(
+            Player::class.java.classLoader,
+            arrayOf(Player::class.java),
+        ) { _, method, args ->
+            when (method.name) {
+                "getMediaItemCount" -> queue.size
+                "moveMediaItems" -> {
+                    edits++
+                    val moved = queue.subList(args[0] as Int, args[1] as Int).toList()
+                    queue.removeAll(moved)
+                    queue.addAll(args[2] as Int, moved)
+                    null
+                }
+                "moveMediaItem" -> {
+                    edits++
+                    queue.add(args[1] as Int, queue.removeAt(args[0] as Int))
+                    null
+                }
+                else -> null
+            }
+        } as Player
+
+        player.rotateExpiredHistory(375)
+
+        assertEquals(1, edits)
+        assertEquals((375 until 754) + (0 until 375), queue)
+    }
+
+    @Test
+    fun `nothing expired leaves the queue alone`() {
+        val player = Proxy.newProxyInstance(
+            Player::class.java.classLoader,
+            arrayOf(Player::class.java),
+        ) { _, method, _ ->
+            if (method.name.startsWith("move")) throw AssertionError("moved nothing")
+            if (method.name == "getMediaItemCount") 10 else null
+        } as Player
+
+        player.rotateExpiredHistory(0)
+    }
 }

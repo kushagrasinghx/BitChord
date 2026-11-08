@@ -7,6 +7,7 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.roundToInt
 
 /**
  * Analysis results kept on disk, so a track is measured once and stays measured.
@@ -198,6 +199,10 @@ class AnalysisStore(
         val lowEnergyCurve: List<StoredEnergy> = emptyList(),
         val vocalActivityMask: List<Double> = emptyList(),
         val vocalProbability: Double = 0.0,
+        val headBeats: StoredBeats? = null,
+        val tailBeats: StoredBeats? = null,
+        val vocalWindows: List<StoredCurve> = emptyList(),
+        val levelWindows: List<StoredCurve> = emptyList(),
     ) {
         fun toAnalysis(trackId: String) = TrackAnalysis(
             status = TrackAnalysis.STATUS_READY,
@@ -224,6 +229,10 @@ class AnalysisStore(
             lowEnergyCurve = lowEnergyCurve.map { it.toSample() },
             vocalActivityMask = vocalActivityMask,
             vocalProbability = vocalProbability,
+            headBeats = headBeats?.toSide(),
+            tailBeats = tailBeats?.toSide(),
+            vocalWindows = vocalWindows.map { it.toWindow() },
+            levelWindows = levelWindows.map { it.toWindow() },
         )
 
         companion object {
@@ -250,6 +259,10 @@ class AnalysisStore(
                 lowEnergyCurve = analysis.lowEnergyCurve.map(StoredEnergy::of),
                 vocalActivityMask = analysis.vocalActivityMask.map(::round),
                 vocalProbability = analysis.vocalProbability,
+                headBeats = analysis.headBeats?.let(StoredBeats::of),
+                tailBeats = analysis.tailBeats?.let(StoredBeats::of),
+                vocalWindows = analysis.vocalWindows.map(StoredCurve::of),
+                levelWindows = analysis.levelWindows.map(StoredCurve::of),
             )
         }
     }
@@ -260,6 +273,43 @@ class AnalysisStore(
 
         companion object {
             fun of(cue: MixCandidate) = StoredCue(round(cue.time), round(cue.score), cue.type)
+        }
+    }
+
+    @Serializable
+    private data class StoredBeats(
+        val beats: List<Double>,
+        val downbeats: List<Double>,
+        val bpm: Double,
+        val confidence: Double,
+    ) {
+        fun toSide() = BeatSide(beats, downbeats, bpm, confidence)
+
+        companion object {
+            fun of(side: BeatSide) = StoredBeats(
+                side.beats.map(::round),
+                side.downbeats.map(::round),
+                side.bpm,
+                round(side.confidence),
+            )
+        }
+    }
+
+    /**
+     * Values in hundredths, clamped to 0..1: the mask is a soft estimate and the
+     * level is only ever compared with itself, and this keeps a window to a few
+     * kilobytes.
+     */
+    @Serializable
+    private data class StoredCurve(val startTime: Double, val frameRate: Double, val values: List<Int>) {
+        fun toWindow() = CurveWindow(startTime, frameRate, FloatArray(values.size) { values[it] / 100f })
+
+        companion object {
+            fun of(window: CurveWindow) = StoredCurve(
+                round(window.startTime),
+                window.frameRate,
+                window.values.map { (it.coerceIn(0f, 1f) * 100).roundToInt() },
+            )
         }
     }
 
@@ -281,7 +331,7 @@ class AnalysisStore(
          * re-analysis costs seconds, and a beat grid interpreted under the wrong
          * assumptions is silently wrong for the life of the file.
          */
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 3
 
         /** A few thousand tracks' worth, at tens of kilobytes each. */
         const val MAX_ENTRIES = 2_000

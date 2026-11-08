@@ -42,6 +42,7 @@ class QueueCoordinatorTest {
     private fun createFakePlayer(
         items: MutableList<MediaItem>,
         currentIndex: () -> Int = { 0 },
+        onRemoval: () -> Unit = {},
     ): Player {
         return Proxy.newProxyInstance(
             Player::class.java.classLoader,
@@ -53,11 +54,13 @@ class QueueCoordinatorTest {
                 "getMediaItemAt" -> items[args[0] as Int]
                 "getCurrentMediaItem" -> items.getOrNull(currentIndex())
                 "removeMediaItem" -> {
+                    onRemoval()
                     val index = args[0] as Int
                     items.removeAt(index)
                     null
                 }
                 "removeMediaItems" -> {
+                    onRemoval()
                     val from = args[0] as Int
                     val to = args[1] as Int
                     for (i in (to - 1) downTo from) {
@@ -310,6 +313,29 @@ class QueueCoordinatorTest {
         assertEquals("playing", items[0].mediaId)
         assertEquals("c1", items[1].mediaId)
         assertEquals("a1", items[2].mediaId)
+    }
+
+    @Test
+    fun `clearUserQueue edits the queue once per contiguous run`() {
+        val songs = listOf(
+            testSong("playing", tier = QueueTier.CONTEXT),
+            testSong("u1", tier = QueueTier.USER_QUEUE),
+            testSong("u2", tier = QueueTier.USER_QUEUE),
+            testSong("u3", tier = QueueTier.USER_QUEUE),
+            testSong("c1", tier = QueueTier.CONTEXT),
+            testSong("u4", tier = QueueTier.USER_QUEUE),
+            testSong("u5", tier = QueueTier.USER_QUEUE),
+            testSong("a1", tier = QueueTier.AUTOPLAY),
+            testSong("u6", tier = QueueTier.USER_QUEUE),
+        )
+        val items = songs.map { it.toMediaItem() }.toMutableList()
+        var edits = 0
+        val player = createFakePlayer(items, currentIndex = { 0 }, onRemoval = { edits++ })
+
+        QueueCoordinator.clearUserQueue(player, tierAt(songs, items))
+
+        assertEquals(3, edits)
+        assertEquals(listOf("playing", "c1", "a1"), items.map { it.mediaId })
     }
 
     @Test

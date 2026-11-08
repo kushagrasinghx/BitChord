@@ -23,7 +23,7 @@ internal expect fun appLanguageTag(): String
  * desktop, back is Escape.
  */
 @Composable
-internal expect fun PlayerBackHandler(enabled: Boolean, onBack: () -> Unit)
+expect fun PlayerBackHandler(enabled: Boolean, onBack: () -> Unit)
 
 /**
  * Whether a scroll that runs out inside a [PlayerDrawer] should drag the drawer

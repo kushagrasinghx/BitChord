@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.screens
 
+import com.music.bitchord.ui.icons.SfIcons
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -25,12 +26,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.FileDownloadOff
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Extension
@@ -39,8 +41,7 @@ import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import com.music.bitchord.ui.components.IosSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -111,6 +112,10 @@ fun SourcesScreen(
      * and the mini player.
      */
     onEditSource: (SourceConfig) -> Unit,
+    /** Asks the activity to open an addon's quality list — raised for the same reason as [onEditSource]. */
+    onChooseSourceQuality: (SourceConfig) -> Unit,
+    /** Asks the activity to explain an addon's "Outdated addon" line — raised for the same reason. */
+    onExplainOutdatedAddon: (SourceConfig) -> Unit,
     /**
      * Asks the activity to open the WebDAV editor — raised for the same
      * reason as [onEditSource]: the frosted alert cannot be drawn from inside
@@ -168,7 +173,10 @@ fun SourcesScreen(
             if (source is AddonSource) {
                 val named = withContext(Dispatchers.IO) { runCatching { source.manifestName() }.getOrNull() }
                 if (named != null && named != config.label) {
-                    SourceRegistry.update(config.copy(label = named))
+                    // Off the stored config, not the one this pass started with:
+                    // the probe above may have just refreshed it, and the user
+                    // may have picked a quality in the meantime.
+                    SourceRegistry.config(config.id)?.let { SourceRegistry.update(it.copy(label = named)) }
                 }
             }
         }
@@ -195,12 +203,7 @@ fun SourcesScreen(
             .verticalScroll(rememberScrollState())
             .padding(contentPadding),
     ) {
-        Text(
-            text = stringResource(R.string.source),
-            style = MaterialTheme.typography.displayLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
-        )
+        SettingsPageTitle(stringResource(R.string.source))
 
         SettingsGroup(
             header = stringResource(R.string.sources_order_header),
@@ -243,12 +246,17 @@ fun SourcesScreen(
                         // today".
                         skippedByQuality = config.enabled && !ceiling.permits(config.kind),
                         awaitingOutput = if (config.enabled && config.awaitsLosslessOutput) losslessOutput else null,
+                        // Read off the stored manifest, so it shows before the
+                        // probe below answers, and on a server that is down.
+                        needsUpdate = config.needsAddonUpdate,
                         onMetered = metered == true,
                         ceiling = ceiling,
                         // Anything the user configured is theirs to edit or
                         // delete. JioSaavn and YouTube have no address to
                         // change, so a tap on them would open an empty editor.
                         onClick = if (config.kind.needsServer) ({ onEditSource(config) }) else null,
+                        onChooseQuality = { onChooseSourceQuality(config) },
+                        onExplainOutdated = { onExplainOutdatedAddon(config) },
                         // YouTube gets no switch at all — see
                         // [SourceRegistry.setEnabled] for why one would be a lie.
                         onToggle = if (config.kind == SourceKind.YOUTUBE) {
@@ -301,7 +309,7 @@ fun SourcesScreen(
         // so it takes no part in the ranking and gets its own group. The
         // editor is raised to the activity like every other alert.
         RemoteLibrarySection(
-            icon = Icons.Rounded.Cloud,
+            icon = SfIcons.Cloud,
             title = stringResource(R.string.webdav),
             description = stringResource(R.string.webdav_description),
             subtitle = if (webdavUrl.isBlank()) {
@@ -326,7 +334,7 @@ fun SourcesScreen(
         // for the same reason: it holds the listener's own files instead of
         // answering for YouTube's, so it takes no part in the ranking above.
         RemoteLibrarySection(
-            icon = Icons.Rounded.Storage,
+            icon = SfIcons.Storage,
             title = stringResource(R.string.smb),
             description = stringResource(R.string.smb_description),
             subtitle = if (smbHost.isBlank() || smbShare.isBlank()) {
@@ -358,7 +366,7 @@ fun SourcesScreen(
             footer = stringResource(R.string.upgrade_length_slack_footer),
         ) {
             SliderRow(
-                icon = Icons.Rounded.Tune,
+                icon = SfIcons.Tune,
                 title = stringResource(R.string.upgrade_length_slack),
                 subtitle = stringResource(R.string.upgrade_length_slack_subtitle),
                 value = stringResource(R.string.seconds_short, upgradeLengthSlackSeconds),
@@ -409,7 +417,7 @@ private fun RemoteLibrarySection(
         if (configured) {
             RowDivider()
             SettingsRow(
-                icon = Icons.Rounded.Dns,
+                icon = SfIcons.Dns,
                 title = if (testing) {
                     stringResource(R.string.testing)
                 } else {
@@ -438,7 +446,7 @@ private fun RemoteLibrarySection(
             )
             RowDivider()
             SettingsRow(
-                icon = Icons.Rounded.DeleteSweep,
+                icon = SfIcons.DeleteSweep,
                 title = disconnectTitle,
                 onClick = {
                     onDisconnect()
@@ -494,12 +502,17 @@ private fun ReorderableAddons(
     /** Which slot of [liveOrder] it began on. */
     var startIndex by remember { mutableIntStateOf(0) }
 
-    // The distance from one row's top to the next — the row plus the hairline
-    // above it, measured off the wrapper holding both. Frozen for the duration
-    // of a gesture so a relayout mid-drag cannot move the boundaries the drag
-    // is being measured against underneath it.
-    var pitchPx by remember { mutableFloatStateOf(0f) }
-    var lockedPitchPx by remember { mutableFloatStateOf(0f) }
+    // Each row's height — the row plus its trailing hairline, measured off the
+    // wrapper holding both — by addon id. Per row rather than one shared pitch,
+    // because a row's status line wraps to as many lines as its message needs,
+    // so an addon with an error stands taller than its neighbours. Frozen for
+    // the duration of a gesture so a relayout mid-drag cannot move the
+    // boundaries the drag is being measured against underneath it.
+    val heights = remember { mutableStateMapOf<String, Float>() }
+    var lockedHeights by remember { mutableStateOf<Map<String, Float>>(emptyMap()) }
+
+    /** How far the dragged row's slot has moved since the gesture began: the heights of the rows it has passed. */
+    var slotShift by remember { mutableFloatStateOf(0f) }
 
     liveOrder.forEachIndexed { index, config ->
         // Keyed on the config's id so this composable — gesture and all —
@@ -513,7 +526,7 @@ private fun ReorderableAddons(
                 modifier = Modifier
                     .fillMaxWidth()
                     .zIndex(if (isDragging) 1f else 0f)
-                    .onSizeChanged { pitchPx = it.height.toFloat() }
+                    .onSizeChanged { heights[config.id] = it.height.toFloat() }
                     .graphicsLayer {
                         // Read in the draw phase, so a drag moves the row
                         // without recomposing the list at all. The row sits
@@ -521,17 +534,12 @@ private fun ReorderableAddons(
                         // picked up, less whatever the swaps have already moved
                         // its slot — so a swap relocates the slot and shortens
                         // this by exactly as much, and the row does not budge.
-                        translationY = if (isDragging) {
-                            totalDrag -
-                                (liveOrder.indexOfFirst { it.id == config.id } - startIndex) * lockedPitchPx
-                        } else {
-                            0f
-                        }
+                        translationY = if (isDragging) totalDrag - slotShift else 0f
                     },
             ) {
                 row(index + 1, config) {
                     Icon(
-                        imageVector = Icons.Rounded.DragHandle,
+                        imageVector = SfIcons.DragHandle,
                         contentDescription = stringResource(R.string.drag_to_reorder),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
                         modifier = Modifier
@@ -545,39 +553,50 @@ private fun ReorderableAddons(
                                     onDragStart = {
                                         dragged = config.id
                                         totalDrag = 0f
+                                        slotShift = 0f
                                         startIndex = liveOrder.indexOfFirst { it.id == config.id }
-                                        lockedPitchPx = pitchPx
+                                        lockedHeights = heights.toMap()
                                     },
                                     onDrag = { change, delta ->
                                         change.consume()
-                                        val pitch = lockedPitchPx
-                                        if (pitch <= 0f) return@detectDragGestures
+                                        val height = { id: String -> lockedHeights[id] ?: 0f }
                                         var at = liveOrder.indexOfFirst { it.id == config.id }
-                                        if (at < 0) return@detectDragGestures
+                                        if (at < 0 || lockedHeights.isEmpty()) return@detectDragGestures
 
                                         // Held past either end the row stops
                                         // there under the finger, rather than
                                         // running off the list and having to be
-                                        // dragged all the way back.
+                                        // dragged all the way back. The ends are
+                                        // the rows above and below the slot it
+                                        // started in, taken from the current
+                                        // order with the swaps undone.
+                                        val others = liveOrder.filterNot { it.id == config.id }
                                         totalDrag = (totalDrag + delta.y).coerceIn(
-                                            -startIndex * pitch,
-                                            (liveOrder.lastIndex - startIndex) * pitch,
+                                            -others.take(startIndex).sumOf { height(it.id).toDouble() }.toFloat(),
+                                            others.drop(startIndex).sumOf { height(it.id).toDouble() }.toFloat(),
                                         )
 
                                         // A loop, not an `if`: one pointer event
                                         // can cover several rows when the finger
                                         // is quick, and settling one row per
                                         // event would leave the list trailing.
+                                        // A swap with a neighbour moves the slot
+                                        // by that neighbour's height, so the
+                                        // threshold is a share of the row being
+                                        // passed, whatever height either row is.
                                         while (true) {
-                                            val travelled = totalDrag / pitch
-                                            val moved = (at - startIndex).toFloat()
-                                            if (travelled > moved + SWAP_THRESHOLD && at < liveOrder.lastIndex) {
+                                            val offset = totalDrag - slotShift
+                                            val below = liveOrder.getOrNull(at + 1)?.let { height(it.id) }
+                                            val above = liveOrder.getOrNull(at - 1)?.let { height(it.id) }
+                                            if (below != null && below > 0f && offset > below * SWAP_THRESHOLD) {
                                                 liveOrder = liveOrder.toMutableList()
                                                     .apply { add(at + 1, removeAt(at)) }
+                                                slotShift += below
                                                 at++
-                                            } else if (travelled < moved - SWAP_THRESHOLD && at > 0) {
+                                            } else if (above != null && above > 0f && offset < -above * SWAP_THRESHOLD) {
                                                 liveOrder = liveOrder.toMutableList()
                                                     .apply { add(at - 1, removeAt(at)) }
+                                                slotShift -= above
                                                 at--
                                             } else {
                                                 break
@@ -587,11 +606,13 @@ private fun ReorderableAddons(
                                     onDragEnd = {
                                         dragged = null
                                         totalDrag = 0f
+                                        slotShift = 0f
                                         onReorder(liveOrder)
                                     },
                                     onDragCancel = {
                                         dragged = null
                                         totalDrag = 0f
+                                        slotShift = 0f
                                         liveOrder = addons
                                     },
                                 )
@@ -599,10 +620,9 @@ private fun ReorderableAddons(
                     )
                 }
                 // After the row, not before it, so every wrapper is exactly one
-                // row plus one hairline — the pitch the drag measures against.
+                // row plus one hairline — the height the drag measures it by.
                 // With the divider leading, the first wrapper was short by a
-                // rule and whichever row reported its size last decided the
-                // pitch for all of them.
+                // rule.
                 RowDivider()
             }
         }
@@ -611,7 +631,7 @@ private fun ReorderableAddons(
 
 /**
  * How far past a neighbour the finger has to carry a row before the two trade
- * places, as a share of one row's pitch.
+ * places, as a share of the height of the row being passed.
  *
  * Deliberately more than half, for the reason spelled out in
  * [LyricsSourcesDialog][com.music.bitchord.ui.components.LyricsSourcesDialog]:
@@ -644,7 +664,7 @@ private fun AddSourceRow(onClick: () -> Unit) {
         // the plus reads as belonging to the same column the list is indexed by.
         Spacer(Modifier.width(24.dp))
         Icon(
-            imageVector = Icons.Rounded.Add,
+            imageVector = SfIcons.Add,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(ICON_SIZE),
@@ -720,7 +740,7 @@ private fun BluetoothCodecPermissionRow() {
     ) {
         Spacer(Modifier.width(24.dp))
         Icon(
-            imageVector = Icons.Rounded.Bluetooth,
+            imageVector = SfIcons.Bluetooth,
             contentDescription = null,
             tint = if (denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(ICON_SIZE),
@@ -740,7 +760,6 @@ private fun BluetoothCodecPermissionRow() {
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
             )
         }
     }
@@ -752,12 +771,17 @@ private fun SourceRow(
     config: SourceConfig,
     health: SourceHealth?,
     onClick: (() -> Unit)?,
+    onChooseQuality: () -> Unit,
+    /** Explains the "Outdated addon" line, which only an addon with [needsUpdate] shows. */
+    onExplainOutdated: () -> Unit,
     /** Null for a source that cannot be switched off, which gets a label instead. */
     onToggle: ((Boolean) -> Unit)?,
     /** On, but skipped by the ceiling the current connection is set to. */
     skippedByQuality: Boolean = false,
     /** On, but its addon needs a lossless output and this is what is connected instead. Null when not waiting. */
     awaitingOutput: LosslessOutput.State? = null,
+    /** An addon that is out of date (no `bitchordAuth` in its manifest). Still used; flagged on a line of its own. */
+    needsUpdate: Boolean = false,
     /** Which of the two ceilings [ceiling] is, so the row can name it. */
     onMetered: Boolean = false,
     ceiling: AudioQuality = AudioQuality.LOSSLESS,
@@ -792,11 +816,11 @@ private fun SourceRow(
         Spacer(Modifier.width(6.dp))
         Icon(
             imageVector = when (config.kind) {
-                SourceKind.ADDON -> Icons.Rounded.Extension
-                SourceKind.CUSTOM_MODULE -> Icons.Rounded.Extension
-                SourceKind.MODULE -> Icons.Rounded.Extension
-                SourceKind.JIOSAAVN -> Icons.Rounded.GraphicEq // or some other icon
-                SourceKind.YOUTUBE -> Icons.Rounded.PlayCircle
+                SourceKind.ADDON -> SfIcons.Extension
+                SourceKind.CUSTOM_MODULE -> SfIcons.Extension
+                SourceKind.MODULE -> SfIcons.Extension
+                SourceKind.JIOSAAVN -> SfIcons.GraphicEq // or some other icon
+                SourceKind.YOUTUBE -> SfIcons.PlayCircle
             },
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onBackground,
@@ -817,6 +841,45 @@ private fun SourceRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            // Read off the stored manifest, so it can still be set while the
+            // addon is down or waiting on a lossless output. One line whatever
+            // the label's length, so it adds the same height to every addon;
+            // the full label is in the list it opens.
+            val quality = config.activeQuality
+            if (config.kind == SourceKind.ADDON && config.isComplete && quality != null) {
+                Row(
+                    modifier = Modifier
+                        .clickable(
+                            onClickLabel = stringResource(R.string.audio_quality),
+                            onClick = onChooseQuality,
+                        )
+                        .padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = SfIcons.Tune,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = quality.label,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Icon(
+                        imageVector = SfIcons.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(10.dp),
+                    )
+                }
+            }
             Text(
                 // The ceiling outranks the health line: a source that isn't
                 // going to be asked at all is not usefully described by
@@ -852,8 +915,69 @@ private fun SourceRow(
                     health is SourceHealth.Rejected -> MaterialTheme.colorScheme.error
                     else -> MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                maxLines = 2,
+                // No line limit: an error is only useful read in full, so the
+                // row grows to fit it. [ReorderableAddons] measures each row's
+                // own height, so a tall row still drags correctly.
             )
+            // The addon's own `allowDownloads`, on a line of its own and both
+            // ways round, so whether downloads come from it is answered here
+            // rather than found out from where a downloaded file came from.
+            // Read off the stored manifest, so it holds while the server is
+            // down too.
+            if (config.kind == SourceKind.ADDON && config.isComplete) {
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = if (config.allowDownloads) {
+                            SfIcons.Download
+                        } else {
+                            SfIcons.FileDownloadOff
+                        },
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(
+                            if (config.allowDownloads) R.string.source_downloads_on else R.string.source_downloads_off,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            }
+            // A caution, not a block: the addon still works, but its developer
+            // should update it. Short here, with the full explanation a tap
+            // away, so it costs the row one line.
+            if (needsUpdate) {
+                Row(
+                    modifier = Modifier
+                        .clickable(
+                            onClickLabel = stringResource(R.string.source_outdated),
+                            onClick = onExplainOutdated,
+                        )
+                        .padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = SfIcons.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.source_outdated),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 1,
+                    )
+                }
+            }
         }
         Spacer(Modifier.width(8.dp))
         if (onToggle == null) {
@@ -863,13 +987,9 @@ private fun SourceRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            Switch(
+            IosSwitch(
                 checked = config.enabled,
                 onCheckedChange = onToggle,
-                colors = SwitchDefaults.colors(
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    checkedBorderColor = MaterialTheme.colorScheme.primary,
-                ),
             )
         }
         // Outside the dimming above, and last in the row. A source switched off
@@ -897,12 +1017,10 @@ private fun AudioQuality.localizedLabel(): String = stringResource(
 private fun SourceConfig.statusLine(health: SourceHealth?): String = when {
     !isComplete -> stringResource(R.string.source_setup_required)
     kind == SourceKind.JIOSAAVN -> stringResource(R.string.jiosaavn_mismatch_warning)
+    // Downloads are a line of their own under this one — see [SourceRow].
     health is SourceHealth.Ok -> listOfNotNull(
         health.detail,
         kind.labels.take(3).joinToString(" · "),
-        // The addon's own `allowDownloads: 0`, said where the user will look
-        // when a download from it came from somewhere else.
-        stringResource(R.string.source_downloads_off).takeIf { !allowDownloads },
     ).joinToString(" · ")
     health is SourceHealth.Rejected -> health.reason
     health is SourceHealth.Unreachable -> stringResource(R.string.source_unreachable, health.reason)

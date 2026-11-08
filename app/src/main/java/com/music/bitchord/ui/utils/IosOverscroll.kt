@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.Velocity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -122,6 +123,7 @@ internal class IosOverscrollEffect : OverscrollEffect {
         // That fling must not start a bounce underneath the new finger.
         if (generation != gestureGeneration) return
         val leftover = velocity - consumed
+        cancelSettle()
         if (!isInProgress && leftover == Velocity.Zero) return
 
         coroutineScope {
@@ -162,6 +164,7 @@ internal class IosOverscrollEffect : OverscrollEffect {
     private suspend fun settle(pull: MutableFloatState, leftoverVelocity: Float) {
         if (pull.floatValue == 0f && leftoverVelocity == 0f) return
         val velocity = leftoverVelocity.coerceIn(-maxBounceVelocity, maxBounceVelocity)
+        val job = currentCoroutineContext()[Job]
         animate(
             initialValue = pull.floatValue,
             targetValue = 0f,
@@ -174,7 +177,10 @@ internal class IosOverscrollEffect : OverscrollEffect {
                     normalBounceStiffness
                 },
             ),
-        ) { value, _ -> pull.floatValue = value }
+        ) { value, _ ->
+            // A frame already in flight when a drag cancels us must not stomp the drag.
+            if (job?.isActive != false) pull.floatValue = value
+        }
     }
 
     override val node: DelegatableNode = IosOverscrollNode(

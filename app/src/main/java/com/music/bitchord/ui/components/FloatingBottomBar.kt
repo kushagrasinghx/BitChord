@@ -211,6 +211,13 @@ fun FloatingBottomBar(
         (rowSize.width + gapPx) / n
     } else 0f
 
+    // The drag below runs in one coroutine for the life of the bar, so it
+    // reads everything that can change under it through these. Read plainly,
+    // each would stay what it was on the first touch.
+    val currentTabStepPx by rememberUpdatedState(tabStepPx)
+    val currentLastIndex by rememberUpdatedState(tabs.lastIndex)
+    val currentOnTabSelected by rememberUpdatedState(onTabSelected)
+
     val pillTargetPx = if (tabStepPx > 0f) {
         selectedIndex * tabStepPx + dragOffset
     } else 0f
@@ -234,7 +241,10 @@ fun FloatingBottomBar(
 
     var lastHapticTab by remember { mutableIntStateOf(selectedIndex) }
 
-    LaunchedEffect(selectedIndex) { dragOffset = 0f }
+    LaunchedEffect(selectedIndex) {
+        dragOffset = 0f
+        lastHapticTab = selectedIndex
+    }
 
     Box(
         modifier = modifier
@@ -286,30 +296,37 @@ fun FloatingBottomBar(
                 .fillMaxWidth()
                 .onSizeChanged { rowSize = it }
                 .pointerInput(Unit) {
+                    // Every drag measures from the tab selected when it starts.
+                    // A stale index here measured them all from the tab the bar
+                    // first opened on: a drag right of it still landed, while
+                    // one to the left clamped back onto it and read as no change.
                     var totalDrag = 0f
-                    var dragStartIndex = selectedIndex
+                    var dragStartIndex = currentSelectedIndex
                     detectHorizontalDragGestures(
                         onDragStart = {
                             totalDrag = 0f
-                            dragStartIndex = selectedIndex
+                            dragStartIndex = currentSelectedIndex
                         },
                         onDragCancel = { dragOffset = 0f },
                         onDragEnd = {
-                            if (tabStepPx > 0f) {
-                                val absoluteIndexFloat = (dragStartIndex + totalDrag / tabStepPx)
-                                    .coerceIn(0f, tabs.lastIndex.toFloat())
+                            val step = currentTabStepPx
+                            if (step > 0f) {
+                                val absoluteIndexFloat = (dragStartIndex + totalDrag / step)
+                                    .coerceIn(0f, currentLastIndex.toFloat())
                                 val newIndex = absoluteIndexFloat.roundToInt()
-                                if (newIndex != selectedIndex) {
-                                    onTabSelected(newIndex)
+                                if (newIndex != currentSelectedIndex) {
+                                    currentOnTabSelected(newIndex)
                                 }
                             }
                             dragOffset = 0f
                         },
                         onHorizontalDrag = { _, delta ->
+                            val step = currentTabStepPx
+                            if (step <= 0f) return@detectHorizontalDragGestures
                             totalDrag += delta
-                            val absoluteIndexFloat = (dragStartIndex + totalDrag / tabStepPx)
-                                .coerceIn(0f, tabs.lastIndex.toFloat())
-                            dragOffset = absoluteIndexFloat * tabStepPx - selectedIndex * tabStepPx
+                            val absoluteIndexFloat = (dragStartIndex + totalDrag / step)
+                                .coerceIn(0f, currentLastIndex.toFloat())
+                            dragOffset = absoluteIndexFloat * step - currentSelectedIndex * step
 
                             val approxTab = absoluteIndexFloat.roundToInt()
                             if (approxTab != lastHapticTab) {

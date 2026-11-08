@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import com.music.bitchord.ui.components.menuAnchor
 import com.music.bitchord.sharedui.resources.*
 
 import androidx.compose.animation.Crossfade
@@ -62,7 +63,6 @@ import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import com.music.bitchord.ui.components.ExplicitBadge
 import com.music.bitchord.ui.components.vibrancy
-import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.theme.stableStatusBarInsets
@@ -257,7 +257,8 @@ internal fun LandscapePlayerLayout(
                     .height(5.dp)
                     .shadow(2.dp, RoundedCornerShape(3.dp), clip = false)
                     .clip(RoundedCornerShape(3.dp))
-                    .vibrantBackground(LocalPlayerTint.current.copy(alpha = 0.70f)),
+                    .additiveChrome(LocalPlayerChrome.current)
+                    .background(chromeWhite(0.70f)),
             )
         }
     }
@@ -429,20 +430,20 @@ internal fun LandscapeCredits(
         Crossfade(
             targetState = song.title to song.artist,
             animationSpec = tween(durationMillis = 300),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).additiveChrome(LocalPlayerChrome.current),
             label = "landscapeCredits",
         ) {
             Column {
                 var titleOverflowing by remember { mutableStateOf(false) }
-                val artistColor = LocalPlayerTint.current.copy(alpha = 0.55f)
+                val artistColor = chromeWhite(0.55f)
                 MarqueeText(
                     text = song.title,
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.White,
                     onOverflowChange = { titleOverflowing = it },
-                    // After the title, in the artist line's colour and vibrancy.
-                    trailing = if (song.isExplicit == true) {
-                        { ExplicitBadge(artistColor, Modifier.vibrancy(artistColor)) }
+                    // Before the title, in the artist line's colour.
+                    leading = if (song.isExplicit == true) {
+                        { ExplicitBadge(artistColor) }
                     } else {
                         null
                     },
@@ -466,10 +467,8 @@ internal fun LandscapeCredits(
         Spacer(Modifier.width(10.dp))
         // In the player's glass, as the portrait player's are.
         GlassControlsRow {
-            // Same gate as the portrait player's: no account to like against for a
-            // guest, and no YouTube identity to rate a local file or a finished
-            // download against either.
-            if (signedIn && song.localUri == null) {
+            // Local files and finished downloads use the device's own Liked playlist.
+            if (signedIn || song.localUri != null) {
                 val liked = likeStatus == LikeStatus.LIKE
                 CircleGlyph(
                     icon = if (liked) BitChordIcons.StarFilled else BitChordIcons.Star,
@@ -486,6 +485,7 @@ internal fun LandscapeCredits(
                 icon = if (showRevertCue) Icons.AutoMirrored.Rounded.Undo else Icons.Rounded.MoreHoriz,
                 contentDescription = stringResource(Res.string.more),
                 onClick = onOpenMenu,
+                modifier = Modifier.menuAnchor(),
             )
         }
     }

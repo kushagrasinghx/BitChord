@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, ListEnd, ListPlus, ListStart, MoreHorizontal, Star } from 'lucide-react';
-import { useCallback, useState } from 'react';
-import { Menu, MenuHeader, MenuItem, MenuSeparator } from '@/components/Menu';
+import { useCallback, useEffect, useState } from 'react';
+import { Menu, MenuHeader, MenuItem, MenuSeparator, type MenuPlacement } from '@/components/Menu';
 import {
   useAddToPlaylist,
   useLikeStatus,
@@ -100,9 +100,24 @@ function TrackMenuItems({ track, onClose }: { track: Track; onClose: () => void 
  * The ⋯ button at the end of a track row (report §14): Play Next and Add to
  * Queue for everyone; Favorite and Add to Playlist signed in.
  */
-export function TrackMenu({ track, className }: { track: Track; className?: string }) {
+export function TrackMenu({
+  track,
+  className,
+  placement,
+  onOpenChange,
+}: {
+  track: Track;
+  className?: string;
+  /** Where the menu opens from the button; the player's sit at the bottom of the window. */
+  placement?: MenuPlacement;
+  /** Told when the menu opens and closes; most mounts don't need to know. */
+  onOpenChange?: (open: boolean) => void;
+}) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = useCallback(() => setAnchor(null), []);
+  useEffect(() => {
+    onOpenChange?.(anchor !== null);
+  }, [anchor, onOpenChange]);
   return (
     <>
       <button
@@ -120,7 +135,7 @@ export function TrackMenu({ track, className }: { track: Track; className?: stri
         <MoreHorizontal size={18} strokeWidth={2} />
       </button>
       {anchor && (
-        <Menu anchor={anchor} onClose={close} label={track.title}>
+        <Menu anchor={anchor} placement={placement} onClose={close} label={track.title}>
           <TrackMenuItems track={track} onClose={close} />
         </Menu>
       )}

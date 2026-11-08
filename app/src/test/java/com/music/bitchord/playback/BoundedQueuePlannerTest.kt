@@ -10,6 +10,19 @@ import org.junit.Test
 class BoundedQueuePlannerTest {
 
     @Test
+    fun `a list of the physical limit fits the window whatever the start`() {
+        val context = songs(BoundedQueuePlanner.MAX_PHYSICAL_CONTEXT, "context-")
+        for (selected in listOf(0, MAX_QUEUE_HISTORY, context.lastIndex)) {
+            val plan = BoundedQueuePlanner.buildInitialPlan(
+                snapshot(context),
+                selectedIndex = selected,
+                queueWindow = QueueWindow(context.size).startAt(selected),
+            )
+            assertTrue(plan.materializedSongs().size <= BoundedQueuePlanner.MAX_PHYSICAL_CONTEXT)
+        }
+    }
+
+    @Test
     fun `initial plan bounds history and keeps queue tiers`() {
         val context = songs(80, "context-")
         val window = QueueWindow(context.size).startAt(30)

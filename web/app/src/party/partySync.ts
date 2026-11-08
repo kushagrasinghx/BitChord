@@ -402,11 +402,11 @@ function maybeTopUpAutoplay(): void {
   topping = (async () => {
     try {
       const [{ fetchRadio }, { extendStation }] = await Promise.all([import('@/data/music/api'), import('@/playback/queue/builder')]);
-      const candidates = await fetchRadio(playing.videoId);
+      const { candidates, seedIsVideo } = await fetchRadio(playing.videoId);
       const latest = useParty.getState();
       if (latest.playback.track?.videoId !== playing.videoId) return;
       const existing = [...usePlayer.getState().queue.map((e) => e.track), ...latest.queue.items.map(fromPartyTrack)];
-      const extra = extendStation(existing, candidates, needed);
+      const extra = extendStation(existing, candidates, needed, seedIsVideo);
       const waitingIds = new Set(partyUpcomingAfter(latest.queue, latest.playback, playing.videoId).map((t) => t.videoId));
       const fresh = extra.filter((t) => !waitingIds.has(t.videoId));
       if (!fresh.length) return;

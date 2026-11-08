@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
@@ -106,16 +107,8 @@ internal fun FullscreenVideoPlayer(
                 indication = null,
             ) { controlsShown = !controlsShown },
     ) {
-        // The still frame until the picture's first frame lands, at the
-        // picture's own shape, so the one gives way to the other in place.
-        if (!rendered) {
-            AsyncImage(
-                model = artRequest,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
+        // Black with a spinner until the picture's first frame lands.
+        if (!rendered) VideoLoadingBackdrop(Modifier.fillMaxSize())
         MusicVideoSurface(
             videoId = song.videoId,
             fit = true,
@@ -194,6 +187,22 @@ internal fun FullscreenVideoPlayer(
                 }
             }
         }
+    }
+}
+
+/**
+ * What stands in for a music video until its first frame lands: black, with a
+ * spinner, rather than the still artwork. Shared by the portrait card and the
+ * fullscreen landscape player.
+ */
+@Composable
+internal fun VideoLoadingBackdrop(modifier: Modifier = Modifier) {
+    Box(modifier.background(Color.Black), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(
+            color = Color.White,
+            strokeWidth = 3.dp,
+            modifier = Modifier.size(36.dp),
+        )
     }
 }
 

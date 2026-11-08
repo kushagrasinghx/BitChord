@@ -139,7 +139,7 @@ function StartOrJoin({ signedIn }: { signedIn: boolean }) {
           <span>Party server</span>
           <input
             className={settingsUi.input}
-            placeholder={new URL(DEFAULT_SERVER).host}
+            placeholder={DEFAULT_SERVER ? new URL(DEFAULT_SERVER).host : 'party.example.com'}
             value={settings.customServer}
             onChange={(e) => update({ customServer: e.currentTarget.value })}
           />

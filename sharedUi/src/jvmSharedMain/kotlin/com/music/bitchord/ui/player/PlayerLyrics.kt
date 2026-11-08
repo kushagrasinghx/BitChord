@@ -2,7 +2,6 @@ package com.music.bitchord.ui.player
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -110,12 +109,14 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
+import org.jetbrains.compose.resources.Font
 import org.jetbrains.compose.resources.stringArrayResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -138,7 +139,6 @@ import com.music.bitchord.data.lyrics.LyricLine
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.lyrics.translationLanguageName
 import com.music.bitchord.ui.components.vibrancy
-import com.music.bitchord.ui.components.vibrantBackground
 import com.music.bitchord.ui.components.vibrantBlendMode
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.Haptics
@@ -180,6 +180,14 @@ private fun isRtl(text: String): Boolean {
 private fun textDirectionFor(text: String): androidx.compose.ui.text.style.TextDirection {
     return if (isRtl(text)) androidx.compose.ui.text.style.TextDirection.Rtl
     else androidx.compose.ui.text.style.TextDirection.Ltr
+}
+
+/** Whether [text] carries Arabic-script letters (Persian, Arabic, Urdu…). */
+private fun usesArabicScript(text: String): Boolean = text.any { ch ->
+    val code = ch.code
+    code in 0x0600..0x06FF || code in 0x0750..0x077F ||
+        code in 0x08A0..0x08FF || code in 0xFB50..0xFDFF ||
+        code in 0xFE70..0xFEFF
 }
 
 /** Whether this text should align to the right end of its box. */
@@ -360,6 +368,16 @@ private val LINE_FALLOFF_ALPHA = floatArrayOf(1f, 0.8f, 0.7f, 0.58f, 0.46f)
 private val LINE_FALLOFF_BLUR = arrayOf(0.dp, 1.dp, 1.dp, 1.7.dp, 2.4.dp)
 
 /**
+ * The same falloff for a phone, where the sung line is read from the top and
+ * the whole stack lies below it. [LINE_FALLOFF_ALPHA] was set on a centred
+ * column with only a few rows either side; down a tall phone column it reads as
+ * one flat brightness, so this keeps going for a row longer and steeper. Its
+ * last entry is still a floor, not zero — the bottom of the screen stays
+ * readable at a glance.
+ */
+private val LINE_FALLOFF_ALPHA_PHONE = floatArrayOf(1f, 0.74f, 0.6f, 0.48f, 0.4f, 0.34f)
+
+/**
  * The shape of the page the lyrics are going to fill.
  *
  * One entry per line of the song, and one number per row that line wraps to.
@@ -522,13 +540,13 @@ internal fun LyricsStatusWithChange(
 ) {
     val haptics = rememberHaptics()
     Row(
-        modifier = modifier,
+        modifier = modifier.additiveChrome(LocalPlayerChrome.current),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = status,
             style = MaterialTheme.typography.titleMedium,
-            color = LocalPlayerTint.current.copy(alpha = 0.55f),
+            color = chromeWhite(0.55f),
             textDecoration = if (onStatusClick != null) TextDecoration.Underline else null,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -1512,10 +1530,11 @@ private fun LyricsToggleButton(
     val loading = state is LyricsTranslationUiState.Loading
     val active = showing || loading
     val base = LocalPlayerTint.current
+    val chrome = glass == null && LocalPlayerChrome.current
     val tint = when {
-        !enabled || state is LyricsTranslationUiState.SameLanguage -> base.copy(alpha = 0.42f)
-        active && glass == null -> base
-        else -> base.copy(alpha = 0.78f)
+        !enabled || state is LyricsTranslationUiState.SameLanguage -> if (glass == null) chromeWhite(0.42f) else base.copy(alpha = 0.42f)
+        active && glass == null -> Color.White.copy(alpha = if (chrome) CHROME_FULL_ALPHA else 1f)
+        else -> if (glass == null) chromeWhite(0.78f) else base.copy(alpha = 0.78f)
     }
     val discAlpha by animateFloatAsState(
         targetValue = if (active) 0.34f else 0.18f,
@@ -1532,7 +1551,10 @@ private fun LyricsToggleButton(
             .then(if (glass != null) with(glass) { Modifier.glassSurface(CircleShape) } else Modifier)
             // After the glass: it draws its outline just outside its edge.
             .clip(CircleShape)
-            .then(if (glass == null) Modifier.vibrantBackground(base.copy(alpha = discAlpha)) else Modifier)
+            .then(
+                if (glass == null) Modifier.additiveChrome(chrome).background(Color.White.copy(alpha = discAlpha))
+                else Modifier,
+            )
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
@@ -1553,7 +1575,7 @@ private fun LyricsToggleButton(
             loading = loading,
             tint = glyphTint,
             spinnerColor = tint,
-            glyphModifier = Modifier.toneVibrancy(tone, tint),
+            glyphModifier = if (glass == null) Modifier else Modifier.toneVibrancy(tone, tint),
             modifier = Modifier
                 .then(if (tone != null) with(tone) { Modifier.glyphArea() } else Modifier)
                 .graphicsLayer {
@@ -2169,11 +2191,12 @@ internal fun LyricsPanel(
             // rows around it stay readable so you can follow back over what was
             // just sung as well as ahead, and everything past that recedes to
             // the same floor rather than fading to nothing.
-            val step = distance.coerceAtMost(LINE_FALLOFF_ALPHA.lastIndex)
+            val falloff = if (centerFocus) LINE_FALLOFF_ALPHA else LINE_FALLOFF_ALPHA_PHONE
+            val step = distance.coerceAtMost(falloff.lastIndex)
             val blur by animateDpAsState(
                 targetValue = when {
                     !isSynced || reduceDynamicBlur || !lyricsBlur || browsing || isActive -> 0.dp
-                    else -> LINE_FALLOFF_BLUR[step]
+                    else -> LINE_FALLOFF_BLUR[step.coerceAtMost(LINE_FALLOFF_BLUR.lastIndex)]
                 },
                 animationSpec = tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING),
                 label = "lyricBlur",
@@ -2185,7 +2208,7 @@ internal fun LyricsPanel(
                     // Reading by hand is not following along: the stack flattens
                     // to one brightness so no row is being pointed at.
                     browsing -> BROWSING_ALPHA
-                    else -> LINE_FALLOFF_ALPHA[step]
+                    else -> falloff[step]
                 },
                 animationSpec = tween(LYRIC_SETTLE_MS, easing = LYRIC_EASING),
                 label = "lyricAlpha",
@@ -2626,15 +2649,12 @@ private fun PanelVoice(
     rise: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    // The line being sung is white; every other one — sung or still to come —
-    // takes the sleeve's tint, as the rest of the player's secondary text does
-    // (see [LocalPlayerTint]). Faded across the handover rather than cut, so a
-    // line warms to white as it is reached and cools as it is left. Lyrics
-    // with no timing have no line being sung, and stay white throughout.
-    val color by animateColorAsState(
-        targetValue = if (isActive || !synced) Color.White else LocalPlayerTint.current,
-        label = "lyricLineColor",
-    )
+    // Vazirmatn for Persian/Arabic-script lines; Latin lines keep the player's font.
+    val arabicScript = remember(line.text) { usesArabicScript(line.text) }
+    val lyricStyle = if (arabicScript) {
+        val vazirmatn = Font(Res.font.vazirmatn_regular)
+        remember(style, vazirmatn) { style.copy(fontFamily = FontFamily(vazirmatn)) }
+    } else style
     if (line.isWordSynced && !browsing) {
         // Every word-synced line goes through the sweep, not just the playing
         // one — a line that has already been sung is fully revealed and one
@@ -2652,7 +2672,7 @@ private fun PanelVoice(
         SweptLyricLine(
             line = line,
             clock = clock,
-            style = style,
+            style = lyricStyle,
             dimAlpha = tail,
             modifier = modifier,
             glowAlpha = glowAlpha,
@@ -2662,7 +2682,7 @@ private fun PanelVoice(
             alignEnd = alignEnd,
             laneLocked = laneLocked,
             translationProgress = translationProgress,
-            color = color,
+            color = Color.White,
         )
     } else if (line.isWordSynced) {
         // Browsing: keep the sweep so sung lines stay fully lit and unsung
@@ -2676,7 +2696,7 @@ private fun PanelVoice(
         SweptLyricLine(
             line = line,
             clock = clock,
-            style = style,
+            style = lyricStyle,
             dimAlpha = tail,
             modifier = modifier,
             glowAlpha = 0f,
@@ -2685,7 +2705,7 @@ private fun PanelVoice(
             alignEnd = alignEnd,
             laneLocked = laneLocked,
             translationProgress = translationProgress,
-            color = color,
+            color = Color.White,
         )
     } else {
         // No word timings, so there is no sweep to light the words as they are
@@ -2704,8 +2724,8 @@ private fun PanelVoice(
         var layout by remember(line.text) { mutableStateOf<TextLayoutResult?>(null) }
         Text(
             text = line.text,
-            style = style,
-            color = color.copy(alpha = lit),
+            style = lyricStyle,
+            color = Color.White.copy(alpha = lit),
             onTextLayout = { layout = it },
             modifier = modifier.lyricParticles(layout, translationProgress, room).padding(room),
         )

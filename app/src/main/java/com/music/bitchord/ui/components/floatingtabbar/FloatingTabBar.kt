@@ -786,6 +786,10 @@ private fun SharedTransitionScope.ExpandedTabs(
         0f
     }
     pill.stepDp = tabStepPx / density.density
+    // For the row's drag, which runs in one coroutine for the life of the row
+    // and would otherwise keep the step from its first touch.
+    val currentTabStepPx by rememberUpdatedState(tabStepPx)
+    val currentIsRtl by rememberUpdatedState(isRtl)
 
     // The pill rests in its tab's cell and lifts to stand [PILL_GROW_HEIGHT]
     // taller than the whole bar, keeping the cell's proportions as it grows.
@@ -868,27 +872,33 @@ private fun SharedTransitionScope.ExpandedTabs(
                         .onSizeChanged { rowSize = it }
                         .layerBackdrop(tabRow)
                         .pointerInput(Unit) {
-                            if (currentSelectedTabIndex < 0 || tabStepPx <= 0f) return@pointerInput
-
-                            // In tab order, whichever way the row runs.
-                            val direction = if (isRtl) -1f else 1f
                             var totalDrag = 0f
                             var dragStartIndex = currentSelectedTabIndex
+                            var direction = 1f
+                            var step = 0f
+                            // Decided per drag, not once for the coroutine: on the
+                            // standalone tab there is no pill in this row to pick up,
+                            // but that is no reason to stop listening for good.
+                            var holding = false
                             detectHorizontalDragGestures(
                                 onDragStart = {
+                                    step = currentTabStepPx
+                                    holding = currentSelectedTabIndex >= 0 && step > 0f
+                                    if (!holding) return@detectHorizontalDragGestures
+                                    // In tab order, whichever way the row runs.
+                                    direction = if (currentIsRtl) -1f else 1f
                                     totalDrag = 0f
                                     dragStartIndex = currentSelectedTabIndex
                                     pill.startDrag()
                                 },
-                                onDragCancel = { pill.release(currentSelectedTabIndex) },
+                                onDragCancel = {
+                                    if (holding) pill.release(currentSelectedTabIndex)
+                                    holding = false
+                                },
                                 onDragEnd = {
-                                    val ratio = totalDrag / tabStepPx
-                                    val shift = when {
-                                        ratio > 0.35f -> maxOf(1, ratio.roundToInt())
-                                        ratio < -0.35f -> minOf(-1, ratio.roundToInt())
-                                        else -> 0
-                                    }
-                                    val absoluteIndexFloat = (dragStartIndex + totalDrag / tabStepPx)
+                                    if (!holding) return@detectHorizontalDragGestures
+                                    holding = false
+                                    val absoluteIndexFloat = (dragStartIndex + totalDrag / step)
                                         .coerceIn(0f, scope.tabs.lastIndex.toFloat())
                                     val newIndex = absoluteIndexFloat.roundToInt()
                                     pill.release(newIndex)
@@ -897,8 +907,9 @@ private fun SharedTransitionScope.ExpandedTabs(
                                     }
                                 },
                                 onHorizontalDrag = { _, delta ->
+                                    if (!holding) return@detectHorizontalDragGestures
                                     totalDrag += delta * direction
-                                    val absoluteIndexFloat = (dragStartIndex + totalDrag / tabStepPx)
+                                    val absoluteIndexFloat = (dragStartIndex + totalDrag / step)
                                         .coerceIn(0f, scope.tabs.lastIndex.toFloat())
                                     pill.dragTo(absoluteIndexFloat)
 

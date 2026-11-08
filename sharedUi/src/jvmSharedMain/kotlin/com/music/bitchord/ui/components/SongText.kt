@@ -50,8 +50,7 @@ fun Modifier.thumbnailBorder(shape: Shape): Modifier = composed {
 }
 
 /**
- * A song title with the catalogue-standard explicit badge after it, where Apple
- * Music sets it.
+ * A song title with the catalogue-standard explicit badge after it.
  *
  * Apple draws the badge in the secondary line's colour — the artist's, with its
  * vibrancy — rather than the title's; [badgeColor] is that colour. With

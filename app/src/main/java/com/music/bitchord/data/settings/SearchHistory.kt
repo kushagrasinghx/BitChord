@@ -9,6 +9,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import com.music.bitchord.data.model.SearchHistoryEntity
+import com.music.bitchord.data.model.withCorrectedType
 
 /**
  * What's been searched for lately, kept on this device only.
@@ -76,6 +77,7 @@ object SearchHistory {
         if (!this::prefs.isInitialized) return
         _recent.value = runCatching {
             json.decodeFromString(serializer, prefs.getString(KEY_HISTORY, null) ?: "[]")
+                .map { it.withCorrectedType() }
         }.getOrDefault(emptyList())
         _addonRecent.value = runCatching {
             json.decodeFromString(addonSerializer, prefs.getString(KEY_ADDON_HISTORY, null) ?: "[]")

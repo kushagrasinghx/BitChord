@@ -6,8 +6,13 @@ import com.music.bitchord.data.sources.DeviceCodecs
 import com.music.bitchord.data.sources.SourceConfig
 import com.music.bitchord.data.sources.SourceHealth
 import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.sources.SourceRegistry
 import com.music.bitchord.data.sources.StreamRequest
+import com.music.bitchord.data.sources.addon.AddonAuth
 import com.music.bitchord.data.sources.addon.AddonClient
+import com.music.bitchord.data.sources.addon.AddonException
+import com.music.bitchord.data.sources.addon.AddonQualityOption
+import com.music.bitchord.data.sources.addon.AddonUnavailable
 import com.music.bitchord.playback.StreamContainer
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
@@ -58,6 +63,9 @@ class AddonSourceTest {
         // format never depends on what the machine running it can decode.
         DeviceCodecs.forced = true
         AppSettings.dolbyAtmos.value = true
+        // Every fixture manifest declares `bitchordAuth`, as an up-to-date
+        // addon must. Attestation needs secure hardware, so this stands in.
+        AddonAuth.testHeaders = { _, _ -> mapOf(AddonAuth.TOKEN_HEADER to "test-token", AddonAuth.PROOF_HEADER to "test-proof") }
     }
 
     @After
@@ -65,6 +73,8 @@ class AddonSourceTest {
         server.shutdown()
         DeviceCodecs.forced = null
         AppSettings.dolbyAtmos.value = true
+        AddonAuth.testHeaders = null
+        AddonAuth.refuseForTest(null)
     }
 
     // ── URL handling ──────────────────────────────────────────────────────
@@ -129,7 +139,7 @@ class AddonSourceTest {
      */
     @Test
     fun `an addon that cannot be searched is rejected, not merely unreachable`() = runBlocking {
-        route("/manifest.json", json("""{"id":"x","name":"X","resources":["stream"]}"""))
+        route("/manifest.json", json("""{"id":"x","name":"X","bitchordAuth":true,"resources":["stream"]}"""))
         // No search endpoint either, so the behavioural fallback cannot save it.
         val health = source().health()
         assertTrue("expected Rejected, got $health", health is SourceHealth.Rejected)
@@ -143,14 +153,14 @@ class AddonSourceTest {
      */
     @Test
     fun `an addon that declares search but not stream is accepted`() = runBlocking {
-        route("/manifest.json", json("""{"id":"x","name":"X","resources":["search"]}"""))
+        route("/manifest.json", json("""{"id":"x","name":"X","bitchordAuth":true,"resources":["search"]}"""))
         assertTrue(source().health() is SourceHealth.Ok)
     }
 
     /**
-     * The manifest is a description; the endpoints are the addon. One that
-     * never published a manifest is healthy the moment it answers a search, and
-     * refusing it over a missing document refuses it for the wrong reason.
+     * An addon that never published a manifest still answers a search, so it is
+     * healthy. It has nowhere to declare `bitchordAuth`, which the sources row
+     * flags on a line of its own, but that doesn't stop it working.
      */
     @Test
     fun `an addon with no manifest is healthy when its search endpoint answers`() = runBlocking {
@@ -159,7 +169,125 @@ class AddonSourceTest {
         val health = source().health()
 
         assertTrue("expected Ok, got $health", health is SourceHealth.Ok)
-        assertEquals("No manifest · search works", (health as SourceHealth.Ok).detail)
+    }
+
+    // ── Out-of-date addons (no `bitchordAuth`) ────────────────────────────
+
+    private fun outdatedManifest() = json(
+        """{"id":"com.test.old","name":"Old Addon","version":"1.0.0","resources":["search","stream"]}""",
+    )
+
+    /** Flagged on the sources row, not refused: the health line reads as for any working addon. */
+    @Test
+    fun `a manifest without bitchordAuth is still healthy`() = runBlocking {
+        route("/manifest.json", outdatedManifest())
+
+        val health = source().health()
+
+        assertTrue("expected Ok, got $health", health is SourceHealth.Ok)
+    }
+
+    /**
+     * Out of date, but working: searched and streamed from as before, with no
+     * credentials sent, and unaffected by this device being refused
+     * verification, since it never asked for it.
+     */
+    @Test
+    fun `an out-of-date addon is still searched and streamed without credentials`() = runBlocking {
+        route("/manifest.json", outdatedManifest())
+        route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+        AddonAuth.refuseForTest("BitChord couldn't verify this device: The bootloader is unlocked")
+        val source = source()
+
+        assertEquals(1, source.search("S", 10, false, null).size)
+        assertNotNull(source.stream("t1", StreamRequest.Lossless))
+        val sent = synchronized(seen) { seen.toList() }
+        assertTrue(sent.none { it.getHeader(AddonAuth.TOKEN_HEADER) != null })
+    }
+
+    /** A manifest that says `false` is the same as one that says nothing. */
+    @Test
+    fun `bitchordAuth false is out of date but still searched`() = runBlocking {
+        route(
+            "/manifest.json",
+            json("""{"id":"x","name":"X","bitchordAuth":false,"resources":["search","stream"]}"""),
+        )
+        route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
+
+        assertEquals(1, source().search("S", 10, false, null).size)
+    }
+
+    /** The sources screen and the add dialog both read this, so the auth service's reason has to reach it. */
+    @Test
+    fun `a device the auth service refuses is reported in its words`() = runBlocking {
+        route("/manifest.json", manifest())
+        AddonAuth.testHeaders = { _, _ ->
+            throw AddonException("BitChord couldn't verify this device: The bootloader is unlocked")
+        }
+
+        val health = source().health()
+
+        assertTrue("expected Rejected, got $health", health is SourceHealth.Rejected)
+        assertEquals(
+            "BitChord couldn't verify this device: The bootloader is unlocked",
+            (health as SourceHealth.Rejected).reason,
+        )
+    }
+
+    @Test
+    fun `an auth service that can't be reached reads as unreachable`() = runBlocking {
+        route("/manifest.json", manifest())
+        AddonAuth.testHeaders = { _, _ -> throw AddonUnavailable("Couldn't reach BitChord's addon verification service") }
+
+        assertTrue(source().health() is SourceHealth.Unreachable)
+    }
+
+    /** One refusal, not one failed request per query per pass. */
+    @Test
+    fun `while the device is refused an addon is not asked to search or stream`() = runBlocking {
+        route("/manifest.json", manifest())
+        route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+        AddonAuth.refuseForTest("BitChord couldn't verify this device: revoked")
+        val source = source()
+
+        assertTrue(source.search("S", 10, false, null).isEmpty())
+        assertTrue(source.search("S A", 10, false, null).isEmpty())
+        assertNull(source.stream("t1", StreamRequest.Lossless))
+        val asked = synchronized(seen) { seen.map { it.requestUrl?.encodedPath } }
+        assertEquals(listOf("/manifest.json"), asked.distinct())
+
+        AddonAuth.refuseForTest(null)
+        assertEquals(1, source.search("S", 10, false, null).size)
+    }
+
+    /** A manifest that is down for a minute doesn't stop the addon being searched. */
+    @Test
+    fun `an addon is still searched while its manifest is down`() = runBlocking {
+        route("/manifest.json", MockResponse().setResponseCode(503))
+        route("/search", json("""{"tracks":[{"id":"t1","title":"S","artist":"A"}]}"""))
+
+        assertEquals(1, source().search("S", 10, false, null).size)
+    }
+
+    @Test
+    fun `identify records whether the manifest declares bitchordAuth`() = runBlocking {
+        route("/manifest.json", manifest())
+        assertEquals(true, SourceRegistry.identify(config().baseUrl).getOrThrow().bitchordAuth)
+
+        route("/manifest.json", outdatedManifest())
+        assertEquals(false, SourceRegistry.identify(config().baseUrl).getOrThrow().bitchordAuth)
+    }
+
+    @Test
+    fun `only an addon known to lack bitchordAuth counts as needing an update`() {
+        assertTrue(SourceConfig(kind = SourceKind.ADDON, bitchordAuth = false).needsAddonUpdate)
+        assertFalse(SourceConfig(kind = SourceKind.ADDON, bitchordAuth = true).needsAddonUpdate)
+        // Not read yet: the manifest is checked before the first request instead.
+        assertFalse(SourceConfig(kind = SourceKind.ADDON, bitchordAuth = null).needsAddonUpdate)
+        // Module indexes are a different protocol and aren't gated.
+        assertFalse(SourceConfig(kind = SourceKind.CUSTOM_MODULE, bitchordAuth = false).needsAddonUpdate)
     }
 
     @Test
@@ -300,7 +428,7 @@ class AddonSourceTest {
             "/manifest.json",
             json(
                 """
-                {"id":"a","name":"A","resources":["search","stream","settings"],
+                {"id":"a","name":"A","bitchordAuth":true,"resources":["search","stream","settings"],
                  "settings":[
                    {"key":"quality","type":"select","default":"normal",
                     "options":[{"value":"lossless"},{"value":"high"},{"value":"normal"}]},
@@ -336,6 +464,106 @@ class AddonSourceTest {
         AddonSource(config()).stream("t1", StreamRequest.Lossless)
 
         assertEquals("LOSSLESS", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    /** "lossless" on this list is CD quality, so asking for that word would never reach "max". */
+    private fun qualityManifest() = json(
+        """
+        {"id":"a","name":"A","bitchordAuth":true,"resources":["search","stream"],
+         "settings":[{"key":"quality","type":"select","default":"max","perNetwork":true,
+           "options":[{"value":"max","label":"MAX"},{"value":"hires","label":"HiRes"},
+                      {"value":"lossless","label":"CD"},{"value":"low","label":"Low"}]}]}
+        """.trimIndent(),
+    )
+
+    @Test
+    fun `a picked quality replaces the negotiated one on search and stream`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        route("/search", json("""{"tracks":[]}"""))
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        val source = AddonSource(config().copy(pickedQuality = "hires"))
+        source.search("hello", limit = 5)
+        source.stream("t1", StreamRequest.Lossless)
+
+        assertEquals("hires", requestFor("/search").queryParameter("quality"))
+        assertEquals("hires", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    @Test
+    fun `with nothing picked the first listed option is sent`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        AddonSource(config()).stream("t1", StreamRequest.Lossless)
+
+        assertEquals("max", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    /** A download kept at a lower rung has said what the file may cost; the pick does not overrule it. */
+    @Test
+    fun `a picked quality does not raise a request below the top tier`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        route("/stream/t1", json("""{"url":"https://cdn/a.mp3"}"""))
+
+        AddonSource(config().copy(pickedQuality = "hires")).stream("t1", StreamRequest.Capped(128))
+
+        assertEquals("low", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    @Test
+    fun `a pick the addon no longer lists falls back to the first listed option`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        AddonSource(config().copy(pickedQuality = "gone")).stream("t1", StreamRequest.Lossless)
+
+        assertEquals("max", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    @Test
+    fun `the active quality is the pick while it is listed and the first option otherwise`() {
+        val options = listOf(AddonQualityOption("max", "MAX"), AddonQualityOption("hires", "HiRes"))
+        val listed = config().copy(qualityOptions = options)
+
+        assertEquals("max", listed.activeQuality?.value)
+        assertEquals("hires", listed.copy(pickedQuality = "hires").activeQuality?.value)
+        assertEquals("max", listed.copy(pickedQuality = "gone").activeQuality?.value)
+        assertNull(config().activeQuality)
+    }
+
+    @Test
+    fun `a pick is dropped once the addon declares no quality options at all`() = runBlocking {
+        route("/manifest.json", manifest())
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        AddonSource(config().copy(pickedQuality = "hires")).stream("t1", StreamRequest.Lossless)
+
+        assertEquals("LOSSLESS", requestFor("/stream/t1").queryParameter("quality"))
+    }
+
+    /** The editor saves what this returns, so an edit there must not lose the pick made on the row. */
+    @Test
+    fun `re-identifying an addon keeps a pick it still lists and drops one it does not`() = runBlocking {
+        route("/manifest.json", qualityManifest())
+        val base = config()
+
+        val kept = SourceRegistry.identify(base.baseUrl, base.copy(pickedQuality = "hires")).getOrThrow()
+        val dropped = SourceRegistry.identify(base.baseUrl, base.copy(pickedQuality = "gone")).getOrThrow()
+
+        assertEquals("hires", kept.pickedQuality)
+        assertNull(dropped.pickedQuality)
+    }
+
+    @Test
+    fun `a pick still goes out while the manifest is unreachable`() = runBlocking {
+        route("/manifest.json", MockResponse().setResponseCode(503))
+        route("/stream/t1", json("""{"url":"https://cdn/a.flac"}"""))
+
+        // Seen up to date before, so a manifest that is down right now doesn't shut it out.
+        AddonSource(config().copy(pickedQuality = "hires", bitchordAuth = true)).stream("t1", StreamRequest.Lossless)
+
+        assertEquals("hires", requestFor("/stream/t1").queryParameter("quality"))
     }
 
     @Test
@@ -444,7 +672,7 @@ class AddonSourceTest {
             "/manifest.json",
             json(
                 """
-                {"id":"a","name":"A","resources":["search","stream","settings"],
+                {"id":"a","name":"A","bitchordAuth":true,"resources":["search","stream","settings"],
                  "settings":[{"key":"atmos","type":"select","default":"only",
                               "options":[{"value":"only"},{"value":"auto"},{"value":"off"}]}]}
                 """.trimIndent(),
@@ -640,7 +868,7 @@ class AddonSourceTest {
             "/manifest.json",
             json(
                 """
-                {"id":"a","name":"A","resources":["search","stream","settings"],
+                {"id":"a","name":"A","bitchordAuth":true,"resources":["search","stream","settings"],
                  "settings":[{"key":"atmos","type":"select","default":"auto",
                               "options":[{"value":"only"},{"value":"auto"},{"value":"off"}]}]}
                 """.trimIndent(),
@@ -1070,7 +1298,7 @@ class AddonSourceTest {
         .setBody(body)
 
     private fun manifest() = json(
-        """{"id":"com.test.addon","name":"Test Addon","version":"2.1.0","resources":["search","stream"]}""",
+        """{"id":"com.test.addon","name":"Test Addon","version":"2.1.0","bitchordAuth":true,"resources":["search","stream"]}""",
     )
 
     private fun config() = SourceConfig(

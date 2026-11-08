@@ -26,7 +26,10 @@ package com.music.bitchord.playback.smart
 import android.content.Context
 import android.media.MediaDataSource
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.music.bitchord.data.YtMusicRepository
@@ -46,6 +49,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.max
 import java.util.Locale
 
@@ -62,13 +66,23 @@ import java.util.Locale
 class TrackAnalyzer(private val context: Context, private val cache: AudioCache) {
 
     private val tracker = BeatTracker(
-        modelPath = { unpackedAsset(BeatTracker.MODEL_ASSET) },
+        modelPath = {
+            java.io.File(context.filesDir, BeatTracker.RETIRED_MODEL_ASSET).delete()
+            unpackedAsset(BeatTracker.MODEL_ASSET)
+        },
         inferenceThreads = { AppSettings.automixPerformanceMode.value.inferenceThreads },
     )
     private val vocals = VocalTracker(
         modelPath = { unpackedAsset(VocalTracker.MODEL_ASSET) },
         inferenceThreads = { AppSettings.automixPerformanceMode.value.inferenceThreads },
     )
+
+    init {
+        // The shared trackers report model failures and their timings through
+        // this; with no sink they went nowhere on the phone, which is how a
+        // beat model that found nothing went unnoticed.
+        AnalysisLog.install { message, error -> Log.w(TAG, message, error) }
+    }
 
     /**
      * A model's weights on disk, unpacked from assets the first time they are
@@ -104,6 +118,37 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      * the work already running instead of only the work not yet queued.
      */
     private val stopped: Boolean get() = ListenTogether.state.value.inParty
+
+    /** The last thermal status the system reported; see [overheated]. */
+    @Volatile private var thermalStatus = 0
+
+    /**
+     * Registered on first use rather than at construction, for the reason
+     * [resolver] gives: there is no base context to ask for a service yet.
+     */
+    private val thermalWatch by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            context.getSystemService(PowerManager::class.java)?.let { power ->
+                thermalStatus = power.currentThermalStatus
+                power.addThermalStatusListener(Runnable::run) { thermalStatus = it }
+            }
+        }
+    }
+
+    /**
+     * Whether the phone has asked apps to shed load. No new pass is started
+     * while it has: a pass is tens of seconds of decoding and inference, and
+     * started on a phone already throttled to half its clocks it is the load
+     * that keeps it there — measured, a session of back-to-back analyses held
+     * a phone at SEVERE with every frame of the UI missing its vsync. A track
+     * left unmeasured gets a plain crossfade, and is measured on a later tick
+     * once the phone has cooled. A pass already running finishes.
+     */
+    private val overheated: Boolean
+        get() {
+            thermalWatch
+            return thermalStatus >= PowerManager.THERMAL_STATUS_SEVERE
+        }
 
     /**
      * Resolved on first use, not at construction, for the reason [AnalysisStore]
@@ -271,6 +316,12 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // mix. See [stopped].
         if (stopped) return
         if (trackId in running) return
+        // A track measured in an earlier session costs nothing to restore, so
+        // only the work below waits for the phone to cool.
+        if (overheated) {
+            restoreOnce(trackId)
+            return
+        }
         val analysisUri = analysisUriFor(trackId, uri) ?: return
 
         // Only the canonical YouTube rendition of this recording will do, not
@@ -686,6 +737,7 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
             introEndTime = entry?.introEndTime ?: 0.0,
             mixInTime = entry?.mixInTime ?: 0.0,
             mixInCandidates = entry?.mixInCandidates.orEmpty(),
+            headBeats = grid?.let { BeatSide(it.beats, it.downbeats, it.bpm, it.beatConfidence) },
         )
     }
 
@@ -748,14 +800,25 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
 
         for (candidate in complete) {
             val length = cache.renditionDataSource(uri, candidate)
-                .use(AudioDecoder::containerDurationSeconds) ?: continue
-            if (length <= 0) continue
+                .use(AudioDecoder::containerDurationSeconds)
+            if (length == null || length <= 0) {
+                // Every candidate here is complete, so no more bytes are coming
+                // to make the header readable: remembered for the reason below.
+                badRenditions.add(candidate.key)
+                continue
+            }
             if (abs(length - expected) > RENDITION_DURATION_TOLERANCE) {
                 Log.d(
                     TAG,
                     "Rendition ${candidate.key} rejected for $trackId: " +
                         "${"%.1f".format(Locale.ROOT, length)}s against ${"%.1f".format(Locale.ROOT, expected)}s expected",
                 )
+                // Remembered, as the head pass remembers its own rejections. A
+                // cut that is the wrong length now is the wrong length on the
+                // next tick too, and while it counted as complete [request]
+                // queued a pass on every one of them — reopening and parsing the
+                // same file four times a second for as long as the track played.
+                badRenditions.add(candidate.key)
                 continue
             }
             if (candidate.key != cache.cacheKeyOf(uri)) {
@@ -1025,27 +1088,33 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val features = structural.features ?: return WholeTrack(empty(trackId, effectiveDuration))
 
         // Pass 2 (Phases 2 and 3, models): the Beat This! grid and the open-unmix vocal mask, over
-        // the head and tail only. A transition only ever reads the tail of the outgoing track and
-        // the head of the incoming one, and a track is both of those at different moments, so the
-        // middle is never decoded for this. Both models read the same decoded region, so the
-        // stereo buffer is paid for once.
-        val window = BeatTracker.WINDOW_SECONDS
-        val tailStart = max(0.0, effectiveDuration - window)
-        val head = region(openSource, 0.0, minOf(window, effectiveDuration), features)
-        // Between the two model passes, for the same reason as above. Not
-        // folded into the `tail` condition below: a head-only result would be
-        // written *and persisted* as if it were a whole-track one, freezing a
-        // deliberately partial answer in place of the complete one.
-        if (stopped) return WholeTrack(null)
-        val tail = if (tailStart > window / 2) region(openSource, tailStart, effectiveDuration, features) else null
-        // Last of the three. An abort during the tail pass leaves `tail` null,
-        // which is indistinguishable from a window the models found nothing in
-        // — and that one gets published, with the DSP estimate standing in. A
-        // result assembled out of a half-finished analysis is worse than none.
+        // the opening and the ending only. A transition only ever reads the tail of the outgoing
+        // track and the head of the incoming one, and a track is both of those at different
+        // moments, so the middle is never decoded for this. Both models read the same decoded
+        // window, so its stereo buffer is paid for once. The spans match the loop mix's searches:
+        // its incoming loop is looked for in the first 45 s, its outgoing one in the last 60.
+        val span = modelWindowSeconds()
+        // Spans that the windows tile exactly, overlaps included: one window more
+        // here is a whole extra pass of both models.
+        val headEnd = minOf(effectiveDuration, HEAD_MODEL_WINDOWS * span - (HEAD_MODEL_WINDOWS - 1) * WINDOW_OVERLAP_SECONDS)
+        val tailStart = max(0.0, effectiveDuration - (TAIL_MODEL_WINDOWS * span - (TAIL_MODEL_WINDOWS - 1) * WINDOW_OVERLAP_SECONDS))
+        val regions = ArrayList<Region>()
+        for ((from, to) in modelWindows(headEnd, tailStart, effectiveDuration, span)) {
+            // Checked between windows: an abort leaves a window missing, which
+            // is indistinguishable from one the models found nothing in — and
+            // that would be published, and persisted, with the DSP estimate
+            // standing in. A result assembled out of a half-finished analysis
+            // is worse than none.
+            if (stopped) return WholeTrack(null)
+            region(openSource, from, to, features)?.let(regions::add)
+        }
         if (stopped) return WholeTrack(null)
 
-        val headGrid = head?.grid
-        val tailGrid = tail?.grid
+        val beats = seamBeats(regions)
+        val headSide = beatSide(beats, 0.0, headEnd)
+        val tailSide = beatSide(beats, tailStart, effectiveDuration)
+        val headGrid = headSide?.toGrid()
+        val tailGrid = tailSide?.toGrid()
 
         // The tail governs where the outgoing track is mixed out, so it takes precedence; the
         // head is what a track uses when it is the *incoming* side of a different transition.
@@ -1057,7 +1126,11 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 "conf=${leading?.beatConfidence ?: features.beatConfidence} " +
                 "key=${features.key} contentEnd=${features.contentEndTime} " +
                 "mixOutCandidates=${features.mixOutCandidates.size} " +
-                "vocalMask=${if (head?.vocalMask != null || tail?.vocalMask != null) "model" else "dsp"}",
+                "grid=${if (leading != null) "model" else "dsp"} " +
+                "beats=${headGrid?.beats?.size ?: 0}+${tailGrid?.beats?.size ?: 0} " +
+                "downbeats=${headGrid?.downbeats?.size ?: 0}+${tailGrid?.downbeats?.size ?: 0} " +
+                "vocalMask=${if (regions.any { it.vocalMask != null }) "model" else "dsp"} " +
+                "windows=${regions.size} vocalWindows=${regions.count { it.vocalWindow != null }}",
         )
 
         return WholeTrack(
@@ -1090,9 +1163,13 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
                 // the heuristic rather than to nothing matters because the policy reads an
                 // absent mask and a neutral one identically — as "no evidence" — so a failed model
                 // pass would otherwise silently discard the estimate Phase 1 already had.
-                vocalActivityMask = mergeMasks(features.energyCurve.size, head?.vocalMask, tail?.vocalMask)
-                    ?: features.vocalActivityMask,
+                vocalActivityMask = mergeMasks(features.energyCurve.size, regions.mapNotNull { it.vocalMask })
+                    ?: features.vocalActivityMask.map(::heuristicVocalOnModelScale),
                 vocalProbability = features.vocalProbability,
+                headBeats = headSide,
+                tailBeats = tailSide,
+                vocalWindows = regions.mapNotNull { it.vocalWindow },
+                levelWindows = regions.mapNotNull { it.levelWindow },
             ),
         )
     }
@@ -1108,6 +1185,105 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         val seconds: Double,
         /** Only populated when the caller asked for it; see [region]'s `deriveFeatures`. */
         val features: TrackFeatures.Features? = null,
+        /** Where the decode really began (the extractor seeks to a sync sample at or before the ask). */
+        val start: Double = 0.0,
+        /** The vocal model's raw output over this window, for the loop mix's vocal check. */
+        val vocalWindow: CurveWindow? = null,
+        /** RMS level over this window, for the loop mix's loudness check. */
+        val levelWindow: CurveWindow? = null,
+    )
+
+    /**
+     * Seconds of audio one model window covers: the vocal model's fixed input,
+     * which is the shorter of the two models' (the beat model's 1500 frames run
+     * to ~30 s). One window is then exactly one inference of each.
+     */
+    private fun modelWindowSeconds(): Double =
+        if (VocalSpectrogram.available) {
+            (VocalTracker.FIXED_FRAMES - 2) * VocalSpectrogram.hop / VocalSpectrogram.sampleRate
+        } else {
+            BeatTracker.WINDOW_SECONDS
+        }
+
+    /**
+     * The windows the models run over: [HEAD_MODEL_WINDOWS] from the start and
+     * [TAIL_MODEL_WINDOWS] up to the end, each [span] long and overlapping its
+     * neighbour by [WINDOW_OVERLAP_SECONDS] so the beat at a seam is seen from
+     * both sides. A short track, where the two spans meet, is covered once.
+     */
+    private fun modelWindows(headEnd: Double, tailStart: Double, duration: Double, span: Double): List<Pair<Double, Double>> {
+        val spans = if (tailStart <= headEnd) {
+            listOf(0.0 to duration)
+        } else {
+            listOf(0.0 to headEnd, tailStart to duration)
+        }
+        val windows = ArrayList<Pair<Double, Double>>()
+        for ((from, to) in spans) {
+            val length = to - from
+            if (length < 1.0) continue
+            if (length <= span) {
+                windows += from to to
+                continue
+            }
+            // As few windows as cover the span with at least the overlap between
+            // neighbours, spread evenly from its start to its end.
+            val count = ceil((length - WINDOW_OVERLAP_SECONDS) / (span - WINDOW_OVERLAP_SECONDS) - 1e-6).toInt()
+            val stride = (length - span) / (count - 1)
+            for (index in 0 until count) {
+                val start = from + index * stride
+                windows += start to minOf(to, start + span)
+            }
+        }
+        return windows
+    }
+
+    /** One beat list across the windows: at each overlap, the earlier window's beats before its midpoint, the later's after. */
+    private class Beats(val beats: List<Double>, val downbeats: List<Double>, val confidence: Double)
+
+    private fun seamBeats(regions: List<Region>): Beats {
+        val graded = regions.filter { it.grid != null }.sortedBy { it.start }
+        if (graded.isEmpty()) return Beats(emptyList(), emptyList(), 0.0)
+        val beats = ArrayList<Double>()
+        val downbeats = ArrayList<Double>()
+        var weighted = 0.0
+        var count = 0
+        for ((index, region) in graded.withIndex()) {
+            val grid = region.grid!!
+            val previous = graded.getOrNull(index - 1)
+            val next = graded.getOrNull(index + 1)
+            val from = previous?.let { (it.start + it.seconds + region.start) / 2 }
+                ?.takeIf { it > region.start } ?: Double.NEGATIVE_INFINITY
+            val until = next?.let { (region.start + region.seconds + it.start) / 2 }
+                ?.takeIf { it < region.start + region.seconds } ?: Double.POSITIVE_INFINITY
+            val kept = grid.beats.filter { it >= from && it < until }
+            beats += kept
+            downbeats += grid.downbeats.filter { it >= from && it < until }
+            weighted += grid.beatConfidence * kept.size
+            count += kept.size
+        }
+        return Beats(beats.sorted(), downbeats.sorted(), if (count > 0) weighted / count else 0.0)
+    }
+
+    /** The model's grid over [from]..[to], or null where it found too few beats there. */
+    private fun beatSide(all: Beats, from: Double, to: Double): BeatSide? {
+        val beats = all.beats.filter { it >= from && it <= to }
+        val bpm = BeatTracker.tempoFromBeats(beats)
+        if (bpm <= 0) return null
+        return BeatSide(
+            beats = beats,
+            downbeats = all.downbeats.filter { it >= from && it <= to },
+            bpm = bpm,
+            confidence = all.confidence,
+        )
+    }
+
+    private fun BeatSide.toGrid() = BeatTracker.Grid(
+        beats = beats,
+        downbeats = downbeats,
+        bpm = bpm,
+        beatInterval = 60 / bpm,
+        firstBeat = beats.first(),
+        beatConfidence = confidence,
     )
 
     /**
@@ -1158,12 +1334,43 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         // process was dying. Same reasoning [derived] already had, one level further out.
         val inputs = regionInputs(stereo, seconds, deriveFeatures)
 
+        val vocalValues = if (features != null) vocalValues(stereo) else null
         return Region(
             grid = inputs.forModel?.let { tracker.track(it, offsetSeconds = actualStart) },
-            vocalMask = features?.let { vocalMask(stereo, it, actualStart) },
+            vocalMask = if (features != null && vocalValues != null) vocalMask(vocalValues, features, actualStart) else null,
             seconds = seconds,
             features = inputs.derived,
+            start = actualStart,
+            vocalWindow = vocalValues?.let { CurveWindow(actualStart, VocalSpectrogram.frameRate, it) },
+            levelWindow = if (features != null) levelCurve(stereo, actualStart) else null,
         )
+    }
+
+    /**
+     * RMS of the stereo mix in frames of 1 / [LEVEL_FRAME_RATE] s, on the
+     * [levelFromRms] scale (stored in hundredths, so it has to fit 0..1). Every
+     * fourth sample: plenty for a level, and a quarter of the reads.
+     */
+    private fun levelCurve(stereo: AudioDecoder.StereoPcm, actualStart: Double): CurveWindow? {
+        val frame = (stereo.sampleRate / LEVEL_FRAME_RATE).toInt()
+        if (frame <= 0) return null
+        val count = stereo.left.size / frame
+        if (count <= 0) return null
+        val values = FloatArray(count)
+        for (index in 0 until count) {
+            var sum = 0.0
+            var n = 0
+            var sample = index * frame
+            val end = sample + frame
+            while (sample < end) {
+                val mixed = (stereo.left[sample] + stereo.right[sample]) * 0.5f
+                sum += mixed * mixed
+                n++
+                sample += 4
+            }
+            values[index] = levelFromRms(kotlin.math.sqrt(sum / n)).toFloat()
+        }
+        return CurveWindow(actualStart, LEVEL_FRAME_RATE, values)
     }
 
     /** A region's model input, and its DSP features when the caller asked for them. */
@@ -1218,25 +1425,26 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      * below the policy's own VOCAL_ACTIVE_THRESHOLD, so unmeasured material can never trip vocal
      * logic in either direction.
      */
-    private fun vocalMask(
-        stereo: AudioDecoder.StereoPcm,
-        features: TrackFeatures.Features,
-        actualStart: Double,
-    ): DoubleArray? {
-        val curve = features.energyCurve
-        if (curve.isEmpty() || !VocalSpectrogram.available) return null
-
-        // The beat model's window is longer than the vocal model's fixed input, so the region is
-        // trimmed rather than handed over whole — [VocalTracker.track] refuses anything wider than
-        // its graph, and refusing is how the tail of every region would otherwise go unmeasured.
-        // Two frames of margin absorb the ±1 sample a rate conversion can land on.
+    private fun vocalValues(stereo: AudioDecoder.StereoPcm): FloatArray? {
+        if (!VocalSpectrogram.available) return null
+        // [VocalTracker.track] refuses anything wider than its graph, so a window that came back a
+        // little long is trimmed. Two frames of margin absorb the ±1 sample a rate conversion can
+        // land on.
         val maxSeconds = (VocalTracker.FIXED_FRAMES - 2) * VocalSpectrogram.hop / VocalSpectrogram.sampleRate
         val maxSamples = (maxSeconds * stereo.sampleRate).toInt().coerceAtMost(stereo.left.size)
         if (maxSamples <= 0) return null
         val left = if (maxSamples < stereo.left.size) stereo.left.copyOf(maxSamples) else stereo.left
         val right = if (maxSamples < stereo.right.size) stereo.right.copyOf(maxSamples) else stereo.right
+        return vocals.track(left, right, stereo.sampleRate)
+    }
 
-        val values = vocals.track(left, right, stereo.sampleRate) ?: return null
+    private fun vocalMask(
+        values: FloatArray,
+        features: TrackFeatures.Features,
+        actualStart: Double,
+    ): DoubleArray? {
+        val curve = features.energyCurve
+        if (curve.isEmpty()) return null
 
         val mask = DoubleArray(curve.size) { NEUTRAL_VOCAL }
         for (index in curve.indices) {
@@ -1251,10 +1459,10 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
      * which the caller answers by keeping the DSP heuristic rather than reporting a mask of
      * nothing but [NEUTRAL_VOCAL].
      */
-    private fun mergeMasks(size: Int, head: DoubleArray?, tail: DoubleArray?): List<Double>? {
-        if (size <= 0 || (head == null && tail == null)) return null
+    private fun mergeMasks(size: Int, masks: List<DoubleArray>): List<Double>? {
+        if (size <= 0 || masks.isEmpty()) return null
         val merged = DoubleArray(size) { NEUTRAL_VOCAL }
-        for (source in listOfNotNull(head, tail)) {
+        for (source in masks) {
             for (index in merged.indices) {
                 if (index < source.size && source[index] != NEUTRAL_VOCAL) merged[index] = source[index]
             }
@@ -1268,6 +1476,84 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
         trackId = trackId,
         duration = durationSeconds,
     )
+
+    /**
+     * Stereo audio of [fromSeconds]..[toSeconds] of [trackId] at [sampleRate],
+     * for a loop mix deck, read off the copy analysis measured (so the deck's
+     * loop is cut from the same audio its downbeats were found in). Null for a
+     * source-backed track: its analysis reads a matched YouTube recording, not
+     * what the player plays, and a deck spliced in from another master would
+     * land off the song it takes over from. Blocking — call it off the main
+     * thread.
+     */
+    fun loopRegion(
+        trackId: String,
+        uri: Uri,
+        durationSeconds: Double,
+        fromSeconds: Double,
+        toSeconds: Double,
+        sampleRate: Int,
+    ): com.music.bitchord.playback.loopmix.LoopRegion? {
+        if (uri.getQueryParameter("v") == null && uri.authority == "source") return null
+        val began = SystemClock.elapsedRealtime()
+        val copy = runCatching { copyToRead(trackId, uri, durationSeconds) }.getOrNull() ?: return null
+        val (stereo, start) = copy.open()?.use { source ->
+            AudioDecoder.decodeRegionStereo(source, max(0.0, fromSeconds), toSeconds) { stopped }
+        } ?: return null
+        if (stereo.left.isEmpty()) return null
+        val rate = sampleRate.toDouble()
+        val left: FloatArray
+        val right: FloatArray
+        if (abs(stereo.sampleRate - rate) > 0.5) {
+            left = MelSpectrogram.resample(stereo.left, stereo.sampleRate, rate) ?: return null
+            right = MelSpectrogram.resample(stereo.right, stereo.sampleRate, rate) ?: return null
+        } else {
+            left = stereo.left
+            right = stereo.right
+        }
+        Log.d(
+            TAG,
+            "Loop region $trackId from ${copy.key}: asked ${"%.2f".format(Locale.ROOT, fromSeconds)}s, " +
+                "got ${"%.3f".format(Locale.ROOT, start)}s + ${"%.2f".format(Locale.ROOT, left.size / rate)}s " +
+                "at ${stereo.sampleRate.toInt()}->$sampleRate Hz in ${SystemClock.elapsedRealtime() - began}ms",
+        )
+        return com.music.bitchord.playback.loopmix.LoopRegion(left, right, start)
+    }
+
+    /**
+     * A three-band waveform of [fromSeconds]..[toSeconds] of [trackId], for the
+     * Automix popup, read off the same copy analysis measured; null when there
+     * is no such copy to read. Blocking — call it off the main thread.
+     */
+    fun mixWaveform(
+        trackId: String,
+        uri: Uri,
+        durationSeconds: Double,
+        fromSeconds: Double,
+        toSeconds: Double,
+        bins: Int,
+    ): MixWaveform.Bands? {
+        // Not [analysisUriFor]: that starts a catalogue search, and this only
+        // wants whatever analysis already settled on.
+        val analysisUri = if (uri.getQueryParameter("v") != null || uri.authority != "source") {
+            uri
+        } else {
+            sourceAnalysisUris[trackId] ?: return null
+        }
+        val began = SystemClock.elapsedRealtime()
+        val copy = runCatching { copyToRead(trackId, analysisUri, durationSeconds) }.getOrNull() ?: return null
+        val chosen = SystemClock.elapsedRealtime()
+        val bands = copy.open()?.use { source ->
+            MixWaveform.build(source, fromSeconds, toSeconds, bins) { stopped }
+        }
+        Log.d(
+            TAG,
+            "Mix waveform $trackId: copy ${chosen - began}ms, decode ${SystemClock.elapsedRealtime() - chosen}ms, " +
+                "asked ${"%.1f".format(Locale.ROOT, fromSeconds)}s, decoder started " +
+                "${bands?.decodedFrom?.let { "%.1f".format(Locale.ROOT, it) } ?: "-"}s",
+        )
+        return bands
+    }
 
     fun release() {
         executor.shutdownNow()
@@ -1295,7 +1581,14 @@ class TrackAnalyzer(private val context: Context, private val cache: AudioCache)
          * design, so absence of measurement is never mistaken for absence of a vocal, or for the
          * presence of one.
          */
-        const val NEUTRAL_VOCAL = 0.5
+        const val NEUTRAL_VOCAL = 0.2
+
+        /** Model windows over the opening (~45 s) and the ending (~68 s); see [modelWindowSeconds]. */
+        const val HEAD_MODEL_WINDOWS = 2
+        const val TAIL_MODEL_WINDOWS = 3
+
+        /** Overlap between neighbouring model windows, so a beat on a seam is seen from both sides. */
+        const val WINDOW_OVERLAP_SECONDS = 1.0
 
         /**
          * How much more than the average-bitrate estimate of the opening window

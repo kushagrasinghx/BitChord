@@ -49,5 +49,9 @@ jobs:
         run: pnpm test
 
       # The app's build runs tsc then vite; the extension's builds Chrome and Firefox.
+      # The real party server is a Cloudflare Pages variable; this build is
+      # never deployed, it only needs a value to get past vite.config.ts.
       - name: Build
         run: pnpm build
+        env:
+          VITE_PARTY_SERVER_URL: https://party.example.com

@@ -32,6 +32,9 @@ data class BoundedContextPlan(
 }
 
 object BoundedQueuePlanner {
+    /** The most context rows a queue needs in the player: history, current, look-ahead. */
+    const val MAX_PHYSICAL_CONTEXT = MAX_QUEUE_HISTORY + 1 + WINDOW_AHEAD
+
     fun buildInitialPlan(
         contextSnapshot: ContextSnapshot,
         selectedIndex: Int,

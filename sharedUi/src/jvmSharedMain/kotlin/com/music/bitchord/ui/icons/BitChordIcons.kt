@@ -155,7 +155,8 @@ object BitChordIcons {
     /**
      * The phone tab bar's Explore, Library and Search glyphs: solid-weight
      * iOS shapes rather than this file's stroked family, taken from the
-     * outlines of Flutter's cupertino_icons font (MIT) — square_grid_2x2,
+     * outlines of Flutter's cupertino_icons font (MIT) — square_grid_2x2
+     * with its four counters dropped so the squares fill solid,
      * square_stack_fill and search.
      *
      * Each is the glyph laid out the way the font sets it: the 512-unit em

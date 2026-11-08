@@ -42,6 +42,7 @@
   --animate-zoom: zoom 0.2s ease-out;
   --animate-fade-in: fade-in 0.4s ease;
   --animate-enter: enter 0.3s var(--ease-out-panel);
+  --animate-morph: morph 0.32s var(--ease-out-panel);
   --animate-spin: spin 1s linear infinite;
   --animate-shimmer: shimmer 1.6s ease-in-out infinite;
   --animate-matching: matching 1.4s ease-in-out infinite alternate;
@@ -76,6 +77,14 @@
     from {
       opacity: 0;
       transform: scale(1.02);
+    }
+  }
+  /* One label melting into the next, as the quality switcher's text changes. */
+  @keyframes morph {
+    from {
+      opacity: 0;
+      filter: blur(5px);
+      transform: scale(0.74);
     }
   }
   @keyframes spin {

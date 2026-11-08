@@ -1,5 +1,6 @@
 package com.music.bitchord.ui.player
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -16,18 +17,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.RenderEffect
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import coil3.compose.LocalPlatformContext
 import com.music.bitchord.ui.graphics.argbPixels
 import com.music.bitchord.ui.graphics.forPixelAccess
@@ -81,11 +77,7 @@ import kotlin.random.Random
  * as the old backdrop draws — would be thirty-six full-screen radial gradients.
  */
 @Immutable
-class ArtworkMesh internal constructor(
-    internal val image: ImageBitmap,
-    /** The mean of the sleeve's bottom edge — the one colour a flat backdrop holds. */
-    internal val edge: Color,
-)
+class ArtworkMesh internal constructor(internal val image: ImageBitmap)
 
 /**
  * One pre-blurred bitmap for the full-cover player backdrop.
@@ -97,6 +89,9 @@ class ArtworkMesh internal constructor(
  * thread, and cached by URL. Drawing it thereafter is one bilinear image sample.
  * The small decode and CPU pass are staggered by the caller after a song change,
  * so they never land on the track hand-off itself.
+ *
+ * The last cover's blur is held until the new one is ready, so a skip never
+ * drops the backdrop to its fallback grey in between.
  */
 @Composable
 fun rememberFullArtworkBlurImage(
@@ -105,10 +100,14 @@ fun rememberFullArtworkBlurImage(
     prepare: Boolean = true,
 ): ImageBitmap? {
     val context = LocalPlatformContext.current
-    var image by remember(imageUrl) { mutableStateOf(imageUrl?.let(fullBlurCache::get)) }
+    var image by remember { mutableStateOf(imageUrl?.let(fullBlurCache::get)) }
 
     LaunchedEffect(imageUrl, artPx, prepare) {
-        if (!prepare || imageUrl == null || image != null) return@LaunchedEffect
+        imageUrl?.let(fullBlurCache::get)?.let {
+            image = it
+            return@LaunchedEffect
+        }
+        if (!prepare || imageUrl == null) return@LaunchedEffect
         val request = ImageRequest.Builder(context)
             // Same URL as the player's 1200px sleeve, so this is a small decode
             // from Coil's shared fetch/disk result rather than another download.
@@ -127,54 +126,45 @@ fun rememberFullArtworkBlurImage(
 }
 
 /**
- * A full-surface, still-art backdrop for player views that do not have an
- * artwork edge to continue from.
+ * The player's backdrop wherever there is no sleeve to hang a mesh off: the
+ * lyrics, the queue and a tablet — and the main player too under
+ * [PlayerTheme.SIMPLE][com.music.bitchord.data.settings.PlayerTheme.SIMPLE]. One
+ * copy of the cover cropped across the complete bounds and blurred in place,
+ * with any artwork above feathering its own bottom edge into it.
  *
- * The ordinary player's mesh is intentionally built as a continuation of the
- * sleeve: it holds the sleeve's bottom row above the seam and turns the rest of
- * the cover upside down below it. That works behind the main phone player,
- * where the sleeve supplies the missing first half. Lyrics, queue, and a tablet
- * player have no such visual seam, so the same construction reads as a stretched
- * upper field followed by a reflection. These surfaces instead crop one copy of
- * the cover across their complete bounds and blur that copy in place.
+ * The blur is baked into [image] (see [rememberFullArtworkBlurImage]), so this
+ * is a plain image draw: nothing here re-blurs while the player moves or a
+ * clip plays over it. A new cover crossfades in over the last one.
  *
- * The overscale keeps the clamped edge of the blur outside the viewport. When
- * blur is unavailable, or explicitly reduced in settings, the complete cover
- * remains in place under the same legibility scrim rather than falling back to
- * the reflected mesh this composable exists to avoid.
+ * It looks the same in all three states and reads nothing that moves, so moving
+ * between them never redraws it: only what sits on top of it changes.
  */
 @Composable
 fun FullArtworkBlurBackdrop(
     image: ImageBitmap?,
     modifier: Modifier = Modifier,
 ) {
-    val imageAlpha by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (image != null) 1f else 0f,
-        animationSpec = tween(320, easing = FastOutSlowInEasing),
-        label = "preparedBackdropImage",
-    )
     Box(modifier = modifier.fillMaxSize().background(FallbackBackdrop)) {
-        image?.let { bitmap ->
-            val painter = remember(bitmap) { BitmapPainter(bitmap) }
-            Image(
-                painter = painter,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = imageAlpha },
-            )
+        Crossfade(
+            targetState = image,
+            animationSpec = tween(320, easing = FastOutSlowInEasing),
+            label = "preparedBackdropImage",
+        ) { bitmap ->
+            if (bitmap != null) {
+                val painter = remember(bitmap) { BitmapPainter(bitmap) }
+                Image(
+                    painter = painter,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
 
-        // Lyrics and queue are dense white foregrounds. Preserve the cover's
-        // colour and layout, but keep bright sleeves from lowering contrast.
-        Canvas(Modifier.fillMaxSize()) {
-            drawRect(
-                brush = Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.34f),
-                    0.55f to Color.Black.copy(alpha = 0.48f),
-                    1f to Color.Black.copy(alpha = 0.64f),
-                ),
-            )
-        }
+        // Everything on this is white: the lyrics, the queue and the main
+        // player's controls. Preserve the cover's colour and layout, but keep
+        // bright sleeves from lowering contrast.
+        Canvas(Modifier.fillMaxSize()) { drawRect(brush = FullArtworkScrim) }
     }
 }
 
@@ -211,15 +201,23 @@ fun rememberArtworkMesh(
     // Seeded from the cache so a cover that has been seen before is on colour
     // in its first frame, with nothing to fade in from — and from
     // [heldMesh] otherwise, carried over for the reason above.
+    // A clip's last mesh comes first: the player reopening on that clip's still
+    // should stand on the clip's colours, not fade to them from the sleeve's.
     var mesh by remember(imageUrl) {
-        mutableStateOf(imageUrl?.let(meshCache::get) ?: heldMesh.value)
+        mutableStateOf(imageUrl?.let { clipMeshFor(it) ?: meshCache[it] } ?: heldMesh.value)
     }
     // What the mesh on screen was actually read from: null while it is a
     // carry-over from the previous cover. Without this the guard below would
     // read the carried mesh as this cover's own answer and never decode the
     // new one.
     var meshUrl by remember(imageUrl) {
-        mutableStateOf(if (imageUrl != null && meshCache.get(imageUrl) != null) imageUrl else null)
+        mutableStateOf(
+            if (imageUrl != null && (clipMeshFor(imageUrl) != null || meshCache[imageUrl] != null)) {
+                imageUrl
+            } else {
+                null
+            },
+        )
     }
     LaunchedEffect(mesh) { heldMesh.value = mesh }
 
@@ -260,9 +258,12 @@ fun rememberArtworkMesh(
         // the first read after a surface recreation, before ExoPlayer has
         // decoded real content.  A frame whose mean luminance is below this
         // threshold is discarded; the last valid mesh is kept instead.
-        if (isLikelyBlackFrame(frame)) return@LaunchedEffect
-        mesh = withContext(Dispatchers.Default) { meshOf(frame, imageUrl?.hashCode() ?: 0) } ?: mesh
+        val found = withContext(Dispatchers.Default) {
+            if (isLikelyBlackFrame(frame)) null else meshOf(frame, imageUrl?.hashCode() ?: 0)
+        } ?: return@LaunchedEffect
+        mesh = found
         meshUrl = imageUrl
+        if (imageUrl != null) lastClipMesh = ClipMesh(imageUrl, found)
     }
     return mesh
 }
@@ -280,26 +281,15 @@ fun rememberArtworkMesh(
  *
  * ### What this costs
  *
- * A full-screen [blur] is a `RenderEffect` over every pixel on screen, and it
- * is re-applied on every frame the backdrop is redrawn — so the bill is set by
- * how much of the time something is moving.
- *
- * A still sleeve is the cheap case and the usual one: the backdrop is drawn
- * once when the track changes and is then only composited, and the crossfade
- * costs its [MESH_FADE_MS] once per skip. A playing clip is the same case
- * repeated — one fade every few seconds, with the screen still in between; see
- * `MESH_REFRESH_MS` in `NowPlayingScreen` for the cadence.
- *
- * Each of those frames is made as cheap as it can be rather than merely rare.
- * The mesh is smoothed on the CPU before it is ever uploaded (see [MESH_TEX]),
- * so the blur is polish rather than the thing making the gradient smooth and
- * can stay narrow; and a fade frame redraws two stretched 32-texel quads and
- * nothing else — no decode, no readback, no sampling, all of which happen once
- * per read and off the main thread.
+ * One bilinear draw of a 32-texel texture, stretched by the sampler, and no
+ * `RenderEffect`. The softness a full-screen blur used to supply is baked into
+ * that texture off the main thread when it is read — see [MESH_BLUR_RADIUS] — so
+ * nothing here has to be re-blurred as it changes, whatever it is sitting under.
+ * A skip or a clip's new colours cost one fade of two such draws, and between
+ * them the backdrop is only composited, however the player above it moves.
  *
  * The old backdrop paid a 60Hz blur permanently, for blobs orbiting behind a
- * screen nobody was looking at; see [MeshGradientBackground]'s note. This pays
- * it in bursts, and only while a clip is actually on screen and playing.
+ * screen nobody was looking at; see [MeshGradientBackground]'s note.
  */
 @Composable
 fun ArtworkMeshBackdrop(
@@ -307,35 +297,14 @@ fun ArtworkMeshBackdrop(
     modifier: Modifier = Modifier,
     /**
      * How far down the surface the artwork's bottom edge sits. Zero for a
-     * surface with no artwork over it, which puts the whole mesh on screen.
+     * surface with no artwork over it, which puts the whole mesh on screen. Read
+     * in the draw, so a seam that moves costs no composition.
      */
-    seam: Dp = 0.dp,
+    seam: () -> Dp = { 0.dp },
     /** What the surface is before any artwork has been read. */
     fallback: Color = FallbackBackdrop,
-    /**
-     * How far the mesh is smeared.
-     *
-     * Narrow on purpose, and not what makes the backdrop smooth: the grid is
-     * already interpolated to [MESH_TEX] on the CPU with a curve that flattens
-     * at every control point, so there are no creases left for this to remove.
-     * It is here to take the last of the edge off, and a wider one would only
-     * cost milliseconds — which matters, because a clip on screen asks for it
-     * several times a second.
-     */
-    blurRadius: Dp = 32.dp,
-    /**
-     * Holds the artwork's bottom edge down the whole screen, darkening as it
-     * goes, instead of hanging the mesh under it. What a full-bleed square
-     * cover wants: the art dissolves into its own last colour, and that colour
-     * deepens towards the controls, with no blobs in between.
-     */
-    flat: Boolean = false,
 ) {
     val reduceAnimation by PlayerSettings.reduceAnimation.collectAsStateWithLifecycle()
-    val reduceDynamicBlur by PlayerSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
-    // RenderEffect only; below API 31 `blur` is a no-op. It is not missed here —
-    // the CPU-side interpolation is what carries the smoothness.
-    val canBlur = !reduceDynamicBlur && renderEffectBlurSupported
 
     // The mesh on screen, and the one fading in over it. Two states rather than
     // one animated value because what crossfades here is a pair of bitmaps, not
@@ -364,68 +333,23 @@ fun ArtworkMeshBackdrop(
         }
         incoming = next
         fade.snapTo(0f)
-        fade.animateTo(1f, tween(if (flat) FLAT_FADE_MS else MESH_FADE_MS, easing = FastOutSlowInEasing))
+        fade.animateTo(1f, tween(MESH_FADE_MS, easing = FastOutSlowInEasing))
         shown = next
         incoming = null
     }
 
-    // Outside the blur, so it is a flat opaque floor rather than something the
-    // blur can thin out. The player is a sheet with the app's own pages behind
-    // it and every pixel here has to be opaque: an earlier pass blurred with
-    // `BlurredEdgeTreatment.Unbounded`, whose decal tiling fades alpha inwards
-    // from each edge over the whole blur radius, and the library showed through
-    // down both sides and along the bottom. The layers below clamp instead,
-    // which cannot lose alpha — this is only here so nothing downstream can
-    // reintroduce the bug.
-    Box(modifier = modifier.fillMaxSize().background(fallback)) {
-        // Each mesh blurred in a layer of its own, and the crossfade is the
-        // incoming layer's alpha. Blurred together in one layer, every frame
-        // of a fade changed what that layer held and the full-screen blur ran
-        // again on each of them; apart, each mesh is blurred once, when it
-        // arrives, and a fade frame only composites two finished textures.
-        // The picture is the same: the blur is linear, so blurring each and
-        // mixing them is mixing them and blurring the mix.
-        val blurPx = if (canBlur) with(LocalDensity.current) { blurRadius.toPx() } else 0f
-        val effect = remember(blurPx) {
-            if (blurPx > 0f) BlurEffect(blurPx, blurPx, TileMode.Clamp) else null
-        }
-        shown?.let { MeshLayer(it, seam, flat, effect) { 1f } }
-        // Read in the layer, not here: an Animatable read in a layer block
-        // updates the layer's alpha and leaves composition and drawing out.
-        incoming?.let { MeshLayer(it, seam, flat, effect) { fade.value } }
-    }
-}
-
-/** One mesh, its darkening and its scrim, blurred by [effect] and shown at [alpha]. */
-@Composable
-private fun MeshLayer(
-    mesh: ArtworkMesh,
-    seam: Dp,
-    flat: Boolean,
-    effect: RenderEffect?,
-    alpha: () -> Float,
-) {
     Canvas(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .graphicsLayer {
-                this.alpha = alpha()
-                renderEffect = effect
-                clip = effect != null
-            },
+            // A flat opaque floor: the player is a sheet with the app's own pages
+            // behind it, and every pixel here has to be opaque.
+            .background(fallback),
     ) {
-        val seamY = seam.toPx().coerceIn(0f, size.height)
-        drawMesh(mesh, seamY, alpha = 1f, flat = flat)
-
-        if (flat) {
-            // Starts above the seam, behind the part of the artwork that is
-            // already dissolving, so the dark comes in as one continuous ramp.
-            val from = seamY * FLAT_DARKEN_START
-            drawRect(
-                brush = easedRamp(Color.Black, FLAT_DARKEN_END, from, size.height),
-                topLeft = androidx.compose.ui.geometry.Offset(0f, from),
-            )
-        }
+        val seamY = seam().toPx().coerceIn(0f, size.height)
+        shown?.let { drawMesh(it, seamY, alpha = 1f) }
+        // Read here rather than in composition: an Animatable read inside a
+        // draw lambda invalidates the drawing and leaves composition out of it.
+        incoming?.let { drawMesh(it, seamY, alpha = fade.value) }
 
         // Enough of a scrim to keep white text off a bright sleeve, and no
         // more. The old backdrop needed a heavier one because it lightened
@@ -447,35 +371,10 @@ private fun MeshLayer(
  * first row held from there up. Two draws of one small texture, both stretched
  * by the sampler.
  */
-private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float, flat: Boolean) {
+private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float) {
     if (alpha <= 0.001f) return
     val image = mesh.image
     val width = size.width.roundToInt()
-
-    if (flat) {
-        // One colour — the sleeve's edge mean — takes over the whole screen, so
-        // nothing is stretched down it. The edge row itself only shows behind
-        // and just under the sleeve, where it lets each column's colour carry
-        // on from the art, then gives way to that one colour.
-        drawRect(color = mesh.edge, alpha = alpha)
-        val band = (seamY + size.height * FLAT_BLEND_BELOW_SEAM).coerceAtMost(size.height)
-        drawImage(
-            image = image,
-            srcOffset = IntOffset.Zero,
-            srcSize = IntSize(image.width, 1),
-            dstOffset = IntOffset.Zero,
-            dstSize = IntSize(width, band.roundToInt()),
-            alpha = alpha,
-            filterQuality = FilterQuality.Low,
-        )
-        val from = (seamY * FLAT_DARKEN_START).coerceAtMost(band)
-        drawRect(
-            brush = easedRamp(mesh.edge, alpha, from, band),
-            topLeft = androidx.compose.ui.geometry.Offset(0f, from),
-            size = androidx.compose.ui.geometry.Size(size.width, band - from),
-        )
-        return
-    }
 
     // Above the seam: the sleeve's bottom edge, held. Skipped when the seam is
     // at the very top, where there is no such stretch to fill.
@@ -503,36 +402,12 @@ private fun DrawScope.drawMesh(mesh: ArtworkMesh, seamY: Float, alpha: Float, fl
     )
 }
 
-/**
- * A vertical ramp of [color] from clear at [startY] to [maxAlpha] at [endY], eased
- * at both ends. A plain two-stop gradient is linear, and the eye finds the corner
- * where a linear ramp starts — a visible edge to the dark — so this follows a
- * smoothstep instead and has no corner to find.
- */
-private fun easedRamp(color: Color, maxAlpha: Float, startY: Float, endY: Float): Brush =
-    Brush.verticalGradient(
-        0.00f to color.copy(alpha = 0f),
-        0.25f to color.copy(alpha = maxAlpha * 0.156f),
-        0.50f to color.copy(alpha = maxAlpha * 0.5f),
-        0.75f to color.copy(alpha = maxAlpha * 0.844f),
-        1.00f to color.copy(alpha = maxAlpha),
-        startY = startY,
-        endY = endY,
-    )
-
-/**
- * How long the flat backdrop takes to change colour on a skip. The colours are
- * read in tens of milliseconds once the cover has arrived, so most of what
- * reads as the backdrop being slow is this crossfade, not the work behind it.
- */
-private const val FLAT_FADE_MS = 350
-
-/** Where the flat backdrop's darkening begins (fraction of the seam) and how dark it ends. */
-private const val FLAT_DARKEN_START = 0.5f
-private const val FLAT_DARKEN_END = 0.62f
-
-/** How far below the seam (fraction of the screen) the edge row's colour variation lasts. */
-private const val FLAT_BLEND_BELOW_SEAM = 0.10f
+/** The shade over the blurred cover, deepening toward the controls at the foot. */
+private val FullArtworkScrim = Brush.verticalGradient(
+    0f to Color.Black.copy(alpha = 0.34f),
+    0.55f to Color.Black.copy(alpha = 0.48f),
+    1f to Color.Black.copy(alpha = 0.64f),
+)
 
 /** Drawn only until an artwork has been read — never a colour anyone chose. */
 private val FallbackBackdrop = Color(0xFF121212)
@@ -590,7 +465,11 @@ private fun boxBlurPass(
         }
         repeat(major) { moving ->
             val index = if (horizontal) fixed * width + moving else moving * width + fixed
-            target[index] = argb(red / window, green / window, blue / window)
+            target[index] = argb(
+                (red + window / 2) / window,
+                (green + window / 2) / window,
+                (blue + window / 2) / window,
+            )
             val leaving = pixel(moving - radius)
             val entering = pixel(moving + radius + 1)
             red += (entering shr 16 and 0xFF) - (leaving shr 16 and 0xFF)
@@ -612,6 +491,15 @@ private fun boxBlurPass(
 private val meshCache = object : LinkedHashMap<String, ArtworkMesh>(0, 0.75f, true) {
     override fun removeEldestEntry(eldest: Map.Entry<String, ArtworkMesh>) = size > MESH_CACHE_ENTRIES
 }
+
+/** The mesh of the clip last on screen, kept for when the player comes back to it. */
+private class ClipMesh(val imageUrl: String, val mesh: ArtworkMesh)
+
+/** One at a time: a clip's frames only matter for the clip that is playing. */
+private var lastClipMesh: ClipMesh? = null
+
+private fun clipMeshFor(imageUrl: String): ArtworkMesh? =
+    lastClipMesh?.takeIf { it.imageUrl == imageUrl }?.mesh
 
 /** A session's worth of covers, at four kilobytes of texture each. */
 private const val MESH_CACHE_ENTRIES = 64
@@ -654,12 +542,21 @@ private const val MESH_GRID = 6
  * piecewise-linear, and the eye finds the crease at every cell boundary when
  * they are a hundred and eighty pixels apart. Resampling to this first, with a
  * curve that flattens at each control point, leaves creases too small to see
- * before they are magnified — and it is what lets the GPU blur be narrow, which
- * is what makes following a clip affordable. It costs about a thousand lerps,
- * off the main thread, and the control points come through untouched, so the
- * artwork's proportions are exactly what they were.
+ * before they are magnified. It costs about a thousand lerps, off the main
+ * thread, and the control points come through untouched, so the artwork's
+ * proportions are exactly what they were.
  */
 private const val MESH_TEX = 32
+
+/**
+ * The mesh's blur, baked in rather than left to a `RenderEffect`: a full-screen
+ * one is paid again on every frame the backdrop changes, and keeps a layer the
+ * size of the screen the rest of the time. Three box passes of this radius make
+ * a Gaussian of about 1.4 texels, the same softness on a phone as the 32dp live
+ * blur this replaces, for the same clamped edges and so the same opaque ones.
+ */
+private const val MESH_BLUR_RADIUS = 1
+private const val MESH_BLUR_PASSES = 3
 
 /**
  * How long the backdrop takes to change colour, whether that is a track skip or
@@ -740,20 +637,12 @@ private fun meshOf(source: ImageBitmap, seed: Int): ArtworkMesh? {
         argb((red[cell] / n).toInt(), (green[cell] / n).toInt(), (blue[cell] / n).toInt()).lifted()
     }
     val texels = grid.rotatedBelowSeam(cols, rows, seed).resampled(cols, rows, MESH_TEX)
-    return ArtworkMesh(imageBitmapOf(texels, MESH_TEX, MESH_TEX), edgeMean(grid, cols))
-}
-
-/** The mean of the grid's first row, the sleeve's bottom edge. */
-private fun edgeMean(grid: IntArray, cols: Int): Color {
-    var r = 0
-    var g = 0
-    var b = 0
-    for (x in 0 until cols) {
-        r += (grid[x] shr 16) and 0xFF
-        g += (grid[x] shr 8) and 0xFF
-        b += grid[x] and 0xFF
+    val scratch = IntArray(texels.size)
+    repeat(MESH_BLUR_PASSES) {
+        boxBlurPass(texels, scratch, MESH_TEX, MESH_TEX, MESH_BLUR_RADIUS, horizontal = true)
+        boxBlurPass(scratch, texels, MESH_TEX, MESH_TEX, MESH_BLUR_RADIUS, horizontal = false)
     }
-    return Color(argb(r / cols, g / cols, b / cols))
+    return ArtworkMesh(imageBitmapOf(texels, MESH_TEX, MESH_TEX))
 }
 
 /**

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.R
+import com.music.bitchord.data.settings.AppFont
 
 // Apple Music's signature red. No longer the primary accent, but kept for the
 // spots (Replay's rank badge) that want that specific red regardless of theme.
@@ -92,6 +93,32 @@ private val BitChordTypography = Typography(
     labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp, letterSpacing = 0.3.sp),
 ).withFamily(SFProDisplay)
 
+/**
+ * SF Pro Display as the app first shipped it, before [SFProDisplay] moved every
+ * weight a cut lighter: each weight draws its own cut, Heavy included. Kept for
+ * [AppFont.LEGACY].
+ */
+val SFProDisplayLegacy = FontFamily(
+    Font(R.font.sf_pro_display_regular, FontWeight.W400),
+    Font(R.font.sf_pro_display_medium, FontWeight.W500),
+    Font(R.font.sf_pro_display_semibold, FontWeight.W600),
+    Font(R.font.sf_pro_display_bold, FontWeight.W700),
+    Font(R.font.sf_pro_display_heavy, FontWeight.W800),
+)
+
+// Heavy, tight typography — the original scale [AppFont.LEGACY] restores.
+private val LegacyTypography = Typography(
+    displayLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 34.sp, letterSpacing = (-0.8).sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.W800, fontSize = 30.sp, letterSpacing = (-0.7).sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.W700, fontSize = 22.sp, letterSpacing = (-0.4).sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.W700, fontSize = 20.sp, letterSpacing = (-0.3).sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 16.sp, letterSpacing = (-0.2).sp),
+    bodyLarge = TextStyle(fontWeight = FontWeight.W400, fontSize = 16.sp),
+    bodyMedium = TextStyle(fontWeight = FontWeight.W400, fontSize = 14.sp),
+    labelMedium = TextStyle(fontWeight = FontWeight.W600, fontSize = 12.sp),
+    labelSmall = TextStyle(fontWeight = FontWeight.W600, fontSize = 11.sp),
+).withFamily(SFProDisplayLegacy)
+
 /** Applies [family] to every style in the scale, so nothing is left on Roboto. */
 private fun Typography.withFamily(family: FontFamily) = Typography(
     displayLarge = displayLarge.copy(fontFamily = family),
@@ -114,11 +141,15 @@ private fun Typography.withFamily(family: FontFamily) = Typography(
 @Composable
 fun BitChordTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    font: AppFont = AppFont.DEFAULT,
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = BitChordTypography,
+        typography = when (font) {
+            AppFont.DEFAULT -> BitChordTypography
+            AppFont.LEGACY -> LegacyTypography
+        },
         content = content,
     )
 }

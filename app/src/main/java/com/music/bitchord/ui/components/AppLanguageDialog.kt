@@ -24,11 +24,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -38,6 +43,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.sources.addon.AddonAuth
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.materials.HazeMaterials
@@ -71,6 +77,7 @@ val SUPPORTED_LANGUAGES = listOf(
     AppLanguage("tr", R.string.turkish),
     AppLanguage("th", R.string.thai),
     AppLanguage("vi", R.string.vietnamese),
+    AppLanguage("ko", R.string.korean),
 )
 
 fun languageDisplayNameRes(languageTag: String): Int {
@@ -82,6 +89,12 @@ fun languageDisplayNameRes(languageTag: String): Int {
 
 /** How much of the screen the list may take before it scrolls inside the card. */
 private val LANGUAGE_LIST_MAX_HEIGHT = 340.dp
+
+/** Taps on the title that open the hidden tester-code field. */
+private const val TESTER_TAPS = 10
+
+/** A pause longer than this between taps starts the count again. */
+private const val TESTER_TAP_GAP_MS = 2_000L
 
 /**
  * Same frosted iOS alert as [LyricsSourcesDialog], but single-select rather
@@ -97,6 +110,18 @@ fun AppLanguageDialog(
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+
+    // Ten quick taps on the title swap this dialog for the tester-code field.
+    // Hidden because it only matters to testers on phones the auth service
+    // would otherwise refuse (unlocked bootloader); see AddonAuth.setTesterCode.
+    var titleTaps by remember { mutableIntStateOf(0) }
+    var lastTapAt by remember { mutableLongStateOf(0L) }
+    var showTesterCode by remember { mutableStateOf(false) }
+    if (showTesterCode) {
+        TesterCodeAlert(hazeState = hazeState, onDismiss = onDismiss)
+        return
+    }
+
     val shape = RoundedCornerShape(ALERT_CORNER)
     // Full script tag (zh-Hant / zh-Hans preserved); legacy bare "zh" reads as Simplified.
     val currentLanguage = com.music.bitchord.data.LocaleTags.normalizeAppTag(
@@ -145,6 +170,15 @@ fun AppLanguageDialog(
             ) {
                 Text(
                     text = stringResource(R.string.app_language),
+                    modifier = Modifier.clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() },
+                    ) {
+                        val now = System.currentTimeMillis()
+                        titleTaps = if (now - lastTapAt > TESTER_TAP_GAP_MS) 1 else titleTaps + 1
+                        lastTapAt = now
+                        if (titleTaps >= TESTER_TAPS) showTesterCode = true
+                    },
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.W600,
@@ -221,4 +255,41 @@ private fun LanguageRow(language: AppLanguage, selected: Boolean, onClick: () ->
             )
         }
     }
+}
+
+/**
+ * The hidden field itself. The saved code is never shown back: the field
+ * starts empty, and the message says whether one is saved.
+ */
+@Composable
+private fun TesterCodeAlert(hazeState: HazeState, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val saved = remember { AddonAuth.hasTesterCode() }
+    var input by remember { mutableStateOf("") }
+    TextValueAlert(
+        hazeState = hazeState,
+        title = stringResource(R.string.tester_code_title),
+        message = stringResource(if (saved) R.string.tester_code_message_saved else R.string.tester_code_message),
+        placeholder = stringResource(R.string.tester_code_placeholder),
+        value = input,
+        onValueChange = { input = it },
+        saveEnabled = AddonAuth.normalizeTesterCode(input).isNotEmpty(),
+        onSave = {
+            if (AddonAuth.normalizeTesterCode(input).isNotEmpty()) {
+                AddonAuth.setTesterCode(input)
+                android.widget.Toast.makeText(context, R.string.tester_code_saved, android.widget.Toast.LENGTH_SHORT).show()
+                onDismiss()
+            }
+        },
+        onRemove = if (saved) {
+            {
+                AddonAuth.setTesterCode(null)
+                android.widget.Toast.makeText(context, R.string.tester_code_removed, android.widget.Toast.LENGTH_SHORT).show()
+                onDismiss()
+            }
+        } else {
+            null
+        },
+        onDismiss = onDismiss,
+    )
 }

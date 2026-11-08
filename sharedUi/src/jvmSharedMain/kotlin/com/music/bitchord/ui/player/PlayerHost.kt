@@ -11,8 +11,10 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.LastPlayerScreen
+import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.MixBlend
+import com.music.bitchord.data.settings.MixTransitionView
 import com.music.bitchord.data.settings.TransitionWindow
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +57,9 @@ interface PlayerHost {
      */
     @Composable
     fun MusicVideo(videoId: String, fit: Boolean, onRenderedChanged: (Boolean) -> Unit, modifier: Modifier) = Unit
+
+    /** Whether [videoId] shows its picture, rather than playing as audio by the listener's choice. */
+    fun showsMusicVideoPicture(videoId: String): Boolean = true
 
     /** The playing music video's width over its height. */
     val musicVideoAspect: StateFlow<Float> get() = DefaultVideoAspect
@@ -133,6 +138,14 @@ interface PlayerHost {
     fun CastDialog(hazeState: HazeState, onDismiss: () -> Unit) = Unit
 
     /**
+     * The ⋯ menu's frost for the player's drawers and popups — see
+     * [PlayerFrost]. Null where the platform can't draw it, and the drawers
+     * fall back to the player's haze.
+     */
+    @Composable
+    fun rememberPlayerFrost(): PlayerFrost? = null
+
+    /**
      * Whether lines can be put on a share card here. False hides the pick mode
      * altogether rather than offering a mode with nowhere to put its result.
      */
@@ -174,7 +187,8 @@ internal fun videoQualityLabel(height: Int): String = when {
 
 /** Whether [song]'s picture can be shown here — a music video, on a platform that plays one. */
 internal fun showsMusicVideo(song: Song): Boolean =
-    song.isVideo && PlayerPlatform.host.musicVideoSupported
+    song.isVideo && PlayerPlatform.host.musicVideoSupported &&
+        PlayerPlatform.host.showsMusicVideoPicture(song.videoId)
 
 /** @see PlayerHost.MusicVideo */
 @Composable
@@ -232,22 +246,40 @@ interface PlayerSettingsSource {
     /** Hide the device status bar while the player is up. Always false where there is none. */
     val hideStatusBar: StateFlow<Boolean>
     val lastPlayerScreen: StateFlow<LastPlayerScreen>
-    val legacyMeshGradient: StateFlow<Boolean>
+    val playerTheme: StateFlow<PlayerTheme>
     val lyricsBlur: StateFlow<Boolean>
     val lyricsOffsetMs: StateFlow<Int>
     val lyricsSourceOrder: StateFlow<List<LyricsSource>>
     val meteredConnection: StateFlow<Boolean?>
+    /** A temporary cap over both ceilings, null when none applies — the watch's, on the phone. */
+    val streamCeilingOverride: StateFlow<AudioQuality?>
     val preferUsbDac: StateFlow<Boolean>
     val prioritizeSpotifyCanvas: StateFlow<Boolean>
     val reduceAnimation: StateFlow<Boolean>
     val reduceDynamicBlur: StateFlow<Boolean>
+    /** Turns [LocalPlayerChrome] off: glyphs and text over the artwork in plain white. */
+    val disableBlendEffects: StateFlow<Boolean>
     val showNerdStats: StateFlow<Boolean>
+    /** Whether the output / Listen Together pill sits under the transport. */
+    val showListenTogetherButton: StateFlow<Boolean>
     val smartAnalysis: StateFlow<SmartAnalysis>
+    /**
+     * Automix's detailed stats line — both songs' analysis, then the planned
+     * mix (loop lengths and what cleared them, the tempo ramp) — or null when
+     * there is nothing to say beyond [smartAnalysis].
+     */
+    val automixDetail: StateFlow<String?>
     val smartFadeEnabled: StateFlow<Boolean>
     /** True only while an analysed Automix transition is audibly mixing two tracks. */
     val smartMixInProgress: StateFlow<Boolean>
     /** The Automix blend in flight, for the scrubber's beat glow; null between blends. */
     val smartMixBlend: StateFlow<MixBlend?>
+    /** The Automix blend in flight laid out for the mix popup; null between blends. */
+    val smartMixView: StateFlow<MixTransitionView?>
+    /** Progress through [smartMixView]'s blend, 0..1. */
+    val smartMixProgress: StateFlow<Float>
+    /** The next transition as planned, while the mix popup is open between blends; null otherwise. */
+    val smartMixPreview: StateFlow<MixTransitionView?>
     val smartTransitionWindow: StateFlow<TransitionWindow?>
     val spotifyCanvasAutoHide: StateFlow<Boolean>
     val syncedLyrics: StateFlow<Boolean>
@@ -256,6 +288,8 @@ interface PlayerSettingsSource {
 
     fun setLastPlayerScreen(value: LastPlayerScreen)
     fun setLyricsOffsetMs(value: Int)
+    /** Whether the mix popup is up, so the host lays out [smartMixPreview] for it. */
+    fun setMixViewOpen(open: Boolean)
 }
 
 /** The player's name for the installed host's settings, read where AppSettings used to be. */
@@ -301,8 +335,16 @@ enum class BluetoothForm { UNKNOWN, BUDS, HEADPHONES, SPEAKER, CAR }
 data class OutputFormatUi(
     /** "24-bit PCM · 48 kHz" — whichever parts are known. */
     val summary: String = "",
-    /** Whether the negotiated output could carry more than 16-bit / 48 kHz. */
-    val carriesHiRes: Boolean = false,
+    /**
+     * Whether the music is reaching the DAC bit-perfect right now: on the
+     * exclusive output, with every sample of the track carried exactly.
+     */
+    val bitPerfect: Boolean = false,
+    /**
+     * On the exclusive output, converted to the best format the DAC has because
+     * it can't take the track's own. As good as this DAC gets, but not bit-perfect.
+     */
+    val dacLimited: Boolean = false,
 )
 
 data class PartyUi(
@@ -348,6 +390,12 @@ class CanvasVideoSpec(
     val bottomFade: Float,
     val bottomFadeEndPx: Float?,
     val pausedForTransition: Boolean,
+    val resumeDelayMs: Long,
+    val startPositionMs: Long,
+    val revealInstantly: Boolean,
+    val captureStill: Boolean,
+    val onStillCaptured: (ImageBitmap?, Long) -> Unit,
+    val onResumed: () -> Unit,
 )
 
 /**
@@ -368,11 +416,30 @@ fun CanvasArtworkPlayer(
     /** Null leaves the clip on the GPU; supply a callback only when its pixels are needed. */
     onFrameCaptured: ((ImageBitmap) -> Unit)? = null,
     refreshFrameEveryMs: Long? = null,
-    frameCapturePx: Int = CANVAS_FRAME_CAPTURE_PX,
+    /**
+     * 0 for no frames at all, which saves a main-thread readback on each
+     * fade-in: only a caller that takes [onFrameCaptured] asks for a size.
+     */
+    frameCapturePx: Int = 0,
     onCoverChanged: (Float) -> Unit = {},
     bottomFade: Float = 0f,
     bottomFadeEndPx: Float? = null,
     pausedForTransition: Boolean = false,
+    /** How long the clip holds still after [pausedForTransition] lifts before it plays on. */
+    resumeDelayMs: Long = 0L,
+    /** Where in the clip to start — a still's position, so its first frame is that still. */
+    startPositionMs: Long = 0L,
+    /** Shows the first frame at once rather than fading it in: there is a still under it that it matches. */
+    revealInstantly: Boolean = false,
+    /**
+     * Asks for the frame on screen, once each time this turns true, through
+     * [onStillCaptured] with the position it was taken at — null if it could
+     * not be read. Only while [pausedForTransition], so the frame holds still.
+     */
+    captureStill: Boolean = false,
+    onStillCaptured: (ImageBitmap?, Long) -> Unit = { _, _ -> },
+    /** The clip has moved on from the frame it was last captured or started at. */
+    onResumed: () -> Unit = {},
 ) {
     PlayerPlatform.host.CanvasVideo(
         CanvasVideoSpec(
@@ -391,6 +458,12 @@ fun CanvasArtworkPlayer(
             bottomFade = bottomFade,
             bottomFadeEndPx = bottomFadeEndPx,
             pausedForTransition = pausedForTransition,
+            resumeDelayMs = resumeDelayMs,
+            startPositionMs = startPositionMs,
+            revealInstantly = revealInstantly,
+            captureStill = captureStill,
+            onStillCaptured = onStillCaptured,
+            onResumed = onResumed,
         ),
         modifier,
     )

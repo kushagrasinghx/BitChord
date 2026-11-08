@@ -4,6 +4,8 @@ import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
+import com.music.bitchord.data.settings.NetworkTransport
+import com.music.bitchord.data.settings.classifyNetworkTransport
 import com.music.bitchord.data.sources.SourceResolver
 import com.music.bitchord.data.sources.StreamRequest
 import com.music.bitchord.download.DownloadStore
@@ -183,35 +185,41 @@ class DownloadStoreTest {
 
     // ---- When a download may start -----------------------------------------
 
-    /**
-     * The Wi-Fi-only gate, including the case that is easiest to get backwards:
-     * offline. A null [AppSettings.meteredConnection] means there is no active
-     * network at all, and refusing there would blame a Wi-Fi setting for an
-     * outage — the download is let through to fail on the network and say so.
-     */
+    /** Offline requests pass the gate to report a network failure. */
     @Test
-    fun `wifi-only refuses metered connections and nothing else`() {
+    fun `wifi-only uses transport rather than metering`() {
         val wifiOnly = AppSettings.wifiOnlyDownloads.value
         val metered = AppSettings.meteredConnection.value
+        val transport = AppSettings.networkTransport.value
         try {
             AppSettings.wifiOnlyDownloads.value = true
+            AppSettings.networkTransport.value = classifyNetworkTransport(wifi = true, cellular = false)
             AppSettings.meteredConnection.value = true
-            assertFalse(AppSettings.downloadsAllowedNow)
-
+            assertTrue(AppSettings.downloadsAllowedNow)
             AppSettings.meteredConnection.value = false
             assertTrue(AppSettings.downloadsAllowedNow)
 
-            // Offline: not this setting's business.
-            AppSettings.meteredConnection.value = null
+            AppSettings.networkTransport.value = classifyNetworkTransport(wifi = false, cellular = true)
+            assertFalse(AppSettings.downloadsAllowedNow)
+            AppSettings.meteredConnection.value = true
+            assertFalse(AppSettings.downloadsAllowedNow)
+
+            AppSettings.networkTransport.value = classifyNetworkTransport(wifi = true, cellular = true)
+            assertFalse(AppSettings.downloadsAllowedNow)
+            AppSettings.networkTransport.value = classifyNetworkTransport(wifi = true, cellular = false, other = true)
+            assertFalse(AppSettings.downloadsAllowedNow)
+            AppSettings.networkTransport.value = NetworkTransport.UNKNOWN
+            assertFalse(AppSettings.downloadsAllowedNow)
+            AppSettings.networkTransport.value = NetworkTransport.OFFLINE
             assertTrue(AppSettings.downloadsAllowedNow)
 
-            // Off, and mobile data is fair game again.
             AppSettings.wifiOnlyDownloads.value = false
-            AppSettings.meteredConnection.value = true
+            AppSettings.networkTransport.value = NetworkTransport.CELLULAR
             assertTrue(AppSettings.downloadsAllowedNow)
         } finally {
             AppSettings.wifiOnlyDownloads.value = wifiOnly
             AppSettings.meteredConnection.value = metered
+            AppSettings.networkTransport.value = transport
         }
     }
 

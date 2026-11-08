@@ -158,6 +158,7 @@ import com.music.bitchord.data.NerdStats
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.NetworkTransport
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.data.settings.BitPerfectMode
 import com.music.bitchord.playback.AudioOutputStatus
@@ -228,7 +229,7 @@ fun SettingsScreen(
 
     val wifiQuality by AppSettings.audioQualityWifi.collectAsStateWithLifecycle()
     val cellularQuality by AppSettings.audioQualityCellular.collectAsStateWithLifecycle()
-    val metered by AppSettings.meteredConnection.collectAsStateWithLifecycle()
+    val networkTransport by AppSettings.networkTransport.collectAsStateWithLifecycle()
     val crossfade by AppSettings.crossfadeSeconds.collectAsStateWithLifecycle()
     val smartFade by AppSettings.smartFadeEnabled.collectAsStateWithLifecycle()
     val automixPerformance by AppSettings.automixPerformanceMode.collectAsStateWithLifecycle()
@@ -537,7 +538,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = SfIcons.Wifi,
                         title = onWifiTitle,
-                        badge = stringResource(R.string.in_use).takeIf { metered == false },
+                        badge = stringResource(R.string.connected).takeIf { networkTransport == NetworkTransport.WIFI },
                         value = wifiQuality.localizedLabel(),
                         onClick = { onOpenChoice(SettingsChoiceKind.AUDIO_QUALITY_WIFI) },
                     )
@@ -547,7 +548,7 @@ fun SettingsScreen(
                     SettingsRow(
                         icon = SfIcons.SignalCellularAlt,
                         title = onMobileDataTitle,
-                        badge = stringResource(R.string.in_use).takeIf { metered == true },
+                        badge = stringResource(R.string.connected).takeIf { networkTransport == NetworkTransport.CELLULAR },
                         value = cellularQuality.localizedLabel(),
                         onClick = { onOpenChoice(SettingsChoiceKind.AUDIO_QUALITY_CELLULAR) },
                     )
@@ -626,7 +627,10 @@ fun SettingsScreen(
                     title = downloadWifiOnlyTitle,
                     checked = wifiOnlyDownloads,
                     onCheckedChange = AppSettings::setWifiOnlyDownloads,
-                    badge = stringResource(R.string.blocking).takeIf { wifiOnlyDownloads && metered == true },
+                    badge = stringResource(R.string.blocking).takeIf {
+                        wifiOnlyDownloads && networkTransport != NetworkTransport.WIFI &&
+                            networkTransport != NetworkTransport.OFFLINE
+                    },
                 )
             }
             val exportDownloadsTitle = stringResource(R.string.export_compatible_downloads)

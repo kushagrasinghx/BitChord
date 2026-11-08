@@ -7,6 +7,7 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.Build
 import androidx.media3.common.Player
 import com.music.bitchord.BuildConfig
 import com.music.bitchord.auth.AuthStore
@@ -174,6 +175,14 @@ enum class SongSort {
     DATE_ADDED_DESC,
 }
 
+enum class NetworkTransport { OFFLINE, UNKNOWN, WIFI, CELLULAR }
+
+internal fun classifyNetworkTransport(wifi: Boolean, cellular: Boolean, other: Boolean = false): NetworkTransport = when {
+    wifi && !cellular && !other -> NetworkTransport.WIFI
+    cellular && !wifi && !other -> NetworkTransport.CELLULAR
+    else -> NetworkTransport.UNKNOWN
+}
+
 /**
  * App settings, backed by SharedPreferences and exposed as flows.
  *
@@ -220,12 +229,8 @@ object AppSettings {
     val downloadQuality = MutableStateFlow(DownloadQuality.LOSSLESS)
 
     /**
-     * Refuse to start a download while the connection charges for data.
-     *
-     * Metered rather than literally-Wi-Fi, the same test [effectiveAudioQuality]
-     * makes, because the thing worth protecting is the bill and not the radio: a
-     * tethered hotspot is Wi-Fi that costs money, and an unmetered home
-     * connection is worth using whether or not it arrives over Wi-Fi.
+     * Refuse network downloads unless the active transport is Wi-Fi.
+     * Metered Wi-Fi is still Wi-Fi; streaming's metered policy is separate.
      *
      * On by default, and that is a deliberate change of behaviour for anyone
      * updating. [downloadQuality] defaulting to Lossless means a tap that used
@@ -253,6 +258,9 @@ object AppSettings {
 
     /** Whether the active network charges for data. `null` while offline. */
     val meteredConnection = MutableStateFlow<Boolean?>(null)
+
+    /** Transport of the app's default network; unknown is not assumed to be Wi-Fi. */
+    val networkTransport = MutableStateFlow(NetworkTransport.UNKNOWN)
 
     // `losslessAudio` used to live here, behind a "Prefer lossless" switch on
     // the Sources screen. It is gone: sources are asked for their best and each
@@ -918,13 +926,12 @@ object AppSettings {
     /**
      * Whether a download may start on the connection in hand.
      *
-     * A null [meteredConnection] means there is no active network, and that is
-     * deliberately allowed through: a download with nothing to download over
-     * fails on the network and says so, which is true, where refusing it here
-     * would blame a Wi-Fi setting for an outage.
+     * Offline is allowed through so the download layer reports the network error.
+     * An active network with unknown transport is not assumed to be Wi-Fi.
      */
     val downloadsAllowedNow: Boolean
-        get() = !wifiOnlyDownloads.value || meteredConnection.value != true
+        get() = !wifiOnlyDownloads.value || networkTransport.value == NetworkTransport.WIFI ||
+            networkTransport.value == NetworkTransport.OFFLINE
 
     /**
      * [authStore] is the application's own, passed in rather than opened again:
@@ -1223,23 +1230,53 @@ object AppSettings {
      */
     private fun watchConnection(context: Context) {
         val manager = context.getSystemService(ConnectivityManager::class.java) ?: return
-        val refresh = {
-            meteredConnection.value = runCatching {
-                if (manager.activeNetwork == null) null else manager.isActiveNetworkMetered
-            }.getOrNull()
-        }
-        refresh()
-        runCatching {
-            manager.registerDefaultNetworkCallback(
-                object : ConnectivityManager.NetworkCallback() {
-                    override fun onAvailable(network: Network) = refresh()
-                    override fun onLost(network: Network) = refresh()
-                    override fun onCapabilitiesChanged(
-                        network: Network,
-                        capabilities: NetworkCapabilities,
-                    ) = refresh()
-                },
+        val lock = Any()
+        var current: Network? = null
+        fun applyCapabilities(capabilities: NetworkCapabilities) {
+            meteredConnection.value = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+            networkTransport.value = classifyNetworkTransport(
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI),
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR),
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI_AWARE) ||
+                    (Build.VERSION.SDK_INT >= 27 && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_LOWPAN)) ||
+                    (Build.VERSION.SDK_INT >= 31 && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_USB)) ||
+                    (Build.VERSION.SDK_INT >= 34 && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_THREAD)) ||
+                    (Build.VERSION.SDK_INT >= 35 && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_SATELLITE)),
             )
+        }
+        synchronized(lock) {
+            val registered = runCatching {
+                manager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) = synchronized(lock) {
+                        current = network
+                        networkTransport.value = NetworkTransport.UNKNOWN
+                    }
+
+                    override fun onLost(network: Network) = synchronized(lock) {
+                        if (network == current) {
+                            current = null
+                            meteredConnection.value = null
+                            networkTransport.value = NetworkTransport.OFFLINE
+                        }
+                    }
+
+                    override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) = synchronized(lock) {
+                        if (network == current) applyCapabilities(capabilities)
+                    }
+                })
+            }.isSuccess
+            if (registered) runCatching {
+                // Do not publish a snapshot of a newer network before queued
+                // callbacks for an older one: callbacks own connected state.
+                if (manager.activeNetwork == null) {
+                    meteredConnection.value = null
+                    networkTransport.value = NetworkTransport.OFFLINE
+                }
+                Unit
+            }
+            // Without callbacks a snapshot can become stale on a switch, so stay unknown.
         }
     }
 

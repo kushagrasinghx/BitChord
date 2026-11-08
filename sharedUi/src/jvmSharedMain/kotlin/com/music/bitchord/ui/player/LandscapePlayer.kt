@@ -372,6 +372,7 @@ internal fun LandscapeMainPane(
     /** The one-line lyric over the scrubber; null where synced lyrics are off. */
     lyricStrip: (@Composable () -> Unit)?,
     scrubber: @Composable () -> Unit,
+    sectionLoopBar: (@Composable () -> Unit)? = null,
     transport: @Composable () -> Unit,
     /** Null where Settings hides the volume bar. */
     volume: (@Composable () -> Unit)?,
@@ -395,6 +396,10 @@ internal fun LandscapeMainPane(
         Spacer(Modifier.height(if (compact) 2.dp else 10.dp))
         lyricStrip?.invoke()
         scrubber()
+        if (sectionLoopBar != null) {
+            Spacer(Modifier.height(if (compact) 2.dp else 6.dp))
+            sectionLoopBar()
+        }
         Spacer(Modifier.height(if (compact) 0.dp else 8.dp))
         transport()
         if (volume != null) {

@@ -211,6 +211,7 @@ internal fun PlayerScrubber(
     /** An analysed Automix handoff, drawn as a travelling sheen. */
     mixing: Boolean,
     transitionWindow: ClosedFloatingPointRange<Float>?,
+    loopRegion: ClosedFloatingPointRange<Float>? = null,
     onScrub: (Float) -> Unit,
     onScrubFinished: () -> Unit,
     centerLabel: @Composable BoxScope.() -> Unit = {},
@@ -233,6 +234,7 @@ internal fun PlayerScrubber(
             mixing = mixing,
             mixPulse = mixPulse,
             transitionWindow = transitionWindow,
+            loopRegion = loopRegion,
         )
         Box(
             modifier = Modifier

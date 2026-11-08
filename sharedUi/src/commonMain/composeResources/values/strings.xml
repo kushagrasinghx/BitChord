@@ -278,4 +278,13 @@
     <string name="mix_view_seconds">%1$d sec</string>
     <string name="mix_view_bpm">%1$d bpm</string>
     <string name="automix_overview_unavailable">No Automix transition coming up</string>
+    <string name="loop_section">Loop section</string>
+    <string name="set_point_a">Set A</string>
+    <string name="set_point_b">Set B</string>
+    <string name="point_a">Point A</string>
+    <string name="point_b">Point B</string>
+    <string name="clear_loop">Clear loop</string>
+    <string name="loop_active">Loop active</string>
+    <string name="waiting_for_point_a">Tap Set A to mark start</string>
+    <string name="waiting_for_point_b">Tap Set B to mark end</string>
 </resources>

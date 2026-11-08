@@ -248,6 +248,11 @@ import com.music.bitchord.playback.QualityUpgrade
 import com.music.bitchord.playback.rememberMediaController
 import com.music.bitchord.playback.rememberPlayerState
 import com.music.bitchord.playback.setQueueDragActive
+import com.music.bitchord.playback.beginSectionLoop
+import com.music.bitchord.playback.setSectionLoopPointA
+import com.music.bitchord.playback.setSectionLoopPointB
+import com.music.bitchord.playback.clearSectionLoop
+import com.music.bitchord.playback.SectionLoopState
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.SearchSource
 import com.music.bitchord.ui.components.BottomFadeScrim
@@ -2648,6 +2653,21 @@ private fun BitChordApp(
             onRemoveFromQueue = { controller?.removeMediaItem(it) },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
+            onSetSectionLoopPointA = {
+                controller?.let { c ->
+                    val pos = c.currentPosition.coerceAtLeast(0L)
+                    c.setSectionLoopPointA(pos)
+                }
+            },
+            onSetSectionLoopPointB = {
+                controller?.let { c ->
+                    val pos = c.currentPosition.coerceAtLeast(0L)
+                    c.setSectionLoopPointB(pos)
+                }
+            },
+            onClearSectionLoop = {
+                controller?.clearSectionLoop()
+            },
             // The enriched copy, not player.song — otherwise the menu
             // hides the album and artist rows even once their browse
             // ids have been resolved.
@@ -4641,6 +4661,17 @@ private fun BitChordApp(
                 } else {
                     null
                 },
+                onToggleSectionLoop = if (fromPlayer) {
+                    {
+                        songActions = null
+                        if (AppSettings.sectionLoopState.value != SectionLoopState.Idle) {
+                            controller?.clearSectionLoop()
+                        } else {
+                            controller?.beginSectionLoop()
+                        }
+                    }
+                } else null,
+                isSectionLoopActive = fromPlayer && AppSettings.sectionLoopState.value != SectionLoopState.Idle,
                 // The popup lives in the player, so the menu only has to close
                 // and ask for it; it lays the next transition out on its own.
                 onAutomixOverview = if (fromPlayer && automixOn) {

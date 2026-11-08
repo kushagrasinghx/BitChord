@@ -191,6 +191,14 @@ fun MediaController.swapToVersion(targetSong: Song) {
     )
 }
 
+/** Begins the A-B section loop setting flow (transitions to WaitingForA). */
+fun MediaController.beginSectionLoop() {
+    sendCustomCommand(
+        SessionCommand(ACTION_BEGIN_SECTION_LOOP, Bundle.EMPTY),
+        Bundle.EMPTY,
+    )
+}
+
 /** Sets an A-B section loop range on the current track. */
 fun MediaController.setSectionLoop(startMs: Long, endMs: Long) {
     sendCustomCommand(

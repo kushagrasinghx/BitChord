@@ -63,6 +63,9 @@ sealed interface SectionLoopState {
     /** No section loop is set or active. */
     data object Idle : SectionLoopState
 
+    /** Setting mode is open; waiting for listener to mark Point A. */
+    data object WaitingForA : SectionLoopState
+
     /** Point A has been marked at [startMs]; waiting for point B. */
     data class SettingA(val startMs: Long) : SectionLoopState
 
@@ -90,6 +93,14 @@ class SectionLoopStateMachine(
     val isLoopActive: Boolean get() = state is SectionLoopState.Active
 
     /**
+     * Begins the loop setting flow by transitioning to [SectionLoopState.WaitingForA].
+     */
+    fun beginSetting(): Boolean {
+        state = SectionLoopState.WaitingForA
+        return true
+    }
+
+    /**
      * Marks Point A at [positionMs].
      * Clamps position to >= 0L. If [durationMs] is provided and position >= duration, returns false.
      */
@@ -113,6 +124,7 @@ class SectionLoopStateMachine(
         val startMs = when (val current = state) {
             is SectionLoopState.SettingA -> current.startMs
             is SectionLoopState.Active -> current.loop.startMs
+            is SectionLoopState.WaitingForA,
             is SectionLoopState.Idle -> return false
         }
         val loop = SectionLoop.from(startMs = startMs, endMs = positionMs, durationMs = durationMs)

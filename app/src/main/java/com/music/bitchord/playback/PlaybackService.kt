@@ -232,6 +232,7 @@ const val ACTION_COMMIT_RADIO_QUEUE = "com.music.bitchord.action.COMMIT_RADIO_QU
 const val ACTION_UPGRADE_QUALITY = "com.music.bitchord.action.UPGRADE_QUALITY"
 
 /** Session commands controlling A-B section looping. */
+const val ACTION_BEGIN_SECTION_LOOP = "com.music.bitchord.action.BEGIN_SECTION_LOOP"
 const val ACTION_SET_SECTION_LOOP = "com.music.bitchord.action.SET_SECTION_LOOP"
 const val ACTION_CLEAR_SECTION_LOOP = "com.music.bitchord.action.CLEAR_SECTION_LOOP"
 const val EXTRA_SECTION_LOOP_START_MS = "com.music.bitchord.extra.SECTION_LOOP_START_MS"
@@ -800,6 +801,7 @@ class PlaybackService : MediaLibraryService() {
     private val upgradeQualityCommand = SessionCommand(ACTION_UPGRADE_QUALITY, Bundle.EMPTY)
     private val swapVersionCommand = SessionCommand(ACTION_SWAP_VERSION, Bundle.EMPTY)
     private val queueDragCommand = SessionCommand(ACTION_QUEUE_DRAG, Bundle.EMPTY)
+    private val beginSectionLoopCommand = SessionCommand(ACTION_BEGIN_SECTION_LOOP, Bundle.EMPTY)
     private val setSectionLoopCommand = SessionCommand(ACTION_SET_SECTION_LOOP, Bundle.EMPTY)
     private val clearSectionLoopCommand = SessionCommand(ACTION_CLEAR_SECTION_LOOP, Bundle.EMPTY)
 
@@ -2764,6 +2766,15 @@ class PlaybackService : MediaLibraryService() {
                 seekDispatchedAt = SystemClock.elapsedRealtime()
                 player?.seekTo(loop.startMs)
             }
+        }
+        return success
+    }
+
+    fun beginSectionLoop(): Boolean {
+        if (!canLoopSection()) return false
+        val success = sectionLoopMachine.beginSetting()
+        if (success) {
+            AppSettings.sectionLoopState.value = sectionLoopMachine.state
         }
         return success
     }
@@ -8795,6 +8806,7 @@ class PlaybackService : MediaLibraryService() {
                 .add(upgradeQualityCommand)
                 .add(swapVersionCommand)
                 .add(queueDragCommand)
+                .add(beginSectionLoopCommand)
                 .add(setSectionLoopCommand)
                 .add(clearSectionLoopCommand)
                 .build()
@@ -8832,6 +8844,7 @@ class PlaybackService : MediaLibraryService() {
                 ACTION_BEGIN_RADIO_QUEUE -> beginRadioQueue()
                 ACTION_COMMIT_RADIO_QUEUE -> player?.let(::saveQueueSnapshotImmediately)
                 ACTION_UPGRADE_QUALITY -> upgradeQualityNow()
+                ACTION_BEGIN_SECTION_LOOP -> beginSectionLoop()
                 ACTION_SET_SECTION_LOOP -> setSectionLoopFromSession(args)
                 ACTION_CLEAR_SECTION_LOOP -> clearSectionLoop()
                 ACTION_SWAP_VERSION -> {

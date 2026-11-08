@@ -58,8 +58,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Undo
@@ -838,6 +839,9 @@ fun NowPlayingScreen(
      * the sheet is the caller's business.
      */
     onListenTogether: () -> Unit,
+    onSetSectionLoopPointA: () -> Unit = {},
+    onSetSectionLoopPointB: () -> Unit = {},
+    onClearSectionLoop: () -> Unit = {},
     lyrics: List<LyricLine>?,
     lyricsSource: LyricsSource?,
     lyricsProviderStates: Map<LyricsSource, LyricsProviderState>,
@@ -1002,6 +1006,14 @@ fun NowPlayingScreen(
     // How often those colours are re-read — see CanvasArtworkPlayer's
     // refreshFrameEveryMs.
     val meshRefreshMs = MESH_REFRESH_MS.takeIf { tintsOffClip }
+
+    val sectionLoopState by PlayerSettings.sectionLoopState.collectAsStateWithLifecycle()
+    val activeSectionLoop by PlayerSettings.activeSectionLoop.collectAsStateWithLifecycle()
+    val loopRegion = remember(activeSectionLoop, durationMs) {
+        activeSectionLoop?.takeIf { durationMs > 0L }?.let {
+            (it.startMs.toFloat() / durationMs).coerceIn(0f, 1f)..(it.endMs.toFloat() / durationMs).coerceIn(0f, 1f)
+        }
+    }
 
     val scrub = rememberPlayerScrub(song.videoId, position, durationMs)
     // Read by the scrubber itself — see [PlayerScrubber.shown].
@@ -1992,6 +2004,7 @@ fun NowPlayingScreen(
                             transitionWindow = transitionWindow
                                 ?.takeIf { !scrub.scrubbing && it.end > it.start }
                                 ?.let { it.start..it.end },
+                            loopRegion = loopRegion,
                             onScrub = onScrub,
                             onScrubFinished = onScrubFinished,
                         ) {
@@ -2214,6 +2227,7 @@ fun NowPlayingScreen(
                                     transitionWindow = transitionWindow
                                         ?.takeIf { !scrub.scrubbing && it.end > it.start }
                                         ?.let { it.start..it.end },
+                                    loopRegion = loopRegion,
                                     onScrub = onScrub,
                                     onScrubFinished = onScrubFinished,
                                 ) {
@@ -2225,6 +2239,16 @@ fun NowPlayingScreen(
                                             .padding(horizontal = 8.dp),
                                     )
                                 }
+                            },
+                            sectionLoopBar = {
+                                SectionLoopBar(
+                                    state = sectionLoopState,
+                                    activeLoop = activeSectionLoop,
+                                    onSetPointA = onSetSectionLoopPointA,
+                                    onSetPointB = onSetSectionLoopPointB,
+                                    onClearLoop = onClearSectionLoop,
+                                    modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally),
+                                )
                             },
                             transport = {
                                 TransportRow(
@@ -4110,6 +4134,7 @@ fun NowPlayingScreen(
                         transitionWindow = transitionWindow
                             ?.takeIf { !scrub.scrubbing && it.end > it.start }
                             ?.let { it.start..it.end },
+                        loopRegion = loopRegion,
                         onScrub = onScrub,
                         onScrubFinished = onScrubFinished,
                     ) {
@@ -4121,6 +4146,17 @@ fun NowPlayingScreen(
                                 .padding(horizontal = 8.dp),
                         )
                     }
+
+                    SectionLoopBar(
+                        state = sectionLoopState,
+                        activeLoop = activeSectionLoop,
+                        onSetPointA = onSetSectionLoopPointA,
+                        onSetPointB = onSetSectionLoopPointB,
+                        onClearLoop = onClearSectionLoop,
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(top = 2.dp, bottom = 4.dp),
+                    )
 
                     val transport: @Composable () -> Unit = {
                         TransportRow(

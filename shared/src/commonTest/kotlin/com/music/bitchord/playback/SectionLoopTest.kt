@@ -121,6 +121,30 @@ class SectionLoopTest {
     }
 
     @Test
+    fun stateMachineBeginSettingFlow() {
+        val machine = SectionLoopStateMachine()
+        assertEquals(SectionLoopState.Idle, machine.state)
+
+        machine.beginSetting()
+        assertEquals(SectionLoopState.WaitingForA, machine.state)
+        assertFalse(machine.isLoopActive)
+
+        // Cannot set B while WaitingForA
+        assertFalse(machine.setPointB(10_000L))
+        assertEquals(SectionLoopState.WaitingForA, machine.state)
+
+        // Set A transitions to SettingA
+        assertTrue(machine.setPointA(3000L))
+        assertEquals(SectionLoopState.SettingA(3000L), machine.state)
+
+        // Set B transitions to Active
+        assertTrue(machine.setPointB(8000L))
+        assertTrue(machine.isLoopActive)
+        assertEquals(3000L, machine.activeLoop?.startMs)
+        assertEquals(8000L, machine.activeLoop?.endMs)
+    }
+
+    @Test
     fun stateMachineManualSettingFlow() {
         val machine = SectionLoopStateMachine()
         assertEquals(SectionLoopState.Idle, machine.state)

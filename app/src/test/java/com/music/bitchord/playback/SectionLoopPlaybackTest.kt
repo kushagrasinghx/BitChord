@@ -90,6 +90,11 @@ class SectionLoopPlaybackTest {
         val machine = SectionLoopStateMachine()
         assertEquals(SectionLoopState.Idle, machine.state)
 
+        // Step 0: Begin setting flow
+        assertTrue(machine.beginSetting())
+        assertEquals(SectionLoopState.WaitingForA, machine.state)
+        assertFalse(machine.isLoopActive)
+
         // Step 1: Set point A
         assertTrue(machine.setPointA(4000L))
         assertEquals(SectionLoopState.SettingA(4000L), machine.state)

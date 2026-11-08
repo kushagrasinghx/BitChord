@@ -1081,7 +1081,8 @@ object YtMusicRepository {
         var response = Innertube.browse(browseId)
         var page = 1
         while (true) {
-            val shelf = InnertubeParser.parsePlaylistShelf(response, preserveDuplicates = true) ?: break
+            val shelf = InnertubeParser.parsePlaylistShelf(response, preserveDuplicates = true)
+                ?: error("playlist shelf unavailable")
             shelf.songs.forEach { song ->
                 val setVideoId = song.setVideoId ?: error("playlist entry without an id")
                 out.putIfAbsent(setVideoId, song)

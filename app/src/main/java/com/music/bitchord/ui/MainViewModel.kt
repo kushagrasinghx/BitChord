@@ -988,7 +988,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private var membershipEditJob: Job? = null
+
     suspend fun playlistMembership(playlists: List<UserPlaylist>, song: Song): Result<Set<String>> {
+        membershipEditJob?.join()
         val membership = mutableSetOf<String>()
         for (playlist in playlists) {
             val entries = YtMusicRepository.playlistEntries(playlist.browseId)
@@ -1006,7 +1009,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     ) {
         if (additions.isEmpty() && removals.isEmpty()) return
         if (!requireSignIn()) return
-        viewModelScope.launch {
+        val previous = membershipEditJob
+        membershipEditJob = viewModelScope.launch {
+            previous?.join()
             var failed = false
             for (playlist in additions) {
                 val entries = YtMusicRepository.playlistEntries(playlist.browseId).getOrNull()
@@ -1015,7 +1020,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     continue
                 }
                 if (entries.any { it.videoId == song.videoId }) continue
-                if (addOne(playlist, song) == AddOutcome.FAILED) failed = true
+                YtMusicRepository.addToPlaylist(playlist.playlistId, listOf(song.videoId)).fold(
+                    onSuccess = { added ->
+                        libraryStale = true
+                        appendToOpenPlaylist(playlist.browseId, song, added[song.videoId])
+                    },
+                    onFailure = { failed = true },
+                )
             }
             for (playlist in removals) {
                 val entries = YtMusicRepository.playlistEntries(playlist.browseId).getOrNull()

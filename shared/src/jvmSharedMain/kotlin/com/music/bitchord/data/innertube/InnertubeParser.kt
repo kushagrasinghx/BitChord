@@ -585,6 +585,7 @@ object InnertubeParser {
     fun parsePlaylistShelf(root: JsonElement, preserveDuplicates: Boolean = false): PlaylistShelfPage? {
         val scope: JsonElement = root.o("continuationContents")
             ?: root.o("contents").o("twoColumnBrowseResultsRenderer").o("secondaryContents")
+            ?: root.o("contents").o("singleColumnBrowseResultsRenderer")
             ?: return null
         val playlistScope = scope.o("musicPlaylistShelfContinuation")
             ?: collectRenderers(scope, "musicPlaylistShelfRenderer").firstOrNull()
@@ -595,7 +596,13 @@ object InnertubeParser {
         val pageCredit = pageCredit(root)
         val songs = playlistScope?.let { playlist ->
             val rows = collectRenderers(playlist, "musicResponsiveListItemRenderer")
-                .mapNotNull { parseResponsiveListItem(it, pageCredit) }
+                .mapNotNull { row ->
+                    val song = parseResponsiveListItem(row, pageCredit)
+                    if (preserveDuplicates && song == null && row.o("playlistItemData") != null) {
+                        error("unreadable playlist entry")
+                    }
+                    song
+                }
             if (preserveDuplicates) rows else rows.distinctBy { it.videoId }
         }.orEmpty()
         val knownSongs = songs.mapTo(HashSet()) { it.videoId }

@@ -77,7 +77,10 @@ import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
 import java.util.Locale
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /**
  * Where a track goes: one of the account's playlists, or a new one.
@@ -115,18 +118,27 @@ fun PlaylistPickerSheet(
     offline: Boolean = false,
 ) {
     var creating by remember { mutableStateOf(startCreating) }
-    // By id rather than by value: the list is re-fetched under an open sheet,
-    // and a refreshed row must stay ticked.
-    var initial by remember(song?.videoId) { mutableStateOf<Set<String>?>(null) }
-    var selected by remember(song?.videoId) { mutableStateOf(emptySet<String>()) }
-    var loadedPlaylists by remember(song?.videoId) { mutableStateOf(emptyList<UserPlaylist>()) }
-    var membershipFailed by remember(song?.videoId) { mutableStateOf(false) }
-    LaunchedEffect(song?.videoId, loading, playlists) {
-        if (song != null && !loading && initial == null && !membershipFailed) {
-            loadMembership(playlists, song).fold(
-                onSuccess = { loadedPlaylists = playlists; selected = it; initial = it },
-                onFailure = { membershipFailed = true },
-            )
+    // Unknown rows cannot be toggled until their initial answer arrives.
+    var initial by remember(song?.videoId, song?.localUri) { mutableStateOf(emptyMap<String, Boolean>()) }
+    var selected by remember(song?.videoId, song?.localUri) { mutableStateOf(emptySet<String>()) }
+    var failed by remember(song?.videoId, song?.localUri) { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(song?.videoId, song?.localUri, playlists.map { it.playlistId }) {
+        if (song != null) coroutineScope {
+            val limiter = Semaphore(4)
+            playlists.filter { it.playlistId !in initial && it.playlistId !in failed }.forEach { playlist ->
+                launch {
+                    val result = limiter.withPermit { loadMembership(listOf(playlist), song) }
+                    result.fold(
+                        onSuccess = { membership ->
+                            val id = playlist.playlistId
+                            val present = id in membership
+                            initial = initial + (id to present)
+                            if (present) selected = selected + id
+                        },
+                        onFailure = { failed = failed + playlist.playlistId },
+                    )
+                }
+            }
         }
     }
 
@@ -184,13 +196,12 @@ fun PlaylistPickerSheet(
                     } else {
                         pluralStringResource(R.plurals.add_to_playlists_count, selected.size, selected.size)
                     },
-                    confirmEnabled = initial != null && !loading,
+                    confirmEnabled = song != null && !loading && playlists.all { it.playlistId in initial },
                     onConfirm = {
-                        val before = initial ?: emptySet()
                         closeAfter {
                             onSave(
-                                loadedPlaylists.filter { it.playlistId in selected && it.playlistId !in before },
-                                loadedPlaylists.filter { it.playlistId in before && it.playlistId !in selected },
+                                playlists.filter { it.playlistId in selected && initial[it.playlistId] == false },
+                                playlists.filter { it.playlistId !in selected && initial[it.playlistId] == true },
                             )
                         }
                     },
@@ -211,7 +222,7 @@ fun PlaylistPickerSheet(
                 )
 
                 when {
-                    !membershipFailed && (loading || (song != null && initial == null)) -> Box(
+                    loading && playlists.isEmpty() -> Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(120.dp),
@@ -223,13 +234,7 @@ fun PlaylistPickerSheet(
                         )
                     }
 
-                    membershipFailed -> Text(
-                        text = stringResource(R.string.failed),
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
-                    )
-
-                    loadedPlaylists.isEmpty() -> Text(
+                    playlists.isEmpty() -> Text(
                         text = stringResource(R.string.no_playlists_yet),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -246,11 +251,12 @@ fun PlaylistPickerSheet(
                             modifier = Modifier.weight(1f),
                             contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                         ) {
-                            items(loadedPlaylists, key = { it.playlistId }) { playlist ->
+                            items(playlists, key = { it.playlistId }) { playlist ->
                                 val ticked = playlist.playlistId in selected
                                 PlaylistRow(
                                     playlist = playlist,
-                                    selected = ticked,
+                                    selected = if (playlist.playlistId in initial) ticked else null,
+                                    failed = playlist.playlistId in failed,
                                     onClick = {
                                         selected = if (ticked) selected - playlist.playlistId else selected + playlist.playlistId
                                     },
@@ -308,11 +314,11 @@ private fun SheetTopBar(
 }
 
 @Composable
-private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -> Unit) {
+private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean?, failed: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = selected != null, onClick = onClick)
             .padding(horizontal = 22.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -345,12 +351,16 @@ private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -
             }
         }
         Spacer(Modifier.width(12.dp))
-        Icon(
-            imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-            contentDescription = null,
-            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp),
-        )
+        when {
+            failed -> Text(stringResource(R.string.failed), color = MaterialTheme.colorScheme.error)
+            selected == null -> CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            else -> Icon(
+                imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp),
+            )
+        }
     }
 }
 

@@ -4923,22 +4923,12 @@ private fun BitChordApp(
                 song = target,
                 startCreating = target == null,
                 onDismiss = dismiss,
-                onAdd = { picked ->
+                loadMembership = { choices, song -> viewModel.playlistMembership(choices, song) },
+                onSave = { additions, removals ->
                     target?.let { song ->
-                        viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
-                            // One line for the whole batch, saying the outcome
-                            // that matters most: what went in, else that it was
-                            // all there already, else that it didn't work.
+                        viewModel.updatePlaylistMembership(additions, removals, song) { failed ->
                             showQueueNotice(
-                                when {
-                                    added > 1 -> context.resources.getQuantityString(
-                                        R.plurals.added_to_playlists_notice, added, added,
-                                    )
-                                    added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                    alreadyThere > 0 && failed == 0 ->
-                                        context.getString(R.string.song_already_in_playlist)
-                                    else -> context.getString(R.string.failed)
-                                },
+                                context.getString(if (failed) R.string.failed else R.string.saved),
                             )
                         }
                     }
@@ -4981,19 +4971,20 @@ private fun BitChordApp(
                 startCreating = target == null,
                 offline = true,
                 onDismiss = dismiss,
-                onAdd = { picked ->
+                loadMembership = { _, song ->
+                    Result.success(offlinePlaylists.filter { playlist ->
+                        song.localUri != null && playlist.songs.any { it.localUri == song.localUri }
+                    }.mapTo(HashSet()) { it.id })
+                },
+                onSave = { additions, removals ->
                     target?.let { song ->
-                        val result = OfflinePlaylists.add(picked.mapTo(HashSet()) { it.playlistId }, listOf(song))
-                        showQueueNotice(
-                            when {
-                                result.added > 1 -> context.resources.getQuantityString(
-                                    R.plurals.added_to_playlists_notice, result.added, result.added,
-                                )
-                                result.added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                result.alreadyThere > 0 -> context.getString(R.string.song_already_in_playlist)
-                                else -> context.getString(R.string.failed)
-                            },
-                        )
+                        if (additions.isNotEmpty()) {
+                            OfflinePlaylists.add(additions.mapTo(HashSet()) { it.playlistId }, listOf(song))
+                        }
+                        removals.forEach { OfflinePlaylists.remove(OfflinePlaylists.PREFIX + it.playlistId, song) }
+                        if (additions.isNotEmpty() || removals.isNotEmpty()) {
+                            showQueueNotice(context.getString(R.string.saved))
+                        }
                     }
                 },
                 onCreate = { title, _ ->

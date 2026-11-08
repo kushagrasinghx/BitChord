@@ -582,7 +582,7 @@ object InnertubeParser {
      * playlist-shaped in scope (an album, say), so callers fall back to the
      * generic walk.
      */
-    fun parsePlaylistShelf(root: JsonElement): PlaylistShelfPage? {
+    fun parsePlaylistShelf(root: JsonElement, preserveDuplicates: Boolean = false): PlaylistShelfPage? {
         val scope: JsonElement = root.o("continuationContents")
             ?: root.o("contents").o("twoColumnBrowseResultsRenderer").o("secondaryContents")
             ?: return null
@@ -594,9 +594,9 @@ object InnertubeParser {
 
         val pageCredit = pageCredit(root)
         val songs = playlistScope?.let { playlist ->
-            collectRenderers(playlist, "musicResponsiveListItemRenderer")
+            val rows = collectRenderers(playlist, "musicResponsiveListItemRenderer")
                 .mapNotNull { parseResponsiveListItem(it, pageCredit) }
-                .distinctBy { it.videoId }
+            if (preserveDuplicates) rows else rows.distinctBy { it.videoId }
         }.orEmpty()
         val knownSongs = songs.mapTo(HashSet()) { it.videoId }
         val suggested = suggestionShelves

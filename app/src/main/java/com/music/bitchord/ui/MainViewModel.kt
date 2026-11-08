@@ -988,6 +988,66 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    suspend fun playlistMembership(playlists: List<UserPlaylist>, song: Song): Result<Set<String>> {
+        val membership = mutableSetOf<String>()
+        for (playlist in playlists) {
+            val entries = YtMusicRepository.playlistEntries(playlist.browseId)
+                .getOrElse { return Result.failure(it) }
+            if (entries.any { it.videoId == song.videoId }) membership.add(playlist.playlistId)
+        }
+        return Result.success(membership)
+    }
+
+    fun updatePlaylistMembership(
+        additions: List<UserPlaylist>,
+        removals: List<UserPlaylist>,
+        song: Song,
+        onResult: (Boolean) -> Unit,
+    ) {
+        if (additions.isEmpty() && removals.isEmpty()) return
+        if (!requireSignIn()) return
+        viewModelScope.launch {
+            var failed = false
+            for (playlist in additions) {
+                val entries = YtMusicRepository.playlistEntries(playlist.browseId).getOrNull()
+                if (entries == null) {
+                    failed = true
+                    continue
+                }
+                if (entries.any { it.videoId == song.videoId }) continue
+                if (addOne(playlist, song) == AddOutcome.FAILED) failed = true
+            }
+            for (playlist in removals) {
+                val entries = YtMusicRepository.playlistEntries(playlist.browseId).getOrNull()
+                if (entries == null) {
+                    failed = true
+                    continue
+                }
+                val matches = entries.filter { it.videoId == song.videoId }
+                val ids = matches.mapNotNull { it.setVideoId }
+                if (ids.size != matches.size) {
+                    failed = true
+                    continue
+                }
+                if (ids.isEmpty()) continue
+                YtMusicRepository.removeFromPlaylist(
+                    playlist.playlistId, ids.map { it to song.videoId },
+                ).fold(
+                    onSuccess = {
+                        libraryStale = true
+                        _detailStack.value = _detailStack.value.map { page ->
+                            val songs = (page.songs as? UiState.Success)?.data
+                            if (page.browseId != playlist.browseId || songs == null) page
+                            else page.copy(songs = UiState.Success(songs.filterNot { it.setVideoId in ids }))
+                        }
+                    },
+                    onFailure = { failed = true },
+                )
+            }
+            onResult(failed)
+        }
+    }
+
     /**
      * Adds [song] to every playlist in [playlists] — the picker's ticked rows —
      * and reports how each went, once, when they all have.

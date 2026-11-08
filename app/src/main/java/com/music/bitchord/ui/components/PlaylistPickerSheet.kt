@@ -95,7 +95,7 @@ import kotlinx.coroutines.launch
  *
  * Playlists are ticked rather than picked: one track often belongs in more
  * than one list, and a sheet that closed on the first tap meant opening it
- * again for each. [onAdd] gets every ticked playlist at once.
+ * again for each. [onSave] receives only the changed playlists.
  *
  * [offline] is the same sheet over the device's own playlists, for a track
  * that is a file on it: nothing is saved to the account, so the new-playlist
@@ -106,9 +106,10 @@ import kotlinx.coroutines.launch
 fun PlaylistPickerSheet(
     playlists: List<UserPlaylist>,
     loading: Boolean,
-    onAdd: (List<UserPlaylist>) -> Unit,
+    onSave: (List<UserPlaylist>, List<UserPlaylist>) -> Unit,
     onCreate: (String, PlaylistPrivacy) -> Unit,
     onDismiss: () -> Unit,
+    loadMembership: suspend (List<UserPlaylist>, Song) -> Result<Set<String>>,
     song: Song? = null,
     startCreating: Boolean = false,
     offline: Boolean = false,
@@ -116,7 +117,18 @@ fun PlaylistPickerSheet(
     var creating by remember { mutableStateOf(startCreating) }
     // By id rather than by value: the list is re-fetched under an open sheet,
     // and a refreshed row must stay ticked.
-    var selected by remember { mutableStateOf(emptySet<String>()) }
+    var initial by remember(song?.videoId) { mutableStateOf<Set<String>?>(null) }
+    var selected by remember(song?.videoId) { mutableStateOf(emptySet<String>()) }
+    var loadedPlaylists by remember(song?.videoId) { mutableStateOf(emptyList<UserPlaylist>()) }
+    var membershipFailed by remember(song?.videoId) { mutableStateOf(false) }
+    LaunchedEffect(song?.videoId, loading, playlists) {
+        if (song != null && !loading && initial == null && !membershipFailed) {
+            loadMembership(playlists, song).fold(
+                onSuccess = { loadedPlaylists = playlists; selected = it; initial = it },
+                onFailure = { membershipFailed = true },
+            )
+        }
+    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -172,8 +184,16 @@ fun PlaylistPickerSheet(
                     } else {
                         pluralStringResource(R.plurals.add_to_playlists_count, selected.size, selected.size)
                     },
-                    confirmEnabled = selected.isNotEmpty(),
-                    onConfirm = { closeAfter { onAdd(playlists.filter { it.playlistId in selected }) } },
+                    confirmEnabled = initial != null && !loading,
+                    onConfirm = {
+                        val before = initial ?: emptySet()
+                        closeAfter {
+                            onSave(
+                                loadedPlaylists.filter { it.playlistId in selected && it.playlistId !in before },
+                                loadedPlaylists.filter { it.playlistId in before && it.playlistId !in selected },
+                            )
+                        }
+                    },
                 )
                 if (song != null) {
                     SheetTrackHeader(song)
@@ -191,10 +211,7 @@ fun PlaylistPickerSheet(
                 )
 
                 when {
-                    // Only while there is nothing to show: re-fetching under a
-                    // list that is already up would replace it with a spinner
-                    // for no gain.
-                    loading && playlists.isEmpty() -> Box(
+                    !membershipFailed && (loading || (song != null && initial == null)) -> Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(120.dp),
@@ -206,7 +223,13 @@ fun PlaylistPickerSheet(
                         )
                     }
 
-                    playlists.isEmpty() -> Text(
+                    membershipFailed -> Text(
+                        text = stringResource(R.string.failed),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 22.dp, vertical = 18.dp),
+                    )
+
+                    loadedPlaylists.isEmpty() -> Text(
                         text = stringResource(R.string.no_playlists_yet),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -223,7 +246,7 @@ fun PlaylistPickerSheet(
                             modifier = Modifier.weight(1f),
                             contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                         ) {
-                            items(playlists, key = { it.playlistId }) { playlist ->
+                            items(loadedPlaylists, key = { it.playlistId }) { playlist ->
                                 val ticked = playlist.playlistId in selected
                                 PlaylistRow(
                                     playlist = playlist,

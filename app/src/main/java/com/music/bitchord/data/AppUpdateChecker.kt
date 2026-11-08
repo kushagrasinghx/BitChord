@@ -7,9 +7,14 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.music.bitchord.BuildConfig
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -18,6 +23,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
 import java.io.File
+import java.io.IOException
 
 /**
  * BitChord ships as a sideloaded APK off GitHub Releases rather than through
@@ -41,6 +47,16 @@ object AppUpdateChecker {
     )
 
     private const val CACHE_SUBDIR = "updates"
+    private const val PARTIAL_SUFFIX = ".part"
+    private const val MAX_RETRIES = 5
+    private const val RETRY_BASE_DELAY_MS = 1_000L
+
+    /**
+     * Owns the download so it isn't tied to the activity's composition: leaving
+     * the app (or the window being recreated) no longer cancels it.
+     */
+    private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var downloadJob: Job? = null
 
     private const val LATEST_RELEASE_URL =
         "https://api.github.com/repos/kushagrasinghx/BitChord/releases/latest"
@@ -84,13 +100,17 @@ object AppUpdateChecker {
     }
 
     /**
-     * Wipes any APK left over from a previous run. Called once at cold start
-     * so a downloaded update is only ever "Install Now" for the session that
-     * downloaded it — the next launch starts clean rather than trying to work
-     * out whether a leftover file is still good.
+     * Wipes any finished APK left over from a previous run. Called once at cold
+     * start so a downloaded update is only ever "Install Now" for the session
+     * that downloaded it. A half-finished `.part` file is kept on purpose: it
+     * is what lets an interrupted download pick up where it stopped instead of
+     * starting over (a leftover for an older version is removed by the next
+     * [downloadApk]).
      */
     suspend fun clearCache(context: Context) = withContext(Dispatchers.IO) {
-        File(context.cacheDir, CACHE_SUBDIR).listFiles()?.forEach { it.delete() }
+        File(context.cacheDir, CACHE_SUBDIR).listFiles()?.forEach {
+            if (!it.name.endsWith(PARTIAL_SUFFIX)) it.delete()
+        }
     }
 
     /**
@@ -127,10 +147,24 @@ object AppUpdateChecker {
     }.getOrNull()
 
     /**
+     * Starts the download on the checker's own scope, so it keeps going when
+     * the activity is closed or recreated. Does nothing if one is already
+     * running.
+     */
+    fun startDownload(context: Context) {
+        if (downloadJob?.isActive == true) return
+        val appContext = context.applicationContext
+        downloadJob = downloadScope.launch { downloadApk(appContext) }
+    }
+
+    /**
      * Streams the current update's APK into the app cache, reporting progress
-     * through [download]. A finished file survives a cancelled dialog: until
-     * the state is reset, "Install Now" comes straight back without a second
-     * download.
+     * through [download]. The bytes land in a `.part` file that is kept if the
+     * transfer breaks (dropped connection, app killed): the next attempt asks
+     * the server for the rest with an HTTP Range request. Network errors are
+     * retried a few times with a growing delay. A finished file survives a
+     * cancelled dialog: until the state is reset, "Install Now" comes straight
+     * back without a second download.
      */
     suspend fun downloadApk(context: Context): Unit = withContext(Dispatchers.IO) {
         val info = _available.value ?: return@withContext
@@ -138,47 +172,94 @@ object AppUpdateChecker {
         downloadCancelled = false
         _download.value = DownloadState.Downloading(0f)
 
-        runCatching {
-            val dir = File(context.cacheDir, CACHE_SUBDIR).apply { mkdirs() }
-            // Drop anything left over from an earlier attempt.
-            dir.listFiles()?.forEach { it.delete() }
-            val target = File(dir, "bitchord-${info.version}.apk")
+        val dir = File(context.cacheDir, CACHE_SUBDIR).apply { mkdirs() }
+        val target = File(dir, "bitchord-${info.version}.apk")
+        val partial = File(dir, target.name + PARTIAL_SUFFIX)
+        // Drop anything that isn't this version's partial download.
+        dir.listFiles()?.forEach { if (it != partial) it.delete() }
 
-            val request = Request.Builder().url(url).build()
-            Http.client.newCall(request).execute().use { response ->
-                check(response.isSuccessful) { "Download failed: HTTP ${response.code}" }
-                val body = response.body ?: error("Empty download body")
-                val total = body.contentLength().takeIf { it > 0 }
+        var attempt = 0
+        while (true) {
+            try {
+                if (!transfer(url, partial)) {
+                    _download.value = DownloadState.Idle
+                    return@withContext
+                }
+                check(partial.renameTo(target)) { "Couldn't save the downloaded update" }
+                _download.value = DownloadState.Ready(target)
+                return@withContext
+            } catch (e: IOException) {
+                if (downloadCancelled) {
+                    _download.value = DownloadState.Idle
+                    return@withContext
+                }
+                if (++attempt > MAX_RETRIES) {
+                    _download.value = DownloadState.Failed(e.message ?: "Download failed")
+                    return@withContext
+                }
+                delay(RETRY_BASE_DELAY_MS shl (attempt - 1))
+            } catch (e: Exception) {
+                _download.value = if (downloadCancelled) {
+                    DownloadState.Idle
+                } else {
+                    DownloadState.Failed(e.message ?: "Download failed")
+                }
+                return@withContext
+            }
+        }
+    }
 
-                body.byteStream().use { input ->
-                    target.outputStream().use { output ->
-                        val buffer = ByteArray(64 * 1024)
-                        var readTotal = 0L
-                        while (true) {
-                            if (downloadCancelled) {
-                                _download.value = DownloadState.Idle
-                                return@withContext
-                            }
-                            val read = input.read(buffer)
-                            if (read == -1) break
-                            output.write(buffer, 0, read)
-                            readTotal += read
-                            total?.let {
-                                _download.value =
-                                    DownloadState.Downloading((readTotal.toFloat() / it).coerceIn(0f, 1f))
-                            }
+    /**
+     * One pass at fetching [url] into [partial], continuing from whatever is
+     * already there. Returns false if the user cancelled (the partial file is
+     * left for a later resume), true once the file is complete, and throws
+     * [IOException] for anything worth another attempt.
+     */
+    internal fun transfer(url: String, partial: File): Boolean {
+        val have = partial.length()
+        val request = Request.Builder().url(url)
+            .apply { if (have > 0) header("Range", "bytes=$have-") }
+            .build()
+        Http.client.newCall(request).execute().use { response ->
+            if (response.code == 416) {
+                // The server has nothing past what we hold: either the partial
+                // is already the whole file, or it doesn't belong to this file.
+                val size = response.header("Content-Range")?.substringAfter("/")?.toLongOrNull()
+                if (size == have) return true
+                partial.delete()
+                throw IOException("Download restarted")
+            }
+            if (response.code >= 500) throw IOException("Download failed: HTTP ${response.code}")
+            check(response.isSuccessful) { "Download failed: HTTP ${response.code}" }
+            val body = response.body ?: throw IOException("Empty download body")
+
+            // 206 continues the partial file; a plain 200 means the server
+            // ignored the Range header and is sending everything again.
+            val resumed = response.code == 206 && have > 0
+            val offset = if (resumed) have else 0L
+            val remaining = body.contentLength().takeIf { it > 0 }
+            val total = remaining?.let { it + offset }
+
+            var written = offset
+            body.byteStream().use { input ->
+                java.io.FileOutputStream(partial, resumed).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        if (downloadCancelled) return false
+                        val read = input.read(buffer)
+                        if (read == -1) break
+                        output.write(buffer, 0, read)
+                        written += read
+                        total?.let {
+                            _download.value =
+                                DownloadState.Downloading((written.toFloat() / it).coerceIn(0f, 1f))
                         }
                     }
                 }
             }
-            _download.value = DownloadState.Ready(target)
-        }.onFailure { error ->
-            _download.value = if (downloadCancelled) {
-                DownloadState.Idle
-            } else {
-                DownloadState.Failed(error.message ?: "Download failed")
-            }
+            if (total != null && written != total) throw IOException("Connection closed early")
         }
+        return true
     }
 
     /** Stops an in-flight download; the next read loop sees this and bails. */

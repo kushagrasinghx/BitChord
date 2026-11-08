@@ -16,6 +16,8 @@ import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.MixBlend
 import com.music.bitchord.data.settings.MixTransitionView
 import com.music.bitchord.data.settings.TransitionWindow
+import com.music.bitchord.playback.SectionLoop
+import com.music.bitchord.playback.SectionLoopState
 import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -149,6 +151,9 @@ interface PlayerHost {
      * Whether lines can be put on a share card here. False hides the pick mode
      * altogether rather than offering a mode with nowhere to put its result.
      */
+    /** Whether A-B section looping is available (false when in party, casting, or watch output). */
+    val sectionLoopAvailable: StateFlow<Boolean> get() = DefaultSectionLoopAvailable
+
     val lyricsShareAvailable: Boolean get() = false
 
     /**
@@ -158,6 +163,8 @@ interface PlayerHost {
     @Composable
     fun LyricsShareSheet(hazeState: HazeState, request: LyricsShareRequest, onDismiss: () -> Unit) = Unit
 }
+
+private val DefaultSectionLoopAvailable = MutableStateFlow(true)
 
 private val NoCast = MutableStateFlow(CastUi())
 
@@ -281,6 +288,8 @@ interface PlayerSettingsSource {
     /** The next transition as planned, while the mix popup is open between blends; null otherwise. */
     val smartMixPreview: StateFlow<MixTransitionView?>
     val smartTransitionWindow: StateFlow<TransitionWindow?>
+    val activeSectionLoop: StateFlow<SectionLoop?>
+    val sectionLoopState: StateFlow<SectionLoopState>
     val spotifyCanvasAutoHide: StateFlow<Boolean>
     val syncedLyrics: StateFlow<Boolean>
     val translationLanguage: StateFlow<String>

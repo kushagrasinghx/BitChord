@@ -28,6 +28,7 @@ import com.music.bitchord.data.model.NOTIFICATION_ART_PX
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.model.artworkAt
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.data.sources.SourceRegistry
@@ -72,6 +73,8 @@ data class PlayerState(
     val hasNext: Boolean = false,
     /** True while the current item is the replacement installed by a quality upgrade. */
     val isQualityUpgraded: Boolean = false,
+    val sectionLoop: SectionLoop? = null,
+    val sectionLoopState: SectionLoopState = SectionLoopState.Idle,
 )
 
 /** Binds to [PlaybackService] for the lifetime of the composition. */
@@ -185,6 +188,47 @@ fun MediaController.swapToVersion(targetSong: Song) {
     sendCustomCommand(
         SessionCommand(ACTION_SWAP_VERSION, Bundle.EMPTY),
         bundleOf(EXTRA_SWAP_MEDIA_ITEM to targetSong.toSongBundle()),
+    )
+}
+
+/** Sets an A-B section loop range on the current track. */
+fun MediaController.setSectionLoop(startMs: Long, endMs: Long) {
+    sendCustomCommand(
+        SessionCommand(ACTION_SET_SECTION_LOOP, Bundle.EMPTY),
+        bundleOf(
+            EXTRA_SECTION_LOOP_START_MS to startMs,
+            EXTRA_SECTION_LOOP_END_MS to endMs,
+        ),
+    )
+}
+
+/** Sets Point A of an A-B section loop on the current track. */
+fun MediaController.setSectionLoopPointA(startMs: Long) {
+    sendCustomCommand(
+        SessionCommand(ACTION_SET_SECTION_LOOP, Bundle.EMPTY),
+        bundleOf(
+            EXTRA_SECTION_LOOP_START_MS to startMs,
+            EXTRA_SECTION_LOOP_END_MS to -1L,
+        ),
+    )
+}
+
+/** Sets Point B of an A-B section loop on the current track. */
+fun MediaController.setSectionLoopPointB(endMs: Long) {
+    sendCustomCommand(
+        SessionCommand(ACTION_SET_SECTION_LOOP, Bundle.EMPTY),
+        bundleOf(
+            EXTRA_SECTION_LOOP_START_MS to -1L,
+            EXTRA_SECTION_LOOP_END_MS to endMs,
+        ),
+    )
+}
+
+/** Clears any active section loop on the current track. */
+fun MediaController.clearSectionLoop() {
+    sendCustomCommand(
+        SessionCommand(ACTION_CLEAR_SECTION_LOOP, Bundle.EMPTY),
+        Bundle.EMPTY,
     )
 }
 
@@ -304,6 +348,17 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
     val position = remember { PlaybackPosition() }
     var state by remember { mutableStateOf(PlayerState(position = position)) }
 
+    LaunchedEffect(controller) {
+        AppSettings.activeSectionLoop.collect { loop ->
+            state = state.copy(sectionLoop = loop)
+        }
+    }
+    LaunchedEffect(controller) {
+        AppSettings.sectionLoopState.collect { loopState ->
+            state = state.copy(sectionLoopState = loopState)
+        }
+    }
+
     DisposableEffect(controller) {
         val player = controller ?: return@DisposableEffect onDispose {}
 
@@ -356,6 +411,8 @@ fun rememberPlayerState(controller: MediaController?): PlayerState {
                 hasNext = player.hasNextMediaItem(),
                 isQualityUpgraded = item?.mediaMetadata?.extras
                     ?.getBoolean(EXTRA_QUALITY_UPGRADED) == true,
+                sectionLoop = AppSettings.activeSectionLoop.value,
+                sectionLoopState = AppSettings.sectionLoopState.value,
             )
         }
 

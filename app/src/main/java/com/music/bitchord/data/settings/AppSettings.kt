@@ -15,6 +15,8 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
+import com.music.bitchord.playback.SectionLoop
+import com.music.bitchord.playback.SectionLoopState
 import kotlinx.coroutines.flow.MutableStateFlow
 
 
@@ -881,6 +883,8 @@ object AppSettings {
      * a marker that slides around the bar would be worse than no marker.
      */
     val smartTransitionWindow = MutableStateFlow<TransitionWindow?>(null)
+    val activeSectionLoop = MutableStateFlow<SectionLoop?>(null)
+    val sectionLoopState = MutableStateFlow<SectionLoopState>(SectionLoopState.Idle)
 
     /**
      * A temporary cap on [effectiveAudioQuality], for as long as something other

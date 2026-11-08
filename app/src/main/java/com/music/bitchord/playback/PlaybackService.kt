@@ -231,6 +231,15 @@ const val ACTION_COMMIT_RADIO_QUEUE = "com.music.bitchord.action.COMMIT_RADIO_QU
 /** Session command behind the player menu's "Upgrade quality". */
 const val ACTION_UPGRADE_QUALITY = "com.music.bitchord.action.UPGRADE_QUALITY"
 
+/** Session commands controlling A-B section looping. */
+const val ACTION_SET_SECTION_LOOP = "com.music.bitchord.action.SET_SECTION_LOOP"
+const val ACTION_CLEAR_SECTION_LOOP = "com.music.bitchord.action.CLEAR_SECTION_LOOP"
+const val EXTRA_SECTION_LOOP_START_MS = "com.music.bitchord.extra.SECTION_LOOP_START_MS"
+const val EXTRA_SECTION_LOOP_END_MS = "com.music.bitchord.extra.SECTION_LOOP_END_MS"
+
+private const val SECTION_LOOP_TICK_MS = 20L
+private const val PAUSED_LOOP_TICK_MS = 200L
+
 /**
  * App-side gate for explicit quality retries.
  *
@@ -791,6 +800,8 @@ class PlaybackService : MediaLibraryService() {
     private val upgradeQualityCommand = SessionCommand(ACTION_UPGRADE_QUALITY, Bundle.EMPTY)
     private val swapVersionCommand = SessionCommand(ACTION_SWAP_VERSION, Bundle.EMPTY)
     private val queueDragCommand = SessionCommand(ACTION_QUEUE_DRAG, Bundle.EMPTY)
+    private val setSectionLoopCommand = SessionCommand(ACTION_SET_SECTION_LOOP, Bundle.EMPTY)
+    private val clearSectionLoopCommand = SessionCommand(ACTION_CLEAR_SECTION_LOOP, Bundle.EMPTY)
 
     private var favoriteActionJob: Job? = null
     private var stationActionJob: Job? = null
@@ -1838,6 +1849,7 @@ class PlaybackService : MediaLibraryService() {
                 .distinctUntilChanged()
                 .collect { inParty ->
                     if (wasInParty && !inParty) rebuildBoundedContextAfterParty()
+                    if (inParty) clearSectionLoop()
                     wasInParty = inParty
                 }
         }
@@ -1871,6 +1883,22 @@ class PlaybackService : MediaLibraryService() {
         // whose queue is already restored.
         CastController.ensureStarted(this)
         CastController.attach(castPlayback)
+        scope.launch {
+            CastController.state
+                .map { it.casting }
+                .distinctUntilChanged()
+                .collect { isCasting ->
+                    if (isCasting) clearSectionLoop()
+                }
+        }
+        scope.launch {
+            WearBridge.watchOutput
+                .map { it.active }
+                .distinctUntilChanged()
+                .collect { isWatchActive ->
+                    if (isWatchActive) clearSectionLoop()
+                }
+        }
     }
 
     private fun newSessionPlayer(player: Player, crossfade: CrossfadeController) = SessionPlayer(
@@ -1976,6 +2004,7 @@ class PlaybackService : MediaLibraryService() {
                 }
             },
             versionSwapActive = { versionSwapJob?.isActive == true },
+            sectionLoopActive = { activeSectionLoop != null },
             // Direct Source Stream fetches the next track only in the last
             // seconds before the blend, so the marker waits for its audio:
             // a window shown over a track that may still fall back to YouTube
@@ -2201,6 +2230,7 @@ class PlaybackService : MediaLibraryService() {
         val currentIndex = activePlayer.currentMediaItemIndex
         if (currentIndex !in 0 until activePlayer.mediaItemCount) return
         val currentItem = activePlayer.currentMediaItem ?: return
+        clearSectionLoop()
         // Listen Together plays the one track every member has, and a version
         // swap is a purely local choice about which cut of it to hear — see
         // [ListenTogether]'s own note on why Automix stays off in a party for
@@ -2658,6 +2688,7 @@ class PlaybackService : MediaLibraryService() {
         }
 
         OriginalVersion.pin(song.videoId)
+        clearSectionLoop()
         val position = activePlayer.currentPosition
         val wasPlaying = activePlayer.isPlaying
         swappingMediaId = song.videoId
@@ -2672,6 +2703,128 @@ class PlaybackService : MediaLibraryService() {
      * This is called from the UI when the user wants to switch between
      * video and audio versions of a track.
      */
+    private val sectionLoopMachine = SectionLoopStateMachine()
+    val activeSectionLoop: SectionLoop? get() = sectionLoopMachine.activeLoop
+
+    private var sectionLoopTickerJob: Job? = null
+    private var isSeekingToLoopStart = false
+    private var seekDispatchedAt = 0L
+
+    fun canLoopSection(): Boolean {
+        if (ListenTogether.state.value.inParty) return false
+        if (CastController.state.value.casting || castPlayback.active) return false
+        if (WearBridge.watchOutput.value.active) return false
+        return true
+    }
+
+    fun setSectionLoop(startMs: Long, endMs: Long, durationMs: Long? = null): Boolean {
+        if (!canLoopSection()) return false
+        val dur = durationMs ?: player?.duration?.takeIf { it > 0L }
+        val success = sectionLoopMachine.setRange(startMs, endMs, dur)
+        if (success) {
+            val loop = sectionLoopMachine.activeLoop
+            AppSettings.activeSectionLoop.value = loop
+            AppSettings.sectionLoopState.value = sectionLoopMachine.state
+            crossfade?.cancelTransitionForLoop()
+            startSectionLoopTicker()
+            val pos = player?.currentPosition ?: 0L
+            if (loop != null && pos >= loop.endMs) {
+                isSeekingToLoopStart = true
+                seekDispatchedAt = SystemClock.elapsedRealtime()
+                player?.seekTo(loop.startMs)
+            }
+        }
+        return success
+    }
+
+    fun setSectionLoopPointA(positionMs: Long): Boolean {
+        if (!canLoopSection()) return false
+        val dur = player?.duration?.takeIf { it > 0L }
+        val success = sectionLoopMachine.setPointA(positionMs, dur)
+        if (success) {
+            AppSettings.activeSectionLoop.value = sectionLoopMachine.activeLoop
+            AppSettings.sectionLoopState.value = sectionLoopMachine.state
+        }
+        return success
+    }
+
+    fun setSectionLoopPointB(positionMs: Long): Boolean {
+        if (!canLoopSection()) return false
+        val dur = player?.duration?.takeIf { it > 0L }
+        val success = sectionLoopMachine.setPointB(positionMs, dur)
+        if (success) {
+            val loop = sectionLoopMachine.activeLoop
+            AppSettings.activeSectionLoop.value = loop
+            AppSettings.sectionLoopState.value = sectionLoopMachine.state
+            crossfade?.cancelTransitionForLoop()
+            startSectionLoopTicker()
+            val pos = player?.currentPosition ?: 0L
+            if (loop != null && pos >= loop.endMs) {
+                isSeekingToLoopStart = true
+                seekDispatchedAt = SystemClock.elapsedRealtime()
+                player?.seekTo(loop.startMs)
+            }
+        }
+        return success
+    }
+
+    fun clearSectionLoop() {
+        sectionLoopMachine.clear()
+        AppSettings.activeSectionLoop.value = null
+        AppSettings.sectionLoopState.value = SectionLoopState.Idle
+        stopSectionLoopTicker()
+    }
+
+    private fun setSectionLoopFromSession(args: Bundle) {
+        val startMs = args.getLong(EXTRA_SECTION_LOOP_START_MS, -1L)
+        val endMs = args.getLong(EXTRA_SECTION_LOOP_END_MS, -1L)
+        when {
+            startMs >= 0L && endMs >= 0L -> setSectionLoop(startMs, endMs)
+            startMs >= 0L && endMs < 0L -> setSectionLoopPointA(startMs)
+            startMs < 0L && endMs >= 0L -> setSectionLoopPointB(endMs)
+            else -> clearSectionLoop()
+        }
+    }
+
+    private fun startSectionLoopTicker() {
+        sectionLoopTickerJob?.cancel()
+        val activePlayer = player ?: return
+
+        sectionLoopTickerJob = scope.launch {
+            while (isActive && sectionLoopMachine.isLoopActive) {
+                if (!canLoopSection()) {
+                    clearSectionLoop()
+                    break
+                }
+                val currentLoop = sectionLoopMachine.activeLoop ?: break
+                val currentPos = activePlayer.currentPosition
+                val isPlaying = activePlayer.isPlaying
+
+                if (isSeekingToLoopStart && (currentPos < currentLoop.endMs || SystemClock.elapsedRealtime() - seekDispatchedAt > 1000L)) {
+                    isSeekingToLoopStart = false
+                }
+
+                if (!isSeekingToLoopStart) {
+                    val wrapTarget = evaluateLoopWrap(currentPos, currentLoop, isPlaying)
+                    if (wrapTarget != null) {
+                        isSeekingToLoopStart = true
+                        seekDispatchedAt = SystemClock.elapsedRealtime()
+                        activePlayer.seekTo(wrapTarget)
+                    }
+                }
+
+                delay(if (isPlaying) SECTION_LOOP_TICK_MS else PAUSED_LOOP_TICK_MS)
+            }
+        }
+    }
+
+    private fun stopSectionLoopTicker() {
+        sectionLoopTickerJob?.cancel()
+        sectionLoopTickerJob = null
+        isSeekingToLoopStart = false
+        seekDispatchedAt = 0L
+    }
+
     private fun swapCurrentToVersion(args: Bundle) {
         val activePlayer = player ?: return
         val index = activePlayer.currentMediaItemIndex
@@ -2682,6 +2835,7 @@ class PlaybackService : MediaLibraryService() {
         val targetIsVideo = args.getBoolean("targetIsVideo", false)
 
         if (targetVideoId == null || targetVideoId == song.videoId) return
+        clearSectionLoop()
 
         val position = activePlayer.currentPosition
         val wasPlaying = activePlayer.isPlaying
@@ -3637,6 +3791,7 @@ class PlaybackService : MediaLibraryService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        clearSectionLoop()
         syncBoundedContextCursor(exoPlayer, mediaItem)
         if (boundedContextWindow != null && !ListenTogether.state.value.inParty) {
             saveBoundedContextSnapshot(exoPlayer)
@@ -7821,6 +7976,7 @@ class PlaybackService : MediaLibraryService() {
 
 
     override fun onDestroy() {
+        clearSectionLoop()
         WearBridge.attachStreams(null)
         WearBridge.releaseSpeaker()
         // Let go of the receiver's player but leave its session alone: a
@@ -8639,6 +8795,8 @@ class PlaybackService : MediaLibraryService() {
                 .add(upgradeQualityCommand)
                 .add(swapVersionCommand)
                 .add(queueDragCommand)
+                .add(setSectionLoopCommand)
+                .add(clearSectionLoopCommand)
                 .build()
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailablePlayerCommands(MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS)
@@ -8674,6 +8832,8 @@ class PlaybackService : MediaLibraryService() {
                 ACTION_BEGIN_RADIO_QUEUE -> beginRadioQueue()
                 ACTION_COMMIT_RADIO_QUEUE -> player?.let(::saveQueueSnapshotImmediately)
                 ACTION_UPGRADE_QUALITY -> upgradeQualityNow()
+                ACTION_SET_SECTION_LOOP -> setSectionLoopFromSession(args)
+                ACTION_CLEAR_SECTION_LOOP -> clearSectionLoop()
                 ACTION_SWAP_VERSION -> {
                     val bundle = args.getBundle(EXTRA_SWAP_MEDIA_ITEM)
                     if (bundle != null) {

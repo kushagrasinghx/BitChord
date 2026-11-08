@@ -92,6 +92,8 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val smartMixProgress get() = AppSettings.smartMixProgress
         override val smartMixPreview get() = AppSettings.smartMixPreview
         override val smartTransitionWindow get() = AppSettings.smartTransitionWindow
+        override val activeSectionLoop get() = AppSettings.activeSectionLoop
+        override val sectionLoopState get() = AppSettings.sectionLoopState
         override val spotifyCanvasAutoHide get() = AppSettings.spotifyCanvasAutoHide
         override val syncedLyrics get() = AppSettings.syncedLyrics
         override val translationLanguage get() = AppSettings.translationLanguage
@@ -158,6 +160,16 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         WearBridge.watchOutput
             .map { WatchOutputUi(available = it.available, name = it.name, active = it.active) }
             .stateIn(scope, SharingStarted.Eagerly, WatchOutputUi())
+    }
+
+    override val sectionLoopAvailable: StateFlow<Boolean> by lazy {
+        combine(
+            ListenTogether.state,
+            CastController.state,
+            WearBridge.watchOutput,
+        ) { party, cast, watch ->
+            !party.inParty && !cast.casting && !watch.active
+        }.stateIn(scope, SharingStarted.Eagerly, true)
     }
 
     override fun refreshWatchOutput() = WearBridge.refreshWatchOutput(app)

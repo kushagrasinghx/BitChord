@@ -92,8 +92,12 @@ internal fun AudioOutputSheet(
     val outputs = rememberAudioOutputs()
     val cast by PlayerPlatform.host.castState.collectAsStateWithLifecycle()
     val watch by PlayerPlatform.host.watchOutput.collectAsStateWithLifecycle()
-    // A watch comes and goes; ask again each time the drawer opens.
-    LaunchedEffect(Unit) { PlayerPlatform.host.refreshWatchOutput() }
+    val networkSpeakers by PlayerPlatform.host.networkSpeakers.collectAsStateWithLifecycle()
+    // A watch, or a speaker on the Wi-Fi, comes and goes; ask again each time the drawer opens.
+    LaunchedEffect(Unit) {
+        PlayerPlatform.host.refreshWatchOutput()
+        PlayerPlatform.host.refreshNetworkSpeakers()
+    }
 
     PlayerDrawer(
         hazeState = hazeState,
@@ -123,6 +127,11 @@ internal fun AudioOutputSheet(
             // directly, since there is only ever the one.
             if (watch.available || watch.active) {
                 WatchRow(watch = watch, onClick = { PlayerPlatform.host.selectWatchOutput() })
+            }
+            // DLNA / UPnP speakers on the Wi-Fi: each one picked directly, like
+            // the watch, since they are found without a picker of their own.
+            networkSpeakers.forEach { speaker ->
+                NetworkSpeakerRow(speaker = speaker, onClick = { PlayerPlatform.host.selectNetworkSpeaker(speaker.id) })
             }
             if (cast.supported) CastRow(cast = cast, onClick = onOpenCast)
         }
@@ -282,9 +291,28 @@ private fun CastRow(cast: CastUi, onClick: () -> Unit) {
  * is what it is.
  */
 @Composable
-private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
+private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) = ReceiverRow(
+    icon = Icons.Rounded.Watch,
+    title = watch.name?.takeIf(String::isNotBlank) ?: stringResource(Res.string.watch_output),
+    subtitle = stringResource(if (watch.active) Res.string.audio_output_playing else Res.string.watch_output_subtitle),
+    active = watch.active,
+    onClick = onClick,
+)
+
+/** A DLNA / UPnP speaker on the Wi-Fi, drawn like the watch: lit, with a check, while it is the one playing. */
+@Composable
+private fun NetworkSpeakerRow(speaker: NetworkSpeakerUi, onClick: () -> Unit) = ReceiverRow(
+    icon = Icons.Rounded.Speaker,
+    title = speaker.name,
+    subtitle = stringResource(if (speaker.active) Res.string.audio_output_playing else Res.string.network_speaker_subtitle),
+    active = speaker.active,
+    onClick = onClick,
+)
+
+/** A receiver picked directly from the drawer — the watch, a network speaker. */
+@Composable
+private fun ReceiverRow(icon: ImageVector, title: String, subtitle: String, active: Boolean, onClick: () -> Unit) {
     val haptics = rememberHaptics()
-    val active = watch.active
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -309,7 +337,7 @@ private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Watch,
+                imageVector = icon,
                 contentDescription = null,
                 tint = Color.White.copy(alpha = if (active) 1f else 0.7f),
                 modifier = Modifier.size(21.dp),
@@ -318,7 +346,7 @@ private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
             Text(
-                text = watch.name?.takeIf(String::isNotBlank) ?: stringResource(Res.string.watch_output),
+                text = title,
                 style = MaterialTheme.typography.bodyLarge.copy(
                     fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 ),
@@ -328,7 +356,7 @@ private fun WatchRow(watch: WatchOutputUi, onClick: () -> Unit) {
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = stringResource(if (active) Res.string.audio_output_playing else Res.string.watch_output_subtitle),
+                text = subtitle,
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.55f),
                 maxLines = 1,

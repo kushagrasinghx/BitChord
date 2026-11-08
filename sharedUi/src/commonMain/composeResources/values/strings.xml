@@ -22,6 +22,7 @@
     <string name="cast_row_subtitle">Chromecast and Google Cast speakers</string>
     <string name="watch_output">Watch</string>
     <string name="watch_output_subtitle">Play on your watch’s speaker or headphones</string>
+    <string name="network_speaker_subtitle">Network speaker (DLNA)</string>
     <string name="channel_count">%1$d ch</string>
     <string name="choose_lyrics_provider">Choose lyrics provider</string>
     <string name="clear">Clear</string>

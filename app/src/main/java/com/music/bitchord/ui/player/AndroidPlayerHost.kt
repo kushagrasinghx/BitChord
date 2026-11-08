@@ -29,6 +29,7 @@ import com.music.bitchord.playback.AudioRouting
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.playback.audio.bitperfect.DacVolume
 import com.music.bitchord.playback.cast.CastController
+import com.music.bitchord.playback.dlna.DlnaOutput
 import com.music.bitchord.ui.components.backdrop.backdrops.SnapshotBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.rememberSnapshotBackdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.snapshotBackdropSource
@@ -138,9 +139,10 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         val outputs = rememberAndroidAudioOutputs()
         val cast by CastController.state.collectAsStateWithLifecycle()
         val watch by WearBridge.watchOutput.collectAsStateWithLifecycle()
+        val dlna by DlnaOutput.state.collectAsStateWithLifecycle()
         // While a receiver is the speaker no output of this phone is the one
-        // playing, so none of them is lit; the Cast or watch row is.
-        return if (cast.casting || watch.active) outputs.map { it.copy(isActive = false) } else outputs
+        // playing, so none of them is lit; the Cast, watch or network speaker row is.
+        return if (cast.casting || watch.active || dlna.active) outputs.map { it.copy(isActive = false) } else outputs
     }
 
     @Composable
@@ -152,6 +154,7 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         if (CastController.state.value.casting) CastController.disconnect(resumeHere = true)
         AudioRouting.select(id)
         WearBridge.leaveWatchOutput()
+        DlnaOutput.leave(resumeHere = true)
     }
 
     override val watchOutput: StateFlow<WatchOutputUi> by lazy {
@@ -166,7 +169,25 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         // One speaker at a time: a receiver lets go first, quietly, and the
         // watch picks the queue up from where the phone's player is.
         if (CastController.state.value.casting) CastController.disconnect(resumeHere = false)
+        DlnaOutput.leave(resumeHere = false)
         WearBridge.selectWatchOutput()
+    }
+
+    override val networkSpeakers: StateFlow<List<NetworkSpeakerUi>> by lazy {
+        DlnaOutput.state
+            .map { state -> state.devices.map { NetworkSpeakerUi(id = it.id, name = it.name, active = it.id == state.activeId) } }
+            .stateIn(scope, SharingStarted.Eagerly, emptyList())
+    }
+
+    override fun refreshNetworkSpeakers() = DlnaOutput.refresh()
+
+    override fun selectNetworkSpeaker(id: String) {
+        // One speaker at a time: a Cast receiver lets go quietly; the watch
+        // hands the music back to the phone (playing on if it was), and the
+        // renderer picks the queue up from there.
+        if (CastController.state.value.casting) CastController.disconnect(resumeHere = false)
+        WearBridge.leaveWatchOutput()
+        DlnaOutput.select(id)
     }
 
     override val outputFormat: StateFlow<OutputFormatUi> by lazy {
@@ -307,12 +328,15 @@ private class CastAwareVolume(
             else -> phone
         }
     }
+        // A network speaker is one more receiver; at most one of them plays at a time.
+        .combine(DlnaOutput.state) { level, dlna -> if (dlna.active) dlna.volume else level }
         .stateIn(scope, SharingStarted.Eagerly, system.level.value)
 
     override fun set(level: Float) {
         when {
             CastController.state.value.casting -> CastController.setVolume(level)
             WearBridge.watchOutput.value.active -> WearBridge.setWatchVolume(level)
+            DlnaOutput.state.value.active -> DlnaOutput.setVolume(level)
             DacVolume.level.value != null -> DacVolume.set(level)
             else -> system.set(level)
         }

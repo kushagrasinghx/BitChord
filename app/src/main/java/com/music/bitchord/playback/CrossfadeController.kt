@@ -206,6 +206,7 @@ class CrossfadeController(
      * [Phase.IDLE] is the only phase that can still be preempted for free.
      */
     private val versionSwapActive: () -> Boolean = { false },
+    private val sectionLoopActive: () -> Boolean = { false },
     /** Invoked after [finish] has completed cleanup and returned to IDLE. */
     private val onSettled: () -> Unit = {},
     /**
@@ -642,6 +643,15 @@ class CrossfadeController(
      */
     fun isTransitioning(): Boolean = phase != Phase.IDLE
 
+    /** Cancels any armed or in-progress transition when a section loop is activated. */
+    fun cancelTransitionForLoop() {
+        if (phase != Phase.IDLE) {
+            bail()
+        }
+        AppSettings.smartTransitionWindow.value = null
+        AppSettings.smartMixInProgress.value = false
+    }
+
     /** Applies the listener's speed without exposing AudioTrack's parameter-change click. */
     fun applyPlaybackSpeed(speed: Float) {
         if (isTransitioning()) return
@@ -911,7 +921,7 @@ class CrossfadeController(
         val step = if (AppSettings.mixViewOpen.value) IDLE_STEP_MS else PAUSED_MARKER_STEP_MS
         if (now - pausedMarkerAt < step) return
         pausedMarkerAt = now
-        if (versionSwapActive() || ListenTogether.state.value.inParty) return
+        if (versionSwapActive() || sectionLoopActive() || ListenTogether.state.value.inParty) return
         if (!player.hasNextMediaItem() || player.repeatMode == Player.REPEAT_MODE_ONE) return
         // A queue restored paused is not prepared yet, so the player has no
         // duration until play: the runtime the item was queued with stands in,
@@ -946,7 +956,11 @@ class CrossfadeController(
         // party case below: a version swap is a between-tracks affair on the
         // same item, so the transition window and mix flag it would have
         // armed still describe the next track correctly once the swap lets go.
-        if (versionSwapActive()) return
+        if (versionSwapActive() || sectionLoopActive()) {
+            AppSettings.smartTransitionWindow.value = null
+            AppSettings.smartMixInProgress.value = false
+            return
+        }
         // Not while listening together. A blend starts the next track early, by
         // a length this device decides for itself from its own copy of the
         // audio — so in a party every member would begin the next song at a

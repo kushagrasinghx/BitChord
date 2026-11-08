@@ -1460,4 +1460,9 @@
     <string name="diwali_title">BitChord की ओर से दीपावली की शुभकामनाएँ</string>
     <string name="diwali_subtitle">रोशनी का यह त्योहार आपके घर को खुशियों से और आपके दिनों को संगीत से भर दे।</string>
     <string name="diwali_cta">चलो जश्न मनाएँ</string>
+    <string name="loop_section">सेक्शन लूप करें</string>
+    <string name="clear_loop">लूप हटाएं</string>
+    <string name="loop_active">लूप सक्रिय</string>
+    <string name="loop_in_lyrics">गीत के बोल में लूप</string>
+    <string name="loop_in_lyrics_subtitle">सेक्शन लूप करने के लिए सिंक किए गए बोल की पंक्तियां चुनें</string>
 </resources>

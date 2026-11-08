@@ -1396,4 +1396,9 @@
     <string name="bit_perfect_status_inexact">%1$s · non esatto: questa sorgente non è PCM lossless</string>
     <string name="bit_perfect_status_waiting">In attesa di un brano lossless su un\'uscita supportata</string>
     <string name="bit_perfect_status_unavailable">Non disponibile per questo brano (%1$s)</string>
+    <string name="loop_section">Ripeti sezione</string>
+    <string name="clear_loop">Rimuovi loop</string>
+    <string name="loop_active">Loop attivo</string>
+    <string name="loop_in_lyrics">Loop nei testi</string>
+    <string name="loop_in_lyrics_subtitle">Seleziona righe nei testi per ripetere una sezione</string>
 </resources>

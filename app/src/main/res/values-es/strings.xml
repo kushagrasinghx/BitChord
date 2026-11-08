@@ -1429,4 +1429,9 @@
     <string name="bit_perfect_status_inexact">%1$s · no exacto: esta fuente no es PCM sin pérdida</string>
     <string name="bit_perfect_status_waiting">Esperando una pista sin pérdida en una salida compatible</string>
     <string name="bit_perfect_status_unavailable">No disponible para esta pista (%1$s)</string>
+    <string name="loop_section">Repetir sección</string>
+    <string name="clear_loop">Quitar bucle</string>
+    <string name="loop_active">Bucle activo</string>
+    <string name="loop_in_lyrics">Bucle en letras</string>
+    <string name="loop_in_lyrics_subtitle">Selecciona líneas en las letras para repetir una sección</string>
 </resources>

@@ -1462,4 +1462,9 @@
     <string name="bit_perfect_status_inexact">%1$s · não exato: esta fonte não é PCM sem perdas</string>
     <string name="bit_perfect_status_waiting">Aguardando uma faixa sem perdas em uma saída compatível</string>
     <string name="bit_perfect_status_unavailable">Indisponível para esta faixa (%1$s)</string>
+    <string name="loop_section">Repetir seção</string>
+    <string name="clear_loop">Limpar repetição</string>
+    <string name="loop_active">Repetição ativa</string>
+    <string name="loop_in_lyrics">Repetir nas letras</string>
+    <string name="loop_in_lyrics_subtitle">Selecione linhas nas letras para repetir uma seção</string>
 </resources>

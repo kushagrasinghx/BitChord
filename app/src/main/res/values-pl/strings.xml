@@ -1497,4 +1497,9 @@
     <string name="bit_perfect_status_inexact">%1$s · niedokładne: to źródło nie jest bezstratnym PCM</string>
     <string name="bit_perfect_status_waiting">Oczekiwanie na bezstratny utwór na obsługiwanym wyjściu</string>
     <string name="bit_perfect_status_unavailable">Niedostępne dla tego utworu (%1$s)</string>
+    <string name="loop_section">Pętla fragmentu</string>
+    <string name="clear_loop">Wyczyść pętlę</string>
+    <string name="loop_active">Pętla aktywna</string>
+    <string name="loop_in_lyrics">Pętla w tekście</string>
+    <string name="loop_in_lyrics_subtitle">Zaznacz wersy w tekście, aby zapętlić fragment</string>
 </resources>

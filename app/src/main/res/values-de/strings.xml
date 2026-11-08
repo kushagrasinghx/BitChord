@@ -1457,4 +1457,9 @@
     <string name="bit_perfect_status_inexact">%1$s · nicht exakt: Diese Quelle ist kein verlustfreies PCM</string>
     <string name="bit_perfect_status_waiting">Warte auf einen verlustfreien Titel an einem unterstützten Ausgang</string>
     <string name="bit_perfect_status_unavailable">Für diesen Titel nicht verfügbar (%1$s)</string>
+    <string name="loop_section">Abschnitt wiederholen</string>
+    <string name="clear_loop">Schleife löschen</string>
+    <string name="loop_active">Schleife aktiv</string>
+    <string name="loop_in_lyrics">Schleife in Songtexten</string>
+    <string name="loop_in_lyrics_subtitle">Zeilen im Songtext auswählen, um einen Abschnitt zu wiederholen</string>
 </resources>

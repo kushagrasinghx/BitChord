@@ -176,6 +176,9 @@ fun SongActionsMenu(
      * the player passes one only while Automix is on.
      */
     onAutomixOverview: (() -> Unit)? = null,
+    /** Toggles A-B section loop mode or clears an active section loop. */
+    onToggleSectionLoop: (() -> Unit)? = null,
+    isSectionLoopActive: Boolean = false,
     /**
      * True while a lookup for this track's album/artist ids is still in
      * flight, so it isn't yet known whether "Open album" and "Open artist"
@@ -377,7 +380,7 @@ fun SongActionsMenu(
 
         // The player's own: about the track playing right now rather than
         // about the song as a thing in a library.
-        if (showSleepTimer || onLyricsOffset != null || onAutomixOverview != null || onCopyLog != null) {
+        if (showSleepTimer || onLyricsOffset != null || onAutomixOverview != null || onToggleSectionLoop != null || onCopyLog != null) {
             if (startsGroup()) IosMenuSeparator()
             if (showSleepTimer) {
                 ActionRow(
@@ -386,6 +389,15 @@ fun SongActionsMenu(
                     value = sleepTimerStatus(),
                     accent = palette.accent,
                 ) { pickingSleepTimer = true }
+            }
+            onToggleSectionLoop?.let {
+                ActionRow(
+                    icon = SfIcons.Cached,
+                    label = stringResource(if (isSectionLoopActive) R.string.clear_loop else R.string.loop_section),
+                    value = if (isSectionLoopActive) stringResource(R.string.loop_active) else null,
+                    accent = palette.accent,
+                    onClick = it,
+                )
             }
             // The same popup "Mixing" opens mid-blend, on the transition
             // still to come.

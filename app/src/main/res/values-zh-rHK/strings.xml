@@ -1434,4 +1434,9 @@
     <string name="download_addon_not_allowed">%1$s 不允許下載，因此你的歌曲將從其他來源儲存。</string>
     <string name="download_addon_needs_lossless_output">%1$s 僅在連接有線、USB 或 LDAC 等級耳機時提供音樂。在連接此類耳機前，下載會略過它，因此你的歌曲將從其他來源儲存。</string>
     <string name="source_downloads_on">允許下載</string>
+    <string name="loop_section">片段循環</string>
+    <string name="clear_loop">清除循環</string>
+    <string name="loop_active">循環中</string>
+    <string name="loop_in_lyrics">歌詞循環片段</string>
+    <string name="loop_in_lyrics_subtitle">在歌詞中選擇行以循環播放片段</string>
 </resources>

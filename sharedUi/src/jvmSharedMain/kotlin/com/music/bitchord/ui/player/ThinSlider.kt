@@ -93,12 +93,18 @@ fun ThinSlider(
      * unplayed bar so the mix is visible before it arrives.
      */
     transitionWindow: ClosedFloatingPointRange<Float>? = null,
+    /**
+     * Span of the track, as fractions of its duration, that the active A-B section
+     * loop occupies. Takes visual precedence over [transitionWindow] when active.
+     */
+    loopRegion: ClosedFloatingPointRange<Float>? = null,
     idleHeight: Dp = 7.dp,
     activeHeight: Dp = 12.dp,
     activeColor: Color = Color.White.copy(alpha = 0.92f),
     inactiveColor: Color = Color.White.copy(alpha = 0.26f),
     /** Halfway between the two track colours: visible against unplayed, invisible under played. */
     markerColor: Color = Color.White.copy(alpha = 0.5f),
+    loopColor: Color = Color.White.copy(alpha = 0.55f),
 ) {
     var dragging by remember { mutableStateOf(false) }
     val height by animateDpAsState(
@@ -141,6 +147,15 @@ fun ThinSlider(
         targetValue = if (transitionWindow != null) 1f else 0f,
         animationSpec = tween(durationMillis = WINDOW_FADE_MS, easing = FastOutSlowInEasing),
         label = "transitionWindowAlpha",
+    )
+    var shownLoopRegion by remember { mutableStateOf(loopRegion) }
+    LaunchedEffect(loopRegion) {
+        if (loopRegion != null) shownLoopRegion = loopRegion
+    }
+    val loopAlpha by animateFloatAsState(
+        targetValue = if (loopRegion != null) 1f else 0f,
+        animationSpec = tween(durationMillis = WINDOW_FADE_MS, easing = FastOutSlowInEasing),
+        label = "loopRegionAlpha",
     )
     val fillFactor by animateFloatAsState(
         targetValue = if (sheenVisible) 0f else 1f,
@@ -197,34 +212,60 @@ fun ThinSlider(
             // a blend has no hard edge in time, so the marker shouldn't either.
             // It is painted across the bar's own capsule, so its ends dissolve
             // into the track instead of sitting on it as a second pill.
-            shownWindow?.takeIf { windowAlpha > 0f }?.let { window ->
-                val from = size.width * window.start.coerceIn(0f, 1f)
-                val to = size.width * window.endInclusive.coerceIn(0f, 1f)
-                val span = to - from
-                if (span > 0f) {
-                    val feather = (span * WINDOW_FEATHER_SHARE)
-                        .coerceIn(WINDOW_FEATHER_MIN.toPx(), WINDOW_FEATHER_MAX.toPx())
-                        .coerceAtMost(span / 2f)
-                    val f = feather / span
-                    val full = markerColor.alpha * windowAlpha
-                    // Smoothstep down each feather: no slope break where the
-                    // ramp meets the flat middle, so there is no line for the
-                    // eye to catch at either end.
-                    val ramp = (0..WINDOW_FEATHER_STEPS).map { step ->
-                        val t = step / WINDOW_FEATHER_STEPS.toFloat()
-                        t to markerColor.copy(alpha = full * t * t * (3f - 2f * t))
-                    }
-                    val stops = ramp.map { (t, c) -> f * t to c } +
-                        ramp.reversed().map { (t, c) -> 1f - f * t to c }
+            // A-B Section Loop highlight: drawn across the track capsule between Point A and Point B.
+            // Takes visual precedence over Automix transitionWindow.
+            shownLoopRegion?.takeIf { loopAlpha > 0f }?.let { loop ->
+                val fromFrac = loop.start.coerceIn(0f, 1f)
+                val toFrac = loop.endInclusive.coerceIn(0f, 1f)
+                if (toFrac > fromFrac) {
+                    val bandAlpha = loopColor.alpha * loopAlpha
+                    val stops = arrayOf(
+                        0f to Color.Transparent,
+                        (fromFrac - 0.0001f).coerceAtLeast(0f) to Color.Transparent,
+                        fromFrac to loopColor.copy(alpha = bandAlpha),
+                        toFrac to loopColor.copy(alpha = bandAlpha),
+                        (toFrac + 0.0001f).coerceAtMost(1f) to Color.Transparent,
+                        1f to Color.Transparent,
+                    )
                     drawRoundRect(
                         brush = Brush.horizontalGradient(
-                            colorStops = stops.toTypedArray(),
-                            startX = from,
-                            endX = to,
+                            colorStops = stops,
+                            startX = 0f,
+                            endX = size.width,
                         ),
                         size = size,
                         cornerRadius = radius,
                     )
+                }
+            }
+            // Automix transition window: suppressed when an A-B section loop is displayed.
+            if (loopAlpha < 1f) {
+                shownWindow?.takeIf { windowAlpha > 0f }?.let { window ->
+                    val from = size.width * window.start.coerceIn(0f, 1f)
+                    val to = size.width * window.endInclusive.coerceIn(0f, 1f)
+                    val span = to - from
+                    if (span > 0f) {
+                        val feather = (span * WINDOW_FEATHER_SHARE)
+                            .coerceIn(WINDOW_FEATHER_MIN.toPx(), WINDOW_FEATHER_MAX.toPx())
+                            .coerceAtMost(span / 2f)
+                        val f = feather / span
+                        val full = markerColor.alpha * windowAlpha * (1f - loopAlpha)
+                        val ramp = (0..WINDOW_FEATHER_STEPS).map { step ->
+                            val t = step / WINDOW_FEATHER_STEPS.toFloat()
+                            t to markerColor.copy(alpha = full * t * t * (3f - 2f * t))
+                        }
+                        val stops = ramp.map { (t, c) -> f * t to c } +
+                            ramp.reversed().map { (t, c) -> 1f - f * t to c }
+                        drawRoundRect(
+                            brush = Brush.horizontalGradient(
+                                colorStops = stops.toTypedArray(),
+                                startX = from,
+                                endX = to,
+                            ),
+                            size = size,
+                            cornerRadius = radius,
+                        )
+                    }
                 }
             }
             // While a blend runs the whole bar is the fill, outgoing song and
@@ -251,6 +292,40 @@ fun ThinSlider(
                     ),
                     cornerRadius = radius,
                 )
+            }
+            // Boundary tick pins at Point A and Point B:
+            // Drawn over the track and played fill with a high-contrast backing so they
+            // read sharply against both dark unplayed tracks and bright white played fill.
+            shownLoopRegion?.takeIf { loopAlpha > 0f }?.let { loop ->
+                val fromFrac = loop.start.coerceIn(0f, 1f)
+                val toFrac = loop.endInclusive.coerceIn(0f, 1f)
+                if (toFrac > fromFrac) {
+                    val pinWidth = 2.dp.toPx()
+                    val pinRadius = CornerRadius(1.dp.toPx())
+                    val shadowExtra = 1.dp.toPx()
+                    val shadowRadius = CornerRadius(1.5.dp.toPx())
+
+                    val pins = listOf(fromFrac, toFrac)
+                    for (frac in pins) {
+                        val centerX = size.width * frac
+                        val pinLeft = (centerX - pinWidth / 2f).coerceIn(0f, (size.width - pinWidth).coerceAtLeast(0f))
+                        val shadowLeft = (centerX - (pinWidth + 2 * shadowExtra) / 2f)
+                            .coerceIn(0f, (size.width - (pinWidth + 2 * shadowExtra)).coerceAtLeast(0f))
+
+                        drawRoundRect(
+                            color = Color.Black.copy(alpha = 0.38f * loopAlpha),
+                            topLeft = androidx.compose.ui.geometry.Offset(shadowLeft, 0f),
+                            size = Size(pinWidth + 2 * shadowExtra, size.height),
+                            cornerRadius = shadowRadius,
+                        )
+                        drawRoundRect(
+                            color = Color.White.copy(alpha = 0.95f * loopAlpha),
+                            topLeft = androidx.compose.ui.geometry.Offset(pinLeft, 0f),
+                            size = Size(pinWidth, size.height),
+                            cornerRadius = pinRadius,
+                        )
+                    }
+                }
             }
         }
         // Composed only while switching or mixing. The infinite animation therefore costs no

@@ -1489,4 +1489,9 @@
     <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
     <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
     <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
+    <string name="loop_section">Зациклить фрагмент</string>
+    <string name="clear_loop">Сбросить петлю</string>
+    <string name="loop_active">Петля активна</string>
+    <string name="loop_in_lyrics">Зацикливание в тексте</string>
+    <string name="loop_in_lyrics_subtitle">Выбирайте строки в тексте для повтора фрагмента</string>
 </resources>

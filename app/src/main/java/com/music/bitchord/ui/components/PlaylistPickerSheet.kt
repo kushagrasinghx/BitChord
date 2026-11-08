@@ -55,7 +55,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -95,7 +94,7 @@ import kotlinx.coroutines.launch
  *
  * Playlists are ticked rather than picked: one track often belongs in more
  * than one list, and a sheet that closed on the first tap meant opening it
- * again for each. [onAdd] gets every ticked playlist at once.
+ * again for each. [onSave] receives only changed playlists.
  *
  * [offline] is the same sheet over the device's own playlists, for a track
  * that is a file on it: nothing is saved to the account, so the new-playlist
@@ -106,17 +105,27 @@ import kotlinx.coroutines.launch
 fun PlaylistPickerSheet(
     playlists: List<UserPlaylist>,
     loading: Boolean,
-    onAdd: (List<UserPlaylist>) -> Unit,
+    onSave: (List<UserPlaylist>, List<UserPlaylist>, Int) -> Unit,
     onCreate: (String, PlaylistPrivacy) -> Unit,
     onDismiss: () -> Unit,
+    loadMembership: suspend (UserPlaylist, Song) -> Result<Boolean> = { _, _ -> Result.failure(IllegalStateException("No membership source")) },
+    initialMembership: Map<String, Boolean> = emptyMap(),
+    discoveryError: Boolean = false,
+    onRetryDiscovery: () -> Unit = {},
     song: Song? = null,
     startCreating: Boolean = false,
     offline: Boolean = false,
 ) {
     var creating by remember { mutableStateOf(startCreating) }
-    // By id rather than by value: the list is re-fetched under an open sheet,
-    // and a refreshed row must stay ticked.
-    var selected by remember { mutableStateOf(emptySet<String>()) }
+    // Draft edits are separate from confirmed answers; an unknown is never false.
+    var initial by remember { mutableStateOf(initialMembership) }
+    var draft by remember { mutableStateOf(emptyMap<String, Boolean>()) }
+    var pendingTap by remember { mutableStateOf(emptySet<String>()) }
+    var failed by remember { mutableStateOf(emptySet<String>()) }
+    var retries by remember { mutableStateOf(emptyMap<String, Int>()) }
+    LaunchedEffect(initialMembership) {
+        if (offline) initial = initialMembership
+    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -167,13 +176,17 @@ fun PlaylistPickerSheet(
                     leadingIcon = SfIcons.Close,
                     leadingDescription = stringResource(R.string.close),
                     onLeading = { closeAfter {} },
-                    confirmDescription = if (selected.isEmpty()) {
-                        stringResource(R.string.add_to_playlist)
-                    } else {
-                        pluralStringResource(R.plurals.add_to_playlists_count, selected.size, selected.size)
+                    confirmDescription = stringResource(R.string.save),
+                    confirmEnabled = true,
+                    onConfirm = {
+                        closeAfter {
+                            onSave(
+                                playlists.filter { initial[it.playlistId] == false && draft[it.playlistId] == true },
+                                playlists.filter { initial[it.playlistId] == true && draft[it.playlistId] == false },
+                                pendingTap.size,
+                            )
+                        }
                     },
-                    confirmEnabled = selected.isNotEmpty(),
-                    onConfirm = { closeAfter { onAdd(playlists.filter { it.playlistId in selected }) } },
                 )
                 if (song != null) {
                     SheetTrackHeader(song)
@@ -189,6 +202,15 @@ fun PlaylistPickerSheet(
                     label = stringResource(R.string.new_playlist),
                     onClick = { creating = true },
                 )
+
+                if (discoveryError) {
+                    Text(
+                        text = stringResource(R.string.retry),
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.clickable(onClick = onRetryDiscovery)
+                            .padding(horizontal = 22.dp, vertical = 8.dp),
+                    )
+                }
 
                 when {
                     // Only while there is nothing to show: re-fetching under a
@@ -224,12 +246,39 @@ fun PlaylistPickerSheet(
                             contentPadding = WindowInsets.navigationBars.asPaddingValues(),
                         ) {
                             items(playlists, key = { it.playlistId }) { playlist ->
-                                val ticked = playlist.playlistId in selected
+                                val id = playlist.playlistId
+                                val retry = retries[id] ?: 0
+                                LaunchedEffect(id, song?.videoId, retry) {
+                                    if (!offline && song != null && id !in initial && id !in failed) {
+                                        loadMembership(playlist, song).fold(
+                                            onSuccess = { present ->
+                                                initial = initial + (id to present)
+                                                if (id in pendingTap) {
+                                                    draft = draft + (id to !present)
+                                                    pendingTap = pendingTap - id
+                                                }
+                                            },
+                                            onFailure = { failed = failed + id },
+                                        )
+                                    }
+                                }
+                                val ticked = draft[id] ?: initial[id]
                                 PlaylistRow(
                                     playlist = playlist,
                                     selected = ticked,
+                                    failed = id in failed,
                                     onClick = {
-                                        selected = if (ticked) selected - playlist.playlistId else selected + playlist.playlistId
+                                        if (ticked == null) {
+                                            if (id in failed) {
+                                                pendingTap = pendingTap + id
+                                                failed = failed - id
+                                                retries = retries + (id to retry + 1)
+                                            } else {
+                                                pendingTap = if (id in pendingTap) pendingTap - id else pendingTap + id
+                                            }
+                                        } else {
+                                            draft = draft + (id to !ticked)
+                                        }
                                     },
                                 )
                             }
@@ -285,7 +334,7 @@ private fun SheetTopBar(
 }
 
 @Composable
-private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -> Unit) {
+private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean?, failed: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -322,12 +371,16 @@ private fun PlaylistRow(playlist: UserPlaylist, selected: Boolean, onClick: () -
             }
         }
         Spacer(Modifier.width(12.dp))
-        Icon(
-            imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-            contentDescription = null,
-            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp),
-        )
+        when {
+            failed -> Text(stringResource(R.string.retry), color = MaterialTheme.colorScheme.error)
+            selected == null -> Text("…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> Icon(
+                imageVector = if (selected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp),
+            )
+        }
     }
 }
 

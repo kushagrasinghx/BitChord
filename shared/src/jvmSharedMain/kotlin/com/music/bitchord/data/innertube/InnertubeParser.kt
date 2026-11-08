@@ -582,21 +582,35 @@ object InnertubeParser {
      * playlist-shaped in scope (an album, say), so callers fall back to the
      * generic walk.
      */
-    fun parsePlaylistShelf(root: JsonElement): PlaylistShelfPage? {
+    fun parsePlaylistShelf(root: JsonElement, preserveDuplicates: Boolean = false): PlaylistShelfPage? {
         val scope: JsonElement = root.o("continuationContents")
             ?: root.o("contents").o("twoColumnBrowseResultsRenderer").o("secondaryContents")
+            ?: root.o("contents").o("singleColumnBrowseResultsRenderer")
             ?: return null
         val playlistScope = scope.o("musicPlaylistShelfContinuation")
             ?: collectRenderers(scope, "musicPlaylistShelfRenderer").firstOrNull()
         val suggestionShelves = collectRenderers(scope, "musicShelfRenderer")
             .filter { it.o("title").runs() == "Suggestions" }
+        if (preserveDuplicates && playlistScope == null) return null
         if (playlistScope == null && suggestionShelves.isEmpty()) return null
+
+        if (preserveDuplicates && playlistScope!!.a("contents") == null) error("playlist contents unavailable")
+        if (preserveDuplicates && playlistScope.a("contents").orEmpty().any { item ->
+                item.o("musicResponsiveListItemRenderer") == null &&
+                    item.o("continuationItemRenderer") == null
+            }) error("unsupported playlist entry")
 
         val pageCredit = pageCredit(root)
         val songs = playlistScope?.let { playlist ->
-            collectRenderers(playlist, "musicResponsiveListItemRenderer")
-                .mapNotNull { parseResponsiveListItem(it, pageCredit) }
-                .distinctBy { it.videoId }
+            val rows = collectRenderers(playlist, "musicResponsiveListItemRenderer")
+                .mapNotNull { row ->
+                    val song = parseResponsiveListItem(row, pageCredit)
+                    if (preserveDuplicates && (song == null || song.setVideoId.isNullOrBlank())) {
+                        error("unreadable playlist entry")
+                    }
+                    song
+                }
+            if (preserveDuplicates) rows else rows.distinctBy { it.videoId }
         }.orEmpty()
         val knownSongs = songs.mapTo(HashSet()) { it.videoId }
         val suggested = suggestionShelves

@@ -18,7 +18,9 @@ import { hrefFor } from '@/components/music/links';
 import { config } from '@/config';
 import { LIBRARY_SECTIONS, type LibrarySection } from '@/data/music/library';
 import { useLibraryPlaylists, useSignedIn } from '@/data/music/queries';
+import { useDeezerPlaylists } from '@/data/deezer/queries';
 import { useSpotifyPlaylists } from '@/data/spotify/queries';
+import { useDeezerSignedIn } from '@/extension/useDeezerAuth';
 import { useExtensionUpdate } from '@/extension/useExtensionUpdate';
 import { useSpotifySignedIn } from '@/extension/useSpotifyAuth';
 import { useUi } from '@/state/ui';
@@ -133,6 +135,34 @@ function SpotifyNav({ onNavigate }: { onNavigate: () => void }) {
   );
 }
 
+/** Deezer's playlists, once the extension can read them as the user. */
+function DeezerNav({ onNavigate }: { onNavigate: () => void }) {
+  const playlists = useDeezerPlaylists();
+  return (
+    <>
+      <h2 className={sectionHeader}>Deezer</h2>
+      <ul className={list}>
+        <li>
+          <PrefetchNavLink to="/deezer" end className={item} onClick={onNavigate}>
+            <AllPlaylistsIcon size={24} className={icon} />
+            <span className={navLabel}>All Deezer Playlists</span>
+          </PrefetchNavLink>
+        </li>
+        {playlists.data?.map((playlist) => (
+          <li key={playlist.id}>
+            <PrefetchNavLink to={`/deezer/playlist/${encodeURIComponent(playlist.id)}`} className={item} onClick={onNavigate}>
+              <span className={icon}>
+                <ListMusic size={17} strokeWidth={1.8} />
+              </span>
+              <span className={navLabel}>{playlist.name}</span>
+            </PrefetchNavLink>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 /** The left glass sidebar (report §1). */
 export function Sidebar() {
   const drawerOpen = useUi((s) => s.drawerOpen);
@@ -140,6 +170,7 @@ export function Sidebar() {
   const update = useExtensionUpdate();
   const signedIn = useSignedIn();
   const spotifySignedIn = useSpotifySignedIn();
+  const deezerSignedIn = useDeezerSignedIn();
   const close = () => setDrawerOpen(false);
 
   return (
@@ -161,6 +192,7 @@ export function Sidebar() {
           <NavList items={PRIMARY} onNavigate={close} />
           {signedIn && <LibraryNav onNavigate={close} />}
           {spotifySignedIn && <SpotifyNav onNavigate={close} />}
+          {deezerSignedIn && <DeezerNav onNavigate={close} />}
         </div>
         <div className="flex flex-col gap-2 pt-3 pr-3 pb-5 pl-5">
           <PrefetchNavLink to="/extension" className={item} onClick={close}>

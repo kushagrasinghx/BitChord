@@ -7,6 +7,7 @@ import {
   type ParamsOf,
   type ResultOf,
   type DiscordState,
+  type DeezerAuthState,
   type SpotifyAuthState,
   type YtAuthState,
 } from '@bitchord/shared/bridge';
@@ -134,6 +135,35 @@ function spotifyRow(state: SpotifyAuthState | null): HTMLLIElement {
   return row;
 }
 
+/** Deezer: the browser's www.deezer.com session, as for Spotify. */
+function deezerRow(state: DeezerAuthState | null): HTMLLIElement {
+  if (!state) return simpleRow('Deezer', 'Checking…');
+  const row = el('li', 'row account');
+  const who = el('span', 'who');
+  let action: HTMLElement;
+  if (!state.browserSignedIn) {
+    who.append(el('span', 'title', 'Deezer'), el('span', 'detail', 'Not signed in in this browser'));
+    action = button('Sign in', () => void call('deezer.signIn', {}));
+  } else if (!state.connected) {
+    who.append(el('span', 'title', 'Deezer'), el('span', 'detail', 'Disconnected'));
+    action = button('Connect', () => void call('deezer.setConnected', { connected: true }).then(setDeezer));
+  } else if (!state.signedIn) {
+    const detail = el('span', 'detail', 'Couldn’t read your account');
+    if (state.problem) detail.title = state.problem;
+    who.append(el('span', 'title', 'Deezer'), detail);
+    action = button('Retry', () => void call('deezer.authState', { refresh: true }).then(setDeezer));
+  } else {
+    who.append(el('span', 'title', state.user?.name ?? 'Deezer'), el('span', 'detail', 'Deezer'));
+    action = button(
+      'Disconnect',
+      () => void call('deezer.setConnected', { connected: false }).then(setDeezer),
+      'Stop using this account in BitChord. You stay signed in to Deezer.',
+    );
+  }
+  row.append(avatarOf(state.user?.avatarUrl), who, action);
+  return row;
+}
+
 /** Discord: connect on the extension's own page; presence itself is switched on in the web player. */
 function discordRow(state: DiscordState | null): HTMLLIElement | null {
   if (state && !state.available) return null;
@@ -165,6 +195,7 @@ function discordRow(state: DiscordState | null): HTMLLIElement | null {
 const list = document.getElementById('integrations')!;
 let youtubeState: YtAuthState | null = null;
 let spotifyState: SpotifyAuthState | null = null;
+let deezerState: DeezerAuthState | null = null;
 let discordStateNow: DiscordState | null = null;
 
 function render(): void {
@@ -174,6 +205,7 @@ function render(): void {
     youtube,
     ...(youtube.problemRow ? [youtube.problemRow] : []),
     spotifyRow(spotifyState),
+    deezerRow(deezerState),
     ...(discord ? [discord] : []),
   );
 }
@@ -184,6 +216,10 @@ function setYoutube(state: YtAuthState): void {
 }
 function setSpotify(state: SpotifyAuthState): void {
   spotifyState = state;
+  render();
+}
+function setDeezer(state: DeezerAuthState): void {
+  deezerState = state;
   render();
 }
 function setDiscord(state: DiscordState): void {
@@ -200,4 +236,5 @@ call('yt.authState', {})
   .then(setYoutube)
   .catch(() => list.replaceChildren(simpleRow('YouTube Music', 'Couldn’t read the session')));
 call('spotify.authState', {}).then(setSpotify).catch(() => undefined);
+call('deezer.authState', {}).then(setDeezer).catch(() => undefined);
 call('discord.state', {}).then(setDiscord).catch(() => undefined);

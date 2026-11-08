@@ -9,6 +9,8 @@ export function hrefFor(item: Pick<MusicItem, 'kind' | 'id'>): string | null {
       return `/playlist/${encodeURIComponent(item.id)}`;
     case 'spotify-playlist':
       return `/spotify/playlist/${encodeURIComponent(item.id)}`;
+    case 'deezer-playlist':
+      return `/deezer/playlist/${encodeURIComponent(item.id)}`;
     case 'artist':
       return `/artist/${encodeURIComponent(item.id)}`;
     case 'podcast':

@@ -151,3 +151,23 @@ export async function installDiscordFetchRule(): Promise<void> {
     ],
   });
 }
+
+/**
+ * Deezer, as its own web player: the extension's requests to www.deezer.com
+ * and api.deezer.com carry www.deezer.com's Origin and Referer. Non-tab
+ * requests only (tabId -1).
+ */
+const DEEZER_RULE_IDS = [500, 501];
+
+export async function installDeezerFetchRule(): Promise<void> {
+  const hosts = ['www.deezer.com', 'api.deezer.com'];
+  await browser.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: DEEZER_RULE_IDS,
+    addRules: hosts.map((host, i) => ({
+      id: DEEZER_RULE_IDS[i]!,
+      priority: 1,
+      condition: { urlFilter: `||${host}/`, tabIds: [-1], resourceTypes: ['xmlhttprequest'] },
+      action: { type: 'modifyHeaders', requestHeaders: impersonate('https://www.deezer.com').slice(0, 2) },
+    })),
+  });
+}

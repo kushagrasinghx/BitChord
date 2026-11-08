@@ -27,7 +27,7 @@ export default defineConfig({
   }),
   manifest: ({ browser }) => ({
     name: 'BitChord',
-    description: 'Connects the BitChord web player to YouTube Music, Spotify and Discord.',
+    description: 'Connects the BitChord web player to YouTube Music, Spotify, Deezer and Discord.',
     homepage_url: SITE_ORIGINS[0],
     // `cookies` reads the YouTube session for signed-in requests (phase 5);
     // the cookies themselves never leave the extension (lib/ytAuth.ts).
@@ -48,6 +48,9 @@ export default defineConfig({
       'https://api-partner.spotify.com/*',
       'https://clienttoken.spotify.com/*',
       'https://open.spotifycdn.com/*',
+      'https://www.deezer.com/*',
+      'https://deezer.com/*',
+      'https://api.deezer.com/*',
       ...matchPatternsFor(SITE_ORIGINS),
     ],
     // Granted at use time, on the extension's own pages: lyric providers the

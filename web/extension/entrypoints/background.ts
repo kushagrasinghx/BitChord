@@ -11,6 +11,7 @@ import {
   type Capability,
 } from '@bitchord/shared/bridge';
 import * as discord from '../lib/discord';
+import * as deezer from '../lib/deezer';
 import { grantedOrigins, lyricsFetch, requestOrigins } from '../lib/lyricsFetch';
 import { installRules } from '../lib/rules';
 import { authState, invalidateAccounts, isSessionCookie, selectChannel, setConnected } from '../lib/ytAuth';
@@ -24,7 +25,15 @@ const ALLOWED_ORIGINS = new Set(__SITE_ORIGINS__);
 const OWN_ORIGIN = new URL(browser.runtime.getURL('/')).origin;
 
 /** Grows as each phase lands its methods; Discord only in builds that include it. */
-const CAPABILITIES: Capability[] = ['yt', 'yt.auth', 'yt.stats', 'lyrics', 'spotify', ...(discord.AVAILABLE ? (['discord'] as const) : [])];
+const CAPABILITIES: Capability[] = [
+  'yt',
+  'yt.auth',
+  'yt.stats',
+  'lyrics',
+  'spotify',
+  'deezer',
+  ...(discord.AVAILABLE ? (['discord'] as const) : []),
+];
 
 function originOf(sender: Browser.runtime.MessageSender): string | null {
   if (sender.origin) return sender.origin;
@@ -43,7 +52,7 @@ function allowed(sender: Browser.runtime.MessageSender): boolean {
 function failure(id: string, error: unknown): BridgeResponse {
   const known = (error as { code?: string }).code;
   const code: BridgeErrorCode =
-    error instanceof spotify.SpotifyAuthError
+    error instanceof spotify.SpotifyAuthError || error instanceof deezer.DeezerAuthError
       ? 'unauthenticated'
       : known === 'forbidden' || known === 'unauthenticated' || known === 'permission'
       ? known
@@ -130,6 +139,31 @@ async function handle(request: BridgeRequest): Promise<BridgeResponse> {
         return okResponse<'spotify.canvas'>(request.id, {
           url: await spotify.canvas((request as BridgeRequest<'spotify.canvas'>).params.trackId),
         });
+      case 'deezer.authState': {
+        if ((request as BridgeRequest<'deezer.authState'>).params.refresh) deezer.invalidateSession();
+        return okResponse<'deezer.authState'>(request.id, await deezer.authState());
+      }
+      case 'deezer.setConnected': {
+        const state = await deezer.setConnected((request as BridgeRequest<'deezer.setConnected'>).params.connected === true);
+        broadcast({ event: 'deezer.authState', data: state });
+        return okResponse<'deezer.setConnected'>(request.id, state);
+      }
+      case 'deezer.signIn':
+        await browser.tabs.create({ url: 'https://www.deezer.com/login' });
+        return okResponse<'deezer.signIn'>(request.id, {});
+      case 'deezer.playlists': {
+        const { offset } = (request as BridgeRequest<'deezer.playlists'>).params;
+        return okResponse<'deezer.playlists'>(request.id, await deezer.playlists(offset ?? 0));
+      }
+      case 'deezer.tracks': {
+        const { playlistId, offset } = (request as BridgeRequest<'deezer.tracks'>).params;
+        return okResponse<'deezer.tracks'>(request.id, await deezer.tracks(playlistId, offset ?? 0));
+      }
+      case 'deezer.playlist':
+        return okResponse<'deezer.playlist'>(
+          request.id,
+          await deezer.playlistInfo((request as BridgeRequest<'deezer.playlist'>).params.playlistId),
+        );
       case 'discord.state':
         return okResponse<'discord.state'>(request.id, await discord.discordState());
       case 'discord.connect':
@@ -209,6 +243,7 @@ let lastPortTimer: ReturnType<typeof setTimeout> | undefined;
 /** A sign-in or sign-out elsewhere in the browser: re-read the accounts and tell the open pages. */
 let cookieTimer: ReturnType<typeof setTimeout> | undefined;
 let spotifyCookieTimer: ReturnType<typeof setTimeout> | undefined;
+let deezerCookieTimer: ReturnType<typeof setTimeout> | undefined;
 function onCookieChanged({ cookie }: Browser.cookies.CookieChangeInfo): void {
   if (spotify.isSessionCookie(cookie)) {
     spotify.invalidateSession();
@@ -218,6 +253,17 @@ function onCookieChanged({ cookie }: Browser.cookies.CookieChangeInfo): void {
         .authState()
         .then((data) => broadcast({ event: 'spotify.authState', data }))
         .catch((error: unknown) => console.warn('BitChord: reading the Spotify session failed', error));
+    }, 1000);
+    return;
+  }
+  if (deezer.isSessionCookie(cookie)) {
+    deezer.invalidateSession();
+    clearTimeout(deezerCookieTimer);
+    deezerCookieTimer = setTimeout(() => {
+      deezer
+        .authState()
+        .then((data) => broadcast({ event: 'deezer.authState', data }))
+        .catch((error: unknown) => console.warn('BitChord: reading the Deezer session failed', error));
     }, 1000);
     return;
   }

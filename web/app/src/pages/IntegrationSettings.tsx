@@ -13,6 +13,13 @@ import {
   type DiscordStatus,
 } from '@/extension/useDiscord';
 import {
+  openDeezerSignIn,
+  useDeezerAuth,
+  useRefreshDeezerAuth,
+  useSetDeezerConnected,
+  type DeezerAuthStatus,
+} from '@/extension/useDeezerAuth';
+import {
   openSpotifySignIn,
   useRefreshSpotifyAuth,
   useSetSpotifyConnected,
@@ -98,6 +105,39 @@ export function SpotifyIntegration() {
 }
 
 function spotifyText(auth: SpotifyAuthStatus): string {
+  if (auth.state === 'checking') return 'Checking…';
+  if (auth.state === 'unavailable') return 'Not available in this version yet';
+  const { browserSignedIn, connected, signedIn, user } = auth.auth;
+  if (!browserSignedIn) return 'Not signed in in this browser';
+  if (!connected) return 'Disconnected';
+  return signedIn ? `Signed in as ${user?.name ?? 'your account'}` : 'Couldn’t read your account';
+}
+
+/** The Deezer row's words and button (DeezerLibraryScreen's states). */
+export function DeezerIntegration() {
+  const auth = useDeezerAuth();
+  const connect = useSetDeezerConnected();
+  const retry = useRefreshDeezerAuth();
+  if (auth.state !== 'ready') return <span className={settingsUi.value}>{deezerText(auth)}</span>;
+  const { browserSignedIn, connected, signedIn } = auth.auth;
+  const action = !browserSignedIn
+    ? { label: 'Sign In', run: openDeezerSignIn }
+    : !connected
+      ? { label: 'Connect', run: () => connect.mutate(true) }
+      : !signedIn
+        ? { label: 'Retry', run: () => retry.mutate() }
+        : { label: 'Disconnect', run: () => connect.mutate(false) };
+  return (
+    <span className={settingsUi.value}>
+      <span title={auth.auth.problem ?? undefined}>{deezerText(auth)}</span>
+      <button className={settingsUi.inlineButton} onClick={action.run} disabled={connect.isPending || retry.isPending}>
+        {action.label}
+      </button>
+    </span>
+  );
+}
+
+function deezerText(auth: DeezerAuthStatus): string {
   if (auth.state === 'checking') return 'Checking…';
   if (auth.state === 'unavailable') return 'Not available in this version yet';
   const { browserSignedIn, connected, signedIn, user } = auth.auth;

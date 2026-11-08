@@ -16,7 +16,7 @@ export const BRIDGE_CHANNEL = 'bitchord-bridge';
 export const EVENTS_PORT = 'bitchord-events';
 
 /** What the installed extension can do; `ping` reports it. */
-export type Capability = 'yt' | 'yt.auth' | 'yt.stats' | 'addon' | 'lyrics' | 'spotify' | 'discord';
+export type Capability = 'yt' | 'yt.auth' | 'yt.stats' | 'addon' | 'lyrics' | 'spotify' | 'deezer' | 'discord';
 
 export type BrowserFamily = 'chromium' | 'firefox';
 
@@ -118,6 +118,45 @@ export interface SpotifyPage<T> {
   raw: number;
 }
 
+/** The browser's www.deezer.com session, as BitChord may use it. Names only, never tokens. */
+export interface DeezerAuthState {
+  /** The browser holds a Deezer session (an `arl` cookie). */
+  browserSignedIn: boolean;
+  /** "Disconnect" turns this off without signing out of Deezer. */
+  connected: boolean;
+  /** A session was opened for the account: library and playlists will work. */
+  signedIn: boolean;
+  user: { name: string; avatarUrl: string | null } | null;
+  /** Signed in to the browser but no session came back: what went wrong, for display. */
+  problem: string | null;
+}
+
+/** A playlist in the Deezer library; `id` is `loved` for Favorite Tracks. */
+export interface DeezerPlaylist {
+  id: string;
+  name: string;
+  owner: string | null;
+  imageUrl: string | null;
+}
+
+export interface DeezerTrack {
+  /** The Deezer track id. */
+  id: string;
+  title: string;
+  /** Credited artists, comma-separated. */
+  artist: string;
+  album: string | null;
+  durationMs: number;
+  imageUrl: string | null;
+}
+
+/** One page of a Deezer list: `raw` counts the entries before filtering, which is what advances the offset. */
+export interface DeezerPage<T> {
+  items: T[];
+  total: number;
+  raw: number;
+}
+
 /** Discord rich presence (prompt §7.2), when the build includes it. */
 export interface DiscordState {
   /** This build can publish a presence at all (the DISCORD_PRESENCE flag). */
@@ -162,6 +201,7 @@ export interface DiscordNowPlaying {
 export type BridgeEvent =
   | { event: 'yt.authState'; data: YtAuthState }
   | { event: 'spotify.authState'; data: SpotifyAuthState }
+  | { event: 'deezer.authState'; data: DeezerAuthState }
   | { event: 'discord.state'; data: DiscordState };
 
 /** A signed-in request is the same exchange with `auth` set; the extension adds the session. */
@@ -214,6 +254,19 @@ export interface BridgeMethods {
   'spotify.searchTracks': { params: { query: string }; result: SpotifyTrack[] };
   /** The track's looping canvas video, or null when it has none. */
   'spotify.canvas': { params: { trackId: string }; result: { url: string | null } };
+  /** `refresh` drops the cached session and asks Deezer again. */
+  'deezer.authState': { params: { refresh?: boolean }; result: DeezerAuthState };
+  'deezer.setConnected': { params: { connected: boolean }; result: DeezerAuthState };
+  /** Opens Deezer's sign-in in a tab; the state event follows once `arl` arrives. */
+  'deezer.signIn': { params: Record<string, never>; result: Record<string, never> };
+  /** The library's playlists; Favorite Tracks leads the first page. */
+  'deezer.playlists': { params: { offset: number }; result: DeezerPage<DeezerPlaylist> };
+  /** A playlist's (or Favorite Tracks') tracks, up to 200 at a time. */
+  'deezer.tracks': { params: { playlistId: string; offset: number }; result: DeezerPage<DeezerTrack> };
+  'deezer.playlist': {
+    params: { playlistId: string };
+    result: { name: string; owner: string | null; imageUrl: string | null; total: number };
+  };
   'discord.state': { params: Record<string, never>; result: DiscordState };
   /** Opens the extension's page that connects an account (asks for discord.com, reads the token there). */
   'discord.connect': { params: Record<string, never>; result: Record<string, never> };

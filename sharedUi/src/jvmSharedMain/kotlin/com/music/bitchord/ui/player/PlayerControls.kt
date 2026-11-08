@@ -1004,6 +1004,7 @@ private fun OutputPartyPill(
             onClick = if (badge.inParty) onOpenMembers else onParty,
             highlighted = badge.inParty,
             trailingLabel = badge.members.takeIf { badge.inParty }?.toString(),
+            vibrant = true,
         )
     }
 }

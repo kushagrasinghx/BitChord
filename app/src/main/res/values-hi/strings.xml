@@ -1460,4 +1460,13 @@
     <string name="diwali_title">BitChord की ओर से दीपावली की शुभकामनाएँ</string>
     <string name="diwali_subtitle">रोशनी का यह त्योहार आपके घर को खुशियों से और आपके दिनों को संगीत से भर दे।</string>
     <string name="diwali_cta">चलो जश्न मनाएँ</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">अपनी प्लेलिस्ट लोड करने के लिए साइन इन करें। प्लेबैक YouTube Music का उपयोग करता है।</string>
+    <string name="deezer_sign_in">Deezer के साथ साइन इन करें</string>
+    <string name="deezer_use_arl_token">ARL टोकन का उपयोग करें</string>
+    <string name="deezer_disconnect">डिस्कनेक्ट करें</string>
+    <string name="deezer_library_subtitle">आपकी Deezer प्लेलिस्ट</string>
+    <string name="deezer_arl_setup_description">साइन-इन किए गए ब्राउज़र सत्र से अपनी Deezer arl कुकी पेस्ट करें।</string>
+    <string name="deezer_arl_token_hint">arl टोकन</string>
+    <string name="deezer_favorite_tracks">पसंदीदा गाने</string>
 </resources>

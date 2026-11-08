@@ -1,10 +1,12 @@
 package com.music.bitchord.ui.screens
 
 import com.music.bitchord.ui.icons.SfIcons
+import com.music.bitchord.auth.clearDeezerWebSession
 import com.music.bitchord.auth.clearSpotifyWebSession
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.HorizontalDivider
 import com.music.bitchord.sharedui.resources.Res
+import com.music.bitchord.sharedui.resources.deezer_logo
 import com.music.bitchord.sharedui.resources.spotify_logo
 import org.jetbrains.compose.resources.painterResource
 import androidx.compose.foundation.layout.PaddingValues
@@ -47,6 +49,7 @@ fun AccountAndScrobblingScreen(
     onOpenLastfmLogin: () -> Unit,
     onOpenDiscord: () -> Unit,
     onOpenSpotify: () -> Unit,
+    onOpenDeezer: () -> Unit = {},
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
@@ -66,6 +69,7 @@ fun AccountAndScrobblingScreen(
     val discordUsername by AppSettings.discordUsername.collectAsStateWithLifecycle()
     val discordRpcEnabled by AppSettings.discordRpcEnabled.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val deezerConnected by AppSettings.deezerArlToken.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -120,6 +124,30 @@ fun AccountAndScrobblingScreen(
                     onClick = {
                         clearSpotifyWebSession()
                         AppSettings.setSpotifySpdcToken("")
+                    },
+                )
+            }
+        }
+
+        SettingsGroup(
+            header = stringResource(R.string.deezer),
+            footer = stringResource(R.string.deezer_connect_subtitle),
+        ) {
+            SettingsRow(
+                iconPainter = painterResource(Res.drawable.deezer_logo),
+                title = stringResource(R.string.deezer),
+                subtitle = stringResource(
+                    if (deezerConnected.isNotBlank()) R.string.connected else R.string.tap_to_connect,
+                ),
+                onClick = onOpenDeezer,
+            )
+            if (deezerConnected.isNotBlank()) {
+                FullWidthDivider()
+                DestructiveRow(
+                    label = stringResource(R.string.deezer_disconnect),
+                    onClick = {
+                        clearDeezerWebSession()
+                        AppSettings.setDeezerArlToken("")
                     },
                 )
             }

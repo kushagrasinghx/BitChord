@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.R
 import com.music.bitchord.sharedui.resources.Res
+import com.music.bitchord.sharedui.resources.deezer_logo
 import com.music.bitchord.sharedui.resources.spotify_logo
 import com.music.bitchord.data.model.ShelfItem
 import com.music.bitchord.data.settings.AppSettings
@@ -43,6 +44,7 @@ fun libraryLinks(): List<LibraryLink> {
     val smbShare by AppSettings.smbShare.collectAsStateWithLifecycle()
     val showCacheFolder by AppSettings.showCacheFolder.collectAsStateWithLifecycle()
     val spotifyConnected by AppSettings.spotifySpdcToken.collectAsStateWithLifecycle()
+    val deezerConnected by AppSettings.deezerArlToken.collectAsStateWithLifecycle()
     fun link(title: String, subtitle: String, browseId: String, icon: ImageVector = deviceFolderIcon(browseId) ?: Icons.Rounded.Cloud) = LibraryLink(
         item = ShelfItem(
             title = title,
@@ -89,6 +91,11 @@ fun libraryLinks(): List<LibraryLink> {
             stringResource(R.string.spotify_library_subtitle),
             SPOTIFY_BROWSE_ID,
         ).takeIf { spotifyConnected.isNotBlank() }?.copy(logo = Res.drawable.spotify_logo),
+        link(
+            stringResource(R.string.deezer),
+            stringResource(R.string.deezer_library_subtitle),
+            DEEZER_BROWSE_ID,
+        ).takeIf { deezerConnected.isNotBlank() }?.copy(logo = Res.drawable.deezer_logo),
     )
 }
 
@@ -134,6 +141,9 @@ fun deviceFolderIcon(browseId: String): ImageVector? = when (browseId) {
 
 /** The Library row that opens the connected Spotify account; handled by the app, not a browse page. */
 const val SPOTIFY_BROWSE_ID = "app:spotify"
+
+/** The Library row that opens the connected Deezer account; handled by the app, not a browse page. */
+const val DEEZER_BROWSE_ID = "app:deezer"
 
 /** The Cached songs folder's page id — one of the `local:` device folders. */
 const val CACHE_FOLDER_BROWSE_ID = "local:cache"

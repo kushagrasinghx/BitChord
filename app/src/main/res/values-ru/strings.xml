@@ -1489,4 +1489,13 @@
     <string name="bit_perfect_status_inexact">%1$s · неточно: этот источник не является PCM без потерь</string>
     <string name="bit_perfect_status_waiting">Ожидание трека без потерь на поддерживаемом выходе</string>
     <string name="bit_perfect_status_unavailable">Недоступно для этого трека (%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">Войдите, чтобы загрузить свои плейлисты. Воспроизведение идёт через YouTube Music.</string>
+    <string name="deezer_sign_in">Войти через Deezer</string>
+    <string name="deezer_use_arl_token">Использовать ARL-токен</string>
+    <string name="deezer_disconnect">Отключить</string>
+    <string name="deezer_library_subtitle">Ваши плейлисты Deezer</string>
+    <string name="deezer_arl_setup_description">Вставьте cookie arl из авторизованной сессии Deezer в браузере.</string>
+    <string name="deezer_arl_token_hint">Токен arl</string>
+    <string name="deezer_favorite_tracks">Любимые треки</string>
 </resources>

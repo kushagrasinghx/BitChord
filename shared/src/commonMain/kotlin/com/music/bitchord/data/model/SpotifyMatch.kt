@@ -8,11 +8,15 @@ package com.music.bitchord.data.model
  */
 const val SPOTIFY_PENDING_PREFIX = "sp:"
 const val SPOTIFY_MISSING_PREFIX = "sp-miss:"
+const val DEEZER_PENDING_PREFIX = "dz:"
+const val DEEZER_MISSING_PREFIX = "dz-miss:"
 
-/** Still looking for the YouTube Music version of this Spotify track. */
-val Song.isMatchPending: Boolean get() = videoId.startsWith(SPOTIFY_PENDING_PREFIX)
+/** Still looking for the YouTube Music version of this external track. */
+val Song.isMatchPending: Boolean
+    get() = videoId.startsWith(SPOTIFY_PENDING_PREFIX) || videoId.startsWith(DEEZER_PENDING_PREFIX)
 
 /** Looked, and there is no YouTube Music version to play. */
-val Song.isMatchMissing: Boolean get() = videoId.startsWith(SPOTIFY_MISSING_PREFIX)
+val Song.isMatchMissing: Boolean
+    get() = videoId.startsWith(SPOTIFY_MISSING_PREFIX) || videoId.startsWith(DEEZER_MISSING_PREFIX)
 
 val Song.isUnresolvedSpotify: Boolean get() = isMatchPending || isMatchMissing

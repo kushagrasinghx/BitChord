@@ -1462,4 +1462,13 @@
     <string name="bit_perfect_status_inexact">%1$s · não exato: esta fonte não é PCM sem perdas</string>
     <string name="bit_perfect_status_waiting">Aguardando uma faixa sem perdas em uma saída compatível</string>
     <string name="bit_perfect_status_unavailable">Indisponível para esta faixa (%1$s)</string>
+    <string name="deezer">Deezer</string>
+    <string name="deezer_connect_subtitle">Entre para carregar suas playlists. A reprodução usa o YouTube Music.</string>
+    <string name="deezer_sign_in">Entrar com o Deezer</string>
+    <string name="deezer_use_arl_token">Usar token ARL</string>
+    <string name="deezer_disconnect">Desconectar</string>
+    <string name="deezer_library_subtitle">Suas playlists do Deezer</string>
+    <string name="deezer_arl_setup_description">Cole o cookie arl do Deezer de uma sessão conectada no navegador.</string>
+    <string name="deezer_arl_token_hint">Token arl</string>
+    <string name="deezer_favorite_tracks">Faixas favoritas</string>
 </resources>

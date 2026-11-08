@@ -1247,7 +1247,7 @@ object AppSettings {
             )
         }
         synchronized(lock) {
-            runCatching {
+            val registered = runCatching {
                 manager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
                     override fun onAvailable(network: Network) = synchronized(lock) {
                         current = network
@@ -1266,8 +1266,8 @@ object AppSettings {
                         if (network == current) applyCapabilities(capabilities)
                     }
                 })
-            }
-            runCatching {
+            }.isSuccess
+            if (registered) runCatching {
                 current = manager.activeNetwork
                 val network = current
                 if (network == null) {
@@ -1278,6 +1278,7 @@ object AppSettings {
                     if (capabilities != null) applyCapabilities(capabilities)
                 }
             }
+            // Without callbacks a snapshot can become stale on a switch, so stay unknown.
         }
     }
 

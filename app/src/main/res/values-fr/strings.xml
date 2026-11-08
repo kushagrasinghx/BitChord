@@ -1458,4 +1458,7 @@
     <string name="bit_perfect_status_inexact">%1$s · inexact : cette source n\'est pas du PCM sans perte</string>
     <string name="bit_perfect_status_waiting">En attente d\'un morceau sans perte sur une sortie compatible</string>
     <string name="bit_perfect_status_unavailable">Indisponible pour ce morceau (%1$s)</string>
+    <string name="loop_section">Boucler la section</string>
+    <string name="clear_loop">Effacer la boucle</string>
+    <string name="loop_active">Boucle active</string>
 </resources>

@@ -1374,4 +1374,7 @@
     <string name="bit_perfect_status_inexact">%1$s · không chính xác: nguồn này không phải PCM lossless</string>
     <string name="bit_perfect_status_waiting">Đang chờ bản nhạc lossless trên đầu ra được hỗ trợ</string>
     <string name="bit_perfect_status_unavailable">Không khả dụng cho bản nhạc này (%1$s)</string>
+    <string name="loop_section">Lặp đoạn</string>
+    <string name="clear_loop">Xóa lặp</string>
+    <string name="loop_active">Đang lặp</string>
 </resources>

@@ -1435,4 +1435,7 @@
     <string name="bit_perfect_status_inexact">%1$s · 正確ではありません： このソースはロスレス PCM ではありません</string>
     <string name="bit_perfect_status_waiting">対応する出力でロスレスのトラックを待っています</string>
     <string name="bit_perfect_status_unavailable">このトラックでは利用できません（%1$s）</string>
+    <string name="loop_section">区間ループ</string>
+    <string name="clear_loop">ループを解除</string>
+    <string name="loop_active">ループ中</string>
 </resources>

@@ -1440,4 +1440,7 @@
     <string name="bit_perfect_status_inexact">%1$s · ไม่ตรงทุกบิต: แหล่งนี้ไม่ใช่ PCM แบบไม่สูญเสียคุณภาพ</string>
     <string name="bit_perfect_status_waiting">กำลังรอแทร็กแบบไม่สูญเสียคุณภาพบนเอาต์พุตที่รองรับ</string>
     <string name="bit_perfect_status_unavailable">ไม่พร้อมใช้งานสำหรับแทร็กนี้ (%1$s)</string>
+    <string name="loop_section">เล่นวนท่อน</string>
+    <string name="clear_loop">ยกเลิกการเล่นวน</string>
+    <string name="loop_active">กำลังเล่นวน</string>
 </resources>

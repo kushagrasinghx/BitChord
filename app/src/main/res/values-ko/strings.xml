@@ -1307,4 +1307,7 @@
     <string name="bit_perfect_status_inexact">%1$s · 정확하지 않음: 이 소스는 무손실 PCM이 아닙니다</string>
     <string name="bit_perfect_status_waiting">지원되는 출력에서 무손실 트랙을 기다리는 중</string>
     <string name="bit_perfect_status_unavailable">이 트랙에서 사용할 수 없음(%1$s)</string>
+    <string name="loop_section">구간 반복</string>
+    <string name="clear_loop">반복 해제</string>
+    <string name="loop_active">반복 중</string>
 </resources>

@@ -1462,4 +1462,7 @@
     <string name="bit_perfect_status_inexact">%1$s · לא מדויק: המקור הזה אינו PCM ללא אובדן</string>
     <string name="bit_perfect_status_waiting">ממתין לרצועת Lossless ביציאה נתמכת</string>
     <string name="bit_perfect_status_unavailable">לא זמין עבור רצועה זו (%1$s)</string>
+    <string name="loop_section">לולאת קטע</string>
+    <string name="clear_loop">נקה לולאה</string>
+    <string name="loop_active">לולאה פעילה</string>
 </resources>

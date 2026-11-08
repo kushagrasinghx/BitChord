@@ -92,6 +92,7 @@ class PlayerActions(
     val seekTo: (Long) -> Unit,
     val openQueue: () -> Unit,
     val openMore: () -> Unit,
+    val openLyrics: () -> Unit,
 )
 
 /**
@@ -250,8 +251,8 @@ fun NowPlayingScreen(
 
             Spacer(Modifier.height(h * 0.04f))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(w * 0.045f)) {
-                val chip = w * 0.155f
+            Row(horizontalArrangement = Arrangement.spacedBy(w * 0.035f)) {
+                val chip = if (np.canLike) w * 0.14f else w * 0.155f
                 val glyph = w * 0.075f
                 // Only where the phone's player shows one: signed in, not a local file.
                 if (np.canLike) GlyphButton(
@@ -262,6 +263,14 @@ fun NowPlayingScreen(
                     tint = if (np.liked) AccentRed else Color.White,
                     background = Color.White.copy(alpha = 0.14f),
                     onClick = actions.toggleLike,
+                )
+                GlyphButton(
+                    icon = R.drawable.ic_lyrics,
+                    description = stringResource(R.string.wear_lyrics),
+                    size = chip,
+                    iconSize = glyph,
+                    background = Color.White.copy(alpha = 0.14f),
+                    onClick = actions.openLyrics,
                 )
                 GlyphButton(
                     icon = R.drawable.ic_queue,

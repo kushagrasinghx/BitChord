@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_lyrics">Lyrics</string>
+    <string name="wear_lyrics_auto_sync">Auto sync</string>
+    <string name="wear_lyrics_auto_sync_waiting">Auto sync: measuring…</string>
+    <string name="wear_lyrics_close">Close</string>
+    <string name="wear_lyrics_extra_loading">Loading…</string>
+    <string name="wear_lyrics_extra_same">Nothing to convert</string>
+    <string name="wear_lyrics_extra_unavailable">Not available for this song</string>
+    <string name="wear_lyrics_keep_awake">Keep screen on</string>
+    <string name="wear_lyrics_keep_awake_on">Screen stays on</string>
+    <string name="wear_lyrics_loading">Loading lyrics</string>
+    <string name="wear_lyrics_none">No synced lyrics for this song.</string>
+    <string name="wear_lyrics_romanize">Latin script</string>
+    <string name="wear_lyrics_source">Lyrics source</string>
+    <string name="wear_lyrics_source_back">Back</string>
+    <string name="wear_lyrics_source_line">Line by line</string>
+    <string name="wear_lyrics_source_none">No source has synced lyrics for this song</string>
+    <string name="wear_lyrics_source_searching">Searching…</string>
+    <string name="wear_lyrics_source_word">Word by word</string>
+    <string name="wear_lyrics_translate">Translate</string>
+    <string name="wear_lyrics_tune_title">Sync</string>
+    <string name="wear_lyrics_waiting">Play a song in BitChord on your phone. Tap to reconnect.</string>
+</resources>

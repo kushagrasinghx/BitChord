@@ -152,6 +152,7 @@ import com.music.bitchord.playback.smart.VersionAudioAligner
 import com.music.bitchord.widget.MediaWidget
 import com.music.bitchord.widget.MediaWidgetSnapshot
 import com.music.bitchord.wear.WearBridge
+import com.music.bitchord.wear.WearLyricsSync
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -1283,6 +1284,10 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        WearLyricsSync.start(applicationContext)
+        WearLyricsSync.playhead = {
+            player?.let { WearLyricsSync.Playhead(it.currentPosition, it.isPlaying, it.playbackParameters.speed) }
+        }
 
         if (com.music.bitchord.data.innertube.Innertube.cookie == null) {
             com.music.bitchord.data.innertube.Innertube.cookie = com.music.bitchord.auth.AuthStore(this).cookie
@@ -7821,6 +7826,7 @@ class PlaybackService : MediaLibraryService() {
 
 
     override fun onDestroy() {
+        WearLyricsSync.stop(applicationContext)
         WearBridge.attachStreams(null)
         WearBridge.releaseSpeaker()
         // Let go of the receiver's player but leave its session alone: a
@@ -7929,6 +7935,7 @@ class PlaybackService : MediaLibraryService() {
         if (!AppSettings.syncedLyrics.value) {
             serviceLyrics = null
             stopLyricsTicker()
+            WearLyricsSync.publish(applicationContext, currentSong.videoId, currentSong.title, currentSong.artist, 0L, null, album = currentSong.albumName)
             return
         }
 
@@ -7956,6 +7963,7 @@ class PlaybackService : MediaLibraryService() {
             }
             withContext(Dispatchers.Main) {
                 serviceLyrics = lines
+                WearLyricsSync.publish(applicationContext, currentSong.videoId, currentSong.title, currentSong.artist, trackDurationMs, lines, album = currentSong.albumName)
                 if (player?.isPlaying == true) {
                     updateLyricSubtitle()
                 }

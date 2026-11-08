@@ -1268,15 +1268,13 @@ object AppSettings {
                 })
             }.isSuccess
             if (registered) runCatching {
-                current = manager.activeNetwork
-                val network = current
-                if (network == null) {
+                // Do not publish a snapshot of a newer network before queued
+                // callbacks for an older one: callbacks own connected state.
+                if (manager.activeNetwork == null) {
                     meteredConnection.value = null
                     networkTransport.value = NetworkTransport.OFFLINE
-                } else {
-                    val capabilities = manager.getNetworkCapabilities(network)
-                    if (capabilities != null) applyCapabilities(capabilities)
                 }
+                Unit
             }
             // Without callbacks a snapshot can become stale on a switch, so stay unknown.
         }

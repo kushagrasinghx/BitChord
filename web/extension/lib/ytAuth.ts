@@ -280,6 +280,18 @@ async function webSessionIndex(): Promise<string | null> {
   }
 }
 
+/** A display name is not an identity; channel accounts often omit the email field. */
+function accountKey(account: StoredAccount): string {
+  if (account.email) return `email:${account.email.trim().toLowerCase()}`;
+  // Stable channel identities also collapse fallback replies from invalid login indices.
+  const channels = [...new Set(account.channels.map((channel) =>
+    channel.pageId ? `page:${channel.pageId}` :
+    channel.handle?.startsWith('@') ? `handle:${channel.handle.toLowerCase()}` : null,
+  ).filter((identity): identity is string => identity !== null))].sort();
+  // Generic bylines (e.g. "No channel") cannot establish that two logins are the same.
+  return channels.length ? `channels:${JSON.stringify(channels)}` : `slot:${account.authUser}`;
+}
+
 async function readAccounts(): Promise<{ list: StoredAccount[]; webIndex: string | null }> {
   problem = null;
   const [results, webIndex] = await Promise.all([
@@ -290,7 +302,7 @@ async function readAccounts(): Promise<{ list: StoredAccount[]; webIndex: string
   const seen = new Set<string>();
   for (const { account } of results) {
     if (!account) continue;
-    const key = account.email ?? `${account.name}|${account.channels.map((c) => c.id.split(':')[1]).join(',')}`;
+    const key = accountKey(account);
     if (seen.has(key)) continue;
     seen.add(key);
     list.push(account);

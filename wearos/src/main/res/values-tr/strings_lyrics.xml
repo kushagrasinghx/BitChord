@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wear_lyrics">Sözler</string>
+    <string name="wear_lyrics_auto_sync">Otomatik senkron</string>
+    <string name="wear_lyrics_auto_sync_waiting">Otomatik senkron: ölçülüyor…</string>
+    <string name="wear_lyrics_close">Kapat</string>
+    <string name="wear_lyrics_extra_loading">Yükleniyor…</string>
+    <string name="wear_lyrics_extra_same">Dönüştürülecek bir şey yok</string>
+    <string name="wear_lyrics_extra_unavailable">Bu şarkı için yok</string>
+    <string name="wear_lyrics_keep_awake">Ekran açık kalsın</string>
+    <string name="wear_lyrics_keep_awake_on">Ekran açık kalıyor</string>
+    <string name="wear_lyrics_loading">Sözler yükleniyor</string>
+    <string name="wear_lyrics_none">Bu şarkı için senkronlu söz yok.</string>
+    <string name="wear_lyrics_romanize">Latin harfleri</string>
+    <string name="wear_lyrics_source">Söz kaynağı</string>
+    <string name="wear_lyrics_source_back">Geri</string>
+    <string name="wear_lyrics_source_line">Satır satır</string>
+    <string name="wear_lyrics_source_none">Bu şarkı için senkronlu söz kaynağı yok</string>
+    <string name="wear_lyrics_source_searching">Aranıyor…</string>
+    <string name="wear_lyrics_source_word">Kelime kelime</string>
+    <string name="wear_lyrics_translate">Çeviri</string>
+    <string name="wear_lyrics_tune_title">Senkron</string>
+    <string name="wear_lyrics_waiting">Telefonda BitChord ile bir şarkı çalın. Yeniden bağlanmak için dokunun.</string>
+</resources>

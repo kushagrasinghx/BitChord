@@ -50,3 +50,4 @@ AGENTS.md
 
 # Claude Code session files (launch configs, worktrees)
 .claude/
+*.bak

@@ -38,6 +38,8 @@ import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.cancel
 import com.music.bitchord.sharedui.resources.lyrics_share_pick_limit
 import com.music.bitchord.sharedui.resources.share
+import com.music.bitchord.sharedui.resources.loop_section
+import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.haptics.Haptic
 import com.music.bitchord.ui.haptics.Haptics
 import com.music.bitchord.ui.haptics.rememberHaptics
@@ -302,6 +304,8 @@ internal fun LyricsPickBar(
     shareEnabled: Boolean,
     onCancel: () -> Unit,
     onShare: () -> Unit,
+    loopEnabled: Boolean = false,
+    onLoop: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val haptics = rememberHaptics()
@@ -325,6 +329,19 @@ internal fun LyricsPickBar(
                 onCancel()
             },
         )
+        if (onLoop != null) {
+            PickAction(
+                label = stringResource(Res.string.loop_section),
+                icon = BitChordIcons.Repeat,
+                accent = loopEnabled,
+                enabled = loopEnabled,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    haptics.play(Haptic.ToggleOn)
+                    onLoop()
+                },
+            )
+        }
         PickAction(
             label = stringResource(Res.string.share),
             icon = Icons.Rounded.IosShare,

@@ -98,6 +98,8 @@ import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.stringArrayResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import com.music.bitchord.playback.SectionLoop
+import com.music.bitchord.playback.SectionLoopState
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.runtime.DisposableEffect
@@ -839,9 +841,10 @@ fun NowPlayingScreen(
      * the sheet is the caller's business.
      */
     onListenTogether: () -> Unit,
-    onSetSectionLoopPointA: () -> Unit = {},
-    onSetSectionLoopPointB: () -> Unit = {},
+    onSetSectionLoopPointA: (Long?) -> Unit = {},
+    onSetSectionLoopPointB: (Long?) -> Unit = {},
     onClearSectionLoop: () -> Unit = {},
+    onSetSectionLoop: (Long, Long) -> Unit = { _, _ -> },
     lyrics: List<LyricLine>?,
     lyricsSource: LyricsSource?,
     lyricsProviderStates: Map<LyricsSource, LyricsProviderState>,
@@ -918,11 +921,35 @@ fun NowPlayingScreen(
 
     val syncedLyricsEnabled by PlayerSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsOffsetMs by PlayerSettings.lyricsOffsetMs.collectAsStateWithLifecycle()
+    val sectionLoopState by PlayerSettings.sectionLoopState.collectAsStateWithLifecycle()
+    val activeSectionLoop by PlayerSettings.activeSectionLoop.collectAsStateWithLifecycle()
     // A lambda, not a value: read by the lyric strip and panel in scopes of
     // their own, so a tick recomposes them and not the player around them.
     val lyricsPlayhead = rememberLyricPlayhead(position)
+    val isLyricsSynced = remember(lyrics) { lyrics?.any { it.timeMs > 0L } == true }
     val seekToLyric: (Long) -> Unit = { lineTimeMs ->
-        onSeek(adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs))
+        val targetAudioMs = adjustedLyricsSeekTarget(lineTimeMs, lyricsOffsetMs)
+        if (isLyricsSynced && sectionLoopState is SectionLoopState.WaitingForA) {
+            onSetSectionLoopPointA(targetAudioMs)
+            onSeek(targetAudioMs)
+        } else if (isLyricsSynced && sectionLoopState is SectionLoopState.SettingA) {
+            val lineIdx = lyrics.orEmpty().indexOfFirst { it.timeMs == lineTimeMs }
+            val rawEndMs = if (lineIdx >= 0) {
+                deriveLyricLineEndMs(lineIdx, lyrics.orEmpty(), durationMs)
+            } else {
+                lineTimeMs + 5000L
+            }
+            val targetEndAudioMs = adjustedLyricsSeekTarget(rawEndMs, lyricsOffsetMs)
+            val currentA = (sectionLoopState as SectionLoopState.SettingA).startMs
+            if (targetAudioMs < currentA) {
+                onSetSectionLoopPointA(targetAudioMs)
+                onSeek(targetAudioMs)
+            } else {
+                onSetSectionLoopPointB(targetEndAudioMs)
+            }
+        } else {
+            onSeek(targetAudioMs)
+        }
     }
     val hideVolumeBar by PlayerSettings.hideVolumeBar.collectAsStateWithLifecycle()
     val disableBlendEffects by PlayerSettings.disableBlendEffects.collectAsStateWithLifecycle()
@@ -1007,8 +1034,6 @@ fun NowPlayingScreen(
     // refreshFrameEveryMs.
     val meshRefreshMs = MESH_REFRESH_MS.takeIf { tintsOffClip }
 
-    val sectionLoopState by PlayerSettings.sectionLoopState.collectAsStateWithLifecycle()
-    val activeSectionLoop by PlayerSettings.activeSectionLoop.collectAsStateWithLifecycle()
     val loopRegion = remember(activeSectionLoop, durationMs) {
         activeSectionLoop?.takeIf { durationMs > 0L }?.let {
             (it.startMs.toFloat() / durationMs).coerceIn(0f, 1f)..(it.endMs.toFloat() / durationMs).coerceIn(0f, 1f)
@@ -1150,6 +1175,24 @@ fun NowPlayingScreen(
         haptics = haptics,
         onCard = { lyricsShare = it },
     )
+    val loopFromPickedLyrics = remember(lyricPicker.picks, lyrics, lyricsOffsetMs, durationMs, isLyricsSynced) {
+        if (isLyricsSynced && lyricPicker.picks.isNotEmpty() && lyrics != null) {
+            mapLyricRangeToAudioRange(
+                firstLineIndex = lyricPicker.picks.min(),
+                lastLineIndex = lyricPicker.picks.max(),
+                lines = lyrics,
+                lyricsOffsetMs = lyricsOffsetMs,
+                trackDurationMs = durationMs,
+            )
+        } else null
+    }
+    val onLoopFromPickedLyrics: () -> Unit = {
+        loopFromPickedLyrics?.let { (startMs, endMs) ->
+            onSetSectionLoop(startMs, endMs)
+            onSeek(startMs)
+            lyricPicker.cancel()
+        }
+    }
     // Nothing here resets [lyricsOpen] on a track change, deliberately. The
     // panel is a place, not a property of the track: someone reading along who
     // skips — or who simply lets the queue run on — means to carry on reading,
@@ -2244,8 +2287,8 @@ fun NowPlayingScreen(
                                 SectionLoopBar(
                                     state = sectionLoopState,
                                     activeLoop = activeSectionLoop,
-                                    onSetPointA = onSetSectionLoopPointA,
-                                    onSetPointB = onSetSectionLoopPointB,
+                                    onSetPointA = { onSetSectionLoopPointA(null) },
+                                    onSetPointB = { onSetSectionLoopPointB(null) },
                                     onClearLoop = onClearSectionLoop,
                                     modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally),
                                 )
@@ -2293,6 +2336,8 @@ fun NowPlayingScreen(
                                         !lyricPicker.overBudget,
                                     onCancel = lyricPicker.cancel,
                                     onShare = lyricPicker.share,
+                                    loopEnabled = loopFromPickedLyrics != null,
+                                    onLoop = if (isLyricsSynced) onLoopFromPickedLyrics else null,
                                 )
                             },
                             romanizationToggle = {
@@ -3959,6 +4004,8 @@ fun NowPlayingScreen(
                                         !lyricPicker.overBudget,
                                     onCancel = lyricPicker.cancel,
                                     onShare = lyricPicker.share,
+                                    loopEnabled = loopFromPickedLyrics != null,
+                                    onLoop = if (isLyricsSynced) onLoopFromPickedLyrics else null,
                                     modifier = Modifier.align(Alignment.BottomCenter),
                                 )
                             }
@@ -4150,8 +4197,8 @@ fun NowPlayingScreen(
                     SectionLoopBar(
                         state = sectionLoopState,
                         activeLoop = activeSectionLoop,
-                        onSetPointA = onSetSectionLoopPointA,
-                        onSetPointB = onSetSectionLoopPointB,
+                        onSetPointA = { onSetSectionLoopPointA(null) },
+                        onSetPointB = { onSetSectionLoopPointB(null) },
                         onClearLoop = onClearSectionLoop,
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally)

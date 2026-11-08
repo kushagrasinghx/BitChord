@@ -252,6 +252,7 @@ import com.music.bitchord.playback.beginSectionLoop
 import com.music.bitchord.playback.setSectionLoopPointA
 import com.music.bitchord.playback.setSectionLoopPointB
 import com.music.bitchord.playback.clearSectionLoop
+import com.music.bitchord.playback.setSectionLoop
 import com.music.bitchord.playback.SectionLoopState
 import com.music.bitchord.ui.MainViewModel
 import com.music.bitchord.ui.SearchSource
@@ -2653,20 +2654,23 @@ private fun BitChordApp(
             onRemoveFromQueue = { controller?.removeMediaItem(it) },
             onMoveInQueue = { from, to -> controller?.moveMediaItem(from, to) },
             onQueueDragActiveChange = { active -> controller?.setQueueDragActive(active) },
-            onSetSectionLoopPointA = {
+            onSetSectionLoopPointA = { explicitMs ->
                 controller?.let { c ->
-                    val pos = c.currentPosition.coerceAtLeast(0L)
+                    val pos = (explicitMs ?: c.currentPosition).coerceAtLeast(0L)
                     c.setSectionLoopPointA(pos)
                 }
             },
-            onSetSectionLoopPointB = {
+            onSetSectionLoopPointB = { explicitMs ->
                 controller?.let { c ->
-                    val pos = c.currentPosition.coerceAtLeast(0L)
+                    val pos = (explicitMs ?: c.currentPosition).coerceAtLeast(0L)
                     c.setSectionLoopPointB(pos)
                 }
             },
             onClearSectionLoop = {
                 controller?.clearSectionLoop()
+            },
+            onSetSectionLoop = { startMs, endMs ->
+                controller?.setSectionLoop(startMs, endMs)
             },
             // The enriched copy, not player.song — otherwise the menu
             // hides the album and artist rows even once their browse

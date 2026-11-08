@@ -121,6 +121,13 @@ import java.util.concurrent.atomic.AtomicLong
 /** What the Search tab searches: YouTube Music, or the Local Music folder on this device. */
 enum class SearchSource { YOUTUBE, LIBRARY, ADDONS }
 
+/** Only acknowledged playlist edits belong in Save feedback; skipped duplicates are not edits. */
+data class PlaylistMembershipSaveResult(
+    val added: List<UserPlaylist>,
+    val removed: List<UserPlaylist>,
+    val failed: Int,
+)
+
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val authStore = AuthStore(app)
@@ -999,15 +1006,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updatePlaylistMembership(
         additions: List<UserPlaylist>, removals: List<UserPlaylist>, song: Song,
-        onResult: (Int) -> Unit,
+        onResult: (PlaylistMembershipSaveResult) -> Unit,
     ) {
-        if (additions.isEmpty() && removals.isEmpty()) { onResult(0); return }
-        if (!requireSignIn()) { onResult(additions.size + removals.size); return }
+        if (additions.isEmpty() && removals.isEmpty()) {
+            onResult(PlaylistMembershipSaveResult(emptyList(), emptyList(), 0)); return
+        }
+        if (!requireSignIn()) {
+            onResult(PlaylistMembershipSaveResult(emptyList(), emptyList(), additions.size + removals.size)); return
+        }
         val identity = listenerKey()
         val keys = (additions + removals).mapNotNull(::membershipKey)
         val save = viewModelScope.launch {
             membershipWrites.withLock {
                 var failed = 0
+                val added = mutableListOf<UserPlaylist>()
+                val removed = mutableListOf<UserPlaylist>()
                 for ((playlist, wantPresent) in additions.map { it to true } + removals.map { it to false }) {
                     if (identity != listenerKey()) { failed++; continue }
                     val entries = YtMusicRepository.playlistEntries(playlist.browseId).getOrNull()
@@ -1026,6 +1039,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     if (result.isSuccess) {
                         libraryStale = true
                         invalidateMembership(playlist)
+                        if (wantPresent) added += playlist else removed += playlist
                         if (wantPresent) appendToOpenPlaylist(playlist.browseId, song, result.getOrNull())
                         else {
                             val ids = matches.mapTo(HashSet()) { it.setVideoId }
@@ -1037,7 +1051,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     } else failed++
                 }
-                onResult(failed)
+                onResult(PlaylistMembershipSaveResult(added, removed, failed))
             }
         }
         keys.forEach { membershipSaves[it] = save }

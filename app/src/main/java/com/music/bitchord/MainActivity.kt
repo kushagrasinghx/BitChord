@@ -277,6 +277,7 @@ import com.music.bitchord.ui.components.ListenBrainzTokenAlert
 import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.QueueActionNotice
 import com.music.bitchord.ui.components.QueueActionNoticeHost
+import com.music.bitchord.ui.components.PlaylistSaveNotice
 import com.music.bitchord.ui.components.TopBarAccountButton
 import com.music.bitchord.ui.screens.SegmentedControl
 import com.music.bitchord.ui.components.SearchField
@@ -1119,6 +1120,18 @@ private fun BitChordApp(
     val showQueueNotice: (String) -> Unit = { message ->
         queueNoticeId += 1
         queueNotice = QueueActionNotice(queueNoticeId, message)
+    }
+    val showPlaylistSaveNotice: (List<UserPlaylist>, List<UserPlaylist>, Boolean) -> Unit = { added, removed, failed ->
+        val addedText = playlistNoticeText(context, added, R.string.playlist_notice_added, R.plurals.added_to_playlists_notice)
+        val removedText = playlistNoticeText(context, removed, R.string.playlist_notice_removed, R.plurals.removed_from_playlists_notice)
+        if (addedText != null || removedText != null || failed) {
+            queueNoticeId += 1
+            queueNotice = QueueActionNotice(queueNoticeId, "", PlaylistSaveNotice(
+                added = addedText,
+                removed = removedText,
+                error = if (failed) context.getString(R.string.failed) else null,
+            ))
+        }
     }
     LaunchedEffect(queueNotice?.id) {
         val shown = queueNotice ?: return@LaunchedEffect
@@ -4172,7 +4185,7 @@ private fun BitChordApp(
                         .fillMaxWidth()
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                 ) {
-                    QueueActionNoticeHost(queueNotice)
+                    QueueActionNoticeHost(queueNotice, hazeState)
                     // Liquid glass replaces the two stacked bars with the single
                     // component they are stacked to imitate: the now playing
                     // controls dock into the tab bar rather than riding above it,
@@ -4215,7 +4228,7 @@ private fun BitChordApp(
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    QueueActionNoticeHost(queueNotice)
+                    QueueActionNoticeHost(queueNotice, hazeState)
                     player.song?.let { song ->
                         MiniPlayer(
                             song = song,
@@ -4931,11 +4944,8 @@ private fun BitChordApp(
                     onDismiss = dismiss,
                     onSave = { additions, removals, unresolved ->
                         target?.let { song ->
-                            viewModel.updatePlaylistMembership(additions, removals, song) { failed ->
-                                if (failed > 0 || unresolved > 0) showQueueNotice(context.getString(R.string.failed))
-                                else if (additions.isNotEmpty() || removals.isNotEmpty()) {
-                                    showQueueNotice(context.getString(R.string.save))
-                                }
+                            viewModel.updatePlaylistMembership(additions, removals, song) { result ->
+                                showPlaylistSaveNotice(result.added, result.removed, result.failed > 0 || unresolved > 0)
                             }
                         }
                     },
@@ -4983,11 +4993,22 @@ private fun BitChordApp(
                     onDismiss = dismiss,
                     onSave = { additions, removals, _ ->
                         target?.let { song ->
+                            val before = OfflinePlaylists.playlists.value.associate { playlist ->
+                                playlist.id to playlist.songs.any { it.localUri != null && it.localUri == song.localUri }
+                            }
                             if (additions.isNotEmpty()) OfflinePlaylists.add(additions.map { it.playlistId }, listOf(song))
                             removals.forEach { OfflinePlaylists.remove(OfflinePlaylists.PREFIX + it.playlistId, song) }
-                            if (additions.isNotEmpty() || removals.isNotEmpty()) {
-                                showQueueNotice(context.getString(R.string.save))
+                            val after = OfflinePlaylists.playlists.value.associate { playlist ->
+                                playlist.id to playlist.songs.any { it.localUri != null && it.localUri == song.localUri }
                             }
+                            showPlaylistSaveNotice(
+                                additions.filter { before[it.playlistId] == false && after[it.playlistId] == true },
+                                removals.filter { before[it.playlistId] == true && after[it.playlistId] == false },
+                                additions.any { before[it.playlistId] == null ||
+                                    (before[it.playlistId] == false && after[it.playlistId] != true) } ||
+                                    removals.any { before[it.playlistId] == null ||
+                                        (before[it.playlistId] == true && after[it.playlistId] != false) },
+                            )
                         }
                     },
                     onCreate = { title, _ ->
@@ -6207,6 +6228,21 @@ private fun formatDurationText(ms: Long): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%d:%02d".format(Locale.ROOT, minutes, seconds)
+}
+
+/** Preserve picker order and full names when they fit; otherwise report an accurate count. */
+private fun playlistNoticeText(context: Context, playlists: List<UserPlaylist>, message: Int, count: Int): String? {
+    val unique = playlists.distinctBy { it.playlistId }
+    if (unique.isEmpty()) return null
+    val names = unique.map { it.title }
+    val conjunction = " ${context.getString(R.string.playlist_notice_and)} "
+    val joined = when (names.size) {
+        1 -> names.single()
+        2 -> names.joinToString(conjunction)
+        else -> names.dropLast(1).joinToString(", ") + conjunction + names.last()
+    }
+    return if (joined.length > 90) context.resources.getQuantityString(count, unique.size, unique.size)
+    else context.getString(message, joined)
 }
 
 /**

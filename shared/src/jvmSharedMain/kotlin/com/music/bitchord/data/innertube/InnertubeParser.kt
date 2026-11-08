@@ -586,23 +586,31 @@ object InnertubeParser {
         val scope: JsonElement = root.o("continuationContents")
             ?: root.o("contents").o("twoColumnBrowseResultsRenderer").o("secondaryContents")
             ?: root.o("contents").o("singleColumnBrowseResultsRenderer")
-            ?: return null
+            ?: root
         val playlistScope = scope.o("musicPlaylistShelfContinuation")
             ?: collectRenderers(scope, "musicPlaylistShelfRenderer").firstOrNull()
+        // Newer browse continuations append rows directly, rather than wrapping
+        // them in a musicPlaylistShelfContinuation. Restrict this to the one
+        // append action on a continuation response; never walk unrelated actions.
+        val appendActions = if (playlistScope == null) root.a("onResponseReceivedActions")
+            ?.mapNotNull { it.o("appendContinuationItemsAction") }.orEmpty() else emptyList()
+        if (preserveDuplicates && appendActions.size > 1) error("ambiguous playlist continuation")
+        val appendedItems = appendActions.singleOrNull()?.a("continuationItems")
         val suggestionShelves = collectRenderers(scope, "musicShelfRenderer")
             .filter { it.o("title").runs() == "Suggestions" }
-        if (preserveDuplicates && playlistScope == null) return null
-        if (playlistScope == null && suggestionShelves.isEmpty()) return null
+        if (preserveDuplicates && playlistScope == null && appendedItems == null) return null
+        if (playlistScope == null && appendedItems == null && suggestionShelves.isEmpty()) return null
 
-        if (preserveDuplicates && playlistScope!!.a("contents") == null) error("playlist contents unavailable")
-        if (preserveDuplicates && playlistScope.a("contents").orEmpty().any { item ->
+        val contents = playlistScope?.a("contents") ?: appendedItems
+        if (preserveDuplicates && contents == null) error("playlist contents unavailable")
+        if (preserveDuplicates && contents.orEmpty().any { item ->
                 item.o("musicResponsiveListItemRenderer") == null &&
                     item.o("continuationItemRenderer") == null
             }) error("unsupported playlist entry")
 
         val pageCredit = pageCredit(root)
-        val songs = playlistScope?.let { playlist ->
-            val rows = collectRenderers(playlist, "musicResponsiveListItemRenderer")
+        val songs = contents?.let { items ->
+            val rows = collectRenderers(items, "musicResponsiveListItemRenderer")
                 .mapNotNull { row ->
                     val song = parseResponsiveListItem(row, pageCredit)
                     if (preserveDuplicates && (song == null || song.setVideoId.isNullOrBlank())) {
@@ -622,7 +630,7 @@ object InnertubeParser {
         // batch rather than paging it (see its "Refresh" button, wired to a
         // `reloadContinuationData` token). Only the playlist shelf's own
         // continuation means more real tracks.
-        val token = playlistScope?.let { continuationToken(it) }
+        val token = (playlistScope ?: appendedItems)?.let { continuationToken(it) }
         return PlaylistShelfPage(songs, suggested, token)
     }
 
@@ -677,7 +685,10 @@ object InnertubeParser {
             .o("continuationEndpoint")
         (endpoint.o("continuationCommand")
             ?: endpoint.o("commandExecutorCommand").a("commands")
-                ?.firstNotNullOfOrNull { it.o("continuationCommand") })
+                ?.firstNotNullOfOrNull { command ->
+                    command.o("continuationCommand")
+                        ?.takeIf { it.s("request") == "CONTINUATION_REQUEST_TYPE_BROWSE" }
+                })
             .s("token")
             ?.let { return it }
         return collectRenderers(root, "nextContinuationData").firstOrNull().s("continuation")

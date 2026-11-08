@@ -1088,13 +1088,15 @@ object YtMusicRepository {
      * Fails on unreadable entries or incomplete pagination rather than
      * treating a partial list as proof of absence or a safe reorder.
      */
-    suspend fun playlistEntries(browseId: String): Result<List<Song>> = call("entries:$browseId") {
+    suspend fun playlistEntries(browseId: String): Result<List<Song>> = call("entries") {
         val out = LinkedHashMap<String, Song>()
         val seen = HashSet<String>()
         var response = Innertube.browse(browseId)
+        var page = 1
         while (true) {
             val shelf = InnertubeParser.parsePlaylistShelf(response, preserveDuplicates = true)
-                ?: error("playlist shelf unavailable")
+                ?: error("playlist shelf unavailable on page $page")
+            Log.d(TAG, "playlist entries page=$page rows=${shelf.songs.size} hasMore=${shelf.continuation != null}")
             shelf.songs.forEach { song ->
                 val setVideoId = song.setVideoId ?: error("playlist entry without an id")
                 out.putIfAbsent(setVideoId, song)
@@ -1102,7 +1104,16 @@ object YtMusicRepository {
             val token = shelf.continuation ?: break
             // Never turn an incomplete read into an absence (or a reorder).
             if (!seen.add(token) || seen.size >= 100) error("playlist entries incomplete")
-            response = Innertube.browseContinuation(token)
+            response = try {
+                Innertube.browseContinuation(token)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A transport exception can contain the request URL (and its
+                // private continuation token). Only expose the failure category.
+                error("playlist continuation ${e.javaClass.simpleName} after page $page")
+            }
+            page++
         }
         out.values.toList()
     }

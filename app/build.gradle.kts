@@ -105,10 +105,15 @@ android {
 
     splits {
         abi {
+            // The release build is arm64-v8a only: the one APK every phone
+            // this app runs on is, and the only artifact the nightly carries —
+            // no universal, no other splits, nothing else to discard. The
+            // update checker already takes the per-ABI split when no
+            // universal is in the release, so in-app updates are unaffected.
             isEnable = true
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = true
+            include("arm64-v8a")
+            isUniversalApk = false
         }
     }
 

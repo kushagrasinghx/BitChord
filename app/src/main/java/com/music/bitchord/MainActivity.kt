@@ -2885,11 +2885,12 @@ private fun BitChordApp(
         if (backAnimationStyle == BackAnimationStyle.PREDICTIVE) {
             PredictiveBackHandler(enabled = canGoBack) { progress ->
                 try {
-                    progress.await()
+                    // The flow ends when the gesture commits; letting it go
+                    // partway cancels this coroutine instead, and the system
+                    // has already returned the page to full size by then.
+                    progress.collect { }
                     goBack()
                 } catch (_: CancellationException) {
-                    // The gesture was let go partway: the system has already
-                    // returned the page to full size.
                 }
             }
         } else {

@@ -24,11 +24,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.SkipNext
-import androidx.compose.material.icons.automirrored.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Battery5Bar
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Pause
+import com.music.bitchord.sharedui.resources.Res as SharedRes
+import com.music.bitchord.sharedui.resources.ic_player_next
+import com.music.bitchord.sharedui.resources.ic_player_pause
+import com.music.bitchord.sharedui.resources.ic_player_play
+import com.music.bitchord.sharedui.resources.ic_player_previous
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -281,14 +283,15 @@ fun AodScreen(
 
             if (showControls) {
                 Spacer(Modifier.height(30.dp))
+                // The app's own transport glyphs, as the mini player draws
+                // them — the AOD is the same player, dozing.
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(44.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.SkipPrevious,
+                    Image(
+                        painter = painterResource(SharedRes.drawable.ic_player_previous),
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.75f),
                         modifier = Modifier
                             .size(34.dp)
                             .clickable(
@@ -307,17 +310,17 @@ fun AodScreen(
                             ) { onPlayPause() },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(
-                            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        Image(
+                            painter = painterResource(
+                                if (playing) SharedRes.drawable.ic_player_pause else SharedRes.drawable.ic_player_play
+                            ),
                             contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.95f),
                             modifier = Modifier.size(34.dp),
                         )
                     }
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.SkipNext,
+                    Image(
+                        painter = painterResource(SharedRes.drawable.ic_player_next),
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.75f),
                         modifier = Modifier
                             .size(34.dp)
                             .clickable(

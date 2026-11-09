@@ -83,6 +83,37 @@ object CustomFontLoader {
             }.getOrNull()
         }
 
+    /**
+     * The picker's half: copies the picked document into the app's own storage
+     * at once — the SAF grant dies with the picker's task — and hands back the
+     * uri every later launch loads from, with the document's own name. Null
+     * where the document isn't a font this device can read.
+     */
+    suspend fun persistPickedFont(
+        context: Context,
+        uri: Uri,
+    ): Pair<String, String>? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val name = displayName(context, uri)
+                if (!isSupportedTtf(context, uri)) return@runCatching null
+                val fontDirectory = File(context.filesDir, "custom_fonts")
+                if (!fontDirectory.exists()) fontDirectory.mkdirs()
+                val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
+                val fontFile = File(fontDirectory, safeName)
+                context.contentResolver.openInputStream(uri).use { inputStream ->
+                    requireNotNull(inputStream)
+                    fontFile.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                // Read once here, so a file that isn't a font is refused at the
+                // pick rather than on the next launch, in place of the app's type.
+                AndroidTypeface.createFromFile(fontFile)
+                name to Uri.fromFile(fontFile).toString()
+            }.getOrNull()
+        }
+
     suspend fun loadFontFamily(
         context: Context,
         uriString: String,
@@ -122,34 +153,3 @@ object CustomFontLoader {
         return fontFile
     }
 }
-
-/**
- * The picker's half: copies the picked document into the app's own storage at
- * once — the SAF grant dies with the picker's task — and hands back the uri
- * every later launch loads from. Null where the document isn't a font this
- * device can read.
- */
-suspend fun persistPickedFont(
-    context: Context,
-    uri: Uri,
-): Pair<String, String>? =
-    withContext(Dispatchers.IO) {
-        runCatching {
-            val name = displayName(context, uri)
-            if (!isSupportedTtf(context, uri)) return@runCatching null
-            val fontDirectory = File(context.filesDir, "custom_fonts")
-            if (!fontDirectory.exists()) fontDirectory.mkdirs()
-            val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
-            val fontFile = File(fontDirectory, safeName)
-            context.contentResolver.openInputStream(uri).use { inputStream ->
-                requireNotNull(inputStream)
-                fontFile.outputStream().use { outputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-            // Read once here, so a file that isn't a font is refused at the
-            // pick rather than on the next launch, in place of the app's type.
-            AndroidTypeface.createFromFile(fontFile)
-            name to Uri.fromFile(fontFile).toString()
-        }.getOrNull()
-    }

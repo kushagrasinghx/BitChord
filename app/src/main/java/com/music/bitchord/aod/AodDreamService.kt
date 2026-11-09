@@ -49,7 +49,7 @@ class AodDreamService : DreamService() {
         override val lifecycle: Lifecycle get() = registry
         override val savedStateRegistry: SavedStateRegistry
             get() = savedStateController.savedStateRegistry
-        private val savedStateController = SavedStateRegistryController(this)
+        private val savedStateController = SavedStateRegistryController.create(this)
         fun performRestore(savedState: Bundle?) = savedStateController.performRestore(savedState)
         fun handleLifecycleEvent(event: Lifecycle.Event) = registry.handleLifecycleEvent(event)
     }

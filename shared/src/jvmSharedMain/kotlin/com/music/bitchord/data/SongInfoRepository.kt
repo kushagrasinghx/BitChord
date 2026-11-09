@@ -18,6 +18,10 @@ import kotlinx.serialization.json.*
 import org.jsoup.Jsoup
 import java.time.LocalDate
 
+data class SongCredit(val role: String, val names: List<String>) {
+    val text: String get() = names.joinToString(", ")
+}
+
 data class SongInfo(
     val album: String? = null,
     val releaseYear: String? = null,
@@ -25,6 +29,7 @@ data class SongInfo(
     val views: String? = null,
     val likes: String? = null,
     val comments: String? = null,
+    val credits: List<SongCredit> = emptyList(),
     val failed: Boolean = false,
 )
 
@@ -76,6 +81,7 @@ object SongInfoRepository {
                 SongInfoParser.parse(response.bodyAsText(), song.videoId)
             }
         }
+        val credits = async { attempt { fetchCredits(song.videoId) }.getOrDefault(emptyList()) }
         var album = song.albumName
         var year: String? = null
         val release = attempt {
@@ -90,9 +96,132 @@ object SongInfoRepository {
                     ?.firstOrNull { it.matches(Regex("(?:19|20)[0-9]{2}")) }
             }
         }
-        (statistics.await().getOrNull() ?: SongInfo(failed = true)).copy(
-            album = album, releaseYear = year,
+        val stat = statistics.await().getOrNull()
+        val ytmCredits = credits.await()
+        (stat ?: SongInfo(failed = true)).copy(
+            album = album,
+            releaseYear = year,
+            credits = ytmCredits.ifEmpty { stat?.credits.orEmpty() },
         ).let { it.copy(failed = it.failed || release.isFailure) }
+    }
+
+    private suspend fun fetchCredits(videoId: String): List<SongCredit> {
+        // Direct credits browse: reliable for catalog tracks on YouTube Music.
+        val direct = runCatching { parseCreditsPage(Innertube.browse("MPTC$videoId")) }.getOrDefault(emptyList())
+        if (direct.isNotEmpty()) return direct
+        val next = Innertube.next(videoId)
+        val endpoint = findCreditsEndpoint(next, videoId) ?: return emptyList()
+        val browseId = (endpoint["browseId"] as? JsonPrimitive)?.contentOrNull ?: return emptyList()
+        val params = (endpoint["params"] as? JsonPrimitive)?.contentOrNull
+        val page = Innertube.browse(browseId, params)
+        return parseCreditsPage(page)
+    }
+
+    /**
+     * Finds the credits browse endpoint in a `next` response. Prefers an endpoint
+     * whose page type marks it as track credits, falling back to any menu
+     * navigation whose text suggests credits.
+     */
+    internal fun findCreditsEndpoint(root: JsonElement, videoId: String): JsonObject? {
+        fun JsonObject.pageType(): String =
+            this["browseEndpointContextSupportedConfigs"]
+                ?.let { it as? JsonObject }?.get("browseEndpointContextMusicConfig")
+                ?.let { it as? JsonObject }?.get("pageType")
+                ?.let { it as? JsonPrimitive }?.contentOrNull.orEmpty()
+
+        fun isCreditsBrowse(browse: JsonObject): Boolean {
+            val id = (browse["browseId"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+            return "CREDIT" in browse.pageType() || id.startsWith("MPTC")
+        }
+
+        val rows = objectsNamed(root, "playlistPanelVideoRenderer")
+            .filter { (it["videoId"] as? JsonPrimitive)?.contentOrNull == videoId }
+            .toList()
+            .ifEmpty { objectsNamed(root, "playlistPanelVideoRenderer").toList() }
+        val menuScopes = (rows + listOfNotNull(root as? JsonObject))
+        for (scope in menuScopes) {
+            val items = objectsNamed(scope, "menuNavigationItemRenderer").toList()
+            val endpoint = items.firstNotNullOfOrNull { nav ->
+                val browse = (nav["navigationEndpoint"] as? JsonObject)?.get("browseEndpoint") as? JsonObject
+                    ?: return@firstNotNullOfOrNull null
+                if (isCreditsBrowse(browse)) browse else null
+            } ?: items.firstNotNullOfOrNull { nav ->
+                val browse = (nav["navigationEndpoint"] as? JsonObject)?.get("browseEndpoint") as? JsonObject
+                    ?: return@firstNotNullOfOrNull null
+                if (nav.runsText().contains("credit", ignoreCase = true)) browse else null
+            }
+            if (endpoint != null) return endpoint
+        }
+        return objectsNamed(root, "browseEndpoint").firstOrNull(::isCreditsBrowse)
+    }
+
+    internal fun parseCreditsPage(root: JsonElement): List<SongCredit> {
+        val credits = mutableListOf<SongCredit>()
+        // dismissableDialogContentSectionRenderer: the song credits browse page (MPTC*)
+        for (section in objectsNamed(root, "dismissableDialogContentSectionRenderer")) {
+            val role = section["title"]?.runsText()?.trim().orEmpty()
+            val names = splitNames(listOf(section["subtitle"]?.runsText().orEmpty()))
+            if (role.isNotBlank() && names.isNotEmpty()) credits += SongCredit(role, names)
+        }
+        if (credits.isNotEmpty()) return credits.distinctBy { it.role.lowercase() to it.text.lowercase() }
+        // musicResponsiveListItemRenderer rows: flex column 0 = role, 1+ = names
+        for (item in objectsNamed(root, "musicResponsiveListItemRenderer")) {
+            val flex = ((item["flexColumns"] as? JsonArray) ?: JsonArray(emptyList())).toList()
+            val role = flex.getOrNull(0)?.rendererText()?.trim().orEmpty()
+            val names = if (flex.size > 1) {
+                flex.drop(1).flatMap { splitNames(listOf(it.rendererText())) }
+            } else {
+                splitNames(listOf(item["subtitle"]?.runsText().orEmpty()))
+            }
+            if (role.isNotBlank() && names.isNotEmpty()) credits += SongCredit(role, names)
+        }
+        if (credits.isNotEmpty()) return credits.distinctBy { it.role.lowercase() to it.text.lowercase() }
+        // Fallback: shelf-based layouts
+        for (shelf in objectsNamed(root, "musicShelfRenderer") + objectsNamed(root, "musicCarouselShelfRenderer")) {
+            val header = shelf["header"] as? JsonObject
+            val role = header?.runsText()?.trim().orEmpty()
+            val contents = ((shelf["contents"] as? JsonArray) ?: JsonArray(emptyList())).toList()
+            val names = contents.flatMap { c ->
+                splitNames(listOf((c as? JsonObject)?.runsText().orEmpty()))
+            }
+            if (role.isNotBlank() && names.isNotEmpty()) credits += SongCredit(role, names)
+        }
+        return credits.distinctBy { it.role.lowercase() to it.text.lowercase() }
+    }
+
+    private fun JsonElement.rendererText(): String =
+        objectsNamed(this, "text").firstNotNullOfOrNull { it.runsText().takeIf(String::isNotBlank) }
+            ?: runsText()
+
+    private fun JsonElement.runsText(): String = when (this) {
+        is JsonPrimitive -> contentOrNull.orEmpty()
+        is JsonArray -> joinToString("") { it.runsText() }
+        is JsonObject -> (this["simpleText"] as? JsonPrimitive)?.contentOrNull
+            ?: (this["runs"] as? JsonArray)?.joinToString("") { run ->
+                ((run as? JsonObject)?.get("text") as? JsonPrimitive)?.contentOrNull.orEmpty()
+            }
+            ?: this["text"]?.runsText()
+            ?: ""
+    }
+
+    private fun splitNames(strings: List<String>): List<String> {
+        val joined = strings.joinToString("")
+        if (joined.isBlank()) return emptyList()
+        return joined.split(Regex("\\r?\\n+|\\s*[•·]\\s*|\\s*,\\s+(?=[\\p{Lu}\"'])"))
+            .map { it.trim().trimEnd(',', '•', '·') }
+            .filter { it.isNotBlank() }
+            .ifEmpty { listOf(joined.trim()) }
+    }
+
+    private fun objectsNamed(root: JsonElement, name: String): Sequence<JsonObject> = sequence {
+        when (root) {
+            is JsonObject -> for ((key, value) in root) {
+                if (key == name && value is JsonObject) yield(value)
+                yieldAll(objectsNamed(value, name))
+            }
+            is JsonArray -> for (value in root) yieldAll(objectsNamed(value, name))
+            else -> Unit
+        }
     }
 
     private suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {
@@ -134,8 +263,44 @@ internal object SongInfoParser {
             views = details.str("viewCount")?.takeIf { it.toLongOrNull()?.let { n -> n >= 0 } == true },
             likes = (newLike ?: oldLike)?.withCount(),
             comments = comments,
+            credits = parseMusicSectionCredits(data),
             failed = data == null,
         )
+    }
+
+    private fun parseMusicSectionCredits(data: JsonObject?): List<SongCredit> {
+        if (data == null) return emptyList()
+        val sections = data.find("videoDescriptionMusicSectionRenderer")
+        if (sections.isEmpty()) return emptyList()
+        val credits = mutableListOf<SongCredit>()
+        for (section in sections) {
+            val rows = section.find("infoRowRenderer") + section.find("metadataRowRenderer") + section.find("premiumMetadataRowRenderer")
+            for (row in rows) {
+                val role = row["title"]?.text() ?: continue
+                val values = listOfNotNull(
+                    row["defaultMetadata"]?.text(),
+                    row["expandedMetadata"]?.text(),
+                    row["contents"]?.text(),
+                    row["content"]?.text(),
+                ).joinToString("").replace('\n', ' ').trim()
+                val names = values.split(Regex("\\s*[•·]\\s*|\\s*,\\s*(?=[A-Z])"))
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .ifEmpty { listOf(values).filter { it.isNotBlank() } }
+                if (role.isNotBlank() && names.isNotEmpty()) credits += SongCredit(role, names)
+            }
+            if (credits.isEmpty()) {
+                for (lockup in section.find("carouselLockupRenderer")) {
+                    for (row in lockup.find("infoRowRenderer")) {
+                        val role = row["title"]?.text() ?: continue
+                        val values = listOfNotNull(row["defaultMetadata"]?.text(), row["expandedMetadata"]?.text())
+                            .joinToString("").trim()
+                        if (role.isNotBlank() && values.isNotBlank()) credits += SongCredit(role, listOf(values))
+                    }
+                }
+            }
+        }
+        return credits.distinctBy { it.role.lowercase() to it.text.lowercase() }
     }
 
     /** Catalogue uploads explicitly state this in their description. Upload/publish dates

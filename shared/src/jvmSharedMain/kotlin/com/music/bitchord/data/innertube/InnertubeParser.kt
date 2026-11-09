@@ -767,6 +767,7 @@ object InnertubeParser {
             // episode, whose art is a widescreen still too: it is listened to,
             // and a "video" is dropped from the All tab's results.
             isVideo = !episode && (rowType == "video" || thumbnails.isNotSquare()),
+            isPodcastEpisode = episode,
             isExplicit = renderer.hasExplicitBadge(),
             // Extract the "Remove from history" feedback token from the row's menu, if present.
             feedbackToken = extractFeedbackToken(renderer),
@@ -809,6 +810,7 @@ object InnertubeParser {
                 renderer.o("playbackProgress").o("musicPlaybackProgressRenderer")
                     .o("durationText").runs(),
             ),
+            isPodcastEpisode = renderer.isPodcastEpisode(),
             isExplicit = renderer.hasExplicitBadge(),
         )
     }

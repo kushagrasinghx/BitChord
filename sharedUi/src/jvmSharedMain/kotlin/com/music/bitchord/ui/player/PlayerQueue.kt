@@ -35,11 +35,11 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
+
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
-import androidx.compose.material.icons.rounded.Close
+
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Icon
@@ -489,7 +489,6 @@ internal fun InlineQueue(
                             track = track,
                             isCurrent = false,
                             onClick = { onJumpTo(track.timelineIndex) },
-                            onRemove = { onRemove(track.timelineIndex) },
                             onLongPress = { onSongMenu(track.timelineIndex, track.song) },
                             locked = controlsLocked,
                             selection = selectionState,
@@ -513,7 +512,6 @@ internal fun InlineQueue(
                             track = nowPlaying,
                             isCurrent = true,
                             onClick = { onJumpTo(nowPlaying.timelineIndex) },
-                            onRemove = { onRemove(nowPlaying.timelineIndex) },
                             onLongPress = { onSongMenu(nowPlaying.timelineIndex, nowPlaying.song) },
                             locked = controlsLocked,
                             selection = selectionState,
@@ -540,7 +538,7 @@ internal fun InlineQueue(
                     }
                 }
                 if (tracks.user.isNotEmpty()) {
-                    queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, onJumpTo, onRemove, onSongMenu,
+                    queueSection(tracks.user, QueueSection.USER, drag, controlsLocked, onJumpTo, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
                 queueHeadingItem("header-context", tracks.context.isNotEmpty(), reduceAnimation) {
@@ -556,7 +554,7 @@ internal fun InlineQueue(
                     }
                 }
                 if (tracks.context.isNotEmpty()) {
-                    queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onRemove, onSongMenu,
+                    queueSection(tracks.context, QueueSection.CONTEXT, drag, controlsLocked, onJumpTo, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
                 queueHeadingItem("autoplay-heading", autoplayEnabled || tracks.autoplay.isNotEmpty(), reduceAnimation) {
@@ -567,7 +565,7 @@ internal fun InlineQueue(
                     }
                 }
                 if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
-                    queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onRemove, onSongMenu,
+                    queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onSongMenu,
                         swipesEnabled, reduceAnimation, canCommitSwipe, commitSwipe, selectionState)
                 }
             }
@@ -580,7 +578,6 @@ internal fun InlineQueue(
                         song = held.song,
                         isCurrent = false,
                         onClick = {},
-                        onRemove = {},
                         draggable = true,
                         lifted = true,
                         modifier = Modifier.offset { IntOffset(0, drag.heldTop.roundToInt()) },
@@ -613,7 +610,6 @@ private fun LazyListScope.queueSection(
     drag: QueueDrag,
     locked: Boolean,
     onJumpTo: (Int) -> Unit,
-    onRemove: (Int) -> Unit,
     onSongMenu: (Int, Song) -> Unit,
     swipesEnabled: Boolean,
     reduceAnimation: Boolean,
@@ -632,7 +628,6 @@ private fun LazyListScope.queueSection(
             track = track,
             isCurrent = false,
             onClick = { onJumpTo(track.timelineIndex) },
-            onRemove = { onRemove(track.timelineIndex) },
             onLongPress = { onSongMenu(track.timelineIndex, track.song) },
             locked = locked,
             selection = selection,
@@ -655,7 +650,6 @@ private fun SwipeableQueueRow(
     track: QueueTrack,
     isCurrent: Boolean,
     onClick: () -> Unit,
-    onRemove: () -> Unit,
     onLongPress: () -> Unit,
     locked: Boolean,
     swipesEnabled: Boolean,
@@ -674,7 +668,6 @@ private fun SwipeableQueueRow(
             song = track.song,
             isCurrent = isCurrent,
             onClick = { selection.toggle(track) },
-            onRemove = {},
             locked = locked || selection.busy,
             selectionChecked = selection.isSelected(track),
             modifier = modifier,
@@ -701,7 +694,6 @@ private fun SwipeableQueueRow(
             song = track.song,
             isCurrent = isCurrent,
             onClick = { if (interactive) onClick() },
-            onRemove = { if (interactive) onRemove() },
             onLongPress = { if (interactive) onLongPress() },
             locked = locked,
             controlsVisible = interactive,
@@ -1044,7 +1036,7 @@ private class QueueDrag(private val listState: LazyListState) {
 /** The held menu keeps the row's metadata, but not its queue editing controls. */
 @Composable
 fun QueueSongPreview(song: Song) {
-    InlineQueueRow(song = song, isCurrent = false, onClick = {}, onRemove = {}, preview = true)
+    InlineQueueRow(song = song, isCurrent = false, onClick = {}, preview = true)
 }
 
 @Composable
@@ -1052,7 +1044,6 @@ private fun InlineQueueRow(
     song: Song,
     isCurrent: Boolean,
     onClick: () -> Unit,
-    onRemove: () -> Unit,
     onLongPress: (() -> Unit)? = null,
     selectionChecked: Boolean? = null,
     preview: Boolean = false,
@@ -1070,26 +1061,7 @@ private fun InlineQueueRow(
     onDragEnd: () -> Unit = {},
 ) {
     val ltr = LocalLayoutDirection.current == LayoutDirection.Ltr
-    val removeControl: @Composable () -> Unit = {
-        if (!locked) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .alpha(if (controlsVisible) 1f else 0f)
-                    .then(if (controlsVisible) Modifier else Modifier.clearAndSetSemantics {})
-                    .clip(CircleShape)
-                    .clickable(enabled = controlsVisible, onClick = onRemove),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Rounded.Close,
-                    contentDescription = stringResource(Res.string.remove_from_queue),
-                    tint = Color.White.copy(alpha = 0.55f),
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        }
-    }
+
     val handle: @Composable () -> Unit = {
         if (draggable) {
             Icon(
@@ -1140,8 +1112,8 @@ private fun InlineQueueRow(
                 enabled = !locked,
                 modifier = Modifier.size(32.dp),
             )
-        } else if (!preview) {
-            if (ltr) removeControl() else handle()
+        } else if (!preview && !ltr) {
+            handle()
         }
         AsyncImage(
             model = rememberRemoteArtworkUrl(song),
@@ -1184,7 +1156,7 @@ private fun InlineQueueRow(
         if (selectionChecked != null) {
             Spacer(Modifier.width(24.dp))
         } else if (!preview) {
-            if (ltr) handle() else removeControl()
+            handle()
         }
     }
 }

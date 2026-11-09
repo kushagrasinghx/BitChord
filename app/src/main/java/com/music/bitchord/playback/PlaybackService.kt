@@ -974,12 +974,23 @@ class PlaybackService : MediaLibraryService() {
         ) {
             val exoPlayer = player ?: return
             if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                val soughtItem = newPosition.mediaItem ?: exoPlayer.currentMediaItem
+                if (soughtItem?.isPodcastEpisode == true && newPosition.positionMs <= 0L) {
+                    PodcastProgress.clear(soughtItem.mediaId, commit = true)
+                }
+                // Seeking is an explicit listener action: persist immediately so a
+                // restart cannot resurrect the position that was just discarded.
+                savePlaybackState(exoPlayer)
                 lastSeekAt = SystemClock.elapsedRealtime()
                 if (exoPlayer.isPlaying) pushDiscordPresence(exoPlayer)
                 updateLyricSubtitle()
                 // The watch extrapolates its progress ring from the last
                 // position it was given, the same way Discord does.
                 WearBridge.republish(this@PlaybackService, exoPlayer)
+            } else if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) {
+                oldPosition.mediaItem?.takeIf { it.isPodcastEpisode }?.let {
+                    PodcastProgress.clear(it.mediaId, commit = true)
+                }
             }
         }
 
@@ -1063,6 +1074,9 @@ class PlaybackService : MediaLibraryService() {
             // session is currently pointed at.
             val exoPlayer = player ?: return
             if (state == Player.STATE_ENDED) {
+                exoPlayer.currentMediaItem
+                    ?.takeIf { it.isPodcastEpisode }
+                    ?.let { PodcastProgress.clear(it.mediaId, commit = true) }
                 SleepTimer.cancel()
                 // The queue ran dry, so no transition will ever close the last
                 // track out. Without this its history entry keeps whatever
@@ -1283,6 +1297,10 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // PodcastProgress must be ready before queue restoration or any playback callback
+        // can attempt to save or restore an episode bookmark.
+        PodcastProgress.init(this)
 
         if (com.music.bitchord.data.innertube.Innertube.cookie == null) {
             com.music.bitchord.data.innertube.Innertube.cookie = com.music.bitchord.auth.AuthStore(this).cookie
@@ -1811,6 +1829,7 @@ class PlaybackService : MediaLibraryService() {
         // playback starts and when the queue moves on while already playing.
         lastRepeatMode = exoPlayer.repeatMode
         exoPlayer.addListener(playbackListener)
+        if (restored) restorePodcastProgress(exoPlayer, exoPlayer.currentMediaItem)
         // After the player exists and before the session is built: the
         // session's wrapper reports the user's actions to it.
         partySync = PartySync(scope) { player }.also { it.start() }
@@ -3637,6 +3656,7 @@ class PlaybackService : MediaLibraryService() {
         alreadyAudible: Boolean = false,
     ) {
         val exoPlayer = player ?: return
+        if (!alreadyAudible) restorePodcastProgress(exoPlayer, mediaItem)
         syncBoundedContextCursor(exoPlayer, mediaItem)
         if (boundedContextWindow != null && !ListenTogether.state.value.inParty) {
             saveBoundedContextSnapshot(exoPlayer)
@@ -6164,6 +6184,26 @@ class PlaybackService : MediaLibraryService() {
             index = player.currentMediaItemIndex - persistedQueueStart,
             positionMs = player.currentPosition,
         )
+        savePodcastProgress(player, flush = !player.isPlaying)
+    }
+
+    /** Persist the per-episode bookmark independently of queue or network state. */
+    private fun savePodcastProgress(player: ExoPlayer, flush: Boolean) {
+        val song = player.currentMediaItem?.toSong()?.takeIf { it.isPodcastEpisode } ?: return
+        val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0L } ?: 0L
+        PodcastProgress.save(song.videoId, player.currentPosition, duration, commit = flush)
+    }
+
+    /** Apply an episode bookmark when it becomes current, before playback advances. */
+    private fun restorePodcastProgress(player: ExoPlayer, mediaItem: MediaItem?) {
+        val song = mediaItem?.toSong()?.takeIf { it.isPodcastEpisode } ?: return
+        val duration = player.duration.takeIf { it != C.TIME_UNSET && it > 0L } ?: 0L
+        val saved = PodcastProgress.positionMs(song.videoId, duration)
+        if (saved <= player.currentPosition) return
+        val target = if (duration > 0L) minOf(saved, duration - 1L) else saved
+        if (target <= player.currentPosition) return
+        player.seekTo(target)
+        savePlaybackState(player)
     }
 
     /** Restore the bounded queue without preparing or resolving a stream. */
@@ -7836,6 +7876,7 @@ class PlaybackService : MediaLibraryService() {
         player?.let {
             saveQueueSnapshot(it)
             savePlaybackState(it)
+            savePodcastProgress(it, flush = true)
         }
         // And to leave the widgets showing a play button. Nothing else reports a
         // swipe-away, so a widget left on the home screen would sit there with a

@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -400,19 +401,19 @@ fun Modifier.glassGlowOverlay(
     val insetOutline = shape.createOutline(insetSize, layoutDirection, this)
 
     // The rim: brightest at the top, gone by the bottom. Drawn into the shape
-    // inset by half the stroke so the line's own width stays inside the edge.
-    drawOutline(
-        outline = insetOutline,
-        brush = Brush.verticalGradient(
-            0f to GlowRimStart,
-            1f to GlowRimEnd,
-            startY = halfStroke,
-            endY = size.height - halfStroke,
-        ),
-        topLeft = Offset(halfStroke, halfStroke),
-        alpha = strength,
-        style = Stroke(strokePx),
-    )
+    // inset by half the stroke — translated, as drawOutline takes no offset of
+    // its own — so the line's own width stays inside the edge.
+    translate(halfStroke, halfStroke) {
+        drawOutline(
+            outline = insetOutline,
+            brush = Brush.verticalGradient(
+                0f to GlowRimStart,
+                1f to GlowRimEnd,
+            ),
+            alpha = strength,
+            style = Stroke(strokePx),
+        )
+    }
     // The sheen: a soft fill of light from the top edge, out by nearly half.
     drawOutline(
         outline = outline,

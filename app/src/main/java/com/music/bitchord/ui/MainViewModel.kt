@@ -455,6 +455,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     providerFinished(generation, source, result)
                 },
                 onSourceCancelled = { source -> providerCancelled(generation, source) },
+                onProgress = { result ->
+                    if (generation == lyricsGeneration && selectedLyricsSource == null) showLyricsResult(result)
+                },
             )
             val selected = selectedLyricsSource?.let(lyricsProviderResults::get) ?: found
             _lyrics.value = selected?.lines

@@ -233,7 +233,7 @@ object Musixmatch {
         cachedToken.get() ?: fetchToken(secret)?.also(cachedToken::set)
     }
 
-    private fun fetchToken(secret: String): String? {
+    private suspend fun fetchToken(secret: String): String? {
         val url = "$BASE/token.get".toHttpUrl().newBuilder()
             .addQueryParameter("app_id", APP_ID)
             .addQueryParameter("guid", processGuid)
@@ -246,7 +246,7 @@ object Musixmatch {
     }
 
     /** Reads the rotating signing key from the JavaScript linked by the current web client. */
-    private fun getSecret(): String = cachedSecret.get() ?: runCatching {
+    private suspend fun getSecret(): String = cachedSecret.get() ?: runCatching {
         val page = browserGet(SEARCH_PAGE, "text/html,application/xhtml+xml")
             ?: error("search page unavailable")
         val script = APP_SCRIPT.find(page)?.groupValues?.get(1)
@@ -259,7 +259,7 @@ object Musixmatch {
         String(Base64.getDecoder().decode(encoded.reversed()), Charsets.UTF_8)
             .takeIf { it.isNotBlank() }
             ?: error("empty signing key")
-    }.getOrElse { FALLBACK_SIGNING_SECRET }.also(cachedSecret::set)
+    }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else FALLBACK_SIGNING_SECRET }.also(cachedSecret::set)
 
     /** Signs `<url><UTC yyyyMMdd>` with HMAC-SHA256, matching the current web client. */
     private fun sign(url: String, secret: String): String {
@@ -275,22 +275,20 @@ object Musixmatch {
             "&signature_protocol=sha256"
     }
 
-    private fun apiGet(url: String): String? = request(url, "application/json, text/plain, */*")
+    private suspend fun apiGet(url: String): String? = request(url, "application/json, text/plain, */*")
 
-    private fun browserGet(url: String, accept: String): String? =
+    private suspend fun browserGet(url: String, accept: String): String? =
         request(url, accept, cookie = "mxm_bab=AB")
 
-    private fun request(url: String, accept: String, cookie: String? = null): String? = runCatching {
+    private suspend fun request(url: String, accept: String, cookie: String? = null): String? = runCatching {
         val request = Request.Builder().url(url)
             .header("User-Agent", BROWSER_AGENT)
             .header("Accept", accept)
             .header("Accept-Language", "en-US,en;q=0.9")
             .apply { if (cookie != null) header("Cookie", cookie) }
             .build()
-        client.newCall(request).execute().use { response ->
-            if (response.isSuccessful) response.body?.string() else null
-        }
-    }.getOrNull()
+        client.newCall(request).awaitLyricsBody()
+    }.getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it else null }
 
     @Serializable
     private data class Envelope<T>(val message: Message<T>)

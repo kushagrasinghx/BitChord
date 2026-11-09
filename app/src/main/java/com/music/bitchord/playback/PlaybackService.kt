@@ -132,6 +132,7 @@ import com.music.bitchord.data.innertube.PlayerClient
 import com.music.bitchord.data.innertube.StreamResolver
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.Song
+import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.model.isUnresolvedSpotify
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.scrobbling.ListenBrainzManager
@@ -844,6 +845,7 @@ class PlaybackService : MediaLibraryService() {
     private val sessionSongHistory = mutableListOf<Song>()
 
     private var serviceLyricsJob: Job? = null
+    private var upcomingLyricsJob: Job? = null
     private var serviceLyrics: List<LyricLine>? = null
     private var lastPublishedSubtitle: String? = null
     private var lyricsTickerJob: Job? = null
@@ -1003,6 +1005,7 @@ class PlaybackService : MediaLibraryService() {
                 swappingMediaId = null
                 return
             }
+            upcomingLyricsJob?.cancel()
 
             // A receiver, if it is the speaker, is put on whatever became
             // current — or it is the one that moved, and this is the phone
@@ -1036,7 +1039,6 @@ class PlaybackService : MediaLibraryService() {
             autoplayLoadJob = null
             autoplaySeed = null
             loadAutoplayForCurrentTrack()
-            loadLyricsForCurrentTrack()
             if (exoPlayer.isPlaying) startLyricsTicker()
             refreshCustomLayouts()
         }
@@ -1092,6 +1094,7 @@ class PlaybackService : MediaLibraryService() {
         }
 
         override fun onRepeatModeChanged(repeatMode: Int) {
+            scheduleUpcomingLyricsPrefetch()
             val previous = lastRepeatMode
             lastRepeatMode = repeatMode
             speakers.onLocalRepeatChanged(repeatMode)
@@ -1132,7 +1135,12 @@ class PlaybackService : MediaLibraryService() {
          * dry, so the track to read ahead for often only exists once the
          * timeline has changed.
          */
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+            scheduleUpcomingLyricsPrefetch()
+        }
+
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+            if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) scheduleUpcomingLyricsPrefetch()
             // The player this fired on, which is by definition the one the
             // session is currently pointed at.
             val exoPlayer = player ?: return
@@ -2028,6 +2036,7 @@ class PlaybackService : MediaLibraryService() {
                     album = song.albumName,
                     sources = AppSettings.lyricsSources.value,
                     order = AppSettings.lyricsSourceOrder.value,
+                    prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
                 )?.lines
         }
     }
@@ -3484,6 +3493,7 @@ class PlaybackService : MediaLibraryService() {
      * requests at once and never briefly holds none.
      */
     private fun adoptPlayer(outgoing: ExoPlayer, incoming: ExoPlayer) {
+        upcomingLyricsJob?.cancel()
         setSessionOwner(outgoing, owns = false)
         setSessionOwner(incoming, owns = true)
 
@@ -7317,7 +7327,7 @@ class PlaybackService : MediaLibraryService() {
                 AppSettings.lyricsSourceOrder,
                 AppSettings.prioritizeSyllableSync,
             ) { synced, sources, order, prio ->
-                synced to sources
+                listOf(synced, sources, order, prio)
             }.distinctUntilChanged().collect {
                 loadLyricsForCurrentTrack()
             }
@@ -7821,6 +7831,7 @@ class PlaybackService : MediaLibraryService() {
 
 
     override fun onDestroy() {
+        upcomingLyricsJob?.cancel()
         WearBridge.attachStreams(null)
         WearBridge.releaseSpeaker()
         // Let go of the receiver's player but leave its session alone: a
@@ -7920,6 +7931,10 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun loadLyricsForCurrentTrack() {
+        upcomingLyricsJob?.cancel()
+        serviceLyricsJob?.cancel()
+        serviceLyricsJob = null
+        serviceLyrics = null
         val currentSong = player?.currentMediaItem?.toSong() ?: run {
             serviceLyrics = null
             stopLyricsTicker()
@@ -7934,7 +7949,6 @@ class PlaybackService : MediaLibraryService() {
 
         val trackDurationMs = (player?.duration ?: 0L).takeIf { it > 0 } ?: 0L
 
-        serviceLyricsJob?.cancel()
         serviceLyricsJob = scope.launch(Dispatchers.IO) {
             val localUri = currentSong.localUri
             var lines: List<LyricLine>? = null
@@ -7958,6 +7972,49 @@ class PlaybackService : MediaLibraryService() {
                 serviceLyrics = lines
                 if (player?.isPlaying == true) {
                     updateLyricSubtitle()
+                }
+            }
+        }
+        scheduleUpcomingLyricsPrefetch()
+    }
+
+    /** Read the current timeline on the player thread, then fetch one track at a time. */
+    private fun scheduleUpcomingLyricsPrefetch() {
+        upcomingLyricsJob?.cancel()
+        if (!AppSettings.syncedLyrics.value) return
+        val active = player ?: return
+        val currentId = active.currentMediaItem?.mediaId ?: return
+        val foreground = serviceLyricsJob
+        upcomingLyricsJob = scope.launch {
+            delay(2_000L)
+            foreground?.join()
+            if (player !== active || active.currentMediaItem?.mediaId != currentId) return@launch
+            val timeline = active.currentTimeline
+            if (timeline.isEmpty) return@launch
+            var index = active.currentMediaItemIndex
+            if (index !in 0 until timeline.windowCount) return@launch
+            val visited = mutableSetOf(index)
+            val seen = mutableSetOf(currentId)
+            val upcoming = mutableListOf<Song>()
+            val window = Timeline.Window()
+            while (upcoming.size < 5) {
+                index = timeline.getNextWindowIndex(index, active.repeatMode, active.shuffleModeEnabled)
+                if (index == C.INDEX_UNSET || !visited.add(index)) break
+                val song = timeline.getWindow(index, window).mediaItem.toSong()
+                val identity = song.videoId.ifBlank { "${song.title}\u0000${song.artist}" }
+                if (song.title.isNotBlank() && song.artist.isNotBlank() && seen.add(identity)) upcoming.add(song)
+            }
+            withContext(Dispatchers.IO) {
+                upcoming.forEachIndexed { position, song ->
+                    if (position > 0) delay(500L)
+                    if (song.localUri?.let { EmbeddedLyrics.forUri(this@PlaybackService, it) } != null) return@forEachIndexed
+                    LyricsRepository.lyrics(
+                        videoId = song.videoId, title = song.title, artist = song.artist,
+                        durationMs = song.durationMillis(), album = song.albumName,
+                        sources = AppSettings.lyricsSources.value, order = AppSettings.lyricsSourceOrder.value,
+                        prioritizeSyllableSync = AppSettings.prioritizeSyllableSync.value,
+                        speculative = true,
+                    )
                 }
             }
         }

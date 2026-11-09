@@ -47,7 +47,7 @@ object KuGou {
      * first result for a common title is as likely to be a cover or a remix
      * as the right recording — and ordered closest match first.
      */
-    private fun searchSongs(keyword: Keyword, seconds: Int): List<String>? {
+    private suspend fun searchSongs(keyword: Keyword, seconds: Int): List<String>? {
         val url = "https://mobileservice.kugou.com/api/v3/search/song".toHttpUrl().newBuilder()
             .addQueryParameter("version", "9108")
             .addQueryParameter("plat", "0")
@@ -63,7 +63,7 @@ object KuGou {
             .map { it.hash }
     }
 
-    private fun searchLyrics(hash: String? = null, keyword: Keyword? = null, seconds: Int = -1): List<Candidate>? {
+    private suspend fun searchLyrics(hash: String? = null, keyword: Keyword? = null, seconds: Int = -1): List<Candidate>? {
         val builder = "https://lyrics.kugou.com/search".toHttpUrl().newBuilder()
             .addQueryParameter("ver", "1")
             .addQueryParameter("man", "yes")
@@ -81,7 +81,7 @@ object KuGou {
         return response?.candidates
     }
 
-    private fun download(id: String, accessKey: String): String? {
+    private suspend fun download(id: String, accessKey: String): String? {
         val url = "https://lyrics.kugou.com/download".toHttpUrl().newBuilder()
             .addQueryParameter("fmt", "lrc")
             .addQueryParameter("charset", "utf8")

@@ -47,10 +47,22 @@ object LyricsPlus {
         durationMs: Long,
         album: String? = null,
         isrc: String? = null,
+        speculative: Boolean = false,
     ): List<LyricLine>? = coroutineScope {
         val hosts = lastGood.get()
             ?.let { listOf(it) + MIRRORS.filterNot { mirror -> mirror == it } }
             ?: MIRRORS
+
+        if (speculative) {
+            for (host in hosts.take(2)) {
+                val lines = fetch(host, title, artist, durationMs, album, isrc)
+                if (!lines.isNullOrEmpty()) {
+                    lastGood.set(host)
+                    return@coroutineScope lines
+                }
+            }
+            return@coroutineScope null
+        }
 
         val pending = hosts.map { host ->
             host to async(Dispatchers.IO) { fetch(host, title, artist, durationMs, album, isrc) }

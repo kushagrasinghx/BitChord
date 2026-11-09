@@ -25,7 +25,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -315,14 +314,12 @@ internal fun SimpMusicPlayerContent(
 
             // ---- Below the fold: the lyric card ----
             item(key = "lyrics-card") {
-                ElevatedCard(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = androidx.compose.material3.ElevatedCardDefaults.elevatedCardColors(
-                containerColor = Color(0xFF1E1E1E),
-            ),
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFF1E1E1E)),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Text(
@@ -374,14 +371,12 @@ internal fun SimpMusicPlayerContent(
 
             // ---- The artist card ----
             item(key = "artist-card") {
-                ElevatedCard(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = androidx.compose.material3.ElevatedCardDefaults.elevatedCardColors(
-                containerColor = Color(0xFF1E1E1E),
-            ),
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFF1E1E1E)),
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(16.dp),
@@ -424,14 +419,12 @@ internal fun SimpMusicPlayerContent(
 
             // ---- The info card ----
             item(key = "info-card") {
-                ElevatedCard(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = androidx.compose.material3.ElevatedCardDefaults.elevatedCardColors(
-                containerColor = Color(0xFF1E1E1E),
-            ),
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFF1E1E1E)),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Text(

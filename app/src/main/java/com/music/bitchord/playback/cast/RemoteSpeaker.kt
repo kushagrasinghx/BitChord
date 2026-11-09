@@ -37,6 +37,14 @@ interface RemoteSpeaker {
     fun pause()
     fun seekTo(positionMs: Long)
 
+    /**
+     * Back, when this speaker is holding the track before the current one, so
+     * that it is a jump rather than a reload. False wherever it cannot — at the
+     * top of the queue, or on a speaker that keeps no history — and the caller
+     * moves the phone's player instead.
+     */
+    fun jumpToPrevious(): Boolean = false
+
     /** 0..1 of the receiver's own range. */
     fun setVolume(fraction: Float)
 
@@ -76,6 +84,7 @@ class Speakers(private val all: List<RemoteSpeaker>) : RemoteSpeaker {
     override fun play() = current.play()
     override fun pause() = current.pause()
     override fun seekTo(positionMs: Long) = current.seekTo(positionMs)
+    override fun jumpToPrevious(): Boolean = current.jumpToPrevious()
     override fun setVolume(fraction: Float) = current.setVolume(fraction)
 
     override fun onLocalTransition(item: MediaItem?, reason: Int) = all.forEach { it.onLocalTransition(item, reason) }

@@ -13,6 +13,7 @@ import com.google.android.gms.common.GoogleApiAvailability
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -56,7 +57,14 @@ object CastController {
     private var castContext: CastContext? = null
     private var router: MediaRouter? = null
     private var selector: MediaRouteSelector? = null
-    private var started = false
+    // [ensureStarted] is documented as callable from anywhere, so deciding
+    // whether to start has to be one step: two callers that both saw "not
+    // started" would both start, and leave two executors and two sets of
+    // listeners behind. [started] is read by the framework's callbacks too and
+    // stays volatile for that; the field below is only touched under the lock.
+    private val startLock = Any()
+    @Volatile private var started = false
+    private var castExecutor: ExecutorService? = null
     private var playback: CastPlayback? = null
 
     /** The session whose volume is being followed, so it can be let go of. */
@@ -106,28 +114,46 @@ object CastController {
     }
 
     /**
-     * Brings the framework up, once. Safe to call from anywhere, any number of
-     * times; where Google Play Services is absent it settles on unsupported and
-     * the Cast row never appears.
+     * Brings the framework up. Safe to call from anywhere, any number of times.
+     *
+     * A start that fails does not close the door: Google Play Services being
+     * unavailable when the screen first asks is common — it is still updating,
+     * or is off until the user needs it — and a one-shot guard would leave
+     * casting dark for the rest of the process, with the row simply never
+     * appearing. So a failure resets the flag and the next call tries again.
      */
     fun ensureStarted(context: Context) {
-        if (started) return
-        started = true
-        val app = context.applicationContext
-        if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(app) != ConnectionResult.SUCCESS) {
-            Log.i(TAG, "Play Services unavailable; casting disabled")
-            return
-        }
-        try {
-            // The task form, so the framework's start-up work is not on the
-            // main thread of whichever screen happened to ask first.
-            CastContext.getSharedInstance(app, Executors.newSingleThreadExecutor())
-                .addOnSuccessListener { ctx -> onReady(app, ctx) }
-                .addOnFailureListener {
-                    Log.w(TAG, "Cast framework unavailable", it)
-                }
-        } catch (e: Exception) {
-            Log.w(TAG, "Cast framework unavailable", e)
+        synchronized(startLock) {
+            if (started) return
+            started = true
+            val app = context.applicationContext
+            if (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(app) != ConnectionResult.SUCCESS) {
+                Log.i(TAG, "Play Services unavailable; casting stays off until the next call")
+                started = false
+                return
+            }
+            try {
+                // The task form, so the framework's start-up work is not on the
+                // main thread of whichever screen happened to ask first.
+                //
+                // One executor for the life of the process. The framework keeps
+                // the one it is given, so a retry must reuse it: creating a new
+                // one per attempt strands a thread behind every failure, and
+                // shutting the old one down leaves the framework holding a dead
+                // executor. It is never shut down here for that reason.
+                val executor = castExecutor ?: Executors.newSingleThreadExecutor().also { castExecutor = it }
+                CastContext.getSharedInstance(app, executor)
+                    .addOnSuccessListener { ctx -> onReady(app, ctx) }
+                    .addOnFailureListener {
+                        Log.w(TAG, "Cast framework unavailable", it)
+                        // A retry is allowed; it will ask for the same
+                        // executor again.
+                        started = false
+                    }
+            } catch (e: Exception) {
+                Log.w(TAG, "Cast framework unavailable", e)
+                started = false
+            }
         }
     }
 

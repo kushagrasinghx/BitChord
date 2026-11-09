@@ -644,6 +644,41 @@ private fun Song.pickedMixQuery(configId: String): String {
     return "&${SourceResolver.MIX_PARAM}=${SourceResolver.mixOf(sourceQuality)}"
 }
 
+/**
+ * The address a track is fetched through when no copy of it sits on the phone:
+ * exactly the string [toMediaItem] puts in an item's URI on a device that has
+ * not downloaded it.
+ *
+ * Its own function because it has a second caller now. A Cast receiver plays a
+ * track by fetching a stream itself, and the file a download leaves behind is a
+ * `content://` URI — nothing a receiver can open, and nothing the resolver can
+ * turn into a stream either. So a downloaded track is handed this address
+ * instead, and it has to be this one rather than a bare id: the title, the
+ * artist and the runtime ride along in it because they are what a cross-source
+ * match is made on, and the resolver runs on ExoPlayer's loader thread with
+ * nothing but a DataSpec in hand — see [SourceResolver.resolve]. Read-ahead
+ * resolves tracks that aren't the current item, so reaching back for the
+ * session's metadata isn't an option either, and an address arriving without
+ * them plays a different rendition under the same name.
+ *
+ * A track the listener reverted by hand stays reverted — see [OriginalVersion].
+ * Applied here rather than at the one menu that reverts, because "stays" has to
+ * mean the next queue entry built for this song too: another play from a list, a
+ * restored queue, Android Auto. Everything downstream reads the item's URI and
+ * nothing reads the preference, so this is the only place it has to be said.
+ */
+internal fun Song.streamUri(sourceTrack: Pair<String, String>? = SourceRegistry.parseTrackKey(videoId)): String =
+    when {
+        videoId.startsWith("content://") || videoId.startsWith("file://") -> videoId
+        sourceTrack != null -> SourceRegistry.trackUri(sourceTrack.first, sourceTrack.second)
+            .let { "$it${matchQuery()}${pickedMixQuery(sourceTrack.first)}" }
+        OriginalVersion.isPinned(videoId) -> directYouTubeUri()
+        // A source ranked above YouTube is offered this track before YouTube
+        // resolves it — see [SourceResolver.substituteForYouTube] — and that
+        // match is made on the fields [matchQuery] carries for the same reason.
+        else -> "bitchord://watch?v=$videoId${matchQuery()}"
+    }
+
 fun Song.toMediaItem(): MediaItem {
     val sourceTrack = SourceRegistry.parseTrackKey(videoId)
     // A row from search or a playlist carries no file of its own, but the track
@@ -672,30 +707,7 @@ fun Song.toMediaItem(): MediaItem {
     // leaves that path unguarded.
     val offlineUri = localUri?.takeUnless(Downloads::isMissingLocalFile)
         ?: Downloads.verifiedSavedUri(videoId)
-    val uriString = offlineUri ?: when {
-        videoId.startsWith("content://") || videoId.startsWith("file://") -> videoId
-        // Title, artist and runtime ride along in the URI because they are what
-        // a cross-source match is made on, and the resolver runs on ExoPlayer's
-        // loader thread with nothing but a DataSpec in hand — see
-        // [SourceResolver.resolve]. Read-ahead resolves tracks that aren't the
-        // current item, so reaching back for the session's metadata isn't an
-        // option either.
-        sourceTrack != null -> SourceRegistry.trackUri(sourceTrack.first, sourceTrack.second)
-            .let { "$it${matchQuery()}${pickedMixQuery(sourceTrack.first)}" }
-        // A track the listener reverted by hand stays reverted — see
-        // [OriginalVersion]. Applied here rather than at the one menu that
-        // reverts, because "stays" has to mean the next queue entry built for
-        // this song too: another play from a list, a restored queue, Android
-        // Auto. Everything downstream reads the item's URI and nothing reads
-        // the preference, so this is the only place it has to be said.
-        OriginalVersion.isPinned(videoId) -> directYouTubeUri()
-        // The same three fields, for the same reason, on the YouTube path: a
-        // source ranked above YouTube gets offered this track before YouTube
-        // resolves it — see [SourceResolver.substituteForYouTube] — and that
-        // match is made on them, which the loader thread has no other way to
-        // reach.
-        else -> "bitchord://watch?v=$videoId${matchQuery()}"
-    }
+    val uriString = offlineUri ?: streamUri(sourceTrack)
     return MediaItem.Builder()
         .setMediaId(videoId)
         .setUri(resolvePlaybackUri(uriString, localPath))

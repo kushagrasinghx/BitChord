@@ -220,6 +220,7 @@ internal fun InlineQueue(
     queue: List<Song>,
     currentIndex: Int,
     autoplayEnabled: Boolean,
+    repeatMode: Int = RepeatModes.OFF,
     /**
      * Read-only: the party's running order is the host's while this is set, so
      * the queue is here to be looked at and scrolled, not worked.
@@ -367,7 +368,11 @@ internal fun InlineQueue(
                 }
                 if (autoplayEnabled || tracks.autoplay.isNotEmpty()) {
                     item(key = "autoplay-heading") {
-                        AutoplayHeading(hasTracks = tracks.autoplay.isNotEmpty(), modifier = queueMotion())
+                        AutoplayHeading(
+                            hasTracks = tracks.autoplay.isNotEmpty(),
+                            repeatMode = repeatMode,
+                            modifier = queueMotion(),
+                        )
                     }
                     queueSection(tracks.autoplay, QueueSection.AUTOPLAY, drag, controlsLocked, onJumpTo, onRemove)
                 }
@@ -459,7 +464,7 @@ private fun QueueClearButton(style: TextStyle, locked: Boolean, onClear: () -> U
 }
 
 @Composable
-private fun AutoplayHeading(hasTracks: Boolean, modifier: Modifier = Modifier) {
+private fun AutoplayHeading(hasTracks: Boolean, repeatMode: Int, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -481,7 +486,12 @@ private fun AutoplayHeading(hasTracks: Boolean, modifier: Modifier = Modifier) {
             )
             Text(
                 text = stringResource(
-                    if (hasTracks) Res.string.autoplay_queue_description else Res.string.autoplay_empty_description,
+                    when {
+                        repeatMode == RepeatModes.ONE -> Res.string.autoplay_repeat_one_description
+                        repeatMode != RepeatModes.OFF -> Res.string.autoplay_repeat_description
+                        hasTracks -> Res.string.autoplay_queue_description
+                        else -> Res.string.autoplay_empty_description
+                    },
                 ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.55f),

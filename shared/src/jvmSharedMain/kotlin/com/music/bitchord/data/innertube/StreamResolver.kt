@@ -40,6 +40,7 @@ import org.schabi.newpipe.extractor.stream.StreamType
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Turns a videoId into a URL ExoPlayer can actually stream.
@@ -62,6 +63,9 @@ object StreamResolver {
     @Volatile
     var maxKbps: () -> Int = { Int.MAX_VALUE }
 
+    /** Phone quality preference; only High/Lossless should probe the Premium tier. */
+    @Volatile
+    var preferPremiumQuality: () -> Boolean = { true }
 
     private const val TAG = "BitChord"
 
@@ -261,9 +265,15 @@ object StreamResolver {
      */
     suspend fun resolve(videoId: String): String {
         init
+        val key = ResolveKey(
+            videoId = videoId,
+            maxKbps = maxKbps(),
+            premiumPreferred = preferPremiumQuality(),
+            sessionEpoch = sessionEpoch.get(),
+        )
 
         recent[videoId]
-            ?.takeIf { MonotonicClock.nowMs() - it.at < URL_TTL_MS }
+            ?.takeIf { it.key == key && MonotonicClock.nowMs() - it.at < URL_TTL_MS }
             ?.let { return it.url }
 
         // A verdict, not a failure: asking again cannot change the answer, so
@@ -271,13 +281,17 @@ object StreamResolver {
         // See [rememberUnplayable] for why this is the fix for "stuck loading".
         unplayableReason(videoId)?.let { throw PermanentlyUnplayableException(it) }
 
-        val stream = coalescedResolve(videoId)
+        val stream = coalescedResolve(key)
 
+        // Never cache an older account's or previous quality setting's URL.
+        if (key.sessionEpoch == sessionEpoch.get() &&
+            key.maxKbps == maxKbps() && key.premiumPreferred == preferPremiumQuality()) {
+            remember(key, stream.url)
+        }
         // The container carries no bitrate field, so this is the only place the
         // real figure is ever known.
         NerdStats.onStreamPicked(videoId, stream.kbps)
         stream.loudnessDb?.let { loudness[videoId] = it }
-        remember(videoId, stream.url)
         return stream.url
     }
 
@@ -359,6 +373,8 @@ object StreamResolver {
      * hearing now that there is a session to send.
      */
     fun onSessionChanged() {
+        sessionEpoch.incrementAndGet()
+        recent.clear()
         InnerTubeXResolver.onSessionChanged()
         unplayable.clear()
         UploadedTracks.clear()
@@ -388,15 +404,16 @@ object StreamResolver {
      * single largest producer of lines in the log, and every one of them was
      * previously filed against whatever happened to be playing while the walk
      * ran, which for read-ahead is the track before this one.
-     */    private suspend fun coalescedResolve(videoId: String): Stream {
-        inFlight[videoId]?.let { return it.await() }
+     */    private suspend fun coalescedResolve(key: ResolveKey): Stream {
+        val videoId = key.videoId
+        inFlight[key]?.let { return it.await() }
         // Started lazily so that losing the race below costs nothing: the walk
         // that gets discarded has not run a line, so cancelling it fires no
         // requests and leaves no half-finished deferred behind.
         val walk = resolverScope.async(TrackLog.about(videoId), start = CoroutineStart.LAZY) {
-            resolveUncached(videoId)
+            resolveUncached(key)
         }
-        val running = inFlight.putIfAbsent(videoId, walk)
+        val running = inFlight.putIfAbsent(key, walk)
         if (running != null) {
             walk.cancel()
             return running.await()
@@ -415,19 +432,27 @@ object StreamResolver {
         // resolves for one track, 4472ms and 4620ms, 2.8s of them concurrent,
         // each paying for the other's round trips. The doc comment above
         // promised one walk per videoId and the finally guaranteed the opposite.
-        walk.invokeOnCompletion { inFlight.remove(videoId, walk) }
+        walk.invokeOnCompletion { inFlight.remove(key, walk) }
         walk.start()
         return walk.await()
     }
 
-    private val inFlight = ConcurrentHashMap<String, Deferred<Stream>>()
+    private data class ResolveKey(
+        val videoId: String,
+        val maxKbps: Int,
+        val premiumPreferred: Boolean,
+        val sessionEpoch: Long,
+    )
+    private val sessionEpoch = AtomicLong(0L)
+    private val inFlight = ConcurrentHashMap<ResolveKey, Deferred<Stream>>()
 
     private val resolverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private suspend fun resolveUncached(videoId: String): Stream {
+    private suspend fun resolveUncached(key: ResolveKey): Stream {
+        val videoId = key.videoId
         val resolveStart = MonotonicClock.nowMs()
         val stream = try {
-            timed("$videoId InnerTubeX") { innerTubeXStreamAllowingUploads(videoId) }
+            timed("$videoId InnerTubeX") { premiumOrStandardStream(key) }
                 ?.let { found ->
                     // A live broadcast's adaptive URL is one window of a stream
                     // that keeps growing: it plays the few seconds that exist
@@ -488,6 +513,38 @@ object StreamResolver {
         return stream
     }
 
+
+    /**
+     * A login grants an authenticated request, not proof of Premium entitlement.
+     * Request InnerTubeX HIGH with its signed-in Premium hint, then require a
+     * real high-bitrate URL that passed the existing CDN byte probe. If YouTube
+     * supplies only ordinary audio, keep the working standard fallback.
+     */
+    private suspend fun premiumOrStandardStream(key: ResolveKey): Stream? {
+        val videoId = key.videoId
+        val uploaded = UploadedTracks.contains(videoId)
+        val shouldProbe = PremiumAudioPolicy.shouldProbe(
+            signedIn = !Innertube.cookie.isNullOrBlank(),
+            highQualitySelected = key.premiumPreferred,
+            maxKbps = key.maxKbps,
+            isUserUpload = uploaded,
+        )
+        if (!shouldProbe) return innerTubeXStreamAllowingUploads(videoId, key.maxKbps)
+
+        val highQuality = innerTubeXStream(
+            videoId = videoId,
+            maxKbps = key.maxKbps,
+            premiumHighQuality = true,
+            escalateToUpload = false,
+        )
+        if (highQuality != null && PremiumAudioPolicy.isPremiumTier(highQuality.kbps)) {
+            return highQuality
+        }
+
+        // Preserve a verified high-quality candidate if the standard AUTO request fails.
+        return innerTubeXStreamAllowingUploads(videoId, key.maxKbps) ?: highQuality
+    }
+
     /**
      * A probed stream from [InnerTubeXResolver], or null to fall through to extraction.
      *
@@ -501,11 +558,15 @@ object StreamResolver {
         uploaded: Boolean = false,
         escalateToUpload: Boolean = true,
         playRefusedUpload: Boolean = false,
+        premiumHighQuality: Boolean = false,
     ): Stream? {
         val skip = mutableSetOf<String>()
         repeat(INNERTUBEX_ATTEMPTS) { attempt ->
             val found = try {
-                InnerTubeXResolver.extract(videoId, maxKbps, skip, requireM4a, uploaded)
+                InnerTubeXResolver.extract(
+                    videoId, maxKbps, skip, requireM4a, uploaded,
+                    premiumHighQuality = premiumHighQuality,
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1205,7 +1266,7 @@ object StreamResolver {
     suspend fun contentLength(videoId: String): Long? =
         resolve(videoId).toHttpUrlOrNull()?.queryParameter("clen")?.toLongOrNull()
 
-    private class Resolved(val url: String, val at: Long)
+    private class Resolved(val url: String, val at: Long, val key: ResolveKey)
 
     /**
      * Stream URLs already resolved, by videoId — and, since [resolve] only ever
@@ -1225,12 +1286,12 @@ object StreamResolver {
     /** Enough for the queue in hand; this is a latency cache, not a store. */
     private const val MAX_REMEMBERED = 32
 
-    private fun remember(videoId: String, url: String) {
+    private fun remember(key: ResolveKey, url: String) {
         if (recent.size >= MAX_REMEMBERED) {
             val cutoff = MonotonicClock.nowMs() - URL_TTL_MS
             recent.entries.removeAll { it.value.at < cutoff }
             if (recent.size >= MAX_REMEMBERED) recent.clear()
         }
-        recent[videoId] = Resolved(url, MonotonicClock.nowMs())
+        recent[key.videoId] = Resolved(url, MonotonicClock.nowMs(), key)
     }
 }

@@ -46,6 +46,10 @@ object AndroidStreamHooks {
             )
         }
         StreamResolver.maxKbps = { AppSettings.effectiveAudioQuality.maxKbps }
+        StreamResolver.preferPremiumQuality = {
+            AppSettings.effectiveAudioQuality == com.music.bitchord.data.settings.AudioQuality.HIGH ||
+                AppSettings.effectiveAudioQuality == com.music.bitchord.data.settings.AudioQuality.LOSSLESS
+        }
         InnerTubeXResolver.debugLogging = BuildConfig.DEBUG
     }
 

@@ -229,6 +229,7 @@ object InnerTubeXResolver {
         skipClients: Set<String> = emptySet(),
         requireM4a: Boolean = false,
         uploaded: Boolean = false,
+        premiumHighQuality: Boolean = false,
     ): Extracted? {
         innerTube.cookie = Innertube.cookie
         innerTube.visitorData = Innertube.ensureVisitorData()
@@ -236,9 +237,11 @@ object InnerTubeXResolver {
         val stream = extractor.extract(
             videoId = videoId,
             hints = ContentHints(isUploaded = true.takeIf { uploaded })
+                .withPremium(premiumHighQuality)
                 .withStreamCapabilities(allowHls = false, allowSabr = false, allowBoundedRange = true),
             excludedClients = excludedFor(videoId) + skipClients,
             audioQuality = when {
+                premiumHighQuality -> AudioQuality.HIGH
                 requireM4a -> AudioQuality.MP4
                 maxKbps <= LOW_KBPS -> AudioQuality.LOW
                 else -> AudioQuality.AUTO

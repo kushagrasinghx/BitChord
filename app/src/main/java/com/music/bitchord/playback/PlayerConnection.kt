@@ -224,6 +224,7 @@ fun Song.toSongBundle(): Bundle = bundleOf(
     "albumName" to albumName,
     "isVideo" to isVideo,
     "isVideoOrigin" to isVideoOrigin,
+    "isPodcastEpisode" to isPodcastEpisode,
     "setVideoId" to setVideoId,
     "fromAutoplay" to fromAutoplay,
     "radioName" to radioName,
@@ -260,6 +261,7 @@ fun songFromBundle(b: Bundle): Song {
         albumName = b.getString("albumName"),
         isVideo = b.getBoolean("isVideo"),
         isVideoOrigin = b.getBoolean("isVideoOrigin"),
+        isPodcastEpisode = b.getBoolean("isPodcastEpisode"),
         setVideoId = b.getString("setVideoId"),
         radioName = b.getString("radioName"),
         localUri = b.getString("localUri"),
@@ -454,6 +456,7 @@ fun MediaItem.toSong() = Song(
     isVideo = mediaMetadata.extras?.getBoolean(EXTRA_IS_VIDEO) == true,
     isVideoOrigin = mediaMetadata.extras?.getBoolean(EXTRA_VIDEO_ORIGIN) == true ||
         mediaMetadata.extras?.getBoolean(EXTRA_IS_VIDEO) == true,
+    isPodcastEpisode = mediaMetadata.extras?.getBoolean(EXTRA_IS_PODCAST_EPISODE) == true,
     setVideoId = mediaMetadata.extras?.getString(EXTRA_SET_VIDEO_ID),
     sourceQuality = mediaMetadata.extras?.getString(EXTRA_SOURCE_QUALITY),
     sourceHiRes = mediaMetadata.extras?.getBoolean(EXTRA_SOURCE_HI_RES) == true,
@@ -569,6 +572,7 @@ private const val EXTRA_SOURCE_QUALITY = "bitchord.sourceQuality"
 private const val EXTRA_SOURCE_HI_RES = "bitchord.sourceHiRes"
 private const val EXTRA_IS_VIDEO = "bitchord.isVideo"
 private const val EXTRA_VIDEO_ORIGIN = "bitchord.isVideoOrigin"
+private const val EXTRA_IS_PODCAST_EPISODE = "bitchord.isPodcastEpisode"
 
 /** Set only on the replacement item produced by [QualityUpgrade]. */
 const val EXTRA_QUALITY_UPGRADED = "bitchord.qualityUpgraded"
@@ -577,6 +581,10 @@ const val EXTRA_QUALITY_UPGRADED = "bitchord.qualityUpgraded"
 val MediaItem.isVideoOrigin: Boolean
     get() = mediaMetadata.extras?.getBoolean(EXTRA_VIDEO_ORIGIN) == true ||
         mediaMetadata.extras?.getBoolean(EXTRA_IS_VIDEO) == true
+
+/** Whether this queue entry is a podcast episode, not simply a wide video thumbnail. */
+val MediaItem.isPodcastEpisode: Boolean
+    get() = mediaMetadata.extras?.getBoolean(EXTRA_IS_PODCAST_EPISODE) == true
 
 fun MediaController.autoplaySectionStart(): Int = autoplaySectionStart(
     fromAutoplay = (0 until mediaItemCount).map { getMediaItemAt(it).fromAutoplay },
@@ -742,7 +750,7 @@ fun Song.toMediaItem(): MediaItem {
                 if (queueTier != QueueTier.CONTEXT || queueEntryId != null || fromAutoplay ||
                     offlineUri != null || durationText != null ||
                     artistId != null || albumId != null || setVideoId != null ||
-                    isExplicit != null || isVideo || isVideoOrigin || radioName != null ||
+                    isExplicit != null || isVideo || isVideoOrigin || isPodcastEpisode || radioName != null ||
                     sourceQuality != null ||
                     playbackSource != null || playbackSourceType != null || playbackSourceId != null
                 ) {
@@ -764,6 +772,7 @@ fun Song.toMediaItem(): MediaItem {
                             EXTRA_EXPLICIT to isExplicit,
                             EXTRA_IS_VIDEO to isVideo,
                             EXTRA_VIDEO_ORIGIN to isVideoOrigin,
+                            EXTRA_IS_PODCAST_EPISODE to isPodcastEpisode,
                             EXTRA_SOURCE_QUALITY to sourceQuality,
                             EXTRA_SOURCE_HI_RES to sourceHiRes,
                         ),

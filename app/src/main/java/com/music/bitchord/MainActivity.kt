@@ -24,6 +24,9 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -54,7 +57,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
@@ -126,6 +128,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.music.bitchord.auth.DiscordLoginScreen
@@ -162,8 +167,8 @@ import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.BackAnimationStyle
 import com.music.bitchord.data.settings.DefaultOpenTab
+import com.music.bitchord.data.settings.MiniPlayerBarBehavior
 import com.music.bitchord.data.settings.BitPerfectMode
-import com.music.bitchord.data.theme.ThemeSeedPaletteCodec
 import com.music.bitchord.ui.AddonBlockedAlert
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
@@ -314,7 +319,6 @@ import com.music.bitchord.ui.player.NowPlayingScreen
 import com.music.bitchord.ui.player.MixViewRequest
 import com.music.bitchord.ui.player.MusicVideoEngine
 import com.music.bitchord.ui.player.PlayerSheetMotion
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.graphics.Shape
@@ -429,12 +433,6 @@ class MainActivity : AppCompatActivity() {
             val liquidGlassEnabled by AppSettings.liquidGlass.collectAsStateWithLifecycle()
             val iosOverscrollFactory = rememberIosOverscrollFactory()
             val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
-            // The palette the app is themed with, decoded once per change: null —
-            // "default" — keeps the app's own black-and-white scheme.
-            val storedPalette by AppSettings.colorPalette.collectAsStateWithLifecycle()
-            val seedPalette = remember(storedPalette) {
-                ThemeSeedPaletteCodec.decodeFromPreference(storedPalette)
-            }
             // Ported from ArchiveTune's UI scale: the font scale is multiplied so
             // every sp-measured size grows and shrinks while the dp layout — the
             // paddings, the artwork — stays put.
@@ -457,7 +455,6 @@ class MainActivity : AppCompatActivity() {
                 darkTheme = darkTheme,
                 font = appFont,
                 customFontFamily = customFontFamily,
-                seedPalette = seedPalette,
             ) {
                 // The app-wide status-bar hiding, ported from ArchiveTune's
                 // Appearance setting. Composed beside the player's own so both
@@ -592,8 +589,68 @@ private fun BitChordApp(
     val glassSamplesBackdrop = glassActive && !reduceDynamicBlur
     // What folds [GlassNavBar] between its expanded and inline shapes. Held here
     // rather than inside the bar because the page's scroll is what drives it,
-    // and the page is a sibling of the bar rather than a child.
-    val navBarScroll = rememberFloatingTabBarScrollConnection()
+    // and the page is a sibling of the bar rather than a child. The fold only
+    // answers the scroll while the behavior is Adaptive, ported from
+    // ArchiveTune's NavigationBarCompactBehavior; the other two modes hold one
+    // shape, forced below whenever the mode changes.
+    val miniPlayerBarBehavior by AppSettings.miniPlayerBarBehavior.collectAsStateWithLifecycle()
+    val navBarScroll = rememberFloatingTabBarScrollConnection(
+        inlineBehavior = if (miniPlayerBarBehavior == MiniPlayerBarBehavior.ADAPTIVE) {
+            FloatingTabBarInlineBehavior.OnScrollDown
+        } else {
+            FloatingTabBarInlineBehavior.Never
+        },
+    )
+    LaunchedEffect(miniPlayerBarBehavior) {
+        when (miniPlayerBarBehavior) {
+            MiniPlayerBarBehavior.ALWAYS_COMPACT -> navBarScroll.inline()
+            MiniPlayerBarBehavior.ALWAYS_EXPANDED -> navBarScroll.expand()
+            MiniPlayerBarBehavior.ADAPTIVE -> Unit
+        }
+    }
+    // The standard bars' own compact fold, ported from ArchiveTune: scrolling
+    // down past a thumb's width thins the mini player and lets the navigation
+    // bar fall away, and scrolling up brings the stack back. The two hold
+    // modes pin the fold rather than listening to the scroll.
+    var bottomUiCompact by remember { mutableStateOf(false) }
+    LaunchedEffect(miniPlayerBarBehavior) {
+        bottomUiCompact = miniPlayerBarBehavior == MiniPlayerBarBehavior.ALWAYS_COMPACT
+    }
+    val reduceAnimationForBars by AppSettings.reduceAnimation.collectAsStateWithLifecycle()
+    val bottomUiCompactFraction by animateFloatAsState(
+        targetValue = if (bottomUiCompact) 1f else 0f,
+        animationSpec = if (reduceAnimationForBars) {
+            snap()
+        } else {
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 400f)
+        },
+        label = "bottomUiCompact",
+    )
+    val compactThresholdPx = with(LocalDensity.current) { 14.dp.toPx() }
+    val compactScrollConnection = remember(compactThresholdPx) {
+        object : NestedScrollConnection {
+            private var accumulated = 0f
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                val delta = available.y
+                if ((accumulated > 0f && delta < 0f) || (accumulated < 0f && delta > 0f)) accumulated = 0f
+                accumulated += delta
+                if (accumulated <= -compactThresholdPx && !bottomUiCompact) {
+                    bottomUiCompact = true
+                    accumulated = 0f
+                } else if (accumulated >= compactThresholdPx && bottomUiCompact) {
+                    bottomUiCompact = false
+                    accumulated = 0f
+                }
+                return Offset.Zero
+            }
+        }
+    }
+    // Which bar stack is drawing: the all-in-one glass bar while Liquid Glass
+    // and its navigation-bar element are on — unless the ported glass style on
+    // the Navigation bar page has claimed the standard bar for its own lens.
+    val glassNavBarElement by AppSettings.glassNavBar.collectAsStateWithLifecycle()
+    val liquidGlassNavBarStyle by AppSettings.liquidGlassNavBar.collectAsStateWithLifecycle()
+    val glassBarStack = glassActive && glassNavBarElement && !liquidGlassNavBarStyle
     // The tab the app opens on, ported from ArchiveTune's default open tab.
     // Read once — a change is about the *next* launch, not this one's layout.
     val defaultOpenTab = remember { AppSettings.defaultOpenTab.value }
@@ -2990,8 +3047,12 @@ private fun BitChordApp(
                                     )
                                     // Every page's scroll passes through here, so
                                     // the glass bar collapses on all of them
-                                    // without each one having to know about it.
+                                    // without each one having to know about it —
+                                    // and while the standard bars are drawing,
+                                    // the same scroll drives their compact fold.
                                     .nestedScroll(navBarScroll)
+                            } else if (miniPlayerBarBehavior == MiniPlayerBarBehavior.ADAPTIVE) {
+                                Modifier.nestedScroll(compactScrollConnection)
                             } else {
                                 Modifier
                             },
@@ -4257,7 +4318,7 @@ private fun BitChordApp(
                     }
                 }
 
-                if (glassActive) Column(
+                if (glassBarStack) Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
@@ -4293,51 +4354,84 @@ private fun BitChordApp(
                         pull = playerSheetMotion.takeIf { !reducePlayerMotion },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                } else Column(
+                } else Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         // Capped and centred rather than run to the page's edges
-                        // — see [FLOATING_BAR_MAX_WIDTH]. It sits on the Column
+                        // — see [FLOATING_BAR_MAX_WIDTH]. It sits on the Box
                         // rather than on each bar so the two are held to the same
                         // width and keep the shared left and right edge they have
-                        // on a phone. Before fillMaxWidth, so the fill has
-                        // already been bounded by the time it is applied.
+                        // on a phone.
                         .widthIn(max = FLOATING_BAR_MAX_WIDTH)
-                        .fillMaxWidth()
-                        .onSizeChanged { floatingBarsHeight.intValue = it.height },
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .fillMaxWidth(),
                 ) {
-                    QueueActionNoticeHost(queueNotice)
-                    player.song?.let { song ->
-                        MiniPlayer(
-                            song = song,
-                            isPlaying = player.isPlaying,
-                            isLoading = playPauseBusy,
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onSizeChanged { floatingBarsHeight.intValue = it.height },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        QueueActionNoticeHost(queueNotice)
+                        // The compact behavior's circles, ported from
+                        // ArchiveTune: with the stack folded, a Home (or
+                        // Library) circle and a Search circle take the ends the
+                        // mini player gave up, sliding up out of the fold.
+                        player.song?.let { song ->
+                            Box(Modifier.fillMaxWidth()) {
+                                MiniPlayer(
+                                    song = song,
+                                    isPlaying = player.isPlaying,
+                                    isLoading = playPauseBusy,
+                                    hazeState = hazeState,
+                                    compactFraction = bottomUiCompactFraction,
+                                    onPlayPause = {
+                                        togglePlayPause()
+                                    },
+                                    onNext = { controller?.seekToNextMediaItem() },
+                                    onPrevious = { controller?.seekToPrevious() },
+                                    onExpand = if (reducePlayerMotion) {
+                                        { showNowPlaying = true }
+                                    } else {
+                                        playerSheetMotion::open
+                                    },
+                                    controlsLocked = controlsLocked,
+                                    onBlockedControl = showHostOnlyNotice,
+                                    dock = activeDock,
+                                    pull = playerSheetMotion.takeIf { !reducePlayerMotion },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                if (bottomUiCompactFraction > 0.01f) {
+                                    CompactControlCircles(
+                                        fraction = bottomUiCompactFraction,
+                                        leftIsLibrary = selectedTab == TAB_LIBRARY,
+                                        onLeft = {
+                                            if (selectedTab != TAB_HOME) onTabSelected(TAB_HOME)
+                                        },
+                                        onSearch = {
+                                            if (selectedTab != TAB_SEARCH) onTabSelected(TAB_SEARCH)
+                                        },
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        // The bar falls away as the stack folds, leaving the
+                        // circles and the thinned mini player — ported from
+                        // ArchiveTune's compact fraction.
+                        val barSlide = with(LocalDensity.current) { 36.dp.toPx() }
+                        FloatingBottomBar(
+                            tabs = tabs,
+                            selectedIndex = selectedTab,
                             hazeState = hazeState,
-                            onPlayPause = {
-                                togglePlayPause()
-                            },
-                            onNext = { controller?.seekToNextMediaItem() },
-                            onPrevious = { controller?.seekToPrevious() },
-                            onExpand = if (reducePlayerMotion) {
-                                { showNowPlaying = true }
-                            } else {
-                                playerSheetMotion::open
-                            },
-                            controlsLocked = controlsLocked,
-                            onBlockedControl = showHostOnlyNotice,
-                            dock = activeDock,
-                            pull = playerSheetMotion.takeIf { !reducePlayerMotion },
-                            modifier = Modifier.fillMaxWidth(),
+                            onTabSelected = onTabSelected,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .graphicsLayer {
+                                    alpha = 1f - 0.9f * bottomUiCompactFraction
+                                    translationY = barSlide * bottomUiCompactFraction
+                                },
                         )
-                        Spacer(Modifier.height(8.dp))
                     }
-                    FloatingBottomBar(
-                        tabs = tabs,
-                        selectedIndex = selectedTab,
-                        hazeState = hazeState,
-                        onTabSelected = onTabSelected,
-                    )
                 }
             }
 

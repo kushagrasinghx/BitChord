@@ -182,8 +182,11 @@ fun FrostedTopBar(
     actions: @Composable () -> Unit = {},
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    // The glass header-pills element: the floating chrome only goes glass
+    // while it is on, ported as one of the Liquid Glass page's element pills.
+    val glassHeaderPills by AppSettings.glassHeaderPills.collectAsStateWithLifecycle()
     val useFloatingChrome = artworkPageChrome ||
-        (LocalLiquidGlassEnabled.current && isGlassSupported())
+        (LocalLiquidGlassEnabled.current && glassHeaderPills && isGlassSupported())
     val titleAlpha by animateFloatAsState(
         targetValue = if (scrolled() || trailingTitle != null) 1f else 0f,
         animationSpec = tween(220),

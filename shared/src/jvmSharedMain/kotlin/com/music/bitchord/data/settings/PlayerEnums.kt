@@ -88,9 +88,11 @@ enum class LyricsBackgroundStyle {
 /**
  * The mini player's surface. Ported from ArchiveTune's
  * MiniPlayerBackgroundStyle; FROSTED is the frosted pill this app has always
- * drawn, so it is the default.
+ * drawn, so it is the default. LIQUID_GLASS is ArchiveTune's fifth option: the
+ * bar drawn as a lens, which falls back to the theme surface wherever the
+ * glass itself cannot run.
  */
-enum class MiniPlayerBackgroundStyle { THEME, GRADIENT, GLOW, FROSTED }
+enum class MiniPlayerBackgroundStyle { THEME, GRADIENT, GLOW, FROSTED, LIQUID_GLASS }
 
 /** Which tab the app opens on. Ported from ArchiveTune's NavigationTab. */
 enum class DefaultOpenTab { HOME, SEARCH, LIBRARY }

@@ -21,7 +21,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.Fill
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -240,7 +247,8 @@ fun Modifier.lightweightLiquidGlass(
     shape: CornerBasedShape,
     fallbackColor: Color,
 ): Modifier {
-    val useGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val glassHeaderPills by AppSettings.glassHeaderPills.collectAsStateWithLifecycle()
+    val useGlass = LocalLiquidGlassEnabled.current && glassHeaderPills && isGlassSupported()
     val glassTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
         Color(0xFFFAFAFA)
     } else {
@@ -277,7 +285,8 @@ fun Modifier.lightweightLiquidGlass(
  */
 @Composable
 fun Modifier.liquidGlassRim(shape: CornerBasedShape): Modifier {
-    if (!LocalLiquidGlassEnabled.current || !isGlassSupported()) return this
+    val glassHeaderPills by AppSettings.glassHeaderPills.collectAsStateWithLifecycle()
+    if (!LocalLiquidGlassEnabled.current || !glassHeaderPills || !isGlassSupported()) return this
     val shapeProvider = remember(shape) { ShapeProvider { shape } }
     return then(
         HighlightElement(
@@ -361,3 +370,77 @@ fun Modifier.liquidGlass(
         backdropScale = resolutionScale,
     )
 }
+
+// ---- Glass glow, ported from ArchiveTune's CompactBottomControls ----
+
+/**
+ * The Nuvio-style rim light and soft sheen ArchiveTune lays over its navigation
+ * bar and compact control circles: a thin bright stroke around the shape's
+ * outline, a wash of light down from the top edge, and a line of it gathered
+ * along the bottom — three passes of the same [shape], each scaled by
+ * [strength] so the setting's intensity slider can breathe through them.
+ *
+ * Pure draw-time: it samples nothing and costs no layers, so it reads the same
+ * over the glass bar, the frosted bar and the plain surface alike.
+ */
+fun Modifier.glassGlowOverlay(
+    strength: Float,
+    shape: Shape,
+): Modifier = drawWithContent {
+    if (strength <= 0.01f) {
+        drawContent()
+        return@drawWithContent
+    }
+    drawContent()
+    val outline = shape.createOutline(size, layoutDirection, this)
+    val strokePx = GlowEdgeStrokeWidth.toPx()
+    val halfStroke = strokePx / 2f
+    val insetSize = Size(size.width - strokePx, size.height - strokePx)
+    val insetOutline = shape.createOutline(insetSize, layoutDirection, this)
+
+    // The rim: brightest at the top, gone by the bottom. Drawn into the shape
+    // inset by half the stroke so the line's own width stays inside the edge.
+    drawOutline(
+        outline = insetOutline,
+        brush = Brush.verticalGradient(
+            0f to GlowRimStart,
+            1f to GlowRimEnd,
+            startY = halfStroke,
+            endY = size.height - halfStroke,
+        ),
+        topLeft = Offset(halfStroke, halfStroke),
+        alpha = strength,
+        style = Stroke(strokePx),
+    )
+    // The sheen: a soft fill of light from the top edge, out by nearly half.
+    drawOutline(
+        outline = outline,
+        brush = Brush.verticalGradient(
+            0f to GlowSheenTop,
+            0.45f to GlowSheenMid,
+            1f to GlowSheenEnd,
+        ),
+        alpha = strength,
+        style = Fill,
+    )
+    // The bottom edge: light gathered along the foot, dimmer than the rim.
+    drawOutline(
+        outline = outline,
+        brush = Brush.verticalGradient(
+            0.72f to Color.Transparent,
+            1f to GlowBottomEnd,
+        ),
+        alpha = strength * 0.7f,
+        style = Fill,
+    )
+}
+
+/** The rim's width — a hairline, like the glass edge it sits beside. */
+private val GlowEdgeStrokeWidth = 0.75.dp
+
+private val GlowRimStart = Color.White.copy(alpha = 0.27f)
+private val GlowRimEnd = Color.White.copy(alpha = 0.02f)
+private val GlowSheenTop = Color.White.copy(alpha = 0.10f)
+private val GlowSheenMid = Color.Transparent
+private val GlowSheenEnd = Color.White.copy(alpha = 0.05f)
+private val GlowBottomEnd = Color.White.copy(alpha = 0.14f)

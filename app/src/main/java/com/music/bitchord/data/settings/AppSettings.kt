@@ -13,8 +13,6 @@ import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
-import com.music.bitchord.data.theme.ThemePalettes
-import com.music.bitchord.data.theme.ThemeSeedPaletteCodec
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -144,6 +142,18 @@ enum class AppFont { DEFAULT, LEGACY, SYSTEM, CUSTOM }
  * which is the glass the app has always drawn.
  */
 enum class LiquidGlassIntensity { SUBTLE, STANDARD, VIVID }
+
+/**
+ * What the mini player and the bottom bar do when a list is scrolled, ported
+ * from ArchiveTune's NavigationBarCompactBehavior. [ADAPTIVE] folds the stack
+ * on the way down and brings it back on the way up; the other two hold one
+ * shape whatever the scroll does.
+ */
+enum class MiniPlayerBarBehavior {
+    ADAPTIVE,
+    ALWAYS_EXPANDED,
+    ALWAYS_COMPACT,
+}
 
 /**
  * Which of the equaliser's two tabs is driving the sound.
@@ -557,20 +567,72 @@ object AppSettings {
     /** Dynamically balances the glass's tint between bright and dark backdrops. */
     val liquidGlassAdaptiveLuminance = MutableStateFlow(true)
 
-    /**
-     * The palette the app is themed with: a [ThemePalettes] id, or an encoded
-     * [ThemeSeedPalette][com.music.bitchord.data.theme.ThemeSeedPalette] from
-     * the custom editor. "default" — the shipped value — is the app's own
-     * black-and-white scheme and grows nothing.
-     */
-    val colorPalette = MutableStateFlow(ThemePalettes.Default.id)
+    // ---- Liquid Glass elements, ported from ArchiveTune's glass surfaces ----
+    // ArchiveTune hangs its glass on the master switch alone; here each surface
+    // keeps a pill of its own, so glass can be taken piecemeal.
+
+    /** Glass on the floating header pills and the artwork-page round buttons. */
+    val glassHeaderPills = MutableStateFlow(true)
+
+    /** Glass on the bottom navigation bar — the all-in-one glass bar. */
+    val glassNavBar = MutableStateFlow(true)
+
+    /** Glass on the mini player's own Liquid Glass background style. */
+    val glassMiniPlayer = MutableStateFlow(true)
+
+    /** Glass frost on the menus and popovers. */
+    val glassMenus = MutableStateFlow(true)
+
+    // ---- Navigation bar settings, ported from ArchiveTune's page ----
 
     /**
-     * Grows and stores a fresh random palette on every start, ported from
-     * ArchiveTune's random theme on startup: the launch writes the palette, so
-     * the whole cold start already shows it.
+     * What the mini player and bar do on scroll. Adaptively folding is what the
+     * glass bar has always done here, so it is the default — and turning Liquid
+     * Glass on puts it back, as the bar's glass shape assumes it.
      */
-    val randomThemeOnStartup = MutableStateFlow(false)
+    val miniPlayerBarBehavior = MutableStateFlow(MiniPlayerBarBehavior.ADAPTIVE)
+
+    /**
+     * The standard bar's frosted surface — the haze it has always drawn. One of
+     * the three bar styles with [navBarTint] and [liquidGlassNavBar].
+     */
+    val navBarFrosted = MutableStateFlow(true)
+
+    /** The standard bar's accent-tinted surface, one of the three bar styles. */
+    val navBarTint = MutableStateFlow(false)
+
+    /**
+     * The standard bar drawn as Liquid Glass with its own fixed geometry, one of
+     * the three bar styles — the dimensions are the glass's own while it is on.
+     */
+    val liquidGlassNavBar = MutableStateFlow(false)
+
+    /** The Nuvio-style rim light and soft sheen on the bar and compact circles. */
+    val navBarGlassGlow = MutableStateFlow(true)
+
+    /** How strong the glass glow is, 0.2x..2x around the drawn-by-default 1x. */
+    val navBarGlassGlowIntensity = MutableStateFlow(1f)
+
+    /** The bar's width as a fraction of the room it has, 0.5..1.0. */
+    val navBarWidth = MutableStateFlow(1.0f)
+
+    /** The bar's height as a multiplier of its natural height, 0.8..1.4. */
+    val navBarHeight = MutableStateFlow(1.0f)
+
+    /** The bar surface's opacity, 0.2..1.0. */
+    val navBarOpacity = MutableStateFlow(1.0f)
+
+    /** How much of the bar's fill is dropped to see the page through, 0..0.95. */
+    val navBarTransparency = MutableStateFlow(0f)
+
+    /** The gap between a tab's glyph and its label, in dp. */
+    val navBarLabelSpacing = MutableStateFlow(1f)
+
+    /**
+     * The bar's corner radius in dp. The shipped 28 is drawn as the bar's own
+     * half-height pill, which is the shape the app has always had.
+     */
+    val navBarCornerRadius = MutableStateFlow(28f)
 
     /** Hides the status bar everywhere, not just in the player. Swipe from the top edge still reveals it. */
     val hideStatusBar = MutableStateFlow(false)
@@ -1226,17 +1288,24 @@ object AppSettings {
         liquidGlassChromaticAberration.value = prefs.getBoolean(KEY_LIQUID_GLASS_CHROMATIC_ABERRATION, true)
         liquidGlassBackdropVibrancy.value = prefs.getBoolean(KEY_LIQUID_GLASS_BACKDROP_VIBRANCY, true)
         liquidGlassAdaptiveLuminance.value = prefs.getBoolean(KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE, true)
-        randomThemeOnStartup.value = prefs.getBoolean(KEY_RANDOM_THEME_ON_STARTUP, false)
-        if (randomThemeOnStartup.value) {
-            // Ported from ArchiveTune's App init: the palette is written before
-            // anything reads it, so the whole launch is drawn in the new colors.
-            val random = ThemePalettes.generateRandomPalette().toSeedPalette()
-            prefs.edit()
-                .putString(KEY_COLOR_PALETTE, ThemeSeedPaletteCodec.encodeForPreference(random, "Random"))
-                .apply()
-        }
-        colorPalette.value = prefs.getString(KEY_COLOR_PALETTE, ThemePalettes.Default.id)
-            ?: ThemePalettes.Default.id
+        glassHeaderPills.value = prefs.getBoolean(KEY_GLASS_HEADER_PILLS, true)
+        glassNavBar.value = prefs.getBoolean(KEY_GLASS_NAV_BAR, true)
+        glassMiniPlayer.value = prefs.getBoolean(KEY_GLASS_MINI_PLAYER, true)
+        glassMenus.value = prefs.getBoolean(KEY_GLASS_MENUS, true)
+        miniPlayerBarBehavior.value = runCatching {
+            MiniPlayerBarBehavior.valueOf(prefs.getString(KEY_MINI_PLAYER_BAR_BEHAVIOR, null) ?: "ADAPTIVE")
+        }.getOrDefault(MiniPlayerBarBehavior.ADAPTIVE)
+        navBarFrosted.value = prefs.getBoolean(KEY_NAV_BAR_FROSTED, true)
+        navBarTint.value = prefs.getBoolean(KEY_NAV_BAR_TINT, false)
+        liquidGlassNavBar.value = prefs.getBoolean(KEY_LIQUID_GLASS_NAV_BAR, false)
+        navBarGlassGlow.value = prefs.getBoolean(KEY_NAV_BAR_GLASS_GLOW, true)
+        navBarGlassGlowIntensity.value = prefs.getFloat(KEY_NAV_BAR_GLASS_GLOW_INTENSITY, 1f).coerceIn(0.2f, 2f)
+        navBarWidth.value = prefs.getFloat(KEY_NAV_BAR_WIDTH, 1.0f).coerceIn(0.5f, 1.0f)
+        navBarHeight.value = prefs.getFloat(KEY_NAV_BAR_HEIGHT, 1.0f).coerceIn(0.8f, 1.4f)
+        navBarOpacity.value = prefs.getFloat(KEY_NAV_BAR_OPACITY, 1.0f).coerceIn(0.2f, 1.0f)
+        navBarTransparency.value = prefs.getFloat(KEY_NAV_BAR_TRANSPARENCY, 0f).coerceIn(0f, 0.95f)
+        navBarLabelSpacing.value = prefs.getFloat(KEY_NAV_BAR_LABEL_SPACING, 1f).coerceIn(0f, 16f)
+        navBarCornerRadius.value = prefs.getFloat(KEY_NAV_BAR_CORNER_RADIUS, 28f).coerceIn(0f, 48f)
         hideStatusBar.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR, false)
         uiScale.value = prefs.getFloat(KEY_UI_SCALE, 1.0f).coerceIn(MIN_UI_SCALE, MAX_UI_SCALE)
         blurIntensity.value = prefs.getFloat(KEY_BLUR_INTENSITY, DEFAULT_BLUR_INTENSITY).coerceIn(0f, MAX_BLUR_INTENSITY)
@@ -1743,6 +1812,10 @@ object AppSettings {
     fun setLiquidGlass(value: Boolean) {
         liquidGlass.value = value
         prefs.edit().putBoolean(KEY_LIQUID_GLASS, value).apply()
+        // Ported per the user's spec: Liquid Glass brings the adaptive bar with
+        // it — the glass bar's folded shape assumes it, so the behavior goes
+        // along the moment the glass comes on.
+        if (value) setMiniPlayerBarBehavior(MiniPlayerBarBehavior.ADAPTIVE)
     }
 
     fun setGlassPerformance(value: Boolean) {
@@ -1824,18 +1897,129 @@ object AppSettings {
         setLiquidGlassAdaptiveLuminance(true)
     }
 
-    /**
-     * Takes a [ThemePalettes] id or an encoded seed palette — see [colorPalette].
-     * Anything unreadable falls back to the default scheme.
-     */
-    fun setColorPalette(value: String) {
-        colorPalette.value = value
-        prefs.edit().putString(KEY_COLOR_PALETTE, value).apply()
+    fun setGlassHeaderPills(value: Boolean) {
+        glassHeaderPills.value = value
+        prefs.edit().putBoolean(KEY_GLASS_HEADER_PILLS, value).apply()
     }
 
-    fun setRandomThemeOnStartup(value: Boolean) {
-        randomThemeOnStartup.value = value
-        prefs.edit().putBoolean(KEY_RANDOM_THEME_ON_STARTUP, value).apply()
+    fun setGlassNavBar(value: Boolean) {
+        glassNavBar.value = value
+        prefs.edit().putBoolean(KEY_GLASS_NAV_BAR, value).apply()
+    }
+
+    fun setGlassMiniPlayer(value: Boolean) {
+        glassMiniPlayer.value = value
+        prefs.edit().putBoolean(KEY_GLASS_MINI_PLAYER, value).apply()
+    }
+
+    fun setGlassMenus(value: Boolean) {
+        glassMenus.value = value
+        prefs.edit().putBoolean(KEY_GLASS_MENUS, value).apply()
+    }
+
+    fun setMiniPlayerBarBehavior(value: MiniPlayerBarBehavior) {
+        miniPlayerBarBehavior.value = value
+        prefs.edit().putString(KEY_MINI_PLAYER_BAR_BEHAVIOR, value.name).apply()
+    }
+
+    /**
+     * The three bar styles are one choice, ported from ArchiveTune's mutual
+     * exclusion: turning one on turns the others off, so exactly one surface is
+     * in force (or none, with all three off).
+     */
+    private fun persistNavBarStyles() {
+        prefs.edit()
+            .putBoolean(KEY_NAV_BAR_FROSTED, navBarFrosted.value)
+            .putBoolean(KEY_NAV_BAR_TINT, navBarTint.value)
+            .putBoolean(KEY_LIQUID_GLASS_NAV_BAR, liquidGlassNavBar.value)
+            .apply()
+    }
+
+    fun setNavBarFrosted(value: Boolean) {
+        navBarFrosted.value = value
+        if (value) {
+            navBarTint.value = false
+            liquidGlassNavBar.value = false
+        }
+        persistNavBarStyles()
+    }
+
+    fun setNavBarTint(value: Boolean) {
+        navBarTint.value = value
+        if (value) {
+            navBarFrosted.value = false
+            liquidGlassNavBar.value = false
+        }
+        persistNavBarStyles()
+    }
+
+    fun setLiquidGlassNavBar(value: Boolean) {
+        liquidGlassNavBar.value = value
+        if (value) {
+            navBarFrosted.value = false
+            navBarTint.value = false
+            // The glass bar's fixed shape assumes the adaptive behavior, the
+            // same way the master glass switch does.
+            setMiniPlayerBarBehavior(MiniPlayerBarBehavior.ADAPTIVE)
+        }
+        persistNavBarStyles()
+    }
+
+    fun setNavBarGlassGlow(value: Boolean) {
+        navBarGlassGlow.value = value
+        prefs.edit().putBoolean(KEY_NAV_BAR_GLASS_GLOW, value).apply()
+    }
+
+    fun setNavBarGlassGlowIntensity(value: Float) {
+        val clamped = value.coerceIn(0.2f, 2f)
+        navBarGlassGlowIntensity.value = clamped
+        prefs.edit().putFloat(KEY_NAV_BAR_GLASS_GLOW_INTENSITY, clamped).apply()
+    }
+
+    fun setNavBarWidth(value: Float) {
+        val clamped = value.coerceIn(0.5f, 1.0f)
+        navBarWidth.value = clamped
+        prefs.edit().putFloat(KEY_NAV_BAR_WIDTH, clamped).apply()
+    }
+
+    fun setNavBarHeight(value: Float) {
+        val clamped = value.coerceIn(0.8f, 1.4f)
+        navBarHeight.value = clamped
+        prefs.edit().putFloat(KEY_NAV_BAR_HEIGHT, clamped).apply()
+    }
+
+    fun setNavBarOpacity(value: Float) {
+        val clamped = value.coerceIn(0.2f, 1.0f)
+        navBarOpacity.value = clamped
+        prefs.edit().putFloat(KEY_NAV_BAR_OPACITY, clamped).apply()
+    }
+
+    fun setNavBarTransparency(value: Float) {
+        val clamped = value.coerceIn(0f, 0.95f)
+        navBarTransparency.value = clamped
+        prefs.edit().putFloat(KEY_NAV_BAR_TRANSPARENCY, clamped).apply()
+    }
+
+    fun setNavBarLabelSpacing(value: Float) {
+        val clamped = value.coerceIn(0f, 16f)
+        navBarLabelSpacing.value = clamped
+        prefs.edit().putFloat(KEY_NAV_BAR_LABEL_SPACING, clamped).apply()
+    }
+
+    fun setNavBarCornerRadius(value: Float) {
+        val clamped = value.coerceIn(0f, 48f)
+        navBarCornerRadius.value = clamped
+        prefs.edit().putFloat(KEY_NAV_BAR_CORNER_RADIUS, clamped).apply()
+    }
+
+    /** Restores the six dimension values to the shapes the app ships with. */
+    fun resetNavBarDimensions() {
+        setNavBarWidth(1.0f)
+        setNavBarHeight(1.0f)
+        setNavBarOpacity(1.0f)
+        setNavBarTransparency(0f)
+        setNavBarLabelSpacing(1f)
+        setNavBarCornerRadius(28f)
     }
 
     fun setHideStatusBar(value: Boolean) {
@@ -2811,8 +2995,22 @@ object AppSettings {
     private const val KEY_LIQUID_GLASS_CHROMATIC_ABERRATION = "liquid_glass_chromatic_aberration"
     private const val KEY_LIQUID_GLASS_BACKDROP_VIBRANCY = "liquid_glass_backdrop_vibrancy"
     private const val KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE = "liquid_glass_adaptive_luminance"
-    private const val KEY_COLOR_PALETTE = "color_palette"
-    private const val KEY_RANDOM_THEME_ON_STARTUP = "random_theme_on_startup"
+    private const val KEY_GLASS_HEADER_PILLS = "glass_header_pills"
+    private const val KEY_GLASS_NAV_BAR = "glass_nav_bar"
+    private const val KEY_GLASS_MINI_PLAYER = "glass_mini_player"
+    private const val KEY_GLASS_MENUS = "glass_menus"
+    private const val KEY_MINI_PLAYER_BAR_BEHAVIOR = "mini_player_bar_behavior"
+    private const val KEY_NAV_BAR_FROSTED = "nav_bar_frosted"
+    private const val KEY_NAV_BAR_TINT = "nav_bar_tint"
+    private const val KEY_LIQUID_GLASS_NAV_BAR = "liquid_glass_nav_bar"
+    private const val KEY_NAV_BAR_GLASS_GLOW = "nav_bar_glass_glow"
+    private const val KEY_NAV_BAR_GLASS_GLOW_INTENSITY = "nav_bar_glass_glow_intensity"
+    private const val KEY_NAV_BAR_WIDTH = "nav_bar_width"
+    private const val KEY_NAV_BAR_HEIGHT = "nav_bar_height"
+    private const val KEY_NAV_BAR_OPACITY = "nav_bar_opacity"
+    private const val KEY_NAV_BAR_TRANSPARENCY = "nav_bar_transparency"
+    private const val KEY_NAV_BAR_LABEL_SPACING = "nav_bar_label_spacing"
+    private const val KEY_NAV_BAR_CORNER_RADIUS = "nav_bar_corner_radius"
     private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
     private const val KEY_UI_SCALE = "ui_scale"
     private const val KEY_BLUR_INTENSITY = "blur_intensity"

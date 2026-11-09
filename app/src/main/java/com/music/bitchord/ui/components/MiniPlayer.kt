@@ -367,15 +367,26 @@ fun MiniPlayer(
     dock: PlayerDock? = null,
     /** Dragging the bar up into the player. */
     pull: MiniPlayerPull? = null,
+    /**
+     * How far the compact behavior has folded the bottom stack, 0..1 — ported
+     * from ArchiveTune: the row thins toward its compact height and gives its
+     * ends to the compact control circles.
+     */
+    compactFraction: Float = 0f,
     modifier: Modifier = Modifier,
 ) {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     // The bar's surface, ported from ArchiveTune's mini player background
     // style: the frosted pill this app has always drawn, the theme's own
-    // colour, a gradient of the artwork's colours, or a glow of them. The
-    // frosted surface stays the one under "reduce dynamic blur" — that
-    // setting's whole point is to stop the blur.
+    // colour, a gradient of the artwork's colours, a glow of them, or the
+    // Liquid Glass lens — which, as in ArchiveTune, falls back to the theme's
+    // surface wherever the glass itself can't run. The frosted surface stays
+    // the one under "reduce dynamic blur" — that setting's whole point is to
+    // stop the blur.
     val miniPlayerBackground by AppSettings.miniPlayerBackgroundStyle.collectAsStateWithLifecycle()
+    val glassMiniPlayer by AppSettings.glassMiniPlayer.collectAsStateWithLifecycle()
+    val miniPlayerGlass = miniPlayerBackground == MiniPlayerBackgroundStyle.LIQUID_GLASS &&
+        LocalLiquidGlassEnabled.current && glassMiniPlayer && isGlassSupported()
     val palette = when (miniPlayerBackground) {
         MiniPlayerBackgroundStyle.GRADIENT, MiniPlayerBackgroundStyle.GLOW ->
             rememberArtworkPalette(rememberRemoteArtworkUrl(song))
@@ -402,6 +413,13 @@ fun MiniPlayer(
                     ),
                 ),
             )
+        // The Liquid Glass lens — or the theme surface wherever it can't run,
+        // exactly as ArchiveTune's picker falls back.
+        MiniPlayerBackgroundStyle.LIQUID_GLASS -> if (miniPlayerGlass) {
+            Modifier.liquidGlass(shape = RoundedCornerShape(percent = 50))
+        } else {
+            Modifier.background(MaterialTheme.colorScheme.surface)
+        }
         // Frosted: the haze the bar has always drawn — or the plain surface
         // under "reduce dynamic blur", exactly as before the styles arrived.
         else -> if (reduceDynamicBlur) {
@@ -419,9 +437,14 @@ fun MiniPlayer(
     // a pill instead of a rounded rectangle. Same idiom as [FloatingBottomBar]
     // directly below it, so the two shapes are the same family.
     val shape = RoundedCornerShape(percent = 50)
+    // The compact behavior's fold, ported from ArchiveTune: the row thins
+    // toward its compact height and its ends open up for the compact circles.
+    val compact = compactFraction.coerceIn(0f, 1f)
+    val rowVertical = (ROW_PADDING_VERTICAL - 3.dp * compact).coerceAtLeast(2.dp)
+    val rowHorizontal = ROW_PADDING_HORIZONTAL + 40.dp * compact
     Box(
         modifier = modifier
-            .padding(horizontal = BAR_GUTTER)
+            .padding(horizontal = BAR_GUTTER + 56.dp * compact)
             // Ahead of the surface, so a pull lifts the whole of it, frost and all.
             .miniPlayerGestures(
                 pull = pull,
@@ -448,8 +471,8 @@ fun MiniPlayer(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
-                    horizontal = ROW_PADDING_HORIZONTAL,
-                    vertical = ROW_PADDING_VERTICAL,
+                    horizontal = rowHorizontal,
+                    vertical = rowVertical,
                 ),
             verticalAlignment = Alignment.CenterVertically,
         ) {

@@ -175,8 +175,9 @@ fun Modifier.iosMenuPanel(
 ): Modifier {
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val plain by AppSettings.disableBlendEffects.collectAsStateWithLifecycle()
+    val glassMenus by AppSettings.glassMenus.collectAsStateWithLifecycle()
     val blurs = translucent && !reduceDynamicBlur
-    val backdropFrost = blurs && backdrop != null && isGlassSupported()
+    val backdropFrost = blurs && backdrop != null && glassMenus && isGlassSupported()
     val hazeFrost = blurs && !backdropFrost && hazeState != null
     val fill = fillOverride ?: if (backdropFrost || hazeFrost) {
         // Thinner on a dark panel while its rows are blended, which takes them

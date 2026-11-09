@@ -3,7 +3,6 @@ package com.music.bitchord.ui.theme
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Typography
@@ -20,10 +19,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.remember
 import com.music.bitchord.R
 import com.music.bitchord.data.settings.AppFont
-import com.music.bitchord.data.theme.ThemeSeedPalette
-import com.materialkolor.PaletteStyle
-import com.materialkolor.dynamicColorScheme
-import com.materialkolor.ktx.toHct
 
 // Apple Music's signature red. No longer the primary accent, but kept for the
 // spots (Replay's rank badge) that want that specific red regardless of theme.
@@ -154,19 +149,9 @@ fun BitChordTheme(
      * the fallback, exactly as ArchiveTune's CustomFontLoader leaves it.
      */
     customFontFamily: FontFamily? = null,
-    /**
-     * A palette to grow the scheme from, ported from ArchiveTune — null keeps
-     * the app's own black-and-white scheme exactly as it was. See
-     * [seedPaletteColorScheme].
-     */
-    seedPalette: ThemeSeedPalette? = null,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = if (seedPalette != null) {
-        remember(seedPalette, darkTheme) { seedPaletteColorScheme(seedPalette, darkTheme) }
-    } else {
-        if (darkTheme) DarkColors else LightColors
-    }
+    val colorScheme = if (darkTheme) DarkColors else LightColors
     // Remembered so a custom font that finishes loading mid-composition swaps
     // the scale once, not one style at a time as each is first read.
     val typography = remember(font, customFontFamily) {
@@ -186,85 +171,6 @@ fun BitChordTheme(
         typography = typography,
         content = content,
     )
-}
-
-/**
- * Grows the app's scheme from a palette's four seeds, the way ArchiveTune's
- * mergedSeedColorScheme does: each role's colors come from a scheme grown from
- * its own seed, with the surfaces and outlines from the neutral seed, so a
- * palette that splits its hues keeps them split rather than averaging out.
- *
- * The style follows the primary seed's chroma, as there: near-gray seeds get
- * Monochrome or Neutral and colorful ones TonalSpot, which is the scheme the
- * app's own look is closest to.
- */
-private fun seedPaletteColorScheme(
-    palette: ThemeSeedPalette,
-    isDark: Boolean,
-): ColorScheme {
-    val primaryScheme = materialKolorScheme(palette.primary, isDark)
-    val secondaryScheme = materialKolorScheme(palette.secondary, isDark)
-    val tertiaryScheme = materialKolorScheme(palette.tertiary, isDark)
-    val neutralScheme = materialKolorScheme(palette.neutral, isDark)
-
-    return ColorScheme(
-        primary = primaryScheme.primary,
-        onPrimary = primaryScheme.onPrimary,
-        primaryContainer = primaryScheme.primaryContainer,
-        onPrimaryContainer = primaryScheme.onPrimaryContainer,
-        inversePrimary = primaryScheme.inversePrimary,
-        secondary = secondaryScheme.primary,
-        onSecondary = secondaryScheme.onPrimary,
-        secondaryContainer = secondaryScheme.primaryContainer,
-        onSecondaryContainer = secondaryScheme.onPrimaryContainer,
-        tertiary = tertiaryScheme.primary,
-        onTertiary = tertiaryScheme.onPrimary,
-        tertiaryContainer = tertiaryScheme.primaryContainer,
-        onTertiaryContainer = tertiaryScheme.onPrimaryContainer,
-        background = neutralScheme.background,
-        onBackground = neutralScheme.onBackground,
-        surface = neutralScheme.surface,
-        onSurface = neutralScheme.onSurface,
-        surfaceVariant = neutralScheme.surfaceVariant,
-        onSurfaceVariant = neutralScheme.onSurfaceVariant,
-        inverseSurface = neutralScheme.inverseSurface,
-        inverseOnSurface = neutralScheme.inverseOnSurface,
-        surfaceBright = neutralScheme.surfaceBright,
-        surfaceDim = neutralScheme.surfaceDim,
-        surfaceContainer = neutralScheme.surfaceContainer,
-        surfaceContainerLow = neutralScheme.surfaceContainerLow,
-        surfaceContainerLowest = neutralScheme.surfaceContainerLowest,
-        surfaceContainerHigh = neutralScheme.surfaceContainerHigh,
-        surfaceContainerHighest = neutralScheme.surfaceContainerHighest,
-        outline = neutralScheme.outline,
-        outlineVariant = neutralScheme.outlineVariant,
-        error = primaryScheme.error,
-        onError = primaryScheme.onError,
-        errorContainer = primaryScheme.errorContainer,
-        onErrorContainer = primaryScheme.onErrorContainer,
-        scrim = neutralScheme.scrim,
-        surfaceTint = primaryScheme.surfaceTint,
-    )
-}
-
-private fun materialKolorScheme(
-    seedColor: Color,
-    isDark: Boolean,
-): ColorScheme =
-    dynamicColorScheme(
-        seedColor = seedColor,
-        isDark = isDark,
-        isAmoled = false,
-        style = paletteStyleFor(seedColor),
-    )
-
-private fun paletteStyleFor(seedColor: Color): PaletteStyle {
-    val chroma = seedColor.toHct().chroma
-    return when {
-        chroma < 4.0 -> PaletteStyle.Monochrome
-        chroma < 12.0 -> PaletteStyle.Neutral
-        else -> PaletteStyle.TonalSpot
-    }
 }
 
 /**

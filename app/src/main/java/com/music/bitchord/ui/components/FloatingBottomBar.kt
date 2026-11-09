@@ -25,7 +25,13 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.matchParentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -182,7 +190,6 @@ fun FloatingBottomBar(
     hazeState: HazeState,
     modifier: Modifier = Modifier,
 ) {
-    val pillShape = RoundedCornerShape(percent = 50)
     val container = MaterialTheme.colorScheme.surface
     val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
     val useGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
@@ -191,6 +198,49 @@ fun FloatingBottomBar(
     // drop — snapping both the indicator's travel and the glyph's pop to
     // their target leaves the tap itself instant rather than eased.
     val glassSpec: AnimationSpec<Float> = if (reduceAnimation) snap() else GlassSpring
+
+    // ---- The navigation bar settings, ported from ArchiveTune's page ----
+    // Frosted, tint and Liquid Glass are the three surfaces the standard bar
+    // can wear, one at a time; the dimensions are the user's own while the
+    // glass bar's fixed shape is not the one in force.
+    val navBarFrosted by AppSettings.navBarFrosted.collectAsStateWithLifecycle()
+    val navBarTint by AppSettings.navBarTint.collectAsStateWithLifecycle()
+    val liquidGlassNavBar by AppSettings.liquidGlassNavBar.collectAsStateWithLifecycle()
+    val navBarWidth by AppSettings.navBarWidth.collectAsStateWithLifecycle()
+    val navBarHeight by AppSettings.navBarHeight.collectAsStateWithLifecycle()
+    val navBarOpacity by AppSettings.navBarOpacity.collectAsStateWithLifecycle()
+    val navBarTransparency by AppSettings.navBarTransparency.collectAsStateWithLifecycle()
+    val navBarCornerRadius by AppSettings.navBarCornerRadius.collectAsStateWithLifecycle()
+    val navBarGlassGlow by AppSettings.navBarGlassGlow.collectAsStateWithLifecycle()
+    val navBarGlassGlowIntensity by AppSettings.navBarGlassGlowIntensity.collectAsStateWithLifecycle()
+    val navBarShowLabels by AppSettings.navBarShowLabels.collectAsStateWithLifecycle()
+
+    val glassStyle = useGlass && liquidGlassNavBar
+    val dimensionsEnabled = !glassStyle
+    // The glass bar's own geometry is a half-height pill whatever the radius
+    // dial says — and so is the stock one, which is the shape the shipped 28
+    // stands for. Anything else on the dial is drawn as itself.
+    val pillShape = if (abs(navBarCornerRadius - 28f) < 0.01f || !dimensionsEnabled) {
+        RoundedCornerShape(percent = 50)
+    } else {
+        RoundedCornerShape(navBarCornerRadius.dp)
+    }
+    // The surface's fill, thinned by the transparency dial — the frosted tint
+    // is blended the same way so the dial breathes through the frost too.
+    val surfaceAlpha = (navBarOpacity * (1f - navBarTransparency)).coerceIn(0.05f, 1f)
+    val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+    // The tint style's colors, ported from ArchiveTune: a deep tinted dark in
+    // the dark theme, a light pastel in the light one.
+    val tintBase = if (light) {
+        lerp(Color.White, MaterialTheme.colorScheme.primary, 0.26f)
+    } else {
+        lerp(Color.Black, MaterialTheme.colorScheme.primary, 0.30f)
+    }
+    val glassGlowStrength by animateFloatAsState(
+        targetValue = if (navBarGlassGlow) navBarGlassGlowIntensity else 0f,
+        animationSpec = tween(420),
+        label = "navBarGlassGlow",
+    )
 
     var dragOffset by remember { mutableFloatStateOf(0f) }
     val haptics = rememberHaptics()
@@ -251,21 +301,29 @@ fun FloatingBottomBar(
             .windowInsetsPadding(floatingBarInsets)
             .padding(horizontal = NAV_BAR_GUTTER)
             .padding(bottom = NAV_BAR_LIFT)
-            .fillMaxWidth()
+            .fillMaxWidth((if (dimensionsEnabled) navBarWidth else 1f).coerceIn(0.5f, 1f))
             .clip(pillShape)
             .then(
-                if (reduceDynamicBlur) {
-                    Modifier.background(container)
-                } else if (useGlass) {
-                    Modifier.liquidGlass(shape = pillShape)
-                } else {
-                    Modifier.optimizedHazeEffect(
+                when {
+                    // "Reduce dynamic blur" keeps the bar's shape and answers
+                    // with the plain surface, as every glassy thing here does.
+                    reduceDynamicBlur -> Modifier.background(container.copy(alpha = surfaceAlpha))
+                    // The tinted bar: no blur, the accent washed over it.
+                    navBarTint -> Modifier.background(tintBase.copy(alpha = surfaceAlpha))
+                    // The glass bar: the lens itself, at its own fixed geometry.
+                    glassStyle -> Modifier.liquidGlass(shape = pillShape)
+                    // The frosted bar this app has always drawn — the default.
+                    navBarFrosted -> Modifier.optimizedHazeEffect(
                         state = hazeState,
-                        style = HazeMaterials.regular(container),
+                        style = HazeMaterials.regular(container.copy(alpha = surfaceAlpha)),
                     )
+                    else -> Modifier.background(container.copy(alpha = surfaceAlpha))
                 },
             )
             .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, pillShape)
+            // The glow, over whichever surface is in force — a rim of light
+            // and a sheen, ported from ArchiveTune's glass glow.
+            .glassGlowOverlay(glassGlowStrength, pillShape)
             .padding(horizontal = PILL_INSET, vertical = PILL_INSET),
     ) {
         if (tabWidthPx > 0f) {
@@ -343,13 +401,26 @@ fun FloatingBottomBar(
             // Echo's floating nav bar uses for its own liquid glass.
             val glassTint = glassContentColor()
             val adaptiveTint = if (useGlass) glassTint else null
+            val itemVerticalPadding = if (dimensionsEnabled) TAB_VERTICAL_PADDING * navBarHeight else TAB_VERTICAL_PADDING
             tabs.forEachIndexed { index, tab ->
                 BottomBarItem(
                     tab = tab,
                     selected = index == selectedIndex,
                     glassSpec = glassSpec,
-                    selectedTint = adaptiveTint,
-                    unselectedTint = adaptiveTint?.copy(alpha = 0.65f),
+                    selectedTint = if (navBarTint && !useGlass) {
+                        if (light) lerp(MaterialTheme.colorScheme.primary, Color.Black, 0.55f)
+                        else lerp(Color.White, MaterialTheme.colorScheme.primary, 0.45f)
+                    } else {
+                        adaptiveTint
+                    },
+                    unselectedTint = if (navBarTint && !useGlass) {
+                        (if (light) Color.Black else Color.White).copy(alpha = 0.62f)
+                    } else {
+                        adaptiveTint?.copy(alpha = 0.65f)
+                    },
+                    labelSpacing = if (dimensionsEnabled) navBarLabelSpacing.dp else TAB_ICON_LABEL_GAP,
+                    showLabel = navBarShowLabels,
+                    verticalPadding = itemVerticalPadding,
                     onClick = { onTabSelected(index) },
                     modifier = Modifier.weight(1f),
                 )
@@ -368,6 +439,11 @@ private fun BottomBarItem(
     /** Overrides the theme's primary/onSurfaceVariant tint — see the glass branch above. */
     selectedTint: Color? = null,
     unselectedTint: Color? = null,
+    /** The glyph-to-label gap, from the navigation bar's dimensions. */
+    labelSpacing: Dp = TAB_ICON_LABEL_GAP,
+    showLabel: Boolean = true,
+    /** The tab's own vertical padding — the height dial scales through it. */
+    verticalPadding: Dp = TAB_VERTICAL_PADDING,
 ) {
     // The same spring the indicator rides, so the glyph arriving and the glass
     // arriving are one movement rather than two that nearly agree.
@@ -380,7 +456,6 @@ private fun BottomBarItem(
     // The label under the glyph, ported from ArchiveTune's navigation bar
     // settings: off, the glyph stands alone and the icon's own padding keeps
     // the bar's height — a shorter bar would jump the page's bottom inset.
-    val showLabel by AppSettings.navBarShowLabels.collectAsStateWithLifecycle()
     val tint by animateColorAsState(
         targetValue = if (selected) {
             selectedTint ?: MaterialTheme.colorScheme.primary
@@ -402,7 +477,7 @@ private fun BottomBarItem(
                 if (!selected) haptics.play(Haptic.Select)
                 onClick()
             }
-            .padding(vertical = TAB_VERTICAL_PADDING),
+            .padding(vertical = verticalPadding),
     ) {
         Icon(
             imageVector = tab.icon,
@@ -416,7 +491,7 @@ private fun BottomBarItem(
                 },
         )
         if (showLabel) {
-            Spacer(Modifier.height(TAB_ICON_LABEL_GAP))
+            Spacer(Modifier.height(labelSpacing))
             Text(
                 text = tab.label,
                 style = tabLabelStyle(),
@@ -425,5 +500,96 @@ private fun BottomBarItem(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+// ---- The compact control circles, ported from ArchiveTune ----
+
+/**
+ * The two circles that flank the mini player once the compact behavior has
+ * folded the bottom stack, ported from ArchiveTune's CompactControlCircle: the
+ * left one carries Home — Library, while Library is the tab in force — and the
+ * right one carries Search. They slide up out of the fold as the navigation
+ * bar falls away, glass where the glass is on, and wear the same glow.
+ */
+@Composable
+internal fun CompactControlCircles(
+    /** How far the stack has folded, 0..1 — the circles ride it in and out. */
+    fraction: Float,
+    leftIsLibrary: Boolean,
+    onLeft: () -> Unit,
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .matchParentSize()
+            .padding(horizontal = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CompactControlCircle(
+            icon = if (leftIsLibrary) Icons.Rounded.LibraryMusic else Icons.Rounded.Home,
+            onClick = onLeft,
+            fraction = fraction,
+        )
+        CompactControlCircle(
+            icon = Icons.Rounded.Search,
+            onClick = onSearch,
+            fraction = fraction,
+        )
+    }
+}
+
+/** One 56dp circle, glass where it can run and plain where it cannot. */
+@Composable
+private fun CompactControlCircle(
+    icon: ImageVector,
+    onClick: () -> Unit,
+    fraction: Float,
+) {
+    val useGlass = LocalLiquidGlassEnabled.current && isGlassSupported()
+    val reduceDynamicBlur by AppSettings.reduceDynamicBlur.collectAsStateWithLifecycle()
+    val navBarGlassGlow by AppSettings.navBarGlassGlow.collectAsStateWithLifecycle()
+    val navBarGlassGlowIntensity by AppSettings.navBarGlassGlowIntensity.collectAsStateWithLifecycle()
+    val glow by animateFloatAsState(
+        targetValue = if (navBarGlassGlow) navBarGlassGlowIntensity else 0f,
+        animationSpec = tween(420),
+        label = "circleGlassGlow",
+    )
+    val shape = CircleShape
+    val haptics = rememberHaptics()
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .graphicsLayer {
+                alpha = fraction
+                translationY = (1f - fraction) * 40.dp.toPx()
+            }
+            .clip(shape)
+            .then(
+                if (useGlass && !reduceDynamicBlur) {
+                    Modifier.liquidGlass(shape = shape)
+                } else {
+                    Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
+                },
+            )
+            .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
+            .glassGlowOverlay(glow, shape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                haptics.play(Haptic.Select)
+                onClick()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (useGlass) glassContentColor() else MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.size(24.dp),
+        )
     }
 }

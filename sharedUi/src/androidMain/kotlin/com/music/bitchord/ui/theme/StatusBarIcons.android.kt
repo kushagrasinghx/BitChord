@@ -34,6 +34,15 @@ actual fun StatusBarIcons(dark: Boolean) {
     }
 }
 
+/**
+ * How many [HideStatusBar]s are asking for the bar to be hidden at once —
+ * the app-wide setting and the player's, say. The window is told to show the
+ * bar again only when the last of them leaves: without this, whichever asked
+ * first would be undone by whichever left first, and the bar would come back
+ * while another still wanted it gone.
+ */
+private val activeStatusBarHides = java.util.concurrent.atomic.AtomicInteger(0)
+
 @Composable
 actual fun HideStatusBar(hidden: Boolean) {
     val view = LocalView.current
@@ -41,6 +50,11 @@ actual fun HideStatusBar(hidden: Boolean) {
     val window = findWindow(view) ?: return
     DisposableEffect(window, hidden) {
         if (!hidden) return@DisposableEffect onDispose {}
+        if (activeStatusBarHides.getAndIncrement() > 0) {
+            // Another hider is already holding the bar off; this one only adds
+            // its vote, and takes it back on dispose.
+            onDispose { activeStatusBarHides.decrementAndGet() }
+        } else {
         val controller = WindowCompat.getInsetsController(window, view)
         val behavior = controller.systemBarsBehavior
         // Before Android 15 a window left on the default cutout mode is only
@@ -61,6 +75,8 @@ actual fun HideStatusBar(hidden: Boolean) {
         controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.statusBars())
         onDispose {
+            activeStatusBarHides.decrementAndGet()
+            if (activeStatusBarHides.get() > 0) return@onDispose
             controller.show(WindowInsetsCompat.Type.statusBars())
             controller.systemBarsBehavior = behavior
             if (intoCutout && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -68,6 +84,7 @@ actual fun HideStatusBar(hidden: Boolean) {
                     layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
                 }
             }
+        }
         }
     }
 }

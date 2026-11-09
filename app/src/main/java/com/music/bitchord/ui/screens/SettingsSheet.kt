@@ -14,8 +14,10 @@ import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -119,6 +121,7 @@ import kotlin.math.abs
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -146,6 +149,7 @@ import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.PillSegmentedControl
 import com.music.bitchord.ui.components.isGlassSupported
+import com.music.bitchord.ui.theme.BitChordTheme
 import com.music.bitchord.ui.components.languageDisplayNameRes
 import com.music.bitchord.ui.components.MessageState
 import com.music.bitchord.ui.components.SearchField
@@ -160,6 +164,10 @@ import com.music.bitchord.data.listentogether.ListenTogether
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.OutputPcmMode
 import com.music.bitchord.data.settings.BitPerfectMode
+import com.music.bitchord.data.settings.LiquidGlassIntensity
+import com.music.bitchord.data.theme.ThemePalettes
+import com.music.bitchord.data.theme.ThemeSeedPalette
+import com.music.bitchord.data.theme.ThemeSeedPaletteCodec
 import com.music.bitchord.playback.AudioOutputStatus
 import com.music.bitchord.playback.audio.bitperfect.BitPerfectOutput
 import com.music.bitchord.data.settings.AutomixPerformanceMode
@@ -173,7 +181,9 @@ import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
 import com.music.bitchord.ui.player.fullBleedArtworkAvailable
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import java.util.Locale
 
@@ -249,6 +259,19 @@ fun SettingsScreen(
     val glassPerformance by AppSettings.glassPerformance.collectAsStateWithLifecycle()
     val progressiveBlur by AppSettings.progressiveBlur.collectAsStateWithLifecycle()
     val liquidGlassSupported = isGlassSupported()
+    val randomThemeOnStartup by AppSettings.randomThemeOnStartup.collectAsStateWithLifecycle()
+    val colorPalette by AppSettings.colorPalette.collectAsStateWithLifecycle()
+    val hideStatusBar by AppSettings.hideStatusBar.collectAsStateWithLifecycle()
+    val uiScale by AppSettings.uiScale.collectAsStateWithLifecycle()
+    val blurIntensity by AppSettings.blurIntensity.collectAsStateWithLifecycle()
+    // The palette's own name for the row that opens it: the custom editor's
+    // stored name where one is set, else the preset's label, else the default.
+    val selectedPaletteLabel = remember(colorPalette) {
+        val customName = ThemeSeedPaletteCodec.extractNameFromPreference(colorPalette)
+        val preset = ThemePalettes.findById(colorPalette)
+        customName ?: preset?.let { context.getString(it.labelRes) }
+            ?: context.getString(R.string.palette_default)
+    }
     val lyricsBlur by AppSettings.lyricsBlur.collectAsStateWithLifecycle()
     val animatedCanvas by AppSettings.animatedCanvas.collectAsStateWithLifecycle()
     val canvasOverCellular by AppSettings.canvasOverCellular.collectAsStateWithLifecycle()
@@ -1108,6 +1131,168 @@ fun SettingsScreen(
                         onCheckedChange = AppSettings::setProgressiveBlur,
                     )
                 }
+                // Ported from ArchiveTune's Liquid Glass settings page: the
+                // tuning lives a page deep because it is a dozen controls, and
+                // the row reads as the glass's own rather than a setting beside it.
+                val customizeGlassTitle = stringResource(R.string.liquid_glass_customize)
+                row(customizeGlassTitle, "glass", "refraction", "tint", "vibrancy", "lens", divided = false) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenChoice(SettingsChoiceKind.LIQUID_GLASS) }
+                            .padding(start = ROW_INSET, end = ROW_INSET, top = 4.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = customizeGlassTitle,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Chevron()
+                    }
+                }
+            }
+            // Ported from ArchiveTune: a fresh random palette is grown and
+            // written on every launch, so the whole cold start is drawn in it.
+            val randomThemeTitle = stringResource(R.string.random_theme_on_startup)
+            row(randomThemeTitle, "random", "palette", "theme", "color", "shuffle") {
+                SettingsRow(
+                    icon = SfIcons.Shuffle,
+                    title = randomThemeTitle,
+                    subtitle = stringResource(R.string.random_theme_on_startup_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = randomThemeOnStartup,
+                            onCheckedChange = AppSettings::setRandomThemeOnStartup,
+                        )
+                    },
+                    onClick = { AppSettings.setRandomThemeOnStartup(!randomThemeOnStartup) },
+                )
+            }
+            // Ported from ArchiveTune's Color Palette: presets and a custom
+            // editor, a page of their own.
+            val colorPaletteTitle = stringResource(R.string.color_palette)
+            row(colorPaletteTitle, "palette", "theme", "color", "seed") {
+                SettingsRow(
+                    icon = SfIcons.Appearance,
+                    title = colorPaletteTitle,
+                    subtitle = stringResource(R.string.color_palette_subtitle),
+                    value = selectedPaletteLabel,
+                    onClick = { onOpenChoice(SettingsChoiceKind.COLOR_PALETTE) },
+                )
+            }
+            // The launcher icon belongs with the look of the app rather than
+            // under Miscellaneous — it moved here from that page.
+            val appIconTitle = stringResource(R.string.app_icon)
+            row(appIconTitle, "icon", "launcher", "logo") {
+                var selectedIcon by remember { mutableStateOf(AppIcon.current(context)) }
+                SettingsRow(icon = SfIcons.Apps, title = appIconTitle)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    AppIcon.entries.forEach { option ->
+                        val selected = option == selectedIcon
+                        Column(
+                            modifier = Modifier
+                                .width(84.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .clickable {
+                                    selectedIcon = option
+                                    AppIcon.apply(context, option)
+                                }
+                                .padding(vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            // A glass foreground holds the finished icon in its own shape on the
+                            // central 72 of 108 dp: scaled 1.5× it fills the tile as designed.
+                            // Only the default goes through an adaptive mask.
+                            val preview = option.previewRes
+                            if (preview == null) {
+                                AndroidView(
+                                    factory = { ctx ->
+                                        android.widget.ImageView(ctx).apply { setImageResource(option.iconRes) }
+                                    },
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .clip(RoundedCornerShape(22.dp)),
+                                )
+                            } else {
+                                Image(
+                                    painter = painterResource(preview),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .scale(1.5f),
+                                )
+                            }
+                            Text(
+                                text = stringResource(option.labelRes),
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (selected) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
+                    }
+                }
+            }
+            // Ported from ArchiveTune: hides the status bar app-wide — the
+            // player's own hiding composes alongside it (see HideStatusBar's
+            // reference counting), and a swipe from the top edge still reveals it.
+            val hideStatusBarTitle = stringResource(R.string.hide_status_bar)
+            row(hideStatusBarTitle, "status bar", "immersive", "fullscreen", "hide") {
+                SettingsRow(
+                    icon = SfIcons.VisibilityOff,
+                    title = hideStatusBarTitle,
+                    subtitle = stringResource(R.string.hide_status_bar_subtitle),
+                    trailing = {
+                        IosSwitch(
+                            checked = hideStatusBar,
+                            onCheckedChange = AppSettings::setHideStatusBar,
+                        )
+                    },
+                    onClick = { AppSettings.setHideStatusBar(!hideStatusBar) },
+                )
+            }
+            // Ported from ArchiveTune: scales every sp-measured size; the dp
+            // layout — the paddings, the artwork — stays put.
+            val uiScaleTitle = stringResource(R.string.ui_scale)
+            row(uiScaleTitle, "scale", "size", "text", "zoom", "bigger") {
+                SliderRow(
+                    icon = SfIcons.Font,
+                    title = uiScaleTitle,
+                    subtitle = stringResource(R.string.ui_scale_subtitle),
+                    value = stringResource(R.string.ui_scale_value, (uiScale * 100f).roundToInt()),
+                    sliderValue = uiScale,
+                    onSliderValue = { AppSettings.setUiScale((it * 100f).roundToInt() / 100f) },
+                    valueRange = AppSettings.MIN_UI_SCALE..AppSettings.MAX_UI_SCALE,
+                    steps = 44,
+                )
+            }
+            // Ported from ArchiveTune: how soft the full-cover blur behind the
+            // player, lyrics and queue is. 48 dp is what the app has always drawn.
+            val blurIntensityTitle = stringResource(R.string.blur_intensity)
+            row(blurIntensityTitle, "blur", "softness", "backdrop", "intensity") {
+                SliderRow(
+                    icon = SfIcons.BlurOn,
+                    title = blurIntensityTitle,
+                    value = stringResource(R.string.blur_intensity_value, blurIntensity.roundToInt()),
+                    sliderValue = blurIntensity,
+                    onSliderValue = { AppSettings.setBlurIntensity(it.roundToInt().toFloat()) },
+                    valueRange = 0f..AppSettings.MAX_BLUR_INTENSITY,
+                    steps = 63,
+                )
             }
             // Left out where the player won't honour it: a window too wide for
             // the player to fill and too narrow to stand a page beside it keeps
@@ -1702,67 +1887,8 @@ fun SettingsScreen(
                     onClick = { AppSettings.setShowNerdStats(!nerdStats) },
                 )
             }
-            val appIconTitle = stringResource(R.string.app_icon)
-            row(appIconTitle, "icon", "launcher", "logo") {
-                var selectedIcon by remember { mutableStateOf(AppIcon.current(context)) }
-                SettingsRow(icon = SfIcons.Apps, title = appIconTitle)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(start = ROW_INSET, end = ROW_INSET, bottom = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    AppIcon.entries.forEach { option ->
-                        val selected = option == selectedIcon
-                        Column(
-                            modifier = Modifier
-                                .width(84.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .clickable {
-                                    selectedIcon = option
-                                    AppIcon.apply(context, option)
-                                }
-                                .padding(vertical = 6.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            // A glass foreground holds the finished icon in its own shape on the
-                            // central 72 of 108 dp: scaled 1.5× it fills the tile as designed.
-                            // Only the default goes through an adaptive mask.
-                            val preview = option.previewRes
-                            if (preview == null) {
-                                AndroidView(
-                                    factory = { ctx ->
-                                        android.widget.ImageView(ctx).apply { setImageResource(option.iconRes) }
-                                    },
-                                    modifier = Modifier
-                                        .size(68.dp)
-                                        .clip(RoundedCornerShape(22.dp)),
-                                )
-                            } else {
-                                Image(
-                                    painter = painterResource(preview),
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Fit,
-                                    modifier = Modifier
-                                        .size(68.dp)
-                                        .scale(1.5f),
-                                )
-                            }
-                            Text(
-                                text = stringResource(option.labelRes),
-                                textAlign = TextAlign.Center,
-                                maxLines = 2,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                        }
-                    }
-                }
-            }
+            // The App icon row lives under Appearance now, beside the theme it
+            // belongs to — it moved there with the rest of the look settings.
         }
 
         if (shows(SettingsCategory.LANGUAGE)) SearchableSettingsGroup(search, header = stringResource(R.string.language)) {
@@ -2853,6 +2979,10 @@ enum class SettingsChoiceKind(@param:StringRes val title: Int) {
     AUTOMIX_PERFORMANCE(R.string.automix_performance),
     BIT_PERFECT(R.string.bit_perfect_output),
     FONT(R.string.font),
+    /** The Liquid Glass tuning — refraction, blur, tint and optical quality. */
+    LIQUID_GLASS(R.string.liquid_glass),
+    /** The palette catalog and the custom palette editor. */
+    COLOR_PALETTE(R.string.color_palette),
 }
 
 /** The main page's list of categories: a glyph and a name each, and a chevron into it. */
@@ -2985,10 +3115,595 @@ fun SettingsChoicePage(
                     onChosen()
                 }
             }
+
+            SettingsChoiceKind.LIQUID_GLASS -> LiquidGlassTuningPage()
+
+            SettingsChoiceKind.COLOR_PALETTE -> ColorPalettePage()
         }
         Spacer(Modifier.height(32.dp))
     }
 }
+
+/**
+ * The Liquid Glass tuning, ported from ArchiveTune's Liquid Glass settings
+ * page: an intensity tier, five optics sliders, four optical-quality switches
+ * and a reset. Every default is the glass the app has always drawn, so the page
+ * opens on the stock look.
+ */
+@Composable
+private fun LiquidGlassTuningPage() {
+    val intensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
+    val refractionHeight by AppSettings.liquidGlassRefractionHeight.collectAsStateWithLifecycle()
+    val refractionAmount by AppSettings.liquidGlassRefractionAmount.collectAsStateWithLifecycle()
+    val blurRadius by AppSettings.liquidGlassBlurRadius.collectAsStateWithLifecycle()
+    val tintOpacity by AppSettings.liquidGlassTintOpacity.collectAsStateWithLifecycle()
+    val shadowDepth by AppSettings.liquidGlassShadowDepth.collectAsStateWithLifecycle()
+    val depth3D by AppSettings.liquidGlassDepth3D.collectAsStateWithLifecycle()
+    val chromaticAberration by AppSettings.liquidGlassChromaticAberration.collectAsStateWithLifecycle()
+    val backdropVibrancy by AppSettings.liquidGlassBackdropVibrancy.collectAsStateWithLifecycle()
+    val adaptiveLuminance by AppSettings.liquidGlassAdaptiveLuminance.collectAsStateWithLifecycle()
+
+    SettingsGroup(header = stringResource(R.string.liquid_glass_intensity), topSpacing = 0.dp) {
+        SegmentedControl(
+            options = LiquidGlassIntensity.entries.map { it.localizedLabel() },
+            selectedIndex = LiquidGlassIntensity.entries.indexOf(intensity),
+            onSelect = { AppSettings.setLiquidGlassIntensity(LiquidGlassIntensity.entries[it]) },
+            modifier = Modifier.padding(start = ROW_INSET, end = ROW_INSET, top = 12.dp, bottom = 14.dp),
+        )
+    }
+
+    SettingsGroup(
+        header = stringResource(R.string.liquid_glass_optics),
+        footer = stringResource(R.string.liquid_glass_optics_footer),
+    ) {
+        SliderRow(
+            icon = SfIcons.Tune,
+            title = stringResource(R.string.liquid_glass_refraction_height),
+            subtitle = stringResource(R.string.liquid_glass_refraction_height_desc),
+            value = stringResource(R.string.liquid_glass_percent_value, (refractionHeight * 100f).roundToInt()),
+            sliderValue = refractionHeight,
+            onSliderValue = { AppSettings.setLiquidGlassRefractionHeight((it * 100f).roundToInt() / 100f) },
+            valueRange = 0f..1f,
+            steps = 19,
+        )
+        RowDivider()
+        SliderRow(
+            icon = SfIcons.Tune,
+            title = stringResource(R.string.liquid_glass_refraction_amount),
+            subtitle = stringResource(R.string.liquid_glass_refraction_amount_desc),
+            value = stringResource(R.string.liquid_glass_percent_value, (refractionAmount * 100f).roundToInt()),
+            sliderValue = refractionAmount,
+            onSliderValue = { AppSettings.setLiquidGlassRefractionAmount((it * 100f).roundToInt() / 100f) },
+            valueRange = 0f..1f,
+            steps = 19,
+        )
+        RowDivider()
+        SliderRow(
+            icon = SfIcons.BlurOn,
+            title = stringResource(R.string.liquid_glass_blur_radius),
+            subtitle = stringResource(R.string.liquid_glass_blur_radius_desc),
+            value = stringResource(R.string.liquid_glass_percent_value, (blurRadius * 100f).roundToInt()),
+            sliderValue = blurRadius,
+            onSliderValue = { AppSettings.setLiquidGlassBlurRadius((it * 100f).roundToInt() / 100f) },
+            valueRange = 0f..1f,
+            steps = 19,
+        )
+        RowDivider()
+        SliderRow(
+            icon = SfIcons.Gradient,
+            title = stringResource(R.string.liquid_glass_tint_opacity),
+            subtitle = stringResource(R.string.liquid_glass_tint_opacity_desc),
+            value = stringResource(R.string.liquid_glass_percent_value, (tintOpacity * 100f).roundToInt()),
+            sliderValue = tintOpacity,
+            onSliderValue = { AppSettings.setLiquidGlassTintOpacity((it * 100f).roundToInt() / 100f) },
+            valueRange = 0f..2f,
+            steps = 39,
+        )
+        RowDivider()
+        SliderRow(
+            icon = SfIcons.Waves,
+            title = stringResource(R.string.liquid_glass_shadow_depth),
+            subtitle = stringResource(R.string.liquid_glass_shadow_depth_desc),
+            value = stringResource(R.string.liquid_glass_percent_value, (shadowDepth * 100f).roundToInt()),
+            sliderValue = shadowDepth,
+            onSliderValue = { AppSettings.setLiquidGlassShadowDepth((it * 100f).roundToInt() / 100f) },
+            valueRange = 0f..1f,
+            steps = 19,
+        )
+    }
+
+    SettingsGroup(
+        header = stringResource(R.string.liquid_glass_quality),
+        footer = stringResource(R.string.liquid_glass_quality_footer),
+    ) {
+        SettingsRow(
+            title = stringResource(R.string.liquid_glass_depth_3d),
+            subtitle = stringResource(R.string.liquid_glass_depth_3d_desc),
+            trailing = { IosSwitch(checked = depth3D, onCheckedChange = AppSettings::setLiquidGlassDepth3D) },
+            onClick = { AppSettings.setLiquidGlassDepth3D(!depth3D) },
+        )
+        RowDivider()
+        SettingsRow(
+            title = stringResource(R.string.liquid_glass_chromatic_aberration),
+            subtitle = stringResource(R.string.liquid_glass_chromatic_aberration_desc),
+            trailing = { IosSwitch(checked = chromaticAberration, onCheckedChange = AppSettings::setLiquidGlassChromaticAberration) },
+            onClick = { AppSettings.setLiquidGlassChromaticAberration(!chromaticAberration) },
+        )
+        RowDivider()
+        SettingsRow(
+            title = stringResource(R.string.liquid_glass_backdrop_vibrancy),
+            subtitle = stringResource(R.string.liquid_glass_backdrop_vibrancy_desc),
+            trailing = { IosSwitch(checked = backdropVibrancy, onCheckedChange = AppSettings::setLiquidGlassBackdropVibrancy) },
+            onClick = { AppSettings.setLiquidGlassBackdropVibrancy(!backdropVibrancy) },
+        )
+        RowDivider()
+        SettingsRow(
+            title = stringResource(R.string.liquid_glass_adaptive_luminance),
+            subtitle = stringResource(R.string.liquid_glass_adaptive_luminance_desc),
+            trailing = { IosSwitch(checked = adaptiveLuminance, onCheckedChange = AppSettings::setLiquidGlassAdaptiveLuminance) },
+            onClick = { AppSettings.setLiquidGlassAdaptiveLuminance(!adaptiveLuminance) },
+        )
+    }
+
+    SettingsGroup(header = stringResource(R.string.liquid_glass_reset)) {
+        SettingsRow(
+            icon = SfIcons.Revert,
+            title = stringResource(R.string.liquid_glass_reset),
+            subtitle = stringResource(R.string.liquid_glass_reset_desc),
+            onClick = { AppSettings.resetLiquidGlassTuning() },
+        )
+    }
+}
+
+/** The seed a palette editor row is editing. */
+private enum class SeedRole {
+    PRIMARY,
+    SECONDARY,
+    TERTIARY,
+    NEUTRAL,
+}
+
+/**
+ * The Color Palette page, ported from ArchiveTune's palette picker: the palette
+ * catalog as swatches, a custom palette grown from four seed colors, and
+ * import/export through the document picker. A tap applies at once — a preset
+ * writes its id, the editor's Apply writes the encoded seeds.
+ */
+@Composable
+private fun ColorPalettePage() {
+    val context = LocalContext.current
+    val stored by AppSettings.colorPalette.collectAsStateWithLifecycle()
+
+    val decodedSeed = remember(stored) { ThemeSeedPaletteCodec.decodeFromPreference(stored) }
+    val selectedPreset = remember(stored) { ThemePalettes.findById(stored) }
+
+    // The editor's draft: seeded from whatever is in force when the page opens,
+    // and applied only by its own Apply row.
+    var draftPrimary by remember(decodedSeed, selectedPreset) {
+        mutableStateOf(decodedSeed?.primary ?: selectedPreset?.primary ?: ThemePalettes.Default.primary)
+    }
+    var draftSecondary by remember(decodedSeed, selectedPreset) {
+        mutableStateOf(decodedSeed?.secondary ?: selectedPreset?.secondary ?: ThemePalettes.Default.secondary)
+    }
+    var draftTertiary by remember(decodedSeed, selectedPreset) {
+        mutableStateOf(decodedSeed?.tertiary ?: selectedPreset?.tertiary ?: ThemePalettes.Default.tertiary)
+    }
+    var draftNeutral by remember(decodedSeed, selectedPreset) {
+        mutableStateOf(decodedSeed?.neutral ?: selectedPreset?.neutral ?: ThemePalettes.Default.neutral)
+    }
+    var editingRole by remember { mutableStateOf<SeedRole?>(null) }
+    val scope = rememberCoroutineScope()
+
+    val applyDraft: () -> Unit = {
+        AppSettings.setColorPalette(
+            ThemeSeedPaletteCodec.encodeForPreference(
+                ThemeSeedPalette(draftPrimary, draftSecondary, draftTertiary, draftNeutral),
+            ),
+        )
+        Toast.makeText(context, context.getString(R.string.theme_applied), Toast.LENGTH_SHORT).show()
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { target ->
+        if (target == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val payload = ThemeSeedPaletteCodec.encodeAsJson(
+                ThemeSeedPalette(draftPrimary, draftSecondary, draftTertiary, draftNeutral),
+            )
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(target)?.use { out ->
+                        out.write(payload.toByteArray(Charsets.UTF_8))
+                        out.flush()
+                    } ?: error("No output stream")
+                }.isSuccess
+            }
+            Toast.makeText(
+                context,
+                context.getString(if (ok) R.string.theme_export_success else R.string.theme_export_failed),
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { source ->
+        if (source == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(source)
+                        ?.bufferedReader()
+                        ?.use { it.readText() }
+                        .orEmpty()
+                }.getOrNull().orEmpty()
+            }
+            val imported = ThemeSeedPaletteCodec.decodeFromJson(text)
+            if (imported != null) {
+                AppSettings.setColorPalette(ThemeSeedPaletteCodec.encodeForPreference(imported))
+                Toast.makeText(context, context.getString(R.string.theme_import_success), Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, context.getString(R.string.theme_import_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // The preview shows the palette as it would theme the app: a real settings
+    // card, drawn in a real BitChordTheme grown from the seeds in force.
+    val previewSeed = decodedSeed ?: selectedPreset?.toSeedPalette()
+    PalettePreviewCard(seedPalette = previewSeed)
+
+    SettingsGroup(
+        header = stringResource(R.string.theme_seed_colors),
+        footer = stringResource(R.string.theme_seed_footer),
+    ) {
+        SeedColorRow(
+            role = SeedRole.PRIMARY,
+            color = draftPrimary,
+            onClick = { editingRole = SeedRole.PRIMARY },
+        )
+        RowDivider()
+        SeedColorRow(
+            role = SeedRole.SECONDARY,
+            color = draftSecondary,
+            onClick = { editingRole = SeedRole.SECONDARY },
+        )
+        RowDivider()
+        SeedColorRow(
+            role = SeedRole.TERTIARY,
+            color = draftTertiary,
+            onClick = { editingRole = SeedRole.TERTIARY },
+        )
+        RowDivider()
+        SeedColorRow(
+            role = SeedRole.NEUTRAL,
+            color = draftNeutral,
+            onClick = { editingRole = SeedRole.NEUTRAL },
+        )
+        RowDivider()
+        SettingsRow(
+            title = stringResource(R.string.theme_apply_button),
+            onClick = applyDraft,
+        )
+    }
+
+    editingRole?.let { role ->
+        val initial = when (role) {
+            SeedRole.PRIMARY -> draftPrimary
+            SeedRole.SECONDARY -> draftSecondary
+            SeedRole.TERTIARY -> draftTertiary
+            SeedRole.NEUTRAL -> draftNeutral
+        }
+        SeedColorEditorDialog(
+            role = role,
+            initial = initial,
+            onDismiss = { editingRole = null },
+            onConfirm = { color ->
+                when (role) {
+                    SeedRole.PRIMARY -> draftPrimary = color
+                    SeedRole.SECONDARY -> draftSecondary = color
+                    SeedRole.TERTIARY -> draftTertiary = color
+                    SeedRole.NEUTRAL -> draftNeutral = color
+                }
+                editingRole = null
+            },
+        )
+    }
+
+    SettingsGroup(
+        header = stringResource(R.string.color_palette),
+        footer = stringResource(R.string.palette_footer),
+    ) {
+        ThemePalettes.allPalettes.chunked(4).forEach { rowPalettes ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = ROW_INSET, end = ROW_INSET, top = 6.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                rowPalettes.forEach { palette ->
+                    val selected = palette.id == stored
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { AppSettings.setColorPalette(palette.id) }
+                            .padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(palette.primary)
+                                .border(
+                                    width = if (selected) 2.dp else 1.dp,
+                                    color = if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outline,
+                                    shape = CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (selected) {
+                                Icon(
+                                    SfIcons.Check,
+                                    contentDescription = stringResource(R.string.selected),
+                                    tint = palette.onPrimary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                        Text(
+                            text = stringResource(palette.labelRes),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (selected) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
+                }
+                // Keeps the swatches evenly wide when the last row runs short.
+                repeat(4 - rowPalettes.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+
+    SettingsGroup(header = stringResource(R.string.theme_files)) {
+        SettingsRow(
+            icon = SfIcons.FileDownload,
+            title = stringResource(R.string.import_theme),
+            onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
+        )
+        RowDivider()
+        SettingsRow(
+            icon = SfIcons.FileUpload,
+            title = stringResource(R.string.export_theme),
+            onClick = {
+                exportLauncher.launch("BitChord Theme.json")
+            },
+        )
+    }
+}
+
+/**
+ * A settings card drawn inside a [BitChordTheme] grown from the palette, so the
+ * preview is the app itself — the card, a row, a switch, a slider — in the
+ * palette's own colors. Null seeds preview the app's stock scheme.
+ */
+@Composable
+private fun PalettePreviewCard(seedPalette: ThemeSeedPalette?) {
+    val dark = isSystemInDarkTheme()
+    BitChordTheme(darkTheme = dark, seedPalette = seedPalette) {
+        SettingsGroup(topSpacing = 0.dp) {
+            SettingsRow(
+                icon = SfIcons.Appearance,
+                title = stringResource(R.string.color_palette),
+                subtitle = stringResource(R.string.color_palette_subtitle),
+                trailing = { IosSwitch(checked = true, onCheckedChange = null) },
+            )
+            RowDivider()
+            SliderRow(
+                icon = SfIcons.Tune,
+                title = stringResource(R.string.liquid_glass_refraction_amount),
+                value = stringResource(R.string.liquid_glass_percent_value, 75),
+                sliderValue = 0.75f,
+                onSliderValue = {},
+                valueRange = 0f..1f,
+                steps = 19,
+            )
+        }
+    }
+}
+
+/** One seed-color row of the custom palette editor: the color, its role, its hex. */
+@Composable
+private fun SeedColorRow(
+    role: SeedRole,
+    color: Color,
+    onClick: () -> Unit,
+) {
+    val label = stringResource(
+        when (role) {
+            SeedRole.PRIMARY -> R.string.theme_seed_primary
+            SeedRole.SECONDARY -> R.string.theme_seed_secondary
+            SeedRole.TERTIARY -> R.string.theme_seed_tertiary
+            SeedRole.NEUTRAL -> R.string.theme_seed_neutral
+        },
+    )
+    SettingsRow(
+        iconContent = {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(color)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+            )
+        },
+        title = label,
+        value = String.format("#%06X", 0xFFFFFF and color.toArgb()),
+        onClick = onClick,
+    )
+}
+
+/**
+ * The seed-color editor, adapted from ArchiveTune's SeedColorEditor: RGB
+ * sliders, a hex field, and a strip of the presets' colors to jump between.
+ * Confirm writes the color; Cancel leaves the draft as it was.
+ */
+@Composable
+private fun SeedColorEditorDialog(
+    role: SeedRole,
+    initial: Color,
+    onDismiss: () -> Unit,
+    onConfirm: (Color) -> Unit,
+) {
+    val label = stringResource(
+        when (role) {
+            SeedRole.PRIMARY -> R.string.theme_seed_primary
+            SeedRole.SECONDARY -> R.string.theme_seed_secondary
+            SeedRole.TERTIARY -> R.string.theme_seed_tertiary
+            SeedRole.NEUTRAL -> R.string.theme_seed_neutral
+        },
+    )
+    var red by remember { mutableStateOf((initial.toArgb() shr 16) and 0xFF) }
+    var green by remember { mutableStateOf((initial.toArgb() shr 8) and 0xFF) }
+    var blue by remember { mutableStateOf(initial.toArgb() and 0xFF) }
+    var hexInput by remember { mutableStateOf(String.format("#%06X", 0xFFFFFF and initial.toArgb())) }
+
+    val current = Color((0xFF shl 24) or (red shl 16) or (green shl 8) or blue)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.theme_editor_title, label)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(current)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                    )
+                    Text(
+                        text = String.format("#%02X%02X%02X", red, green, blue),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+                OutlinedTextField(
+                    value = hexInput,
+                    onValueChange = { next ->
+                        hexInput = next.take(9)
+                        val normalized = hexInput.trim().let { if (it.startsWith("#")) it else "#$it" }
+                        val parsed = runCatching { Color(android.graphics.Color.parseColor(normalized)) }.getOrNull()
+                        if (parsed != null) {
+                            red = (parsed.toArgb() shr 16) and 0xFF
+                            green = (parsed.toArgb() shr 8) and 0xFF
+                            blue = parsed.toArgb() and 0xFF
+                        }
+                    },
+                    label = { Text(stringResource(R.string.theme_editor_hex_input)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                RgbSlider(label = "R", value = red, color = Color(0xFFE53935)) { red = it }
+                RgbSlider(label = "G", value = green, color = Color(0xFF43A047)) { green = it }
+                RgbSlider(label = "B", value = blue, color = Color(0xFF1E88E5)) { blue = it }
+                Text(
+                    text = stringResource(R.string.theme_presets_title),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val swatches = remember {
+                        ThemePalettes.allPalettes
+                            .map { it.primary }
+                            .distinctBy { it.toArgb() }
+                            .take(8)
+                    }
+                    swatches.forEach { c ->
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(c)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                                .clickable {
+                                    red = (c.toArgb() shr 16) and 0xFF
+                                    green = (c.toArgb() shr 8) and 0xFF
+                                    blue = c.toArgb() and 0xFF
+                                },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(current) }) {
+                Text(stringResource(R.string.done))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        },
+    )
+}
+
+/** One R/G/B slider of the seed-color editor, tinted with its own channel. */
+@Composable
+private fun RgbSlider(
+    label: String,
+    value: Int,
+    color: Color,
+    onValueChange: (Int) -> Unit,
+) {
+    val colors = SliderDefaults.colors(
+        thumbColor = color,
+        activeTrackColor = color,
+        inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = color,
+            modifier = Modifier.width(20.dp),
+        )
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.toInt().coerceIn(0, 255)) },
+            valueRange = 0f..255f,
+            colors = colors,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.width(36.dp),
+        )
+    }
+}
+
+@Composable
+private fun LiquidGlassIntensity.localizedLabel(): String = stringResource(
+    when (this) {
+        LiquidGlassIntensity.SUBTLE -> R.string.liquid_glass_intensity_subtle
+        LiquidGlassIntensity.STANDARD -> R.string.liquid_glass_intensity_standard
+        LiquidGlassIntensity.VIVID -> R.string.liquid_glass_intensity_vivid
+    },
+)
 
 /**
  * A card of options, one of them ticked: the body of every choice page. A

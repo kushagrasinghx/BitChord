@@ -348,6 +348,12 @@ dependencies {
     }
     implementation("androidx.palette:palette-ktx:1.0.0")
 
+    // ---- Seed-grown Material 3 schemes (the Color Palette setting) ----
+    // The 2.1.x line is the last built against Compose 1.7, which is what the
+    // BOM here resolves; the 5.x line this fork's sibling app uses needs
+    // Compose 1.11 and Kotlin 2.4.
+    implementation("com.materialkolor:material-kolor:2.1.1")
+
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
     implementation("dev.chrisbanes.haze:haze:1.3.1")
     implementation("dev.chrisbanes.haze:haze-materials:1.3.1")

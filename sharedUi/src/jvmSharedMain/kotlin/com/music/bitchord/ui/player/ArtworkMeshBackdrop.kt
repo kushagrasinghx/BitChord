@@ -98,12 +98,17 @@ fun rememberFullArtworkBlurImage(
     imageUrl: String?,
     artPx: Int = CARD_ART_PX,
     prepare: Boolean = true,
+    blurIntensityDp: Float = DEFAULT_BLUR_INTENSITY_DP,
 ): ImageBitmap? {
     val context = LocalPlatformContext.current
-    var image by remember { mutableStateOf(imageUrl?.let(fullBlurCache::get)) }
+    // The blur is baked into the cached bitmap, so the strength is part of the
+    // key: a new strength is a new blur, not a stale one handed back.
+    val blurKey = blurIntensityDp.roundToInt()
+    val cacheKey = "$imageUrl#$blurKey"
+    var image by remember { mutableStateOf(imageUrl?.let { fullBlurCache[cacheKey] }) }
 
-    LaunchedEffect(imageUrl, artPx, prepare) {
-        imageUrl?.let(fullBlurCache::get)?.let {
+    LaunchedEffect(imageUrl, artPx, prepare, blurKey) {
+        if (imageUrl != null) fullBlurCache[cacheKey]?.let {
             image = it
             return@LaunchedEffect
         }
@@ -117,9 +122,9 @@ fun rememberFullArtworkBlurImage(
             .build()
         val result = SingletonImageLoader.get(context).execute(request)
         val bitmap = (result as? SuccessResult)?.image?.toImageBitmap() ?: return@LaunchedEffect
-        val blurred = withContext(Dispatchers.Default) { bitmap.boxBlurred(FULL_BLUR_PASSES) }
+        val blurred = withContext(Dispatchers.Default) { bitmap.boxBlurred(blurIntensityDp) }
         val ready = blurred
-        fullBlurCache[imageUrl] = ready
+        if (imageUrl != null) fullBlurCache[cacheKey] = ready
         image = ready
     }
     return image
@@ -414,21 +419,33 @@ private val FallbackBackdrop = Color(0xFF121212)
 
 /** A screen cannot recover detail discarded here; small is the performance feature. */
 private const val FULL_BLUR_SOURCE_PX = 128
-private const val FULL_BLUR_PASSES = 3
+
+/**
+ * The strength the full-cover blur has always been drawn at — [rememberFullArtworkBlurImage]'s
+ * default, so callers that never heard of the setting keep today's look.
+ */
+internal const val DEFAULT_BLUR_INTENSITY_DP = 48f
 
 /** A handful of recent covers; each entry is only 64 KiB at 128x128 ARGB. */
 private val fullBlurCache = object : LinkedHashMap<String, ImageBitmap>(0, 0.75f, true) {
     override fun removeEldestEntry(eldest: Map.Entry<String, ImageBitmap>) = size > 8
 }
 
-/** Three small box passes approximate a broad Gaussian blur at thumbnail scale. */
-private fun ImageBitmap.boxBlurred(passes: Int): ImageBitmap {
+/**
+ * Blurs this bitmap by a strength in dp, as ArchiveTune's blur intensity does:
+ * 48 dp is the blur the player has always drawn (the same radius and three
+ * passes), each 16 dp above or below it widens the radius and adds or removes
+ * a pass, and the ends are clamped so the extremes stay one and five passes.
+ */
+private fun ImageBitmap.boxBlurred(intensityDp: Float): ImageBitmap {
     val width = width
     val height = height
     if (width < 2 || height < 2) return this
     var source = argbPixels()
     var target = IntArray(source.size)
-    val radius = (minOf(width, height) / 12).coerceAtLeast(2)
+    val strength = (intensityDp / DEFAULT_BLUR_INTENSITY_DP).coerceIn(0f, 4f)
+    val radius = (((minOf(width, height) / 12) * strength).roundToInt()).coerceAtLeast(1)
+    val passes = (3f * strength).roundToInt().coerceIn(1, 5)
 
     repeat(passes) {
         boxBlurPass(source, target, width, height, radius, horizontal = true)

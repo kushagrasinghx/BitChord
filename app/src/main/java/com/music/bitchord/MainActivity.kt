@@ -156,6 +156,7 @@ import com.music.bitchord.data.model.durationMillis
 import com.music.bitchord.data.scrobbling.LastFM
 import com.music.bitchord.data.settings.AppSettings
 import com.music.bitchord.data.settings.BitPerfectMode
+import com.music.bitchord.data.theme.ThemeSeedPaletteCodec
 import com.music.bitchord.ui.AddonBlockedAlert
 import com.music.bitchord.data.settings.LibrarySort
 import com.music.bitchord.data.settings.ThemeMode
@@ -359,6 +360,7 @@ import com.music.bitchord.ui.replay.ReplayStories
 import com.music.bitchord.ui.replay.ReplayStoryPage
 import com.music.bitchord.ui.replay.rememberReplayState
 import com.music.bitchord.ui.theme.BitChordTheme
+import com.music.bitchord.ui.theme.HideStatusBar
 import com.music.bitchord.ui.theme.rememberArtworkPalette
 import com.music.bitchord.data.canvas.AppleArtistArtRepository
 import com.music.bitchord.data.canvas.keyColors
@@ -407,6 +409,17 @@ class MainActivity : AppCompatActivity() {
             val liquidGlassEnabled by AppSettings.liquidGlass.collectAsStateWithLifecycle()
             val iosOverscrollFactory = rememberIosOverscrollFactory()
             val performanceRefreshRate by AppSettings.performanceRefreshRate.collectAsStateWithLifecycle()
+            // The palette the app is themed with, decoded once per change: null —
+            // "default" — keeps the app's own black-and-white scheme.
+            val storedPalette by AppSettings.colorPalette.collectAsStateWithLifecycle()
+            val seedPalette = remember(storedPalette) {
+                ThemeSeedPaletteCodec.decodeFromPreference(storedPalette)
+            }
+            // Ported from ArchiveTune's UI scale: the font scale is multiplied so
+            // every sp-measured size grows and shrinks while the dp layout — the
+            // paddings, the artwork — stays put.
+            val uiScale by AppSettings.uiScale.collectAsStateWithLifecycle()
+            val hideStatusBarApp by AppSettings.hideStatusBar.collectAsStateWithLifecycle()
             val composeView = LocalView.current
             LaunchedEffect(highPerformance, performanceRefreshRate, composeView) {
                 applyPerformanceMode(highPerformance, performanceRefreshRate, composeView)
@@ -416,7 +429,15 @@ class MainActivity : AppCompatActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
-            BitChordTheme(darkTheme = darkTheme, font = appFont) {
+            val density = LocalDensity.current
+            val scaledDensity = remember(density, uiScale) {
+                Density(density.density, density.fontScale * uiScale)
+            }
+            BitChordTheme(darkTheme = darkTheme, font = appFont, seedPalette = seedPalette) {
+                // The app-wide status-bar hiding, ported from ArchiveTune's
+                // Appearance setting. Composed beside the player's own so both
+                // can ask at once — see HideStatusBar's reference counting.
+                HideStatusBar(hideStatusBarApp)
                 // The glass surfaces sample this layer, and a layer records only
                 // what is drawn into it — which, for BitChord, is a page that
                 // paints no background of its own. Everywhere a page is not
@@ -438,6 +459,7 @@ class MainActivity : AppCompatActivity() {
                     LocalOverscrollFactory provides iosOverscrollFactory,
                     LocalLiquidGlassEnabled provides liquidGlassEnabled,
                     LocalAppBackdrop provides appBackdrop,
+                    LocalDensity provides scaledDensity,
                 ) {
                 // The window's width, measured rather than asked for.
                 //

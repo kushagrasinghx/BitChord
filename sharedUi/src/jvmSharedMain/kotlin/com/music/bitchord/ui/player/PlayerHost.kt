@@ -247,6 +247,12 @@ interface PlayerSettingsSource {
     val hideStatusBar: StateFlow<Boolean>
     val lastPlayerScreen: StateFlow<LastPlayerScreen>
     val playerTheme: StateFlow<PlayerTheme>
+    /**
+     * The full-cover blur's strength in dp, 0..64 and 48 by default — the
+     * strength the backdrop has always been drawn at. Ported from ArchiveTune's
+     * blur intensity setting.
+     */
+    val blurIntensity: StateFlow<Float>
     val lyricsBlur: StateFlow<Boolean>
     val lyricsOffsetMs: StateFlow<Int>
     val lyricsSourceOrder: StateFlow<List<LyricsSource>>

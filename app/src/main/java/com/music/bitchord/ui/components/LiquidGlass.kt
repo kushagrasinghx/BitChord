@@ -26,6 +26,12 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
+import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_BLUR_RADIUS
+import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT
+import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT
+import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_SHADOW_DEPTH
+import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_TINT_OPACITY
+import com.music.bitchord.data.settings.LiquidGlassIntensity
 import com.music.bitchord.ui.components.backdrop.Backdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
 import com.music.bitchord.ui.components.backdrop.drawBackdrop
@@ -66,6 +72,101 @@ private const val LENS_HEIGHT = 0.5f
 private const val LENS_AMOUNT = 0.5f
 private const val LENS_MAX_DP = 48f
 private const val SURFACE_OPACITY = 0.4f
+
+/**
+ * The user's say over the glass, ported from ArchiveTune's LiquidGlassTuning:
+ * each control is a multiplier around the fixed values above, and every
+ * default multiplies by exactly 1 — the stock look is one of the settings.
+ *
+ * [intensity] is the preset tier; the per-surface fractions are what the
+ * Liquid Glass page's sliders write. [adaptiveLuminance] scales the surface
+ * tint down (0.44 rather than 1) when off, the same ratio between the dimming
+ * ArchiveTune draws with it on and off.
+ */
+data class LiquidGlassTuning(
+    val intensity: LiquidGlassIntensity = LiquidGlassIntensity.STANDARD,
+    val refractionHeightFraction: Float = DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT,
+    val refractionAmountFraction: Float = DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT,
+    val blurFraction: Float = DEFAULT_LIQUID_GLASS_BLUR_RADIUS,
+    val tintFraction: Float = DEFAULT_LIQUID_GLASS_TINT_OPACITY,
+    val shadowFraction: Float = DEFAULT_LIQUID_GLASS_SHADOW_DEPTH,
+    val depth3D: Boolean = true,
+    val chromaticAberration: Boolean = true,
+    val backdropVibrancy: Boolean = true,
+    val adaptiveLuminance: Boolean = true,
+) {
+    private val presetRefraction: Float =
+        when (intensity) {
+            LiquidGlassIntensity.SUBTLE -> 0.55f
+            LiquidGlassIntensity.STANDARD -> 1f
+            LiquidGlassIntensity.VIVID -> 1.45f
+        }
+
+    private val presetBlur: Float =
+        when (intensity) {
+            LiquidGlassIntensity.SUBTLE -> 0.70f
+            LiquidGlassIntensity.STANDARD -> 1f
+            LiquidGlassIntensity.VIVID -> 1.30f
+        }
+
+    val refractionHeightFactor: Float =
+        (refractionHeightFraction / DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT) * presetRefraction
+
+    val refractionAmountFactor: Float =
+        (refractionAmountFraction / DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT) * presetRefraction
+
+    val blurFactor: Float = (blurFraction / DEFAULT_LIQUID_GLASS_BLUR_RADIUS) * presetBlur
+
+    val tintFactor: Float = tintFraction / DEFAULT_LIQUID_GLASS_TINT_OPACITY
+
+    val shadowFactor: Float = shadowFraction / DEFAULT_LIQUID_GLASS_SHADOW_DEPTH
+
+    /** 1 while vibrancy is on — the saturation the app has always drawn — and 0 off. */
+    val vibrancyFactor: Float = if (backdropVibrancy) 1f else 0f
+
+    /** The tint ArchiveTune draws with adaptive luminance on, relative to off. */
+    val adaptiveLuminanceFactor: Float = if (adaptiveLuminance) 1f else 0.44f
+}
+
+/** Collects the user's Liquid Glass tuning from [AppSettings]. */
+@Composable
+internal fun rememberLiquidGlassTuning(): LiquidGlassTuning {
+    val intensity by AppSettings.liquidGlassIntensity.collectAsStateWithLifecycle()
+    val refractionHeight by AppSettings.liquidGlassRefractionHeight.collectAsStateWithLifecycle()
+    val refractionAmount by AppSettings.liquidGlassRefractionAmount.collectAsStateWithLifecycle()
+    val blurRadius by AppSettings.liquidGlassBlurRadius.collectAsStateWithLifecycle()
+    val tintOpacity by AppSettings.liquidGlassTintOpacity.collectAsStateWithLifecycle()
+    val shadowDepth by AppSettings.liquidGlassShadowDepth.collectAsStateWithLifecycle()
+    val depth3D by AppSettings.liquidGlassDepth3D.collectAsStateWithLifecycle()
+    val chromaticAberration by AppSettings.liquidGlassChromaticAberration.collectAsStateWithLifecycle()
+    val backdropVibrancy by AppSettings.liquidGlassBackdropVibrancy.collectAsStateWithLifecycle()
+    val adaptiveLuminance by AppSettings.liquidGlassAdaptiveLuminance.collectAsStateWithLifecycle()
+    return remember(
+        intensity,
+        refractionHeight,
+        refractionAmount,
+        blurRadius,
+        tintOpacity,
+        shadowDepth,
+        depth3D,
+        chromaticAberration,
+        backdropVibrancy,
+        adaptiveLuminance,
+    ) {
+        LiquidGlassTuning(
+            intensity = intensity,
+            refractionHeightFraction = refractionHeight,
+            refractionAmountFraction = refractionAmount,
+            blurFraction = blurRadius,
+            tintFraction = tintOpacity,
+            shadowFraction = shadowDepth,
+            depth3D = depth3D,
+            chromaticAberration = chromaticAberration,
+            backdropVibrancy = backdropVibrancy,
+            adaptiveLuminance = adaptiveLuminance,
+        )
+    }
+}
 
 /**
  * Resolution fraction the glass surface records and processes its backdrop at.
@@ -224,38 +325,40 @@ fun Modifier.liquidGlass(
             .border(GLASS_EDGE_WIDTH, GLASS_EDGE_COLOR, shape)
     }
     val glassPerformance by AppSettings.glassPerformance.collectAsStateWithLifecycle()
+    val tuning = rememberLiquidGlassTuning()
     val backdrop = LocalAppBackdrop.current
     val exportedBackdrop = LocalGlassExport.current
     val density = LocalDensity.current
     val resolutionScale = if (glassPerformance) FROST_RESOLUTION_SCALE else GLASS_RESOLUTION_SCALE
-    val blurRadiusDp = if (glassPerformance) FROST_BLUR_RADIUS_DP else BLUR_RADIUS_DP
+    val blurRadiusDp = (if (glassPerformance) FROST_BLUR_RADIUS_DP else BLUR_RADIUS_DP) * tuning.blurFactor
     val blurPx = with(density) { blurRadiusDp.dp.toPx() } * resolutionScale
-    val lensHeightPx = with(density) { (LENS_HEIGHT * LENS_MAX_DP).dp.toPx() } * resolutionScale
-    val lensAmountPx = with(density) { (LENS_AMOUNT * LENS_MAX_DP).dp.toPx() } * resolutionScale
+    val lensHeightPx = with(density) { (LENS_HEIGHT * LENS_MAX_DP * tuning.refractionHeightFactor).dp.toPx() } * resolutionScale
+    val lensAmountPx = with(density) { (LENS_AMOUNT * LENS_MAX_DP * tuning.refractionAmountFactor).dp.toPx() } * resolutionScale
     val themeTint = if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
         Color(0xFFFAFAFA)
     } else {
         Color(0xFF121212)
     }
-    val surfaceTintColor = surfaceTint ?: themeTint.copy(alpha = SURFACE_OPACITY)
+    val surfaceTintColor = surfaceTint
+        ?: themeTint.copy(alpha = (SURFACE_OPACITY * tuning.tintFactor * tuning.adaptiveLuminanceFactor).coerceIn(0f, 1f))
 
     return drawBackdrop(
         backdrop = backdrop,
         shape = { shape },
         effects = {
-            colorControls(saturation = 1f + 0.5f * VIBRANCY)
+            colorControls(saturation = 1f + 0.5f * VIBRANCY * tuning.vibrancyFactor)
             blur(blurPx)
             if (!glassPerformance && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 lens(
                     refractionHeight = lensHeightPx,
                     refractionAmount = lensAmountPx,
-                    depthEffect = true,
-                    chromaticAberration = true,
+                    depthEffect = tuning.depth3D,
+                    chromaticAberration = tuning.chromaticAberration,
                 )
             }
         },
         highlight = { Highlight.Default },
-        shadow = { Shadow.Default },
+        shadow = { Shadow.Default.copy(radius = Shadow.Default.radius * tuning.shadowFactor) },
         onDrawSurface = {
             drawRect(color = surfaceTintColor, size = size)
         },

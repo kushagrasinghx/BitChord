@@ -13,6 +13,8 @@ import com.music.bitchord.auth.AuthStore
 import com.music.bitchord.data.canvas.SpotifyToken
 import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.sources.SourceKind
+import com.music.bitchord.data.theme.ThemePalettes
+import com.music.bitchord.data.theme.ThemeSeedPaletteCodec
 import com.music.bitchord.playback.EqLayout
 import com.music.bitchord.playback.EqualizerPreset
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,6 +135,13 @@ enum class ThemeMode(val label: String) {
  * app shipped with before that, every weight its own and spaced tight.
  */
 enum class AppFont { DEFAULT, LEGACY }
+
+/**
+ * The preset tiers the Liquid Glass tuning is built from, ported from
+ * ArchiveTune: Subtle and Vivid scale the refraction and blur around Standard,
+ * which is the glass the app has always drawn.
+ */
+enum class LiquidGlassIntensity { SUBTLE, STANDARD, VIVID }
 
 /**
  * Which of the equaliser's two tabs is driving the sound.
@@ -513,6 +522,66 @@ object AppSettings {
      * frames. Reduce dynamic blur overrides it.
      */
     val progressiveBlur = MutableStateFlow(false)
+
+    // ---- Liquid Glass tuning, ported from ArchiveTune's LiquidGlassTuning. ----
+
+    /** The preset tier the tuning's factors are built around. */
+    val liquidGlassIntensity = MutableStateFlow(LiquidGlassIntensity.STANDARD)
+
+    /** How far the lens bends light at the glass edge, as a 0..1 fraction of the default 0.30. */
+    val liquidGlassRefractionHeight = MutableStateFlow(DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT)
+
+    /** Strength of the edge displacement, as a 0..1 fraction of the default 0.75. */
+    val liquidGlassRefractionAmount = MutableStateFlow(DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT)
+
+    /** Backdrop softness behind the glass, as a 0..1 fraction of the default 0.65. */
+    val liquidGlassBlurRadius = MutableStateFlow(DEFAULT_LIQUID_GLASS_BLUR_RADIUS)
+
+    /** Surface tint and dimming, as a 0..2 multiple of the default 1.40. */
+    val liquidGlassTintOpacity = MutableStateFlow(DEFAULT_LIQUID_GLASS_TINT_OPACITY)
+
+    /** Drop shadow underneath glass surfaces, as a 0..1 fraction of the default 0.45. */
+    val liquidGlassShadowDepth = MutableStateFlow(DEFAULT_LIQUID_GLASS_SHADOW_DEPTH)
+
+    /** Multi-layer spatial depth refraction on thick glass. */
+    val liquidGlassDepth3D = MutableStateFlow(true)
+
+    /** Prismatic color fringing on lens edges. */
+    val liquidGlassChromaticAberration = MutableStateFlow(true)
+
+    /** Color saturation enhancement behind glass materials. */
+    val liquidGlassBackdropVibrancy = MutableStateFlow(true)
+
+    /** Dynamically balances the glass's tint between bright and dark backdrops. */
+    val liquidGlassAdaptiveLuminance = MutableStateFlow(true)
+
+    /**
+     * The palette the app is themed with: a [ThemePalettes] id, or an encoded
+     * [ThemeSeedPalette][com.music.bitchord.data.theme.ThemeSeedPalette] from
+     * the custom editor. "default" — the shipped value — is the app's own
+     * black-and-white scheme and grows nothing.
+     */
+    val colorPalette = MutableStateFlow(ThemePalettes.Default.id)
+
+    /**
+     * Grows and stores a fresh random palette on every start, ported from
+     * ArchiveTune's random theme on startup: the launch writes the palette, so
+     * the whole cold start already shows it.
+     */
+    val randomThemeOnStartup = MutableStateFlow(false)
+
+    /** Hides the status bar everywhere, not just in the player. Swipe from the top edge still reveals it. */
+    val hideStatusBar = MutableStateFlow(false)
+
+    /** Scales every sp-measured size, 0.85..1.30; dp layout is untouched, as in ArchiveTune. */
+    val uiScale = MutableStateFlow(1.0f)
+
+    /**
+     * The full-cover blur's strength in dp, 0..64 and 48 by default — the
+     * strength the player has always drawn. Feeds the Simple player theme's
+     * backdrop and the lyrics and queue covers.
+     */
+    val blurIntensity = MutableStateFlow(DEFAULT_BLUR_INTENSITY)
 
     /** Blurs unfocused lyric lines, keeping the active line sharp. */
     val lyricsBlur = MutableStateFlow(true)
@@ -1046,6 +1115,37 @@ object AppSettings {
         liquidGlass.value = prefs.getBoolean(KEY_LIQUID_GLASS, false)
         glassPerformance.value = prefs.getBoolean(KEY_GLASS_PERFORMANCE, false)
         progressiveBlur.value = prefs.getBoolean(KEY_PROGRESSIVE_BLUR, false)
+        liquidGlassIntensity.value = runCatching {
+            LiquidGlassIntensity.valueOf(prefs.getString(KEY_LIQUID_GLASS_INTENSITY, null) ?: "STANDARD")
+        }.getOrDefault(LiquidGlassIntensity.STANDARD)
+        liquidGlassRefractionHeight.value = prefs.getFloat(KEY_LIQUID_GLASS_REFRACTION_HEIGHT, DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT)
+            .coerceIn(0f, 1f)
+        liquidGlassRefractionAmount.value = prefs.getFloat(KEY_LIQUID_GLASS_REFRACTION_AMOUNT, DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT)
+            .coerceIn(0f, 1f)
+        liquidGlassBlurRadius.value = prefs.getFloat(KEY_LIQUID_GLASS_BLUR_RADIUS, DEFAULT_LIQUID_GLASS_BLUR_RADIUS)
+            .coerceIn(0f, 1f)
+        liquidGlassTintOpacity.value = prefs.getFloat(KEY_LIQUID_GLASS_TINT_OPACITY, DEFAULT_LIQUID_GLASS_TINT_OPACITY)
+            .coerceIn(0f, 2f)
+        liquidGlassShadowDepth.value = prefs.getFloat(KEY_LIQUID_GLASS_SHADOW_DEPTH, DEFAULT_LIQUID_GLASS_SHADOW_DEPTH)
+            .coerceIn(0f, 1f)
+        liquidGlassDepth3D.value = prefs.getBoolean(KEY_LIQUID_GLASS_DEPTH_3D, true)
+        liquidGlassChromaticAberration.value = prefs.getBoolean(KEY_LIQUID_GLASS_CHROMATIC_ABERRATION, true)
+        liquidGlassBackdropVibrancy.value = prefs.getBoolean(KEY_LIQUID_GLASS_BACKDROP_VIBRANCY, true)
+        liquidGlassAdaptiveLuminance.value = prefs.getBoolean(KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE, true)
+        randomThemeOnStartup.value = prefs.getBoolean(KEY_RANDOM_THEME_ON_STARTUP, false)
+        if (randomThemeOnStartup.value) {
+            // Ported from ArchiveTune's App init: the palette is written before
+            // anything reads it, so the whole launch is drawn in the new colors.
+            val random = ThemePalettes.generateRandomPalette().toSeedPalette()
+            prefs.edit()
+                .putString(KEY_COLOR_PALETTE, ThemeSeedPaletteCodec.encodeForPreference(random, "Random"))
+                .apply()
+        }
+        colorPalette.value = prefs.getString(KEY_COLOR_PALETTE, ThemePalettes.Default.id)
+            ?: ThemePalettes.Default.id
+        hideStatusBar.value = prefs.getBoolean(KEY_HIDE_STATUS_BAR, false)
+        uiScale.value = prefs.getFloat(KEY_UI_SCALE, 1.0f).coerceIn(MIN_UI_SCALE, MAX_UI_SCALE)
+        blurIntensity.value = prefs.getFloat(KEY_BLUR_INTENSITY, DEFAULT_BLUR_INTENSITY).coerceIn(0f, MAX_BLUR_INTENSITY)
         lyricsBlur.value = prefs.getBoolean(KEY_LYRICS_BLUR, true)
         lyricsOffsetMs.value = prefs.getInt(KEY_LYRICS_OFFSET_MS, 0)
             .coerceIn(MIN_LYRICS_OFFSET_MS, MAX_LYRICS_OFFSET_MS)
@@ -1526,6 +1626,106 @@ object AppSettings {
     fun setProgressiveBlur(value: Boolean) {
         progressiveBlur.value = value
         prefs.edit().putBoolean(KEY_PROGRESSIVE_BLUR, value).apply()
+    }
+
+    fun setLiquidGlassIntensity(value: LiquidGlassIntensity) {
+        liquidGlassIntensity.value = value
+        prefs.edit().putString(KEY_LIQUID_GLASS_INTENSITY, value.name).apply()
+    }
+
+    fun setLiquidGlassRefractionHeight(value: Float) {
+        val clamped = value.coerceIn(0f, 1f)
+        liquidGlassRefractionHeight.value = clamped
+        prefs.edit().putFloat(KEY_LIQUID_GLASS_REFRACTION_HEIGHT, clamped).apply()
+    }
+
+    fun setLiquidGlassRefractionAmount(value: Float) {
+        val clamped = value.coerceIn(0f, 1f)
+        liquidGlassRefractionAmount.value = clamped
+        prefs.edit().putFloat(KEY_LIQUID_GLASS_REFRACTION_AMOUNT, clamped).apply()
+    }
+
+    fun setLiquidGlassBlurRadius(value: Float) {
+        val clamped = value.coerceIn(0f, 1f)
+        liquidGlassBlurRadius.value = clamped
+        prefs.edit().putFloat(KEY_LIQUID_GLASS_BLUR_RADIUS, clamped).apply()
+    }
+
+    fun setLiquidGlassTintOpacity(value: Float) {
+        val clamped = value.coerceIn(0f, 2f)
+        liquidGlassTintOpacity.value = clamped
+        prefs.edit().putFloat(KEY_LIQUID_GLASS_TINT_OPACITY, clamped).apply()
+    }
+
+    fun setLiquidGlassShadowDepth(value: Float) {
+        val clamped = value.coerceIn(0f, 1f)
+        liquidGlassShadowDepth.value = clamped
+        prefs.edit().putFloat(KEY_LIQUID_GLASS_SHADOW_DEPTH, clamped).apply()
+    }
+
+    fun setLiquidGlassDepth3D(value: Boolean) {
+        liquidGlassDepth3D.value = value
+        prefs.edit().putBoolean(KEY_LIQUID_GLASS_DEPTH_3D, value).apply()
+    }
+
+    fun setLiquidGlassChromaticAberration(value: Boolean) {
+        liquidGlassChromaticAberration.value = value
+        prefs.edit().putBoolean(KEY_LIQUID_GLASS_CHROMATIC_ABERRATION, value).apply()
+    }
+
+    fun setLiquidGlassBackdropVibrancy(value: Boolean) {
+        liquidGlassBackdropVibrancy.value = value
+        prefs.edit().putBoolean(KEY_LIQUID_GLASS_BACKDROP_VIBRANCY, value).apply()
+    }
+
+    fun setLiquidGlassAdaptiveLuminance(value: Boolean) {
+        liquidGlassAdaptiveLuminance.value = value
+        prefs.edit().putBoolean(KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE, value).apply()
+    }
+
+    /** Restores every Liquid Glass tuning value to what the app ships with. */
+    fun resetLiquidGlassTuning() {
+        setLiquidGlassIntensity(LiquidGlassIntensity.STANDARD)
+        setLiquidGlassRefractionHeight(DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT)
+        setLiquidGlassRefractionAmount(DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT)
+        setLiquidGlassBlurRadius(DEFAULT_LIQUID_GLASS_BLUR_RADIUS)
+        setLiquidGlassTintOpacity(DEFAULT_LIQUID_GLASS_TINT_OPACITY)
+        setLiquidGlassShadowDepth(DEFAULT_LIQUID_GLASS_SHADOW_DEPTH)
+        setLiquidGlassDepth3D(true)
+        setLiquidGlassChromaticAberration(true)
+        setLiquidGlassBackdropVibrancy(true)
+        setLiquidGlassAdaptiveLuminance(true)
+    }
+
+    /**
+     * Takes a [ThemePalettes] id or an encoded seed palette — see [colorPalette].
+     * Anything unreadable falls back to the default scheme.
+     */
+    fun setColorPalette(value: String) {
+        colorPalette.value = value
+        prefs.edit().putString(KEY_COLOR_PALETTE, value).apply()
+    }
+
+    fun setRandomThemeOnStartup(value: Boolean) {
+        randomThemeOnStartup.value = value
+        prefs.edit().putBoolean(KEY_RANDOM_THEME_ON_STARTUP, value).apply()
+    }
+
+    fun setHideStatusBar(value: Boolean) {
+        hideStatusBar.value = value
+        prefs.edit().putBoolean(KEY_HIDE_STATUS_BAR, value).apply()
+    }
+
+    fun setUiScale(value: Float) {
+        val clamped = value.coerceIn(MIN_UI_SCALE, MAX_UI_SCALE)
+        uiScale.value = clamped
+        prefs.edit().putFloat(KEY_UI_SCALE, clamped).apply()
+    }
+
+    fun setBlurIntensity(value: Float) {
+        val clamped = value.coerceIn(0f, MAX_BLUR_INTENSITY)
+        blurIntensity.value = clamped
+        prefs.edit().putFloat(KEY_BLUR_INTENSITY, clamped).apply()
     }
 
     fun setHighPerformanceMode(value: Boolean) {
@@ -2309,7 +2509,38 @@ object AppSettings {
     private const val KEY_LIQUID_GLASS = "liquid_glass"
     private const val KEY_GLASS_PERFORMANCE = "glass_performance"
     private const val KEY_PROGRESSIVE_BLUR = "progressive_blur"
+    private const val KEY_LIQUID_GLASS_INTENSITY = "liquid_glass_intensity"
+    private const val KEY_LIQUID_GLASS_REFRACTION_HEIGHT = "liquid_glass_refraction_height"
+    private const val KEY_LIQUID_GLASS_REFRACTION_AMOUNT = "liquid_glass_refraction_amount"
+    private const val KEY_LIQUID_GLASS_BLUR_RADIUS = "liquid_glass_blur_radius"
+    private const val KEY_LIQUID_GLASS_TINT_OPACITY = "liquid_glass_tint_opacity"
+    private const val KEY_LIQUID_GLASS_SHADOW_DEPTH = "liquid_glass_shadow_depth"
+    private const val KEY_LIQUID_GLASS_DEPTH_3D = "liquid_glass_depth_3d"
+    private const val KEY_LIQUID_GLASS_CHROMATIC_ABERRATION = "liquid_glass_chromatic_aberration"
+    private const val KEY_LIQUID_GLASS_BACKDROP_VIBRANCY = "liquid_glass_backdrop_vibrancy"
+    private const val KEY_LIQUID_GLASS_ADAPTIVE_LUMINANCE = "liquid_glass_adaptive_luminance"
+    private const val KEY_COLOR_PALETTE = "color_palette"
+    private const val KEY_RANDOM_THEME_ON_STARTUP = "random_theme_on_startup"
+    private const val KEY_HIDE_STATUS_BAR = "hide_status_bar"
+    private const val KEY_UI_SCALE = "ui_scale"
+    private const val KEY_BLUR_INTENSITY = "blur_intensity"
     private const val KEY_LYRICS_BLUR = "lyrics_blur"
+
+    // The Liquid Glass tuning defaults, shared with the renderer (see
+    // LiquidGlassTuning) so "Reset" in Settings means the same thing there.
+    const val DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT = 0.30f
+    const val DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT = 0.75f
+    const val DEFAULT_LIQUID_GLASS_BLUR_RADIUS = 0.65f
+    const val DEFAULT_LIQUID_GLASS_TINT_OPACITY = 1.40f
+    const val DEFAULT_LIQUID_GLASS_SHADOW_DEPTH = 0.45f
+
+    /** The full-cover blur's default strength in dp — what the player has always drawn. */
+    const val DEFAULT_BLUR_INTENSITY = 48f
+    const val MAX_BLUR_INTENSITY = 64f
+
+    /** The UI scale's bounds, as in ArchiveTune. */
+    const val MIN_UI_SCALE = 0.85f
+    const val MAX_UI_SCALE = 1.30f
     private const val KEY_LYRICS_OFFSET_MS = "lyrics_offset_ms"
     private const val KEY_TRANSLATION_LANGUAGE = "translation_language"
     private const val KEY_ANIMATED_CANVAS = "animated_canvas"

@@ -1458,7 +1458,6 @@
     <string name="diwali_title">BitChord wishes you a Happy Diwali</string>
     <string name="diwali_subtitle">May this festival of lights fill your home with joy and your days with music.</string>
     <string name="diwali_cta">Let\'s Celebrate</string>
-</resources>
 
     <!-- The Appearance page's ported rows, from ArchiveTune's own Appearance settings -->
     <string name="player">Player</string>
@@ -1574,3 +1573,5 @@
     <string name="hide_library_replay_card_subtitle">The Replay cards at the top of the Library tab</string>
     <string name="hide_library_on_device_shelf">Hide On-device shelf</string>
     <string name="hide_library_on_device_shelf_subtitle">The releases kept on this device, under the links</string>
+
+</resources>

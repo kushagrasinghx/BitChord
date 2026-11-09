@@ -71,6 +71,8 @@ class AndroidPlayerHost(context: Context) : PlayerHost {
         override val hideStatusBar get() = AppSettings.hideStatusBarInPlayer
         override val lastPlayerScreen get() = AppSettings.lastPlayerScreen
         override val playerTheme get() = AppSettings.playerTheme
+        override val playerDesignStyle get() = AppSettings.playerDesignStyle
+        override val tikTokMainLyrics get() = AppSettings.tikTokMainLyrics
         override val blurIntensity get() = AppSettings.blurIntensity
         override val movingBlur get() = AppSettings.movingBlur
         override val hideSlideBar get() = AppSettings.hideSlideBar

@@ -435,6 +435,26 @@ object BitChordIcons {
         }.build()
     }
 
+    /** [ChevronRight] turned on its side — the ported players' collapse glyph. */
+    val ChevronDown: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "bc_chevron_down",
+            defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = stroke,
+                strokeLineWidth = STROKE,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(6.2f, 9.5f)
+                lineTo(12f, 15.3f)
+                lineTo(17.8f, 9.5f)
+            }
+        }.build()
+    }
+
     /**
      * The player's like control, in two weights.
      *

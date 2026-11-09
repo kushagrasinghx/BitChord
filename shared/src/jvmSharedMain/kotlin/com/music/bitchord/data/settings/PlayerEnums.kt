@@ -27,6 +27,48 @@ enum class AudioQuality(
     ;
 }
 
+/**
+ * The full player's own design, ported from ArchiveTune's PlayerDesignStyle:
+ * each value is a whole layout of the now-playing screen — its artwork
+ * treatment, typography, slider shape and transport. [BITCHORD] is this app's
+ * own player and stays exactly as it has always been; the other ten are
+ * ArchiveTune's, ported with their behaviors.
+ */
+enum class PlayerDesignStyle {
+    /** This app's own player — the sleeve, the deck, the mesh. Untouched. */
+    BITCHORD,
+
+    /** ArchiveTune V4 "Cinematic": the rounded square, the morphing play button. */
+    CINEMATIC,
+
+    /** ArchiveTune V5 "Little": no artwork, the background itself the seekbar. */
+    LITTLE,
+
+    /** ArchiveTune V7 "Immersive": a sharp stage dissolving into blur, white on top. */
+    IMMERSIVE,
+
+    /** ArchiveTune V9 "Material Extended": dynamic colour field, wavy slider, morphing pills. */
+    MATERIAL_EXTENDED,
+
+    /** ArchiveTune V10 "Editorial": a flat tinted field, the die-cut sleeve, the word PLAY. */
+    EDITORIAL,
+
+    /** ArchiveTune "Apple Music": the shrink-on-pause album, the floating light. */
+    APPLE_MUSIC,
+
+    /** ArchiveTune "TikTok": the queue as a vertical feed, the right rail, the caption. */
+    TIKTOK,
+
+    /** ArchiveTune "SimpMusic": the scrollable page, the pager sleeve, the cards. */
+    SIMPMUSIC,
+
+    /** ArchiveTune "SpatialFlow": the chip row, the wavy bar with labels, the pill transport. */
+    SPATIALFLOW,
+
+    /** ArchiveTune "Looper": the near-black page, the drag-to-skip sleeve, the asymmetric pills. */
+    LOOPER,
+}
+
 /** What the phone's main player stands on, below the artwork. */
 enum class PlayerTheme {
     /** The artwork's own colours hung off its bottom edge, as a mesh. */

@@ -187,6 +187,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.DownloadQuality
 import com.music.bitchord.data.settings.ThemeMode
 import com.music.bitchord.data.settings.AppFont
+import com.music.bitchord.data.settings.PlayerDesignStyle
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.stats.Backup
 import com.music.bitchord.playback.AudioCache
@@ -278,6 +279,8 @@ fun SettingsScreen(
     val fullBleedArtwork by AppSettings.fullBleedArtwork.collectAsStateWithLifecycle()
     val fullBleedDetailArtwork by AppSettings.fullBleedDetailArtwork.collectAsStateWithLifecycle()
     val playerTheme by AppSettings.playerTheme.collectAsStateWithLifecycle()
+    val playerDesignStyle by AppSettings.playerDesignStyle.collectAsStateWithLifecycle()
+    val tikTokMainLyrics by AppSettings.tikTokMainLyrics.collectAsStateWithLifecycle()
     val syncedLyrics by AppSettings.syncedLyrics.collectAsStateWithLifecycle()
     val lyricsSources by AppSettings.lyricsSources.collectAsStateWithLifecycle()
     val translationLanguage by AppSettings.translationLanguage.collectAsStateWithLifecycle()
@@ -1270,9 +1273,28 @@ fun SettingsScreen(
                     onClick = { AppSettings.setFullBleedDetailArtwork(!fullBleedDetailArtwork) },
                 )
             }
+            // The player's own design, ported from ArchiveTune's PlayerDesignStyle
+            // picker: a whole layout of the now-playing screen, eleven of them,
+            // this app's own the default and first.
+            val playerDesignTitle = stringResource(R.string.player_design_style)
+            row(
+                playerDesignTitle,
+                "player", "design", "style", "layout", "cinematic", "little", "immersive", "editorial",
+                "apple", "tiktok", "simpmusic", "spatialflow", "looper", "material",
+            ) {
+                SettingsRow(
+                    icon = SfIcons.Appearance,
+                    title = playerDesignTitle,
+                    subtitle = playerDesignStyle.localizedDetail(),
+                    value = playerDesignStyle.localizedLabel(),
+                    trailing = { Chevron() },
+                    onClick = { onOpenChoice(SettingsChoiceKind.PLAYER_DESIGN) },
+                )
+            }
             // Ported from ArchiveTune's player background style, as a page: the
             // five backgrounds no longer fit the two-or-three-option pill the
-            // segmented control is for.
+            // segmented control is for. Only the styles that stand on a picked
+            // background answer it, as ArchiveTune gates its own customization.
             val playerThemeTitle = stringResource(R.string.player_background_style)
             row(playerThemeTitle, "background", "player", "mesh", "gradient", "legacy", "simple", "flat", "glow") {
                 SettingsRow(
@@ -1280,6 +1302,7 @@ fun SettingsScreen(
                     title = playerThemeTitle,
                     subtitle = playerTheme.description(),
                     value = playerTheme.localizedLabel(),
+                    enabled = playerDesignStyle.customizesBackground(),
                     trailing = { Chevron() },
                     onClick = { onOpenChoice(SettingsChoiceKind.PLAYER_BACKGROUND) },
                 )
@@ -1485,7 +1508,11 @@ fun SettingsScreen(
             // Ported from ArchiveTune's player buttons style.
             val buttonsStyleTitle = stringResource(R.string.player_buttons_style)
             row(buttonsStyleTitle, "buttons", "color", "transport", "player") {
-                SettingsRow(icon = SfIcons.Tune, title = buttonsStyleTitle)
+                SettingsRow(
+                    icon = SfIcons.Tune,
+                    title = buttonsStyleTitle,
+                    enabled = playerDesignStyle.customizesControls(),
+                )
                 SegmentedControl(
                     options = PlayerButtonsStyle.entries.map { it.localizedLabel() },
                     selectedIndex = PlayerButtonsStyle.entries.indexOf(playerButtonsStyle),
@@ -1501,6 +1528,7 @@ fun SettingsScreen(
                     icon = SfIcons.GraphicEq,
                     title = sliderStyleTitle,
                     value = playerSliderStyle.localizedLabel(),
+                    enabled = playerDesignStyle.customizesControls(),
                     trailing = { Chevron() },
                     onClick = { onOpenChoice(SettingsChoiceKind.PLAYER_SLIDER) },
                 )
@@ -1512,6 +1540,7 @@ fun SettingsScreen(
                     icon = SfIcons.Notes,
                     title = lyricsBackgroundTitle,
                     value = lyricsBackgroundStyle.localizedLabel(),
+                    enabled = playerDesignStyle.customizesLyricsBackground(),
                     trailing = { Chevron() },
                     onClick = { onOpenChoice(SettingsChoiceKind.LYRICS_BACKGROUND) },
                 )
@@ -2381,6 +2410,58 @@ private fun PlayerTheme.localizedLabel(): String = stringResource(
         PlayerTheme.SIMPLE -> R.string.player_theme_simple
         PlayerTheme.FLAT -> R.string.player_theme_flat
         PlayerTheme.GLOW -> R.string.player_theme_glow
+    },
+)
+
+/**
+ * The design styles that stand on a picked background, ported from
+ * ArchiveTune's isPlayerStyleCustomizationEnabled: V4 and V5 there, which here
+ * are the app's own player, Cinematic and Little.
+ */
+private fun PlayerDesignStyle.customizesBackground(): Boolean =
+    this == PlayerDesignStyle.BITCHORD ||
+        this == PlayerDesignStyle.CINEMATIC ||
+        this == PlayerDesignStyle.LITTLE
+
+/** The same styles take the picked buttons and slider, as ArchiveTune gates them. */
+private fun PlayerDesignStyle.customizesControls(): Boolean = customizesBackground()
+
+/** The styles whose lyrics run on the shared background, rather than their own. */
+private fun PlayerDesignStyle.customizesLyricsBackground(): Boolean =
+    !(this == PlayerDesignStyle.APPLE_MUSIC || this == PlayerDesignStyle.TIKTOK ||
+        this == PlayerDesignStyle.SPATIALFLOW || this == PlayerDesignStyle.SIMPMUSIC)
+
+@Composable
+private fun PlayerDesignStyle.localizedLabel(): String = stringResource(
+    when (this) {
+        PlayerDesignStyle.BITCHORD -> R.string.player_design_bitchord
+        PlayerDesignStyle.CINEMATIC -> R.string.player_design_cinematic
+        PlayerDesignStyle.LITTLE -> R.string.player_design_little
+        PlayerDesignStyle.IMMERSIVE -> R.string.player_design_immersive
+        PlayerDesignStyle.MATERIAL_EXTENDED -> R.string.player_design_material_extended
+        PlayerDesignStyle.EDITORIAL -> R.string.player_design_editorial
+        PlayerDesignStyle.APPLE_MUSIC -> R.string.player_design_apple_music
+        PlayerDesignStyle.TIKTOK -> R.string.player_design_tiktok
+        PlayerDesignStyle.SIMPMUSIC -> R.string.player_design_simpmusic
+        PlayerDesignStyle.SPATIALFLOW -> R.string.player_design_spatialflow
+        PlayerDesignStyle.LOOPER -> R.string.player_design_looper
+    },
+)
+
+@Composable
+private fun PlayerDesignStyle.localizedDetail(): String = stringResource(
+    when (this) {
+        PlayerDesignStyle.BITCHORD -> R.string.player_design_bitchord_detail
+        PlayerDesignStyle.CINEMATIC -> R.string.player_design_cinematic_detail
+        PlayerDesignStyle.LITTLE -> R.string.player_design_little_detail
+        PlayerDesignStyle.IMMERSIVE -> R.string.player_design_immersive_detail
+        PlayerDesignStyle.MATERIAL_EXTENDED -> R.string.player_design_material_extended_detail
+        PlayerDesignStyle.EDITORIAL -> R.string.player_design_editorial_detail
+        PlayerDesignStyle.APPLE_MUSIC -> R.string.player_design_apple_music_detail
+        PlayerDesignStyle.TIKTOK -> R.string.player_design_tiktok_detail
+        PlayerDesignStyle.SIMPMUSIC -> R.string.player_design_simpmusic_detail
+        PlayerDesignStyle.SPATIALFLOW -> R.string.player_design_spatialflow_detail
+        PlayerDesignStyle.LOOPER -> R.string.player_design_looper_detail
     },
 )
 
@@ -3281,6 +3362,8 @@ enum class SettingsChoiceKind(@param:StringRes val title: Int) {
     APPEARANCE_EXTRAS(R.string.extras),
     /** The three reduce switches, under Behavior. */
     BEHAVIOR_PERFORMANCE(R.string.performance),
+    /** The player's own design — the whole layout of the now-playing screen. */
+    PLAYER_DESIGN(R.string.player_design_style),
 }
 
 /** The main page's list of categories: a glyph and a name each, and a chevron into it. */
@@ -3470,6 +3553,8 @@ fun SettingsChoicePage(
             SettingsChoiceKind.APPEARANCE_EXTRAS -> AppearanceExtrasPage()
 
             SettingsChoiceKind.BEHAVIOR_PERFORMANCE -> BehaviorPerformancePage()
+
+            SettingsChoiceKind.PLAYER_DESIGN -> PlayerDesignStylePage()
 
             SettingsChoiceKind.LIQUID_GLASS -> LiquidGlassTuningPage()
         }
@@ -4337,6 +4422,97 @@ private fun NavigationBarSettingsPage() {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = GROUP_INSET + 4.dp, vertical = 12.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The player design page, ported from ArchiveTune's picker: eleven whole
+ * layouts of the now-playing screen, this app's own the default and first.
+ * Whichever is in force, the extra switches it carries sit under the list —
+ * the ones each style owns, as ArchiveTune's Appearance page hangs them off
+ * the same choice.
+ */
+@Composable
+private fun PlayerDesignStylePage() {
+    val selected by AppSettings.playerDesignStyle.collectAsStateWithLifecycle()
+    val hideVolumeBar by AppSettings.hideVolumeBar.collectAsStateWithLifecycle()
+    val hideSlideBar by AppSettings.hideSlideBar.collectAsStateWithLifecycle()
+    val movingBlur by AppSettings.movingBlur.collectAsStateWithLifecycle()
+    val tikTokMainLyrics by AppSettings.tikTokMainLyrics.collectAsStateWithLifecycle()
+
+    ChoiceGroup(
+        options = PlayerDesignStyle.entries,
+        selected = selected,
+        label = { it.localizedLabel() },
+        detail = { it.localizedDetail() },
+        footer = stringResource(R.string.player_design_style_footer),
+    ) { style ->
+        AppSettings.setPlayerDesignStyle(style)
+    }
+
+    // The Apple Music player's own three, ported from ArchiveTune's
+    // FlamingoShowVolumeBarKey / FlamingoHideSlideBarKey /
+    // FlamingoBackgroundEffectKey — held by the shared player settings of the
+    // same meanings.
+    if (selected == PlayerDesignStyle.APPLE_MUSIC) {
+        SettingsGroup(header = stringResource(R.string.player_design_apple_music_extras)) {
+            SettingsRow(
+                title = stringResource(R.string.player_design_show_volume_bar),
+                subtitle = stringResource(R.string.player_design_show_volume_bar_subtitle),
+                trailing = {
+                    IosSwitch(checked = !hideVolumeBar, onCheckedChange = { AppSettings.setHideVolumeBar(!it) })
+                },
+                onClick = { AppSettings.setHideVolumeBar(hideVolumeBar) },
+            )
+            RowDivider()
+            SettingsRow(
+                title = stringResource(R.string.player_design_hide_slide_bar),
+                subtitle = stringResource(R.string.player_design_hide_slide_bar_subtitle),
+                trailing = {
+                    IosSwitch(checked = hideSlideBar, onCheckedChange = AppSettings::setHideSlideBar)
+                },
+                onClick = { AppSettings.setHideSlideBar(!hideSlideBar) },
+            )
+            RowDivider()
+            SettingsRow(
+                title = stringResource(R.string.player_design_moving_blur),
+                subtitle = stringResource(R.string.player_design_moving_blur_subtitle),
+                trailing = {
+                    IosSwitch(checked = movingBlur, onCheckedChange = AppSettings::setMovingBlur)
+                },
+                onClick = { AppSettings.setMovingBlur(!movingBlur) },
+            )
+        }
+    }
+
+    // The TikTok player's karaoke strip, ported from ArchiveTune's
+    // TikTokMainLyricsEnabledKey.
+    if (selected == PlayerDesignStyle.TIKTOK) {
+        SettingsGroup(header = stringResource(R.string.player_design_tiktok_extras)) {
+            SettingsRow(
+                title = stringResource(R.string.player_design_tiktok_main_lyrics),
+                subtitle = stringResource(R.string.player_design_tiktok_main_lyrics_subtitle),
+                trailing = {
+                    IosSwitch(checked = tikTokMainLyrics, onCheckedChange = AppSettings::setTikTokMainLyrics)
+                },
+                onClick = { AppSettings.setTikTokMainLyrics(!tikTokMainLyrics) },
+            )
+        }
+    }
+
+    // The Immersive player is the one style with a volume bar of its own, as
+    // V7's is — the same shared switch, offered where it applies.
+    if (selected == PlayerDesignStyle.IMMERSIVE) {
+        SettingsGroup(header = stringResource(R.string.player_design_immersive_extras)) {
+            SettingsRow(
+                title = stringResource(R.string.player_design_show_volume_bar),
+                subtitle = stringResource(R.string.player_design_immersive_volume_subtitle),
+                trailing = {
+                    IosSwitch(checked = !hideVolumeBar, onCheckedChange = { AppSettings.setHideVolumeBar(!it) })
+                },
+                onClick = { AppSettings.setHideVolumeBar(hideVolumeBar) },
             )
         }
     }

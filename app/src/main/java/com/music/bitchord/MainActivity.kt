@@ -2661,6 +2661,9 @@ private fun BitChordApp(
             // the parameter.
             menuOpen = { songActions != null && menuFromPlayer && songMenuOrigin == null },
             onLiveCanvasChanged = { playerLiveCanvas = it },
+            // The ported design styles' collapse buttons: the same way down the
+            // swipe and the system back take.
+            onClose = dismissPlayer,
             isPlaying = player.isPlaying,
             isLoading = playPauseBusy,
             position = player.position,

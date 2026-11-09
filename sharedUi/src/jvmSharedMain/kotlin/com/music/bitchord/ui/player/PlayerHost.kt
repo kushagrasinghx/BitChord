@@ -13,6 +13,7 @@ import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.LastPlayerScreen
 import com.music.bitchord.data.settings.LyricsBackgroundStyle
 import com.music.bitchord.data.settings.PlayerButtonsStyle
+import com.music.bitchord.data.settings.PlayerDesignStyle
 import com.music.bitchord.data.settings.PlayerSliderStyle
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.settings.SmartAnalysis
@@ -250,6 +251,15 @@ interface PlayerSettingsSource {
     val hideStatusBar: StateFlow<Boolean>
     val lastPlayerScreen: StateFlow<LastPlayerScreen>
     val playerTheme: StateFlow<PlayerTheme>
+
+    /**
+     * The full player's own design, ported from ArchiveTune's PlayerDesignStyle —
+     * see the enum. [PlayerDesignStyle.BITCHORD] keeps this app's own player.
+     */
+    val playerDesignStyle: StateFlow<PlayerDesignStyle>
+
+    /** The TikTok player's karaoke strip under the caption. */
+    val tikTokMainLyrics: StateFlow<Boolean>
     /**
      * The full-cover blur's strength in dp, 0..64 and 48 by default — the
      * strength the backdrop has always been drawn at. Ported from ArchiveTune's

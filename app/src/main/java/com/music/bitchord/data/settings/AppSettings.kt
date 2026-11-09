@@ -832,6 +832,22 @@ object AppSettings {
      */
     val playerTheme = MutableStateFlow(PlayerTheme.DEFAULT)
 
+    /**
+     * The full player's own design, ported from ArchiveTune's PlayerDesignStyle.
+     * [PlayerDesignStyle.BITCHORD] — this app's own — is the default and the
+     * whole player stays exactly as it has always been under it; the other ten
+     * are ArchiveTune's layouts, each a whole artwork/typography/slider/transport
+     * treatment rather than a reskin.
+     */
+    val playerDesignStyle = MutableStateFlow(PlayerDesignStyle.BITCHORD)
+
+    /**
+     * The TikTok player's karaoke strip under the caption, ported from
+     * ArchiveTune's TikTokMainLyricsEnabledKey: the sung line across the bottom
+     * of the feed page, on while it can be.
+     */
+    val tikTokMainLyrics = MutableStateFlow(true)
+
     /** Restores the expanded player to the surface the listener left open. */
     val lastPlayerScreen = MutableStateFlow(LastPlayerScreen.MAIN)
 
@@ -1364,6 +1380,10 @@ object AppSettings {
         }.getOrElse {
             if (prefs.getBoolean(KEY_LEGACY_MESH_GRADIENT, false)) PlayerTheme.LEGACY else PlayerTheme.DEFAULT
         }
+        playerDesignStyle.value = runCatching {
+            PlayerDesignStyle.valueOf(prefs.getString(KEY_PLAYER_DESIGN_STYLE, null).orEmpty())
+        }.getOrDefault(PlayerDesignStyle.BITCHORD)
+        tikTokMainLyrics.value = prefs.getBoolean(KEY_TIKTOK_MAIN_LYRICS, true)
         lastPlayerScreen.value = runCatching {
             LastPlayerScreen.valueOf(
                 prefs.getString(KEY_LAST_PLAYER_SCREEN, null) ?: LastPlayerScreen.MAIN.name,
@@ -2392,6 +2412,16 @@ object AppSettings {
         prefs.edit().putString(KEY_PLAYER_THEME, value.name).apply()
     }
 
+    fun setPlayerDesignStyle(value: PlayerDesignStyle) {
+        playerDesignStyle.value = value
+        prefs.edit().putString(KEY_PLAYER_DESIGN_STYLE, value.name).apply()
+    }
+
+    fun setTikTokMainLyrics(value: Boolean) {
+        tikTokMainLyrics.value = value
+        prefs.edit().putBoolean(KEY_TIKTOK_MAIN_LYRICS, value).apply()
+    }
+
     fun setLastPlayerScreen(value: LastPlayerScreen) {
         if (lastPlayerScreen.value == value) return
         lastPlayerScreen.value = value
@@ -3084,6 +3114,8 @@ object AppSettings {
     private const val KEY_FULL_BLEED_ARTWORK = "full_bleed_artwork"
     private const val KEY_FULL_BLEED_DETAIL_ARTWORK = "full_bleed_detail_artwork"
     private const val KEY_PLAYER_THEME = "player_theme"
+    private const val KEY_PLAYER_DESIGN_STYLE = "player_design_style"
+    private const val KEY_TIKTOK_MAIN_LYRICS = "tiktok_main_lyrics"
     private const val KEY_LEGACY_MESH_GRADIENT = "legacy_mesh_gradient"
     private const val KEY_LAST_PLAYER_SCREEN = "last_player_screen"
     private const val KEY_SYNCED_LYRICS = "synced_lyrics"

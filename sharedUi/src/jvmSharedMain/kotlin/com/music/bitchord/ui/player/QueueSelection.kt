@@ -142,7 +142,7 @@ internal fun QueueSelectionBar(
             }
             TextButton(onClick = { perform(QueueBulkAction.LIKE) }, enabled = enabled, modifier = Modifier.weight(1f)) {
                 Column(Modifier.alpha(if (enabled) 1f else 0.38f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(BitChordIcons.Heart, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    Icon(BitChordIcons.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
                     Text(stringResource(Res.string.like), color = Color.White, style = MaterialTheme.typography.labelMedium)
                 }
             }

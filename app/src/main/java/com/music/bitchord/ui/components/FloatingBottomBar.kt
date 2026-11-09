@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.matchParentSize
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -214,6 +214,7 @@ fun FloatingBottomBar(
     val navBarGlassGlow by AppSettings.navBarGlassGlow.collectAsStateWithLifecycle()
     val navBarGlassGlowIntensity by AppSettings.navBarGlassGlowIntensity.collectAsStateWithLifecycle()
     val navBarShowLabels by AppSettings.navBarShowLabels.collectAsStateWithLifecycle()
+    val navBarLabelSpacing by AppSettings.navBarLabelSpacing.collectAsStateWithLifecycle()
 
     val glassStyle = useGlass && liquidGlassNavBar
     val dimensionsEnabled = !glassStyle
@@ -523,7 +524,7 @@ internal fun CompactControlCircles(
 ) {
     Row(
         modifier = modifier
-            .matchParentSize()
+            .fillMaxWidth()
             .padding(horizontal = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,

@@ -984,6 +984,18 @@ class CrossfadeController(
             return
         }
 
+        // A podcast playhead is a listener-owned bookmark. Blending either side
+        // starts the incoming episode early and makes that bookmark ambiguous,
+        // so podcast episodes use a clean, gapless queue transition instead.
+        val currentItem = player.currentMediaItem
+        val nextItem = player.getMediaItemAt(player.nextMediaItemIndex)
+        if (currentItem?.isPodcastEpisode == true || nextItem.isPodcastEpisode) {
+            AppSettings.smartTransitionWindow.value = null
+            AppSettings.smartMixInProgress.value = false
+            plannedTransition = null
+            return
+        }
+
         val duration = player.duration
         if (duration == C.TIME_UNSET || duration <= 0L) return
 
@@ -1067,7 +1079,9 @@ class CrossfadeController(
         // Even a manual catalogue match is still video-origin. AutoMix's
         // analysis and cueing are deliberately never applied to either side
         // of a transition involving a video row.
-        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin) {
+        if (currentItem.isVideoOrigin || nextItem.isVideoOrigin ||
+            currentItem.isPodcastEpisode || nextItem.isPodcastEpisode
+        ) {
             AppSettings.smartTransitionWindow.value = null
             AppSettings.smartMixInProgress.value = false
             return

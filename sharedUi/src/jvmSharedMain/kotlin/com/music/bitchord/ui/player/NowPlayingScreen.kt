@@ -1800,6 +1800,8 @@ fun NowPlayingScreen(
     // between the portrait and landscape players; only the cached bitmap
     // changes when the artwork preparation above completes for another song.
     val currentFullArtworkBlurImage = rememberUpdatedState(fullArtworkBlurImage)
+    // Read through delegates below, so the movable reads the current values
+    // without the lambda having to capture them anew each change.
     val currentMovingBlur by rememberUpdatedState(movingBlur)
     val currentLyricsStyle by rememberUpdatedState(lyricsBackgroundStyle)
     val fullArtworkBlurContent = remember {
@@ -1809,7 +1811,7 @@ fun NowPlayingScreen(
                 // The moving blur, ported from ArchiveTune: the cover drifts
                 // behind the player on its own, and the lyrics' moving-blur
                 // background asks for the same drift while they are open.
-                drift = currentMovingBlur.value || currentLyricsStyle.value == LyricsBackgroundStyle.MOVING_BLUR,
+                drift = currentMovingBlur || currentLyricsStyle == LyricsBackgroundStyle.MOVING_BLUR,
                 modifier = backdropModifier,
             )
         }

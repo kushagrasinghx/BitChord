@@ -59,7 +59,6 @@ import androidx.media3.common.MediaMetadata
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
 
 /**
  * The always-on screen's face, ported from ArchiveTune's AodPlayerScreen in
@@ -335,7 +334,7 @@ fun AodScreen(
 }
 
 private fun formatAodTime(ms: Long): String {
-    val totalSeconds = (ms / 1000).roundToInt()
+    val totalSeconds = (ms / 1000).toInt()
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%d:%02d".format(minutes, seconds)

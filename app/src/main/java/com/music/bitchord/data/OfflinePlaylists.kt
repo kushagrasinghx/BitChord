@@ -199,6 +199,7 @@ object OfflinePlaylists {
         localDateAddedSeconds = localDateAddedSeconds,
         localDateModifiedSeconds = localDateModifiedSeconds,
         trackNumber = trackNumber,
+        isPodcastEpisode = isPodcastEpisode,
     )
 
     private fun load(): List<OfflinePlaylist> {
@@ -251,6 +252,7 @@ object OfflinePlaylists {
         localDateAddedSeconds?.let { put("added", it) }
         localDateModifiedSeconds?.let { put("modified", it) }
         trackNumber?.let { put("track", it) }
+        put("isPodcastEpisode", isPodcastEpisode)
     }
 
     private fun songFrom(obj: JSONObject): Song? {
@@ -270,6 +272,7 @@ object OfflinePlaylists {
             localDateAddedSeconds = if (obj.has("added")) obj.getLong("added") else null,
             localDateModifiedSeconds = if (obj.has("modified")) obj.getLong("modified") else null,
             trackNumber = if (obj.has("track")) obj.getInt("track") else null,
+            isPodcastEpisode = obj.optBoolean("isPodcastEpisode", false),
         )
     }
 }

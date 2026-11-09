@@ -11,6 +11,9 @@ import com.music.bitchord.data.lyrics.LyricsSource
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.data.settings.AudioQuality
 import com.music.bitchord.data.settings.LastPlayerScreen
+import com.music.bitchord.data.settings.LyricsBackgroundStyle
+import com.music.bitchord.data.settings.PlayerButtonsStyle
+import com.music.bitchord.data.settings.PlayerSliderStyle
 import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.settings.SmartAnalysis
 import com.music.bitchord.data.settings.MixBlend

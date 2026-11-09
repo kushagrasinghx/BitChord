@@ -622,6 +622,13 @@
     </plurals>
     <string name="song_added_to_queue">Song added to queue</string>
     <string name="song_added_to_playlist">Added to playlist</string>
+    <string name="playlist_notice_added">Added to %1$s</string>
+    <string name="playlist_notice_removed">Removed from %1$s</string>
+    <string name="playlist_notice_and">and</string>
+    <plurals name="removed_from_playlists_notice">
+        <item quantity="one">Removed from %1$d playlist</item>
+        <item quantity="other">Removed from %1$d playlists</item>
+    </plurals>
     <string name="song_already_in_playlist">Already in playlist</string>
     <plurals name="add_to_playlists_count">
         <item quantity="one">Add to %1$d playlist</item>

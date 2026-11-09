@@ -1025,8 +1025,20 @@ object YtMusicRepository {
      * playlist collections otherwise lose everything past YouTube's first
      * library-feed response.
      */
-    suspend fun userPlaylists(): Result<List<UserPlaylist>> = call("playlists") {
-        InnertubeParser.parseUserPlaylists(libraryItemsPaged(LIBRARY_PLAYLISTS))
+    suspend fun userPlaylists(onPage: (List<UserPlaylist>) -> Unit = {}): Result<List<UserPlaylist>> = call("playlists") {
+        val out = LinkedHashMap<String, ShelfItem>()
+        val seen = HashSet<String>()
+        var response = Innertube.browse(LIBRARY_PLAYLISTS)
+        while (true) {
+            val page = InnertubeParser.parseLibraryItemPage(response)
+            page.items.forEach { item -> item.browseId?.let { out.putIfAbsent(it, item) } }
+            val playlists = InnertubeParser.parseUserPlaylists(out.values.toList())
+            onPage(playlists)
+            val token = page.continuation ?: break
+            if (!seen.add(token) || seen.size >= 100) error("playlist discovery incomplete")
+            response = Innertube.browseContinuation(token)
+        }
+        InnertubeParser.parseUserPlaylists(out.values.toList())
     }
 
     /**
@@ -1073,24 +1085,35 @@ object YtMusicRepository {
      * sent as moves relative to neighbours (see [playlistMoves]) and a list
      * that stops short of the end — the open page while it is still filling
      * in — would send the last row it has "to the end" past rows it never saw.
-     * Fails when an entry comes back without the set-video-id a move has to
-     * name, rather than offering to reorder something it can't.
+     * Fails on unreadable entries or incomplete pagination rather than
+     * treating a partial list as proof of absence or a safe reorder.
      */
-    suspend fun playlistEntries(browseId: String): Result<List<Song>> = call("entries:$browseId") {
+    suspend fun playlistEntries(browseId: String): Result<List<Song>> = call("entries") {
         val out = LinkedHashMap<String, Song>()
+        val seen = HashSet<String>()
         var response = Innertube.browse(browseId)
         var page = 1
         while (true) {
-            val shelf = InnertubeParser.parsePlaylistShelf(response) ?: break
+            val shelf = InnertubeParser.parsePlaylistShelf(response, preserveDuplicates = true)
+                ?: error("playlist shelf unavailable on page $page")
+            Log.d(TAG, "playlist entries page=$page rows=${shelf.songs.size} hasMore=${shelf.continuation != null}")
             shelf.songs.forEach { song ->
                 val setVideoId = song.setVideoId ?: error("playlist entry without an id")
                 out.putIfAbsent(setVideoId, song)
             }
             val token = shelf.continuation ?: break
-            // Same cap as [songsPaged] — a playlist past it can't be listed
-            // whole, and a partial list can't be reordered safely.
-            if (page++ >= MAX_PAGES) error("playlist too long to reorder")
-            response = Innertube.browseContinuation(token)
+            // Never turn an incomplete read into an absence (or a reorder).
+            if (!seen.add(token) || seen.size >= 100) error("playlist entries incomplete")
+            response = try {
+                Innertube.browseContinuation(token)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A transport exception can contain the request URL (and its
+                // private continuation token). Only expose the failure category.
+                error("playlist continuation ${e.javaClass.simpleName} after page $page")
+            }
+            page++
         }
         out.values.toList()
     }

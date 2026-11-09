@@ -94,6 +94,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -276,6 +277,7 @@ import com.music.bitchord.ui.components.ListenBrainzTokenAlert
 import com.music.bitchord.ui.components.MiniPlayer
 import com.music.bitchord.ui.components.QueueActionNotice
 import com.music.bitchord.ui.components.QueueActionNoticeHost
+import com.music.bitchord.ui.components.PlaylistSaveNotice
 import com.music.bitchord.ui.components.TopBarAccountButton
 import com.music.bitchord.ui.screens.SegmentedControl
 import com.music.bitchord.ui.components.SearchField
@@ -1010,6 +1012,7 @@ private fun BitChordApp(
     val qualityUpgradesInFlight by NerdStats.racingLossless.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val playlistsLoading by viewModel.playlistsLoading.collectAsStateWithLifecycle()
+    val playlistsError by viewModel.playlistsError.collectAsStateWithLifecycle()
 
     // The Downloads page is a snapshot of the folder, taken when it was opened.
     // Saving a track or deleting one while it is on screen changes what belongs
@@ -1117,6 +1120,18 @@ private fun BitChordApp(
     val showQueueNotice: (String) -> Unit = { message ->
         queueNoticeId += 1
         queueNotice = QueueActionNotice(queueNoticeId, message)
+    }
+    val showPlaylistSaveNotice: (List<UserPlaylist>, List<UserPlaylist>, Boolean) -> Unit = { added, removed, failed ->
+        val addedText = playlistNoticeText(context, added, R.string.playlist_notice_added, R.plurals.added_to_playlists_notice)
+        val removedText = playlistNoticeText(context, removed, R.string.playlist_notice_removed, R.plurals.removed_from_playlists_notice)
+        if (addedText != null || removedText != null || failed) {
+            queueNoticeId += 1
+            queueNotice = QueueActionNotice(queueNoticeId, "", PlaylistSaveNotice(
+                added = addedText,
+                removed = removedText,
+                error = if (failed) context.getString(R.string.failed) else null,
+            ))
+        }
     }
     LaunchedEffect(queueNotice?.id) {
         val shown = queueNotice ?: return@LaunchedEffect
@@ -4170,7 +4185,7 @@ private fun BitChordApp(
                         .fillMaxWidth()
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                 ) {
-                    QueueActionNoticeHost(queueNotice)
+                    QueueActionNoticeHost(queueNotice, hazeState)
                     // Liquid glass replaces the two stacked bars with the single
                     // component they are stacked to imitate: the now playing
                     // controls dock into the tab bar rather than riding above it,
@@ -4213,7 +4228,7 @@ private fun BitChordApp(
                         .onSizeChanged { floatingBarsHeight.intValue = it.height },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    QueueActionNoticeHost(queueNotice)
+                    QueueActionNoticeHost(queueNotice, hazeState)
                     player.song?.let { song ->
                         MiniPlayer(
                             song = song,
@@ -4504,7 +4519,9 @@ private fun BitChordApp(
                 onRemoveFromPlaylist = editable?.let {
                     {
                         songActions = null
-                        viewModel.removeFromPlaylist(it.browseId, song)
+                        viewModel.removeFromPlaylist(it.browseId, song) {
+                            showPlaylistSaveNotice(emptyList(), listOf(it), false)
+                        }
                     }
                 } ?: detail?.browseId
                     ?.takeIf { !fromPlayer && song.localUri != null && OfflinePlaylists.isOfflinePlaylist(it) }
@@ -4917,36 +4934,26 @@ private fun BitChordApp(
                 playlistTarget = null
                 creatingPlaylist = false
             }
-            PlaylistPickerSheet(
-                playlists = playlists,
-                loading = playlistsLoading,
-                song = target,
-                startCreating = target == null,
-                onDismiss = dismiss,
-                onAdd = { picked ->
-                    target?.let { song ->
-                        viewModel.addToPlaylists(picked, song) { added, alreadyThere, failed ->
-                            // One line for the whole batch, saying the outcome
-                            // that matters most: what went in, else that it was
-                            // all there already, else that it didn't work.
-                            showQueueNotice(
-                                when {
-                                    added > 1 -> context.resources.getQuantityString(
-                                        R.plurals.added_to_playlists_notice, added, added,
-                                    )
-                                    added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                    alreadyThere > 0 && failed == 0 ->
-                                        context.getString(R.string.song_already_in_playlist)
-                                    else -> context.getString(R.string.failed)
-                                },
-                            )
+            key(activeAccountId, activeProfileId, target?.videoId, target?.localUri) {
+                PlaylistPickerSheet(
+                    playlists = playlists,
+                    loading = playlistsLoading,
+                    discoveryError = playlistsError,
+                    onRetryDiscovery = { viewModel.loadPlaylists() },
+                    loadMembership = viewModel::playlistMembership,
+                    song = target,
+                    startCreating = target == null,
+                    onDismiss = dismiss,
+                    onSave = { additions, removals, unresolved ->
+                        target?.let { song ->
+                            viewModel.updatePlaylistMembership(additions, removals, song) { result ->
+                                showPlaylistSaveNotice(result.added, result.removed, result.failed > 0 || unresolved > 0)
+                            }
                         }
-                    }
-                },
-                onCreate = { title, privacy ->
-                    viewModel.createPlaylist(title, privacy, target)
-                },
-            )
+                    },
+                    onCreate = { title, privacy -> viewModel.createPlaylist(title, privacy, target) },
+                )
+            }
         }
 
         // ---- Add to a device playlist / new device playlist ----
@@ -4974,33 +4981,44 @@ private fun BitChordApp(
                     )
                 }
             }
-            PlaylistPickerSheet(
-                playlists = choices,
-                loading = false,
-                song = target,
-                startCreating = target == null,
-                offline = true,
-                onDismiss = dismiss,
-                onAdd = { picked ->
-                    target?.let { song ->
-                        val result = OfflinePlaylists.add(picked.mapTo(HashSet()) { it.playlistId }, listOf(song))
-                        showQueueNotice(
-                            when {
-                                result.added > 1 -> context.resources.getQuantityString(
-                                    R.plurals.added_to_playlists_notice, result.added, result.added,
-                                )
-                                result.added == 1 -> context.getString(R.string.song_added_to_playlist)
-                                result.alreadyThere > 0 -> context.getString(R.string.song_already_in_playlist)
-                                else -> context.getString(R.string.failed)
-                            },
-                        )
-                    }
-                },
-                onCreate = { title, _ ->
-                    OfflinePlaylists.create(title, listOfNotNull(target))
-                    if (target != null) showQueueNotice(context.getString(R.string.song_added_to_playlist))
-                },
-            )
+            key(target?.videoId, target?.localUri) {
+                PlaylistPickerSheet(
+                    playlists = choices,
+                    loading = false,
+                    initialMembership = offlinePlaylists.associate { playlist ->
+                        playlist.id to (target?.localUri != null &&
+                            playlist.songs.any { it.localUri == target.localUri })
+                    },
+                    song = target,
+                    startCreating = target == null,
+                    offline = true,
+                    onDismiss = dismiss,
+                    onSave = { additions, removals, _ ->
+                        target?.let { song ->
+                            val before = OfflinePlaylists.playlists.value.associate { playlist ->
+                                playlist.id to playlist.songs.any { it.localUri != null && it.localUri == song.localUri }
+                            }
+                            if (additions.isNotEmpty()) OfflinePlaylists.add(additions.map { it.playlistId }, listOf(song))
+                            removals.forEach { OfflinePlaylists.remove(OfflinePlaylists.PREFIX + it.playlistId, song) }
+                            val after = OfflinePlaylists.playlists.value.associate { playlist ->
+                                playlist.id to playlist.songs.any { it.localUri != null && it.localUri == song.localUri }
+                            }
+                            showPlaylistSaveNotice(
+                                additions.filter { before[it.playlistId] == false && after[it.playlistId] == true },
+                                removals.filter { before[it.playlistId] == true && after[it.playlistId] == false },
+                                additions.any { before[it.playlistId] == null ||
+                                    (before[it.playlistId] == false && after[it.playlistId] != true) } ||
+                                    removals.any { before[it.playlistId] == null ||
+                                        (before[it.playlistId] == true && after[it.playlistId] != false) },
+                            )
+                        }
+                    },
+                    onCreate = { title, _ ->
+                        OfflinePlaylists.create(title, listOfNotNull(target))
+                        if (target != null) showQueueNotice(context.getString(R.string.song_added_to_playlist))
+                    },
+                )
+            }
         }
 
         if (showSpotifyImportDialog) {
@@ -6212,6 +6230,21 @@ private fun formatDurationText(ms: Long): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%d:%02d".format(Locale.ROOT, minutes, seconds)
+}
+
+/** Preserve picker order and full names when they fit; otherwise report an accurate count. */
+private fun playlistNoticeText(context: Context, playlists: List<UserPlaylist>, message: Int, count: Int): String? {
+    val unique = playlists.distinctBy { it.playlistId }
+    if (unique.isEmpty()) return null
+    val names = unique.map { it.title }
+    val conjunction = " ${context.getString(R.string.playlist_notice_and)} "
+    val joined = when (names.size) {
+        1 -> names.single()
+        2 -> names.joinToString(conjunction)
+        else -> names.dropLast(1).joinToString(", ") + conjunction + names.last()
+    }
+    return if (joined.length > 90) context.resources.getQuantityString(count, unique.size, unique.size)
+    else context.getString(message, joined)
 }
 
 /**

@@ -1291,7 +1291,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * Drops [song] from the playlist page it is being read on, and takes the
      * row out from under the reader rather than waiting for a re-fetch.
      */
-    fun removeFromPlaylist(browseId: String, song: Song) {
+    fun removeFromPlaylist(browseId: String, song: Song, onRemoved: () -> Unit = {}) {
         val setVideoId = song.setVideoId ?: return
         if (!requireSignIn()) return
         val playlistId = browseId.removePrefix("VL")
@@ -1315,6 +1315,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                             )
                         }
                     }
+                    onRemoved()
                 },
                 onFailure = {},
             )

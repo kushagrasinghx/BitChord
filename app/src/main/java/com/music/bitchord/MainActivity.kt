@@ -4519,7 +4519,9 @@ private fun BitChordApp(
                 onRemoveFromPlaylist = editable?.let {
                     {
                         songActions = null
-                        viewModel.removeFromPlaylist(it.browseId, song)
+                        viewModel.removeFromPlaylist(it.browseId, song) {
+                            showPlaylistSaveNotice(emptyList(), listOf(it), false)
+                        }
                     }
                 } ?: detail?.browseId
                     ?.takeIf { !fromPlayer && song.localUri != null && OfflinePlaylists.isOfflinePlaylist(it) }

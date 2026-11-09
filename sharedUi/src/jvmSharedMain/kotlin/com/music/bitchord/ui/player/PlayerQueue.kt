@@ -100,6 +100,7 @@ import androidx.compose.ui.unit.Velocity
 import coil3.compose.AsyncImage
 import com.music.bitchord.ui.components.thumbnailBorder
 import com.music.bitchord.ui.icons.BitChordIcons
+import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.QueueTier
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.autoplaySectionStart
@@ -311,6 +312,7 @@ internal fun InlineQueue(
     undoNotice: @Composable (HazeState) -> Unit = {},
     selection: QueueSelectionState? = null,
     onBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { _, _ -> false },
+    onRemoveSelected: suspend (List<QueueEntryIdentity>) -> Unit = {},
     onAddAllToPlaylist: (List<Song>) -> Unit = {},
     /** Prewarmed/offscreen queue panes must not accept or finish a swipe. */
     gesturesEnabled: Boolean = true,
@@ -593,7 +595,15 @@ internal fun InlineQueue(
                     .onSizeChanged { footerHeight = with(density) { it.height.toDp() } },
             ) {
                 undoNotice(hazeState)
-                QueueSelectionBar(selectionState, allTracks, reduceAnimation, onBulkAction, hazeState)
+                QueueSelectionBar(
+                    selectionState,
+                    allTracks,
+                    queue,
+                    reduceAnimation,
+                    onBulkAction,
+                    onRemoveSelected,
+                    hazeState,
+                )
             }
         }
     }

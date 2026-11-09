@@ -212,6 +212,7 @@ import com.music.bitchord.playback.commitRadioQueue
 import com.music.bitchord.playback.moveQueueEntryToUser
 import com.music.bitchord.playback.QueueScreenUndo
 import com.music.bitchord.playback.removeQueueItemWithUndo
+import com.music.bitchord.playback.removeQueueEntriesWithUndo
 import com.music.bitchord.playback.clearUserQueueWithUndo
 import com.music.bitchord.playback.undoQueueEdit
 import com.music.bitchord.playback.fromAutoplay
@@ -2723,6 +2724,10 @@ private fun BitChordApp(
             },
             onQueueSwipeToQueue = { index, queueSong -> controller?.moveQueueEntryToUser(index, queueSong) ?: false },
             onQueueBulkAction = performQueueBulkAction,
+            onQueueRemoveEntries = { entries ->
+                controller?.removeQueueEntriesWithUndo(entries)
+                Unit
+            },
             onQueueAddAllToPlaylist = { songs ->
                 scope.launch { performQueueBulkAction(songs, QueueBulkAction.PLAYLIST) }
             },

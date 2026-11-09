@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.sharedui.resources.*
 import com.music.bitchord.ui.icons.BitChordIcons
@@ -48,6 +51,28 @@ internal val QueueTracks.rows: List<QueueTrack>
 
 private val QueueTrack.selectionKey: String
     get() = uniqueEntryId?.let { "entry:$it" } ?: key
+
+private fun selectedQueueEntryIdentities(
+    selected: List<QueueTrack>,
+    timeline: List<Song>,
+): List<QueueEntryIdentity> {
+    val occurrenceByIndex = IntArray(timeline.size)
+    val occurrences = HashMap<Pair<String, String?>, Int>()
+    timeline.forEachIndexed { index, song ->
+        val key = song.videoId to song.queueEntryId
+        val occurrence = occurrences[key] ?: 0
+        occurrenceByIndex[index] = occurrence
+        occurrences[key] = occurrence + 1
+    }
+    return selected.map { track ->
+        val song = track.song
+        QueueEntryIdentity(
+            mediaId = song.videoId,
+            queueEntryId = song.queueEntryId,
+            occurrence = occurrenceByIndex[track.timelineIndex],
+        )
+    }
+}
 
 /** Owned by the player, not lazy rows, so scrolling never disposes the selection. */
 internal class QueueSelectionState {
@@ -95,8 +120,10 @@ internal class QueueSelectionState {
 internal fun QueueSelectionBar(
     selection: QueueSelectionState,
     rows: List<QueueTrack>,
+    timeline: List<Song>,
     reduceAnimation: Boolean,
     onAction: suspend (List<Song>, QueueBulkAction) -> Boolean,
+    onRemoveSelected: suspend (List<QueueEntryIdentity>) -> Unit,
     hazeState: HazeState,
 ) {
     val scope = rememberCoroutineScope()
@@ -125,6 +152,21 @@ internal fun QueueSelectionBar(
                 }
             }
         }
+        val performRemove: () -> Unit = {
+            if (enabled && selection.active && !selection.busy) {
+                val generation = selection.generation
+                val identities = selectedQueueEntryIdentities(selected, timeline)
+                selection.busy = true
+                scope.launch {
+                    try {
+                        onRemoveSelected(identities)
+                        if (selection.generation == generation) selection.clear()
+                    } finally {
+                        if (selection.generation == generation) selection.busy = false
+                    }
+                }
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -140,10 +182,10 @@ internal fun QueueSelectionBar(
                     Text(stringResource(Res.string.queue_add_to_playlist), color = Color.White, style = MaterialTheme.typography.labelMedium)
                 }
             }
-            TextButton(onClick = { perform(QueueBulkAction.LIKE) }, enabled = enabled, modifier = Modifier.weight(1f)) {
+            TextButton(onClick = performRemove, enabled = enabled, modifier = Modifier.weight(1f)) {
                 Column(Modifier.alpha(if (enabled) 1f else 0.38f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(BitChordIcons.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    Text(stringResource(Res.string.like), color = Color.White, style = MaterialTheme.typography.labelMedium)
+                    Icon(Icons.Rounded.Delete, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    Text(stringResource(Res.string.queue_selection_remove), color = Color.White, style = MaterialTheme.typography.labelMedium)
                 }
             }
             TextButton(onClick = { perform(QueueBulkAction.DOWNLOAD) }, enabled = enabled, modifier = Modifier.weight(1f)) {

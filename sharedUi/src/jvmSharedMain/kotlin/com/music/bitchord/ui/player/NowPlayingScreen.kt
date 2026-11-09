@@ -169,6 +169,7 @@ import com.music.bitchord.data.settings.PlayerTheme
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.data.model.PlaybackSourceType
 import com.music.bitchord.data.model.PLAYER_ART_PX
+import com.music.bitchord.data.model.QueueEntryIdentity
 import com.music.bitchord.data.model.Song
 import com.music.bitchord.playback.BACK_RESTARTS_AFTER_MS
 import dev.chrisbanes.haze.HazeState
@@ -825,6 +826,7 @@ fun NowPlayingScreen(
     onQueueSwipeToQueue: suspend (Int, Song) -> Boolean = { _, _ -> false },
     queueUndoNotice: @Composable (HazeState) -> Unit = {},
     onQueueBulkAction: suspend (List<Song>, QueueBulkAction) -> Boolean = { _, _ -> false },
+    onQueueRemoveEntries: suspend (List<QueueEntryIdentity>) -> Unit = {},
     onQueueAddAllToPlaylist: (List<Song>) -> Unit = {},
     onOpenMenu: () -> Unit,
     onOpenAlbum: (String) -> Unit,
@@ -2362,6 +2364,7 @@ fun NowPlayingScreen(
                             undoNotice = queueUndoNotice,
                             selection = queueSelection,
                             onBulkAction = onQueueBulkAction,
+                            onRemoveSelected = onQueueRemoveEntries,
                             modifier = Modifier.fillMaxSize(),
                             onAddAllToPlaylist = onQueueAddAllToPlaylist,
                         )
@@ -4029,6 +4032,7 @@ fun NowPlayingScreen(
                                     undoNotice = queueUndoNotice,
                                     selection = queueSelection,
                                     onBulkAction = onQueueBulkAction,
+                                    onRemoveSelected = onQueueRemoveEntries,
                                     onDragActiveChange = onQueueDragActiveChange,
                                     onAddAllToPlaylist = onQueueAddAllToPlaylist,
                                     collapsePlayerOnScroll = true,

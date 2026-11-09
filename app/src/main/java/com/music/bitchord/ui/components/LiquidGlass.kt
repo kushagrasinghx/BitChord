@@ -26,11 +26,6 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.music.bitchord.data.settings.AppSettings
-import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_BLUR_RADIUS
-import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT
-import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT
-import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_SHADOW_DEPTH
-import com.music.bitchord.data.settings.DEFAULT_LIQUID_GLASS_TINT_OPACITY
 import com.music.bitchord.data.settings.LiquidGlassIntensity
 import com.music.bitchord.ui.components.backdrop.Backdrop
 import com.music.bitchord.ui.components.backdrop.backdrops.LayerBackdrop
@@ -85,11 +80,11 @@ private const val SURFACE_OPACITY = 0.4f
  */
 data class LiquidGlassTuning(
     val intensity: LiquidGlassIntensity = LiquidGlassIntensity.STANDARD,
-    val refractionHeightFraction: Float = DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT,
-    val refractionAmountFraction: Float = DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT,
-    val blurFraction: Float = DEFAULT_LIQUID_GLASS_BLUR_RADIUS,
-    val tintFraction: Float = DEFAULT_LIQUID_GLASS_TINT_OPACITY,
-    val shadowFraction: Float = DEFAULT_LIQUID_GLASS_SHADOW_DEPTH,
+    val refractionHeightFraction: Float = AppSettings.DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT,
+    val refractionAmountFraction: Float = AppSettings.DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT,
+    val blurFraction: Float = AppSettings.DEFAULT_LIQUID_GLASS_BLUR_RADIUS,
+    val tintFraction: Float = AppSettings.DEFAULT_LIQUID_GLASS_TINT_OPACITY,
+    val shadowFraction: Float = AppSettings.DEFAULT_LIQUID_GLASS_SHADOW_DEPTH,
     val depth3D: Boolean = true,
     val chromaticAberration: Boolean = true,
     val backdropVibrancy: Boolean = true,
@@ -110,16 +105,16 @@ data class LiquidGlassTuning(
         }
 
     val refractionHeightFactor: Float =
-        (refractionHeightFraction / DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT) * presetRefraction
+        (refractionHeightFraction / AppSettings.DEFAULT_LIQUID_GLASS_REFRACTION_HEIGHT) * presetRefraction
 
     val refractionAmountFactor: Float =
-        (refractionAmountFraction / DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT) * presetRefraction
+        (refractionAmountFraction / AppSettings.DEFAULT_LIQUID_GLASS_REFRACTION_AMOUNT) * presetRefraction
 
-    val blurFactor: Float = (blurFraction / DEFAULT_LIQUID_GLASS_BLUR_RADIUS) * presetBlur
+    val blurFactor: Float = (blurFraction / AppSettings.DEFAULT_LIQUID_GLASS_BLUR_RADIUS) * presetBlur
 
-    val tintFactor: Float = tintFraction / DEFAULT_LIQUID_GLASS_TINT_OPACITY
+    val tintFactor: Float = tintFraction / AppSettings.DEFAULT_LIQUID_GLASS_TINT_OPACITY
 
-    val shadowFactor: Float = shadowFraction / DEFAULT_LIQUID_GLASS_SHADOW_DEPTH
+    val shadowFactor: Float = shadowFraction / AppSettings.DEFAULT_LIQUID_GLASS_SHADOW_DEPTH
 
     /** 1 while vibrancy is on — the saturation the app has always drawn — and 0 off. */
     val vibrancyFactor: Float = if (backdropVibrancy) 1f else 0f

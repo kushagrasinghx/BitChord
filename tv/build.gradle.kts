@@ -367,6 +367,11 @@ dependencies {
     }
     implementation("androidx.palette:palette-ktx:1.0.0")
 
+    // ---- Seed-grown Material 3 schemes (the Color Palette setting) ----
+    // Mirrored from app/build.gradle.kts, which this module's sources are
+    // shared with — see the comment there for why the 2.1.x line.
+    implementation("com.materialkolor:material-kolor:2.1.1")
+
     // ---- Frosted glass / progressive blur (Telegram-style bars) ----
     implementation("dev.chrisbanes.haze:haze:1.3.1")
     implementation("dev.chrisbanes.haze:haze-materials:1.3.1")

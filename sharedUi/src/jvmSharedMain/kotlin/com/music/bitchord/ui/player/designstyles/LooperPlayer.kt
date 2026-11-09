@@ -47,6 +47,7 @@ import com.music.bitchord.sharedui.resources.Res
 import com.music.bitchord.sharedui.resources.design_like
 import com.music.bitchord.sharedui.resources.design_lyrics
 import com.music.bitchord.sharedui.resources.design_more
+import com.music.bitchord.sharedui.resources.design_now_playing
 import com.music.bitchord.sharedui.resources.design_next_up
 import com.music.bitchord.sharedui.resources.design_queue
 import com.music.bitchord.sharedui.resources.ic_player_next
@@ -169,10 +170,10 @@ internal fun LooperPlayerContent(
                 }
                 Spacer(Modifier.padding(horizontal = 8.dp))
                 StyleIconButton(
-                    icon = if (data.likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    icon = if (data.likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     contentDescription = stringResource(Res.string.design_like),
                     onClick = { data.onToggleLike() },
-                    tint = if (data.likeStatus == LikeStatus.LIKED) Color(0xFFFC3C44) else onSurface,
+                    tint = if (data.likeStatus == LikeStatus.LIKE) Color(0xFFFC3C44) else onSurface,
                     size = 44.dp,
                 )
             }

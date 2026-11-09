@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -497,7 +499,7 @@ internal fun Modifier.styleSkipSwipe(
     return this.then(
         Modifier.pointerInput(enabled, threshold) {
             if (!enabled) return@pointerInput
-            androidx.compose.foundation.gestures.detectHorizontalDragGestures(
+            detectHorizontalDragGestures(
                 onDragStart = { },
                 onDragEnd = {
                     val total = offsetState.floatValue

@@ -174,9 +174,9 @@ internal fun SpatialFlowPlayerContent(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 SpatialChip(
-                    icon = if (data.likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    icon = if (data.likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     label = stringResource(Res.string.design_like),
-                    tint = if (data.likeStatus == LikeStatus.LIKED) colors.accent else colors.text,
+                    tint = if (data.likeStatus == LikeStatus.LIKE) colors.accent else colors.text,
                     colors = colors,
                 ) { data.onToggleLike() }
                 SpatialChip(BitChordIcons.LyricsQuote, null, if (panels.lyricsOpen) colors.accent else colors.text, colors) {
@@ -364,7 +364,7 @@ private fun SpatialPill(
 /** The play pill: full width, accent, its corners rounding as it plays. */
 @Composable
 private fun SpatialPlayPill(data: DesignStylePlayerData, colors: DesignStyleColors) {
-    val corner by androidx.compose.animation.animateDpAsState(
+    val corner by androidx.compose.animation.core.animateDpAsState(
         targetValue = if (data.isPlaying) 28.dp else 12.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = 420f),
         label = "spatialPlayCorner",

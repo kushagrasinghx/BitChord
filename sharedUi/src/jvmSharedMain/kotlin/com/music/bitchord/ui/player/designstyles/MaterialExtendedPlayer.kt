@@ -1,11 +1,12 @@
 package com.music.bitchord.ui.player.designstyles
 
-import androidx.compose.animation.animateDpAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -182,10 +183,10 @@ internal fun MaterialExtendedPlayerContent(
                 }
                 Spacer(Modifier.padding(horizontal = 10.dp))
                 StyleIconButton(
-                    icon = if (data.likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    icon = if (data.likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     contentDescription = stringResource(Res.string.design_like),
                     onClick = { data.onToggleLike() },
-                    tint = if (data.likeStatus == LikeStatus.LIKED) colors.accent else colors.text,
+                    tint = if (data.likeStatus == LikeStatus.LIKE) colors.accent else colors.text,
                     size = 48.dp,
                 )
             }
@@ -376,7 +377,7 @@ private fun Modifier.v9Press(
     onTap: () -> Unit,
 ): Modifier = this.then(
     Modifier.pointerInput(index) {
-        androidx.compose.foundation.gestures.detectTapGestures(
+        detectTapGestures(
             onTap = { onTap() },
             onPress = {
                 onPillPress(index)

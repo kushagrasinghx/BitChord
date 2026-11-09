@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -240,10 +243,10 @@ internal fun AppleMusicPlayerContent(
                     if (data.hasNext) data.onNext()
                 }
                 StyleIconButton(
-                    icon = if (data.likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    icon = if (data.likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     contentDescription = stringResource(Res.string.design_like),
                     onClick = { data.onToggleLike() },
-                    tint = if (data.likeStatus == LikeStatus.LIKED) Color(0xFFFC3C44) else Color.White,
+                    tint = if (data.likeStatus == LikeStatus.LIKE) Color(0xFFFC3C44) else Color.White,
                     size = 44.dp,
                 )
             }
@@ -254,7 +257,7 @@ internal fun AppleMusicPlayerContent(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
-                        imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.VolumeDown,
+                        imageVector = Icons.AutoMirrored.Rounded.VolumeDown,
                         contentDescription = null,
                         tint = Color.White.copy(alpha = 0.55f),
                         modifier = Modifier.size(18.dp),
@@ -272,7 +275,7 @@ internal fun AppleMusicPlayerContent(
                     )
                     Spacer(Modifier.padding(horizontal = 10.dp))
                     Icon(
-                        imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.VolumeUp,
+                        imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
                         contentDescription = null,
                         tint = Color.White.copy(alpha = 0.55f),
                         modifier = Modifier.size(18.dp),

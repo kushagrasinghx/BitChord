@@ -302,7 +302,7 @@ private fun TikTokSongPage(
                     heartScale.animateTo(0f, tween(240))
                 }
                 Icon(
-                    imageVector = if (likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    imageVector = if (likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     contentDescription = stringResource(Res.string.design_like),
                     tint = Color(0xFFFC3C44),
                     modifier = Modifier
@@ -332,9 +332,9 @@ private fun TikTokSongPage(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             RailGlyph(
-                icon = if (likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                icon = if (likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                 label = null,
-                tint = if (likeStatus == LikeStatus.LIKED) Color(0xFFFC3C44) else Color.White,
+                tint = if (likeStatus == LikeStatus.LIKE) Color(0xFFFC3C44) else Color.White,
             ) { onToggleLike() }
             Spacer(Modifier.height(20.dp))
             RailGlyph(BitChordIcons.LyricsQuote, null, Color.White) { onOpenLyrics() }

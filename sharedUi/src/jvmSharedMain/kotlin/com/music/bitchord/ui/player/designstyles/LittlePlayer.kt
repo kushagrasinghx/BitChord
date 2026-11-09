@@ -1,11 +1,12 @@
 package com.music.bitchord.ui.player.designstyles
 
-import androidx.compose.animation.animateDpAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,10 +27,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.music.bitchord.data.model.LikeStatus
 import com.music.bitchord.sharedui.resources.Res
+import com.music.bitchord.sharedui.resources.design_by
 import com.music.bitchord.sharedui.resources.design_collapse
 import com.music.bitchord.sharedui.resources.design_like
 import com.music.bitchord.sharedui.resources.design_more
@@ -51,6 +55,7 @@ import com.music.bitchord.sharedui.resources.ic_player_play
 import com.music.bitchord.sharedui.resources.ic_player_previous
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MarqueeText
+import com.music.bitchord.ui.theme.stableStatusBarInsets
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -100,7 +105,7 @@ internal fun LittlePlayerContent(
                 .background(progressFill)
                 .pointerInput(data.durationMs, data.controlsLocked, height) {
                     if (data.durationMs <= 0 || height <= 0) return@pointerInput
-                    androidx.compose.foundation.gestures.detectVerticalDragGestures { change, _ ->
+                    detectVerticalDragGestures { change, _ ->
                         if (data.controlsLocked) {
                             data.onBlockedControl()
                             return@detectVerticalDragGestures
@@ -164,10 +169,10 @@ internal fun LittlePlayerContent(
                 )
                 Spacer(Modifier.weight(1f))
                 StyleIconButton(
-                    icon = if (data.likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    icon = if (data.likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     contentDescription = stringResource(Res.string.design_like),
                     onClick = { data.onToggleLike() },
-                    tint = if (data.likeStatus == LikeStatus.LIKED) MaterialTheme.colorScheme.primary else onContainer,
+                    tint = if (data.likeStatus == LikeStatus.LIKE) MaterialTheme.colorScheme.primary else onContainer,
                     size = 40.dp,
                 )
                 StyleIconButton(

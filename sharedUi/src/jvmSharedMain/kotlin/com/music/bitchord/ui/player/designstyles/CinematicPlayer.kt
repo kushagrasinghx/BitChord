@@ -1,6 +1,6 @@
 package com.music.bitchord.ui.player.designstyles
 
-import androidx.compose.animation.animateDpAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -179,10 +180,10 @@ internal fun CinematicPlayerContent(
                 }
                 Spacer(Modifier.padding(horizontal = 8.dp))
                 StyleIconButton(
-                    icon = if (data.likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    icon = if (data.likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     contentDescription = stringResource(Res.string.design_like),
                     onClick = { data.onToggleLike() },
-                    tint = if (data.likeStatus == LikeStatus.LIKED) Color(0xFFFF4D67) else Color.White,
+                    tint = if (data.likeStatus == LikeStatus.LIKE) Color(0xFFFF4D67) else Color.White,
                 )
                 Spacer(Modifier.padding(horizontal = 6.dp))
                 StyleIconButton(

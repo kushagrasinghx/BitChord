@@ -69,6 +69,7 @@ import com.music.bitchord.sharedui.resources.ic_player_previous
 import com.music.bitchord.ui.icons.BitChordIcons
 import com.music.bitchord.ui.player.MarqueeText
 import com.music.bitchord.ui.player.ThinSlider
+import com.music.bitchord.ui.theme.stableStatusBarInsets
 import com.music.bitchord.ui.player.rememberArtworkColors
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -270,10 +271,10 @@ internal fun SimpMusicPlayerContent(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
                         StyleIconButton(
-                            icon = if (data.likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                            icon = if (data.likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                             contentDescription = stringResource(Res.string.design_like),
                             onClick = { data.onToggleLike() },
-                            tint = if (data.likeStatus == LikeStatus.LIKED) Color(0xFFFC3C44) else onBackdrop,
+                            tint = if (data.likeStatus == LikeStatus.LIKE) Color(0xFFFC3C44) else onBackdrop,
                             size = 38.dp,
                         )
                         StyleIconButton(
@@ -319,7 +320,9 @@ internal fun SimpMusicPlayerContent(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     shape = RoundedCornerShape(18.dp),
-                    containerColor = Color(0xFF1E1E1E),
+                    colors = androidx.compose.material3.ElevatedCardDefaults.elevatedCardColors(
+                containerColor = Color(0xFF1E1E1E),
+            ),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Text(
@@ -376,7 +379,9 @@ internal fun SimpMusicPlayerContent(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     shape = RoundedCornerShape(18.dp),
-                    containerColor = Color(0xFF1E1E1E),
+                    colors = androidx.compose.material3.ElevatedCardDefaults.elevatedCardColors(
+                containerColor = Color(0xFF1E1E1E),
+            ),
                 ) {
                     Row(
                         Modifier.fillMaxWidth().padding(16.dp),
@@ -424,7 +429,9 @@ internal fun SimpMusicPlayerContent(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     shape = RoundedCornerShape(18.dp),
-                    containerColor = Color(0xFF1E1E1E),
+                    colors = androidx.compose.material3.ElevatedCardDefaults.elevatedCardColors(
+                containerColor = Color(0xFF1E1E1E),
+            ),
                 ) {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
                         Text(

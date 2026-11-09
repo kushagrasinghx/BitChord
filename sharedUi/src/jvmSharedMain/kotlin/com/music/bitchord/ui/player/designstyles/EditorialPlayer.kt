@@ -122,7 +122,7 @@ internal fun EditorialPlayerContent(
             // circles, right-aligned as V10 keeps its field bare on the left.
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.End,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 EditorialCircle(BitChordIcons.ChevronDown, stringResource(Res.string.design_collapse), data.onClose, colors)
@@ -302,10 +302,10 @@ internal fun EditorialPlayerContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 StyleIconButton(
-                    icon = if (data.likeStatus == LikeStatus.LIKED) BitChordIcons.HeartFilled else BitChordIcons.Heart,
+                    icon = if (data.likeStatus == LikeStatus.LIKE) BitChordIcons.HeartFilled else BitChordIcons.Heart,
                     contentDescription = stringResource(Res.string.design_like),
                     onClick = { data.onToggleLike() },
-                    tint = if (data.likeStatus == LikeStatus.LIKED) colors.fieldAccent else colors.text,
+                    tint = if (data.likeStatus == LikeStatus.LIKE) colors.fieldAccent else colors.text,
                     size = 40.dp,
                 )
                 StyleIconButton(

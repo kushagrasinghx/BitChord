@@ -129,6 +129,10 @@ object Downloads {
      */
     val collections: StateFlow<Map<String, SavedCollection>> = _collections.asStateFlow()
 
+    /** True when the saved file metadata identifies this YouTube id as a podcast episode. */
+    fun isPodcastEpisode(videoId: String): Boolean =
+        _savedMetadata.value[videoId]?.isPodcastEpisode == true
+
     /** Waiting, in the order asked for. Guarded by [lock]. */
     private val pending = LinkedHashMap<String, Song>()
 
@@ -700,6 +704,7 @@ object Downloads {
             uri = uri.toString(),
             downloadFormat = downloadFormat,
             dateAddedSeconds = dateAddedSeconds,
+            isPodcastEpisode = asked.isPodcastEpisode || fetched.isPodcastEpisode,
         )
         val metaFetched = SavedSongMetadata(
             videoId = fetched.videoId,
@@ -711,6 +716,7 @@ object Downloads {
             uri = uri.toString(),
             downloadFormat = downloadFormat,
             dateAddedSeconds = dateAddedSeconds,
+            isPodcastEpisode = asked.isPodcastEpisode || fetched.isPodcastEpisode,
         )
         record(
             saved = { it + ids.associateWith { id -> uri.toString() } },
@@ -786,6 +792,7 @@ object Downloads {
                         thumbnailUrl = meta.thumbnailUrl,
                         durationText = meta.durationText,
                         albumName = meta.albumName,
+                        isPodcastEpisode = meta.isPodcastEpisode,
                         localUri = meta.uri,
                         downloadFormat = downloadFormat,
                         localDateAddedSeconds = dateAddedSeconds,
@@ -865,6 +872,7 @@ object Downloads {
                     thumbnailUrl = meta.thumbnailUrl,
                     durationText = meta.durationText,
                     albumName = meta.albumName,
+                    isPodcastEpisode = meta.isPodcastEpisode,
                     localUri = uriString,
                     downloadFormat = meta.downloadFormat ?: legacyYoutubeDownloadBadge(context, uri),
                     localDateAddedSeconds = dateAddedSeconds,
@@ -1634,6 +1642,8 @@ internal data class SavedSongMetadata(
     val downloadFormat: String? = null,
     /** Stable creation time for downloads that MediaStore does not index. */
     val dateAddedSeconds: Long? = null,
+    /** Whether the downloaded media represents a spoken podcast episode. */
+    val isPodcastEpisode: Boolean = false,
 )
 
 /**
